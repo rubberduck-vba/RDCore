@@ -187,6 +187,65 @@ public sealed class SyntaxErrorRunRefusalTests
     private static readonly (string Name, ModuleType Type, string Source) GoodOther = ("Other", ModuleType.StdModule, ProgramAndOther("", "").Other);
     private static readonly (string Name, ModuleType Type, string Source) BadOther = ("Other", ModuleType.StdModule, ProgramAndOther("B", "").Other);
 
+    // Main notes "before", waits at its Stop, then calls a procedure of Other and notes "after".
+    private static string StoppedProgram(string call = "Good") => Module("Program",
+        "Public Sub Main()",
+        "    Debug.Print \"before\"",
+        "    Stop",
+        $"    Other.{call}",
+        "    Debug.Print \"after\"",
+        "End Sub");
+
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
+        => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
+            .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
+
+    // the program waits at its Stop, and a module it calls is edited to a syntax error: the program is not resumed on the code the module had, nor on what of
+    // it did not load.
+    [TestMethod]
+    [DataRow("Good", DisplayName = "a procedure of the module called, not the one the error is in")]
+    [DataRow("Bad", DisplayName = "the procedure the error is in called")]
+    public async Task AModuleThatDoesNotLoad_AtAStop_IsNotResumedOn(string call)
+    {
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(call), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], syntaxErrors: true, ("Program", ModuleType.StdModule, StoppedProgram(call)), BadOther);
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed!.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "Other");
+        StringAssert.Contains(resumed.ErrorMessage, "does not compile");
+        Assert.IsEmpty(resumed.Output, "nothing after the Stop runs");
+    }
+
+    // what a debugger evaluates or runs at the stop is code of the project too, which can call into the module that does not load.
+    [TestMethod]
+    [DataRow(false, DisplayName = "an expression evaluated")]
+    [DataRow(true, DisplayName = "a statement run")]
+    public async Task AModuleThatDoesNotLoad_AtAStop_RefusesWhatADebuggerRunsThere(bool statement)
+    {
+        DebugEvaluateResult? answer = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], syntaxErrors: true, ("Program", ModuleType.StdModule, StoppedProgram()), BadOther);
+            var frame = provider.Execution.Stack().Frames[0].Id;
+            var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Typed.bas"), "Public Sub E()\r\n__e = 1 + 1\r\nEnd Sub\r\n");
+            var typed = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<AssignmentStatementNode>().Single();
+            answer = statement
+                ? await new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+                    .Handle(new HostDebugExecuteParams { FrameId = frame, Json = PlatformJson.Serialize<SyntaxNode>(typed) }, CancellationToken.None).WaitAsync(Patience)
+                : await new HostDebugEvaluateHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+                    .Handle(new HostDebugEvaluateParams { FrameId = frame, Json = PlatformJson.Serialize(typed.Value) }, CancellationToken.None).WaitAsync(Patience);
+        }, debug: true);
+
+        Assert.IsFalse(answer!.Success);
+        StringAssert.StartsWith(answer.Error, "Other: " + RDCore.SDK.Exceptions.VBSyntaxError_DefaultMessage, answer.Error);
+    }
+
     // a module taken out of the session is no module of the project: what it failed to load with refuses no run after it.
     [TestMethod]
     public async Task AModuleThatDoesNotLoad_Discarded_RefusesTheRunNoLonger()
