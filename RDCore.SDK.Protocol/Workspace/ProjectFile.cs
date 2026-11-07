@@ -451,7 +451,7 @@ public sealed record class RDCoreReference : IEquatable<RDCoreReference>
     public Dictionary<string, JsonElement>? ExtensionData { get; init; }
 
     /// <inheritdoc/>
-    public override int GetHashCode() => StringComparer.OrdinalIgnoreCase.GetHashCode(Name);
+    public override int GetHashCode() => Name is null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(Name);
 
     /// <summary>
     /// Whether <paramref name="other"/> references the library or project of the same name, whatever the case of it: a name is one reference of a project, as

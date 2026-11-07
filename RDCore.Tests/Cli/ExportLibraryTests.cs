@@ -199,6 +199,7 @@ public sealed class ExportLibraryTests
     [DataRow("", @"c:\out\Scripting.json", DisplayName = "the folder has none of the name")]
     [DataRow("Scripting.json=other", @"c:\out\Scripting.scrrun.json", DisplayName = "the folder has another library of the name")]
     [DataRow("Scripting.json=other;Scripting.scrrun.json=other", @"c:\out\Scripting.scrrun.v1_0.json", DisplayName = "and another of its file's name")]
+    [DataRow("Scripting.json=other;Scripting.scrrun.json=other;Scripting.scrrun.v1_0.json=other", @"c:\out\Scripting.scrrun.v1_0.2.json", DisplayName = "and another of its version")]
     [DataRow("Scripting.json=other;Scripting.scrrun.json=own", @"c:\out\Scripting.scrrun.json", DisplayName = "and its own, which is written again")]
     public void ALibrary_IsWrittenAsTheLibraryOfItsName_UnlessTheFolderHasAnotherOfTheName_AndNeverOverAnother(string before, string expected)
     {

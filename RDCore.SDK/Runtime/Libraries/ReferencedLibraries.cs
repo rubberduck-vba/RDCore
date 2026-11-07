@@ -110,8 +110,9 @@ public sealed class ReferencedLibraries
     /// <param name="source">Where the descriptions are.</param>
     /// <param name="references">
     /// The libraries the project references, in the order of its references. A second reference to a name is left out: it is a problem
-    /// (<see cref="LibraryProblemKind.DuplicateName"/>) when it means another library than the first (<see cref="LibraryIdentity.MeansTheSameAs"/>). The standard
-    /// library (<c>VBA</c>) is the platform's own, and is not asked of the source.
+    /// (<see cref="LibraryProblemKind.DuplicateName"/>) when it means another library than the first: when the source finds another description for it, or,
+    /// when the source finds none for either of them, when it is another identity. The standard library (<c>VBA</c>) is the platform's own, and is not asked of
+    /// the source.
     /// </param>
     /// <param name="provided">The names of the libraries the platform provides itself.</param>
     public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<LibraryIdentity> references, IReadOnlyCollection<string> provided)
@@ -125,7 +126,7 @@ public sealed class ReferencedLibraries
             {
                 ordered.Add(reference);
             }
-            else if (!first[reference.Name].MeansTheSameAs(reference))
+            else if (!MeanOneLibrary(source, first[reference.Name], reference))
             {
                 duplicates.Add(new LibraryProblem(reference.Name, LibraryProblemKind.DuplicateName, [first[reference.Name].ToString(), reference.ToString()]));
             }
@@ -155,6 +156,32 @@ public sealed class ReferencedLibraries
         }
 
         return new ReferencedLibraries([.. loader.Loaded], [.. duplicates, .. loader.Problems], priorities.ToImmutable());
+    }
+
+    // two references of a name are one library when the source finds one description for both: VBRUN by its name and VBRUN by its type library's identity
+    // are VBRUN.json. When it finds none for one of them, what they ask for decides.
+    private static bool MeanOneLibrary(ILibrarySource source, LibraryIdentity first, LibraryIdentity second)
+    {
+        static LibraryIdentity Asked(LibraryIdentity identity) => identity.Guid is null ? new LibraryIdentity(identity.Name.ToUpperInvariant()) : identity with { Name = identity.Name.ToUpperInvariant() };
+
+        LibraryIdentity? Found(LibraryIdentity identity)
+        {
+            try
+            {
+                return source.TryGet(identity, out var description) ? Asked(LibraryIdentity.Of(description)) : null;
+            }
+            catch (InvalidDataException)
+            {
+                return null;
+            }
+        }
+
+        if (Asked(first) == Asked(second))
+        {
+            return true;
+        }
+
+        return Found(first) is { } one && Found(second) is { } other && one == other;
     }
 
     // `claimed` is the identity of each name the project references: what a dependency of that name loads.

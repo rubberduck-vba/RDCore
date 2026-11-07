@@ -93,17 +93,41 @@ public sealed class LibraryIdentityTests
         CollectionAssert.AreEqual(new[] { "DAO", "DAO {00025E01-0000-0000-C000-000000000046} 5.0" }, problem.Related.ToArray());
     }
 
+    // what decides is the description each finds: the same identity, or two that the source finds one description for.
     [TestMethod]
-    [DataRow(false, DisplayName = "by name twice")]
-    [DataRow(true, DisplayName = "by the same identity twice")]
-    public void TwoReferencesOfOneName_ThatMeanOneLibrary_AreOne(bool identified)
+    [DataRow("by name twice")]
+    [DataRow("by the same identity twice")]
+    [DataRow("by name, and by the identity of the library of the name")]
+    [DataRow("by a major version, and by that major version and the minor it has")]
+    public void TwoReferencesOfOneName_ThatMeanOneLibrary_AreOne(string how)
     {
-        LibraryIdentity dao = identified ? new LibraryIdentity("DAO", Dao, 5, 0) : "DAO";
+        (LibraryIdentity First, LibraryIdentity Second) references = how switch
+        {
+            "by name twice" => ("DAO", "dao"),
+            "by the same identity twice" => (new LibraryIdentity("DAO", Dao, 5, 0), new LibraryIdentity("dao", Dao, 5, 0)),
+            "by name, and by the identity of the library of the name" => ("DAO", new LibraryIdentity("DAO", Ace, 12, 0)),
+            _ => (new LibraryIdentity("DAO", Dao, 5), new LibraryIdentity("DAO", Dao, 5, 0)),
+        };
 
-        var libraries = Load(Machine(), dao, dao with { Name = "dao" });
+        var libraries = Load(Machine(), references.First, references.Second);
 
-        Assert.IsEmpty(libraries.Problems);
+        Assert.IsEmpty(libraries.Problems, string.Join("; ", libraries.Problems.Select(problem => string.Join(", ", problem.Related))));
         Assert.HasCount(1, libraries.Libraries);
+    }
+
+    [TestMethod]
+    [DataRow(null, null, "DAO {00025E01-0000-0000-C000-000000000046}")]
+    [DataRow(5, null, "DAO {00025E01-0000-0000-C000-000000000046} 5")]
+    [DataRow(5, 0, "DAO {00025E01-0000-0000-C000-000000000046} 5.0")]
+    public void AnIdentity_IsStatedWithTheVersionItGives_AsItGivesIt(int? major, int? minor, string expected)
+        => Assert.AreEqual(expected, new LibraryIdentity("DAO", Dao, major, minor).ToString());
+
+    [TestMethod]
+    public void AReferenceOfNoName_HasAHash()
+    {
+        var unnamed = new RDCore.SDK.Workspace.RDCoreReference { Name = null! };
+
+        Assert.AreEqual(unnamed.GetHashCode(), new RDCore.SDK.Workspace.RDCoreReference { Name = null! }.GetHashCode());
     }
 
     // a name is one reference of a project, whatever its case: two references that are equal have one hash, as a set of them needs.

@@ -22,7 +22,10 @@ namespace RDCore.SDK.Runtime.Libraries;
 /// <param name="Name">The name of the library.</param>
 /// <param name="Guid">The identifier of the type library it means; <see langword="null"/> for the library of the name, whichever it is.</param>
 /// <param name="Major">The major version it means; <see langword="null"/> for any.</param>
-/// <param name="Minor">The lowest minor version of <paramref name="Major"/> it accepts; <see langword="null"/> for any.</param>
+/// <param name="Minor">
+/// The minor version of <paramref name="Major"/> it means: a description of exactly this one, or else of the highest above it; <see langword="null"/> for the
+/// highest.
+/// </param>
 public sealed record class LibraryIdentity(string Name, Guid? Guid = null, int? Major = null, int? Minor = null)
 {
     /// <summary>
@@ -107,16 +110,19 @@ public sealed record class LibraryIdentity(string Name, Guid? Guid = null, int? 
     }
 
     /// <summary>
-    /// Whether another identity of the same name means the same description as this one, whatever the source has: both name the library of the name, or both
-    /// give the same identifier and version.
+    /// The identity as a problem or a message states it: the name, then the identifier and the version when it gives them, as it gives them (<c>5</c> for a
+    /// major version and no minor one).
     /// </summary>
-    /// <param name="other">The other identity.</param>
-    public bool MeansTheSameAs(LibraryIdentity other)
-        => string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase)
-            && (Guid is null && other.Guid is null || Guid == other.Guid && Major == other.Major && Minor == other.Minor);
+    public override string ToString()
+    {
+        if (Guid is not { } guid)
+        {
+            return Name;
+        }
 
-    /// <summary>
-    /// The identity as a problem or a message states it: the name, then the identifier and version when it gives them.
-    /// </summary>
-    public override string ToString() => Guid is { } guid ? $"{Name} {guid.ToString("B").ToUpperInvariant()} {Version}".TrimEnd() : Name;
+        var version = Major is not { } major ? string.Empty
+            : Minor is { } minor ? string.Create(CultureInfo.InvariantCulture, $" {major}.{minor}")
+            : string.Create(CultureInfo.InvariantCulture, $" {major}");
+        return $"{Name} {guid.ToString("B").ToUpperInvariant()}{version}";
+    }
 }

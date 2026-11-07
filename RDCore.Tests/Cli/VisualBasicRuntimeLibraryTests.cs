@@ -164,6 +164,24 @@ public sealed class VisualBasicRuntimeLibraryTests
         CollectionAssert.DoesNotContain(RecordsetMembers(libraries), "ListFields");
     }
 
+    // the project's own reference to a library the language references too, by its type library's identity, is that library: one reference, and no problem.
+    [TestMethod]
+    [DataRow("VBRUN", "EA544A21-C82D-11D1-A3E4-00A0C90AEA82", 6, 0)]
+    [DataRow("VB", "FCFB3D2E-A0FA-1068-A738-08002B3371B5", 6, 0)]
+    [DataRow("Scripting", "420B2830-E718-11CF-893D-00A0C9054228", 1, 0)]
+    public void AReferenceByIdentity_ToALibraryReferencedByName_IsOneReference(string name, string guid, int major, int minor)
+    {
+        var source = new DirectoryLibrarySource(new FileSystem(), Symbols);
+        RDCoreReference[] references = name == "Scripting"
+            ? [new RDCoreReference { Name = name }, new RDCoreReference { Name = name, Guid = new Guid(guid), Major = major, Minor = minor }]
+            : [new RDCoreReference { Name = name, Guid = new Guid(guid), Major = major, Minor = minor }];
+
+        var libraries = LibrarySymbolProvider.Load(source, references, SupportedLanguages.VB6);
+
+        Assert.IsEmpty(libraries.Problems, string.Join("; ", libraries.Problems.Select(problem => $"{problem.Name}: {problem.Kind} {string.Join(", ", problem.Related)}")));
+        Assert.HasCount(1, libraries.Libraries.Where(library => library.Name == name).ToArray());
+    }
+
     // a library is loaded with what it depends on or not at all, and the project's reference is the DAO that VB depends on: one that cannot be found
     // takes VB with it.
     [TestMethod]
