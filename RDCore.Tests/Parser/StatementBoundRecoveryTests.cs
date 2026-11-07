@@ -60,6 +60,9 @@ public sealed class StatementBoundRecoveryTests
     [DataRow("-")]
     [DataRow("*")]
     [DataRow("=")]
+    [DataRow("Mod")]
+    [DataRow("Like")]
+    [DataRow("And")]
     public void ADanglingOperatorAfterAnItemOfDebugPrint_IsOneErrorAtTheOperator(string op)
     {
         var statement = $"Debug.Print 1 {op}";
@@ -67,7 +70,8 @@ public sealed class StatementBoundRecoveryTests
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors);
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
-        Assert.AreEqual(new SourceRange(new SourcePosition(1, statement.Length - 1), new SourcePosition(1, statement.Length - 1)), error.Location.Range);
+        var at = new SourcePosition(1, statement.Length - op.Length);
+        Assert.AreEqual(new SourceRange(at, at), error.Location.Range);
     }
 
     // a statement the parse fails in, and fails in again after - the rule the statement is in fails at what its recovery left of it - is one syntax error,
@@ -106,6 +110,10 @@ public sealed class StatementBoundRecoveryTests
     [DataRow("Debug.Print 1; 2 -", "2", typeof(LiteralExpressionNode))]
     [DataRow("Print #1, 1; 2 &", "2", typeof(LiteralExpressionNode))]
     [DataRow("Print #1, 1; x -", "x", typeof(SimpleNameExpressionNode))]
+    [DataRow("Debug.Print 1 Mod", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print x And", "x", typeof(SimpleNameExpressionNode))]
+    [DataRow("Debug.Print 1; 2 Like", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Print #1, 1; x Or", "x", typeof(SimpleNameExpressionNode))]
     public void ADanglingOperatorAfterAnItemToPrint_IsTheLastItem_Unbuilt_WithItsLeftOperand(string statement, string operand, Type kind)
     {
         var source = $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n";
