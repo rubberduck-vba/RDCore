@@ -9,8 +9,8 @@ namespace RDCore.CLI.App.Console;
 /// <remarks>
 /// <para>
 /// The list is the one the language server answered with as the word started. It is incomplete (<see cref="CompletionList.IsIncomplete"/>), and holds every
-/// item a longer word matches: it is narrowed here as the word is typed, by the language server's own rule (<see cref="CompletionCandidates.MatchOf"/>), rather
-/// than asked for again. The items whose label starts with what is typed come first, then the ones whose humps it matches, each in the order the server ranked
+/// item a longer word matches, so it is narrowed here as the word is typed, by the language server's own rule (<see cref="CompletionCandidates.MatchOf"/>),
+/// with no new request. The items whose label starts with what is typed come first, then the ones whose humps it matches, each in the order the server ranked
 /// them in (<see cref="CompletionItem.SortText"/>).
 /// </para>
 /// <para>
