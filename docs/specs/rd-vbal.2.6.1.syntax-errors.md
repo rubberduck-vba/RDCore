@@ -28,7 +28,8 @@ The language server goes on analyzing the module as it is written. Only the run 
 A run is refused for a syntax error in any module of the project, the module it runs or another: nothing of the project runs while a module of it does
 not load. The run is refused with each such module's syntax errors, named with their module, before the errors of the module it runs.
 
-> 🎯 **RD-VBAL diverges from MS-VBA** on what a syntax error elsewhere in the project refuses. **MS-VBA** compiles what a run needs (recorded in Excel).
+> [!NOTE]
+> **RD-VBAL diverges from MS-VBA** on what a syntax error elsewhere in the project refuses. **MS-VBA** compiles what a run needs (recorded in Excel).
 > With Compile On Demand on, its default, that is the procedures the run reaches and the declarations section of every module, so it runs some of these
 > projects: an error in a procedure the run never reaches does not stop it there. With Compile On Demand off, it is each whole module the run uses, so it
 > still runs a project whose error is in a module the run does not use. RD-VBA refuses the run in each of these cases.
