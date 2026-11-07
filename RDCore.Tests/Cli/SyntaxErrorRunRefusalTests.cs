@@ -1,4 +1,15 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using RDCore.CLI.Host;
+using RDCore.CLI.Host.Handlers;
+using RDCore.Parsing;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Workspace;
+using RDCore.Tests.Platform;
 
 namespace RDCore.Tests.Cli;
 
@@ -156,6 +167,73 @@ public sealed class SyntaxErrorRunRefusalTests
                 "Public Sub Bad()",
                 where == "B" ? "    Debug.Print 1 +" : "",
                 "End Sub"));
+
+    // the modules that do not load are said in the order of their names, whatever order they were loaded in, each error after the module's name.
+    [TestMethod]
+    public async Task TheModulesThatDoNotLoad_AreSaidInTheOrderOfTheirNames()
+    {
+        var (program, _) = ProgramAndOther("", "");
+        var bad = Module("Zed", "Public Sub Bad()", "    Debug.Print 1 +", "End Sub");
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [("Zed", bad), ("Alpha", bad.Replace("\"Zed\"", "\"Alpha\""))]);
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "Alpha", "Zed" }, result.Diagnostics!.Select(error => error[..error.IndexOf(':')]).ToArray(),
+            string.Join("; ", result.Diagnostics!));
+    }
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+
+    private static readonly (string Name, ModuleType Type, string Source) GoodOther = ("Other", ModuleType.StdModule, ProgramAndOther("", "").Other);
+    private static readonly (string Name, ModuleType Type, string Source) BadOther = ("Other", ModuleType.StdModule, ProgramAndOther("B", "").Other);
+
+    // a module taken out of the session is no module of the project: what it failed to load with refuses no run after it.
+    [TestMethod]
+    public async Task AModuleThatDoesNotLoad_Discarded_RefusesTheRunNoLonger()
+    {
+        var (program, _) = ProgramAndOther("", "");
+        ExecuteResult? whileThere = null, discarded = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], program, async (provider, ran, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, ran.Outcome, ran.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], syntaxErrors: true, ("Program", ModuleType.StdModule, program), BadOther);
+            whileThere = await runAgain();
+            _ = await new HostDiscardHandler(provider, NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
+            {
+                ModuleUri = new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Other" }.Uri,
+                ModuleName = "Other",
+            }, CancellationToken.None).WaitAsync(Patience);
+            discarded = await runAgain();
+        });
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, whileThere!.Outcome, whileThere.ErrorMessage);
+        Assert.AreEqual(ExecutionOutcome.Completed, discarded!.Outcome, string.Join("; ", discarded.Diagnostics ?? []));
+        CollectionAssert.AreEqual(new[] { "before", "after" }, discarded.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // a request that defines a module's symbols, and carries no parse of it, loads none of its code: what the code failed to load with still refuses the run.
+    [TestMethod]
+    public async Task AModuleThatDoesNotLoad_GivenItsSymbolsAlone_StillRefusesTheRun()
+    {
+        var (program, _) = ProgramAndOther("", "");
+        ExecuteResult? again = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], program, async (provider, ran, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, ran.Outcome, ran.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], syntaxErrors: true, ("Program", ModuleType.StdModule, program), BadOther);
+            _ = await new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                .Handle(new DefineSymbolsParams
+                {
+                    WorkspaceRoot = Wire.FileUri(ModuleWorkspace.Root),
+                    ModuleUri = new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Other" }.Uri,
+                    ModuleName = "Other",
+                }, CancellationToken.None);
+            again = await runAgain();
+        });
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, again!.Outcome, again.ErrorMessage);
+        StringAssert.StartsWith(again.Diagnostics![0], "Other: ", string.Join("; ", again.Diagnostics!));
+    }
 
     // the output items written side by side are refused with the error that says so, and only with it.
     [TestMethod]

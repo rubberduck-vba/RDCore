@@ -30,7 +30,8 @@ internal static class HeldDefinitions
     // the requests received while a definition was held, the latest of each module and phase, in the order they came in, each with what makes it again.
     private static readonly ConditionalWeakTable<IRuntimeSession, Requests> ReceivedBySession = new();
 
-    private sealed record class Request(string Key, string Module, Func<ImmutableArray<string>> Again);
+    // LoadsCode: the request loads the module's code, and what it says is wrong with it is what the module fails to load with.
+    private sealed record class Request(string Key, string Module, bool LoadsCode, Func<ImmutableArray<string>> Again);
 
     private sealed class Requests
     {
@@ -124,7 +125,7 @@ internal static class HeldDefinitions
             var result = define();
             if (session.Symbols.HeldDefinitions.Count > 0)
             {
-                received.Add(new Request(key, module, again));
+                received.Add(new Request(key, module, codeErrors is not null, again));
             }
             else
             {
@@ -152,12 +153,26 @@ internal static class HeldDefinitions
     /// has loaded since: a run is refused with it, rather than running the code the module had, or none of it.
     /// </summary>
     /// <param name="session">The session.</param>
-    /// <param name="except">A module the run loads itself, which says what is wrong with it.</param>
-    public static IReadOnlyList<string> FailedToLoad(IRuntimeSession session, string except)
+    /// <param name="except">A module the run loads itself, which says what is wrong with it; <see langword="null"/> for none.</param>
+    /// <returns>Each error, after the name of its module, the modules in the order of their names, and each module's errors in the order it said them.</returns>
+    public static IReadOnlyList<string> FailedToLoad(IRuntimeSession session, string? except = null)
+        => [.. ModulesThatFailedToLoad(session)
+            .Where(failed => !string.Equals(failed.Module, except, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(failed => failed.Errors.Select(error => $"{failed.Module}: {error}"))];
+
+    /// <summary>
+    /// Each module that failed to load and that no request has loaded since (<see cref="FailedToLoad"/>), in the order of their names, with what is wrong with
+    /// its code.
+    /// </summary>
+    public static IReadOnlyList<(string Module, ImmutableArray<string> Errors)> ModulesThatFailedToLoad(IRuntimeSession session)
         => ReceivedBySession.TryGetValue(session, out var received)
-            ? [.. received.Failed.Where(failed => !string.Equals(failed.Key, except, StringComparison.OrdinalIgnoreCase))
-                .SelectMany(failed => failed.Value.Select(error => $"{failed.Key}: {error}"))]
+            ? [.. received.Failed.OrderBy(failed => failed.Key, StringComparer.OrdinalIgnoreCase).Select(failed => (failed.Key, failed.Value))]
             : [];
+
+    /// <summary>
+    /// A module was taken out of the session: it is no module of the project, and nothing it failed to load with refuses a run.
+    /// </summary>
+    public static void Discarded(IRuntimeSession session, string module) => Loaded(session, module);
 
     /// <summary>
     /// A module was loaded by a run: what is wrong with its code, if anything, is the run's to say from now on.
@@ -198,7 +213,8 @@ internal static class HeldDefinitions
                 errors[request.Module].AddRange(request.Again());
             }
 
-            foreach (var module in modules)
+            // a module whose code no request loaded is as it was: a request of its symbols alone says nothing of its code.
+            foreach (var module in modules.Where(module => requests.Any(request => request.LoadsCode && string.Equals(request.Module, module, StringComparison.OrdinalIgnoreCase))))
             {
                 received.Loaded(module, [.. errors[module]]);
             }
