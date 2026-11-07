@@ -34,7 +34,7 @@ jobs:
       - name: "CLA (français)"
         if: >
           github.event_name == 'issue_comment' && github.event.issue.pull_request &&
-          startsWith(github.event.comment.body, 'Je confirme avoir lu et accepté les termes et conditions de la CLA, et je la signe par la présente')
+          startsWith(github.event.comment.body, 'Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente')
         uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.RDCORECLA_BOT }}
@@ -47,7 +47,7 @@ jobs:
           remote-organization-name: "rubberduck-vba"
           remote-repository-name: "RDCore-CLA"
           suggest-recheck: "false"
-          custom-pr-sign-comment: "Je confirme avoir lu et accepté les termes et conditions de la CLA, et je la signe par la présente"
+          custom-pr-sign-comment: "Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente"
           # the action adds the French phrase after this text, so the French request comes last here.
           custom-notsigned-prcomment: >-
             Thank you for your contribution! Before it can be merged, please read our
@@ -85,7 +85,7 @@ jobs:
             Merci de votre contribution! Avant qu'elle puisse être fusionnée, veuillez lire notre
             **[Entente de licence de contributeur (CLA)](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md)**,
             puis la signer en publiant ce commentaire, tel quel, sur cette demande de tirage (_pull request_) :<br/>
-            <br/>`Je confirme avoir lu et accepté les termes et conditions de la CLA, et je la signe par la présente`<br/>
+            <br/>`Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente`<br/>
             <br/>Pour relancer la vérification, commentez `recheck`.<br/><hr/>
             Thank you for your contribution! Before it can be merged, please read our
             **[Contributor License Agreement](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.md)**.

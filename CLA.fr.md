@@ -90,7 +90,7 @@ Signé :
 
 *L'acceptation électronique enregistrée par le bot CLA du Projet constitue la signature de cette Entente. Pour signer, publiez l'un de ces commentaires, tel quel, sur une demande de tirage :*
 
-- `Je confirme avoir lu et accepté les termes et conditions de la CLA, et je la signe par la présente` (en français)
+- `Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente` (en français)
 - `I have read and agreed with the CLA terms and conditions and I hereby sign the CLA` (en anglais)
 
 *Une signature enregistrée par le bot CLA couvre Vos Contributions à tous les référentiels RDCore de l'organisation rubberduck-vba : RDCore, RDCore.SDK et RDCore.HexIDE.*
