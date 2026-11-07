@@ -11,7 +11,7 @@ The set of registered capabilities, not a hard-coded list, determines which exte
 |Provider|Registration|
 |---|---|
 |**RDCore.Diagnostics**|The core-bundled diagnostics provider. It is always brought up during platform assembly.|
-|Other extensions (dimensional analysis, and so on)|Register as diagnostics providers alongside RDCore.Diagnostics.|
+|Other extensions|Register as diagnostics providers alongside RDCore.Diagnostics.|
 
 With no diagnostics provider registered, a workspace has no diagnostics.
 

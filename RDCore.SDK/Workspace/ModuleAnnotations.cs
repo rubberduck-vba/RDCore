@@ -17,13 +17,11 @@ namespace RDCore.SDK.Workspace;
 /// <para>
 /// 📌 A static class hard-coding one annotation's name does not scale: the annotation vocabulary is
 /// open-ended by design (an extension's shape is "annotation-semantics provider + analyzers + …", e.g.
-/// the planned <c>RDCore.UnitTesting</c> extension owning <c>@TestMethod</c>, or the planned
-/// <c>RDCore.DimensionalAnalysis</c> extension owning <c>@Unit</c>), and nothing here should force an
-/// extension to modify the SDK to claim an annotation name. <c>Option Strict</c> is core-owned, not
-/// extension-owned, so this type is fine as the one-off it is <em>today</em>, but once a real
+/// the planned <c>RDCore.UnitTesting</c> extension owning <c>@TestMethod</c>), and nothing here should
+/// force an extension to modify the SDK to claim an annotation name. <c>Option Strict</c> is core-owned,
+/// not extension-owned, so this type is fine as the one-off it is <em>today</em>, but once a real
 /// annotation-semantics-provider mechanism exists, this should very likely become one of its
-/// consumers instead of staying a bespoke regex. Noted, not a blocker:
-/// <c>C:\Dev\Claude\rdcore-annotation-semantic-provider-ticket.md</c>.
+/// consumers instead of staying a bespoke regex.
 /// </para>
 /// </remarks>
 public static partial class ModuleAnnotations
