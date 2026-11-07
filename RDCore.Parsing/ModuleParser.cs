@@ -783,8 +783,8 @@ public partial class ModuleParser(
     /// Reports each parameter named with a reserved identifier as a syntax error at its name: <c>Sub S(ByVal Mod As Long)</c>.
     /// </summary>
     /// <remarks>
-    /// A parameter's name is a name, and no reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>). The grammar reads one there
-    /// all the same, so the procedure is read whole: its body, its end, and the procedures after it are what they are with a name there.
+    /// A parameter's name cannot be a reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>). The grammar still reads one
+    /// there, so the procedure is read whole: its body, its end and the procedures after it parse as they would with a valid name.
     /// </remarks>
     private static void ReportReservedParameterNames(IEnumerable<VBAParser.UnrestrictedIdentifierContext> names, ErrorListener findings)
     {

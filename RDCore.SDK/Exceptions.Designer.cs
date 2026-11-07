@@ -1127,7 +1127,7 @@ namespace RDCore.SDK {
             }
         }
 
-        /// <summary>Looks up a localized string similar to Expected: identifier. &apos;{0}&apos; is a reserved word, and no parameter&apos;s name.</summary>
+        /// <summary>Looks up a localized string similar to Expected: identifier. &apos;{0}&apos; is a reserved word and cannot name a parameter.</summary>
         public static string VBCompileError_ReservedParameterName_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ReservedParameterName_Verbose", resourceCulture);
