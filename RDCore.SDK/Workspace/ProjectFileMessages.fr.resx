@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- What the offer to regenerate a project file the platform cannot read says to the user (ProjectFileRegeneration). -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ProjectFile_Regenerate_Offer" xml:space="preserve">
+    <value>Le fichier de projet '{0}' ne peut pas être lu : il n'est pas valide à la ligne {1}, position {2}. Le régénérer à partir des fichiers source de son dossier? Les références du projet, et tout ce que seul le fichier de projet indique, pourraient être perdus. Le fichier tel qu'il est maintenant est conservé à côté, sous le nom '{3}'.</value>
+  </data>
+  <data name="ProjectFile_Regenerate_Offer_Unplaced" xml:space="preserve">
+    <value>Le fichier de projet '{0}' ne peut pas être lu. Le régénérer à partir des fichiers source de son dossier? Les références du projet, et tout ce que seul le fichier de projet indique, pourraient être perdus. Le fichier tel qu'il est maintenant est conservé à côté, sous le nom '{1}'.</value>
+  </data>
+  <data name="ProjectFile_Regenerate_Choice_Regenerate" xml:space="preserve">
+    <value>Régénérer</value>
+  </data>
+  <data name="ProjectFile_Regenerate_Choice_NotNow" xml:space="preserve">
+    <value>Pas maintenant</value>
+  </data>
+  <data name="ProjectFile_Regenerate_NotPutBack" xml:space="preserve">
+    <value>Le fichier de projet '{0}' n'a pu être ni régénéré ({1}), ni remis tel qu'il était ({2}). Le fichier tel qu'il était est conservé à côté, sous le nom '{3}' : renommez-le '{0}' pour charger le projet tel qu'il était.</value>
+  </data>
+</root>

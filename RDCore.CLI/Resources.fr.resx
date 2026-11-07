@@ -284,6 +284,9 @@
   <data name="Repl_Memory" xml:space="preserve">
     <value>{0} OCTETS RÉSERVÉS  {1} DISPONIBLES  {2} ALLOUÉS  {3} LIBRES</value>
   </data>
+  <data name="Repl_NobodyAnswers" xml:space="preserve">
+    <value>Personne n'est à la console de l'interpréteur pour répondre à la question.</value>
+  </data>
   <data name="Repl_NoSession" xml:space="preserve">
     <value>AUCUNE SESSION D'EXÉCUTION</value>
   </data>

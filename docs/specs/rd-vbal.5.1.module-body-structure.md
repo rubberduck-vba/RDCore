@@ -4,6 +4,3 @@ This section corresponds to [**MS-VBAL §5.1** Module Body Structure](https://le
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md) | ⏭️ [**RD-VBAL §5.2** Module Declaration Section Structure](rd-vbal.5.2.module-declaration-section-structure.md)

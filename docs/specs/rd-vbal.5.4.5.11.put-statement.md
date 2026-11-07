@@ -50,7 +50,7 @@ UDT field declaration order is the order `Put` writes a record in
 
 `Put` and `Get` move the serialized size of a UDT: its fields concatenated, with no padding.
 
-> 👉 Memory widths of UDT fields are not file widths. See
+> Memory widths of UDT fields are not file widths. See
 > [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md) for the in-memory side.
 
 |UDT field|In a record|
@@ -87,6 +87,3 @@ why record number 1 is byte 0 of the file
 |---|---|
 |`RecordDataFormat`|Implements the `Put`/`Get` record format: **MS-VBAL §5.4.5.11**'s Variant type descriptors and binary widths.|
 |[IFileChannel](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html)|A file channel. Its record surface is the one `Put` and `Get` use.|
-
----
-> ⏮️ [**RD-VBAL §5.4.5.10** Input Statement](rd-vbal.5.4.5.10.input-statement.md) | ⏭️ [**RD-VBAL §5.4.5.12** Get Statement](rd-vbal.5.4.5.12.get-statement.md)

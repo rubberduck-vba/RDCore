@@ -25,7 +25,7 @@ provided by or defined in the following sources:
 |Any _extension symbol providers_|The symbols they provide.|
 |The host|Any additional unbound symbols it defines, e.g. via _immediate_ commands.|
 
-👉 The static execution context retains the state of _immediate_ commands until an `End` command
+The static execution context retains the state of _immediate_ commands until an `End` command
 ([**RD-VBAL §5.4.2.22** End Statement](rd-vbal.5.4.2.22.end-statement.md)) resets the _execution context_ back to
 its initial state.
 
@@ -103,6 +103,3 @@ The _lightweight VBIDE add-in_ that launches an environment host attached to a h
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §3.5.6** Compiled Execution](rd-vbal.3.5.6.compiled-execution.md) | ⏭️ [**RD-VBAL §4.1** VBIDE Synchronization](rd-vbal.4.1.vbide-synchronization.md)

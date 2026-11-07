@@ -1049,26 +1049,24 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             [], [], lineOption: null);
     }
 
-    // `Line` is not a keyword, so the grammar reads the object and the word together as one expression: `Line`, `Form1.Line` or - inside a With block - `.Line`.
+    // `Line` is not a keyword, so the grammar reads the object and the word together as one l-expression: `Line`, `Form1.Line` or - inside a With block - `.Line`.
     public override void ExitLineSpecialForm([NotNull] VBAParser.LineSpecialFormContext context)
     {
-        var callee = context.expression(0);
+        var callee = context.lExpression();
 
-        // the rule takes any expression before the coordinates, and only the word Line makes it this statement; anything else stays the text it was.
+        // the rule takes any l-expression before the coordinates, and only the word Line makes it this statement; anything else stays the text it was.
         if (!callee.GetText().EndsWith(Tokens.Line, StringComparison.OrdinalIgnoreCase))
         {
             CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
             return;
         }
 
-        (VBABaseParserRuleContext? target, bool isWithRelative) = callee is VBAParser.LExprContext lExpr
-            ? lExpr.lExpression() switch
-            {
-                VBAParser.MemberAccessExprContext access => (access.lExpression(), false),
-                VBAParser.WithMemberAccessExprContext => (null, true),
-                _ => (null, false),
-            }
-            : (null, false);
+        (VBABaseParserRuleContext? target, bool isWithRelative) = callee switch
+        {
+            VBAParser.MemberAccessExprContext access => (access.lExpression(), false),
+            VBAParser.WithMemberAccessExprContext => (null, true),
+            _ => (null, false),
+        };
 
         var tuples = context.tuple();
         var steps = context.STEP();
@@ -1081,7 +1079,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             hasStart ? tuples[0] : null, callee.Stop.TokenIndex, steps,
             tuples.LastOrDefault(), minus, steps,
             // only the first comma has a color after it: the second one is followed by the B or BF.
-            context.COMMA().Take(1).ToArray(), context.expression().Skip(1).ToArray(), context.lineSpecialFormOption()?.GetText());
+            context.COMMA().Take(1).ToArray(), context.expression() is { } color ? [color] : [], context.lineSpecialFormOption()?.GetText());
     }
 
     // What stands before the dot is the object, if anything does; a dot with nothing before it is the object of the enclosing With block. The rest of the
@@ -1661,7 +1659,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return;
         }
-        var itemCount = context.outputList()?.outputItem().Length ?? 0;
+        var itemCount = context.outputList()?.outputSegment().Sum(segment => segment.outputItem().Length + segment.outputPosition().Length) ?? 0;
         var peeked = CurrentBuilder.PeekLastChildren(1 + itemCount);
         if (peeked.Length != 1 + itemCount || peeked[0] is not ExpressionNode owner || peeked.Skip(1).Any(node => node is not PrintOutputItemNode))
         {
@@ -1716,32 +1714,36 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(new PrintTabClauseNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), column));
     }
 
-    // an outputItem is (value?)(separator?), never both absent (the grammar's 3 alternatives always
-    // supply at least one) — whichever of outputClause's 3 forms fired (Spc/Tab/plain expression)
-    // already contributed exactly one node, same invariant as an index expression's arguments.
+    // an outputItem is a value, and an outputPosition a separator: each is a PrintOutputItemNode of its own - whichever of outputClause's 3 forms fired
+    // (Spc/Tab/plain expression) already contributed exactly one node, same invariant as an index expression's arguments.
     public override void ExitOutputItem([NotNull] VBAParser.OutputItemContext context)
     {
         if (!IsDeclarationPassExpression)
         {
             return;
         }
-        ExpressionNode? value = null;
-        if (context.outputClause() is { } outputClause)
+        // only wrap in trivia when the output clause's own expression didn't build.
+        ExpressionNode value;
+        if (CurrentBuilder.PeekLastChildren(1) is [ExpressionNode popped])
         {
-            // a null value is legitimately a bare separator (`,`/`;`) - only wrap in trivia when the
-            // output clause is present in the source but its own expression didn't build.
-            if (CurrentBuilder.PeekLastChildren(1) is [ExpressionNode popped])
-            {
-                CurrentBuilder.PopLastChildren(1);
-                value = popped;
-            }
-            else
-            {
-                value = BuildUnbuiltExpressionTrivia(outputClause, 1);
-            }
+            CurrentBuilder.PopLastChildren(1);
+            value = popped;
         }
-        var separator = context.charPosition() is { } position ? (position.SEMICOLON() is not null ? ";" : ",") : null;
-        CurrentBuilder.AddChild(new PrintOutputItemNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), value, separator));
+        else
+        {
+            value = BuildUnbuiltExpressionTrivia(context.outputClause(), 1);
+        }
+        CurrentBuilder.AddChild(new PrintOutputItemNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), value, null));
+    }
+
+    public override void ExitOutputPosition([NotNull] VBAParser.OutputPositionContext context)
+    {
+        if (!IsDeclarationPassExpression)
+        {
+            return;
+        }
+        var separator = context.charPosition().SEMICOLON() is not null ? ";" : ",";
+        CurrentBuilder.AddChild(new PrintOutputItemNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), null, separator));
     }
 
     public override void ExitLiteralIdentifier([NotNull] VBAParser.LiteralIdentifierContext context)

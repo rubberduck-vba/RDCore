@@ -132,6 +132,17 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     public ConsoleSignatureSource? Signature { get; init; }
 
     /// <summary>
+    /// What waits to be asked at the console while a line is read, which the keys of the line must not answer: a question the language server asks the shell's
+    /// user. None is asked without it.
+    /// </summary>
+    /// <remarks>
+    /// While nothing is typed on the line, and no list is open, what waits is asked at once: the line stops reading its key, the line and what is under it are
+    /// erased, the question is asked with the keys typed from then on, and the line is drawn again. A key that came before the line stopped reading is the line's,
+    /// as it would have been without the question: once it types something, the question waits for the line to be entered.
+    /// </remarks>
+    public IConsoleInterjections? Interjections { get; init; }
+
+    /// <summary>
     /// What the drawing of the console is serialized on: the editor draws the line holding it, and whatever else draws at the console while a line is not being
     /// edited holds it too.
     /// </summary>
@@ -263,6 +274,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             Task<ConsoleKeyInfo>? key = null;
             var invalidated = editor.Invalidation;
 
+            // a key is read with a token of the line's own, which a question asked at the line stops the read with (Interject).
+            var reading = CancellationTokenSource.CreateLinkedTokenSource(token);
+
             // a line erased to write above it after the last one was entered was not this one: this one has nothing drawn yet.
             Volatile.Write(ref editor._erased, 0);
             Draw();
@@ -270,7 +284,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 while (true)
                 {
-                    key ??= Task.Run(() => editor._keys.ReadKey(token), CancellationToken.None);
+                    var readingToken = reading.Token;
+                    key ??= Task.Run(() => editor._keys.ReadKey(readingToken), CancellationToken.None);
 
                     // a list or a signature that is there is shown before the next key is taken - Task.WhenAny answers the first of those that are done, in
                     // the order they are given - and what is drawn under the line is drawn again when it changes.
@@ -285,8 +300,23 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                         waiting.Add(signing);
                     }
 
+                    // a question that waits is asked at a line where nothing is typed - after a key that is pressed already, which may type something - and
+                    // on any other line, waits for it to be entered.
                     waiting.AddRange([key, invalidated]);
+                    var interjection = IsIdle ? editor.Interjections?.Waiting : null;
+                    if (interjection is not null)
+                    {
+                        waiting.Add(interjection);
+                    }
+
                     var done = await Task.WhenAny(waiting);
+                    if (done == interjection)
+                    {
+                        (key, reading) = await InterjectAsync(key, reading, token);
+                        Draw();
+                        continue;
+                    }
+
                     if (done == _asked)
                     {
                         Arrived(await _asked!);
@@ -329,6 +359,56 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 _asking?.Cancel();
                 _signingCancellation?.Cancel();
+
+                // a key the line was still waiting for is not read for a line that is no more; its token is let go of once the read stops.
+                reading.Cancel();
+                if (key is { IsCompleted: false } pending)
+                {
+                    var stopped = reading;
+                    _ = pending.ContinueWith(_ => stopped.Dispose(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                }
+                else
+                {
+                    reading.Dispose();
+                }
+            }
+        }
+
+        // nothing is typed on the line, and nothing is open under it.
+        private bool IsIdle => _text.Length == 0 && _list is null && _snippet is null;
+
+        // what waits is asked where the line was, once the line stops reading its key: a key that came before it stopped is the line's, which presses it before
+        // anything is asked - a question asked at a line where nothing is typed, so that it waits once the key types something. Otherwise the question reads the
+        // keys typed from now on, and the line is drawn again after it, from the line down. The key the line has, if it came, and the token it reads the next with.
+        private async Task<(Task<ConsoleKeyInfo>? Key, CancellationTokenSource Reading)> InterjectAsync(
+            Task<ConsoleKeyInfo> key, CancellationTokenSource reading, CancellationToken token)
+        {
+            reading.Cancel();
+            try
+            {
+                await key;
+                return (key, Renewed());
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+            }
+
+            var renewed = Renewed();
+            lock (editor.Sync)
+            {
+                Output.Write("\r\u001b[J");
+                Output.Flush();
+                Volatile.Write(ref editor._erased, 1);
+            }
+
+            editor.Interjections!.AskWaiting(editor._keys);
+            return (null, renewed);
+
+            // the read stopped: what the line reads from now on is read with a token of its own again.
+            CancellationTokenSource Renewed()
+            {
+                reading.Dispose();
+                return CancellationTokenSource.CreateLinkedTokenSource(token);
             }
         }
 

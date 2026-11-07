@@ -24,7 +24,7 @@ Therefore:
 
 Attributes in the _header_ section of a module determine the _static semantics_ of that module.
 
-MS-VBA attribute semantics are much reduced compared with their original **VB6** intent. 🎯 RD-VBA honors
+MS-VBA attribute semantics are much reduced compared with their original **VB6** intent. RD-VBA honors
 attribute semantics according to their original VB6 intent, because nothing in RD-VBA calls for the MS-VBA reduction.
 
 |Section|Attribute|Determines|
@@ -96,7 +96,7 @@ The value of `VB_Exposed` is `False` for _private modules_, and `True` for _publ
 consumed by a referencing project. Whether a new instance of a public module can be created outside the enclosing
 project that defines it depends on the value of its `VB_Creatable` attribute.
 
-👉 Together, `VB_Creatable` and `VB_Exposed` determine the _instancing mode_ of a class module
+Together, `VB_Creatable` and `VB_Exposed` determine the _instancing mode_ of a class module
 ([**MS-VBAL §5.2.4.1.1** Class Accessibility and Instancing](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a09fd48e-abed-4da8-8c4c-a110bf4ef6b6);
 [**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md)):
 
@@ -139,7 +139,7 @@ A customizable class or member is allowed to appear in a .frx file or a _propert
 - how a consuming COM host interprets those type library descriptions;
 - whether a _designer tool_ can _override_ or _persist_ the member.
 
-🎯 VB6 ActiveX designer features are **out of scope** for the **RDCore** _language core_
+VB6 ActiveX designer features are **out of scope** for the **RDCore** _language core_
 ([**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
 
 ## 3.1.1.6 VB_PredeclaredId
@@ -216,8 +216,8 @@ predeclared class, and `Stateful` for a class with state of its own
 ([**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics)).
 
 > [!NOTE]
-> 🚧 **TODO** An `Is Nothing` check on a default instance reported as _statically constant_ (`False`,
-> [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)) is not implemented.
+> **Not implemented.** The analysis does not report an `Is Nothing` check on a default instance as _statically constant_ (`False`,
+> [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)).
 
 ## 3.1.1.7 VB_Description
 
@@ -236,6 +236,3 @@ An extensible module cannot have an `Implements` directive
 ([**RD-VBAL §5.2.4.2**](rd-vbal.5.2.4.class-module-declarations.md)): [VBC09328](../diagnostics/vbc09328.md). A document module
 ([**RD-VBAL §2.2.3.3**](rd-vbal.2.2.3.projectfile.md)) is extensible too, and MS-VBA compiles and runs the directives of a worksheet's module: RD-VBA
 does the same, and warns that the specification says otherwise ([RDC11024](../diagnostics/rdc11024.md)).
-
----
-> ⏮️ [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md) | ⏭️ [**RD-VBAL §3.2.0** Literal Expressions](rd-vbal.3.2.0.literals.md)
