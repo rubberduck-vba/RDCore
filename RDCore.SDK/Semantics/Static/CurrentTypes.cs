@@ -2,6 +2,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
@@ -54,6 +55,50 @@ public static class CurrentTypes
             && !ReferenceEquals(current, declared.Symbol)
                 ? new VBUserDefinedType(current, current.Members)
                 : declared;
+
+    /// <summary>
+    /// The type <paramref name="declared"/> is as the composition has it now: a class as <see cref="Of(ISymbolResolver?, VBClassType)"/> has it, a
+    /// user-defined type as <see cref="Of(ISymbolResolver?, VBUserDefinedType)"/> has it, and a type whose name, qualified by a library, did not resolve when
+    /// the declaration was read (<see cref="VBUnresolvedType"/>) resolved in that library now; <paramref name="declared"/> itself for any other type, and for
+    /// a name that still does not resolve.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A library is read a class at a time, and a member that returns a class of its library that is not read yet is declared as the name of that class,
+    /// qualified by the library: <c>Cells</c> of a <c>Range</c> returns a <c>Range</c>, the class being read. The name is resolved where the member is used,
+    /// in the library that qualifies it, and binds to the library's own type: neither the project nor the module that uses the member can declare a type
+    /// that stands for it.
+    /// </para>
+    /// <para>
+    /// A name the library does not qualify is a type that neither the library nor a library it depends on declares. It is not resolved: it stays a
+    /// <see cref="VBUnresolvedType"/>, a type not known, and what is accessed on it is late-bound, even where the project declares a class of that name.
+    /// </para>
+    /// </remarks>
+    /// <param name="resolver">The resolver names are bound by, as the composition has it now; <see langword="null"/> when there is none.</param>
+    /// <param name="declared">The type a declaration was bound to.</param>
+    /// <returns>The type to read members, the default member, or fields of.</returns>
+    public static VBType Of(ISymbolResolver? resolver, VBType declared) => declared switch
+    {
+        VBClassType classType => Of(resolver, classType),
+        VBUserDefinedType record => Of(resolver, record),
+        VBUnresolvedType { DeclaredName: var name } when resolver is not null && Resolve(resolver, name) is { } resolved => resolved,
+        _ => declared,
+    };
+
+    // a type name qualified by a library, as a type the library itself declares; null for a name no library qualifies, which no library declares.
+    private static VBType? Resolve(ISymbolResolver resolver, string name)
+    {
+        var dot = name.IndexOf('.');
+        if (dot <= 0
+            || resolver.ResolveQualifier(name[..dot], ScopeKind.Global, StaticSymbol.GlobalUri).Symbol is not VBProjectSymbol library
+            || !string.Equals(library.GetProperty(SymbolProperties.Library), name[..dot], StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var found = resolver.ResolveProjectType(library, name[(dot + 1)..]);
+        return found.IsResolved ? DeclaredTypes.Of(found.Symbol) : null;
+    }
 
     /// <summary>
     /// The class of <paramref name="declared"/> as the composition of <paramref name="context"/> has it now: see <see cref="Of(ISymbolResolver?, VBClassType)"/>.

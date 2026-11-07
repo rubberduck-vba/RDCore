@@ -262,8 +262,8 @@ public sealed class CompletionServiceTests
         CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Drum");
     }
 
-    // the sort text of a constant ranked first: a `!` before any other item's.
-    private static bool IsConstantFirst(CompletionItem item) => item.SortText is ['!', ..];
+    // the sort text of a constant ranked first: a `!` before any other item's, and the first group.
+    private static bool IsConstantFirst(CompletionItem item) => item.SortText is ['!', '0', ..];
 
     // a ( , or space a client asks on lists an Enum argument's constants where a value of it starts, and nothing anywhere else: not a whole list at each comma,
     // nor after an operand.
@@ -275,7 +275,7 @@ public sealed class CompletionServiceTests
     [DataRow("Paint Light |", " ", false)]
     [DataRow("Stroke |", " ", false)]
     [DataRow("Dim x As Long: x = 1 |", " ", false)]
-    public async Task AnArgumentTriggerCharacter_IsAnsweredOnlyForAnEnumArgument(string line, string trigger, bool listed)
+    public async Task AnArgumentTriggerCharacter_IsAnsweredOnlyForAnEnumOrAnOptionalArgument(string line, string trigger, bool listed)
     {
         var items = (await ListAsync(line, trigger)).Items.ToList();
 
@@ -284,6 +284,417 @@ public sealed class CompletionServiceTests
         {
             Assert.AreEqual("Dark", items[0].Label);
         }
+    }
+
+    // ---- named arguments: the parameters not given yet, as `Name:=` (MS-VBAL §5.6.13.1, §5.3.1.11) ----
+
+    private const string Printer = """
+        Attribute VB_Name = "Printer"
+        Public Declare PtrSafe Sub Ring Lib "bell" (ByVal Tone As Long, Optional ByVal Length As Long)
+        Public Enum Tray
+            Upper
+            Lower
+        End Enum
+        Public Sub Send(ByVal Text As String, Optional ByVal Heading As String, Optional ByVal Copies As Long = 1, Optional ByVal Source As Tray)
+        End Sub
+        Public Function Count(ByVal Text As String, Optional ByVal Copies As Long) As Long
+        End Function
+        Public Sub Gather(Optional ByVal Title As String, ParamArray Items() As Variant)
+        End Sub
+        """;
+
+    private const string Spooler = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Spooler"
+        Public Sub Queue(ByVal Text As String, Optional ByVal Copies As Long)
+        End Sub
+        """;
+
+    // a class whose default member takes arguments, and one whose default member takes none and returns the first (MS-VBAL §5.6.13).
+    private const string Picker = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Picker"
+        Public Function Pick(Optional ByVal A As Long, Optional ByVal B As Long) As Long
+        Attribute Pick.VB_UserMemId = 0
+        End Function
+        Public Property Get Items() As Picker
+        End Property
+        """;
+
+    private const string Holder = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Holder"
+        Public Property Get Inner() As Picker
+        Attribute Inner.VB_UserMemId = 0
+        End Property
+        """;
+
+    private const string NamedMain = "Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim s As New Spooler\r\n    Dim p As New Picker\r\n    Dim h As New Holder\r\n"
+        + "    Dim c As New Collection\r\n    Dim arr(3) As Long\r\n    {0}\r\nEnd Sub\r\n";
+
+    private void WorkspaceHasThePrinter()
+        => WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), new WorkspaceDocument("Spooler.cls", Root, Spooler),
+            new WorkspaceDocument("Picker.cls", Root, Picker), new WorkspaceDocument("Holder.cls", Root, Holder));
+
+    private async Task<List<CompletionItem>> NamedAsync(string line, string? triggerCharacter = null)
+    {
+        WorkspaceHasThePrinter();
+        var (source, position) = At(string.Format(NamedMain, line));
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter)).Items];
+    }
+
+    private async Task<SignatureHelp?> CallSignatureAsync(string line)
+    {
+        WorkspaceHasThePrinter();
+        var (source, position) = At(string.Format(NamedMain, line));
+        return await Sut().SignatureHelpFragmentAsync("Main", source, position, CancellationToken.None);
+    }
+
+    private static string[] NamesIn(IEnumerable<CompletionItem> items) => [.. items.Select(item => item.Label).Where(label => label.EndsWith(":=", StringComparison.Ordinal))];
+
+    private static string Show(IEnumerable<CompletionItem> items) => string.Join(", ", items.Take(8).Select(item => item.Label + "/" + item.SortText));
+
+    [TestMethod]
+    [DataRow("Send \"a\", |", "Heading:=;Copies:=;Source:=", DisplayName = "a call statement")]
+    [DataRow("x = Count(\"a\", |", "Copies:=", DisplayName = "a call in parentheses")]
+    [DataRow("s.Queue \"a\", |", "Copies:=", DisplayName = "a member call")]
+    [DataRow("Gather |", "Title:=", DisplayName = "a ParamArray is never named")]
+    [DataRow("Ring 1, |", "Length:=", DisplayName = "a Declare'd procedure")]
+    [DataRow("Send \"a\", Co|", "Copies:=", DisplayName = "narrowed by the word typed")]
+    [DataRow("Send |", "", DisplayName = "a required parameter")]
+    [DataRow("Send \"a\", Copies:=|", "", DisplayName = "the value of a named argument")]
+    [DataRow("Send \"a\", 1 + |", "", DisplayName = "inside an argument")]
+    public async Task WhereAnOptionalArgumentStarts_TheParametersNotGivenYetAreOffered_ByName(string line, string names)
+    {
+        var items = await NamedAsync(line);
+
+        CollectionAssert.AreEqual(names.Split(';', StringSplitOptions.RemoveEmptyEntries), NamesIn(items), Show(items));
+    }
+
+    [TestMethod]
+    public async Task ANamedArgument_IsItsParametersName_InsertedWithItsToken_AndSaysWhatTheParameterIs()
+    {
+        var item = (await NamedAsync("x = Count(\"a\", |")).Single(item => item.Label == "Copies:=");
+
+        Assert.IsNull(item.InsertText, "the label is what is inserted");
+        Assert.AreEqual("Optional ByVal Copies As Long", item.Detail);
+    }
+
+    [TestMethod]
+    public async Task AnArgumentOfTheStandardLibrary_IsOfferedItsParametersNames_AfterTheEnumsConstants()
+    {
+        var items = await NamedAsync("MsgBox \"Hi\", |");
+        var names = NamesIn(items).Select(name => name.ToUpperInvariant()).ToArray();
+
+        CollectionAssert.IsSubsetOf(new[] { "BUTTONS:=", "TITLE:=" }, names, Show(items));
+        CollectionAssert.DoesNotContain(names, "PROMPT:=");
+        Assert.AreEqual("vbAbortRetryIgnore", items[0].Label, "the constants first");
+    }
+
+    [TestMethod]
+    public async Task TheNames_RankAfterTheEnumsConstants_AndBeforeTheNamesInScope()
+    {
+        var labels = (await NamedAsync("Send \"a\", , , |")).Select(item => item.Label).ToList();
+
+        CollectionAssert.AreEqual(new[] { "Lower", "Upper", "Source:=" }, labels.Take(3).ToArray(), string.Join(", ", labels.Take(6)));
+        Assert.IsTrue(labels.IndexOf("Source:=") < labels.IndexOf("Len"));
+    }
+
+    [TestMethod]
+    public async Task AParameterGivenByPosition_IsNotOfferedByName()
+    {
+        var items = await NamedAsync("Send \"a\", \"b\", |");
+
+        CollectionAssert.AreEqual(new[] { "Copies:=", "Source:=" }, NamesIn(items), Show(items));
+    }
+
+    // MS-VBAL §5.6.13.1: the named arguments come after the positional ones, so nothing but a name is written after one.
+    [TestMethod]
+    public async Task AParameterNamedBeforeTheCursor_IsNotOfferedByName_AndNothingButNamesIsOfferedAfterIt()
+    {
+        var items = await NamedAsync("Send \"a\", copies:=2, |");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Source:=" }, items.Select(item => item.Label).ToArray(), Show(items));
+    }
+
+    [TestMethod]
+    public async Task AParameterNamedAfterTheCursor_IsNotOfferedByName()
+    {
+        var items = await NamedAsync("Send \"a\", |, Copies:=2");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Source:=" }, NamesIn(items), Show(items));
+        CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len", "a value is still written by position there");
+    }
+
+    [TestMethod]
+    public async Task AParameterGivenByPosition_NamedBefore_OrNamedAfter_IsNotOfferedByName_InAnyCase()
+    {
+        var items = await NamedAsync("Send \"a\", heading:=\"h\", |, COPIES:=2");
+
+        CollectionAssert.AreEqual(new[] { "Source:=" }, items.Select(item => item.Label).ToArray(), Show(items));
+    }
+
+    [TestMethod]
+    public async Task TheCommaBeforeAnOptionalArgument_AsksForTheNames()
+    {
+        var items = await NamedAsync("x = Count(\"a\",|", ",");
+
+        CollectionAssert.AreEqual(new[] { "Copies:=" }, NamesIn(items), Show(items));
+    }
+
+    // a positional argument written after the cursor maps to its parameter, and would follow a named one: no name is written where one comes after
+    // (MS-VBAL §5.6.13.1).
+    [TestMethod]
+    [DataRow("Send \"a\", |, 2", DisplayName = "a positional argument after the cursor")]
+    [DataRow("Send \"a\", |, , Upper", DisplayName = "an omitted one, then a positional one")]
+    [DataRow("Call Send(\"a\", |, 2)", DisplayName = "in parentheses")]
+    public async Task WhereAPositionalArgumentFollows_NoNameIsOffered(string line)
+    {
+        var items = await NamedAsync(line);
+
+        Assert.AreEqual(0, NamesIn(items).Length, Show(items));
+    }
+
+    // a statement is a logical line: its physical lines are joined where a line continuation ends one (MS-VBAL §3.2.2).
+    [TestMethod]
+    public async Task ANameNamedOnTheNextPhysicalLine_IsNotOfferedByName()
+    {
+        var items = await NamedAsync("Send \"a\", |, _\r\n        Copies:=2");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Source:=" }, NamesIn(items), Show(items));
+    }
+
+    [TestMethod]
+    public async Task AnArgumentThatStartsOnTheNextPhysicalLine_IsOfferedTheNames()
+    {
+        var items = await NamedAsync("Send \"a\", _\r\n        |");
+
+        CollectionAssert.AreEqual(new[] { "Heading:=", "Copies:=", "Source:=" }, NamesIn(items), Show(items));
+    }
+
+    [TestMethod]
+    public async Task TheSignatureOfACallContinuedOnTheNextPhysicalLine_IsTheCalls()
+    {
+        var help = await CallSignatureAsync("Send \"a\", _\r\n        |");
+
+        Assert.IsNotNull(help, "a signature");
+        StringAssert.StartsWith(help.Signatures.Single().Label, "Sub Send(");
+        Assert.AreEqual(1, help.ActiveParameter);
+    }
+
+    [TestMethod]
+    public async Task TheArgumentsOfACallInAnElseClause_AreCountedFromTheCall()
+    {
+        var items = await NamedAsync("If True Then Send \"x\", 1 Else Send |");
+
+        Assert.AreEqual(0, NamesIn(items).Length, $"Text is required: {Show(items)}");
+    }
+
+    // the Then clause of a single-line If ends at its Else (MS-VBAL §5.4.2.9): what the Else clause writes is no argument of the call in the Then clause.
+    [TestMethod]
+    [DataRow("If True Then Send \"a\", | Else Send 1, 2", new[] { "Heading:=", "Copies:=", "Source:=" }, DisplayName = "a positional argument after the Else")]
+    [DataRow("If True Then Send \"a\", | Else Send 1, Copies:=2", new[] { "Heading:=", "Copies:=", "Source:=" }, DisplayName = "a named argument after the Else")]
+    [DataRow("If True Then Send \"a\", |, Copies:=2 Else Send 1, Heading:=2", new[] { "Heading:=", "Source:=" }, DisplayName = "a named argument before the Else")]
+    public async Task WhatTheElseClauseOfASingleLineIfWrites_IsNoArgumentOfTheCallBeforeIt(string line, string[] expected)
+    {
+        var items = await NamedAsync(line);
+
+        CollectionAssert.AreEqual(expected, NamesIn(items), Show(items));
+    }
+
+    // what is typed of a name with its `:=` already written after it is completed with the name alone.
+    [TestMethod]
+    public async Task ANameWhoseTokenIsWrittenAlready_IsInsertedWithoutIt()
+    {
+        var item = (await NamedAsync("Send \"a\", Cop|:=2")).Single(item => item.Label == "Copies:=");
+
+        Assert.AreEqual("Copies", item.InsertText);
+    }
+
+    // the cursor in the middle of a name: the whole name is replaced, what is after the cursor of it too, so that no part of it is written twice.
+    [TestMethod]
+    [DataRow("Send \"a\", Co|pies:=2", "Copies", DisplayName = "its token written already")]
+    [DataRow("Send \"a\", Co|pies", "Copies:=", DisplayName = "its token not written")]
+    public async Task ANameTheCursorIsInTheMiddleOf_IsReplacedWhole(string line, string text)
+    {
+        var item = (await NamedAsync(line)).Single(item => item.Label == "Copies:=");
+
+        Assert.IsNotNull(item.TextEdit, "an edit of the whole word");
+        var edit = item.TextEdit.TextEdit!;
+        Assert.AreEqual(text, edit.NewText);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(7, 14, 7, 20), edit.Range);
+    }
+
+    // a name the word typed is, in any case, is what the user means to write: it is selected, and the names of the arguments still rank first.
+    [TestMethod]
+    [DataRow("Dim heading As String\r\n    Send \"a\", heading|", "heading", DisplayName = "a variable named as a parameter")]
+    [DataRow("Dim Title As String\r\n    MsgBox \"x\", , Title|", "Title", DisplayName = "MsgBox's Title")]
+    public async Task ANameTheWordTypedIs_IsSelectedBeforeTheNamesOfTheArguments(string line, string expected)
+    {
+        var items = await NamedAsync(line);
+
+        Assert.AreEqual(expected, items.Single(item => item.Preselect).Label, Show(items));
+        StringAssert.EndsWith(items[0].Label, ":=", Show(items));
+    }
+
+    // the specification's InStr and InStrB name their parameters Arg1, Arg2 and Arg3 (MS-VBAL §6.1.2.11.1.14), which MS-VBA does not take as names.
+    [TestMethod]
+    [DataRow("x = InStr(|")]
+    [DataRow("x = InStrB(1, |")]
+    public async Task TheStandardLibrarysPlaceholderNames_AreNotOffered(string line)
+    {
+        var items = await NamedAsync(line);
+
+        Assert.AreEqual(0, NamesIn(items).Length, Show(items));
+    }
+
+    // a name is selected where the word typed matches it; where nothing is typed, a value is as likely as a name.
+    [TestMethod]
+    public async Task WhereNothingIsTyped_NoNameIsSelected()
+    {
+        var items = await NamedAsync("x = Count(\"a\", |");
+
+        Assert.AreEqual(1, items.Count(item => item.Preselect), Show(items));
+        Assert.IsFalse(items.Single(item => item.Preselect).Label.EndsWith(":=", StringComparison.Ordinal), Show(items));
+    }
+
+    [TestMethod]
+    public async Task WhereTheWordTypedMatchesAName_ItIsSelected()
+    {
+        var items = await NamedAsync("x = Count(\"a\", Co|");
+
+        Assert.AreEqual("Copies:=", items.Single(item => item.Preselect).Label, Show(items));
+    }
+
+    // ---- a call of a default member (MS-VBAL §5.6.13): the signature, and the names, are the default member's ----
+
+    [TestMethod]
+    [DataRow("x = p(1, |", "Function Pick(", 1, DisplayName = "a variable of a class")]
+    [DataRow("x = p.Items(|", "Function Pick(", 0, DisplayName = "a member that returns one")]
+    [DataRow("x = h(|", "Function Pick(", 0, DisplayName = "a chain of two default members")]
+    [DataRow("x = c(|", "Item(", 0, DisplayName = "a Collection")]
+    public async Task ACallOfAnObject_IsACallOfItsDefaultMember(string line, string label, int active)
+    {
+        var help = await CallSignatureAsync(line);
+
+        Assert.IsNotNull(help, "a signature");
+        StringAssert.Contains(help.Signatures.Single().Label, label);
+        Assert.AreEqual(active, help.ActiveParameter);
+    }
+
+    [TestMethod]
+    [DataRow("x = arr(|", DisplayName = "an array")]
+    [DataRow("x = s(|", DisplayName = "an object whose class has no default member")]
+    public async Task AnIndexOfWhatHasNoDefaultMember_HasNoSignature(string line)
+        => Assert.IsNull(await CallSignatureAsync(line));
+
+    [TestMethod]
+    [DataRow("x = p(1, |", DisplayName = "a variable of a class")]
+    [DataRow("x = p.Items(1, |", DisplayName = "a member that returns one")]
+    public async Task ACallOfAnObject_IsOfferedItsDefaultMembersNames(string line)
+        => CollectionAssert.AreEqual(new[] { "B:=" }, NamesIn(await NamedAsync(line)));
+
+    // a library whose class returns itself from a member: the member is read before the class is, and names it.
+    private static readonly LibraryDescription Grid = new()
+    {
+        Name = "XL",
+        Classes =
+        [
+            new ClassDescription
+            {
+                Name = "Range",
+                Members =
+                [
+                    new MemberDescription
+                    {
+                        Name = "_Default", Kind = MemberKind.PropertyGet, DispId = 0,
+                        Parameters = [new ParameterDescription { Name = "RowIndex", IsOptional = true }, new ParameterDescription { Name = "ColumnIndex", IsOptional = true }],
+                    },
+                    new MemberDescription { Name = "Cells", Kind = MemberKind.PropertyGet, Type = "Range" },
+                    new MemberDescription { Name = "Row", Kind = MemberKind.PropertyGet, Type = "Long" },
+                ],
+            },
+        ],
+    };
+
+    private const string GridMain = "Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim r As XL.Range\r\n    {0}\r\nEnd Sub\r\n";
+
+    // what a member of a library returns is a class of the library as much as what a variable is declared as: its default member is called, and its members
+    // are listed.
+    [TestMethod]
+    [DataRow("x = r(1, |", DisplayName = "a variable")]
+    [DataRow("x = r.Cells(1, |", DisplayName = "a member that returns one")]
+    [DataRow("x = r.Cells.Cells(1, |", DisplayName = "a member of what a member returns")]
+    public async Task ACallOfWhatALibraryMemberReturns_IsACallOfItsDefaultMember(string line)
+    {
+        var (source, position) = At(string.Format(GridMain, line));
+        var service = Sut(source: new InMemoryLibrarySource(Lab, Grid), references: "XL");
+        var help = await service.SignatureHelpFragmentAsync("Main", source, position, CancellationToken.None);
+        var names = NamesIn((await service.CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items);
+
+        Assert.IsNotNull(help, "a signature");
+        StringAssert.Contains(help.Signatures.Single().Label, "_Default(");
+        Assert.AreEqual(1, help.ActiveParameter);
+        CollectionAssert.AreEqual(new[] { "ColumnIndex:=" }, names);
+    }
+
+    [TestMethod]
+    [DataRow("x = r.Cells.|", DisplayName = "what a member returns")]
+    [DataRow("x = r.Cells.Cells.|", DisplayName = "what a member of it returns")]
+    public async Task TheMembersOfWhatALibraryMemberReturns_AreItsClasss(string line)
+    {
+        var labels = await LabelsAsync(string.Format(GridMain, line), new InMemoryLibrarySource(Lab, Grid), "XL");
+
+        CollectionAssert.IsSubsetOf(new[] { "Cells", "Row" }, labels, string.Join(", ", labels));
+    }
+
+    // a library member's type that the library does not qualify is no class the library declares: not the workspace's Widget, whose members are not listed.
+    [TestMethod]
+    public async Task TheMembersOfWhatALibraryMemberReturns_AreNotThoseOfAWorkspaceClassOfTheSameName()
+    {
+        var orphan = new LibraryDescription
+        {
+            Name = "Orphan",
+            Classes = [new ClassDescription { Name = "Holder", Members = [new MemberDescription { Name = "Thing", Kind = MemberKind.PropertyGet, Type = "Widget" }] }],
+        };
+
+        var labels = await LabelsAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim h As Orphan.Holder\r\n    x = h.Thing.|\r\nEnd Sub\r\n",
+            new InMemoryLibrarySource(Lab, orphan), "Orphan");
+
+        CollectionAssert.DoesNotContain(labels, "Grow", string.Join(", ", labels));
+    }
+
+    [TestMethod]
+    public async Task MeCalled_IsACallOfItsClasssDefaultMember()
+    {
+        var (source, position) = At("""
+            VERSION 1.0 CLASS
+            BEGIN
+              MultiUse = -1  'True
+            END
+            Attribute VB_Name = "Main"
+            Public Function Pick(Optional ByVal A As Long, Optional ByVal B As Long) As Long
+            Attribute Pick.VB_UserMemId = 0
+            End Function
+            Public Sub Run()
+                x = Me(1, |
+            End Sub
+            """);
+        var service = Sut();
+        var help = await service.SignatureHelpFragmentAsync("Main", source, position, CancellationToken.None);
+        var names = NamesIn((await service.CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items);
+
+        StringAssert.StartsWith(help?.Signatures.Single().Label, "Function Pick(");
+        CollectionAssert.AreEqual(new[] { "B:=" }, names);
     }
 
     [TestMethod]
@@ -527,6 +938,19 @@ public sealed class CompletionServiceTests
         var list = await Sut("basic").CompleteDocumentAsync(program.Id.Uri.ToUri(), new Position(1, 6), CancellationToken.None);
 
         CollectionAssert.AreEquivalent(new[] { "Name", "Grow", "Parts" }, list.Items.Select(item => item.Label).ToArray());
+    }
+
+    // what an item replaces is where the client's document has it, not where the module the program is the body of has it.
+    [TestMethod]
+    public async Task WhatAnItemOfAProgramReplaces_IsInTheProgramsOwnLines()
+    {
+        var program = new WorkspaceDocument("hello.rdc", Root, "100 Send \"a\", Co\r\n110 Send \"a\", Copies:=2\r\n");
+        WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), program);
+
+        var list = await Sut("basic").CompleteDocumentAsync(program.Id.Uri.ToUri(), new Position(1, 16), CancellationToken.None);
+        var item = list.Items.Single(item => item.Label == "Copies:=");
+
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), item.TextEdit?.TextEdit?.Range, Show(list.Items));
     }
 
     [TestMethod]
