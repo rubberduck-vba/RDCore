@@ -275,12 +275,42 @@ public sealed class CompletionCandidatesTests
     public void TheFirstCandidates_RankBeforeTheOthers_ThoughOnlyTheirHumpsMatch_AndTheBestOfThemIsPreselected()
     {
         CompletionCandidate[] constants = [new("DarkRed", CompletionItemKind.EnumMember), new("DeepRed", CompletionItemKind.EnumMember), new("DRed", CompletionItemKind.EnumMember)];
-        var items = CompletionCandidates.ListOf("DR", [constants], [new("Drum", CompletionItemKind.Function), new("DarkRed", CompletionItemKind.Variable)]).Items.ToList();
+        var items = CompletionCandidates.ListOf("DR", [new(constants)], [new("Drum", CompletionItemKind.Function), new("DarkRed", CompletionItemKind.Variable)]).Items.ToList();
 
         CollectionAssert.AreEqual(new[] { "DRed", "DarkRed", "DeepRed", "Drum" }, items.Select(item => item.Label).ToArray(),
             string.Join(", ", items.Select(item => item.Label + "/" + item.SortText)));
         Assert.IsTrue(items[0].Preselect);
         Assert.AreEqual(1, items.Count(item => item.Preselect));
+    }
+
+    // each group is a tier, in its order; in each tier the labels the word starts come before the ones whose humps it matches.
+    [TestMethod]
+    public void EachGroupIsATier_InWhichWhatTheWordStartsComesFirst()
+    {
+        CompletionCandidate[] constants = [new("SmallCaps", CompletionItemKind.EnumMember), new("ScSmall", CompletionItemKind.EnumMember)];
+        CompletionCandidate[] names = [new("SubCaption:=", CompletionItemKind.Variable), new("Sc:=", CompletionItemKind.Variable)];
+        CompletionCandidate[] others = [new("StyleCount", CompletionItemKind.Function), new("Scale", CompletionItemKind.Function)];
+
+        var items = CompletionCandidates.ListOf("Sc", [new(constants), new(names, IsSelectedWhenNothingIsTyped: false)], others).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "ScSmall", "SmallCaps", "Sc:=", "SubCaption:=", "Scale", "StyleCount" }, items.Select(item => item.Label).ToArray(),
+            string.Join(", ", items.Select(item => item.Label + "/" + item.SortText)));
+        Assert.AreEqual("ScSmall", items.Single(item => item.Preselect).Label);
+    }
+
+    // where nothing is typed, a group that is not selected then is skipped: the first item that can be selected is.
+    [TestMethod]
+    [DataRow("", "Scale", DisplayName = "nothing typed")]
+    [DataRow("S", "SubTitle:=", DisplayName = "a word typed")]
+    public void AGroupNotSelectedWhereNothingIsTyped_IsSelectedOnceAWordIs(string word, string selected)
+    {
+        CompletionCandidate[] names = [new("SubTitle:=", CompletionItemKind.Variable)];
+        CompletionCandidate[] others = [new("Scale", CompletionItemKind.Function)];
+
+        var items = CompletionCandidates.ListOf(word, [new([]), new(names, IsSelectedWhenNothingIsTyped: false)], others).Items.ToList();
+
+        Assert.AreEqual("SubTitle:=", items[0].Label);
+        Assert.AreEqual(selected, items.Single(item => item.Preselect).Label);
     }
 
     [TestMethod]
