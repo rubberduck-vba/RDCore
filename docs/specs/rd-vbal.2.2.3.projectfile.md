@@ -114,7 +114,7 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |`Name`|`string`|The _identifier name_ (token) used in workspace source code to reference this library.|
 |`Guid`|`string`|The identifier of the type library the reference is to, optional. When it is given, the library is the description made from that type library; when it is empty, the library of `Name`.|
 |`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists. An import of a `.vbp` resolves the path VB6 writes relative to the `.vbp`'s folder (`..\..\Windows\System32\FM20.DLL`), so that it names the same file wherever the project is moved.|
-|`Major`|number (`0`)|The _major_ version number of the referenced type library. With a `Guid`, a description of another major version is not the library.|
+|`Major`|number (`0`)|The _major_ version number of the referenced type library. With a `Guid`, the description must have this major version.|
 |`Minor`|number (`0`)|The _minor_ version number of the referenced type library. With a `Guid`, the least minor version a description may have.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
 

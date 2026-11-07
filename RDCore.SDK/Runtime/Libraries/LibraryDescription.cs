@@ -8,8 +8,8 @@ namespace RDCore.SDK.Runtime.Libraries;
 /// <remarks>
 /// <para>
 /// A library is known by its <see cref="Name"/>: a project references <c>Scripting</c>, and source code qualifies its types with that name, as if the library
-/// were VBA code. Where the library came from - a type library of the machine it was described on, with the identifier and version that machine's registry
-/// gives it - is <see cref="Origin"/>. When libraries of one name are several (<c>DAO</c>), a reference or a dependency that gives an identifier and a version
+/// were VBA code. <see cref="Origin"/> is the type library it was described from, with the identifier and version that the registry of that machine
+/// gives it. When libraries of one name are several (<c>DAO</c>), a reference or a dependency that gives an identifier and a version
 /// finds the description whose origin they are (<see cref="LibraryIdentity"/>); one that gives a name alone finds the library of the name.
 /// </para>
 /// <para>
@@ -46,7 +46,7 @@ public sealed record class LibraryDescription
 
     /// <summary>
     /// The libraries whose types this one's members are declared as, each by its name and, when the description says, the identifier and version of the type
-    /// library it was made against. They are loaded with it, whether or not a project references them: a project that references Excel can use what Excel
+    /// library it was built against. They are loaded with it, whether or not a project references them: a project that references Excel can use what Excel
     /// returns. A dependency whose name a project references is the library the project references (<strong>RD-VBAL §2.3.1.2</strong>).
     /// </summary>
     public ImmutableArray<LibraryIdentity> DependsOn { get; init; } = [];

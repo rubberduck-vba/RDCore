@@ -43,7 +43,7 @@ public static class LibraryJson
     /// The version of the format this writes. It reads it, and the version before it.
     /// </summary>
     /// <remarks>
-    /// Version 2 states a dependency as the library it was made against, <c>{ "name": "DAO", "guid": "{00025E04-...}", "version": "3.5" }</c>, as well as by
+    /// Version 2 states a dependency as the library it was built against, <c>{ "name": "DAO", "guid": "{00025E04-...}", "version": "3.5" }</c>, as well as by
     /// its name alone (<c>"stdole"</c>); version 1 states it by its name alone.
     /// </remarks>
     public const int CurrentFormatVersion = 2;
