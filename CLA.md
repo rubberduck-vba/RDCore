@@ -145,9 +145,14 @@ Signed:
 - **Email:** `____________________`
 - **Date:** `____________________`
 
-*Electronic acceptance recorded by the Project's CLA bot (for example, by commenting
-"I have read the CLA Document and I hereby sign the CLA" on a pull request) constitutes
-signature of this Agreement.*
+*Electronic acceptance recorded by the Project's CLA bot constitutes signature of this
+Agreement. To sign, post one of these comments, exactly as written, on a pull request:*
+
+- `I have read and agreed with the CLA terms and conditions and I hereby sign the CLA` (in English)
+- `Je confirme avoir lu et accepté les termes et conditions de la CLA, et je la signe par la présente` (in French)
+
+*A signature recorded by the CLA bot covers Your Contributions to every RDCore repository of
+the rubberduck-vba organization: RDCore, RDCore.SDK and RDCore.HexIDE.*
 
 ---
 
