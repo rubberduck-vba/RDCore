@@ -41,6 +41,26 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             return ReplCommandResult.Continue;
         }
 
+        var debugger = context.Debugger;
+        await WriteAsync(context, from, to, debugger.State is ReplDebugState.Suspended ? debugger.StoppedAt : null, withFolds: true, token);
+        return ReplCommandResult.Continue;
+    }
+
+    /// <summary>
+    /// Lists the lines of the program from <paramref name="from"/> to <paramref name="to"/> as <c>LIST</c> does, with <paramref name="current"/> marked as the
+    /// statement the program waits before.
+    /// </summary>
+    /// <remarks>A break lists the lines around the one it stopped at with it.</remarks>
+    /// <param name="context">The live session.</param>
+    /// <param name="from">The first line number to list, or <see langword="null"/> for the start of the program.</param>
+    /// <param name="to">The last line number to list, or <see langword="null"/> for its end.</param>
+    /// <param name="current">The line marked as a whole as the statement the program waits before; <see langword="null"/> for none.</param>
+    /// <param name="withFolds">
+    /// Whether a block that is folded (<c>FOLD</c>) is listed folded. Without them, every line of the range is listed, and each block is marked as open.
+    /// </param>
+    /// <param name="token">A token that cancels the requests the listing makes of the language server.</param>
+    internal static async Task WriteAsync(ReplCommandContext context, int? from, int? to, int? current, bool withFolds, CancellationToken token)
+    {
         // the numbers are right-aligned to the widest one in the listing, as a BASIC listing is, so
         // the statements line up whatever the numbering.
         var lines = context.Program.Lines(from, to).ToArray();
@@ -56,8 +76,9 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             blocks.TryAdd(fold.StartLine, fold);
         }
 
+        bool IsFolded(int number) => withFolds && context.Folds.IsFolded(number);
         var hidden = new HashSet<int>(blocks.Values
-            .Where(fold => context.Program.NumberAt(fold.StartLine) is { } start && context.Folds.IsFolded(start))
+            .Where(fold => context.Program.NumberAt(fold.StartLine) is { } start && IsFolded(start))
             .SelectMany(fold => Enumerable.Range(fold.StartLine + 1, fold.EndLine - fold.StartLine)));
         var glyphs = context.Console.DrawsUnicode ? unicodeFoldGlyphs : asciiFoldGlyphs;
         var foldLane = blocks.Count == 0 ? 0 : App.Console.ConsoleText.WidthOf(glyphs.Open);
@@ -79,7 +100,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             }
 
             var text = $"{number} {statement}";
-            var folded = blocks.ContainsKey(index) && context.Folds.IsFolded(number);
+            var folded = blocks.ContainsKey(index) && IsFolded(number);
             var foldMark = !blocks.ContainsKey(index) ? new ReplTextRun(new string(' ', foldLane), ReplTextStyle.Plain)
                 : new ReplTextRun(folded ? glyphs.Folded : glyphs.Open, ReplTextStyle.Plain);
 
@@ -87,7 +108,7 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
             // one the program waits at, or is the statement the program that was stopped waits before; the mark in the margin is outside that, on the shell's own
             // background. A disabled breakpoint is its mark in the margin and nothing more: the program goes past it.
             var breakpoint = debugger.Breakpoints.SingleOrDefault(bp => bp.LineNumber == number);
-            var waitsBefore = debugger.State is ReplDebugState.Suspended && debugger.StoppedAt == number;
+            var waitsBefore = current == number;
 
             // a folded block hides its lines and the breakpoints on them: its first line says how many lines, and shows a breakpoint it hides when it has none of
             // its own - an enabled one first. The line isn't marked as a breakpoint's: the program doesn't stop on it.
@@ -125,7 +146,6 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
         }
 
         context.Console.WriteLine();
-        return ReplCommandResult.Continue;
     }
 
     private static string Padded(string mark, int lane) => mark + new string(' ', Math.Max(0, lane - App.Console.ConsoleText.WidthOf(mark)));
