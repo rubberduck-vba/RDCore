@@ -6,7 +6,7 @@ namespace RDCore.SDK.ConsoleIO;
 /// </summary>
 /// <remarks>
 /// An interactive shell needs <kbd>Ctrl</kbd>+<kbd>C</kbd> and <kbd>Ctrl</kbd>+<kbd>Break</kbd> to
-/// mean "stop what you are doing" — the RUN/STOP key, not "quit" — which is only true while
+/// mean "stop what you are doing" (the RUN/STOP key, not "quit"), which is only true while
 /// something owns them. Disposing hands them back.
 /// <para>
 /// Cancelling the default behaviour is best-effort for <kbd>Ctrl</kbd>+<kbd>Break</kbd>
@@ -24,7 +24,7 @@ public sealed class ConsoleBreakHandler : IDisposable
     /// Starts intercepting the break keys.
     /// </summary>
     /// <param name="onBreak">
-    /// Runs on the console's own handler thread, so it must return promptly — signal something and
+    /// Runs on the console's own handler thread, so it must return promptly: signal something and
     /// let the shell react, rather than doing the work here.
     /// </param>
     public ConsoleBreakHandler(Action onBreak)

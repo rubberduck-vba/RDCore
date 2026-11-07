@@ -9,7 +9,7 @@ namespace RDCore.SDK.Model.Types;
 /// <summary>
 /// The MS-VBAL 3.3.2 reserved data-type names and 3.3.1 type-declaration characters, each mapped to
 /// its singleton <see cref="VBType"/>. This is the intrinsic-only fallback every component shares
-/// when binding a declared type from a bare name without a project or library resolver — the
+/// when binding a declared type from a bare name without a project or library resolver: the
 /// language server's AST symbol provider and the environment host's <c>rdcore/host/symbols/define</c>
 /// handler resolve intrinsics identically from here, so a type that is <c>VBUnknownType</c> on one
 /// side is <c>VBUnknownType</c> on the other.

@@ -5,15 +5,15 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Semantics.Instructions;
 
 /// <summary>
-/// One entry of an <see cref="InstructionList"/> — <strong>RD-VBAL §3.5</strong>. <see cref="Offset"/>
+/// One entry of an <see cref="InstructionList"/> (<strong>RD-VBAL §3.5</strong>). <see cref="Offset"/>
 /// is both the entry's index into <see cref="InstructionList.Items"/> and the program-counter value
 /// that fetches it.
 /// </summary>
 /// <param name="Offset">The entry's index into the owning <see cref="InstructionList.Items"/>.</param>
 /// <param name="Node">
 /// The <see cref="StatementNode"/> this instruction was lowered from, or <c>null</c> for an instruction
-/// lowering synthesized — a block statement's closer, or the unconditional jump a branch's body ends
-/// with — which no source statement corresponds to.
+/// lowering synthesized (a block statement's closer, or the unconditional jump a branch's body ends
+/// with), which no source statement corresponds to.
 /// </param>
 /// <param name="Kind">The control-flow shape of this instruction.</param>
 /// <param name="Target">
@@ -36,7 +36,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// </param>
 /// <param name="Else">
 /// For <see cref="InstructionKind.ConditionalBranch"/>: the offset to branch to when the condition is
-/// false, or the case does not match — the next header in the same <c>If</c>/<c>ElseIf</c>/<c>Case</c>
+/// false, or the case does not match: the next header in the same <c>If</c>/<c>ElseIf</c>/<c>Case</c>
 /// chain, or the offset right past the whole construct when there is no next branch to try. Unused
 /// otherwise.
 /// </param>
@@ -56,7 +56,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// header's range clauses are matched against (<c>null</c> on a <c>Case Else</c>, which never reads it).
 /// For a <see cref="InstructionKind.ForNext"/>/<see cref="InstructionKind.ForEachNext"/> closer: its own
 /// <see cref="InstructionKind.ForOpener"/>/<see cref="InstructionKind.ForEachOpener"/>, whose stashed
-/// counter/end/step (or enumerator) this closer advances and tests — a <c>GoTo</c> landing directly on
+/// counter/end/step (or enumerator) this closer advances and tests. A <c>GoTo</c> landing directly on
 /// the closer without that opener having run this activation is <strong>MS-VBAL §5.4.2.3</strong> error
 /// 92, "For loop not initialized", detected the same way an unresolved with-target would be: no state
 /// stashed for the offset this instruction names. <c>null</c> on every other instruction kind.
@@ -64,7 +64,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <param name="EnclosingWith">
 /// The offset of the innermost <see cref="InstructionKind.With"/> instruction lexically enclosing this
 /// one, so a <c>.Member</c>/<c>!member</c> with-expression reads the right hidden target however
-/// control arrived here — a <c>GoTo</c> into or out of a <c>With</c> block leaves no stale stack to
+/// control arrived here: a <c>GoTo</c> into or out of a <c>With</c> block leaves no stale stack to
 /// unwind. <c>null</c> when this instruction is not inside any <c>With</c> block.
 /// </param>
 public sealed record class Instruction(int Offset, StatementNode? Node, InstructionKind Kind, int? Target, ImmutableArray<int?> Targets, int? Else, int? End, int? Matching, int? EnclosingWith)

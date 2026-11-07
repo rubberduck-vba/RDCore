@@ -21,13 +21,13 @@ public sealed record class InstanceExpressionStaticSemantics : IStaticSemantics
     public static InstanceExpressionStaticSemantics Instance => _instance.Value;
 
     /// <summary>
-    /// Determines the declared type of an <see cref="InstanceExpressionNode"/> — the enclosing class
+    /// Determines the declared type of an <see cref="InstanceExpressionNode"/>: the enclosing class
     /// module's own type. Unlike <see cref="SimpleNameExpressionNode"/>, <c>Me</c> is never resolved
     /// by name: it identifies the module enclosing <paramref name="context"/>'s own scope directly.
     /// </summary>
     /// <param name="context">The compile-time context this expression is evaluated against.</param>
     /// <param name="expression">The <see cref="InstanceExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">Unused — an instance expression has no operands.</param>
+    /// <param name="operandDeclaredTypes">Unused: an instance expression has no operands.</param>
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not an <see cref="InstanceExpressionNode"/>.</exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {

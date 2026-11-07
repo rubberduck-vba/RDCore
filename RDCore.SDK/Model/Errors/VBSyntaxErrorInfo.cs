@@ -18,7 +18,7 @@ public record class VBSyntaxErrorInfo(int ErrorId, SourceLocation Location, stri
     : VBErrorInfo(ErrorId, Location, Description, Verbose)
 {
     /// <summary>
-    /// The formal error ID — a class of <em>compilation error</em> that occurs during parsing as the
+    /// The formal error ID: a class of <em>compilation error</em> that occurs during parsing as the
     /// syntax tree is assembled.
     /// </summary>
     public VBCompileErrorId VBCompileErrorId => (VBCompileErrorId)ErrorId;

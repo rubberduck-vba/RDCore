@@ -15,12 +15,12 @@ public enum AssignmentKind
     /// <summary>A Set-assignment (<strong>MS-VBAL §5.4.3.9</strong>); its <c>Set</c> keyword is never optional.</summary>
     Set,
     /// <summary>
-    /// An <c>LSet</c> statement (<strong>MS-VBAL §5.4.3.6</strong>) — left-aligns a string value into the
+    /// An <c>LSet</c> statement (<strong>MS-VBAL §5.4.3.6</strong>): left-aligns a string value into the
     /// width the target already has, or copies one user-defined type over another as bytes.
     /// </summary>
     LSet,
     /// <summary>
-    /// An <c>RSet</c> statement (<strong>MS-VBAL §5.4.3.7</strong>) — right-aligns a string value into the
+    /// An <c>RSet</c> statement (<strong>MS-VBAL §5.4.3.7</strong>): right-aligns a string value into the
     /// width the target already has. It has no user-defined-type form: §5.4.3.7 admits only <c>String</c>
     /// and <c>Variant</c>.
     /// </summary>
@@ -30,7 +30,7 @@ public enum AssignmentKind
 /// <summary>
 /// An executable statement node that represents a Let-assignment (<strong>MS-VBAL §5.4.3.8</strong>) or
 /// a Set-assignment (<strong>MS-VBAL §5.4.3.9</strong>). Both statements share the exact same syntax
-/// (<c>[Let] lExpression = expression</c> vs. <c>Set lExpression = expression</c>) — only their static
+/// (<c>[Let] lExpression = expression</c> vs. <c>Set lExpression = expression</c>): only their static
 /// and runtime coercion semantics differ, so one shape suffices; <see cref="Kind"/> tells them apart.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>

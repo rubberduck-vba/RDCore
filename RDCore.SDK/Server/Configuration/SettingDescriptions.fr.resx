@@ -73,6 +73,9 @@
   <data name="Environment_ErlLineNumbering" xml:space="preserve">
     <value>Ce que donne Erl : la ligne où l'erreur a été levée (DocumentLine), ou le dernier numéro de ligne avant elle, comme le fait MS-VBA (LineLabel).</value>
   </data>
+  <data name="Environment_ErlAfterErrClear" xml:space="preserve">
+    <value>Ce que fait Err.Clear à Erl : le remet à 0 (Reset), ou laisse la ligne de l'erreur effacée, comme le fait MS-VBA (Kept).</value>
+  </data>
   <data name="Environment_AllowDllImports" xml:space="preserve">
     <value>Si une procédure qu'une instruction Declare importe d'une bibliothèque peut être appelée. Un appel de bibliothèque peut exécuter n'importe quel code sur cette machine.</value>
   </data>

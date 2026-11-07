@@ -304,7 +304,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to This machine has no type library &apos;{0}&apos;. A library is given as a file, as the identifier the machine gave it, or by its name..
+        ///   Looks up a localized string similar to This machine has no type library &apos;{0}&apos;. A library is given as a file, as the identifier the machine gave it, or by its name. A file that holds more than one library is given with the number of the library&apos;s resource, as a .vbp references it (MSVBVM60.DLL\3)..
         /// </summary>
         public static string ExportLibrary_NotFound {
             get {

@@ -22,7 +22,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     private static readonly Lazy<MemberAccessExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
-    /// The shared instance — this rule has no state of its own.
+    /// The shared instance: this rule has no state of its own.
     /// </summary>
     public static MemberAccessExpressionStaticSemantics Instance => _instance.Value;
 
@@ -35,16 +35,16 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     /// The compile-time context this expression is evaluated against. Member lookup is structural (an
     /// owner type's own members), not lexical; the context's resolver is only used to read those members
     /// from the owner class's or user-defined type's declaration, by identity, rather than from the
-    /// snapshot the type was built with — a class typed after itself cannot carry a complete snapshot.
+    /// snapshot the type was built with: a class typed after itself cannot carry a complete snapshot.
     /// </param>
     /// <param name="expression">The <see cref="MemberAccessExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">
     /// The effective owner's already-determined declared type, at
-    /// <see cref="InputIndex.MemberAccessOwner"/> — <see cref="MemberAccessExpressionNode.Owner"/>'s
+    /// <see cref="InputIndex.MemberAccessOwner"/>: <see cref="MemberAccessExpressionNode.Owner"/>'s
     /// declared type, or, for a <c>with-expression</c> (<see cref="MemberAccessExpressionNode.Owner"/>
     /// is <c>null</c>), the innermost enclosing <c>With</c> block's target type (MS-VBAL §5.6.15),
-    /// which the caller is responsible for substituting in — this rule doesn't care which it was.
-    /// <see cref="MemberAccessExpressionNode.Member"/> has no independent declared type to pass here —
+    /// which the caller is responsible for substituting in. This rule does not care which it was.
+    /// <see cref="MemberAccessExpressionNode.Member"/> has no independent declared type to pass here:
     /// it is a bare member name, not a lexically resolved expression.
     /// </param>
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="MemberAccessExpressionNode"/>.</exception>

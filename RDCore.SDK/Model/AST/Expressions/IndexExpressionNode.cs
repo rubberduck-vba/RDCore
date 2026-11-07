@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
-/// <strong>MS-VBAL 5.6.13</strong> <c>index-expression</c> (<c>callee(arguments)</c>) — represents
+/// <strong>MS-VBAL 5.6.13</strong> <c>index-expression</c> (<c>callee(arguments)</c>): represents
 /// both a procedure/function call and array/collection indexing; which one it is is a semantic
 /// question the resolver answers from the callee's declared kind, not something this node encodes.
 /// </summary>
@@ -43,7 +43,7 @@ public sealed record class NamedArgumentNode(SyntaxNodeId Identity, SourceLocati
 
 /// <summary>
 /// <strong>MS-VBAL 5.6.13.1</strong> a skipped positional argument (e.g. the middle position in
-/// <c>Foo(1, , 3)</c>) in an <see cref="IndexExpressionNode"/>'s argument list — a placeholder that
+/// <c>Foo(1, , 3)</c>) in an <see cref="IndexExpressionNode"/>'s argument list: a placeholder that
 /// preserves the position for binding against the callee's parameter list, not a value-producing
 /// expression.
 /// </summary>
@@ -53,7 +53,7 @@ public sealed record class MissingArgumentNode(SyntaxNodeId Identity, SourceLoca
     : ExpressionNode(Identity, Location, []);
 
 /// <summary>
-/// <strong>MS-VBAL 5.6.16.8</strong> an <c>AddressOf</c> expression — legal only as an
+/// <strong>MS-VBAL 5.6.16.8</strong> an <c>AddressOf</c> expression: legal only as an
 /// <see cref="IndexExpressionNode"/> argument, yielding a procedure pointer rather than evaluating a
 /// call.
 /// </summary>

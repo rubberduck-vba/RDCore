@@ -13,10 +13,13 @@ using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Binding;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Semantics.Plans;
+using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -46,13 +49,31 @@ namespace RDCore.Runtime.Compiled;
 /// Any other instruction compiled code does not do, the interpreter runs alone the same way (IR lowering S2.5a), with the reason recorded
 /// (<see cref="Stepped"/>): a statement, a condition, a <c>GoTo</c>, a <c>For</c> that is not compiled code's. So does a procedure of a class, whose
 /// <c>Me</c> is in its frame, and one that has what compiled code holds nothing of - an object, a <c>String</c>, a <c>Variant</c>, an array, a record, a
-/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's. A body none of whose instructions that do
+/// <c>Static</c> (<see cref="NeedsFrame"/>): the instructions that read or write it are the interpreter's, but for a Variant's (below). A body none of whose instructions that do
 /// something are compiled code's is kept in the interpreter.
 /// </para>
 /// <para>
 /// The interpreter steps a block whose state the frame holds too (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it
 /// that uses its object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar, or that compiled code does not
 /// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
+/// </para>
+/// <para>
+/// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes
+/// (<see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred: each operand evaluated on payloads, and the
+/// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines (a Variant that holds no payload, a sum that
+/// overflows its subtype) the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
+/// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
+/// </para>
+/// <para>
+/// A <c>String</c> parameter or variable of variable length is held in the cell its frame holds it in too (<see cref="TextSlots"/>):
+/// a <c>Let</c> of an expression of Strings (a literal, a String variable, two joined by <c>&amp;</c> or by <c>+</c>) writes the text it is, and two Strings
+/// are compared under the module's comparison mode, as <c>TryEvaluateText</c> and <c>TryCompareText</c> evaluate them. A String that holds no text compiled
+/// code reads (one that ends with a lone byte) the interpreter runs the statement of.
+/// </para>
+/// <para>
+/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="FieldSlots"/>), found where the
+/// interpreter finds it (through the frame, whose object is <c>Me</c>) as the activation begins and again wherever it goes on after the interpreter ran
+/// an instruction: compiled code reads and writes it as it does a variable held in a cell.
 /// </para>
 /// <para>
 /// A <c>Select Case</c> of a scalar selector is compiled code's (IR lowering S2.5b): the selector is evaluated once into a local, and each <c>Case</c>
@@ -64,7 +85,7 @@ namespace RDCore.Runtime.Compiled;
 /// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
 /// </para>
 /// </remarks>
-internal sealed class ProcedureAnalysis
+internal sealed partial class ProcedureAnalysis
 {
     private readonly IRuntimeSession _session;
     private readonly RuntimeExpressionEvaluator _evaluator;
@@ -103,6 +124,94 @@ internal sealed class ProcedureAnalysis
 
     private readonly SortedSet<int> _cellSlots = [];
 
+    /// <summary>
+    /// The slots of the <c>Variant</c> parameters and variables, in order: each is held in the cell its frame holds it in, which compiled
+    /// code reads and writes it in.
+    /// </summary>
+    public IReadOnlyList<int> VariantSlots => [.. _variantSlots];
+
+    private readonly SortedSet<int> _variantSlots = [];
+
+    /// <summary>
+    /// The slots of the object parameters and variables, in order: each is held in the cell its frame holds it in, which compiled code
+    /// reads the reference it holds from, for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
+    /// </summary>
+    public IReadOnlyList<int> ObjectSlots => [.. _objectSlots];
+
+    private readonly SortedSet<int> _objectSlots = [];
+
+    /// <summary>
+    /// The classes the procedure's <c>TypeOf</c> expressions test against, by the number compiled code knows each by.
+    /// </summary>
+    public IReadOnlyList<VBClassModuleSymbol> Classes => _classes;
+
+    private readonly List<VBClassModuleSymbol> _classes = [];
+
+    // the For statements of a Variant counter, which the interpreter runs, and the counter's slot; their Next is compiled code's (VariantForNextStep).
+    private readonly Dictionary<int, int> _variantLoops = [];
+
+    /// <summary>
+    /// The subtype each <c>Variant</c> slot is speculated to hold (<see cref="VariantSpeculation"/>): the join of the subtypes of what
+    /// compiled code assigns it, and of the type a loop it counts counts in, where those are known when the procedure is compiled. A slot assigned anything
+    /// else, or that compiled code assigns nothing of a known subtype, has no speculation, and is evaluated as any Variant is.
+    /// </summary>
+    public IReadOnlyDictionary<int, ScalarKind> SpeculatedKinds => _speculatedKinds ??= Speculate();
+
+    private Dictionary<int, ScalarKind>? _speculatedKinds;
+
+    // what compiled code assigns each Variant slot (VariantLetStep), and the kind each Variant counter's loop counts in.
+    private readonly List<(int Slot, VariantNode Value)> _variantAssignments = [];
+    private readonly List<(int Slot, ScalarKind Kind)> _variantCountings = [];
+
+    // the speculations, joined until none changes: an assignment of an operation of the slot itself (S = S + I) is of the subtype the slot is speculated to
+    // hold, which is first what its other assignments make it. A join only widens, so few passes are made.
+    private Dictionary<int, ScalarKind> Speculate()
+    {
+        var kinds = new Dictionary<int, ScalarKind>();
+        foreach (var (slot, kind) in _variantCountings)
+        {
+            kinds[slot] = kinds.TryGetValue(slot, out var held) ? VariantSpeculation.Join(held, kind) : kind;
+        }
+
+        for (var pass = 0; pass < 8; pass++)
+        {
+            var changed = false;
+            foreach (var (slot, value) in _variantAssignments)
+            {
+                if (VariantSpeculation.KindOf(value, kinds) is not { } assigned)
+                {
+                    continue;
+                }
+
+                var joined = kinds.TryGetValue(slot, out var held) ? VariantSpeculation.Join(held, assigned) : assigned;
+                if (!kinds.TryGetValue(slot, out var before) || before != joined)
+                {
+                    kinds[slot] = joined;
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+            {
+                break;
+            }
+        }
+
+        return kinds;
+    }
+
+    /// <summary>
+    /// The slots compiled code numbers the scalar instance fields of <c>Me</c> by, past the slots of the procedure's layout: each is held
+    /// in the cell the object holds it in (<see cref="CellSlots"/>), which compiled code reads and writes it in, as it does a parameter passed by reference.
+    /// </summary>
+    public IReadOnlySet<int> FieldSlots => _fieldSlots;
+
+    private readonly HashSet<int> _fieldSlots = [];
+    private readonly Dictionary<SemanticId, int> _slotOfField = [];
+
+    // what the slot of a field is numbered from: past every slot of any layout.
+    private const int FirstFieldSlot = 1 << 24;
+
     /// <summary>The kind of the function result variable; <see langword="null"/> for a <c>Sub</c>.</summary>
     public ScalarKind? ResultKind { get; private set; }
 
@@ -128,6 +237,11 @@ internal sealed class ProcedureAnalysis
     {
         var analysis = new ProcedureAnalysis(session, evaluator, procedure);
         analysis.Analyze(list);
+
+        // Me, and the fields found through it, are what a frame holds of a member of a class that nothing else makes it hold: such a member is entered
+        // without one, and its activation holds Me. Any other member is called with its frame.
+        analysis.EntersWithoutFrame = analysis.MeSlot is not null && !analysis.NeedsFrame;
+        analysis.NeedsFrame |= analysis.MeSlot is not null || analysis._fieldSlots.Count > 0;
         return analysis;
     }
 
@@ -213,7 +327,7 @@ internal sealed class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -308,6 +422,18 @@ internal sealed class ProcedureAnalysis
     /// </summary>
     public bool NeedsFrame { get; private set; }
 
+    /// <summary>
+    /// The slot of <c>Me</c>, an object slot (<see cref="ObjectSlots"/>), when the procedure is a member of a class; <see langword="null"/> otherwise.
+    /// </summary>
+    public int? MeSlot { get; private set; }
+
+    /// <summary>
+    /// Whether the procedure is a member of a class whose frame holds nothing compiled code does not but <c>Me</c>: a call compiled
+    /// code makes of it on an object enters it without a frame, as it enters a procedure (<see cref="CompiledActivation.EnterMemberDirectly"/>), its
+    /// activation holding <c>Me</c>, and its fields found on the object.
+    /// </summary>
+    public bool EntersWithoutFrame { get; private set; }
+
     // where a declaration is, which is what a reason it gives is reported at.
     private static SourceLocation LocationOf(BoundTypedSymbol declared) => new(declared.Uri, declared.Range);
 
@@ -329,6 +455,40 @@ internal sealed class ProcedureAnalysis
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
+
+            // Me is held as an object parameter is (below), in the cell its frame holds it in - or its activation, for a member entered without a frame.
+            if (i == 0 && parameter.Name == Tokens.Me && IsObjectType(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
+            {
+                MeSlot = _layout.ParameterSlots[i];
+                _ = _objectSlots.Add(_layout.ParameterSlots[i]);
+                _slotSymbols[_layout.ParameterSlots[i]] = parameter;
+                continue;
+            }
+
+            // a Variant is held in the cell its frame holds it in, which compiled code reads and writes.
+            if (parameter is not ParamArrayParameterSymbol && parameter.ResolvedType is VBVariantType && _layout.ParameterSlots[i] >= 0)
+            {
+                NeedsFrame = true;
+                _ = _variantSlots.Add(_layout.ParameterSlots[i]);
+                _slotSymbols[_layout.ParameterSlots[i]] = parameter;
+                continue;
+            }
+
+            // an object is held in the cell its frame holds it in, whose reference compiled code reads.
+            if (parameter is not ParamArrayParameterSymbol && IsObjectType(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
+            {
+                NeedsFrame = true;
+                _ = _objectSlots.Add(_layout.ParameterSlots[i]);
+                _slotSymbols[_layout.ParameterSlots[i]] = parameter;
+                continue;
+            }
+
+            // a String is held in the cell its frame holds it in, whose text compiled code reads and writes.
+            if (parameter is not ParamArrayParameterSymbol && IsText(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
+            {
+                HoldText(_layout.ParameterSlots[i], parameter);
+                continue;
+            }
 
             // what is not a scalar the frame holds: a ParamArray, an object, a String, a Variant, an array, a record; and Me.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) is not { } kind || _layout.ParameterSlots[i] < 0)
@@ -357,6 +517,19 @@ internal sealed class ProcedureAnalysis
                 case VBLocalVariableSymbol { IsStatic: false } variable when ScalarKinds.Of(variable.ResolvedType) is { } kind && _layout.LocalSlots[i] >= 0:
                     _slots[_layout.LocalSlots[i]] = kind;
                     _slotSymbols[_layout.LocalSlots[i]] = variable;
+                    continue;
+                case VBLocalVariableSymbol { IsStatic: false, ResolvedType: VBVariantType } variable when _layout.LocalSlots[i] >= 0:
+                    NeedsFrame = true;
+                    _ = _variantSlots.Add(_layout.LocalSlots[i]);
+                    _slotSymbols[_layout.LocalSlots[i]] = variable;
+                    continue;
+                case VBLocalVariableSymbol { IsStatic: false } variable when IsObjectType(variable.ResolvedType) && _layout.LocalSlots[i] >= 0:
+                    NeedsFrame = true;
+                    _ = _objectSlots.Add(_layout.LocalSlots[i]);
+                    _slotSymbols[_layout.LocalSlots[i]] = variable;
+                    continue;
+                case VBLocalVariableSymbol { IsStatic: false } variable when IsText(variable.ResolvedType) && _layout.LocalSlots[i] >= 0:
+                    HoldText(_layout.LocalSlots[i], variable);
                     continue;
 
                 // a Static outlives the activation, and what is no scalar is held as the interpreter holds it: both are the frame's, and the instructions that
@@ -392,10 +565,12 @@ internal sealed class ProcedureAnalysis
                 return AnalyzeLet(instruction.Offset, assignment);
 
             case InstructionKind.Simple when instruction.Node is CallStatementNode call:
-                return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))
-                    is BoundCall bound && CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made
-                    ? made
-                    : RefusedCall(call.Callee, location);
+                return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments)) switch
+                {
+                    BoundCall bound when CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made => made,
+                    BoundMember member when MemberCallOf(member, CallStep.NoResult, instruction.Offset, resultKind: null) is { } madeOn => madeOn,
+                    _ => RefusedCall(call.Callee, location),
+                };
 
             case InstructionKind.Simple:
                 Refuse(IneligibilityKind.Statement, StatementNameOf(instruction.Node), location);
@@ -420,6 +595,10 @@ internal sealed class ProcedureAnalysis
 
             case InstructionKind.ForOpener when instruction.Node is ForStatementNode forStatement && instruction.End is { } past:
                 return AnalyzeForOpener(instruction.Offset, forStatement, past);
+
+            case InstructionKind.ForNext when instruction.Matching is { } variantOpener && instruction.Target is { } variantBody
+                && _variantLoops.TryGetValue(variantOpener, out var variantCounter):
+                return new VariantForNextStep(instruction.Offset, variantOpener, variantBody, variantCounter);
 
             case InstructionKind.ForNext when instruction.Matching is { } opener && instruction.Target is { } body && _loopOfOpener.TryGetValue(opener, out var loop):
                 return new ForNextStep(instruction.Offset, loop, CounterSlotOf(loop), _loops[loop].Kind, body);
@@ -494,13 +673,35 @@ internal sealed class ProcedureAnalysis
         switch (Bind(assignment.Target))
         {
             case BoundName { Symbol: var function } when ResultKind is { } result && IsOwnFunction(function):
-                return assigned is BoundCall resultCall
-                    ? CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation)
-                    : PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null;
+                return assigned switch
+                {
+                    BoundCall resultCall => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
+                    BoundMember { Member: VBFunctionMemberSymbol } resultMember => MemberCallOf(resultMember, -1, offset, result)
+                        ?? RefusedCall(resultMember.Access, assignment.SourceLocation),
+                    _ => PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null,
+                };
             case BoundVariable variable when SlotOf(variable) is { } slot:
-                return assigned is BoundCall slotCall
-                    ? CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation)
-                    : PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null;
+                return assigned switch
+                {
+                    BoundCall slotCall => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
+                    BoundMember { Member: VBFunctionMemberSymbol } slotMember => MemberCallOf(slotMember, slot, offset, _slots[slot])
+                        ?? RefusedCall(slotMember.Access, assignment.SourceLocation),
+                    _ => PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null,
+                };
+
+            // a Variant is assigned the payload as it is, of its own type (MS-VBAL §5.5.1.2.12), as TryAssignUnboxed assigns it.
+            case BoundVariable variable when VariantSlotOf(variable) is { } variantSlot:
+                if (Dynamic(assigned) is not { } variantValue)
+                {
+                    return null;
+                }
+
+                _variantAssignments.Add((variantSlot, variantValue));
+                return new VariantLetStep(offset, variantSlot, variantValue);
+
+            // a String is assigned the text as it is, as TryAssignUnboxed assigns it.
+            case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
+                return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
                 return null;
@@ -511,11 +712,12 @@ internal sealed class ProcedureAnalysis
     public List<CompiledCallee> Callees { get; } = [];
 
     // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind, none a Variant, and given an
-    // argument of its kind; of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what it returns is let go
-    // of as a temporary of the statement, which compiled code holds none of. A parameter passed by reference is given the cell of a variable of the
-    // activation of its kind, which is held in one from then on, or a cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made
-    // with RuntimeProcedureInvoker.InvokeScalars, as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with
-    // the cells as the interpreter passes them (CellReference) when any is passed by reference.
+    // argument of its kind, or a String given Strings (TextArgumentOf); of a function returning resultKind when what it returns is read, and of a scalar
+    // kind when it is not - what it returns is let go of as a temporary of the statement, which compiled code holds none of. A parameter passed by
+    // reference is given the cell of a variable of the activation of its kind, which is held in one from then on, the address of a String variable, or a
+    // cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made with RuntimeProcedureInvoker.InvokeScalars, as
+    // RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with the arguments as the interpreter passes them
+    // (CellReference, VBRuntimeReference) when any is passed by reference.
     private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
@@ -531,6 +733,40 @@ internal sealed class ProcedureAnalysis
             return null;
         }
 
+        return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null);
+    }
+
+    // a call of a member of an object variable of the activation declared as a class, its parameters after Me taken as CallOf takes a
+    // procedure's. The member is the one the class the variable is declared as has: the one the object's class invokes for it is found when the call is
+    // made (CompiledActivation.CanCallMember), as the interpreter finds it (EvaluateBoundMember), and the call is made as the interpreter makes it, the
+    // object given as Me.
+    private CallStep? MemberCallOf(BoundMember call, int result, int offset, ScalarKind? resultKind)
+    {
+        if (call is not { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol, Owner: BoundVariable owner, IsLateBound: false }
+            || ObjectSlotOf(owner) is not { } receiver)
+        {
+            return null;
+        }
+
+        var parameters = RuntimeProcedureInvoker.GetParameters(call.Member);
+        if (parameters is not [{ Name: Tokens.Me }, ..])
+        {
+            return null;
+        }
+
+        // a member called with no parentheses is given no argument; one written with them is given the arguments bound for it.
+        var arguments = call.BoundArguments ?? (call.Arguments is null ? [] : default);
+        if (arguments.IsDefault || arguments.Length != parameters.Length - 1)
+        {
+            return null;
+        }
+
+        return CallWith(call.Member, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver);
+    }
+
+    private CallStep? CallWith(VBTypeMemberSymbol procedure, ReadOnlySpan<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments, int result, int offset,
+        ScalarKind? resultKind, BoundMember? site, int? receiver)
+    {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar: an object it returned would be held by the statement until it ends.
         if (resultKind is { } read && (procedure is not VBFunctionMemberSymbol { ResolvedType: var returned } || ScalarKinds.Of(returned) != read)
@@ -539,12 +775,26 @@ internal sealed class ProcedureAnalysis
             return null;
         }
 
-        var kinds = new List<ScalarKind>(parameters.Length);
+        var kinds = new List<ScalarKind?>(parameters.Length);
         var byReference = new List<bool>(parameters.Length);
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
         for (var i = 0; i < parameters.Length; i++)
         {
+            // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
+            if (parameters[i] is not ParamArrayParameterSymbol && site is null && IsText(parameters[i].ResolvedType))
+            {
+                if (TextArgumentOf(arguments[i]) is not { } text)
+                {
+                    return null;
+                }
+
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(text);
+                continue;
+            }
+
             if (parameters[i] is ParamArrayParameterSymbol || ScalarKinds.Of(parameters[i].ResolvedType) is not { } kind || ArgumentOf(arguments[i], kind) is not { } value)
             {
                 return null;
@@ -561,8 +811,8 @@ internal sealed class ProcedureAnalysis
 
         // the variables passed by reference are held in cells from the start of the activation, which the call is made with.
         _cellSlots.UnionWith(escaping);
-        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference));
-        return new CallStep(offset, Callees.Count - 1, values, result);
+        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference) { Site = site });
+        return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
 
     // the argument of a parameter of kind: a value let-coerced to it, for one passed by value or for one passed by reference that is given no variable; the
@@ -587,7 +837,12 @@ internal sealed class ProcedureAnalysis
     {
         if (_reasons.Count == 0)
         {
-            Refuse(IneligibilityKind.Call, (callee as SimpleNameExpressionNode)?.IdentifierName ?? callee.GetType().Name, location);
+            Refuse(IneligibilityKind.Call, callee switch
+            {
+                SimpleNameExpressionNode name => name.IdentifierName,
+                MemberAccessExpressionNode member => member.Member.IdentifierName,
+                _ => callee.GetType().Name,
+            }, location);
         }
 
         return null;
@@ -598,6 +853,22 @@ internal sealed class ProcedureAnalysis
     // MS-VBAL §5.4.2.3, as ProcedureExecutor.ExecuteForOpener and TryStepForUnboxed do it: a counter of the activation, which counts in its own type.
     private CompiledStep? AnalyzeForOpener(int offset, ForStatementNode forStatement, int past)
     {
+        // a Variant counter counts in the type its start, end and step decide (ForLoopEvaluator.Operands): the interpreter runs the statement, and compiled
+        // code steps the loop with the state it gives the frame.
+        if (forStatement.ControlExpression is SimpleNameExpressionNode variantName && Bind(forStatement.ControlExpression) is BoundVariable variantCounter
+            && VariantSlotOf(variantCounter) is { } counterSlot)
+        {
+            _variantLoops[offset] = counterSlot;
+            if (VariantSpeculation.CountingKindOf(SpeculatedKindOf(forStatement.StartExpression), SpeculatedKindOf(forStatement.EndExpression),
+                forStatement.StepExpression is { } variantStep ? SpeculatedKindOf(variantStep) : ScalarKind.Integer) is { } counting)
+            {
+                _variantCountings.Add((counterSlot, counting));
+            }
+
+            _stepped.Add(new Ineligibility(IneligibilityKind.ForCounter, variantName.IdentifierName, forStatement.SourceLocation));
+            return new SteppedStep(offset);
+        }
+
         if (forStatement.ControlExpression is not SimpleNameExpressionNode || Bind(forStatement.ControlExpression) is not BoundVariable counter
             || SlotOf(counter) is not { } slot)
         {
@@ -630,6 +901,16 @@ internal sealed class ProcedureAnalysis
     }
 
     private readonly List<int> _counterSlots = [];
+
+    // the subtype a bound of a loop of a Variant counter is of, when it is a payload of a known kind (a literal, a typed variable, a constant): looked at
+    // only, its refusals not the procedure's.
+    private ScalarKind? SpeculatedKindOf(ExpressionNode expression)
+    {
+        var mark = _reasons.Count;
+        var kind = Dynamic(Bind(expression)) is VariantOfNode { Value.Kind: var payload } ? payload : (ScalarKind?)null;
+        _reasons.RemoveRange(mark, _reasons.Count - mark);
+        return kind;
+    }
 
     private int CounterSlotOf(int loop) => _counterSlots[loop];
 
@@ -720,7 +1001,73 @@ internal sealed class ProcedureAnalysis
 
     // a variable of the activation, by its slot in the procedure's layout.
     private int? SlotOf(BoundVariable variable)
-        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : null;
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _slots.ContainsKey(slot.Index) ? slot.Index : FieldSlotOf(variable);
+
+    // an instance field of a scalar type of the class the procedure is a member of - a variable of the class module, declared in its instance scope: a
+    // field of Me (MS-VBAL §5.6.10), numbered the first time it is named.
+    private int? FieldSlotOf(BoundVariable variable)
+    {
+        if (variable is not { IsAutoInstantiated: false, Variable: VBModuleFieldVariableMemberSymbol { ScopeKind: ScopeKind.Instance } field }
+            || field.ParentUri.AbsoluteUri != _procedure.ParentUri.AbsoluteUri || ScalarKinds.Of(field.ResolvedType) is not { } kind)
+        {
+            return null;
+        }
+
+        if (!_slotOfField.TryGetValue(field.SemanticId, out var slot))
+        {
+            slot = FirstFieldSlot + _slotOfField.Count;
+            _slotOfField[field.SemanticId] = slot;
+            _slots[slot] = kind;
+            _slotSymbols[slot] = field;
+            _ = _cellSlots.Add(slot);
+            _ = _fieldSlots.Add(slot);
+        }
+
+        return slot;
+    }
+
+    // a Variant variable of the activation, by its slot.
+    private int? VariantSlotOf(BoundVariable variable)
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
+
+    // an object variable of the activation: one declared As New is made when it is read (MS-VBAL §5.2.3.1.4), which is the interpreter's.
+    private int? ObjectSlotOf(BoundVariable variable)
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index) ? slot.Index : null;
+
+    // a type whose values are object references: Object, a class or an interface.
+    private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;
+
+    // an operand of Is compiled code reads: an object variable of the activation, by its slot, or Nothing, which is no slot. Any other is the interpreter's.
+    private bool TryObjectOperand(BoundNode operand, out int? slot)
+    {
+        slot = null;
+        switch (operand)
+        {
+            case BoundVariable variable when ObjectSlotOf(variable) is { } held:
+                slot = held;
+                return true;
+            case BoundLiteral { Literal.StaticValue: VBObjectValue nothing } when nothing.IsNothing():
+                return true;
+            case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:
+                return TryObjectOperand(enclosed, out slot);
+            default:
+                Unsupported(operand);
+                return false;
+        }
+    }
+
+    // the number the body knows a class TypeOf tests against by.
+    private int ClassNumberOf(VBClassModuleSymbol tested)
+    {
+        var number = _classes.FindIndex(known => known.Uri.AbsoluteUri == tested.Uri.AbsoluteUri);
+        if (number < 0)
+        {
+            number = _classes.Count;
+            _classes.Add(tested);
+        }
+
+        return number;
+    }
 
     // the condition of an If, an ElseIf, an inline If and a loop, and whether it is an Until (ProcedureExecutor.GetCondition).
     private static (ExpressionNode? Condition, bool Negate) ConditionOf(StatementNode? node) => node switch
@@ -741,6 +1088,11 @@ internal sealed class ProcedureAnalysis
     private PayloadNode? Condition(ExpressionNode condition)
     {
         var node = Bind(condition);
+        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        {
+            return Dynamic(node) is { } value ? new TruthNode(value) : null;
+        }
+
         return IsExtended(node) ? PayloadAs(node, ScalarKind.Boolean) : Payload(node);
     }
 
@@ -751,6 +1103,12 @@ internal sealed class ProcedureAnalysis
     // TryEvaluatePayloadAs: an extended intermediate converted to the destination from its 80 bits, anything else coerced from its payload.
     private PayloadNode? PayloadAs(BoundNode node, ScalarKind destination)
     {
+        // a Variant's payload, of its subtype, converted to the destination as any payload is.
+        if (RuntimeExpressionEvaluator.IsDeclaredVariant(node))
+        {
+            return Dynamic(node) is { } value ? new UnvariantNode(value, destination) : null;
+        }
+
         if (IsExtended(node))
         {
             return Extended(node) is { } extended ? new StoreNode(extended, destination) : null;
@@ -781,6 +1139,20 @@ internal sealed class ProcedureAnalysis
     {
         switch (node)
         {
+            // MS-VBAL §5.6.9.7: two object references compared as they are.
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
+                return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
+                    ? new IsNode(leftObject, rightObject)
+                    : null;
+
+            // MS-VBAL §5.6.7: what TypeOf tests is the interpreter's own test (RuntimeExpressionEvaluator.IsInstanceOf).
+            case BoundTypeOf { Operand: BoundVariable tested } typeOf when ObjectSlotOf(tested) is { } typed:
+                return new TypeOfNode(typed, ClassNumberOf(typeOf.Class));
+
+            // MS-VBAL §5.6.9.5: two Strings compared, as TryEvaluatePayload compares them (TryCompareText).
+            case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } compared:
+                return CompareText(compared);
+
             case BoundBinary or BoundUnary when IsExtended(node):
                 return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
 
@@ -795,6 +1167,10 @@ internal sealed class ProcedureAnalysis
                     && ScalarPayload.TryOf(literal.Literal.StaticValue.TypeInfo, literal.Literal.StaticValue.RuntimeValue, out var payload)
                         ? new ConstantNode(literalKind, payload.Integral, payload.Floating)
                         : Unsupported(literal);
+
+            case BoundVariable variable when VariantSlotOf(variable) is not null:
+                Refuse(IneligibilityKind.VariantOperand, variable.Variable.Name, variable.Expression.Location);
+                return null;
 
             case BoundVariable variable:
                 return SlotOf(variable) is { } slot ? new SlotNode(slot, _slots[slot]) : Unsupported(variable);
@@ -824,6 +1200,40 @@ internal sealed class ProcedureAnalysis
                 return Unsupported(node);
         }
     }
+
+    // TryEvaluatePayload of what a Variant is: a Variant variable of the activation; an operation of a Variant operand, whose plan is
+    // deferred - each operand evaluated on payloads, then planned for their types (PlanFor); and anything else evaluated on payloads, of its own kind.
+    private VariantNode? Dynamic(BoundNode node)
+    {
+        switch (node)
+        {
+            case BoundVariable variable when VariantSlotOf(variable) is { } slot:
+                return new VariantSlotNode(slot);
+
+            case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
+                return Dynamic(enclosed);
+
+            case BoundBinary { Plan: { IsDeferred: true } plan } binary:
+                if (!IsPayloadOperator(plan.Operator))
+                {
+                    Refuse(IneligibilityKind.Operator, plan.Operator, binary.Expression.Location);
+                    return null;
+                }
+
+                return Dynamic(binary.Left) is { } left && Dynamic(binary.Right) is { } right ? new VariantBinaryNode(plan.Operator, left, right) : null;
+
+            case BoundUnary { Plan: { IsDeferred: true } plan, Operand: var operand } unary when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
+                return Dynamic(operand) is { } value ? new VariantUnaryNode(plan.Operator, value, unary.NegatesAConstantExpression) : null;
+
+            default:
+                return Payload(node) is { } payload ? new VariantOfNode(payload) : null;
+        }
+    }
+
+    // the binary operators TryOperateBinary does on payloads: the arithmetic ones but ^, the comparisons and the logical operators.
+    private static bool IsPayloadOperator(string token)
+        => token is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.DivisionOp or Tokens.IntegerDivisionOp or Tokens.ModuloOp
+            || OperatorTokens.ComparisonOf(token) is not null || OperatorTokens.LogicalOf(token) is not null;
 
     private PayloadNode? Constant(BoundNode node, Symbol constant)
     {

@@ -6,7 +6,7 @@ using RDCore.SDK.Model.Values.Runtime;
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// Computes a <see cref="VBVarType"/> tag from a declared <see cref="VBType"/> — the mapping a
+/// Computes a <see cref="VBVarType"/> tag from a declared <see cref="VBType"/>: the mapping a
 /// <c>Variant</c> value uses to stay correctly shaped for COM interop (MS-VBAL 6.1.1.16).
 /// </summary>
 public static class VBVarTypeExtensions

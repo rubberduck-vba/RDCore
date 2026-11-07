@@ -30,14 +30,19 @@ public sealed class CompiledErrorHandlingTests
     }
 
     // the program run both ways: the compiled run is the interpreted one, and the procedure named was compiled, and ran to its end in compiled code - or was
-    // handed to the interpreter as often as walkBacks says - having the interpreter run recovered instructions alone.
+    // handed to the interpreter as often as walkBacks says - having the interpreter run recovered instructions alone. With expected, what both runs
+    // observe holds it: the result is the one MS-VBA gives, and not only one both engines agree on.
     internal static async Task<CompilationResult> AssertAlikeAsync(string program, string compiled, long recoveries, long walkBacks = 0,
-        IReadOnlyList<(string Name, string Source)>? classes = null)
+        IReadOnlyList<(string Name, string Source)>? classes = null, string? expected = null)
     {
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, classes);
         var run = await RunAsync(program, VBExecutionEngine.Compiled, classes);
         Assert.AreEqual(interpreted.Observed, run.Observed);
+        if (expected is not null)
+        {
+            StringAssert.Contains(run.Observed, expected);
+        }
 
         Assert.IsTrue(run.Compiled.TryGetValue(compiled, out var result), $"{compiled} was not called");
         Assert.IsNotNull(result.Body, $"{compiled}: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");

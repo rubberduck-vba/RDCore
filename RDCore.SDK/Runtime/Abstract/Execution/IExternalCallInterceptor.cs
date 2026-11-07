@@ -4,7 +4,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// What an <see cref="IExternalCallInterceptor"/> decided about a call.
 /// </summary>
 /// <param name="Reason">
-/// Why the call was refused, in words a person reading a diagnostic needs — <see langword="null"/> when it
+/// Why the call was refused, in words a person reading a diagnostic needs: <see langword="null"/> when it
 /// was not refused.
 /// </param>
 public readonly record struct ExternalCallDecision(string? Reason)
@@ -18,7 +18,7 @@ public readonly record struct ExternalCallDecision(string? Reason)
     /// Refuse the call.
     /// </summary>
     /// <param name="reason">
-    /// Why — it reaches the workspace as the verbose half of a <c>Permission denied</c> run-time error, so
+    /// Why: it reaches the workspace as the verbose half of a <c>Permission denied</c> run-time error, so
     /// it should say what was refused and on what grounds.
     /// </param>
     public static ExternalCallDecision Block(string reason) => new(reason);
@@ -80,7 +80,7 @@ public interface IExternalCallProvider
     bool CanDispatch(ExternalCallRequest request);
 
     /// <summary>
-    /// Runs it, and returns what it yielded — an error in the result rather than thrown, as everywhere else
+    /// Runs it, and returns what it yielded: an error in the result rather than thrown, as everywhere else
     /// in the semantics layer.
     /// </summary>
     /// <param name="request">The call to run. <see cref="CanDispatch"/> has already accepted it.</param>

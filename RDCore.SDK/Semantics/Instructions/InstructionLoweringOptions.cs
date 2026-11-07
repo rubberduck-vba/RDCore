@@ -12,7 +12,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// statements exist at all, and each later answer of this kind is a property here rather than another
 /// parameter on every call site.
 /// <para>
-/// Everything here is a property of the <em>build</em>, not of the source — two builds of the same
+/// Everything here is a property of the <em>build</em>, not of the source: two builds of the same
 /// procedure can legitimately lower to different instructions, which is the point.
 /// </para>
 /// </remarks>
@@ -28,7 +28,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// two settings that can disagree.
 /// <para>
 /// Stated negatively on purpose. This is a <c>record struct</c>, so <c>default</c> zeroes every field
-/// regardless of the constructor's own defaults — the state a caller gets by saying nothing has to be
+/// regardless of the constructor's own defaults: the state a caller gets by saying nothing has to be
 /// the safe one, and the safe one is a debug build that keeps the statements.
 /// </para>
 /// </param>
@@ -59,7 +59,7 @@ public readonly record struct InstructionLoweringOptions(
     public ImmutableArray<SourceRange> Dead => DeadRanges.IsDefault ? [] : DeadRanges;
 
     /// <summary>
-    /// Whether <c>Debug</c> statements are lowered — every build but a release one that drops them.
+    /// Whether <c>Debug</c> statements are lowered: every build but a release one that drops them.
     /// </summary>
     public bool IncludeDebugStatements => !(IsReleaseBuild && DropsDebugStatements);
 }

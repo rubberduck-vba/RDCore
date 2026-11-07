@@ -42,4 +42,4 @@ There is no `DeleteJsonSetting`: a configuration file is the workspace's to edit
 
 An _analysis_ reaches no settings: what it saves is not kept, and nothing is read.
 
-The `ErlLineNumbering` environment setting is bound from `appsettings.json`, with the rest of the runtime profile (see [**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)).
+The `ErlLineNumbering` and `ErlAfterErrClear` environment settings are bound from `appsettings.json`, with the rest of the runtime profile (see [**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)).

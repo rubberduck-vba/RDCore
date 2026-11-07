@@ -5,26 +5,59 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// Instructions compiled code does not do, in a compiled procedure (IR lowering S2.5a): the interpreter runs each alone, and the activation goes on compiled
-/// where it leaves it. What compiled code holds nothing of - <c>Me</c>, an object, a <c>String</c>, a <c>Variant</c>, a <c>Static</c> - is the frame's,
-/// and the instructions that read or write it the interpreter's. A program runs the same either way.
+/// Instructions compiled code does not do, in a compiled procedure: the interpreter runs each alone, and the activation goes on compiled where it leaves
+/// it. What compiled code holds nothing of (a <c>Static</c>, a variable of the module) is the frame's, and the instructions that read or write it the
+/// interpreter's; so is a call of a member bound late. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledSteppingTests
 {
+    // a class whose members are called late-bound, on P, a variable of the module declared As Object: compiled code does not call a member it binds no
+    // declaration of (rd-vbal.3.5.6), so a statement that calls one is the interpreter's by design. It is what the rows below that need a statement
+    // compiled code does not do are given.
+    private static readonly (string Name, string Source)[] Pieces =
+    [
+        ("Piece", ModuleWorkspace.ClassModule("Piece", "Option Explicit",
+            "Public Function Text() As String", "    Text = \"x\"", "End Function",
+            "Public Function Size(ByVal S As String) As Long", "    Size = Len(S)", "End Function")),
+    ];
+
+    // the program, with P declared and set to a Piece first thing in Main, whose other statements are the lines given up to its End Sub.
+    private static string LateBound(params string[] lines) => Program(["Public P As Object", "Public Sub Main()", "    Set P = New Piece", .. lines]);
+
+    // the lines of the program, counted from 0, that call a member of P.
+    private static int[] LateBoundLines(string program)
+        => program.Split("\r\n").Select((line, number) => (line, number)).Where(each => each.line.Contains("P.", StringComparison.Ordinal))
+            .Select(each => each.number).ToArray();
+
+    // each late-bound call is a statement the interpreter runs: stepped, or a reason the body is the interpreter's.
+    private static void AssertLateBoundIsStepped(string program, CompilationResult result)
+    {
+        var stepped = result.Stepped.Concat(result.Reasons).Select(reason => reason.Location!.Value.Range.Start.Line).ToHashSet();
+        foreach (var line in LateBoundLines(program))
+        {
+            Assert.Contains(line, stepped,
+                $"line {line}, a late-bound call, is no longer stepped: the row needs a statement compiled code does not do; give it another.");
+        }
+    }
+
+    // the interpreter runs the statement of each of 3 passes that calls P, and the one after the loop: 4.
     [TestMethod]
-    public async Task AStringBuiltInALoop_IsTheInterpreters_AndTheLoopIsCompiled()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
+    public async Task ALateBoundCallInALoop_IsTheInterpreters_AndTheLoopIsCompiled()
+    {
+        var program = LateBound(
             "    Debug.Print Built(3)",
             "End Sub",
             "Private Function Built(ByVal N As Long) As Long",
             "    Dim I As Long, S As String",
             "    For I = 1 To N",
-            "        S = S & \"x\"",
+            "        S = S & P.Text",
             "    Next",
-            "    Built = Len(S)",
-            "End Function"), "Built", recoveries: 4);
+            "    Built = P.Size(S)",
+            "End Function");
+
+        AssertLateBoundIsStepped(program, await AssertAlikeAsync(program, "Built", recoveries: 4, classes: Pieces));
+    }
 
     [TestMethod]
     public async Task AGoTo_GoesWhereTheInterpreterSendsIt()
@@ -40,15 +73,16 @@ public sealed class CompiledSteppingTests
             "    Jumped = 1",
             "End Function"), "Jumped", recoveries: 1);
 
-    // a member of a class: its Me is in its frame, and so are the fields of the object it is a call on.
+    // a member of a class: its Me is in its frame, and a scalar field of the object it is a call on is in the cell the object holds it in, which compiled
+    // code reads and writes.
     [TestMethod]
-    public async Task AMemberOfAClass_IsCompiled_AndItsFieldsAreTheInterpreters()
+    public async Task AMemberOfAClass_IsCompiled_WithTheFieldsOfMe()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim C As New Counter",
             "    Debug.Print C.AddUpTo(3)",
             "    Debug.Print C.AddUpTo(4)",
-            "End Sub"), "AddUpTo", recoveries: 4, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
+            "End Sub"), "AddUpTo", recoveries: 0, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
                 "Option Explicit",
                 "Private mTotal As Long",
                 "Public Function AddUpTo(ByVal N As Long) As Long",
@@ -88,8 +122,8 @@ public sealed class CompiledSteppingTests
             "    Value = mValue + T",
             "End Property"))];
 
-        await AssertAlikeAsync(program, "Let Value", recoveries: 1, classes: box);
-        await AssertAlikeAsync(program, "Value", recoveries: 1, classes: box);
+        await AssertAlikeAsync(program, "Let Value", recoveries: 0, classes: box);
+        await AssertAlikeAsync(program, "Value", recoveries: 0, classes: box);
     }
 
     // a Property Set: its object parameter is the frame's, and what it does with it the interpreter's.
@@ -100,7 +134,7 @@ public sealed class CompiledSteppingTests
             "    Dim H As New Holder",
             "    Set H.Items = New Collection",
             "    Debug.Print H.Total",
-            "End Sub"), "Set Items", recoveries: 5, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
+            "End Sub"), "Set Items", recoveries: 4, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
                 "Option Explicit",
                 "Private mItems As Collection",
                 "Private mTotal As Long",
@@ -148,8 +182,9 @@ public sealed class CompiledSteppingTests
             "    Next",
             "End Function"), "Summed", recoveries: 5);
 
+    // the For statement of a Variant counter decides the type its loop counts in, and is the interpreter's; each Next is compiled code's.
     [TestMethod]
-    public async Task AForWithAVariantCounter_IsTheInterpreters_AroundACompiledBody()
+    public async Task AForWithAVariantCounter_IsSteppedByTheInterpreter_AndItsNextIsCompiled()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Counting()",
@@ -159,19 +194,20 @@ public sealed class CompiledSteppingTests
             "    For V = 1 To 3",
             "        Counting = Counting + 1",
             "    Next",
-            "End Function"), "Counting", recoveries: 4);
+            "End Function"), "Counting", recoveries: 1);
 
-    // what the interpreter runs alone is said where it is: a Next, which has no statement of its own, at its For.
+    // what the interpreter runs alone is said where it is: a Next, which has no statement of its own, at its For - one of a counter that is a variable of
+    // the module, which compiled code holds nothing of.
     [TestMethod]
     public async Task WhatTheInterpreterRunsAlone_IsSaidWhereItIs_ANextAtItsFor()
     {
         var compiled = await AssertAlikeAsync(Program(
+            "Private M As Long",
             "Public Sub Main()",
             "    Debug.Print Counting()",
             "End Sub",
             "Private Function Counting() As Long",
-            "    Dim V As Variant",
-            "    For V = 1 To 3",
+            "    For M = 1 To 3",
             "        Counting = Counting + 1",
             "    Next",
             "End Function"), "Counting", recoveries: 4);
@@ -309,24 +345,29 @@ public sealed class CompiledSteppingTests
     }
 
     // a compiled variable passed by reference in a call the interpreter makes is its cell in the frame, which the callee writes: read back after the call.
+    // The call is the interpreter's because it also gives a late-bound call's result; the interpreter runs it at each of 3 passes, and the Len after the
+    // loop: 4.
     [TestMethod]
     public async Task AVariablePassedByReferenceInACallTheInterpreterMakes_IsWhatTheCalleeWrote()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
+    {
+        var program = LateBound(
             "    Debug.Print Counted()",
             "End Sub",
             "Private Function Counted() As Long",
             "    Dim S As String, N As Long, I As Long",
             "    For I = 1 To 3",
-            "        Append S, N",
+            "        Append S, N, P.Text",
             "        N = N * 2",
             "    Next",
             "    Counted = N * 10 + Len(S)",
             "End Function",
-            "Private Sub Append(ByRef S As String, ByRef N As Long)",
-            "    S = S & \"x\"",
+            "Private Sub Append(ByRef S As String, ByRef N As Long, ByVal Tag As String)",
+            "    S = S & Tag",
             "    N = N + 1",
-            "End Sub"), "Counted", recoveries: 4);
+            "End Sub");
+
+        AssertLateBoundIsStepped(program, await AssertAlikeAsync(program, "Counted", recoveries: 4, classes: Pieces));
+    }
 
     // an object the interpreter makes and calls: the frame's, from one statement to the next.
     [TestMethod]
@@ -365,26 +406,29 @@ public sealed class CompiledSteppingTests
             "    Guarded = Guarded * 100 + Err.Number",
             "End Function"), "Guarded", recoveries: 2);
 
-    // a GoSub to a statement the interpreter runs, and a Return to one.
+    // a GoSub to a statement the interpreter runs, and a Return to one: at each of 2 passes, the statement GoSub lands on and the one Return lands on, 4.
     [TestMethod]
     public async Task AGoSubAndItsReturn_LandOnStatementsTheInterpreterRuns()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
+    {
+        var program = LateBound(
             "    Debug.Print Routed()",
             "End Sub",
             "Private Function Routed() As Long",
             "    Dim S As String, I As Long, T As Long",
             "    For I = 1 To 2",
             "        GoSub Build",
-            "        Routed = Routed + Len(S)",
+            "        Routed = Routed + P.Size(S)",
             "        T = T + I",
             "    Next",
             "    Routed = Routed * 10 + T",
             "    Exit Function",
             "Build:",
-            "    S = S & \"ab\"",
+            "    S = S & P.Text & P.Text",
             "    Return",
-            "End Function"), "Routed", recoveries: 4);
+            "End Function");
+
+        AssertLateBoundIsStepped(program, await AssertAlikeAsync(program, "Routed", recoveries: 4, classes: Pieces));
+    }
 
     // an End the interpreter runs alone ends the program, there.
     [TestMethod]
@@ -404,14 +448,15 @@ public sealed class CompiledSteppingTests
             "    End",
             "End Sub"), "Ended", recoveries: 1);
 
-    // a member calls another member of the object it is a call on, Me.
+    // a member calls another member of the object it is a call on, Me: each call is the interpreter's, and what the callee assigns the field is what
+    // compiled code reads of it after.
     [TestMethod]
     public async Task AMemberCallingAnotherMemberOfMe_IsCompiled()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim C As New Counter",
             "    Debug.Print C.AddUpTo(3)",
-            "End Sub"), "AddUpTo", recoveries: 4, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
+            "End Sub"), "AddUpTo", recoveries: 3, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
                 "Option Explicit",
                 "Private mTotal As Long",
                 "Public Function AddUpTo(ByVal N As Long) As Long",
@@ -431,53 +476,56 @@ public sealed class CompiledSteppingTests
     [TestMethod]
     public async Task ABodyWhoseLoopIsTheInterpreters_IsInterpreted_WithItsReasons()
     {
-        var compiled = await AssertAlikeAsync(Program(
-            "Public Sub Main()",
+        var program = LateBound(
             "    Debug.Print Cheap()",
             "End Sub",
             "Private Function Cheap() As Long",
-            "    Dim N As Long, K As Variant",
+            "    Dim N As Long, S As String",
             "    N = 7",
             "    Do",
-            "        K = K + 1",
-            "    Loop Until K >= 5",
-            "    Cheap = N + K",
-            "End Function"));
+            "        S = S & P.Text",
+            "    Loop Until P.Size(S) >= 5",
+            "    Cheap = N + P.Size(S)",
+            "End Function");
+        var compiled = await AssertAlikeAsync(program, Pieces);
 
+        // the reasons are the statements the interpreter would have run alone: the three that call P.
         var cheap = compiled["Cheap"];
         Assert.IsNull(cheap.Body);
         Assert.IsEmpty(cheap.Stepped);
-        CollectionAssert.AreEqual(new[] { 7, 8, 9 }, cheap.Reasons.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(),
+        CollectionAssert.AreEqual(LateBoundLines(program), cheap.Reasons.Select(reason => reason.Location!.Value.Range.Start.Line).ToArray(),
             string.Join("; ", cheap.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 
     // what each loop gains is its own: a loop whose statements are all the interpreter's keeps the body interpreted, whatever a loop beside it or around it
     // does compiled; one that does something compiled at each pass, beside it or inside it, does not.
     [TestMethod]
-    [DataRow("For I = 1 To 3|    T = T + I|Next|Do|    S = S & \"x\"|Loop Until Len(S) >= 10", false, DisplayName = "a compiled loop beside one that is all stepped")]
-    [DataRow("For I = 1 To 3|    T = T + I|Next|Do|    S = S & \"x\"|    T = T + 1|Loop Until Len(S) >= 10", true, DisplayName = "two loops that each do something compiled")]
-    [DataRow("For I = 1 To 3|    T = T + I|    S = \"\"|    Do|        S = S & \"x\"|    Loop Until Len(S) >= 10|Next", false,
+    [DataRow("For I = 1 To 3|    T = T + I|Next|Do|    S = S & P.Text|Loop Until P.Size(S) >= 10", false, DisplayName = "a compiled loop beside one that is all stepped")]
+    [DataRow("For I = 1 To 3|    T = T + I|Next|Do|    S = S & P.Text|    T = T + 1|Loop Until P.Size(S) >= 10", true,
+        DisplayName = "two loops that each do something compiled")]
+    [DataRow("For I = 1 To 3|    T = T + I|    S = \"\"|    Do|        S = S & P.Text|    Loop Until P.Size(S) >= 10|Next", false,
         DisplayName = "a compiled loop around one that is all stepped")]
-    [DataRow("For I = 1 To 3|    S = \"\"|    Do|        S = S & \"x\"|        T = T + 1|    Loop Until Len(S) >= 10|Next", true,
+    [DataRow("For I = 1 To 3|    S = \"\"|    Do|        S = S & P.Text|        T = T + 1|    Loop Until P.Size(S) >= 10|Next", true,
         DisplayName = "a loop around one that does something compiled")]
-    [DataRow("Do|    S = S & \"x\"|    Select Case T|        Case 1|    End Select|Loop Until Len(S) >= 10", true,
+    [DataRow("Do|    S = S & P.Text|    Select Case T|        Case 1|    End Select|Loop Until P.Size(S) >= 10", true,
         DisplayName = "a loop whose Select Case compares compiled")]
-    [DataRow("Do|    Select Case True|        Case S = \"\"|            S = \"x\"|        Case Else|            S = S & \"x\"|    End Select|Loop Until Len(S) >= 10",
+    [DataRow("Do|    Select Case True|        Case P.Size(S) = 0|            S = P.Text|        Case Else|            S = S & P.Text|    End Select|Loop Until P.Size(S) >= 10",
         false, DisplayName = "a loop whose Select Case compares nothing compiled")]
     public async Task EachLoop_GainsForItself(string loops, bool compiles)
     {
-        var compiled = await AssertAlikeAsync(Program([
-            "Public Sub Main()",
+        var program = LateBound([
             "    Debug.Print Pad()",
             "End Sub",
             "Private Function Pad() As Long",
             "    Dim S As String, I As Long, T As Long",
             .. loops.Split('|').Select(line => "    " + line),
-            "    Pad = Len(S) + T",
-            "End Function"]));
+            "    Pad = P.Size(S) + T",
+            "End Function"]);
+        var compiled = await AssertAlikeAsync(program, Pieces);
 
         var pad = compiled["Pad"];
         Assert.AreEqual(compiles, pad.Body is not null, string.Join("; ", pad.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        AssertLateBoundIsStepped(program, pad);
     }
 
     // a body that would do nothing of its own compiled - every statement that does something the interpreter's - is the interpreter's whole, and says why.

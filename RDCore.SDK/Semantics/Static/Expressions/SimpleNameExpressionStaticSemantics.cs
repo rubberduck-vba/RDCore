@@ -30,7 +30,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     /// </summary>
     /// <param name="context">The compile-time context this expression is evaluated against.</param>
     /// <param name="expression">The <see cref="SimpleNameExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">Unused — a simple name has no operands.</param>
+    /// <param name="operandDeclaredTypes">Unused: a simple name has no operands.</param>
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="SimpleNameExpressionNode"/>.</exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {

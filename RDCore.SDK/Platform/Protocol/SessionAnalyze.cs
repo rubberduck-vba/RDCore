@@ -12,7 +12,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <remarks>
 /// The counterpart to <see cref="SessionExecuteParams"/> for a client with no editor: an editor gets
 /// this through LSP's own <c>textDocument/diagnostic</c> pull against a document it has open, and a
-/// shell has neither a document nor a pull — but wants the same answer, from the same providers, for
+/// shell has neither a document nor a pull, but wants the same answer, from the same providers, for
 /// the code in its buffer.
 /// </remarks>
 [Method(RDCorePlatformProtocol.SessionAnalyze, Direction.ClientToServer)]
@@ -92,7 +92,7 @@ public record class SessionDiagnostic
     /// </summary>
     /// <remarks>
     /// Physical, not logical: the client supplied the source, so only the client knows what its own
-    /// lines mean — a shell whose buffer is numbered maps this back to the line number the user typed.
+    /// lines mean. A shell whose buffer is numbered maps this back to the line number the user typed.
     /// </remarks>
     public int Line { get; init; }
 

@@ -15,8 +15,8 @@ public sealed class EnvironmentSessionProviderTests
     private static readonly Uri WorkspaceRoot = new("file:///c:/ws/");
     private static readonly Symbol GlobalScope = GlobalSymbols.UnresolvedSymbol;
 
-    private static EnvironmentSessionProvider NewProvider(MockFileSystem? fileSystem = null)
-        => new(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+    private static EnvironmentSessionProvider NewProvider(MockFileSystem? fileSystem = null, SupportedLanguage? language = null)
+        => new(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, SourceLanguage: language),
             fileSystem ?? new MockFileSystem(),
             NullLogger<EnvironmentSessionProvider>.Instance);
 
@@ -122,6 +122,21 @@ public sealed class EnvironmentSessionProviderTests
         Assert.AreEqual(0, session.References[0].Priority);
         Assert.AreEqual("Excel", session.References[1].Name);
         Assert.AreEqual(1, session.References[1].Priority);
+    }
+
+    // a VB6 project's Visual Basic runtime is in the session's references in its place: after the standard library, before the ones the project lists, and once
+    // when the project lists it as well.
+    [TestMethod]
+    [DataRow(false, DisplayName = "a project that lists only Scripting")]
+    [DataRow(true, DisplayName = "a project that also lists VBRUN")]
+    public void Compose_ExposesTheLanguagesImplicitReferences_BetweenTheStandardLibraryAndTheReferences(bool listsTheRuntime)
+    {
+        var scripting = new RDCoreReference { Name = "Scripting", Major = 1, Minor = 0 };
+        var project = new RDCoreProject { References = listsTheRuntime ? [new RDCoreReference { Name = "vbrun", Major = 6, Minor = 0 }, scripting] : [scripting] };
+
+        var session = NewProvider(language: SupportedLanguages.VB6).Compose(project, WorkspaceRoot);
+
+        CollectionAssert.AreEqual(new[] { "VBA 0", "VBRUN 1", "VB 2", "Scripting 3" }, session.References.Select(reference => $"{reference.Name} {reference.Priority}").ToArray());
     }
 
     [TestMethod]

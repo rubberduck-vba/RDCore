@@ -43,7 +43,7 @@ public static class ModuleNodeExtensions
     /// <param name="module">The module, or <c>null</c> for a module that did not parse.</param>
     /// <returns>
     /// The module's directives, or <see cref="ModuleDirectives.None"/> when <paramref name="module"/> is
-    /// <c>null</c> — a module nobody could read declares nothing, which is also what every default says.
+    /// <c>null</c>: a module nobody could read declares nothing, which is also what every default says.
     /// </returns>
     /// <remarks>
     /// Every consumer that needs the whole set reads it here rather than assembling its own, so a

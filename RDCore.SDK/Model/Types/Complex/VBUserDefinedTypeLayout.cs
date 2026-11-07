@@ -10,7 +10,7 @@ namespace RDCore.SDK.Model.Types;
 
 /// <summary>
 /// Where each field of a <see cref="VBUserDefinedType"/> sits in memory, and how much memory the whole
-/// type occupies — <strong>MS-VBAL §2.1</strong>'s "linear concatenation of the aggregated data values
+/// type occupies: <strong>MS-VBAL §2.1</strong>'s "linear concatenation of the aggregated data values
 /// possibly with implementation defined padding between data values".
 /// </summary>
 /// <remarks>
@@ -21,7 +21,7 @@ namespace RDCore.SDK.Model.Types;
 /// writes either, but the fields' memory widths with no padding, <see cref="UnpaddedSize"/>.
 /// <para>
 /// 🎯 The padding is "implementation-specific" by the specification's own word, so RDCore is free to choose
-/// it — and chooses MS-VBA's, because a UDT is exactly the kind of thing whose in-memory size a program
+/// it, and chooses MS-VBA's, because a UDT is exactly the kind of thing whose in-memory size a program
 /// measures with <c>LenB</c> and then relies on. Each field is aligned to its own natural boundary, and the
 /// type as a whole is padded up to the strictest boundary any of its fields asked for.
 /// </para>
@@ -35,7 +35,7 @@ namespace RDCore.SDK.Model.Types;
 public sealed class VBUserDefinedTypeLayout
 {
     /// <summary>
-    /// The pointer width a layout assumes when the caller does not say — 32-bit, which is the width every
+    /// The pointer width a layout assumes when the caller does not say: 32-bit, which is the width every
     /// MS-VBA UDT is laid out for, and therefore the one a file or a <c>LenB</c> from MS-VBA agrees with.
     /// </summary>
     /// <remarks>
@@ -118,13 +118,13 @@ public sealed class VBUserDefinedTypeLayout
     public IReadOnlyList<VBUserDefinedTypeField> Fields { get; }
 
     /// <summary>
-    /// The in-memory size of the whole type, padding included — what <c>LenB</c> reports.
+    /// The in-memory size of the whole type, padding included: what <c>LenB</c> reports.
     /// </summary>
     public int Size { get; }
 
     /// <summary>
     /// The fields' widths added up with no padding between or after them, a fixed-length <c>String</c> counted as its characters
-    /// and a nested record or an array's elements as their own unpadded size — what <c>Len</c> reports of a record.
+    /// and a nested record or an array's elements as their own unpadded size: what <c>Len</c> reports of a record.
     /// </summary>
     /// <remarks>
     /// MS-VBAL §6.1.2.11.1.22 says <c>Len</c> of a record "returns the size as it will be written to the file"; MS-VBA reports this

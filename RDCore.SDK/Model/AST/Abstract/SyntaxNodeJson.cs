@@ -19,17 +19,17 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// <see cref="ExpressionNode"/>/<see cref="StatementNode"/>'s own <c>Inputs</c>) and specific typed
 /// properties (e.g. <c>InlineIfStatementNode.ConditionExpression</c>). Left alone,
 /// <see cref="System.Text.Json"/> serializes all of them, so each nesting level <em>multiplies</em> the
-/// payload rather than adding to it — an ordinary depth-16 nested expression (`1 + 1 + ... + 1`)
+/// payload rather than adding to it: an ordinary depth-16 nested expression (`1 + 1 + ... + 1`)
 /// serializes to hundreds of megabytes.
 /// <para>
 /// <see cref="Options"/> installs a <see cref="DefaultJsonTypeInfoResolver"/> modifier that detects, per
 /// concrete node type, whether the generic spine (<c>Children</c>/<c>Inputs</c>) is exactly
-/// reconstructable from that type's <em>other</em>, non-<c>[JsonIgnore]</c>d node-bearing properties —
+/// reconstructable from that type's <em>other</em>, non-<c>[JsonIgnore]</c>d node-bearing properties,
 /// and if so, omits the spine from the JSON instead of the reverse. Never the reverse: a typed property
 /// (read directly by consumers like <c>SymbolBuilder</c>, post-deserialize, in a different process)
 /// silently losing data on the wire would be a far worse failure than a bloated payload. The check runs
 /// per <em>instance</em>, not just per type, and falls back to keeping the spine on any shape it can't
-/// prove — false negatives (a payload that could have shrunk further but didn't) are an acceptable
+/// prove: false negatives (a payload that could have shrunk further but didn't) are an acceptable
 /// missed optimization; false positives (dropping data that wasn't actually reconstructable) are not.
 /// </para>
 /// </remarks>
@@ -57,7 +57,7 @@ public static class SyntaxNodeJson
     private static readonly JsonSerializerOptions HeaderShape = WithoutProperties(LocationFreeShape, IsBlock);
 
     /// <summary>
-    /// The options every AST (de)serialization call site should share — <see cref="PlatformJson"/> (the
+    /// The options every AST (de)serialization call site should share: <see cref="PlatformJson"/> (the
     /// live wire path) and tests alike, so what a test exercises matches what actually ships.
     /// </summary>
     /// <remarks>
