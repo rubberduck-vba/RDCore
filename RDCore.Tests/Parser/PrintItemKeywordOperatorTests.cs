@@ -9,8 +9,8 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// An operator-identifier (<strong>MS-VBAL §3.3.5.2</strong>) is a reserved identifier, and no name: after an item of a list to print, it is the operator,
-/// and with no right operand it is a syntax error, as a symbol operator is. It names a member, as any keyword does.
+/// An operator-identifier is a reserved identifier (<strong>MS-VBAL §3.3.5.2</strong>). After an item of a list to print, it is an operator, and with no
+/// right operand it is a syntax error, as a symbol operator is. After a <c>.</c> or a <c>!</c>, it names a member, as any keyword does.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 2.6.1 Syntax Errors")]

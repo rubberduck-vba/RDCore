@@ -17,7 +17,9 @@ namespace RDCore.Parsing.Syntax;
 /// (<c>Dim For As Long</c>, where the name is recovered from before <c>As</c>). A statement that begins with a word no statement begins with is read as a
 /// statement no rule reads, to its end (<c>Mod = 1</c>). A word that ends a block or begins a procedure is still recovered from where it is.
 /// </para>
+/// <para>
 /// A parse with no syntax error never enters recovery, so this strategy does not change it.
+/// </para>
 /// </remarks>
 internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 {
