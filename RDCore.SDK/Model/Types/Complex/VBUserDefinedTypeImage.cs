@@ -245,17 +245,26 @@ public static class VBUserDefinedTypeImage
             // a program about: an analyzer flags it, FixedAssignmentSemanticFlags.)
             if (type is null || !HasImage(type))
             {
-                // an array is data: the destination's elements are a copy of the source's, not the source's own cells.
-                destination.TrySetFieldAt(index, ReferenceAt(source, sourceLayout, field.Offset, type) switch
+                // an array, a String and a record are data: the destination's field is let a copy of the source's (TryLetFieldAt), written in its own
+                // cells, which a ByRef parameter given the field is bound to, and none of the source's. An object or a Variant is the source's value.
+                switch (ReferenceAt(source, sourceLayout, field.Offset, type))
                 {
-                    VBArrayValue array => DataValues.Copy(array),
-                    { } held => held,
-                    null => type?.DefaultValue ?? VBEmptyValue.Empty,
-                });
+                    case { } data when data is VBArrayValue or VBStringValue or VBUserDefinedTypeValue:
+                        destination.TryLetFieldAt(index, DataValues.Copy(data));
+                        break;
+                    case { } held:
+                        destination.TrySetFieldAt(index, held);
+                        break;
+                    default:
+                        destination.TryLetFieldAt(index, type?.DefaultValue ?? VBEmptyValue.Empty);
+                        break;
+                }
+
                 continue;
             }
 
-            destination.TrySetFieldAt(index, field.Offset + field.Width <= image.Length
+            // a field the bytes give a value is let it in place, as the field of a record let is (TryLetFieldAt).
+            destination.TryLetFieldAt(index, field.Offset + field.Width <= image.Length
                 ? Decoded(type, image.AsSpan(field.Offset, field.Width))
                 : type.DefaultValue);
         }

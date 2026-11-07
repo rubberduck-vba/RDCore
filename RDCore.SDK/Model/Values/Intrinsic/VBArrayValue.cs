@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -86,6 +87,53 @@ public abstract record class VBArrayValue : VBTypedValue
 
         return copy;
     }
+
+    /// <summary>
+    /// Let-assigns the elements of <paramref name="source"/> to the elements of this array, in place (MS-VBAL §5.4.3.8): what a fixed-size array
+    /// field of a record is given when the record is let, because the record holds its elements itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An element of a scalar type is written in its own cell, which a <c>ByRef</c> parameter given the element is bound to (MS-VBAL §5.3.1.11), so
+    /// the parameter reads what the element holds after the assignment. An element that is a record is let in place in its turn
+    /// (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>).
+    /// </para>
+    /// <para>
+    /// An element that holds an object or a <c>Variant</c> takes the cell of <paramref name="source"/>'s element instead. <paramref name="source"/>
+    /// is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else.
+    /// </para>
+    /// </remarks>
+    /// <param name="source">The array assigned, of this array's element type and bounds.</param>
+    /// <returns><see langword="false"/> when <paramref name="source"/> has another element type or other bounds: nothing was written.</returns>
+    public bool TryLetFrom(VBArrayValue source)
+    {
+        if (!Equals(ItemType, source.ItemType) || !Dimensions.SequenceEqual(source.Dimensions) || _cells.Length != source._cells.Length)
+        {
+            return false;
+        }
+
+        var inCells = ItemType is not (VBObjectType or VBClassType or VBVariantType or VBUserDefinedType or VBArrayType);
+        for (var index = 0; index < _cells.Length; index++)
+        {
+            var (to, from) = (_cells[index], source._cells[index]);
+            if (inCells && to is IKnowledgeBinding cell && from is IKnowledgeBinding { IsKnown: var isKnown })
+            {
+                cell.Store(from.Value, isKnown);
+            }
+            else if (ItemType is not VBUserDefinedType || !IsRecordLetInPlace(to, from))
+            {
+                _cells[index] = from;
+            }
+        }
+
+        return true;
+    }
+
+    // an element that holds a record, let the record another element holds: written into the record it holds.
+    private static bool IsRecordLetInPlace(IBindingHandle to, IBindingHandle from)
+        => to.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { IsIndeterminate: false } held }
+            && from.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { IsIndeterminate: false } record }
+            && held.TryLetFrom(record);
 
     public VBType ItemType { get; init; }
 

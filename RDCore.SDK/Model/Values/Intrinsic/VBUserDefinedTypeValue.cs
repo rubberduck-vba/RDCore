@@ -199,8 +199,9 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// <remarks>
     /// <para>
     /// A field of a scalar type is written in its own cell, the cell a <c>ByRef</c> parameter given the field is bound to. A field declared as a record is
-    /// let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>). A field that holds an object, a <c>Variant</c> or an array is replaced by
-    /// <paramref name="value"/>, as <see cref="TrySetFieldAt"/> replaces it. A <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record
+    /// let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>), and a fixed-size array field element by element
+    /// (<see cref="VBArrayValue.TryLetFrom"/>): the record holds its elements itself. A field that holds an object, a <c>Variant</c> or a resizable
+    /// array is replaced by <paramref name="value"/>, as <see cref="TrySetFieldAt"/> replaces it. A <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record
     /// and the field's position, so it reads the value that replaced it. The session counts the references to an object by the cells that hold it, so a
     /// field that holds an object is given a new cell.
     /// </para>
@@ -226,6 +227,8 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
                 return true;
             case VBUserDefinedTypeValue nested when value is VBUserDefinedTypeValue { IsIndeterminate: false } record && nested.TryLetFrom(record):
                 return true;
+            case VBFixedSizeArrayValue elements when value is VBFixedSizeArrayValue { IsIndeterminate: false } array && elements.TryLetFrom(array):
+                return true;
             default:
                 _fields[index] = value;
                 return true;
@@ -238,7 +241,7 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// </summary>
     /// <remarks>
     /// <paramref name="source"/> is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else: a value of it that
-    /// replaces a field (an object, a <c>Variant</c> or an array) becomes this record's own.
+    /// replaces a field (an object, a <c>Variant</c> or a resizable array) becomes this record's own.
     /// </remarks>
     /// <param name="source">The record assigned, of this record's type.</param>
     /// <returns><see langword="false"/> when <paramref name="source"/> is of another type, and nothing is written.</returns>

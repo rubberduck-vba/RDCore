@@ -364,10 +364,12 @@ public sealed class CompiledRecordTests
             "    N = N + 100",
             "End Sub"), "Inner", recoveries, walkBacks, "4", "104");
 
-    // the same, of a record of the module that another procedure lets the field of: Touch's Let is compiled code's.
+    // the same, of a record of the module that another procedure lets the field of: Touch's Let is compiled code's, with nothing handed to the
+    // interpreter. Inner, the same run's other compiled procedure, walks back once: the counters count.
     [TestMethod]
     public async Task AFieldOfAModuleRecordGivenByReference_IsTheField_WhenAnotherProcedureLetsIt()
-        => await AssertPrintsAsync(Module(
+    {
+        var program = Module(
             "Private M As TPoint",
             "Public Sub Main()",
             "    M.X = 1",
@@ -381,7 +383,10 @@ public sealed class CompiledRecordTests
             "End Sub",
             "Private Sub Touch()",
             "    M.X = M.X + 3",
-            "End Sub"), "Touch", 0, 0, "4", "104");
+            "End Sub");
+        await AssertPrintsAsync(program, "Touch", 0, 0, "4", "104");
+        _ = await AssertAlikeAsync(program, "Inner", recoveries: 0, walkBacks: 1);
+    }
 
     // the same, of a String field, which the interpreter lets in either engine.
     [TestMethod]
@@ -445,10 +450,10 @@ public sealed class CompiledRecordTests
     // a record let where it is lets go of the object its field held as the Let is made, when nothing else holds it, and holds the one the other record's
     // field holds until the record's own variable ends: of a record variable, of an element of an array of records, and of a record field.
     [TestMethod]
-    [DataRow("Dim Q As THolder", "Q", "ByRef Q As THolder", "Q", "")]
-    [DataRow("Dim Q(1 To 1) As THolder", "Q(1)", "Q() As THolder", "Q()", "")]
-    [DataRow("Dim Q As TOuter", "Q.Inner", "ByRef Q As TOuter", "Q", "")]
-    public async Task AnObjectInARecordLetWhereItIs_TerminatesWhenTheLetLetsGoOfIt(string declared, string record, string parameter, string given, string _)
+    [DataRow("Dim Q As THolder", "Q", "ByRef Q As THolder", "Q")]
+    [DataRow("Dim Q(1 To 1) As THolder", "Q(1)", "Q() As THolder", "Q()")]
+    [DataRow("Dim Q As TOuter", "Q.Inner", "ByRef Q As TOuter", "Q")]
+    public async Task AnObjectInARecordLetWhereItIs_TerminatesWhenTheLetLetsGoOfIt(string declared, string record, string parameter, string given)
         => await AssertPrintsAsync(Noisy(), Program(
             "Private Type THolder",
             "    Item As Noisy",
@@ -480,4 +485,76 @@ public sealed class CompiledRecordTests
             "    Debug.Print \"done\"; N",
             "    N = N + 100",
             "End Sub"), null, 0, 0, "let", "gone a", "done 0", "after 100", "cleared", "gone b", "ended");
+
+    private static readonly string[] Texts =
+    [
+        "Private Type TText",
+        "    S As String",
+        "    N As Long",
+        "End Type",
+        "Private Type TWrap",
+        "    Inn As TText",
+        "    K As Long",
+        "End Type",
+    ];
+
+    // a record copied by LSet (MS-VBAL §5.4.3.6) holds its String and record fields in cells of its own: what is let to the copy after is not the
+    // original's, and the other way around.
+    [TestMethod]
+    public async Task ARecordCopiedByLSet_SharesNoCellWithTheRecordItCopied()
+        => await AssertPrintsAsync(Module([.. Texts,
+            "Public Sub Main()",
+            "    Dim A As TText, B As TText",
+            "    Dim C As TWrap, D As TWrap",
+            "    A.S = \"a\"",
+            "    A.N = 1",
+            "    LSet B = A",
+            "    B.S = \"b\"",
+            "    B.N = 2",
+            "    Debug.Print A.S; A.N; B.S; B.N",
+            "    C.Inn.S = \"c\"",
+            "    C.Inn.N = 3",
+            "    LSet D = C",
+            "    D.Inn.S = \"d\"",
+            "    D.Inn.N = 5",
+            "    Debug.Print C.Inn.S; C.Inn.N; D.Inn.S; D.Inn.N",
+            "End Sub"]), null, 0, 0, "a 1 b 2", "c 3 d 5");
+
+    // a field given by reference is the field when its record is written by LSet, by Get, or let a record whose fixed-size array field holds the element
+    // given: each writes the record where it is.
+    [TestMethod]
+    [DataRow("Private Q As TPoint", "Q.X", "LSet Q = O", "O.X = 7")]
+    [DataRow("Private Q As TFixed", "Q.A(1)", "Q = O", "O.A(1) = 7")]
+    [DataRow("Private Q As TPoint", "Q.X", "Get #1, 1, Q", "O.X = 7")]
+    public async Task AFieldGivenByReference_IsTheField_WhenItsRecordIsWrittenWhereItIs(string declared, string field, string write, string given)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"rdcore-record-alias-{Guid.NewGuid():N}.bin");
+        try
+        {
+            await AssertPrintsAsync(Module(
+                "Private Type TFixed",
+                "    A(1 To 2) As Long",
+                "End Type",
+                declared,
+                $"Private O As {(declared.EndsWith("TFixed", StringComparison.Ordinal) ? "TFixed" : "TPoint")}",
+                "Public Sub Main()",
+                $"    {field} = 1",
+                $"    {given}",
+                $"    Open \"{path}\" For Binary As #1",
+                "    Put #1, 1, O",
+                $"    Inner {field}",
+                "    Close #1",
+                $"    Debug.Print {field}",
+                "End Sub",
+                "Private Sub Inner(ByRef N As Long)",
+                $"    {write}",
+                "    Debug.Print N",
+                "    N = N + 100",
+                "End Sub"), null, 0, 0, "7", "107");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
