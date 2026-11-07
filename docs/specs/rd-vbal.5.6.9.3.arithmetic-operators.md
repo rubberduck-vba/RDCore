@@ -90,21 +90,21 @@ This section corresponds to [**MS-VBAL §5.6.9.3.1** Unary - Operator](https://l
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.6.9.3.2** + Operator](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/91621d4b-3da3-4fe9-9581-adda857efe05).
 
-RD-VBA reads a unary `+` and erases it, as the VBE erases it, as a language core extension
-([**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)). MS-VBAL's grammar has
-no unary `+`. The VBE removes it from the code, whether it is typed or imported, and a program runs as the code it keeps:
+MS-VBAL's grammar has no unary `+`. The VBE removes one from the code, whether it is typed or imported, and RD-VBA reads
+and erases it the same way, as a language core extension ([**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)).
+A program runs as the code the VBE keeps:
 
 |Written|Kept by the VBE|Value|
 |---|---|---|
 |`x = +1`, `x = ++1`|`x = 1`|1, an Integer|
 |`x = -+1`, `x = +-1`|`x = -1`|-1, an Integer|
-|`x = +"1"`|`x = "1"`|the String "1", not the number 1|
+|`x = +"1"`|`x = "1"`|"1", a String|
 |`x = +True`|`x = True`|True, a Boolean|
-|`Foo +1`|`Foo 1`||
+|`Foo +1`|`Foo 1`|1, an Integer|
 
 So a unary `+` is no operator, and converts nothing. A variable after it is still the variable: `Foo +x` passes `x` by
 reference, and `Set o = +obj` assigns the object. No node of the syntax tree stands for a `+`. Each one is kept as
-the module's trivia, as a comment is, so that the source can be written back as it was read.
+the module's trivia, as a comment is ([ErasedPlusTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.ErasedPlusTriviaNode.html)), so that the source can be written back as it was read.
 
 A `For` loop's `ForNext` instruction adds `step` to the counter through the addition operator,
 `RDCore.Runtime.Semantics.Operators.Arithmetic.BinaryAdditionOperatorRuntimeSemantics`. The step addition is therefore

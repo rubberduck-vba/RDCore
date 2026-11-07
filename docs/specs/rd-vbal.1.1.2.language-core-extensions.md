@@ -12,7 +12,7 @@ The following are *language core extensions*:
 |---|---|
 |The comment annotations syntax from the *legacy Rubberduck VBIDE add-in*.|[**RD-VBAL §3.0.1** Token Semantics](rd-vbal.3.0.1.token-semantics.md)|
 |An explicit let-coercion operator (`"__c()_op"`, [UnaryLetCoerceOperatorStaticSemantics](../api/RDCore.SDK.Semantics.Static.Operators.UnaryLetCoerceOperatorStaticSemantics.html)) for parentheses that are not around an operand of an operator. It tells the coercion to a value that MS-VBAL §5.6.6 gives a parenthesized expression apart from the grouping of an operand (`"__p()_op"`).|[**RD-VBAL §3.3.1** Unary Operators](rd-vbal.3.3.1.unary-operators.md)|
-|A unary `+` is read and erased, as the VBE erases it. MS-VBAL's grammar has no unary `+`. It is no operator, and the code runs as if it were not written.|[**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md)|
+|A unary `+`, which MS-VBAL's grammar does not have, read and erased as the VBE erases it.|[**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md)|
 
 These extensions do not *alter* the language; they *reveal* it.
 
