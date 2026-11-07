@@ -16,70 +16,6 @@ public sealed class CompiledArrayTests
     private static readonly (string Name, string Source)[] Noisy =
         [("Noisy", ModuleWorkspace.ClassModule("Noisy", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Id", "End Sub"))];
 
-    // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
-    // the interpreter's to read - and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 6 statements
-    // the interpreter runs (the String, Len, the Set, the member, the prints).
-    [TestMethod]
-    public async Task AnElementOfAVariantArray_IsReadAndWrittenInItsVariantsCell()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
-            "    Debug.Print Mixed()",
-            "End Sub",
-            "Private Function Mixed() As Double",
-            "    Dim V(1 To 6) As Variant",
-            "    Dim I As Long",
-            "    For I = 1 To 5",
-            "        V(I) = I * 1.5",
-            "    Next",
-            "    For I = 1 To 5",
-            "        V(I) = V(I) * 2 + I",
-            "    Next",
-            "    V(3) = \"x\"",
-            "    For I = 1 To 5",
-            "        If I <> 3 Then Mixed = Mixed * 1.5 + V(I)",
-            "    Next",
-            "    Mixed = Mixed + Len(V(3)) + IsEmpty(V(6))",
-            "    Set V(2) = New Noisy",
-            "    V(2).Id = 7",
-            "    Debug.Print \"held\"",
-            "    V(2) = 4",
-            "    Debug.Print \"let go\"",
-            "    Mixed = Mixed + V(2)",
-            "End Function"), "Mixed", recoveries: 6 + 1, classes: Noisy);
-
-    // an element of an array of objects compared with Nothing and with another, and tested with TypeOf, in compiled code: an element no object was ever Set
-    // to holds Nothing. Each Set is the interpreter's, and the object two elements held is let go of at the second Set of Nothing, which prints there: the
-    // 10 statements the interpreter runs are the Sets, the member and the prints, none of the loop.
-    [TestMethod]
-    public async Task AnElementOfAnObjectArray_IsComparedInCompiledCode_AndLetGoOfWhereTheInterpreterSetsIt()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
-            "    Debug.Print Held()",
-            "End Sub",
-            "Private Function Held() As Long",
-            "    Dim A(1 To 3) As Noisy",
-            "    Dim O As Object",
-            "    Dim I As Long",
-            "    Set A(1) = New Noisy",
-            "    A(1).Id = 1",
-            "    Set A(2) = A(1)",
-            "    Set O = A(1)",
-            "    For I = 1 To 3",
-            "        If A(I) Is Nothing Then Held = Held * 2 Else Held = Held * 2 + 1",
-            "        If A(I) Is A(1) Then Held = Held + 100",
-            "        If Not A(I) Is Nothing Then",
-            "            If TypeOf A(I) Is Noisy Then Held = Held + 1000",
-            "        End If",
-            "        If O Is A(I) Then Held = Held + 10000",
-            "    Next",
-            "    Set O = Nothing",
-            "    Debug.Print \"before\"",
-            "    Set A(1) = Nothing",
-            "    Debug.Print \"middle\"",
-            "    Held = Held + (A(1) Is Nothing) + (A(2) Is Nothing)",
-            "    Set A(2) = Nothing",
-            "    Debug.Print \"after\"",
-            "End Function"), "Held", recoveries: 10, classes: Noisy);
     // an array filled, then summed, element by element: none of it is the interpreter's.
     [TestMethod]
     public async Task AnArrayFilledThenSummed_IsReadAndWrittenInCompiledCode()
@@ -334,4 +270,143 @@ public sealed class CompiledArrayTests
         Assert.IsNotNull(compiled["Bump"].Body, "Bump");
         Assert.AreEqual(0, compiled["Fill"].Body!.Recoveries, "Fill's recoveries");
     }
+
+    // an array an assignment copies whole - another array, a function's result, an array of Variants, a String's bytes - holds its elements as the array it
+    // is assigned to would: compiled code reads and writes them, and a write to the copy is not one to the array it was copied from. The 4 assignments are
+    // the interpreter's statements; no element is.
+    [TestMethod]
+    public async Task AnArrayCopiedByAnAssignment_IsReadAndWrittenInCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Copied()",
+            "End Sub",
+            "Private Function Copied() As Double",
+            "    Dim A(1 To 4) As Long",
+            "    Dim B() As Long",
+            "    Dim C() As Long",
+            "    Dim V(1 To 3) As Variant",
+            "    Dim W() As Variant",
+            "    Dim Bytes() As Byte",
+            "    Dim I As Long",
+            "    For I = 1 To 4",
+            "        A(I) = I * 5",
+            "    Next",
+            "    For I = 1 To 3",
+            "        V(I) = I / 2",
+            "    Next",
+            "    B = A",
+            "    C = Made(3)",
+            "    W = V",
+            "    Bytes = \"AB\"",
+            "    For I = LBound(B) To UBound(B)",
+            "        B(I) = B(I) + 1",
+            "        Copied = Copied * 2 + B(I) + A(I)",
+            "    Next",
+            "    For I = 1 To 3",
+            "        W(I) = W(I) * 4",
+            "        Copied = Copied + C(I) + W(I) + V(I)",
+            "    Next",
+            "    For I = LBound(Bytes) To UBound(Bytes)",
+            "        Copied = Copied * 3 + Bytes(I)",
+            "    Next",
+            "End Function",
+            "Private Function Made(ByVal N As Long) As Long()",
+            "    Dim R() As Long",
+            "    Dim I As Long",
+            "    ReDim R(1 To N)",
+            "    For I = 1 To N",
+            "        R(I) = I * 11",
+            "    Next",
+            "    Made = R",
+            "End Function"), "Copied", recoveries: 4);
+
+    // a Variant assigned to an element of an array of a scalar type, holding a String: compiled code declines it, as it does a Variant's Let to a variable,
+    // and the interpreter runs the Let (let-coercing "5"); with no handler, the procedure goes on in compiled code after it, each time round. A Variant
+    // holding a number is compiled code's own.
+    [TestMethod]
+    public async Task AVariantAssignedToAnElement_ThatCompiledCodeDeclines_IsTheInterpretersLet()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Assigned()",
+            "End Sub",
+            "Private Function Assigned() As Double",
+            "    Dim A(1 To 3) As Long",
+            "    Dim V As Variant",
+            "    Dim I As Long",
+            "    V = \"5\"",
+            "    For I = 1 To 3",
+            "        A(I) = V",
+            "        A(I) = A(I) + I",
+            "    Next",
+            "    V = 20",
+            "    A(2) = V",
+            "    For I = 1 To 3",
+            "        Assigned = Assigned * 10 + A(I)",
+            "    Next",
+            "End Function"), "Assigned", recoveries: 1 + 3);
+
+    // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
+    // the interpreter's to read - and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 6 statements
+    // the interpreter runs (the String, Len, the Set, the member, the prints).
+    [TestMethod]
+    public async Task AnElementOfAVariantArray_IsReadAndWrittenInItsVariantsCell()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Mixed()",
+            "End Sub",
+            "Private Function Mixed() As Double",
+            "    Dim V(1 To 6) As Variant",
+            "    Dim I As Long",
+            "    For I = 1 To 5",
+            "        V(I) = I * 1.5",
+            "    Next",
+            "    For I = 1 To 5",
+            "        V(I) = V(I) * 2 + I",
+            "    Next",
+            "    V(3) = \"x\"",
+            "    For I = 1 To 5",
+            "        If I <> 3 Then Mixed = Mixed * 1.5 + V(I)",
+            "    Next",
+            "    Mixed = Mixed + Len(V(3)) + IsEmpty(V(6))",
+            "    Set V(2) = New Noisy",
+            "    V(2).Id = 7",
+            "    Debug.Print \"held\"",
+            "    V(2) = 4",
+            "    Debug.Print \"let go\"",
+            "    Mixed = Mixed + V(2)",
+            "End Function"), "Mixed", recoveries: 6 + 1, classes: Noisy);
+
+    // an element of an array of objects compared with Nothing and with another, and tested with TypeOf, in compiled code: an element no object was ever Set
+    // to holds Nothing. Each Set is the interpreter's, and the object two elements held is let go of at the second Set of Nothing, which prints there: the
+    // 10 statements the interpreter runs are the Sets, the member and the prints, none of the loop.
+    [TestMethod]
+    public async Task AnElementOfAnObjectArray_IsComparedInCompiledCode_AndLetGoOfWhereTheInterpreterSetsIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Held()",
+            "End Sub",
+            "Private Function Held() As Long",
+            "    Dim A(1 To 3) As Noisy",
+            "    Dim O As Object",
+            "    Dim I As Long",
+            "    Set A(1) = New Noisy",
+            "    A(1).Id = 1",
+            "    Set A(2) = A(1)",
+            "    Set O = A(1)",
+            "    For I = 1 To 3",
+            "        If A(I) Is Nothing Then Held = Held * 2 Else Held = Held * 2 + 1",
+            "        If A(I) Is A(1) Then Held = Held + 100",
+            "        If Not A(I) Is Nothing Then",
+            "            If TypeOf A(I) Is Noisy Then Held = Held + 1000",
+            "        End If",
+            "        If O Is A(I) Then Held = Held + 10000",
+            "    Next",
+            "    Set O = Nothing",
+            "    Debug.Print \"before\"",
+            "    Set A(1) = Nothing",
+            "    Debug.Print \"middle\"",
+            "    Held = Held + (A(1) Is Nothing) + (A(2) Is Nothing)",
+            "    Set A(2) = Nothing",
+            "    Debug.Print \"after\"",
+            "End Function"), "Held", recoveries: 10, classes: Noisy);
 }
