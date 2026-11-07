@@ -417,6 +417,58 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(id);
     }
 
+    // the shell's own program, `10 PRINT "HELLO"` and `20 GOTO 10`, run as RUN runs it - under the debugger, in the shell's BASIC - and stopped as a break at the
+    // keyboard stops it: a GoTo that goes back for ever is stopped too, and the run says the line it stopped at, which is one of the program's.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task TheShellsEndlessGoTo_IsStoppedByABreak_AndSaysALineOfTheProgram()
+    {
+        var program = new RDCore.CLI.App.Repl.ReplProgram();
+        program.Store(10, "PRINT \"HELLO\"");
+        program.Store(20, "GOTO 10");
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+
+        var parameters = platform.InitializeParams(AsHexIdeDeclares);
+        parameters["initializationOptions"] = new JsonObject { ["language"] = RDCore.SDK.Workspace.SupportedLanguages.BASIC.Id };
+        var initialize = await rpc.RequestAsync(1, "initialize", parameters);
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDebugging)!.AsObject()))["error"]);
+
+        var running = rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = program.ToModuleSource(),
+            ["moduleName"] = RDCore.CLI.App.Repl.ReplProgram.ModuleName,
+            ["entryPoint"] = RDCore.CLI.App.Repl.ReplProgram.EntryPointName,
+            ["debug"] = true,
+        });
+
+        // the shell's break is a pause of a program under the debugger. One that arrives before the program runs acts on nothing, and is sent again until one acts.
+        var id = 4;
+        bool acted;
+        do
+        {
+            var paused = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugPause, new JsonObject());
+            Assert.IsNull(paused["error"], $"{paused.ToJsonString()}\n{LogOf(platform.Root)}");
+            acted = paused["result"]!["acted"]!.GetValue<bool>();
+            if (!acted)
+            {
+                Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+            }
+        }
+        while (!acted);
+
+        var suspended = await running;
+        var told = $"{suspended.ToJsonString()[..Math.Min(2000, suspended.ToJsonString().Length)]}\n{LogOf(platform.Root)}";
+        Assert.AreEqual((int)ExecutionOutcome.Suspended, suspended["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.Contains(new int?[] { 10, 20 }, program.LineNumberAt(suspended["result"]!["errorLine"]!.GetValue<int>()), told);
+
+        var ended = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugTerminate, new JsonObject());
+        Assert.IsTrue(ended["result"]!["acted"]!.GetValue<bool>(), ended.ToJsonString());
+        await platform.ShutdownAsync(id);
+    }
+
     // LSP's own locale, which a client of the protocol says: the language server speaks the client's language, and tells the components it starts the same.
     // OmniSharp 0.19.9 gives its handlers an initialize request without it. A document's diagnostics are pulled so that the parse server is known to have been
     // initialized. The logs are read once the platform is shut down: a file log is written behind, and only an ended process has written all of it.
