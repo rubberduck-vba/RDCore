@@ -35,6 +35,8 @@
     <EmbeddedResource Include="Workspace\Forms\Fixtures\**" />
     <!-- Rubberduck's indenter test cases (GPLv3), as data: input, settings, expected output -->
     <EmbeddedResource Include="Formatting\Data\rubberduck-indenter-cases.json" LogicalName="RubberduckIndenterCases" />
+    <!-- a type library declared in terms of a library no machine has, loaded from its file by export-library -->
+    <None Include="Cli\Data\Widgets.tlb" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

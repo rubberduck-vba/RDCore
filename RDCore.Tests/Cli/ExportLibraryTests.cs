@@ -75,6 +75,22 @@ public sealed class ExportLibraryTests
     public void ALibraryThatTheMachineDoesNotHave_IsNotFound()
         => Assert.IsNull(TypeLibraryLocator.Load("NoSuchLibraryOnAnyMachine"));
 
+    // Data\Widgets.tlb declares a class Widget whose default interface has a property Thing, and whose events interface an event Changed(Value), both of the
+    // type IThing of a library (Missing, {0D7C2B6E-5E39-4C47-9D0B-1A6F0E5C3A01}) that no machine has; Count and Ready are of no other library.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void WhatIsDeclaredInTermsOfALibraryTheMachineDoesNotHave_IsLeftOut_AndTheRestDescribed()
+    {
+        var export = new TypeLibraryExporter().Export(
+            TypeLibraryLocator.Load(Path.Combine(AppContext.BaseDirectory, "Cli", "Data", "Widgets.tlb")) ?? throw new AssertFailedException("the fixture loads"), "tests");
+
+        var widget = export.Description.Classes.Single(declared => declared.Name == "Widget");
+        CollectionAssert.AreEqual(new[] { "Count" }, widget.Members.Select(member => member.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Ready" }, widget.Events.Select(declared => declared.Name).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "member _Widget.Thing", "event _WidgetEvents.Changed" }, export.Skipped.ToArray());
+        Assert.IsEmpty(export.Description.DependsOn, "a library the machine does not have is not one it can be described with");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void TheClassesOfALibrary_AreThoseVbaShows_UnderTheNamesOfTheirCoclasses()
