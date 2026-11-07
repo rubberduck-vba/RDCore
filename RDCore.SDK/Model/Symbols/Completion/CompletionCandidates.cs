@@ -388,8 +388,8 @@ public static class CompletionCandidates
             {
                 if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
                 {
-                    // a `!` sorts before the digit every other item's sort text starts with.
-                    items.Add((Placed(candidate.ToCompletionItem(match), candidate, word, cursor) with { SortText = $"!{rank}{CompletionCandidate.TierOf(match)}{index:D3}" },
+                    // a `!` sorts before the digit every other item's sort text starts with; the index is as wide as a group of every name in scope.
+                    items.Add((Placed(candidate.ToCompletionItem(match), candidate, word, cursor) with { SortText = $"!{rank}{CompletionCandidate.TierOf(match)}{index:D6}" },
                         isSelectable));
                 }
             }
