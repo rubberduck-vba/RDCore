@@ -32,6 +32,7 @@ public sealed class StatementBoundRecoveryTests
     [DataRow("a = 1 -", "b = 2", typeof(AssignmentStatementNode), DisplayName = "an operator the parse leaves unread, then an assignment")]
     [DataRow("Print #ff, 1 +", "Close #ff", null, DisplayName = "an item of a Print, then a Close")]
     [DataRow("Debug.Print 1 +", "Debug.Print 2", typeof(DebugPrintStatementNode), DisplayName = "an item of Debug.Print, then another")]
+    [DataRow("Debug.Print 1 -", "Debug.Print 2", typeof(DebugPrintStatementNode), DisplayName = "an item of Debug.Print and an operator the parse leaves unread, then another")]
     public void TheStatementAfterADanglingOperator_IsReadOnItsOwn(string broken, string next, Type? kind)
     {
         var source = $"Public Sub Main()\r\n{broken}\r\n{next}\r\nEnd Sub\r\n";
@@ -50,6 +51,22 @@ public sealed class StatementBoundRecoveryTests
         {
             Assert.IsInstanceOfType(statement, kind);
         }
+    }
+
+    // the parse's decision for an item of Debug.Print looks past the operator to the line end, and fails; the statement fails before that, at the operator,
+    // and that is its one error.
+    [TestMethod]
+    [DataRow("-")]
+    [DataRow("*")]
+    [DataRow("=")]
+    public void ADanglingOperatorAfterAnItemOfDebugPrint_IsOneErrorAtTheOperator(string op)
+    {
+        var statement = $"Debug.Print 1 {op}";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n");
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors);
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, statement.Length - 1), new SourcePosition(1, statement.Length - 1)), error.Location.Range);
     }
 
     // a statement after a colon is read on its own too: the end of the statement the error is in is the colon.

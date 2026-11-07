@@ -1196,6 +1196,9 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             return;
         }
 
+        // an error before one the parse reported is in tokens it reads again: the decision that failed looked past them, to the end of the statement
+        // (Debug.Print 1 -, at the line end), and the statement fails before that, at the error the parse reports now, which is the one error.
+        _errors.RemoveAll(existing => existing.ErrorId == (int)VBCompileErrorId.SyntaxError && existing.Location.Range.Start.CompareTo(position) > 0);
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
 
