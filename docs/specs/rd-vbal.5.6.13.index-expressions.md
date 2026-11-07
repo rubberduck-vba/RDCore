@@ -174,6 +174,3 @@ This section corresponds to [**MS-VBAL §5.6.13.2** Argument List Queues](https:
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.12** Member Access Expressions](rd-vbal.5.6.12.member-access-expressions.md) | ⏭️ [**RD-VBAL §5.6.14** Dictionary Access Expressions](rd-vbal.5.6.14.dictionary-access-expressions.md)

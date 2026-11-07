@@ -99,6 +99,3 @@ class module is known.
 > [!NOTE]
 > **Not implemented.** An `IUnknown`-only class module. Nothing in RD-VBA constructs a class module whose
 > `AutomationKind` is `Unknown`, so every class module is `Dispatch`.
-
----
-> ⏮️ [**RD-VBAL §6.1** VBA Project](rd-vbal.6.1.vba-project.md) | ⏭️ [**RD-VBAL §6.1.2** Predefined Procedural Modules](rd-vbal.6.1.2.predefined-procedural-modules.md)

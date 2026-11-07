@@ -98,6 +98,3 @@ The block holds its object from its `With` statement to its `End With`, wherever
   block-state value is enough for either.
 - `RuntimeExpressionEvaluator` resolves the with-expression target through its `EnclosingWithTarget`
   resolution.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.20** RaiseEvent Statement](rd-vbal.5.4.2.20.raiseevent-statement.md) | ⏭️ [**RD-VBAL §5.4.2.22** End Statement](rd-vbal.5.4.2.22.end-statement.md)

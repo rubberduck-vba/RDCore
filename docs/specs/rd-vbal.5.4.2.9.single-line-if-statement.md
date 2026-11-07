@@ -33,6 +33,3 @@ block `If` header ([**RD-VBAL §5.4.2.8** If Statement](rd-vbal.5.4.2.8.if-state
 - `ProcedureExecutor` dispatches `ConditionalBranch`.
 - `RDCore.Runtime.Execution.ConditionEvaluator` forces the condition to `Boolean`
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.8** If Statement](rd-vbal.5.4.2.8.if-statement.md) | ⏭️ [**RD-VBAL §5.4.2.10** Select Case Statement](rd-vbal.5.4.2.10.select-case-statement.md)

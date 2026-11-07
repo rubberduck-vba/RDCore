@@ -212,7 +212,3 @@ none of the other functions do; RD-VBA raises the error and assigns nothing.
 larger future value, with a present value of the same sign — can have a second root, below the rate at which the
 payments are only the interest on the present value; from a guess near it, `Rate` can find it rather than the rate of
 the savings.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.5** FileSystem](rd-vbal.6.1.2.5.filesystem.md) | ⏭️ [**RD-VBAL §6.1.2.7**
-> Information](rd-vbal.6.1.2.7.information.md)

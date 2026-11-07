@@ -57,6 +57,3 @@ An absent `start-record-number` stays absent in `FileLockStatementNode`: the nod
 
 > [!NOTE]
 > **Not implemented.** The `?` shorthand for `Print` has no lexer or grammar token.
-
----
-> ⏮️ [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) | ⏭️ [**RD-VBAL §3.5.0** Instructions](rd-vbal.3.5.0.instructions.md)

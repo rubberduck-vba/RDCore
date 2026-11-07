@@ -91,6 +91,3 @@ With `s` holding the bytes `41 00 42` (the character `A` and a trailing byte):
 |---|---|
 |`RDCore.Runtime.Semantics.Statements.MidStatementRuntimeSemantics`|The runtime semantics of all four spellings (**RDCore.Runtime**).|
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider`|Dispatches a `MidStatementNode`; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.4** Erase Statement](rd-vbal.5.4.3.4.erase-statement.md) | ⏭️ [**RD-VBAL §5.4.3.6** LSet Statement](rd-vbal.5.4.3.6.lset-statement.md)
