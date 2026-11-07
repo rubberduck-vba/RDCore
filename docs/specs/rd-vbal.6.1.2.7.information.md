@@ -78,6 +78,11 @@ In MS-VBA, `Err.Clear` resets the error's number and the other properties of the
 reporting the line of the error it cleared. Every other way an error is cleared resets `Erl` to `0`: a `Resume`
 statement in any form, an `On Error` statement, and leaving the procedure from an error handler.
 
+Leaving a procedure under `On Error Resume Next`, at its end or by an `Exit` statement, clears no error. The caller sees
+the error and its line as the procedure left them: after `20  x = 1 / 0`, `Erl` is `20` and `Err.Number` is `11`. After
+an `Err.Clear` in the procedure, the caller sees what `Err.Clear` left: `Err.Number` is `0`, and `Erl` is as
+`ErlAfterErrClear` says.
+
 What `Err.Clear` does to `Erl` is a second environment setting, `ErlAfterErrClear`, bound from `appsettings.json` like
 `ErlLineNumbering`. It applies to `Err.Clear` only.
 
