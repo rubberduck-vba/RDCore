@@ -1,6 +1,7 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -67,6 +68,33 @@ public sealed class StatementBoundRecoveryTests
         var error = Assert.ContainsSingle(parse.SyntaxErrors);
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
         Assert.AreEqual(new SourceRange(new SourcePosition(1, statement.Length - 1), new SourcePosition(1, statement.Length - 1)), error.Location.Range);
+    }
+
+    // the operation is the last item the statement prints, unbuilt, its left operand in it: an item the parse read before it is the item it is, and a name
+    // there is the reference it is.
+    [TestMethod]
+    [DataRow("Debug.Print 1 -", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1 *", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1 &", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print x -", "x", typeof(SimpleNameExpressionNode))]
+    [DataRow("Debug.Print 1; 2 &", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1; 2 -", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Print #1, 1; 2 &", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Print #1, 1; x -", "x", typeof(SimpleNameExpressionNode))]
+    public void ADanglingOperatorAfterAnItemToPrint_IsTheLastItem_Unbuilt_WithItsLeftOperand(string statement, string operand, Type kind)
+    {
+        var source = $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var print = Assert.ContainsSingle(member.Children.OfType<StatementNode>());
+        var items = print.Children.OfType<PrintOutputItemNode>().ToArray();
+        Assert.AreEqual(statement.Contains(';') ? 3 : 1, items.Length, "the items the statement is written with");
+        var unbuilt = Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(Assert.ContainsSingle(items[^1].Children));
+        var input = Assert.ContainsSingle(unbuilt.Children);
+        Assert.IsInstanceOfType(input, kind);
+        Assert.AreEqual(operand, TextOf(source, input.SourceLocation.Range));
+        Assert.IsFalse(Descendants(print).OfType<VBBinaryOperatorExpressionNode>().Any(), "no operation is built");
     }
 
     // a statement after a colon is read on its own too: the end of the statement the error is in is the colon.
