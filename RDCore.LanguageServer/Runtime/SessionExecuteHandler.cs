@@ -63,8 +63,8 @@ internal sealed class SessionExecuteHandler(
             return NotFound(DebuggerMessages.NoWorkspaceToRunIn);
         }
 
-        // a module is found before a referenced project or library (MS-VBAL §5.6.10): one of the client's own named VBA, or after the project, would be what
-        // VBA.Len means, and the library's names would no longer be reachable by its name.
+        // the project, the projects and libraries it references and its procedural modules are matched in one tier (MS-VBAL §5.6.10): a module of the client's
+        // own named VBA, or after the project, would make that name match twice, and VBA.Len, or any name qualified by it, invalid.
         if (request.SessionModule && IsTaken(request.ModuleName))
         {
             return NotFound(string.Format(DebuggerMessages.SessionModuleNameIsTaken, request.ModuleName));

@@ -206,8 +206,9 @@ The interactive shell does this for its program. When the session has no module 
 the workspace root, as the code of an Immediate window is, and the project file is not changed. From then on the session has it: a later run finds it, marked or
 not, until the project is reloaded and the session composed again. A module the session doesn't have is not found unless the run is marked.
 
-A module of the client's own can't be named after the project or a library it references: a module is found before them (**MS-VBAL §5.6.10**), so it would hide
-every name of theirs (`VBA.Len` would no longer be the library's). Such a run is not found, and the result says why.
+A module of the client's own can't be named after the project or a library it references. The project, the libraries it references and its procedural modules are
+matched in one tier (**MS-VBAL §5.6.10**), so the name would match twice, and a name qualified by it, such as `VBA.Len`, would be invalid. Such a run is not found,
+and the result says why.
 
 A workspace whose project file can't be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules. A client
 that opens no folder has no workspace, and what it runs is not found.

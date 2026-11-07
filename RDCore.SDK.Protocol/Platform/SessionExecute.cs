@@ -55,7 +55,8 @@ public record class SessionExecuteParams
     /// </summary>
     /// <remarks>
     /// Without it, a module the session does not have is not found (<see cref="ExecutionOutcome.NotFound"/>). A module of the client's own can't be named after the
-    /// project or a library it references, whose names it would hide (<strong>MS-VBAL §5.6.10</strong>): the run is not found, and the result says why.
+    /// project or a library it references: they and the project's procedural modules are matched in one tier (<strong>MS-VBAL §5.6.10</strong>), so the name would
+    /// match twice, and every name qualified by it would be invalid. The run is not found, and the result says why.
     /// </remarks>
     public bool SessionModule { get; init; }
 }

@@ -17,8 +17,8 @@ using System.IO.Abstractions;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// <strong>MS-VBAL §5.6.10</strong> a module is found before a referenced project or library: a module of the client's own named after one would hide every name of it,
-/// and its run is refused, as not found, with the reason.
+/// <strong>MS-VBAL §5.6.10</strong> matches the project, the libraries it references and its procedural modules in one tier: a module of the client's own named after
+/// one would make the name match twice, and its run is refused, as not found, with the reason.
 /// </summary>
 [TestClass]
 public sealed class SessionExecuteHandlerTests

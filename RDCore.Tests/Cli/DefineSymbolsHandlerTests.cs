@@ -140,7 +140,8 @@ public sealed class DefineSymbolsHandlerTests
         Assert.IsTrue(provider.Session.Symbols.DeclaredIn(module.Uri).Any(symbol => symbol.Name == "Main"), "Main is a procedure of the project's module");
     }
 
-    // a module is found before a referenced project or library (MS-VBAL §5.6.10): a module of the client's own named after one would hide every name of it.
+    // the project, the libraries it references and its procedural modules are matched in one tier (MS-VBAL §5.6.10): a module of the client's own named after one
+    // would make the name match twice.
     [TestMethod]
     [DataRow("VBA", DisplayName = "the standard library")]
     [DataRow("Scripting", DisplayName = "a library the project references")]
