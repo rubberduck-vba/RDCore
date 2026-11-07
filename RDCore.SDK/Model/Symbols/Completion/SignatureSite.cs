@@ -71,6 +71,23 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
     }
 
     /// <summary>
+    /// Whether the cursor is where the value of an argument starts, with nothing of it written but <paramref name="word"/>: where an argument starts
+    /// (<see cref="IsWhereAnArgumentStarts"/>), or after the <c>:=</c> of a named argument (<c>Weigh Amounts:=|</c>).
+    /// </summary>
+    /// <param name="word">What is written of the value at the cursor.</param>
+    public bool IsWhereAnArgumentsValueStarts(string word)
+    {
+        ArgumentNullException.ThrowIfNull(word);
+        var current = TopLevelPartsOf(ArgumentsBefore)[^1];
+        if (NamedArgument().Match(current) is { Success: true } named)
+        {
+            current = current[named.Length..];
+        }
+
+        return current.EndsWith(word, StringComparison.Ordinal) && current[..^word.Length].Trim().Length == 0;
+    }
+
+    /// <summary>
     /// The names of the named arguments written after the one the cursor is in, up to the end of the argument list: its closing parenthesis, or the end of the
     /// call statement (a <c>:</c> that separates statements, a comment, the end of the logical line, <see cref="LogicalLine"/>).
     /// </summary>
