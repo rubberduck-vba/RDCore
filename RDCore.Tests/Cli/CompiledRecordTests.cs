@@ -181,8 +181,8 @@ public sealed class CompiledRecordTests
             "    H.N = H.N + 1",
             "End Sub"), "Keep", recoveries: 14, classes: Noisy());
 
-    // an Integer field that overflows is let-assigned nothing (MS-VBAL §5.4.3.1.1): the interpreter runs the assignment alone, and raises the error to the
-    // handler; the field holds what it held before.
+    // an Integer field whose sum overflows (MS-VBAL §5.6.9.3) is let-assigned nothing (MS-VBAL §5.4.3.8): the interpreter runs the assignment alone, and
+    // raises the error to the handler; the field holds what it held before.
     [TestMethod]
     public async Task AFieldThatOverflows_IsRaisedByTheInterpreter_ToTheHandler()
         => await AssertAlikeAsync(Module(
@@ -203,7 +203,8 @@ public sealed class CompiledRecordTests
             "End Function"), "Guarded", recoveries: 1);
 
     // an error compiled code does not handle walks the activation back with the record as compiled code left it, half updated: the caller's handler reads
-    // what was written before the error, and nothing of what was not - the Integer field that overflows is let-assigned nothing (MS-VBAL §5.4.3.1.1).
+    // what was written before the error, and nothing of what was not - the Integer field whose sum overflows (MS-VBAL §5.6.9.3) is let-assigned nothing
+    // (MS-VBAL §5.4.3.8).
     [TestMethod]
     public async Task AWalkBackMidUpdate_LeavesTheRecordAsCompiledCodeLeftIt()
         => await AssertAlikeAsync(Module(
