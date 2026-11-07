@@ -300,6 +300,21 @@ public sealed class CompletionCandidatesTests
         Assert.AreEqual("ScSmall", items.Single(item => item.Preselect).Label);
     }
 
+    // a label the word is, in any case, is what the user means to write: it is selected, wherever it ranks, and the tiers keep their order.
+    [TestMethod]
+    public void ALabelTheWordIs_IsSelected_ThoughTheTiersBeforeItKeepTheirOrder()
+    {
+        CompletionCandidate[] constants = [new("ScSmall", CompletionItemKind.EnumMember)];
+        CompletionCandidate[] names = [new("SubCaption:=", CompletionItemKind.Variable), new("Sc:=", CompletionItemKind.Variable)];
+        CompletionCandidate[] others = [new("Scale", CompletionItemKind.Function), new("sc", CompletionItemKind.Variable)];
+
+        var items = CompletionCandidates.ListOf("SC", [new(constants), new(names, IsSelectedWhenNothingIsTyped: false)], others).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "ScSmall", "Sc:=", "SubCaption:=", "sc", "Scale" }, items.Select(item => item.Label).ToArray(),
+            string.Join(", ", items.Select(item => item.Label + "/" + item.SortText)));
+        Assert.AreEqual("sc", items.Single(item => item.Preselect).Label);
+    }
+
     // where nothing is typed, a group that is not selected then is skipped: the first item that can be selected is.
     [TestMethod]
     [DataRow("", "Scale", DisplayName = "nothing typed")]

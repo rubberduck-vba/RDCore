@@ -360,7 +360,7 @@ internal sealed class CompletionService(
         // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
         IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
         var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
-            arrays is null ? others : []);
+            arrays is null ? others : [], new Position(line, character));
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",
@@ -594,11 +594,9 @@ internal sealed class CompletionService(
                 return [];
             }
 
-            // a class of the workspace is read as the composition has it now: what its members return is bound by then (CurrentTypes).
-            if (type is VBClassType declared)
-            {
-                type = CurrentTypes.Of(site.Composition.Resolver, declared);
-            }
+            // a type is read as the composition has it now: what the members of a class of the workspace return is bound by then, and a class a library names
+            // before it reads it is the class of that name (CurrentTypes).
+            type = CurrentTypes.Of(site.Composition.Resolver, type);
 
             // a form's control is its class and the extender it is wrapped in: Left, SetFocus, Visible (FormControlExtender)
             return ObjectValueStaticSemantics.DesignerControlOf(context, expression) is not null

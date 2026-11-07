@@ -89,7 +89,8 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
 
     /// <summary>
     /// The names of the named arguments written after the one the cursor is in, up to the end of the argument list: its closing parenthesis, or the end of the
-    /// call statement (a <c>:</c> that separates statements, a comment, the end of the logical line, <see cref="LogicalLine"/>).
+    /// call statement (a <c>:</c> that separates statements, a comment, the <c>Else</c> of a single-line <c>If</c> (<strong>MS-VBAL §5.4.2.9</strong>), the end of
+    /// the logical line, <see cref="LogicalLine"/>).
     /// </summary>
     /// <param name="after">The text of the logical line from the cursor on.</param>
     public IReadOnlyList<string> NamesAfter(string after) => [.. ArgumentsAfter(after).Select(NameOf).OfType<string>()];
@@ -130,6 +131,7 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
                         break;
                     case '\'' when !IsParenthesized:
                     case ':' when !IsParenthesized && depth == 0 && (index + 1 >= after.Length || after[index + 1] != '='):
+                    case 'E' or 'e' when IsElseAt(after, index):
                         end = index;
                         break;
                 }
@@ -139,6 +141,12 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
         // the first part is the rest of the argument the cursor is in.
         return [.. TopLevelPartsOf(after[..end]).Skip(1)];
     }
+
+    // the Else of a single-line If, which ends the statement of its Then clause (MS-VBAL §5.4.2.9): a reserved word, which no expression has in it.
+    private static bool IsElseAt(string text, int index)
+        => string.Compare(text, index, Tokens.Else, 0, Tokens.Else.Length, StringComparison.OrdinalIgnoreCase) == 0
+            && (index == 0 || !IsNameCharacter(text[index - 1]))
+            && (index + Tokens.Else.Length == text.Length || !IsNameCharacter(text[index + Tokens.Else.Length]));
 
     // the arguments before the one the cursor is in.
     private IReadOnlyList<string> PrecedingArguments => TopLevelPartsOf(ArgumentsBefore) is var parts ? parts.GetRange(0, parts.Count - 1) : [];
