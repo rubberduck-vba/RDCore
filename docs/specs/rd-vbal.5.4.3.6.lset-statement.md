@@ -123,6 +123,6 @@ The layout and the field store of a UDT value are described in
 |Type or member|Role|
 |---|---|
 |[VBUserDefinedTypeImage](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeImage.html)|The byte copy of `LSet`'s UDT form (**RDCore.SDK**).|
-|`VBRecordCopyOutcome`|What the copy did: copied, or the error that stopped it (**RDCore.SDK**).|
+|[VBRecordCopyOutcome](../api/RDCore.SDK.Model.Types.VBRecordCopyOutcome.html)|What the copy did: copied, or the error that stopped it (**RDCore.SDK**).|
 |`VBUserDefinedTypeLayout`|The layout a record is laid out through, and read back through (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider`|Dispatches an `AssignmentStatementNode` whose `Kind` is `LSet` or `RSet`; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
