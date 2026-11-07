@@ -405,11 +405,15 @@ public sealed class CompiledMemberEntryTests
             "End Function")),
     ];
 
+    // the C library of the platform the tests run on, whose memcpy copies bytes on each of them.
+    private static string CLibrary => OperatingSystem.IsWindows() ? "msvcrt" : OperatingSystem.IsMacOS() ? "libc.dylib" : "libc.so.6";
+
     // the bytes of a field written by the interpreter, at the field's address, in the middle of a member: compiled code reads the field after it as it now is.
+    // Bump returns 8, then 170, then 3412.
     [TestMethod]
     public async Task AFieldWrittenAtItsAddressInAMember_IsReadByCompiledCodeAfter()
     {
-        var (_, compiled) = await AssertAlikeAsync(Program(
+        var (observed, compiled) = await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Poked()",
             "End Sub",
@@ -423,7 +427,7 @@ public sealed class CompiledMemberEntryTests
             "        Poked = Poked * 10 + V Mod 10",
             "    Next",
             "End Function"), [("Writer", ModuleWorkspace.ClassModule("Writer", "Option Explicit",
-                "Private Declare PtrSafe Sub CopyMemory Lib \"kernel32\" Alias \"RtlMoveMemory\" (Destination As Any, Source As Any, ByVal Length As LongPtr)",
+                $"Private Declare PtrSafe Sub CopyMemory Lib \"{CLibrary}\" Alias \"memcpy\" (Destination As Any, Source As Any, ByVal Length As LongPtr)",
                 "Private mTotal As Long",
                 "Public Function Bump(ByVal N As Long) As Long",
                 "    Dim V As Long",
@@ -434,6 +438,7 @@ public sealed class CompiledMemberEntryTests
                 "    Bump = mTotal",
                 "End Function"))]);
 
+        StringAssert.Contains(observed, "Completed | 802 |");
         AssertEntered(compiled, "Poked", direct: 3, "Bump", framesMade: 3);
     }
 
