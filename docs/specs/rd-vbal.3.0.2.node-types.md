@@ -59,8 +59,11 @@ It also applies to code with a syntax error:
   statement keeps its operator. The statement ends at its own line end or colon, and the next statement is read on its own.
 - A statement that no grammar rule reads (`a = 1-`, with no space before the operator, or `If x = 1 - Then`) is kept as
   an Unbuilt statement of its text, at its place in the procedure.
-- So is a statement that begins with a word no statement begins with (`Mod = 1`). An operator keyword is a reserved identifier and names no
-  variable (**MS-VBAL §3.3.5.2**). The syntax error is at that word, and the next statement is read on its own.
+- So is a statement that begins with a word no statement begins with (`Mod = 1`), in the body of a block too, and after a label or a line number
+  (`L1: Mod = 1`), which stays its label. An operator keyword is a reserved identifier and names no variable (**MS-VBAL §3.3.5.2**). The syntax
+  error is at that word, and the next statement is read on its own.
 - A declaration with a word that is no name where its name is written (`Dim For As Long`, `Dim 1 As Long`, `Dim Mod As Long`) is a syntax error
   at that word. The statement is kept at its place, and the next statement is read on its own.
+- A parameter whose name is a reserved identifier (`Sub S(ByVal Mod As Long)`, `Sub S(ByVal Next As Long)`) is a syntax error
+  (**MS-VBAL §5.3.1.5**). A keyword that is no reserved identifier, such as `Name` or `Error`, names a parameter.
 - A statement has one syntax error, the first one the parser finds in it. Two statements on one line (`a = 1 -: b = = 2`) have one error each.
