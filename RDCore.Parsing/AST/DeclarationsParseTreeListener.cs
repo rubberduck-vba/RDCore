@@ -964,12 +964,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // Debug.Print arrives as an objectPrintExpr (its output list is not an argument list). Debug.Assert
     // is an ordinary call, so its argument arrives one of two ways: parenthesized, it rides inside the
     // callee's own IndexExpressionNode; bare, it is the statement's own argument list.
-    private static StatementNode? AsDebugStatement(
+    //
+    // A Debug.Print with arguments is a syntax error the parse recovered from: it read the output list to the
+    // last item it could, and what is after it as the arguments of a call (`Debug.Print 1; 2 +` is a print of
+    // `1;` and an argument `2 +`, unbuilt). They are the items the statement is written with, kept as items. A missing
+    // argument is no item: it is the blank after the output list, before a comment.
+    private StatementNode? AsDebugStatement(
         SyntaxNodeId identity, SourceLocation location, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments)
         => callee switch
         {
             ObjectPrintExpressionNode print when IsDebugObject(print.Owner)
-                => new DebugPrintStatementNode(identity, location, print.Items),
+                => new DebugPrintStatementNode(identity, location,
+                    [.. print.Items, .. arguments.Where(argument => argument is not MissingArgumentNode).Select(argument => new PrintOutputItemNode(GetCurrentNodeId(), argument.Location, argument, Separator: null))]),
 
             IndexExpressionNode { Callee: MemberAccessExpressionNode member, Arguments: [var argument] }
                 when IsDebugMember(member, Tokens.Assert)
@@ -1852,9 +1858,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     }
     private SyntaxNode BuildBinary(string token, VBABaseParserRuleContext context)
     {
-        if (CurrentBuilder.PeekLastChildren(2) is not [ExpressionNode, ExpressionNode])
+        // an operation the parse read without its right operand holds its left one alone: the node before that is the one before the operation (in
+        // `Print #1, 1; 2 +`, the `;`), and not an operand of it.
+        var operands = context.children?.Count(child => child is VBAParser.ExpressionContext) ?? 0;
+        if (operands < 2 || CurrentBuilder.PeekLastChildren(2) is not [ExpressionNode, ExpressionNode])
         {
-            return BuildUnbuiltExpressionTrivia(context, 2);
+            return BuildUnbuiltExpressionTrivia(context, Math.Min(operands, 2));
         }
         return new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2));
     }

@@ -5,8 +5,8 @@ using Antlr4.Runtime.Misc;
 namespace RDCore.Parsing.Syntax;
 
 /// <summary>
-/// ANTLR's recovery from a syntax error, which never reads past the end of the statement the error is in: it deletes no line end, colon or end of the module,
-/// and stops at one where it skips tokens to resynchronize.
+/// ANTLR's recovery from a syntax error, which never reads past the end of the statement the error is in: it deletes no line end, colon, comment or end of
+/// the module, and stops at one where it skips tokens to resynchronize.
 /// </summary>
 /// <remarks>
 /// After <c>a = 1 +</c>, the parse expects an operand, and finds the line end. ANTLR's default recovery deletes it as an extraneous token when the token after
@@ -16,10 +16,12 @@ namespace RDCore.Parsing.Syntax;
 /// </remarks>
 internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 {
-    private static bool EndsAStatement(int type) => type is VBALexer.NEWLINE or VBALexer.COLON or TokenConstants.Eof;
+    // what ends a statement, as recovery sees it: the end of a statement, a comment's included, or the end of the module.
+    private static bool EndsAStatement(int type) => BeginsAnEndOfStatement(type) || type == TokenConstants.Eof;
 
     protected override IToken SingleTokenDeletion(Parser recognizer)
         => EndsAStatement(((ITokenStream)recognizer.InputStream).La(1)) ? null! : base.SingleTokenDeletion(recognizer);
+
 
     // whether the error the parse recovers from is one it reported: no error is reported until a token is read after the one it recovered from.
     private bool _reported;

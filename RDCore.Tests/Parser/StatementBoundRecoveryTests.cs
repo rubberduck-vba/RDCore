@@ -1,6 +1,7 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -70,6 +71,33 @@ public sealed class StatementBoundRecoveryTests
         Assert.AreEqual(new SourceRange(new SourcePosition(1, statement.Length - 1), new SourcePosition(1, statement.Length - 1)), error.Location.Range);
     }
 
+    // the operation is the last item the statement prints, unbuilt, its left operand in it: an item the parse read before it is the item it is, and a name
+    // there is the reference it is.
+    [TestMethod]
+    [DataRow("Debug.Print 1 -", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1 *", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1 &", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print x -", "x", typeof(SimpleNameExpressionNode))]
+    [DataRow("Debug.Print 1; 2 &", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1; 2 -", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Print #1, 1; 2 &", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Print #1, 1; x -", "x", typeof(SimpleNameExpressionNode))]
+    public void ADanglingOperatorAfterAnItemToPrint_IsTheLastItem_Unbuilt_WithItsLeftOperand(string statement, string operand, Type kind)
+    {
+        var source = $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var print = Assert.ContainsSingle(member.Children.OfType<StatementNode>());
+        var items = print.Children.OfType<PrintOutputItemNode>().ToArray();
+        Assert.AreEqual(statement.Contains(';') ? 3 : 1, items.Length, "the items the statement is written with");
+        var unbuilt = Assert.IsInstanceOfType<UnbuiltExpressionTriviaNode>(Assert.ContainsSingle(items[^1].Children));
+        var input = Assert.ContainsSingle(unbuilt.Children);
+        Assert.IsInstanceOfType(input, kind);
+        Assert.AreEqual(operand, TextOf(source, input.SourceLocation.Range));
+        Assert.IsFalse(Descendants(print).OfType<VBBinaryOperatorExpressionNode>().Any(), "no operation is built");
+    }
+
     // a statement after a colon is read on its own too: the end of the statement the error is in is the colon.
     [TestMethod]
     public void TheStatementAfterADanglingOperatorAndAColon_IsReadOnItsOwn()
@@ -85,17 +113,56 @@ public sealed class StatementBoundRecoveryTests
 
     // a comment after the operator is the comment it is, and the procedure ends where it does.
     [TestMethod]
-    public void ACommentAfterADanglingOperator_IsKept_AndTheProcedureEndsWhereItDoes()
+    [DataRow("a = 1 -", " ' c", DisplayName = "an operator the parse leaves unread, then a comment")]
+    [DataRow("a = 1 &", "'c", DisplayName = "a concatenation, then a comment with no space before it")]
+    [DataRow("a = 1 /", " ' c", DisplayName = "a division, then a comment")]
+    [DataRow("a = 1 &", " ' c: d", DisplayName = "a concatenation, then a comment with a colon in it")]
+    [DataRow("a = 1 ^", " Rem c", DisplayName = "an exponentiation, then a Rem comment")]
+    public void ACommentAfterADanglingOperator_IsKept_AndTheProcedureEndsWhereItDoes(string broken, string comment)
     {
-        var source = "Public Sub Main()\r\na = 1 - ' c\r\nb = 2\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
+        var source = $"Public Sub Main()\r\n{broken}{comment}\r\nb = 2\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
 
-        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, Assert.ContainsSingle(parse.SyntaxErrors).ErrorId);
+        var error = Assert.ContainsSingle(parse.SyntaxErrors);
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
+        Assert.AreEqual(1, error.Location.Range.Start.Line, "the error is in the statement's line");
+        Assert.AreEqual(comment.TrimStart(), TextOf(source, Assert.ContainsSingle(parse.Trivia.OfType<CommentTriviaNode>()).SourceLocation.Range));
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, members);
+        Assert.AreEqual(new SourcePosition(3, 7), members[0].SourceLocation.Range.End, "the first procedure ends with its End Sub");
+        // an operation the parse reads, its right operand missing, ends after the blank it read before the comment.
+        CollectionAssert.AreEqual(new[] { broken, "b = 2" },
+            members[0].Children.OfType<AssignmentStatementNode>().Select(node => TextOf(source, node.SourceLocation.Range).TrimEnd()).ToArray());
+    }
+
+    // a statement the parse cannot read ends at its comment too, whether the parse skips what it cannot read, or supplies the token the statement is
+    // missing before the comment.
+    [TestMethod]
+    [DataRow("State = this.", DisplayName = "a member access with no member, skipped to the comment")]
+    [DataRow("x = Foo(Bar(", DisplayName = "two unclosed argument lists, skipped to the comment")]
+    [DataRow("Set p = A.Offset(IIf(this.", DisplayName = "a closing parenthesis supplied before the comment")]
+    public void ACommentAfterAStatementTheParseCannotRead_IsKept_AndTheNextStatementIsReadOnItsOwn(string broken)
+    {
+        var source = $"Public Sub Main()\r\n{broken} ' c\r\nb = 2\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        Assert.IsNotEmpty(parse.SyntaxErrors);
+        Assert.IsTrue(parse.SyntaxErrors.All(error => error.Location.Range.Start.Line == 1), "the errors are in the statement's line");
         Assert.AreEqual("' c", TextOf(source, Assert.ContainsSingle(parse.Trivia.OfType<CommentTriviaNode>()).SourceLocation.Range));
         var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
         Assert.HasCount(2, members);
         Assert.AreEqual(new SourcePosition(3, 7), members[0].SourceLocation.Range.End, "the first procedure ends with its End Sub");
-        CollectionAssert.AreEqual(new[] { "a = 1 -", "b = 2" },
-            members[0].Children.OfType<AssignmentStatementNode>().Select(node => TextOf(source, node.SourceLocation.Range)).ToArray());
+        Assert.AreEqual("b = 2", TextOf(source, Assert.ContainsSingle(members[0].Children.OfType<AssignmentStatementNode>()
+            .Where(node => node.SourceLocation.Range.Start.Line == 2)).SourceLocation.Range));
+    }
+
+    // the errors of the directives are not the parse's: a later one stays when the parse reports an error before it.
+    [TestMethod]
+    public void AnErrorOfADirective_AfterADanglingOperator_IsKept()
+    {
+        var source = "Public Sub Main()\r\na = 1 +\r\n#If x = #13/45/2000# Then\r\n#End If\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        CollectionAssert.AreEquivalent(new[] { 1, 2 }, parse.SyntaxErrors.Select(error => error.Location.Range.Start.Line).ToArray());
     }
 }

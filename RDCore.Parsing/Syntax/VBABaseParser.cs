@@ -247,8 +247,9 @@ public abstract class VBABaseParser : Parser
     // when one is installed (ModuleParser's SLL fast-path) - returning false there tells the generated
     // catch-block to just rethrow, so that pass's bail-immediately contract is unaffected.
 
-    // Bounds recovery to the rest of the current logical line (NEWLINE/COLON/EOF) - for a rule whose
-    // failure can't corrupt anything beyond a single statement (e.g. mainBlockStmt's own alternatives).
+    // Bounds recovery to the rest of the current logical line (NEWLINE/COLON/EOF), or to a comment on
+    // it, which is the statement's end and read as one - for a rule whose failure can't corrupt
+    // anything beyond a single statement (e.g. mainBlockStmt's own alternatives).
     protected bool RecoverToStatementBoundary(RecognitionException re)
     {
         if (ErrorHandler is BailErrorStrategy)
@@ -259,7 +260,7 @@ public abstract class VBABaseParser : Parser
         while (true)
         {
             int la = _input.La(1);
-            if (la == -1 || la == VBALexer.NEWLINE || la == VBALexer.COLON)
+            if (la is -1 or VBALexer.NEWLINE or VBALexer.COLON or VBALexer.SINGLEQUOTE or VBALexer.REM)
             {
                 break;
             }
