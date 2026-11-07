@@ -899,7 +899,7 @@ public sealed class CompiledRecordTests
         => [("Node", ModuleWorkspace.ClassModule("Node", ["Option Explicit", "Public Name As String", "Public Parent As Node", "Public Child As Node",
             "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Name", "End Sub"]))];
 
-    // an RD-VBA divergence, ruled: the address of an object LSet onto an object field is a reference counted as any other, where MS-VBA copies the pointer
+    // an RD-VBA divergence: the address of an object LSet onto an object field is a reference counted as any other, where MS-VBA copies the pointer
     // and counts nothing. A child given its parent that way - the weak reference MS-VBA programs make so - holds it, and a parent and a child that hold each
     // other are never let go of: neither Class_Terminate runs.
     [TestMethod]
