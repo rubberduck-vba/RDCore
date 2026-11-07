@@ -204,6 +204,7 @@ public static class Tokens
     public const string String = "String";
     public const string StrPtr = "StrPtr";
     public const string Sub = "Sub";
+    public const string Tab = "Tab";
     public const string Then = "Then";
     public const string Time = "Time";
     public const string To = "To";

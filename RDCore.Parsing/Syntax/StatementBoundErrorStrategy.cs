@@ -15,7 +15,12 @@ namespace RDCore.Parsing.Syntax;
 /// <para>
 /// An error inside a statement stays in it too. The rest of the line after the error is read as the statement's, so the block goes on after it
 /// (<c>Dim For As Long</c>, where the name is recovered from before <c>As</c>). A statement that begins with a word no statement begins with is read as a
-/// statement no rule reads, to its end (<c>Mod = 1</c>). A word that ends a block or begins a procedure is still recovered from where it is.
+/// statement no rule reads, to its end (<c>Mod = 1</c>), in a block and in the body of a <c>For</c>, and its label is read as a label
+/// (<c>L1: Mod = 1</c>). A word that ends a block or begins a procedure is still recovered from where it is.
+/// </para>
+/// <para>
+/// The header of a <c>For</c> or a <c>For Each</c> that ends with a binary operator the parse leaves unread (<c>For i = 1 To 2 -</c>) is reported at the
+/// operator, which is a token no rule reads, and the loop goes on to its body and its <c>Next</c>.
 /// </para>
 /// <para>
 /// A parse with no syntax error never enters recovery, so this strategy does not change it.
@@ -28,7 +33,6 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 
     protected override IToken SingleTokenDeletion(Parser recognizer)
         => EndsAStatement(((ITokenStream)recognizer.InputStream).La(1)) ? null! : base.SingleTokenDeletion(recognizer);
-
 
     // whether the error the parse recovers from is one it reported: no error is reported until a token is read after the one it recovered from.
     private bool _reported;
@@ -164,16 +168,23 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
             return;
         }
 
-        // a For's statements are no block: the loop decides on the end of a statement and the statement after it together, and decides on neither when that
-        // statement begins with a token no statement begins with. Each such statement is read after its end, as the For reads a statement of it.
-        if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } loop && !InErrorRecoveryMode(loop)
-            && BeginsAStatementOfTheFor(loop.Interpreter.atn.states[loop.State]))
+        if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } loop && !InErrorRecoveryMode(loop))
         {
-            var decision = loop.State;
-            while (BeginsNoStatementAfterTheEnd(loop))
+            if (DanglingOperatorAhead(loop) is { } through)
             {
-                ReadAStatementNoRuleReadsOfTheFor(loop, (ParserRuleContext)loop.Context);
-                loop.State = decision;
+                ReadADanglingOperatorOfTheHeader(loop, through);
+            }
+
+            // a For's statements are no block: the loop decides on the end of a statement and the statement after it together, and decides on neither when
+            // that statement begins with a token no statement begins with. Each such statement is read after its end, as the For reads a statement of it.
+            if (BeginsAStatementOfTheFor(loop.Interpreter.atn.states[loop.State]))
+            {
+                var decision = loop.State;
+                while (BeginsNoStatementAfterTheEnd(loop))
+                {
+                    ReadAStatementNoRuleReadsOfTheFor(loop, (ParserRuleContext)loop.Context);
+                    loop.State = decision;
+                }
             }
         }
 
@@ -552,6 +563,37 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         }
 
         throw new InvalidOperationException($"No state of rule {rule} calls rule {called}.");
+    }
+
+    // a For's header that ends with a binary operator the parse leaves unread (For i = 1 To 2 -): the decision after its last expression looks past the
+    // operator to the end of the line, and fails, and the For would end there, with no body and no Next: the procedure's recovery would then skip to the
+    // next procedure. The operator is a token no rule reads, reported where it is, and the For goes on to its body.
+    private void ReadADanglingOperatorOfTheHeader(VBAParser parser, int through)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var @operator = stream.Lt(through);
+        BeginErrorCondition(parser);
+        parser.NotifyErrorListeners(@operator,
+            $"extraneous input {GetTokenErrorDisplay(@operator)} expecting {GetExpectedTokens(parser).ToString(parser.Vocabulary)}", null);
+        for (var i = 0; i < through; i++)
+        {
+            parser.Consume();
+        }
+
+        EndErrorCondition(parser);
+    }
+
+    // how far ahead, past the blanks, a binary operator is that the parse does not expect here, when the end of the statement follows it; none otherwise.
+    private static int? DanglingOperatorAhead(Parser parser)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var at = PastTheBlanks(stream, 1);
+        if (!ModuleParser.BinaryOperators.Contains(stream.La(at)) || parser.GetExpectedTokens().Contains(stream.La(at)))
+        {
+            return null;
+        }
+
+        return EndsAStatement(stream.La(PastTheBlanks(stream, at + 1))) ? at : null;
     }
 
     protected override void ConsumeUntil(Parser recognizer, IntervalSet set)

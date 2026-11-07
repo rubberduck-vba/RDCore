@@ -1020,7 +1020,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         CurrentBuilder.AddChild(
-            AsDebugStatement(GetCurrentNodeId(), location, callee, arguments)
+            AsDebugStatement(GetCurrentNodeId(), location, callee, context.argumentList(), arguments)
             ?? new CallStatementNode(GetCurrentNodeId(), location, callee, arguments, context.CALL() is not null));
     }
 
@@ -1035,15 +1035,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     //
     // A Debug.Print with arguments is a syntax error the parse recovered from: it read the output list to the
     // last item it could, and what is after it as the arguments of a call (`Debug.Print 1; 2 +` is a print of
-    // `1;` and an argument `2 +`, unbuilt). They are the items the statement is written with, kept as items. A missing
-    // argument is no item: it is the blank after the output list, before a comment.
+    // `1;` and an argument `2 +`, unbuilt). They are the items the statement is written with, kept as items: see AsPrintItems.
     private StatementNode? AsDebugStatement(
-        SyntaxNodeId identity, SourceLocation location, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments)
+        SyntaxNodeId identity, SourceLocation location, ExpressionNode callee, VBAParser.ArgumentListContext? list, ImmutableArray<ExpressionNode> arguments)
         => callee switch
         {
             ObjectPrintExpressionNode print when IsDebugObject(print.Owner)
-                => new DebugPrintStatementNode(identity, location,
-                    [.. print.Items, .. arguments.Where(argument => argument is not MissingArgumentNode).Select(argument => new PrintOutputItemNode(GetCurrentNodeId(), argument.Location, argument, Separator: null))]),
+                => new DebugPrintStatementNode(identity, location, [.. print.Items, .. AsPrintItems(list, arguments)]),
 
             IndexExpressionNode { Callee: MemberAccessExpressionNode member, Arguments: [var argument] }
                 when IsDebugMember(member, Tokens.Assert)
@@ -1054,6 +1052,48 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
             _ => null,
         };
+
+    // The arguments of a call that are the rest of an output list, as its items. A comma between two arguments is the separator it is in the list. A missing
+    // argument is no item: it is the blank before a comma, or after the output list before a comment. An argument that is `Spc(n)`, `Tab(n)` or `Tab` is the
+    // clause it is in an output list, where it can be nothing else (MS-VBAL 5.4.5.8.1).
+    private IEnumerable<PrintOutputItemNode> AsPrintItems(VBAParser.ArgumentListContext? list, ImmutableArray<ExpressionNode> arguments)
+    {
+        var commas = list?.COMMA() ?? [];
+        var separated = commas.Length == arguments.Length - 1;
+        for (var index = 0; index < arguments.Length; index++)
+        {
+            if (separated && index > 0)
+            {
+                var comma = commas[index - 1].Symbol;
+                var range = new SourceRange(new SourcePosition(comma.Line - 1, comma.Column).AnchoredAt(Anchor), new SourcePosition(comma.Line - 1, comma.Column + 1).AnchoredAt(Anchor));
+                yield return new PrintOutputItemNode(GetCurrentNodeId(), new SourceLocation(_rootUri, range), null, ",");
+            }
+            if (arguments[index] is var argument and not MissingArgumentNode)
+            {
+                yield return new PrintOutputItemNode(GetCurrentNodeId(), argument.Location, AsPrintClause(argument), Separator: null);
+            }
+        }
+    }
+
+    private ExpressionNode AsPrintClause(ExpressionNode argument)
+        => argument switch
+        {
+            IndexExpressionNode { Callee: SimpleNameExpressionNode name, Arguments: [var count] }
+                when IsNamed(name, Tokens.Spc) && count is not (NamedArgumentNode or MissingArgumentNode)
+                => new PrintSpcClauseNode(GetCurrentNodeId(), argument.Location, count),
+
+            IndexExpressionNode { Callee: SimpleNameExpressionNode name, Arguments: [var column] }
+                when IsNamed(name, Tokens.Tab) && column is not (NamedArgumentNode or MissingArgumentNode)
+                => new PrintTabClauseNode(GetCurrentNodeId(), argument.Location, column),
+
+            SimpleNameExpressionNode name when IsNamed(name, Tokens.Tab)
+                => new PrintTabClauseNode(GetCurrentNodeId(), argument.Location, null),
+
+            _ => argument,
+        };
+
+    private static bool IsNamed(SimpleNameExpressionNode name, string token)
+        => string.Equals(name.IdentifierName, token, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsDebugMember(MemberAccessExpressionNode member, string name)
         => IsDebugObject(member.Owner)
