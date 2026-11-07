@@ -27,7 +27,7 @@ returns ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument
 
 > [!NOTE]
 > **Not implemented.** A collection does not count the objects it holds. An object that only a collection holds is not kept alive by it, and one that was held by it is
-> not let go of when it is removed; the same gap [`ObjectReferences`](../api/RDCore.Runtime.Execution.ObjectReferences.html) documents for an array element and a field.
+> not let go of when it is removed; the same gap `ObjectReferences` documents for an array element and a field.
 
 ## Keys, Positions and Errors
 
@@ -72,6 +72,3 @@ call. This is the same enumerator in a shape source can call, and is what a clas
 |---|---|---|
 |6.1.3.1.2.1|[Add](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/07e970d8-0fb5-461c-bb6f-7960e8c45699)||
 |6.1.3.1.2.2|[Remove](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/93d5dcdd-91a5-4fae-9ba3-4472c55faf69)||
-
----
-> ⏮️ [**RD-VBAL §6.1.3** Predefined Class Modules](rd-vbal.6.1.3.predefined-class-modules.md) | ⏭️ [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md)

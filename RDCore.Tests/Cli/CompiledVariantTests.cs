@@ -597,4 +597,45 @@ public sealed class CompiledVariantTests
             "        B = B * 2",
             "    Next",
             "End Sub"), "Twice");
+
+    // a loop of a Variant counter entered again, its For statement run again with another end: each Next steps the counter to the end it was given
+    // this time, not the one before. The inner For statement, the interpreter's at each of the 2 passes: 2.
+    [TestMethod]
+    public async Task AVariantLoopEnteredAgain_IsSteppedToItsNewEnd()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Nested()",
+            "End Sub",
+            "Private Function Nested() As Long",
+            "    Dim I As Long",
+            "    Dim V As Variant",
+            "    Dim N As Long",
+            "    For I = 1 To 2",
+            "        For V = 1 To I * 2",
+            "            N = N + V",
+            "        Next",
+            "    Next",
+            "    Nested = N",
+            "End Function"), "Nested", recoveries: 2);
+
+    // a Variant ReDim'd by the interpreter, then assigned: the ReDim keeps the Variant in its cell, which compiled code goes on reading. The ReDim, the
+    // two statements of an element of it, V = N, a Let over the array the Variant holds, and the Let of the function's String result: 5.
+    [TestMethod]
+    public async Task AVariantReDimmedByTheInterpreter_IsWrittenWhereTheFrameHoldsIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Rebound()",
+            "End Sub",
+            "Private Function Rebound() As String",
+            "    Dim V As Variant",
+            "    Dim N As Long",
+            "    V = 1",
+            "    N = V + 1",
+            "    ReDim V(2)",
+            "    V(1) = N",
+            "    N = N + V(1)",
+            "    V = N",
+            "    N = V * 2",
+            "    Rebound = TypeName(V) & N",
+            "End Function"), "Rebound", recoveries: 5);
 }

@@ -19,7 +19,7 @@ checks at compile time that it can have one, as MS-VBA does (recorded in Excel, 
 |Of a class whose default member returns an object|[`VBC09310`](../diagnostics/vbc09310.md) Type mismatch|compiles|[`VBC09333`](../diagnostics/vbc09333.md) Variable required|compiles|
 |Of a class whose default member returns a `String` or a `Variant`|compiles|compiles|compiles|compiles|
 |Of a class whose default member returns another value|compiles|compiles|`VBC09333` Variable required|compiles|
-|Of a class that has no default member|compiles 👉: 438 when it runs, [`RDC11015`](../diagnostics/rdc11015.md)|compiles|compiles|compiles; assigned to a `Variant` with `Let` 👉: 438, `RDC11015`|
+|Of a class that has no default member|compiles; run-time error 438 when it runs, [`RDC11015`](../diagnostics/rdc11015.md)|compiles|compiles|compiles; assigned to a `Variant` with `Let`, run-time error 438, `RDC11015`|
 
 A value of a declared type is expected:
 
@@ -38,7 +38,7 @@ as it is: `CVar`, `Round`, `Hex`, `Str`, `Left`, `Mid`, `Trim`, the functions of
 `Choose`. A standard-library parameter says which it is with
 [StdLibValueAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibValueAttribute.html).
 
-👉 MS-VBAL §5.5.1.1 makes an object of a class that has no accessible default member statically invalid to Let-coerce.
+MS-VBAL §5.5.1.1 makes an object of a class that has no accessible default member statically invalid to Let-coerce.
 MS-VBA compiles it, and raises run-time error 438 (Object doesn't support this property or method) when it runs, or 91
 (Object variable or With block variable not set) when the variable holds `Nothing` (Excel, `oracle\s46` F16a-c:
 `c = o`, `c = CInt(o)`, `Split("a,b,c", ",", o)`). RD-VBA does what MS-VBA does: the object is read for a value when it
@@ -72,6 +72,3 @@ a function declared `As Integer()`; the value each holds is no array, and the as
 mismatch) when it runs. This is what MS-VBA does (Excel, `oracle\s46` F17a-b, `oracle\s48` J01-J02). The static pass states it
 (`ValueExpressionSemanticFlags.EmptyLetToArray`), and RDCore.Diagnostics reports
 [`RDC11016`](../diagnostics/rdc11016.md): the assignment fails whenever it runs.
-
----
-> ⏮️ [**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md) | ⏭️ [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)

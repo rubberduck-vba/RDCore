@@ -36,6 +36,3 @@ by an error handler; see [**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.
 |---|---|
 |`ErrorHandlingEvaluator`|Evaluates the number expression and Let-coerces it to `Integer`, calling the numeric Let-coercion strategy (`VBNumericLetCoercionTypeRuntimeSemantics`) directly.|
 |[VBApplicationErrorInfo](../api/RDCore.SDK.Model.Errors.VBApplicationErrorInfo.html)|The source metadata of an application error (**RDCore.SDK**).|
-
----
-> ⏮️ [**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md) | ⏭️ [**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)

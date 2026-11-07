@@ -19,7 +19,7 @@ A numeric data value can be one of the following:
 
 Each intrinsic type stores its own exact managed type: a `short` for `Integer` and an `int` for `Long`, not one integer type for both.
 
-> 👉 Because each intrinsic type stores its own managed type, the declared type is preserved across the dispatch of an external call. See [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) (`Len` / `LenB`).
+> Because each intrinsic type stores its own managed type, the declared type is preserved across the dispatch of an external call. See [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) (`Len` / `LenB`).
 
 ## Static Values
 
@@ -43,6 +43,3 @@ Precompiler constants are interpreted as `Integer` values. A precompiler constan
 - [PrecompilerConstantValue](../api/RDCore.SDK.Model.Values.PrecompilerConstantValue.html)
 
 Conditional compilation expressions are described in [**RD-VBAL §5.6.16** Constrained Expressions](rd-vbal.5.6.16.constrained-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1** Intrinsic Type Values](rd-vbal.2.5.2.1.intrinsic-type-values.md) | ⏭️ [**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)

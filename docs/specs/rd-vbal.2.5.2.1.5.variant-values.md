@@ -10,7 +10,7 @@ A `VBVariantValue`'s own `TypeInfo` mirrors the `TypeInfo` of its wrapped value.
 
 The C# instance of a `Variant` value stays a `VBVariantValue`. It is not an instance of the wrapped value's concrete type.
 
-> 👉 Because a `VBVariantValue`'s `TypeInfo` mirrors its wrapped value's, a direct cast or pattern-match on an operand downstream breaks as soon as the operand is a non-default `Variant`: the instance is still the `VBVariantValue`, not the wrapped value.
+> Because a `VBVariantValue`'s `TypeInfo` mirrors its wrapped value's, a direct cast or pattern-match on an operand downstream breaks as soon as the operand is a non-default `Variant`: the instance is still the `VBVariantValue`, not the wrapped value.
 >
 > Any code that short-circuits on a `TypeInfo` match, or pattern-matches a `VBTypedValue` operand against a concrete value type directly, must unwrap a `VBVariantValue` first. The unwrap is recursive, because a `Variant` may wrap another `Variant`. See [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md).
 
@@ -30,7 +30,7 @@ Storage holds the wrapped `VBTypedValue` of a `Variant` itself inside a [VBRunti
 
 - A `Variant`'s `VBVarType` tag is carried on its `VBRuntimeVariantValue` box. The tag round-trips through storage alongside the value itself.
 - `Variant` values use the same boxing pattern for storage as arrays (`VBArrayType.CreateValue`, [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html)); see [**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md). Three kinds of value are location-identified this way: an array, a `Variant`, and a UDT ([**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md)).
-- 👉 A `Variant` value round-trips through storage intact. A `Variant` read back from a variable, array element, or field carries the value that was stored, not a new, unrelated `Empty`.
+- A `Variant` value round-trips through storage intact. A `Variant` read back from a variable, array element, or field carries the value that was stored, not a new, unrelated `Empty`.
 - A `Variant`'s own `BoxedValue` unwraps all the way to the managed value. See [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md).
 
 ## Interop Representation
@@ -61,6 +61,3 @@ Unwrapping a `VBVariantValue` through the interop struct consists of:
 3. Look up the `ValuePtr` value in the appropriate memory space.
 
 Unwrapping yields a scoped `VBTypedValue`. The yielded value may or may not be an immediately usable _intrinsic data type_: it may be another `VBVariantValue`, which requires a new _unwrapping frame_.
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1.4** Object Values](rd-vbal.2.5.2.1.4.object-values.md) | ⏭️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md)

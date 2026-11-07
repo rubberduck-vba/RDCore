@@ -5,7 +5,7 @@
 
 The `DateTime` module is represented in the SDK by the interface
 [IStdDateTimeModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdDateTimeModule.html), and implemented by
-[StdDateTime](../api/RDCore.Runtime.StdLib.StdDateTime.html).
+`StdDateTime`.
 
 A function the specification declares with no `As` clause returns a `Variant`, which holds the type its description says: `DateDiff` a `Long`, `DatePart`
 and the functions of a part of a date an `Integer`, and `DateAdd`, `DateSerial`, `DateValue`, `TimeSerial` and `TimeValue` a `Date`.
@@ -95,6 +95,3 @@ the rest is decided here:
 |6.1.2.4.2.3|[Now](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/bb44575f-2504-42af-b39d-9a321cd5e354)||
 |6.1.2.4.2.4|[Time/Time$](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/bcea9c16-8334-4c1b-8467-aaf016119849)|`Time = ` sets the time of the session's clock, never the machine's.|
 |6.1.2.4.2.5|[Timer](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/1b430e82-b37b-474b-83db-5f2303104090)||
-
----
-> ⏮️ [**RD-VBAL §6.1.2.3** Conversion Module](rd-vbal.6.1.2.3.conversion-module.md) | ⏭️ [**RD-VBAL §6.1.2.5** FileSystem](rd-vbal.6.1.2.5.filesystem.md)

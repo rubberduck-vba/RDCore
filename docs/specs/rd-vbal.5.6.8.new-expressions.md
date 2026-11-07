@@ -49,6 +49,3 @@ reference to it would create its object; `Set e = Nothing` creates nothing, and 
 
 What creating an object of another library's class gives when the program runs is that library's to say: an object, or the
 error its server reports.
-
----
-> ⏮️ [**RD-VBAL §5.6.7** TypeOf...Is Expressions](rd-vbal.5.6.7.typeof-is-expressions.md) | ⏭️ [**RD-VBAL §5.6.9** Operator Expressions](rd-vbal.5.6.9.operator-expressions.md)

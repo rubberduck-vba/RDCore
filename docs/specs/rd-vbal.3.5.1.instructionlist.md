@@ -40,6 +40,3 @@ A synthesized instruction has no source node, so it is never a value in `ByNode`
 `InstructionList.TryGetLineNumber` answers the line number `Erl` reports when the environment counts
 line-number labels (the `LineLabel` setting). See [**RD-VBAL §6.1.2.7** Information](rd-vbal.6.1.2.7.information.md)
 for `Erl` and the setting that chooses what it counts.
-
----
-> ⏮️ [**RD-VBAL §3.5.0** Instructions](rd-vbal.3.5.0.instructions.md) | ⏭️ [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)

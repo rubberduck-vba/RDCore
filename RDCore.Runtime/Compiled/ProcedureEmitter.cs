@@ -896,13 +896,15 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.State);
         }
 
-        // each field's cell, found again, as each Variant's is: an edit made while the program waited may have given the object others.
+        // each field's cell, found again: an edit made while the program waited may have given the object others.
         foreach (var slot in _analysis.FieldSlots)
         {
             EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
         }
 
-        // each Variant's cell, found again: what the interpreter ran may have bound the slot to another.
+        // each Variant's cell, found again. Nothing the interpreter runs binds a Variant's slot to another cell: a ReDim keeps the Variant in its cell, and
+        // an edit of the procedure while it waits leaves the rest of its activation to the interpreter. So this finds the same cell. It is the reload's own
+        // read: one that fails (FailsAccessAtRandom) goes to unread like any other, and a statement that came to rebind a slot would be read here.
         foreach (var (slot, cell) in _variants)
         {
             _il.Emit(OpCodes.Ldarg_0);

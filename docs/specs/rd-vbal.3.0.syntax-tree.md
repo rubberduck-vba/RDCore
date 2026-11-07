@@ -16,6 +16,3 @@ _parser_.
 |3.3.0|[Operator Expressions](rd-vbal.3.3.0.operators.md)|
 |3.4.0|[Statements](rd-vbal.3.4.0.statements.md)|
 |3.5.0|[Instructions](rd-vbal.3.5.0.instructions.md)|
-
----
-> ⏮️ [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md) | ⏭️ [**RD-VBAL §3.0.1** Token Semantics](rd-vbal.3.0.1.token-semantics.md)

@@ -33,7 +33,7 @@ public sealed class ProjectFileWriter(IFileSystem fileSystem) : IProjectFileWrit
 
         var path = fileSystem.Path.Combine(project.Uri, ProjectFile.FileName);
         await using var stream = fileSystem.File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        // a project file is stamped with the version of the platform that writes it.
-        await JsonSerializer.SerializeAsync(stream, project.WithCurrentVersion(), SerializerOptions, token);
+        // a project file is stamped with the version of the format it is written in.
+        await JsonSerializer.SerializeAsync(stream, project.WithSchemaVersion(), SerializerOptions, token);
     }
 }

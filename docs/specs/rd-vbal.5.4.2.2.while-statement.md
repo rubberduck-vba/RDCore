@@ -8,7 +8,7 @@
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
 |[WhileWendStatementNode](../api/RDCore.SDK.Model.AST.Statements.WhileWendStatementNode.html)|`ConditionalBranch`|The pre-test loop header. Its `Else` is right past the whole loop.|
-|— (synthesized)|`Jump`|The back-edge at the end of the body; `Node` is `null`. Its `Target` is the loop's header.|
+|None (synthesized)|`Jump`|The back-edge at the end of the body; `Node` is `null`. Its `Target` is the loop's header.|
 
 `Wend` has no AST node of its own ([**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md);
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
@@ -42,6 +42,3 @@ The loop needs no per-activation state.
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 - Lowering pushes no `Exit Do` context for a `While…Wend` loop
   ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md) | ⏭️ [**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)

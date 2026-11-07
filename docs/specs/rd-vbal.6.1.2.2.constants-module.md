@@ -17,7 +17,7 @@ interface, because a constant is substituted where it is used, never called.
 |`vbCrLf`|`String`|`Chr$(13) + Chr$(10)`|
 |`vbFormFeed`|`String`|`Chr$(12)`|
 |`vbLf`|`String`|`Chr$(10)`|
-|`vbNewLine`|`String`|🎯 `Chr$(13) + Chr$(10)`, whatever platform the environment host runs on.|
+|`vbNewLine`|`String`|`Chr$(13) + Chr$(10)`, whatever platform the environment host runs on.|
 |`vbNullChar`|`String`|`Chr$(0)`|
 |`vbTab`|`String`|`Chr$(9)`|
 |`vbVerticalTab`|`String`|`Chr$(11)`|
@@ -70,6 +70,3 @@ module of the project declares under the name `Constants` is the type
 
 A field that is not `static readonly`, or whose type is not a VBA value type, is refused when the library is read. A
 C# `const` is a primitive, whose VBA type would be a guess: a C# `long` is a VBA `LongLong`.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.1** ColorConstants Module](rd-vbal.6.1.2.1.colorconstants-module.md) | ⏭️ [**RD-VBAL §6.1.2.3** Conversion Module](rd-vbal.6.1.2.3.conversion-module.md)
