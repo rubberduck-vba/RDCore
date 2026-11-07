@@ -105,10 +105,10 @@ public sealed partial record class SignatureDescription(string Label, IReadOnlyL
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A procedure that takes arguments is what is called, and so is a <c>Sub</c>. An argument list after anything else - a variable, a constant, a function or
-    /// a <c>Property Get</c> that takes no arguments - is given to what that is: to the default member of its class, for an object (<strong>MS-VBAL
-    /// §5.6.13</strong>). What the default member takes no argument of is followed in turn, to the default member of the class of what it returns, until a
-    /// member takes arguments: the signature is that member's, under its own name.
+    /// A procedure that takes arguments is what is called, and so is a <c>Sub</c>. An argument list after anything else (a variable, a constant, a function or
+    /// a <c>Property Get</c> that takes no arguments) is given to what that is: to the default member of its class, for an object (<strong>MS-VBAL
+    /// §5.6.13</strong>). When that default member takes no arguments, the default member of the class it returns is followed in turn, until a member takes
+    /// arguments: the signature is that member's, under its own name.
     /// </para>
     /// <para>
     /// An array is indexed, and a value of any other type, or an object of a class with no default member, takes no argument list: neither has a signature.
