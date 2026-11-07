@@ -451,6 +451,228 @@ public sealed class CompletionServiceTests
         CollectionAssert.AreEqual(new[] { "Copies:=" }, NamesIn(items), Show(items));
     }
 
+    // ---- an argument an array is given to: LBound, UBound (MS-VBAL §3.3.5.2), and a parameter declared as an array (MS-VBAL §5.3.1.11) ----
+
+    private const string Shelves = """
+        Attribute VB_Name = "Shelves"
+        Public Type Rack
+            Slots() As Long
+            Label As String
+        End Type
+        Public Books() As String
+        Public Fixed(1 To 3) As Long
+        Public Anything As Variant
+        Public Total As Long
+        Public Holder As Collection
+        Public Const Limit As Long = 3
+        Public Enum Side
+            LeftSide
+            RightSide
+        End Enum
+        Public Enum Hand
+            OneHand
+        End Enum
+        Public Weights() As Long
+        Public Prices() As Double
+        Public FixedTexts(1 To 2) As String * 3
+        Public Sides() As Side
+        Public Hands() As Hand
+        Public SpanMod() As Long
+        Public AbsMod() As Long
+        Public Function Titles() As String()
+        End Function
+        Public Function Counts() As Long()
+        End Function
+        Public Function Loose() As Variant
+        End Function
+        Public Function Size() As Long
+        End Function
+        Public Function SpanFn() As Long()
+        End Function
+        Public Function SpanVar() As Variant
+        End Function
+        Public Sub Tidy()
+        End Sub
+        Public Sub Weigh(ByRef Amounts() As Long, Optional ByVal Scale As Long)
+        End Sub
+        Public Sub TakeTexts(ByRef Texts() As String)
+        End Sub
+        Public Sub TakeSides(ByRef Choices() As Side)
+        End Sub
+        """;
+
+    // an object that leads to an array through a member of a member.
+    private const string Bin = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Bin"
+        Public Property Get Slots() As Long()
+        End Property
+        """;
+
+    private const string Crate = """
+        VERSION 1.0 CLASS
+        BEGIN
+          MultiUse = -1  'True
+        END
+        Attribute VB_Name = "Crate"
+        Public Property Get Inner() As Bin
+        End Property
+        """;
+
+    private async Task<List<CompletionItem>> ArrayArgumentItemsAsync(string line, string declarations)
+    {
+        WorkspaceHas(new WorkspaceDocument("Shelves.bas", Root, Shelves), new WorkspaceDocument("Bin.cls", Root, Bin), new WorkspaceDocument("Crate.cls", Root, Crate));
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\n{declarations}\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items];
+    }
+
+    private async Task<string[]> ArrayArgumentAsync(string line)
+        => [.. (await ArrayArgumentItemsAsync(line,
+            "Public Sub Main()\r\n    Dim r As Rack\r\n    Dim o As New Crate\r\n    Dim Bytes() As Byte\r\n    Dim Total2 As Long")).Select(item => item.Label)];
+
+    // what is not an array, nor a Variant that may hold one, nor leads to an array, is "Expected array" there: a scalar, an object, a constant, an Enum and
+    // its members, a Sub, a module, a keyword.
+    private static readonly string[] NoArray = ["Total", "Total2", "Holder", "Limit", "Side", "LeftSide", "Size", "Tidy", "Weigh", "Shelves", "Main", "Not", "New", "True"];
+
+    [TestMethod]
+    [DataRow("x = UBound(|", DisplayName = "UBound")]
+    [DataRow("x = LBound(|", DisplayName = "LBound")]
+    [DataRow("x = UBound( |", DisplayName = "after a space")]
+    [DataRow("If LBound(| Then", DisplayName = "in an expression")]
+    public async Task TheFirstArgumentOfLBoundOrUBound_IsOfferedTheArraysAndTheVariantsInScope_AndNothingElse(string line)
+    {
+        var labels = await ArrayArgumentAsync(line);
+
+        CollectionAssert.IsSubsetOf(new[] { "Books", "Fixed", "Anything", "Weights", "Prices", "Titles", "Counts", "Loose", "Bytes" }, labels, string.Join(", ", labels.Take(20)));
+        Assert.IsFalse(labels.Intersect(NoArray).Any(), string.Join(", ", labels.Intersect(NoArray)));
+    }
+
+    [TestMethod]
+    public async Task TheArraysOfferedToUBound_AreNarrowedByTheWordTyped()
+        => CollectionAssert.AreEqual(new[] { "Bytes", "Books" }, await ArrayArgumentAsync("x = UBound(B|"));
+
+    [TestMethod]
+    public async Task TheSecondArgumentOfUBound_IsOfferedTheUsualList()
+        => CollectionAssert.IsSubsetOf(new[] { "Total", "Total2", "Limit", "Size" }, await ArrayArgumentAsync("x = UBound(Books, |"));
+
+    [TestMethod]
+    public async Task TheMembersOfferedToUBound_AreTheArrayFieldsOfAUserDefinedType()
+        => CollectionAssert.AreEqual(new[] { "Slots" }, await ArrayArgumentAsync("x = UBound(r.|"));
+
+    // a parameter declared as an array is ByRef, and an argument passed ByRef is of its parameter's declared type exactly (MS-VBAL §5.3.1.11): an array of
+    // the same element type, not a Variant.
+    [TestMethod]
+    public async Task AParameterDeclaredAsAnArray_IsOfferedTheArraysOfItsElementType_AndNothingElse()
+    {
+        var labels = await ArrayArgumentAsync("Weigh |");
+
+        CollectionAssert.IsSubsetOf(new[] { "Weights", "Counts", "Fixed" }, labels, string.Join(", ", labels.Take(20)));
+        var others = new[] { "Prices", "Books", "Bytes", "Titles", "Anything", "Loose" }.Concat(NoArray).ToArray();
+        Assert.IsFalse(labels.Intersect(others).Any(), string.Join(", ", labels.Intersect(others)));
+    }
+
+    [TestMethod]
+    public async Task TheArgumentAfterTheArray_IsOfferedTheUsualList()
+        => CollectionAssert.IsSubsetOf(new[] { "Total", "Limit", "Scale:=" }, await ArrayArgumentAsync("Weigh Weights, |"));
+
+    [TestMethod]
+    public async Task ANamedArgumentDeclaredAsAnArray_IsOfferedTheArraysOfItsElementType()
+    {
+        var labels = await ArrayArgumentAsync("Weigh Amounts:=|");
+
+        CollectionAssert.IsSubsetOf(new[] { "Weights", "Counts" }, labels, string.Join(", ", labels.Take(20)));
+        Assert.IsFalse(labels.Intersect(new[] { "Prices", "Total", "Anything" }).Any(), string.Join(", ", labels.Take(20)));
+    }
+
+    // the element types are the compiler's (ArgumentListStaticSemantics): a String * N is no String, and an array of any Enum is given to an Enum's.
+    [TestMethod]
+    [DataRow("TakeTexts |", "Books,Titles", "FixedTexts", DisplayName = "a fixed-length String is another type")]
+    [DataRow("TakeSides |", "Sides,Hands", "Weights", DisplayName = "an array of another Enum")]
+    public async Task TheArraysOfferedToAParameter_AreTheOnesItsArgumentCanBe(string line, string offered, string refused)
+    {
+        var labels = await ArrayArgumentAsync(line);
+
+        CollectionAssert.IsSubsetOf(offered.Split(','), labels, string.Join(", ", labels.Take(20)));
+        Assert.IsFalse(labels.Intersect(refused.Split(',')).Any(), string.Join(", ", labels.Take(20)));
+    }
+
+    // the local arrays, the procedure's own included, then the other arrays, then the Variants: in each, the names the word starts, then the ones whose
+    // humps it matches, by name. The best of the first that has any is selected.
+    [TestMethod]
+    [DataRow("x = UBound(|", "AbsLoc,Own,SpanLocal,AbsMod", DisplayName = "nothing typed")]
+    [DataRow("x = UBound(Ab|", "AbsLoc,AbsMod,Abs", DisplayName = "Ab")]
+    [DataRow("x = UBound(Sp|", "SpanLocal,SpanFn,SpanMod,Space,SpanVar,Split,SpVar", DisplayName = "Sp")]
+    [DataRow("x = UBound(W|", "Weights,Weekday", DisplayName = "W")]
+    [DataRow("x = UBound(O|", "Own,Oct", DisplayName = "the procedure's own array")]
+    public async Task TheArraysOfferedToUBound_RankLocalOnesFirst_ThenTheOthers_ThenTheVariants(string line, string order)
+    {
+        var items = await ArrayArgumentItemsAsync(line,
+            "Public Sub Main(ByRef Own() As Long)\r\n    Dim SpanLocal() As Long\r\n    Dim AbsLoc() As Long\r\n    Dim SpVar As Variant");
+        var expected = order.Split(',');
+
+        CollectionAssert.AreEqual(expected, items.Select(item => item.Label).Where(expected.Contains).ToArray(), Show(items));
+        Assert.AreEqual(expected[0], items.Single(item => item.Preselect).Label, Show(items));
+    }
+
+    // a record or an object is offered where an array is, after the arrays and the Variants, when a member of it, or of a member of it, is an array the
+    // argument can be: what is written after it is its member.
+    [TestMethod]
+    public async Task WhatLeadsToAnArray_IsOfferedAfterTheArraysAndTheVariants()
+    {
+        var labels = await ArrayArgumentAsync("x = UBound(|");
+
+        CollectionAssert.IsSubsetOf(new[] { "r", "o" }, labels, string.Join(", ", labels));
+        Assert.IsTrue(Array.IndexOf(labels, "r") > Array.IndexOf(labels, "Anything") && Array.IndexOf(labels, "o") > Array.IndexOf(labels, "Year"),
+            string.Join(", ", labels));
+    }
+
+    // a type of one name in each of two modules, the one Private to the module being written: two types, each looked into on its own, whichever is met
+    // first.
+    [TestMethod]
+    [DataRow("Arr() As Long", "X As Long", true, DisplayName = "the other module's type leads to an array, the local one does not")]
+    [DataRow("X As Long", "Arr() As Long", false, DisplayName = "the local type leads to an array, the other module's does not")]
+    public async Task TwoTypesOfOneName_AreEachLookedIntoOnTheirOwn(string otherField, string localField, bool offered)
+    {
+        var other = $"Attribute VB_Name = \"Shelves2\"\r\nPublic Type Pair\r\n    {otherField}\r\nEnd Type\r\nPublic sp As Pair\r\n";
+        WorkspaceHas(new WorkspaceDocument("Shelves2.bas", Root, other));
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPrivate Type Pair\r\n    {localField}\r\nEnd Type\r\nPublic Sub Main()\r\n    Dim p As Pair\r\n"
+            + "    x = UBound(|\r\nEnd Sub\r\n");
+        var labels = (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items.Select(item => item.Label).ToArray();
+
+        Assert.AreEqual(offered, labels.Contains("sp"), string.Join(", ", labels));
+        Assert.AreEqual(!offered, labels.Contains("p"), string.Join(", ", labels));
+    }
+
+    // a name the word typed is, in any case, is what the user means to write: it is selected, though the tiers before it keep their order.
+    [TestMethod]
+    public async Task ANameTheWordTypedIs_IsSelectedOverTheTiersBeforeIt()
+    {
+        var items = await ArrayArgumentItemsAsync("x = UBound(r|", "Public Sub Main()\r\n    Dim r As Rack");
+
+        Assert.AreEqual("r", items.Single(item => item.Preselect).Label, Show(items));
+        Assert.AreNotEqual("r", items[0].Label, Show(items));
+    }
+
+    [TestMethod]
+    [DataRow("x = UBound(o.|", "Inner", DisplayName = "a member that leads to one")]
+    [DataRow("x = UBound(o.Inner.|", "Slots", DisplayName = "the array")]
+    public async Task TheMembersOfferedToUBound_AreTheOnesThatLeadToAnArray(string line, string member)
+        => CollectionAssert.AreEqual(new[] { member }, await ArrayArgumentAsync(line));
+
+    [TestMethod]
+    [DataRow("Weigh |", true, DisplayName = "an array of its element type")]
+    [DataRow("TakeTexts |", false, DisplayName = "no array of its element type")]
+    public async Task WhatLeadsToAnArrayOfAParametersElementType_IsOfferedToIt(string line, bool offered)
+    {
+        var labels = await ArrayArgumentAsync(line);
+
+        Assert.AreEqual(offered, labels.Contains("r") && labels.Contains("o"), string.Join(", ", labels));
+        Assert.IsTrue(offered || !labels.Contains("r") && !labels.Contains("o"), string.Join(", ", labels));
+    }
+
     // a positional argument written after the cursor maps to its parameter, and would follow a named one: no name is written where one comes after
     // (MS-VBAL §5.6.13.1).
     [TestMethod]

@@ -290,8 +290,10 @@ internal sealed class CompletionService(
             return Empty;
         }
 
-        // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first.
-        var argument = context.Kind == CompletionSiteKind.Name ? SignatureSite.Read(before) : null;
+        // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first. A member is written in
+        // an argument too, which an array is given to (UBound(r.Slots)).
+        var call = context.Kind is CompletionSiteKind.Name or CompletionSiteKind.Member ? SignatureSite.Read(before) : null;
+        var argument = context.Kind == CompletionSiteKind.Name ? call : null;
 
         // asked for by a character typed, a list is only of where an argument's value starts: anywhere else - a space after an operand - it would offer nothing,
         // and the workspace is not composed for it.
@@ -322,18 +324,29 @@ internal sealed class CompletionService(
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
 
-        var signature = argument is not null
-            ? SignatureDescription.OfCall(ProcedureAt(argument, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver)
+        // a member call's procedure is found in the composition with its qualifier put back in the line, which a member completed in its argument takes instead.
+        var signature = call is not null && (argument is not null || !call.IsMemberAccess)
+            ? SignatureDescription.OfCall(ProcedureAt(call, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver)
             : null;
 
         // after a named argument, every argument is named (MS-VBAL 5.6.13.1): nothing but the names of the parameters left is written where one starts.
         var namesOnly = argument is { NamesBefore.Count: > 0 } && argument.ArgumentName is null && argument.IsWhereAnArgumentStarts(context.Prefix);
-        IReadOnlyList<CompletionCandidate> names = signature is not null ? CompletionCandidates.NamedArguments(signature, argument!, context.Prefix, logical.After) : [];
+        IReadOnlyList<CompletionCandidate> names = signature is not null && argument is not null
+            ? CompletionCandidates.NamedArguments(signature, argument, context.Prefix, logical.After)
+            : [];
+
+        // an argument an array is given to (of LBound, of UBound, of a parameter declared as an array) is offered the names it can be given, and no other.
+        var written = context.Kind == CompletionSiteKind.Member
+            ? before[^Math.Min(before.Length, context.Qualifier.Length + 1 + context.Prefix.Length)..]
+            : context.Prefix;
+        var arrays = call is null
+            ? null
+            : CompletionArrayArgument.Of(call, signature?.ActiveParameterOf(call.ArgumentIndex, call.ArgumentName) is { } given ? signature.Parameters[given] : null, written);
 
         // the constants of the Enum the argument's parameter is declared as come first, by name, the first of them selected: what is most likely to be written
         // there (MsgBox "Hello", vbYesNo).
-        IReadOnlyList<CompletionCandidate> constants = !namesOnly && signature is not null
-            && signature.ActiveParameterOf(argument!.ArgumentIndex, argument.ArgumentName) is { } active
+        IReadOnlyList<CompletionCandidate> constants = !namesOnly && signature is not null && argument is not null
+            && signature.ActiveParameterOf(argument.ArgumentIndex, argument.ArgumentName) is { } active
             && signature.Parameters[active].Type is VBEnumType constantsOf
                 ? CompletionCandidates.ConstantsOf(tree, constantsOf)
                 : [];
@@ -343,8 +356,14 @@ internal sealed class CompletionService(
         }
 
         // the name a qualifier is assigned to in the line that stands for the one typed is no name of the module.
-        IReadOnlyList<CompletionCandidate> others = namesOnly ? [] : [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase))];
-        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false)], others, requested);
+        IReadOnlyList<CompletionCandidate> others = namesOnly
+            ? []
+            : [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase))];
+
+        // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
+        IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
+        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
+            arrays is null ? others : [], requested);
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",

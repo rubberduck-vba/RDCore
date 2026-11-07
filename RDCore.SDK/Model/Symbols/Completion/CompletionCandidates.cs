@@ -127,7 +127,7 @@ public static class CompletionCandidates
     ];
 
     // ranks: what the procedure declares before what its module does, before what the project does, before what the libraries and the language have.
-    private const int ProcedureRank = 0;
+    internal const int ProcedureRank = 0;
     private const int ModuleRank = 1;
     private const int ProjectRank = 2;
     private const int GlobalRank = 3;
@@ -390,8 +390,8 @@ public static class CompletionCandidates
             {
                 if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
                 {
-                    // a `!` sorts before the digit every other item's sort text starts with.
-                    items.Add((Placed(candidate.ToCompletionItem(match), candidate, word, cursor) with { SortText = $"!{rank}{CompletionCandidate.TierOf(match)}{index:D3}" },
+                    // a `!` sorts before the digit every other item's sort text starts with; the index is as wide as a group of every name in scope.
+                    items.Add((Placed(candidate.ToCompletionItem(match), candidate, word, cursor) with { SortText = $"!{rank}{CompletionCandidate.TierOf(match)}{index:D6}" },
                         isSelectable));
                 }
             }

@@ -236,8 +236,9 @@ internal static class ArgumentListStaticSemantics
     }
 
     // the same element type, of the same kind and name - an Enum is not mapped to Long, and a String * N is a String of another kind - or two Enums, as the
-    // call binds the parameter to it (RuntimeExpressionEvaluator.IsOfDeclaredType). A type that is not known is not a type that differs.
-    private static bool SameElementType(VBType expected, VBType item)
+    // call binds the parameter to it (RuntimeExpressionEvaluator.IsOfDeclaredType). A type that is not known is not a type that differs. A completion list
+    // offers an array argument by the same rule (CompletionArrayArgument).
+    internal static bool SameElementType(VBType expected, VBType item)
         => expected is VBUnknownType || item is VBUnknownType
             || expected is VBEnumType && item is VBEnumType
             || expected.GetType() == item.GetType() && string.Equals(expected.Name, item.Name, StringComparison.OrdinalIgnoreCase);

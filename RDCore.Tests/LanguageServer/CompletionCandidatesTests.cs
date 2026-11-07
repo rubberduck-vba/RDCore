@@ -315,6 +315,17 @@ public sealed class CompletionCandidatesTests
         Assert.AreEqual("sc", items.Single(item => item.Preselect).Label);
     }
 
+    // a group as large as a workspace's names keeps its order past the thousandth.
+    [TestMethod]
+    public void ALargeGroup_KeepsItsOrder()
+    {
+        CompletionCandidate[] group = [.. Enumerable.Range(0, 1_500).Select(index => new CompletionCandidate($"Item{1_500 - index}", CompletionItemKind.Variable))];
+
+        var items = CompletionCandidates.ListOf(string.Empty, [new(group)], []).Items.ToList();
+
+        CollectionAssert.AreEqual(group.Select(candidate => candidate.Label).ToArray(), items.Select(item => item.Label).ToArray());
+    }
+
     // where nothing is typed, a group that is not selected then is skipped: the first item that can be selected is.
     [TestMethod]
     [DataRow("", "Scale", DisplayName = "nothing typed")]
