@@ -293,7 +293,7 @@ jobs:
 
           ### Source and licences
 
-          `SOURCE.md` in the zip says where the corresponding source is: {REPOSITORY}/tree/{REF}. The licences are `LICENSE-GPLv3.md` and `LICENSE-MIT.md`, with `NOTICE.md` saying which covers what; `THIRD-PARTY-NOTICES.txt` lists the third-party components.
+          `SOURCE.md` in the zip says where the corresponding source is: {REPOSITORY}/tree/{REF}. RDCore is licensed under the GPLv3 or later (`LICENSE-GPLv3.md`), with `NOTICE.md` saying what it covers; `THIRD-PARTY-NOTICES.txt` lists the packages the archive contains and their licences, the MIT-licensed RDCore.SDK and RDCore.SDK.Protocol among them.
           '@
           $text = $text.Replace('{VERSION}', $env:VERSION).Replace('{SHORT}', $env:GITHUB_SHA.Substring(0, 7)).Replace('{COMMIT}', $env:GITHUB_SHA)
           # {GITREF} is the full ref the attestation records as its source (refs/tags/<tag> on a tag run)

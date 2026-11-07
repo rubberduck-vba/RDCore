@@ -162,7 +162,7 @@ if ($ExpectedCommit -and $Manifest -and $Manifest.commit -cne $ExpectedCommit.To
 }
 
 # (d) the documents every tree ships, and with -RequireReleaseFiles the release files and release.json's inventory
-$Required = @("LICENSE-GPLv3.md", "LICENSE-MIT.md", "NOTICE.md")
+$Required = @("LICENSE-GPLv3.md", "NOTICE.md")
 if ($RequireReleaseFiles) { $Required += @("THIRD-PARTY-NOTICES.txt", "SOURCE.md", "release.json") }
 foreach ($file in $Required) {
     if (-not (Test-Path -LiteralPath (Join-Path $Root $file) -PathType Leaf)) { Add-Failure "$file is missing from the platform root." }

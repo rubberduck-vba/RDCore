@@ -7,10 +7,9 @@
 > 👋 Bonjour! Nouveau ici? _Rubberduck_ a toujours été une initiative open-source. **RDCore l'honore avec une formule Open-Core**.  
 > <small>Voir [rubberduckvba.ca](https://rubberduckvba.ca) pour plus d'informations.</small>
 
-Ce dépôt contient différents projets **en cours de développement** produisant diverses bibliothèques et exécutables, sous un modèle de licence relativement simple :
+Ce dépôt contient différents projets **en cours de développement** produisant diverses bibliothèques et exécutables, sous une seule licence :
 
-- **Les bibliothèques RDCore.SDK et RDCore.SDK.Protocol** (incluant leur documentation) sont sous licence **⚖️MIT**;
-- **Tout le reste** construit autour d'elle est sous licence **⚖️GPLv3 ou toute version ultérieure**.
+- **Tout ce que contient ce dépôt** est sous licence **⚖️GPLv3 ou toute version ultérieure**. Il est construit sur les paquets [RDCore.SDK](https://github.com/rubberduck-vba/RDCore.SDK), sous licence **⚖️MIT** et publiés sur NuGet.
 - **Vos projets vous appartiennent :** le code VBA et RD-VBA que vous écrivez, et tout ce que RDCore en construit, sont à vous, sous la licence de votre choix (voir [NOTICE.md](NOTICE.md)).
 
 Cet arrangement protège les contributeurs historiques et actuels tout en permettant l'avenir : **l'implémentation du runtime RDCore demeurera open-source**.
@@ -40,7 +39,7 @@ RDCore est en développement actif **pré-alpha**. La **spécification** et la *
 | **RDCore.ParseServer** | Serveur de parsing sans état, autour de RDCore.Parsing | [![RDCore.ParseServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.ParseServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.Parsing** | Le parser VBA : grammaire, arbres syntaxiques | [![RDCore.Parsing](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Parsing.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.Symbols** | Symboles du workspace, bâtis des arbres syntaxiques | [![RDCore.Symbols](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Symbols.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
-| **RDCore.SDK** | Coeur du langage + plomberie partagée | [![RDCore.SDK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.SDK.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
+| **RDCore.SDK** | Coeur du langage + plomberie partagée (paquet NuGet) | [![RDCore.SDK](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore.SDK/badges/coverage-RDCore.SDK.json)](https://github.com/rubberduck-vba/RDCore.SDK/actions/workflows/build.yml) |
 | **RDCore.CLI** | Client CLI / hôte d'environnement | [![RDCore.CLI](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-rdc.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.LanguageServer** | Coordonnateur de la plateforme | [![RDCore.LanguageServer](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.LanguageServer.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
 | **RDCore.Diagnostics** | Extension d'inspection de base | [![RDCore.Diagnostics](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rubberduck-vba/RDCore/badges/coverage-RDCore.Diagnostics.json)](https://github.com/rubberduck-vba/RDCore/actions/workflows/build.yml) |
