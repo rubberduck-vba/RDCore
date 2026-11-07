@@ -356,6 +356,13 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter given Strings: the text they
+    /// are (<see langword="null"/> for <c>vbNullString</c>), a <c>String</c> as the interpreter passes one by value. The cell of a <c>String</c> variable
+    /// given by reference is given with <see cref="SetReference"/>.
+    /// </summary>
+    public void SetText(int index, string? text) => SetReference(index, new VBRuntimeValue<string>(text!));
+
+    /// <summary>
     /// Whether compiled code writes its variables into its frame before a call: under a debugger, which shows the frame of a caller while the program waits
     /// in its callee.
     /// </summary>
@@ -504,7 +511,7 @@ public sealed class CompiledActivation : ILightActivation
         var arguments = new ScalarPayload[called.Parameters.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating);
+            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]!.Value), _arguments[i].Integral, _arguments[i].Floating);
         }
 
         return arguments;
@@ -512,15 +519,21 @@ public sealed class CompiledActivation : ILightActivation
 
     // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
     // of which the callee makes a cell of its own when the parameter is passed by reference. They come after the first ones, which are the caller's to give:
-    // the object a member is called on.
+    // the object a member is called on. A String is given the text (SetText), or the cell of the String variable given (SetReference).
     private IRuntimeValue[] ArgumentsOf(CompiledCallee called, int first)
     {
         var arguments = new IRuntimeValue[first + called.Parameters.Count];
         for (var i = 0; i < called.Parameters.Count; i++)
         {
+            if (called.Parameters[i] is not { } kind)
+            {
+                arguments[first + i] = _references[i] is IRuntimeValue text ? text : new CellReference(Unsafe.As<IBindingHandle>(_references[i]!));
+                continue;
+            }
+
             arguments[first + i] = i < _references.Length && _references[i] is { } cell
                 ? new CellReference(Unsafe.As<ScalarCell>(cell))
-                : new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating).Box();
+                : new ScalarPayload(ScalarKinds.TypeOf(kind), _arguments[i].Integral, _arguments[i].Floating).Box();
         }
 
         ForgetReferences(called);

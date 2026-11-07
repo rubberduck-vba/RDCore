@@ -712,7 +712,7 @@ internal sealed partial class ProcedureAnalysis
     public List<CompiledCallee> Callees { get; } = [];
 
     // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind, none a Variant, and given an
-    // argument of its kind; of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what it returns is let go
+    // argument of its kind, or a String given Strings (TextArgumentOf); of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what it returns is let go
     // of as a temporary of the statement, which compiled code holds none of. A parameter passed by reference is given the cell of a variable of the
     // activation of its kind, which is held in one from then on, or a cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made
     // with RuntimeProcedureInvoker.InvokeScalars, as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with
@@ -774,12 +774,26 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        var kinds = new List<ScalarKind>(parameters.Length);
+        var kinds = new List<ScalarKind?>(parameters.Length);
         var byReference = new List<bool>(parameters.Length);
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
         for (var i = 0; i < parameters.Length; i++)
         {
+            // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
+            if (parameters[i] is not ParamArrayParameterSymbol && site is null && IsText(parameters[i].ResolvedType))
+            {
+                if (TextArgumentOf(arguments[i]) is not { } text)
+                {
+                    return null;
+                }
+
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(text);
+                continue;
+            }
+
             if (parameters[i] is ParamArrayParameterSymbol || ScalarKinds.Of(parameters[i].ResolvedType) is not { } kind || ArgumentOf(arguments[i], kind) is not { } value)
             {
                 return null;

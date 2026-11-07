@@ -81,4 +81,14 @@ internal sealed partial class ProcedureAnalysis
         NeedsFrame = true;
         return new TextCompareNode(comparison, left, right);
     }
+
+    // the argument of a String parameter, as the interpreter gives it (MS-VBAL §5.3.1.11): a String variable of the activation given by reference is given
+    // its cell, which the parameter is a second name for; Strings given by value are given their text, of which the callee makes a cell of its own. Anything
+    // else - a Variant, a number, a field, an element - is let-coerced or passed by the interpreter, which makes the call.
+    private PayloadNode? TextArgumentOf(BoundArgument argument) => argument switch
+    {
+        { Passing: ArgumentPassing.Reference, Value: BoundVariable variable } when TextSlotOf(variable) is { } slot => new TextReferenceNode(slot),
+        { Passing: ArgumentPassing.Value, Value: { } given } => Text(given) is { } text ? new TextArgumentNode(text) : null,
+        _ => null,
+    };
 }
