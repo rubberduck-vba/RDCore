@@ -13,7 +13,7 @@ everything the program had built up so far is lost. RD-VBA applies every edit it
 can't be applied, RD-VBA doesn't end your program: it keeps waiting where it is, tells you which edit is in the way and why, and lets you choose. You can take
 the edit back and go on, or run the program again.
 
-## ✅ What applies when you go on
+## What applies when you go on
 
 **Code you're not running right now:**
 - The body of a procedure the program isn't in. Its next call runs the new code. This holds for a method of a class too, even while objects of the class

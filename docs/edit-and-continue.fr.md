@@ -14,7 +14,7 @@ correctement, soit plus que l'éditeur VBA. Quand une modification ne peut pas �
 d'attendre là où il est, vous dit quelle modification fait obstacle et pourquoi, et vous laisse choisir. Vous pouvez annuler la modification et poursuivre,
 ou relancer le programme.
 
-## ✅ Ce qui s'applique quand vous poursuivez
+## Ce qui s'applique quand vous poursuivez
 
 **Le code qui ne s'exécute pas en ce moment :**
 - Le corps d'une procédure où le programme ne se trouve pas. Son prochain appel exécute le nouveau code. C'est vrai aussi d'une méthode d'une classe, même

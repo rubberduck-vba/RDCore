@@ -191,8 +191,8 @@ ReDim_, in a `With` block too. A member of a `Variant` compiles; the member is r
 member is as it was afterwards - a `Variant` that holds no object is error 424.
 
 > [!NOTE]
-> 🧩 Nothing in the runtime prevents re-dimensioning an object's array through the object, by writing it back through the member. RD-VBA does what MS-VBA
-> does, so that a compile error is where it is expected; a language-level extension could allow it in the future.
+> **Extension point:** nothing in the runtime prevents re-dimensioning an object's array through the object, by writing it back through the member.
+> RD-VBA does what MS-VBA does, so that a compile error is where it is expected; a language-level extension can allow it.
 
 ## Implementation
 

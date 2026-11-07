@@ -6,7 +6,7 @@ This chapter describes the **RD-VBA** implementation of the VBA standard library
 The `VBA` project consists of a set of classes, functions, `Enum` types and constants that together form VBA's
 _standard library_ ([**RD-VBAL §6.1** VBA Project](rd-vbal.6.1.vba-project.md)).
 
-🎯 The **RDCore** platform must implement the VBA standard library. The _environment host_ shall inject the standard
+The **RDCore** platform must implement the VBA standard library. The _environment host_ shall inject the standard
 library's symbols into all `VBA` projects, and those symbols shall carry the appropriate _return type_ metadata.
 
 The SDK defines the interfaces for the _internal representation_ of each standard-library module
@@ -22,8 +22,8 @@ The following standard-library topics are described with their module or class:
 |Topic|Described in|
 |---|---|
 |The `Err` function, and the shape of the error object it returns|[**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md)|
-|🧩 `ErrObject.StackTrace`|[**RD-VBAL §6.1.3.2.2.7** StackTrace](rd-vbal.6.1.3.2.err-class.md#613227-stacktrace)|
-|🧩 `Information.Erl`|[**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)|
+|`ErrObject.StackTrace` (RD-VBA addition)|[**RD-VBAL §6.1.3.2.2.7** StackTrace](rd-vbal.6.1.3.2.err-class.md#613227-stacktrace)|
+|`Information.Erl` (RD-VBA addition)|[**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)|
 |`Strings.Len` / `Strings.LenB`|[**RD-VBAL §6.1.2.11.1.22** Len / LenB](rd-vbal.6.1.2.11.strings.md#61211122-len--lenb)|
 |The `$` functions of the `Strings` module, and how a name written with a type-declaration character binds one|[**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#string-returning-twins)|
 |An omitted `Compare`, which is the calling module's `Option Compare`|[**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)|
