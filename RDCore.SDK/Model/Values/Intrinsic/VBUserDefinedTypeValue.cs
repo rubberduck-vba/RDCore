@@ -201,7 +201,8 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     /// A field of a scalar type is written in its own cell, the cell a <c>ByRef</c> parameter given the field is bound to. A field declared as a record is
     /// let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>). A field that holds an object, a <c>Variant</c> or an array is replaced by
     /// <paramref name="value"/>, as <see cref="TrySetFieldAt"/> replaces it. A <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record
-    /// and the field's position, so it reads the value that replaced it.
+    /// and the field's position, so it reads the value that replaced it. The session counts the references to an object by the cells that hold it, so a
+    /// field that holds an object is given a new cell.
     /// </para>
     /// <para>
     /// <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to, and shares no cell with anything else: a record or
