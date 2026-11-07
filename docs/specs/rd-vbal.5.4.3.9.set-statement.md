@@ -88,6 +88,3 @@ the operator pipeline. Let-assignment, by contrast, reuses the operator pipeline
 |---|---|
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider`|Dispatches an `AssignmentStatementNode` whose `Kind` is `Set`.|
 |[ISetCoercionRuntimeSemantics](../api/RDCore.SDK.Runtime.Abstract.ISetCoercionRuntimeSemantics.html)`.EvaluateSetCoercion`|The direct Set-coercion entry point, shared with `WithStatementRuntimeSemantics`.|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md) | ⏭️ [**RD-VBAL §5.4.4** Error Handling Statements](rd-vbal.5.4.4.error-handling-statements.md)

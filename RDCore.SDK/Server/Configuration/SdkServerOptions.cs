@@ -251,6 +251,12 @@ public record class SdkEnvironmentOptions
     public Runtime.Abstract.Execution.VBErlLineNumbering ErlLineNumbering { get; set; }
 
     /// <summary>
+    /// What <c>Err.Clear</c> does to the line <c>Erl</c> reports: <c>Reset</c> (the default: <c>0</c>, as
+    /// there is no error any more) or <c>Kept</c> (the line of the error it cleared, as MS-VBA does).
+    /// </summary>
+    public Runtime.Abstract.Execution.VBErlAfterErrClear ErlAfterErrClear { get; set; }
+
+    /// <summary>
     /// 🎯 Whether a <c>Declare</c>'d library import may actually be called. <c>true</c> by default; set it
     /// <c>false</c> to refuse every one of them.
     /// </summary>

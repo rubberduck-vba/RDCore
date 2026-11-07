@@ -4,9 +4,9 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A field of <c>Me</c> of a scalar type, compiled (IR lowering S2.5e): held in the cell the object holds it in, found where the interpreter finds it, and
-/// read and written there by compiled code as a variable held in a cell is. What the interpreter does of the field - a statement it runs alone, a member
-/// called on the object, a caller outside the class - it does in that cell too. A program runs the same either way.
+/// A field of <c>Me</c> of a scalar type, compiled: held in the cell the object holds it in, found where the interpreter finds it, and
+/// read and written there by compiled code as a variable held in a cell is. What the interpreter does of the field (a statement it runs alone, a member
+/// called on the object, a caller outside the class) it does in that cell too. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledFieldTests
@@ -83,13 +83,15 @@ public sealed class CompiledFieldTests
                 "    AddUpTo = Total",
                 "End Function"));
 
-    // a field passed by reference is passed as its cell: what the callee assigns its parameter, it assigns the field.
+    // a field passed by reference is passed as its cell: what the callee assigns its parameter, it assigns the field, which the object holds after the
+    // call.
     [TestMethod]
     public async Task AFieldPassedByReference_IsAssignedByTheCallee()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim C As New Counter",
             "    Debug.Print C.Doubled(4)",
+            "    Debug.Print C.Total",
             "End Sub",
             "Public Sub Twice(ByRef X As Long)",
             "    X = X * 2",

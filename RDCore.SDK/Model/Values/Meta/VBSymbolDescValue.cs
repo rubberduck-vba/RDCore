@@ -6,7 +6,7 @@ using RDCore.SDK.Model.Values.Abstract;
 namespace RDCore.SDK.Model.Values.Meta;
 
 /// <summary>
-/// A meta-value that represents a resolved <see cref="Symbol"/> reference — unlike
+/// A meta-value that represents a resolved <see cref="Symbol"/> reference, unlike
 /// <see cref="VBMemberDescValue"/> and <see cref="VBParameterDescValue"/>, not narrowed to a
 /// particular symbol hierarchy, for an operation (assignment resolving its <c>lExpression</c> target,
 /// chiefly) that needs to carry any kind of resolved symbol through the same

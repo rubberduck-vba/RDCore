@@ -200,12 +200,13 @@ internal sealed class ProcedureCompiler
     // how the body calls callee: directly through its typed entry when the callee is compiled - for the same scopes, before its caller - or is the body
     // itself; through the invoker when it is not compiled, is not run by the invoker the body's own calls are, or is being compiled already (a procedure that
     // calls the one that calls it).
-    // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame.
+    // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame; so is
+    // one given a String, which its frame holds.
     private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodBuilder entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
         // a member of an object is called through its binding, the object given as Me (CompiledActivation.CallMember).
-        if (callee.Site is not null || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        if (callee.Site is not null || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }

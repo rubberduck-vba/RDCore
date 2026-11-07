@@ -54,7 +54,7 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     public const string PositiveNaN = "nan";
 
     /// <summary>
-    /// Creates a <c>VBStringValue</c> from the source text of a MS-VBAL 3.3.4 <c>&lt;STRING&gt;</c> token —
+    /// Creates a <c>VBStringValue</c> from the source text of a MS-VBAL 3.3.4 <c>&lt;STRING&gt;</c> token:
     /// the literal as it is spelled in source, delimiters included.
     /// </summary>
     /// <param name="token">
@@ -64,7 +64,7 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     /// </param>
     /// <remarks>
     /// MS-VBAL 3.3.4: "a sequence of two &lt;double-quote&gt; characters represents a single occurrence of
-    /// the character U+0022 within the data value" — a literal's data value is therefore never its source
+    /// the character U+0022 within the data value". A literal's data value is therefore never its source
     /// text, and slicing off the delimiters alone leaves every embedded quote doubled.
     /// </remarks>
     public static VBStringValue FromLiteralToken(string token) => new(UnquoteLiteralToken(token));
@@ -102,7 +102,7 @@ public record class VBStringValue : VBTypedValue, IVBTypedValue<VBStringValue, s
     public static VBStringValue ZeroLengthString => _zeroString.Value;
 
     /// <summary>
-    /// Whether this is <c>vbNullString</c> — a <c>String</c> bound to a null pointer rather than to a
+    /// Whether this is <c>vbNullString</c>: a <c>String</c> bound to a null pointer rather than to a
     /// zero-length string.
     /// </summary>
     /// <remarks>

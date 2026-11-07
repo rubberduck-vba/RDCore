@@ -118,7 +118,7 @@ public abstract record class VBTypedValue(VBType TypeInfo)
     /// 👉 <see cref="IBindingHandle"/> is a <em>storage</em> concern, not <em>identity</em>: two typed
     /// values of the same type holding the same managed value are equal regardless of how (or whether)
     /// each is currently bound. Equality and hashing therefore key on the exact value type and this
-    /// managed value only — never on <see cref="Handle"/>, which is mutable. Whether the value is known
+    /// managed value only: never on <see cref="Handle"/>, which is mutable. Whether the value is known
     /// at all is not storage: an indeterminate value is never equal to a known one.
     /// </remarks>
     private object? BoundManagedValue

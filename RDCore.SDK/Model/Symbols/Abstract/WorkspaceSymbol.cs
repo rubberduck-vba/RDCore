@@ -17,7 +17,7 @@ public abstract record class WorkspaceSymbol(Uri WorkspaceRoot, Uri ParentUri, s
     SourceRange Range, SourceRange SelectionRange) : Symbol(WorkspaceRoot, ParentUri, Name, Scope, Kind)
 {
     /// <summary>
-    /// Every source site where this symbol is declared, in source order — populated only when the
+    /// Every source site where this symbol is declared, in source order: populated only when the
     /// same name is declared in more than one conditional-compilation branch. Empty for the common
     /// single-declaration case, in which <see cref="WorkspaceSymbol.Range"/> and
     /// <see cref="WorkspaceSymbol.SelectionRange"/> are the sole site.
@@ -65,7 +65,7 @@ public abstract record class WorkspaceSymbol(Uri WorkspaceRoot, Uri ParentUri, s
         : Definitions;
 
     /// <summary>
-    /// The primary declaration span — the first <see cref="DefinitionState.Live"/> site, else the
+    /// The primary declaration span: the first <see cref="DefinitionState.Live"/> site, else the
     /// first site, else <see cref="WorkspaceSymbol.Range"/>. LSP navigation targets the primary; when no
     /// precompiler-evaluation pass has run yet this is simply the first branch.
     /// </summary>

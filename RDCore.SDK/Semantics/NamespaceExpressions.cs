@@ -14,7 +14,7 @@ namespace RDCore.SDK.Semantics;
 /// </summary>
 /// <remarks>
 /// Such an expression is a namespace. It has no value to evaluate and no declared type, and a member access on it
-/// resolves the member in the namespace — <see cref="ISymbolResolver.ResolveMember"/> — instead of looking it up among
+/// resolves the member in the namespace (<see cref="ISymbolResolver.ResolveMember"/>) instead of looking it up among
 /// the members of a value's type. Which of the two a left-hand side is has to be settled by what it resolves to,
 /// from the scope it is written in, and the answer is the same whether the question is asked while compiling the
 /// expression or while running it, so it is answered here once.
@@ -25,8 +25,8 @@ public static class NamespaceExpressions
     /// The project or procedural module <paramref name="expression"/> names, when it names one.
     /// </summary>
     /// <remarks>
-    /// Classification is by what the name resolves to, so whatever is nearer than a module of that name — a local, a
-    /// parameter, a variable of the module — is what the name means, as it is anywhere else. A member access whose own
+    /// Classification is by what the name resolves to, so whatever is nearer than a module of that name (a local, a
+    /// parameter, a variable of the module) is what the name means, as it is anywhere else. A member access whose own
     /// left-hand side is a namespace is one too, when its member is a project or a module: <c>VBA.Strings</c> in
     /// <c>VBA.Strings.LenB</c>.
     /// </remarks>

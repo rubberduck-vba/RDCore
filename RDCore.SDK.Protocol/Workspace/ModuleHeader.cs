@@ -6,7 +6,7 @@ namespace RDCore.SDK.Workspace;
 /// Reads what a VBA module's header says about the module itself.
 /// </summary>
 /// <remarks>
-/// A class or designer module — a <c>.cls</c>, a <c>UserForm</c> — is exported with a <c>VERSION</c>
+/// A class or designer module (a <c>.cls</c>, a <c>UserForm</c>) is exported with a <c>VERSION</c>
 /// header line (<c>VERSION 1.0 CLASS</c> for a class, <c>VERSION 5.00</c> for a designer) followed by
 /// a <c>BEGIN … END</c> attribute block. A standard module has no such header and opens directly on
 /// its <c>Attribute VB_Name</c>. The <em>presence of the VERSION line</em> is the signal, independent
@@ -20,7 +20,7 @@ namespace RDCore.SDK.Workspace;
 public static partial class ModuleHeader
 {
     /// <summary>
-    /// Whether <paramref name="source"/> carries a module <c>VERSION</c> header — i.e. it is a class
+    /// Whether <paramref name="source"/> carries a module <c>VERSION</c> header: it is a class
     /// or designer module. <c>null</c> when there is no source to inspect.
     /// </summary>
     /// <param name="source">The raw module source, or <c>null</c> when it could not be read.</param>

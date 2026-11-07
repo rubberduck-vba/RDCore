@@ -49,7 +49,7 @@ A _not-creatable_ class module can only be directly instantiated within the proj
 _enclosing project_). An instance of a not-creatable class may be consumed by any referencing project if the class
 module is _exposed_.
 
-👉 Together, `VB_Creatable` and `VB_Exposed` determine the _instancing mode_ of a class module:
+Together, `VB_Creatable` and `VB_Exposed` determine the _instancing mode_ of a class module:
 
 |Instancing mode|`VB_Exposed`|`VB_Creatable`|
 |---|---|---|
@@ -89,7 +89,7 @@ setters it uses to initialize the object are `Friend` members that only the fact
   ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
 - A class that is not predeclared has no default instance.
 
-👉 Deferred class types cannot be presumed to have a default instance
+Deferred class types cannot be presumed to have a default instance
 ([**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md)).
 
 > [!IMPORTANT]
@@ -143,8 +143,8 @@ A predeclared class with `DefaultInstance` and not `Stateful` has a stateless de
 leave anything behind for the next one.
 
 > [!NOTE]
-> 🚧 **TODO** An `Is Nothing` check on a default instance reported as _statically constant_ (`False`,
-> [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)) is not implemented.
+> **Not implemented.** The analysis does not report an `Is Nothing` check on a default instance as _statically constant_ (`False`,
+> [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md)).
 
 
 ## 5.2.4.2 Implements Directive
@@ -216,6 +216,3 @@ An event name must be unique within the class module, reported as a duplicate de
 must not contain an underscore, which is what separates a handler's variable from its event:
 [VBC09325](../diagnostics/vbc09325.md). Both are reported by
 [ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html).
-
----
-> ⏮️ [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md) | ⏭️ [**RD-VBAL §5.3** Module Code Section Structure](rd-vbal.5.3.module-code-section-structure.md)

@@ -348,17 +348,25 @@ public sealed class RubberduckIndenterImportTests
 
         public string? Answer { get; set; } = IndenterSettingsImportText.Import();
 
+        // the client's error, when nobody answered the question: a shell whose input is a script says so.
+        public Exception? Unanswered { get; set; }
+
+        // the client's error, when it could not take the settings as its own.
+        public Exception? NotApplied { get; set; }
+
         public Task<IndenterSettingsImportOutcome?> OfferAsync(bool formattingWasSet, RubberduckIndenterSettingsResult found)
             => new IndenterSettingsOffer(files, Marker).OfferAsync(formattingWasSet, _ => Read(found),
                 (message, choices, _) =>
                 {
                     Questions.Add(message);
-                    return Task.FromResult(Answer);
+                    return Unanswered is { } unanswered ? Task.FromException<string?>(unanswered) : Task.FromResult(Answer);
                 },
                 (_, _) =>
                 {
                     Applications++;
-                    return Task.FromResult(new RubberduckIndenterSettingsApplyResult { Applied = 7 });
+                    return NotApplied is { } notApplied
+                        ? Task.FromException<RubberduckIndenterSettingsApplyResult>(notApplied)
+                        : Task.FromResult(new RubberduckIndenterSettingsApplyResult { Applied = 7 });
                 },
                 CancellationToken.None);
     }
@@ -391,6 +399,51 @@ public sealed class RubberduckIndenterImportTests
         Assert.IsNull(await offering.OfferAsync(formattingWasSet: false, Found()));
 
         Assert.AreEqual(0, offering.Applications);
+        Assert.IsTrue(files.File.Exists(Marker));
+    }
+
+    [TestMethod]
+    public async Task AQuestionNobodyAnswered_IsNotAnOfferMade_AndIsAskedAtTheNextStart()
+    {
+        var files = new MockFileSystem();
+        var offering = new Offering(files) { Unanswered = new InvalidOperationException("Nobody is at the shell's console to answer the question.") };
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => offering.OfferAsync(formattingWasSet: false, Found()));
+        Assert.IsFalse(files.File.Exists(Marker), "nobody answered, so the offer is still to make");
+
+        offering.Unanswered = null;
+        Assert.AreEqual(7, (await offering.OfferAsync(formattingWasSet: false, Found()))!.Applied);
+        Assert.AreEqual(2, offering.Questions.Count);
+        Assert.IsTrue(files.File.Exists(Marker));
+    }
+
+    // the offer can't be remembered where it is kept (a folder is in the way, as a file the user can't write would be): what the user chose is done all the same.
+    [TestMethod]
+    public async Task AnImportTheUserChose_IsApplied_ThoughTheOfferCantBeRemembered()
+    {
+        var files = new MockFileSystem();
+        files.AddDirectory(Marker);
+        var offering = new Offering(files);
+
+        var outcome = await offering.OfferAsync(formattingWasSet: false, Found());
+
+        Assert.AreEqual(7, outcome!.Applied);
+        Assert.AreEqual(1, offering.Applications);
+    }
+
+    // the settings the user chose to import, that the client could not take: the import is not done, and the offer is made again at the next start.
+    [TestMethod]
+    public async Task AnImportTheClientCouldNotApply_IsOfferedAgainAtTheNextStart()
+    {
+        var files = new MockFileSystem();
+        var offering = new Offering(files) { NotApplied = new InvalidOperationException("The client could not write its settings.") };
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => offering.OfferAsync(formattingWasSet: false, Found()));
+        Assert.IsFalse(files.File.Exists(Marker), "the offer is still to make");
+
+        offering.NotApplied = null;
+        Assert.AreEqual(7, (await offering.OfferAsync(formattingWasSet: false, Found()))!.Applied);
+        Assert.AreEqual(2, offering.Questions.Count);
         Assert.IsTrue(files.File.Exists(Marker));
     }
 

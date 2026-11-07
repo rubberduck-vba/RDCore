@@ -21,8 +21,8 @@ namespace RDCore.SDK.Model.Symbols;
 /// <param name="ResolvedType">The resolved <see cref="VBType"/> of the constant, if available. <see cref="VBUnknownType"/> unless specified otherwise.</param>
 /// <param name="Value">
 /// The declaration's own constant expression, or <c>null</c> when there is none. A constant has no
-/// storage to read a value from — it is substituted at each of its use sites (MS-VBAL &#167;5.4.3.2:
-/// "a constant statically evaluates to a value") — so this expression <em>is</em> the symbol's value.
+/// storage to read a value from: it is substituted at each of its use sites (MS-VBAL &#167;5.4.3.2:
+/// "a constant statically evaluates to a value"), so this expression <em>is</em> the symbol's value.
 /// </param>
 public record class VBLocalConstantSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, VBType? ResolvedType = default, ExpressionNode? Value = null)
     : BoundTypedSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Local, SymbolKindExt.Constant, Range, SelectionRange, ResolvedType ?? VBUnknownType.TypeInfo);

@@ -2,7 +2,7 @@
 <sup>_This document is available in [English](edit-and-continue.html)_</sup>
 
 ---
-## ✏️ De quoi il s'agit
+## De quoi il s'agit
 
 Votre programme est interrompu : à un point d'arrêt, à une instruction `Stop`, ou après un pas à pas. Vous lisez ses variables, vous voyez ce qui ne va pas,
 et vous modifiez le code sur-le-champ. Puis vous poursuivez : `CONT` dans le REPL, **Continuer** ou un pas dans le débogueur. Le programme reprend là où il
@@ -14,7 +14,7 @@ correctement, soit plus que l'éditeur VBA. Quand une modification ne peut pas �
 d'attendre là où il est, vous dit quelle modification fait obstacle et pourquoi, et vous laisse choisir. Vous pouvez annuler la modification et poursuivre,
 ou relancer le programme.
 
-## ✅ Ce qui s'applique quand vous poursuivez
+## Ce qui s'applique quand vous poursuivez
 
 **Le code qui ne s'exécute pas en ce moment :**
 - Le corps d'une procédure où le programme ne se trouve pas. Son prochain appel exécute le nouveau code. C'est vrai aussi d'une méthode d'une classe, même
@@ -49,7 +49,7 @@ ou relancer le programme.
 Les variables gardent leurs valeurs à travers chaque modification qui s'applique. Cela comprend les variables de module, les variables `Static` et les champs
 de vos objets.
 
-## 🛑 Quand le programme s'arrête sur une erreur
+## Quand le programme s'arrête sur une erreur
 
 - **Une erreur que rien ne gère :** corrigez la ligne où il s'est arrêté et poursuivez, et la ligne s'exécute telle que vous l'avez corrigée.
   Poursuivez sans la corriger, et la ligne s'exécute de nouveau : l'erreur revient et le programme s'y arrête encore, comme dans l'éditeur VBA.
@@ -59,7 +59,7 @@ de vos objets.
 - **Une erreur que votre code gère** (`On Error GoTo`, avec l'arrêt sur toutes les erreurs) : **Continuer** la donne à votre gestionnaire.
   Modifier la ligne qui l'a levée attend la prochaine exécution, parce que le gestionnaire est déjà en route.
 
-## ⏸️ Ce qui attend la prochaine exécution
+## Ce qui attend la prochaine exécution
 
 Certaines modifications ne peuvent pas être appliquées à un programme déjà en cours, parce que le programme détient quelque chose que la modification
 changerait sous lui. RD-VBA ne devine pas, et n'applique jamais la moitié d'une modification. Quand **Continuer** ou un pas rencontre l'une d'elles, il est
@@ -84,7 +84,7 @@ pour l'avoir.
 **Du code qui ne compile pas :** une faute de frappe, une procédure renommée que quelque chose appelle encore, une variable non déclarée sous
 `Option Explicit`. Il n'y a pas de programme à poursuivre tant qu'il ne compile pas de nouveau. Corrigez-le, et **Continuer** poursuit.
 
-## 👀 Où vous le voyez
+## Où vous le voyez
 
 ### Dans l'éditeur
 
@@ -147,7 +147,7 @@ Quand rien ne fait obstacle, ou qu'aucun programme n'attend, il le dit :
   modifications, et pourquoi.
 - La liste des problèmes n'affiche pas RDC20001 pour un programme que HexIDE débogue. La sortie du débogueur le porte à sa place.
 
-## ⚖️ Comparé à l'éditeur VBA
+## Comparé à l'éditeur VBA
 
 Mesuré dans Excel (64 bits) à un `Stop` dans une procédure, sur 44 sortes de modifications, et, pour la dernière ligne, à une erreur que rien ne
 gère :

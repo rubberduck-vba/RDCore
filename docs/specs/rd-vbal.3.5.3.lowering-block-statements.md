@@ -35,9 +35,9 @@ work to do, lowering emits a closer instruction of its own to hold that work:
 |---|---|---|---|
 |`For`|`ForNext`|Increments and tests the counter.|`null` (synthesized)|
 |`For Each`|`ForEachNext`|Advances to the next element.|`null` (synthesized)|
-|`While…Wend`, `Do While`, `Do Until`|`Jump` back to the header|—|`null` (synthesized)|
+|`While…Wend`, `Do While`, `Do Until`|`Jump` back to the header|None|`null` (synthesized)|
 |`Do…Loop While`, `Do…Loop Until`|`LoopBack`|Evaluates the condition and decides whether to branch back.|The loop's own node: the closer is the loop's only instruction.|
-|`Do…Loop`|`Jump` back to the body|—|The loop's own node: the closer is the loop's only instruction.|
+|`Do…Loop`|`Jump` back to the body|None|The loop's own node: the closer is the loop's only instruction.|
 
 A synthesized instruction has `Node = null`, so it is never a value in `ByNode`.
 
@@ -111,9 +111,9 @@ resolved offsets.
 
 |Condition|Lowering result|Diagnostic|
 |---|---|---|
-|A label operand (`GoTo`, `GoSub`, `On…GoTo`, `On…GoSub`, `On Error GoTo`, `Resume`) names a line label or line number the procedure does not define.|The operand carries a `null` target.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
-|A label is defined more than once.|The first offset the label was defined at is kept; every jump to the label resolves against that first definition.|[VBC09319](../diagnostics/vbc09319.md) — Duplicate label definition|
-|An `Exit For`/`Exit Do` has no enclosing loop of the matching kind.|No instruction is lowered for it.|[VBC09313](../diagnostics/vbc09313.md) — Exit For not within For...Next, [VBC09312](../diagnostics/vbc09312.md) — Exit Do not within Do...Loop|
+|A label operand (`GoTo`, `GoSub`, `On…GoTo`, `On…GoSub`, `On Error GoTo`, `Resume`) names a line label or line number the procedure does not define.|The operand carries a `null` target.|[VBC09309](../diagnostics/vbc09309.md): Label not defined|
+|A label is defined more than once.|The first offset the label was defined at is kept; every jump to the label resolves against that first definition.|[VBC09319](../diagnostics/vbc09319.md): Duplicate label definition|
+|An `Exit For`/`Exit Do` has no enclosing loop of the matching kind.|No instruction is lowered for it.|[VBC09313](../diagnostics/vbc09313.md): Exit For not within For...Next, [VBC09312](../diagnostics/vbc09312.md): Exit Do not within Do...Loop|
 |An `Exit Sub`/`Exit Function`/`Exit Property` is in the wrong kind of procedure.|No instruction is lowered for it.|[VBC09332](../diagnostics/vbc09332.md), [VBC09314](../diagnostics/vbc09314.md), [VBC09315](../diagnostics/vbc09315.md)|
 
 Lowering never fails outright: it always produces a complete `InstructionList`, whether or not every label
@@ -126,6 +126,3 @@ lowering ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
 Any statement kind that lowering does not give a dedicated shape lowers as `Simple`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
-
----
-> ⏮️ [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md) | ⏭️ [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)

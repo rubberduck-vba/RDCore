@@ -563,11 +563,14 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     /// <summary>
-    /// The activation of <paramref name="member"/>, a member of a class, that a call compiled code makes of it on <paramref name="receiver"/> runs in (IR
-    /// lowering S2.5e3b): made as <see cref="Activate"/> makes one, on the stack, the object its <c>Target</c>, <c>Me</c> held for as long as the
+    /// The activation of <paramref name="member"/>, a member of a class, that a call compiled code makes of it on <paramref name="receiver"/> runs in:
+    /// made as <see cref="Activate"/> makes one, on the stack, the object its <c>Target</c>, <c>Me</c> held for as long as the
     /// activation is, its function result and its locals made. Its other parameters are scalars, which the member's compiled code is given, as a call
     /// compiled code makes of a procedure gives them (<see cref="PushCompiledActivation"/>).
     /// </summary>
+    /// <param name="member">The member called.</param>
+    /// <param name="body">The member's lowered body.</param>
+    /// <param name="receiver">The reference to the object the member is called on.</param>
     /// <returns><see langword="null"/> when the call stack is full: the call is then made as any other, which says so (<see cref="VBRuntimeErrorId.OutOfStackSpace"/>).</returns>
     internal CallStackFrame? PushMemberActivation(VBTypeMemberSymbol member, InstructionList body, VBRuntimeValue<VBRuntimeObjectId> receiver)
     {
@@ -596,11 +599,16 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     }
 
     /// <summary>
-    /// The frame of an activation of <paramref name="member"/>, a member of a class, that a call compiled code made of it on an object entered without one
-    /// (IR lowering S2.5e3b), as <see cref="PushMemberActivation"/> makes it, but not pushed: <paramref name="target"/> its object, its function result made,
+    /// The frame of an activation of <paramref name="member"/>, a member of a class, that a call compiled code made of it on an object entered without one,
+    /// as <see cref="PushMemberActivation"/> makes it, but not pushed: <paramref name="target"/> its object, its function result made,
     /// and <c>Me</c> held in <paramref name="me"/>, the cell the activation held it in, which holds its reference already. Its other parameters and its
     /// variables are scalars, which the activation gives it (<see cref="CreateCompiledFrame"/>).
     /// </summary>
+    /// <param name="member">The member called.</param>
+    /// <param name="body">The member's lowered body.</param>
+    /// <param name="target">The object the member was called on.</param>
+    /// <param name="me">The cell the activation holds <c>Me</c> in.</param>
+    /// <returns>The frame, not pushed.</returns>
     internal CallStackFrame CreateMemberFrame(VBTypeMemberSymbol member, InstructionList body, VBRuntimeObjectId target, ValueBindingHandle me)
     {
         var frame = CreateCompiledFrame(member, body);
@@ -619,6 +627,9 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     /// The end of an activation <see cref="PushMemberActivation"/> made, as <see cref="Activate"/> ends one: <c>Me</c> and the objects its locals held let go
     /// of (MS-VBAL §5.3.1.10), unless the program was stopped in it, and then as <see cref="PopCompiledActivation"/> ends it.
     /// </summary>
+    /// <param name="frame">The activation's frame.</param>
+    /// <param name="member">The member the activation is of.</param>
+    /// <param name="outcome">How the member's code ended.</param>
     /// <returns>The activation's outcome, as its caller is to see it.</returns>
     internal RuntimeExecutionOutcome PopMemberActivation(CallStackFrame frame, VBTypeMemberSymbol member, RuntimeExecutionOutcome outcome)
     {
@@ -634,6 +645,9 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     /// The compiled body of <paramref name="procedure"/>, whose body is <paramref name="list"/>, as this invoker would run it (<see cref="Run"/>);
     /// <see langword="null"/> when it is not compiled.
     /// </summary>
+    /// <param name="procedure">The procedure.</param>
+    /// <param name="list">The procedure's lowered body.</param>
+    /// <returns>The compiled body; <see langword="null"/> when it is not compiled.</returns>
     internal CompiledBody? CompiledBodyOf(VBTypeMemberSymbol procedure, InstructionList list)
         => Bodies is ProgramImage image ? image.Compiler.Compile(Session, Executor.Expressions, procedure, list).Body : null;
 

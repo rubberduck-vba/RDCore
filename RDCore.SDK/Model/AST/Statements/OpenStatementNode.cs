@@ -38,7 +38,7 @@ public enum VBFileLockMode
 
 /// <summary>
 /// <strong>MS-VBAL 5.4.5.1</strong> the <c>Open</c> statement. <see cref="Mode"/>, <see cref="Access"/>,
-/// and <see cref="Lock"/> are keyword choices, not expressions — the reason this statement needs its
+/// and <see cref="Lock"/> are keyword choices, not expressions: the reason this statement needs its
 /// own shape rather than the generic <see cref="KeywordStatementNode"/> the other file statements share.
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>

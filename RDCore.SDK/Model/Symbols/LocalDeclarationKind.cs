@@ -20,7 +20,7 @@ public enum LocalDeclarationKind
 
     /// <summary>
     /// An <em>implicit</em> declaration introduced by a simple name expression that resolved to
-    /// nothing in a module whose variable declaration mode is implicit — no <c>Option Explicit</c>
+    /// nothing in a module whose variable declaration mode is implicit: no <c>Option Explicit</c>
     /// (MS-VBAL &#167;5.6.10: "a new local variable is implicitly declared in the current procedure as
     /// if by a local variable declaration statement immediately preceding this statement").
     /// </summary>
@@ -37,7 +37,7 @@ public enum LocalDeclarationKind
 public static class LocalDeclarationKindExtensions
 {
     /// <summary>
-    /// Whether the variable was never actually declared — it came into being because something
+    /// Whether the variable was never actually declared: it came into being because something
     /// referred to it.
     /// </summary>
     /// <remarks>

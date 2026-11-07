@@ -167,6 +167,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                 System.Console.Out,
                 ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi,
                 consoleWidth: () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth))
+            // and the questions the language server asks, when the console is the shell's to ask them at: the shell's messages wait while one is asked.
+            .AddSingleton(provider => new ReplServerQuestions(provider.GetRequiredService<IConsoleKeys>(), provider.GetService<PromptAwareMessageWriter>()))
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
             .AddSingleton<IReplCommand, ShowSplashReplCommand>()
@@ -230,6 +232,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                         Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
                         // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
                         ListAfterSpace = provider.GetRequiredService<ReplCompletion>().ListsAfterSpace,
+                        // a question the language server asks is asked at once while nothing is typed, and waits for the line to be entered otherwise.
+                        Interjections = provider.GetRequiredService<ReplServerQuestions>(),
                     };
 
                     // from now on, the shell's messages are written above the line being edited, not over it.
@@ -242,7 +246,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                     System.Console.Out,
                     () => System.Console.WindowWidth,
                     provider.GetRequiredService<ConsolePromptEditor>(),
-                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii))
+                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii,
+                    messages: provider.GetRequiredService<PromptAwareMessageWriter>()))
                 // the shell's messages, its log's included, through a writer the editor attaches itself to as it is made.
                 .AddSingleton<SpectreConsoleMessageWriter>()
                 .AddSingleton(provider => new PromptAwareMessageWriter(provider.GetRequiredService<SpectreConsoleMessageWriter>()))
@@ -323,6 +328,7 @@ internal class RDCoreConsoleClientApp(
     IPlatformSettings settings,
     ILiveSettings liveSettings,
     IOptions<AppOptions> appOptions,
+    ReplServerQuestions questions,
     ILogger<RDCoreConsoleClientApp> logger)
     : RDCoreClientApp(options, connectionFactory, logger)
 {
@@ -330,6 +336,10 @@ internal class RDCoreConsoleClientApp(
 
     // the shell shows the progress of the work the language server does, where its console can draw it.
     protected override bool SupportsWorkDoneProgress => !System.Console.IsOutputRedirected;
+
+    // the shell answers what the language server asks as it starts, at its console, where somebody is there to: not at one whose input is a script, which
+    // would answer that nobody does, with an error the language client holds until the server has answered initialize.
+    protected override bool AnswersDuringInitialize => !appOptions.Value.Unattended && questions.AreAnswered;
 
     // what rdc.exe asks the language server to serve beyond LSP. The language server records these
     // and refuses a request family the client never advertised, so the negotiation is real in both
@@ -366,6 +376,8 @@ internal class RDCoreConsoleClientApp(
             .AddSingleton(rubberduck)
             .AddSingleton(settings)
             .AddSingleton(liveSettings)
+            .AddSingleton(new ReplUnattended(appOptions.Value.Unattended))
+            .AddSingleton(questions)
             .AddSingleton(new LiveSettingsNotifier(NotifyLiveSettingsChangedAsync));
 
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
@@ -377,6 +389,8 @@ internal class RDCoreConsoleClientApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
         => builder
             .WithHandler<ReplMessageBoxHandler>()
+            .WithHandler<ReplShowMessageRequestHandler>()
+            .WithHandler<ReplShowMessageHandler>()
             .WithHandler<ReplInputBoxHandler>()
             .WithHandler<RubberduckIndenterSettingsHandler>()
             .WithHandler<RubberduckIndenterSettingsApplyHandler>();

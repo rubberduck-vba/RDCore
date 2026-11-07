@@ -2,7 +2,7 @@ namespace RDCore.SDK.Server;
 
 /// <summary>
 /// A last-resort guard that hard-terminates the current process if a clean shutdown does not finish
-/// unwinding in time — for example, a non-cooperative background thread or finalizer from a
+/// unwinding in time: for example, a non-cooperative background thread or finalizer from a
 /// third-party library keeping the process alive after <c>Main</c> has returned.
 /// </summary>
 public static class ProcessWatchdog

@@ -11,6 +11,3 @@ The operands are compared as they are. The `Boolean` of the result is the type o
 effective type the operands are let-coerced to, which would coerce an object to a `Boolean`, and fail.
 
 See [**RD-VBAL §3.1.1.6** `VB_PredeclaredId`](rd-vbal.3.1.1.attributes.md#3116-vb_predeclaredid) for an `Is Nothing` check on an auto-object.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.6** Like Operator](rd-vbal.5.6.9.6.like-operator.md) | ⏭️ [**RD-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md)

@@ -33,7 +33,11 @@ public sealed class ShippedLibrariesTests
 
     private static DirectoryLibrarySource Source => new(new FileSystem(), Symbols);
 
-    private static string[] Shipped => [.. Directory.GetFiles(Symbols, "*" + DirectoryLibrarySource.Extension).Select(Path.GetFileNameWithoutExtension).OfType<string>().Order()];
+    // the names of the libraries: DAO.json and DAO.dao2535.json are both of DAO.
+    private static string[] Shipped
+        => [.. Directory.GetFiles(Symbols, "*" + DirectoryLibrarySource.Extension).Select(DirectoryLibrarySource.LibraryNameOf).Distinct(StringComparer.OrdinalIgnoreCase).Order()];
+
+    private static LibraryIdentity[] ShippedNames => [.. Shipped.Select(name => new LibraryIdentity(name))];
 
     [TestMethod]
     public void TheLibrariesTheProjectsAskedFor_Ship()
@@ -66,10 +70,30 @@ public sealed class ShippedLibrariesTests
         Assert.IsFalse(source.TryGetByGuid(Guid.NewGuid(), out _));
     }
 
+    // every file, the qualified ones (DAO.dao350.json) too, is the description a reference of its type library's identity and version finds, and loads.
+    [TestMethod]
+    public void EveryDescriptionThatShips_IsFoundByTheIdentityOfItsTypeLibrary_AndLoads()
+    {
+        ILibrarySource source = Source;
+        var files = Directory.GetFiles(Symbols, "*" + DirectoryLibrarySource.Extension);
+        CollectionAssert.Contains(files.Select(Path.GetFileName).ToArray(), "DAO.dao350.json");
+
+        foreach (var file in files)
+        {
+            var identity = LibraryIdentity.Of(LibraryJson.Read(File.ReadAllText(file)));
+            Assert.IsNotNull(identity.Guid, $"{Path.GetFileName(file)} states the type library it was made from");
+
+            Assert.IsTrue(source.TryGet(identity, out var found), identity.ToString());
+            Assert.AreEqual(identity, LibraryIdentity.Of(found), Path.GetFileName(file));
+            var libraries = ReferencedLibraries.Load(source, [identity], ["VBA"]);
+            Assert.IsEmpty(libraries.Problems, $"{identity}: {string.Join("; ", libraries.Problems.Select(problem => $"{problem.Name}: {problem.Kind} {string.Join(", ", problem.Related)}"))}");
+        }
+    }
+
     [TestMethod]
     public void TheLibrariesThatShip_AreLoadedTogether_EachWithEveryLibraryItDependsOn_AndNoneDependsOnItself()
     {
-        var libraries = ReferencedLibraries.Load(Source, Shipped, ["VBA"]);
+        var libraries = ReferencedLibraries.Load(Source, ShippedNames, ["VBA"]);
 
         Assert.IsEmpty(libraries.Problems, string.Join("; ", libraries.Problems.Select(problem => $"{problem.Name}: {problem.Kind} {string.Join(" -> ", problem.Related)}")));
         CollectionAssert.AreEquivalent(Shipped, libraries.Libraries.Select(library => library.Name).ToArray());
@@ -78,7 +102,7 @@ public sealed class ShippedLibrariesTests
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var library in libraries.Libraries)
         {
-            Assert.IsTrue(library.DependsOn.All(seen.Contains), library.Name);
+            Assert.IsTrue(library.DependsOn.All(dependency => seen.Contains(dependency.Name)), library.Name);
             seen.Add(library.Name);
         }
     }
@@ -86,7 +110,7 @@ public sealed class ShippedLibrariesTests
     [TestMethod]
     public void TheSymbolsOfEveryLibraryThatShips_AreRead()
     {
-        var libraries = ReferencedLibraries.Load(Source, Shipped, ["VBA"]);
+        var libraries = ReferencedLibraries.Load(Source, ShippedNames, ["VBA"]);
 
         var symbols = new LibrarySymbolProvider(new Uri("file:///c:/ws/"), libraries).ProvideSymbols().ToArray();
 

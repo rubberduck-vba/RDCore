@@ -19,6 +19,58 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     public static readonly string FileName = ".rdproj";
 
     /// <summary>
+    /// The version of the <c>.rdproj</c> format the platform reads and writes, as <c>major.minor</c> (<strong>RD-VBAL §2.2.3</strong>), which a project file
+    /// is stamped with (<see cref="Version"/>). A change an older platform can still read, such as a new member, raises the minor; a change it cannot read
+    /// raises the major.
+    /// </summary>
+    /// <remarks>
+    /// Before the format had a version of its own, a project file was stamped with the version of the platform that wrote it: <c>1.0.0</c> by the first builds,
+    /// <c>0.1.x</c> by the next. They read as the format 1.0 and an older one (<see cref="SchemaOf"/>), and are both the format 1.0.
+    /// </remarks>
+    public const string SchemaVersion = "1.0";
+
+    /// <summary>
+    /// How the format a project file says it is (<see cref="Version"/>) compares with the one the platform reads and writes (<see cref="SchemaVersion"/>).
+    /// </summary>
+    /// <remarks>
+    /// Only the major and minor are compared, and whatever follows them is not: <c>1.0.0</c> is the format 1.0, and <c>0.87.2-rc3</c> the format 0.87. A
+    /// lone number is a major: <c>2</c> is the format 2.0.
+    /// </remarks>
+    /// <param name="version">What a project file says (<see cref="Version"/>).</param>
+    /// <returns>
+    /// <see cref="ProjectFileSchemaMatch.Unstamped"/> when it says nothing, <see cref="ProjectFileSchemaMatch.Unparseable"/> when what it says is no version,
+    /// and otherwise how its major and minor compare with <see cref="SchemaVersion"/>'s.
+    /// </returns>
+    public static ProjectFileSchemaMatch SchemaOf(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return ProjectFileSchemaMatch.Unstamped;
+        }
+
+        if (!TryParseSchema(version, out var major, out var minor) || !TryParseSchema(SchemaVersion, out var currentMajor, out var currentMinor))
+        {
+            return ProjectFileSchemaMatch.Unparseable;
+        }
+
+        return major > currentMajor ? ProjectFileSchemaMatch.NewerMajor
+            : major < currentMajor ? ProjectFileSchemaMatch.Older
+            : minor > currentMinor ? ProjectFileSchemaMatch.NewerMinor
+            : minor < currentMinor ? ProjectFileSchemaMatch.Older
+            : ProjectFileSchemaMatch.Same;
+    }
+
+    // "major.minor", followed by '.', '-' or '+' and anything at all; or "major", followed by '-' or '+' and anything: "1.x" is no version.
+    private static bool TryParseSchema(string version, out int major, out int minor)
+    {
+        major = minor = 0;
+        var match = System.Text.RegularExpressions.Regex.Match(version.Trim(), @"^(\d+)(?:\.(\d+)(?:[.+-].*)?|[+-].*)?$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        return match.Success
+            && int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out major)
+            && (!match.Groups[2].Success || int.TryParse(match.Groups[2].Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out minor));
+    }
+
+    /// <summary>
     /// Reads a <c>.rdproj</c> as the platform reads it: the project file at <paramref name="workspaceRoot"/>, with what a file may leave out made empty and the
     /// standard library dropped from its references (<see cref="RDCoreReference.IsStandardLibrary"/>).
     /// </summary>
@@ -97,6 +149,7 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
         Uri = source.Uri;
         ProjectInfo = source.ProjectInfo;
         Version = source.Version;
+        ExtensionData = source.ExtensionData;
         IsSynthesized = source.IsSynthesized;
         // deliberate: a copy is a new, clean value, and a change says it is dirty (the With* methods, ProjectFileService.Update).
         IsDirty = false;
@@ -104,11 +157,19 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     }
 
     /// <summary>
-    /// The project file stamped with the version of the platform that writes it (<see cref="Version"/>). The platform stamps a project file as it writes it,
-    /// and only then.
+    /// The project file stamped with the version of a format (<see cref="Version"/>).
     /// </summary>
-    /// <param name="version">The writing platform's version, as <c>major.minor.build</c>.</param>
+    /// <param name="version">The format's version, as <c>major.minor</c>.</param>
     public ProjectFile WithVersion(string version) => this with { Version = version };
+
+    /// <summary>
+    /// The project file as the platform writes it, stamped with the format it writes (<see cref="SchemaVersion"/>), unless a newer format is what it says.
+    /// </summary>
+    /// <remarks>
+    /// A project file of a newer format keeps its stamp: what this platform does not know of it is written back as it was read (<see cref="ExtensionData"/>),
+    /// and the platform that wrote it reads it as its own. A project file of an older format, or no format, or one that cannot be read, is stamped with this one.
+    /// </remarks>
+    public ProjectFile WithSchemaVersion() => SchemaOf(Version) is ProjectFileSchemaMatch.NewerMinor or ProjectFileSchemaMatch.NewerMajor ? this : WithVersion(SchemaVersion);
 
     /// <summary>
     /// <c>true</c> if the project file has unsaved changes.
@@ -135,10 +196,21 @@ public sealed record class ProjectFile : IEquatable<ProjectFile>
     [JsonIgnore]
     public string Uri { get; init; } = string.Empty;
     /// <summary>
-    /// The <c>RDCore.ServerApp</c> version that last wrote this project file: kept as it is read and copied, and stamped when it is written
-    /// (<see cref="WithVersion"/>). It is empty for a project file no platform wrote yet.
+    /// The version of the <c>.rdproj</c> format the project file is in (<see cref="SchemaVersion"/>): kept as it is read and copied, and stamped when it is
+    /// written (<see cref="WithSchemaVersion"/>). It is empty for a project file no platform wrote yet.
     /// </summary>
+    /// <remarks>
+    /// It is read whatever it is: a number is read as its text, and anything else that is not a string as its JSON, which no format is
+    /// (<see cref="ProjectFileSchemaMatch.Unparseable"/>). A project file is never refused for what it says here.
+    /// </remarks>
+    [JsonConverter(typeof(ProjectFileVersionJsonConverter))]
     public string Version { get; init; }
+    /// <summary>
+    /// The members of the project file this model does not know, as they were read, which are written back: a project file a newer platform wrote keeps
+    /// what that platform added when an older one writes it (<see cref="SchemaVersion"/>).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
     /// <summary>
     /// An array of string values containing the relative paths of configuration settings file(s) included in this project.
     /// </summary>
@@ -254,6 +326,12 @@ public record class RDCoreProject
     public Dictionary<string, string> PrecompilerConstants { get; init; } = [];
 
     /// <summary>
+    /// The members of the project this model does not know, as they were read, which are written back (<see cref="ProjectFile.ExtensionData"/>).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
+
+    /// <summary>
     /// The full paths of the project's modules, other files and folders, under <paramref name="srcRoot"/>.
     /// </summary>
     /// <param name="srcRoot">The workspace root the project's paths are relative to.</param>
@@ -366,12 +444,21 @@ public sealed record class RDCoreReference : IEquatable<RDCoreReference>
     /// </summary>
     public bool IsUnremovable { get; init; } = false;
 
-    /// <inheritdoc/>
-    public override int GetHashCode() => HashCode.Combine(Name, Guid, Major, Minor);
+    /// <summary>
+    /// The members of the reference this model does not know, as they were read, which are written back (<see cref="ProjectFile.ExtensionData"/>).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; init; }
 
-    /// <summary>Whether <paramref name="other"/> references the library or project of the same name.</summary>
+    /// <inheritdoc/>
+    public override int GetHashCode() => Name is null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(Name);
+
+    /// <summary>
+    /// Whether <paramref name="other"/> references the library or project of the same name, whatever the case of it: a name is one reference of a project, as
+    /// VBA names are not case sensitive.
+    /// </summary>
     /// <param name="other">The reference to compare with.</param>
-    public bool Equals(RDCoreReference? other) => other?.Name is string name && Name.Equals(name);
+    public bool Equals(RDCoreReference? other) => other?.Name is string name && string.Equals(Name, name, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -379,7 +466,7 @@ public sealed record class RDCoreReference : IEquatable<RDCoreReference>
 /// </summary>
 /// <remarks>
 /// A project file writes it as its path alone, <c>"README.md"</c>, so that a <c>.rdproj</c> reads as the list of its files (<see cref="RDCoreFileJsonConverter"/>);
-/// an object with a <c>RelativeUri</c> is read the same.
+/// an object with a <c>RelativeUri</c> is read the same, and is written as an object when it has members this model does not know (<see cref="ExtensionData"/>).
 /// </remarks>
 [JsonConverter(typeof(RDCoreFileJsonConverter))]
 public record class RDCoreFile : IEquatable<RDCoreFile>
@@ -388,6 +475,12 @@ public record class RDCoreFile : IEquatable<RDCoreFile>
     /// The file's path, relative to the workspace root, which identifies the file.
     /// </summary>
     public string RelativeUri { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The members of the file's entry this model does not know, as they were read, which are written back (<see cref="ProjectFile.ExtensionData"/>).
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, JsonElement>? ExtensionData { get; init; }
 
     /// <summary>
     /// The file's extension with its leading period, <c>".md"</c> for <c>"docs/README.md"</c>; an empty string when the file's name has none.
@@ -487,10 +580,23 @@ public sealed class RDCoreFileJsonConverter : JsonConverter<RDCoreFile>
 {
     /// <inheritdoc/>
     public override RDCoreFile Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        => new() { RelativeUri = ProjectFileEntry.Read(ref reader, options, out _) };
+        // a file that is no module has no document: a Super it says is kept as it is, as any member this model does not know.
+        => new() { RelativeUri = ProjectFileEntry.Read(ref reader, options, readsSuper: false, out _, out var extensionData), ExtensionData = extensionData };
 
     /// <inheritdoc/>
-    public override void Write(Utf8JsonWriter writer, RDCoreFile value, JsonSerializerOptions options) => writer.WriteStringValue(value.RelativeUri);
+    public override void Write(Utf8JsonWriter writer, RDCoreFile value, JsonSerializerOptions options)
+    {
+        if (value.ExtensionData is not { Count: > 0 } extensionData)
+        {
+            writer.WriteStringValue(value.RelativeUri);
+            return;
+        }
+
+        writer.WriteStartObject();
+        writer.WriteString(nameof(RDCoreFile.RelativeUri), value.RelativeUri);
+        ProjectFileEntry.WriteExtensionData(writer, extensionData);
+        writer.WriteEndObject();
+    }
 }
 
 /// <summary>
@@ -502,14 +608,14 @@ public sealed class RDCoreModuleJsonConverter : JsonConverter<RDCoreModule>
     /// <inheritdoc/>
     public override RDCoreModule Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var relativeUri = ProjectFileEntry.Read(ref reader, options, out var super);
-        return new() { RelativeUri = relativeUri, Super = super };
+        var relativeUri = ProjectFileEntry.Read(ref reader, options, readsSuper: true, out var super, out var extensionData);
+        return new() { RelativeUri = relativeUri, Super = super, ExtensionData = extensionData };
     }
 
     /// <inheritdoc/>
     public override void Write(Utf8JsonWriter writer, RDCoreModule value, JsonSerializerOptions options)
     {
-        if (value.Super is not { } super)
+        if (value.Super is null && value.ExtensionData is not { Count: > 0 })
         {
             writer.WriteStringValue(value.RelativeUri);
             return;
@@ -517,18 +623,49 @@ public sealed class RDCoreModuleJsonConverter : JsonConverter<RDCoreModule>
 
         writer.WriteStartObject();
         writer.WriteString(nameof(RDCoreFile.RelativeUri), value.RelativeUri);
-        writer.WritePropertyName(nameof(RDCoreModule.Super));
-        JsonSerializer.Serialize(writer, super, options);
+        if (value.Super is { } super)
+        {
+            writer.WritePropertyName(nameof(RDCoreModule.Super));
+            JsonSerializer.Serialize(writer, super, options);
+        }
+
+        if (value.ExtensionData is { } extensionData)
+        {
+            ProjectFileEntry.WriteExtensionData(writer, extensionData);
+        }
+
         writer.WriteEndObject();
     }
+}
+
+/// <summary>
+/// Reads a project file's <see cref="ProjectFile.Version"/> whatever it is: a string as itself, a number as its text, and anything else as its JSON.
+/// </summary>
+public sealed class ProjectFileVersionJsonConverter : JsonConverter<string>
+{
+    /// <inheritdoc/>
+    public override bool HandleNull => false;
+
+    /// <inheritdoc/>
+    public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.TokenType switch
+    {
+        JsonTokenType.String => reader.GetString()!,
+        JsonTokenType.Number => System.Text.Encoding.UTF8.GetString(reader.HasValueSequence ? System.Buffers.BuffersExtensions.ToArray(reader.ValueSequence) : reader.ValueSpan),
+        _ => JsonElement.ParseValue(ref reader).GetRawText(),
+    };
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WriteStringValue(value);
 }
 
 // an entry of a project file's list of files: a path, or an object that names it (and, for a module, its document).
 internal static class ProjectFileEntry
 {
-    public static string Read(ref Utf8JsonReader reader, JsonSerializerOptions options, out DocClassType? super)
+    public static string Read(
+        ref Utf8JsonReader reader, JsonSerializerOptions options, bool readsSuper, out DocClassType? super, out IReadOnlyDictionary<string, JsonElement>? extensionData)
     {
         super = null;
+        extensionData = null;
         if (reader.TokenType == JsonTokenType.String)
         {
             return reader.GetString()!;
@@ -540,6 +677,7 @@ internal static class ProjectFileEntry
         }
 
         var relativeUri = string.Empty;
+        Dictionary<string, JsonElement>? unknown = null;
         while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
         {
             var name = reader.GetString();
@@ -548,17 +686,67 @@ internal static class ProjectFileEntry
             {
                 relativeUri = reader.GetString() ?? string.Empty;
             }
-            else if (string.Equals(name, nameof(RDCoreModule.Super), StringComparison.OrdinalIgnoreCase))
+            else if (readsSuper && string.Equals(name, nameof(RDCoreModule.Super), StringComparison.OrdinalIgnoreCase))
             {
                 super = JsonSerializer.Deserialize<DocClassType?>(ref reader, options);
             }
             else
             {
-                // a member this model has no use for.
-                reader.Skip();
+                // a member this model has no use for, which a newer platform may have written: it is kept, and written back.
+                (unknown ??= [])[name!] = JsonElement.ParseValue(ref reader);
             }
         }
 
+        extensionData = unknown;
         return relativeUri;
     }
+
+    public static void WriteExtensionData(Utf8JsonWriter writer, IReadOnlyDictionary<string, JsonElement> extensionData)
+    {
+        foreach (var (name, value) in extensionData)
+        {
+            writer.WritePropertyName(name);
+            value.WriteTo(writer);
+        }
+    }
+}
+
+/// <summary>
+/// How the format a project file says it is compares with the one the platform reads and writes (<see cref="ProjectFile.SchemaOf"/>).
+/// </summary>
+/// <remarks>
+/// A project file is read whatever it says: one of an older format or the same one loads, and so does one of a newer minor, whose members this platform does
+/// not know are kept. One of a newer major, or whose version cannot be read, is read all the same, and loads if it can be.
+/// </remarks>
+public enum ProjectFileSchemaMatch
+{
+    /// <summary>
+    /// The project file says no version: no platform wrote it yet.
+    /// </summary>
+    Unstamped,
+
+    /// <summary>
+    /// The project file is in the format the platform reads and writes.
+    /// </summary>
+    Same,
+
+    /// <summary>
+    /// The project file is in an older format, or was written before the format had a version; it is in this one once it is written.
+    /// </summary>
+    Older,
+
+    /// <summary>
+    /// The project file is in a newer minor of the format: a newer platform added members this one does not know, and keeps.
+    /// </summary>
+    NewerMinor,
+
+    /// <summary>
+    /// The project file is in a newer major of the format, which this platform may not read.
+    /// </summary>
+    NewerMajor,
+
+    /// <summary>
+    /// The project file's version is no version: neither <c>major.minor</c> nor a number.
+    /// </summary>
+    Unparseable,
 }

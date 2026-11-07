@@ -107,8 +107,9 @@ internal static class ModuleWorkspace
     /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, for a project that references libraries.
     /// </summary>
-    public static Task<string[]> LoadErrorsAsync(IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries)
-        => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries);
+    public static Task<string[]> LoadErrorsAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries, SupportedLanguage? language = null)
+        => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries, language: language);
 
     /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with document modules: <c>.doccls</c> files the
@@ -289,14 +290,16 @@ internal static class ModuleWorkspace
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
     /// <param name="engine">What runs the program, whatever engine the suite runs with (<c>RDCORE_ENGINE</c>); the suite's when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
+    /// <param name="environment">What else the environment says, given the profile the other arguments make; that profile when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
-        VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false)
+        VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false,
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
-            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
+            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, environment: environment);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
@@ -328,7 +331,7 @@ internal static class ModuleWorkspace
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine? engine = null,
         bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false,
-        bool syntaxErrors = false)
+        bool syntaxErrors = false, Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
     {
         // the engine a test asks for is the one that runs its program, whichever the suite runs every other with: the program's runs, and what the test does
         // with the session while it waits, are in this flow.
@@ -364,11 +367,12 @@ internal static class ModuleWorkspace
             files[Path.Combine(Root, $"{module.Name}.{module.Extension}")] = new(module.Source);
         }
 
+        var profile = new RuntimeEnvironmentProfile(
+            Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
+            ExecutionEngine: engine ?? RDCore.SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
+            ReleaseDropsDebugStatements: releaseDropsDebugStatements);
         var sessionProvider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(
-                Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
-                ExecutionEngine: engine ?? RDCore.SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
-                ReleaseDropsDebugStatements: releaseDropsDebugStatements),
+            environment?.Invoke(profile) ?? profile,
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
             libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null));
@@ -379,7 +383,7 @@ internal static class ModuleWorkspace
         var librarySymbols = libraries is null
             ? null
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
-                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
+                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References, language)).ProvideSymbols()];
         var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
             [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers,
             syntaxErrors: syntaxErrors);

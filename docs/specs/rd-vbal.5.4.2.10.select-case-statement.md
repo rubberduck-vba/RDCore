@@ -9,8 +9,8 @@
 |---|---|---|
 |[SelectCaseStatementNode](../api/RDCore.SDK.Model.AST.Statements.SelectCaseStatementNode.html)|`Select`|The `Select Case` opener. Its `End` is right past the block.|
 |[CaseExpressionStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseExpressionStatementNode.html)|`ConditionalBranch`|A `Case` header. Its `Matching` names the offset of its `Select` opener. Its `Else` is the offset to go to on no match: the next header in the chain, the first instruction of the `Case Else` body, or right past the whole construct.|
-|[CaseElseClauseStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|—|`Case Else` needs no condition.|
-|— (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
+|[CaseElseClauseStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|None|`Case Else` needs no condition.|
+|None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
 
 Each `Case` line's comma-separated conditions form their own node hierarchy under the abstract
 [CaseRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseRangeClauseNode.html). The three condition forms
@@ -151,6 +151,3 @@ that departure is the expression's, not the clause's.
 - This relies on the node parameter of `OperatorRuntimeSemantics<TContext,TFlags>` being typed
   [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
   ([**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.9** Single-line If Statement](rd-vbal.5.4.2.9.single-line-if-statement.md) | ⏭️ [**RD-VBAL §5.4.2.11** Stop Statement](rd-vbal.5.4.2.11.stop-statement.md)

@@ -4,14 +4,14 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Semantics.Instructions;
 
 /// <summary>
-/// The ordered, keyed instruction list of one procedure body — <strong>RD-VBAL §3.5</strong>
+/// The ordered, keyed instruction list of one procedure body: <strong>RD-VBAL §3.5</strong>
 /// (<strong>MS-VBAL §2.3.1</strong>: "sequentially evaluate each instruction in the frame"). Built by
 /// <see cref="InstructionListLowering"/>; immutable.
 /// </summary>
 /// <remarks>
 /// <see cref="Items"/> is dense: index <c>i</c> is offset <c>i</c>, and every offset a program counter
 /// can hold names an entry. A label may resolve to <c>Items.Length</c> itself (a label with nothing
-/// after it) — that offset is valid to hold, and a fetch there completes as if execution had reached
+/// after it): that offset is valid to hold, and a fetch there completes as if execution had reached
 /// the end of the body.
 /// </remarks>
 public sealed class InstructionList
