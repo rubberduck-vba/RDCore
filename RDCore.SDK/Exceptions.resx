@@ -771,6 +771,9 @@
   <data name="VBCompileError_ConstDirectiveExpression_Verbose" xml:space="preserve">
     <value>Expected: expression. The value of a #Const directive is a constant expression of literals, conditional-compilation constants and operators.</value>
   </data>
+  <data name="VBCompileError_ReservedParameterName_Verbose" xml:space="preserve">
+    <value>Expected: identifier. &apos;{0}&apos; is a reserved word, and no parameter&apos;s name.</value>
+  </data>
   <data name="VBCompileError_ReservedNameArguments_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses.</value>
   </data>

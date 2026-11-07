@@ -233,19 +233,54 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, statement.Length)), unbuilt.SourceLocation.Range);
     }
 
-    // a parameter's name is a name, as a variable's is (MS-VBAL 5.3.1.5): a reserved identifier there is a syntax error.
+    // a parameter's name is a name, as a variable's is (MS-VBAL 5.3.1.5): a reserved identifier there is a syntax error, at the name, and the procedure is
+    // read whole - its body, its end - and so is the procedure after it.
     [TestMethod]
-    [DataRow("Public Sub S(ByVal Mod As Long)", DisplayName = "an operator keyword, ByVal")]
-    [DataRow("Public Sub S(And)", DisplayName = "an operator keyword alone")]
-    [DataRow("Public Sub S(Dim As Long)", DisplayName = "a statement keyword")]
-    [DataRow("Public Sub S(ByVal For As Long)", DisplayName = "a statement keyword, ByVal")]
-    [DataRow("Public Sub S(ByVal Next As Long)", DisplayName = "the statement keyword Next, ByVal")]
-    [DataRow("Public Declare PtrSafe Sub S Lib \"x\" (ByVal Like As Long)", DisplayName = "an operator keyword, in a Declare")]
-    public void AReservedIdentifierAsTheNameOfAParameter_IsASyntaxError(string header)
+    [DataRow("Public Sub S(ByVal Mod As Long)", "Mod", DisplayName = "an operator keyword, ByVal")]
+    [DataRow("Public Sub S(And)", "And", DisplayName = "an operator keyword alone")]
+    [DataRow("Public Sub S(Dim As Long)", "Dim", DisplayName = "a statement keyword")]
+    [DataRow("Public Sub S(ByVal For As Long)", "For", DisplayName = "a statement keyword, ByVal")]
+    [DataRow("Public Sub S(ByVal Next As Long)", "Next", DisplayName = "the statement keyword Next, ByVal")]
+    [DataRow("Public Sub S(ByVal Type As Long)", "Type", DisplayName = "the statement keyword Type")]
+    [DataRow("Public Sub S(ByVal Private As Long)", "Private", DisplayName = "an access keyword")]
+    [DataRow("Public Sub S(ByVal Public As Long)", "Public", DisplayName = "the access keyword Public")]
+    [DataRow("Public Sub S(ByVal Sub As Long)", "Sub", DisplayName = "the keyword Sub")]
+    [DataRow("Public Sub S(ByVal Function As Long)", "Function", DisplayName = "the keyword Function")]
+    [DataRow("Public Sub S(ByVal Friend As Long)", "Friend", DisplayName = "the keyword Friend")]
+    [DataRow("Public Sub S(ByVal Static As Long)", "Static", DisplayName = "the keyword Static")]
+    [DataRow("Public Sub S(ByVal a As Long, Mod As Long)", "Mod", DisplayName = "the second parameter")]
+    [DataRow("Public Sub S(Optional ByVal Mod As Long = 1)", "Mod", DisplayName = "an optional parameter")]
+    [DataRow("Public Sub S(ParamArray Mod() As Variant)", "Mod", DisplayName = "a ParamArray")]
+    [DataRow("Public Function S(ByVal Const As Long) As Long", "Const", DisplayName = "a parameter of a Function")]
+    [DataRow("Public Property Let S(ByVal Enum As Long)", "Enum", DisplayName = "the value of a Property Let")]
+    [DataRow("Private Declare PtrSafe Function S Lib \"x\" (ByVal Type As Long) As Long", "Type", DisplayName = "the statement keyword Type, in a Declare")]
+    [DataRow("Public Declare PtrSafe Sub S Lib \"x\" (ByVal Like As Long)", "Like", DisplayName = "an operator keyword, in a Declare")]
+    public void AReservedIdentifierAsTheNameOfAParameter_IsASyntaxErrorAtTheName_AndTheProcedureIsWhole(string header, string name)
     {
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), header.Contains("Declare") ? $"{header}\r\n" : $"{header}\r\nEnd Sub\r\n");
+        var declare = header.Contains(" Declare ");
+        var end = declare ? null : $"End {header.Split(' ')[1]}";
+        var module = declare
+            ? $"{header}\r\nPublic Sub T()\r\n    y = 2\r\nEnd Sub\r\n"
+            : $"{header}\r\n    x = 1\r\n{end}\r\nPublic Sub T()\r\n    y = 2\r\nEnd Sub\r\n";
 
-        Assert.IsTrue(parse.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.Line == 0), Said(parse));
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), module);
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId, Said(parse));
+        var at = header.IndexOf(name, header.IndexOf('('), StringComparison.Ordinal);
+        Assert.AreEqual(new SourceRange(new SourcePosition(0, at), new SourcePosition(0, at + name.Length)), error.Location.Range, "the error is the name");
+
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToList();
+        var next = Assert.ContainsSingle(members.Where(member => member.Name == "T"), "the procedure after it is read");
+        var first = declare ? 1 : 3;
+        Assert.AreEqual(first, next.SourceLocation.Range.Start.Line, "the procedure after it begins at its header");
+        Assert.IsTrue(next.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == first + 1), "its body is its own");
+        if (!declare)
+        {
+            var procedure = Assert.ContainsSingle(members.Where(member => member.Name == "S"), "the procedure is read");
+            Assert.AreEqual(2, procedure.SourceLocation.Range.End.Line, "the procedure ends at its end");
+            Assert.IsTrue(procedure.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 1), "its body is its own");
+        }
     }
 
     [TestMethod]

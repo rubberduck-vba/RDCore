@@ -303,8 +303,8 @@ public sealed class ParserResilienceTests
         Assert.AreEqual(expected, directive.ModuleOption);
     }
 
-    [TestMethod]
     // a parameter's name is a name (MS-VBAL 5.3.1.5): a keyword that is no reserved identifier is one. A reserved identifier is a syntax error there.
+    [TestMethod]
     [DataRow("Error")]
     [DataRow("Name")]
     public void KeywordNamedParameter_ParsesWithThatName(string keyword)

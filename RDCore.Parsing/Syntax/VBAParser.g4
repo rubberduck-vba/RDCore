@@ -325,7 +325,9 @@ declareStmt : (visibility whiteSpace)? DECLARE whiteSpace (PTRSAFE whiteSpace)? 
 argList : LPAREN (whiteSpace? arg (whiteSpace? COMMA whiteSpace? arg)*)? whiteSpace? RPAREN;
 
 // MS-VBAL 5.3.1.5: a parameter's name is a name (IDENTIFIER, TYPED-NAME), as a variable's is, and no reserved identifier: `ByVal Mod As Long` names nothing.
-arg : (OPTIONAL whiteSpace)? ((BYVAL | BYREF) whiteSpace)? (PARAMARRAY whiteSpace)? identifier (whiteSpace? LPAREN whiteSpace? RPAREN)? (whiteSpace? asTypeClause)? (whiteSpace? argDefaultValue)?;
+// The rule reads a reserved identifier there all the same, and the parse reports it as a syntax error at the name (ModuleParser.ReportReservedParameterNames):
+// read as no name, it leaves the words before it (ByVal) to be read as the name, and the procedure's header ends there.
+arg : (OPTIONAL whiteSpace)? ((BYVAL | BYREF) whiteSpace)? (PARAMARRAY whiteSpace)? unrestrictedIdentifier (whiteSpace? LPAREN whiteSpace? RPAREN)? (whiteSpace? asTypeClause)? (whiteSpace? argDefaultValue)?;
 
 argDefaultValue : EQ whiteSpace? expression;
 

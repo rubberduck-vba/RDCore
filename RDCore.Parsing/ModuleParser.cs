@@ -650,10 +650,13 @@ public partial class ModuleParser(
         }
         var outputLists = new OutputListCollector();
         parser.AddParseListener(outputLists);
+        var parameterNames = new ReservedParameterNameCollector();
+        parser.AddParseListener(parameterNames);
 
         var tree = parser.startRule();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
+        ReportReservedParameterNames(parameterNames.Names, findings);
         if (parser.NumberOfSyntaxErrors > 0)
         {
             MarkDanglingOperators(tree, tokens);
@@ -773,6 +776,22 @@ public partial class ModuleParser(
             {
                 findings.ReplaceGrammarErrorAt(next, VBCompileErrorId.OutputItemsNotSeparated, SDK.Exceptions.VBCompileError_OutputItemsNotSeparated_Verbose);
             }
+        }
+    }
+
+    /// <summary>
+    /// Reports each parameter named with a reserved identifier as a syntax error at its name: <c>Sub S(ByVal Mod As Long)</c>.
+    /// </summary>
+    /// <remarks>
+    /// A parameter's name is a name, and no reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>). The grammar reads one there
+    /// all the same, so the procedure is read whole: its body, its end, and the procedures after it are what they are with a name there.
+    /// </remarks>
+    private static void ReportReservedParameterNames(IEnumerable<VBAParser.UnrestrictedIdentifierContext> names, ErrorListener findings)
+    {
+        foreach (var name in names)
+        {
+            findings.ReplaceGrammarErrorAt(name.Start, VBCompileErrorId.SyntaxError,
+                string.Format(SDK.Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Start.Text));
         }
     }
 
@@ -1137,6 +1156,20 @@ internal sealed class OutputListCollector : VBAParserBaseListener
     public List<VBAParser.OutputListContext> Lists { get; } = [];
 
     public override void ExitOutputList([NotNull] VBAParser.OutputListContext context) => Lists.Add(context);
+}
+
+// the names of a parse's parameters that are reserved identifiers, registered live: a name the rule read whole, which is no identifier.
+internal sealed class ReservedParameterNameCollector : VBAParserBaseListener
+{
+    public List<VBAParser.UnrestrictedIdentifierContext> Names { get; } = [];
+
+    public override void ExitArg([NotNull] VBAParser.ArgContext context)
+    {
+        if (context.unrestrictedIdentifier() is { exception: null, Start.TokenIndex: >= 0 } name && name.identifier() is null && name.ChildCount > 0)
+        {
+            Names.Add(name);
+        }
+    }
 }
 
 // grammar-agnostic (implements the plain IParseTreeListener, not a specific grammar's generated base):

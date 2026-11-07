@@ -1126,6 +1126,13 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_ConstDirectiveExpression_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>Looks up a localized string similar to Expected: identifier. &apos;{0}&apos; is a reserved word, and no parameter&apos;s name.</summary>
+        public static string VBCompileError_ReservedParameterName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ReservedParameterName_Verbose", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses..

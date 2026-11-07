@@ -127,7 +127,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
     public SyntaxNode BuildParameterDeclaration(VBAParser.ArgContext context, bool isPropertyWriterMember = false, bool isLast = false)
     {
-        var name = context.identifier().Name();
+        var name = context.unrestrictedIdentifier().Name();
 
         var kind = context.BYVAL() is not null ? ParameterKind.ExplicitByVal
             : context.BYREF() is not null ? ParameterKind.ExplicitByRef
@@ -145,8 +145,8 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
                     [.. _children],
                     // `Items() As Long`: the parentheses after the name make it an array.
                     context.LPAREN() is not null,
-                    context.identifier().TypeHint(),
-                    NameRange: context.identifier()?.SourceRange);
+                    context.unrestrictedIdentifier().TypeHint(),
+                    NameRange: context.unrestrictedIdentifier().SourceRange);
     }
     public SyntaxNode BuildPropertyGetDeclaration(VBAParser.PropertyGetStmtContext context)
     {
