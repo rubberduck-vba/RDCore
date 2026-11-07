@@ -15,9 +15,9 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// <see cref="ISessionMemoryAllocator"/> deliberately does not cover this: it only accounts for
 /// allocation size and fragmentation, never values. An <see cref="ISessionStorage"/> depends on one
 /// to reserve address space, then binds the caller's value at the resulting address.
-/// </remarks>
-/// <remarks>
+/// <para>
 /// The storage gives the session's objects their addresses (<see cref="IObjectPointers"/>).
+/// </para>
 /// <para>
 /// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
 /// </para>
