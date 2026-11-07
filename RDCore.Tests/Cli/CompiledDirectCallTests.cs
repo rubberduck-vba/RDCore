@@ -499,6 +499,8 @@ public sealed class CompiledDirectCallTests
         try
         {
             CompiledExecution.Engine = VBExecutionEngine.Compiled;
+            // the engine is the one every session is told, which the test changes, and the run is given none of its own: an engine of its own would outlast the
+            // change.
             await ModuleWorkspace.InspectAsync([], Waiting, async (provider, first, runAgain) =>
             {
                 try
@@ -516,8 +518,6 @@ public sealed class CompiledDirectCallTests
                         _ = await Terminate(provider);
                     }
                 }
-
-                // the engine is the one every session is told, which the test changes: a program run with an engine of its own would keep it.
             }, debug: true);
         }
         finally

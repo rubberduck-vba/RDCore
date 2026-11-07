@@ -243,6 +243,8 @@ public sealed class CompiledEditAndContinueTests
         /// <summary>
         /// Saves the file of <paramref name="module"/> as <paramref name="text"/>: what the adapter loads when the program is next asked to go on.
         /// </summary>
+        /// <param name="module">The name of the module whose file is saved.</param>
+        /// <param name="text">The text the file is saved with.</param>
         public void Save(string module, string text) => _saved[module] = text;
 
         public Task<string> Lost => _lost.Task;
@@ -295,7 +297,8 @@ public sealed class CompiledEditAndContinueTests
     /// </summary>
     private sealed class Session : IAsyncDisposable
     {
-        private readonly ConcurrentQueue<object> _events = new();
+        private readonly Lock _eventsLock = new();
+        private readonly List<object> _events = [];
         private readonly SemaphoreSlim _arrived = new(0);
         private readonly ProgramDebugAdapter _adapter;
         private DebugAdapterServer? _server;
@@ -359,6 +362,8 @@ public sealed class CompiledEditAndContinueTests
         /// <summary>
         /// Sets the breakpoints of the file of <paramref name="module"/> to <paramref name="lines"/>, counted from 1; none clears them.
         /// </summary>
+        /// <param name="module">The name of the module whose file the breakpoints are in.</param>
+        /// <param name="lines">The lines the breakpoints are set on, counted from 1.</param>
         public Task<SetBreakpointsResponse> SetBreakpointsAsync(string module, params int[] lines) => SendAsync(new SetBreakpointsArguments
         {
             Source = new Source { Path = PathOf(module) },
@@ -367,37 +372,33 @@ public sealed class CompiledEditAndContinueTests
 
         private void Arrived(object @event)
         {
-            _events.Enqueue(@event);
+            lock (_eventsLock)
+            {
+                _events.Add(@event);
+            }
+
             _arrived.Release();
         }
 
         /// <summary>
         /// The next event of the type, whenever it comes; the events before it of other types are kept.
         /// </summary>
+        /// <typeparam name="TEvent">The type of the event waited for.</typeparam>
         public async Task<TEvent> NextAsync<TEvent>()
         {
             using var hangGuard = new CancellationTokenSource(Patience);
             while (true)
             {
-                var kept = new List<object>();
-                TEvent? found = default;
-                var hit = false;
-                while (_events.TryDequeue(out var next))
+                // the event is taken out where it is, under the lock an event that arrives is added under: the others stay in the order they came.
+                lock (_eventsLock)
                 {
-                    if (!hit && next is TEvent typed)
+                    var at = _events.FindIndex(next => next is TEvent);
+                    if (at >= 0)
                     {
-                        (found, hit) = (typed, true);
+                        var found = (TEvent)_events[at];
+                        _events.RemoveAt(at);
+                        return found;
                     }
-                    else
-                    {
-                        kept.Add(next);
-                    }
-                }
-
-                kept.ForEach(_events.Enqueue);
-                if (hit)
-                {
-                    return found!;
                 }
 
                 // an event that came since the queue was looked at has released the semaphore already: it is not missed.
@@ -415,7 +416,14 @@ public sealed class CompiledEditAndContinueTests
         /// <summary>
         /// Everything that was said and not asked for yet, of one kind, in the order it was said.
         /// </summary>
-        public IReadOnlyList<TEvent> Pending<TEvent>() => [.. _events.OfType<TEvent>()];
+        /// <typeparam name="TEvent">The type of the events.</typeparam>
+        public IReadOnlyList<TEvent> Pending<TEvent>()
+        {
+            lock (_eventsLock)
+            {
+                return [.. _events.OfType<TEvent>()];
+            }
+        }
 
         public async ValueTask DisposeAsync()
         {

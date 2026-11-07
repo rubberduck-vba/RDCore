@@ -8,8 +8,8 @@ namespace RDCore.Tests.Server.Configuration;
 
 /// <summary>
 /// What runs a program when nothing says is one default (<see cref="SdkEnvironmentOptions.DefaultExecutionEngine"/>): the setting's, a profile's, and the one
-/// the environment host is deployed with, in <c>RDCore.CLI/appsettings.json</c>. The host's sessions run with the engine its configuration says, a user's
-/// setting taking the place of the deployed one.
+/// the environment host is deployed with, in <c>RDCore.CLI/appsettings.json</c>. In the profile its configuration binds, a user's setting takes the place of
+/// the deployed one.
 /// </summary>
 [TestClass]
 public sealed class ExecutionEngineDefaultTests
@@ -26,7 +26,7 @@ public sealed class ExecutionEngineDefaultTests
         return Path.Combine(directory.FullName, "RDCore.CLI", "appsettings.json");
     }
 
-    // the profile the environment host's sessions run with, as its configuration binds it (AppHost.ConfigureExternalServices).
+    // the profile bound from a configuration the way AppHost.ConfigureExternalServices binds the environment host's: the same section, the same From.
     private static IRuntimeEnvironmentProfile ProfileOf(IConfiguration configuration)
     {
         var options = configuration.GetSection(SettingsSchema.Root).Get<SdkAppOptions>() ?? new SdkAppOptions();
@@ -55,7 +55,7 @@ public sealed class ExecutionEngineDefaultTests
     [TestMethod]
     [DataRow("Compiled", VBExecutionEngine.Compiled)]
     [DataRow("interpreter", VBExecutionEngine.Interpreter)]
-    public void TheEngineAUserSets_IsTheOneTheEnvironmentHostsSessionsRunWith(string set, VBExecutionEngine expected)
+    public void TheEngineAUserSets_TakesThePlaceOfTheDeployedOne_InTheProfileTheConfigurationBinds(string set, VBExecutionEngine expected)
     {
         var fileSystem = new MockFileSystem();
         var file = Path.Combine(Path.GetTempPath(), "rdcore-user-engine", UserSettingsStore.FileName);
