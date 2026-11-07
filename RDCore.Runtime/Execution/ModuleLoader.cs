@@ -176,9 +176,9 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
         // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
         // expression kept as text - and the statements around it would run without it. The syntax errors are the parser's, which the module's model does not
-        // repeat.
+        // repeat. One in a branch of a #If that is excluded is in no code of the module: the branch is not compiled, and is no part of the run.
         var errors = moduleModel.CompileErrors.Select(error => (error.Description, error.Verbose))
-            .Concat(parseResult.SyntaxErrors.Select(error => (error.Description, error.Verbose)))
+            .Concat(parseResult.SyntaxErrors.Where(error => !IsDead(error.Location.Range.Start, deadRanges)).Select(error => (error.Description, error.Verbose)))
             .Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
                 ? error.Description
                 : $"{error.Description}: {error.Verbose}").ToImmutableArray();

@@ -48,6 +48,22 @@ public sealed class SyntaxErrorRunRefusalTests
         Assert.IsNotEmpty(result.Diagnostics!);
     }
 
+    // a syntax error in a branch of a #If that is excluded is in no code: the branch is not compiled, and the module runs, the statements around the branch
+    // with it.
+    [TestMethod]
+    [DataRow(new[] { "#If False Then", "Debug.Print 1 +", "#End If" }, new[] { "before", "after" }, DisplayName = "in the branch of a #If False")]
+    [DataRow(new[] { "#If True Then", "Debug.Print \"live\"", "#Else", "a = = 1", "#End If" }, new[] { "before", "live", "after" },
+        DisplayName = "in the #Else of a #If True")]
+    [DataRow(new[] { "#If False Then", "a = (1 +", "#End If", "Debug.Print \"next\"" }, new[] { "before", "next", "after" },
+        DisplayName = "in the branch of a #If False, then a statement")]
+    public async Task ASyntaxErrorInAnExcludedBranch_DoesNotRefuseTheRun(string[] lines, string[] printed)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(["Dim a As Variant", "Debug.Print \"before\"", .. lines, "Debug.Print \"after\""]));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, string.Join("; ", result.Diagnostics));
+        CollectionAssert.AreEqual(printed, result.Output.ToArray());
+    }
+
     // a syntax error in the header of a procedure that is not run refuses the run of the module as well.
     [TestMethod]
     public async Task ASyntaxErrorInTheHeaderOfAnotherProcedure_RefusesTheRun()
