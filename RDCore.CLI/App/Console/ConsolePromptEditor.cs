@@ -248,6 +248,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         private int _anchor;
         private Task<IReadOnlyList<CompletionItem>>? _asked;
         private int _askedAnchor;
+        private bool _askedOfFirstCharacter;
+        private bool _listOfFirstCharacter;
         private CancellationTokenSource? _asking;
         private SignatureHelp? _signature;
         private Task<SignatureHelp?>? _signing;
@@ -746,7 +748,11 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             Close();
             _asking = new CancellationTokenSource();
             _askedAnchor = anchor;
-            _asked = AskAsync(complete, Text, _cursor, _asking.Token);
+
+            // the list of the word's first character, wherever the cursor is in the word: it holds what every longer word matches, and what the word matches
+            // once it is shorter again, down to that character.
+            _askedOfFirstCharacter = _cursor > anchor;
+            _asked = AskAsync(complete, Text, Math.Min(_cursor, anchor + 1), _asking.Token);
         }
 
         private static async Task<IReadOnlyList<CompletionItem>> AskAsync(ConsoleCompletionSource complete, string text, int cursor, CancellationToken token)
@@ -771,6 +777,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             }
 
             _anchor = _askedAnchor;
+            _listOfFirstCharacter = _askedOfFirstCharacter;
             _list = new ConsoleCompletionList(items, editor.ListHeight);
             _list.Filter(Word());
         }
@@ -810,6 +817,13 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             if (!IsWordAt(_anchor))
             {
                 Close();
+                return;
+            }
+
+            // the list of the word's first character holds nothing the empty word alone matches: the list of the empty word is asked for.
+            if (_cursor == _anchor && _listOfFirstCharacter)
+            {
+                Ask(_anchor);
                 return;
             }
 

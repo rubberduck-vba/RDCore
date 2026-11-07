@@ -224,11 +224,33 @@ public sealed class CompletionCandidatesTests
     [DataRow("Class_Initialize", "C_I", true, DisplayName = "an underscore typed separates as well")]
     [DataRow("Class_Initialize", "Class_I", true, DisplayName = "a prefix with its underscore")]
     [DataRow("Class_Initialize", "CsI", false, DisplayName = "a letter not at the start of a hump")]
+    [DataRow("Class_Initialize", "Cl_ass", false, DisplayName = "an underscore typed ends a part: what follows it starts the next hump")]
+    [DataRow("ClassModule", "Cla_ss", false, DisplayName = "an underscore typed ends a part, in a label with none")]
+    [DataRow("Class_Initialize", "C_", true, DisplayName = "a part ended by an underscore, and nothing after it")]
+    [DataRow("Class_Initialize", "C__I", true, DisplayName = "underscores typed in a row are one separator")]
+    [DataRow("cmd_Click", "c_C", true, DisplayName = "a lowercase hump, an underscore, a capital")]
+    [DataRow("xyz", "_x", false, DisplayName = "a word that starts with an underscore, a label that does not")]
+    [DataRow("_NewEnum", "_NEn", true, DisplayName = "a word that starts with an underscore, a label that does")]
+    [DataRow("_NewEnum", "NE", true, DisplayName = "a label's leading underscore is of no hump")]
     public void AWord_MatchesALabelItStarts_OrTheLabelsHumps(string label, string word, bool matches)
-    {
-        var matching = CompletionCandidates.Matching([new CompletionCandidate(label, CompletionItemKind.Variable)], word);
+        => Assert.AreEqual(matches, CompletionCandidates.MatchOf(label, word) != CompletionMatch.None);
 
-        Assert.AreEqual(matches, matching.Count == 1);
+    // a client narrows the list of a word by the same rule as the word grows: what a longer word matches, the word matches too.
+    [TestMethod]
+    public void EveryLabelALongerWordMatches_TheWordMatchesToo()
+    {
+        string[] labels = ["Class_Initialize", "ClassModule", "cmd_Click", "_NewEnum", "xyz", "MultiPlayer", "vbKeyEscape", "CLngPtr", "Win32Api", "IOError", "x_y_z"];
+        string[] words = ["C_I", "Cl_ass", "c_C", "_NEn", "_x", "MuPl", "vbKEs", "CLnP", "W32A", "IOE", "x_y_z", "C__I", "x__z"];
+        foreach (var word in words)
+        {
+            for (var length = 1; length < word.Length; length++)
+            {
+                foreach (var label in labels.Where(label => CompletionCandidates.MatchOf(label, word[..(length + 1)]) != CompletionMatch.None))
+                {
+                    Assert.AreNotEqual(CompletionMatch.None, CompletionCandidates.MatchOf(label, word[..length]), $"{label}: '{word[..(length + 1)]}' but not '{word[..length]}'");
+                }
+            }
+        }
     }
 
     [TestMethod]
@@ -236,7 +258,29 @@ public sealed class CompletionCandidatesTests
     {
         CompletionCandidate[] candidates = [new("MultiPlayer", CompletionItemKind.Variable, Rank: 0), new("MPEG", CompletionItemKind.Constant, Rank: 3)];
 
-        CollectionAssert.AreEqual(new[] { "MPEG", "MultiPlayer" }, Labels(CompletionCandidates.Matching(candidates, "MP")));
+        CollectionAssert.AreEqual(new[] { "MPEG", "MultiPlayer" }, CompletionCandidates.ListOf("MP", [], candidates).Items.Select(item => item.Label).ToArray());
+    }
+
+    [TestMethod]
+    public void AnItemThatDoesNotMatch_RanksAfterTheOnesThatDo()
+    {
+        var candidate = new CompletionCandidate("Total", CompletionItemKind.Variable);
+
+        Assert.IsTrue(string.CompareOrdinal(candidate.ToCompletionItem(CompletionMatch.Humps).SortText, candidate.ToCompletionItem(CompletionMatch.None).SortText) < 0);
+        Assert.IsTrue(string.CompareOrdinal(candidate.ToCompletionItem(CompletionMatch.Prefix).SortText, candidate.ToCompletionItem(CompletionMatch.Humps).SortText) < 0);
+    }
+
+    // the candidates most likely to be written are a tier of their own: the word's best match among them is preselected, though another name it starts is not.
+    [TestMethod]
+    public void TheFirstCandidates_RankBeforeTheOthers_ThoughOnlyTheirHumpsMatch_AndTheBestOfThemIsPreselected()
+    {
+        CompletionCandidate[] constants = [new("DarkRed", CompletionItemKind.EnumMember), new("DeepRed", CompletionItemKind.EnumMember), new("DRed", CompletionItemKind.EnumMember)];
+        var items = CompletionCandidates.ListOf("DR", constants, [new("Drum", CompletionItemKind.Function), new("DarkRed", CompletionItemKind.Variable)]).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "DRed", "DarkRed", "DeepRed", "Drum" }, items.Select(item => item.Label).ToArray(),
+            string.Join(", ", items.Select(item => item.Label + "/" + item.SortText)));
+        Assert.IsTrue(items[0].Preselect);
+        Assert.AreEqual(1, items.Count(item => item.Preselect));
     }
 
     [TestMethod]
