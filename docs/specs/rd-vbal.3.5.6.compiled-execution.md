@@ -77,13 +77,14 @@ nothing else holds the object, it is gone.
 
 ### Arrays
 
-Compiled code reads and writes an element of an array parameter or array variable of the procedure (**MS-VBAL §5.6.13**):
+Compiled code handles an array parameter or local array variable of the procedure, except a `Static` array, a `ParamArray` and an array declared
+`As New`. An array field of `Me` or of a module, and an array in a record, are the interpreter's.
 
-- It finds the element in the array the frame holds each time it reads or writes one, so after a `ReDim` it finds the element in the new array. Each
-  subscript is converted to a `Long`. The array has up to three dimensions.
+- `LBound` and `UBound` read the array's bounds, whatever its element type (**MS-VBAL §3.3.5.2**).
+- It finds an element in the array the frame holds each time it reads or writes one (**MS-VBAL §5.6.13**), so after a `ReDim` it finds the element in
+  the new array. Each subscript is converted to a `Long`. The array has up to three dimensions.
 - An element of an array of a scalar type is read and written as a variable of that type, and an element of an array of `Variant`s as a `Variant`.
   An element of an array of objects can be compared with `Is` and tested with `TypeOf`.
-- `LBound` and `UBound` read the array's bounds (**MS-VBAL §3.3.5.2**).
 - The interpreter runs a `ReDim` of an array of a scalar type whose bounds compiled code computes, and an `Erase` of such an array, for compiled code.
   An error either raises goes to the procedure's error handler, as an error of a call does.
 
@@ -93,7 +94,7 @@ The interpreter does the rest on its own:
 - A `Set` of an element of an array of objects.
 - A `ReDim` or an `Erase` of an array of `Variant`s or of objects, which can release objects.
 - An element passed `ByRef`: the array cannot be resized while the callee holds its element.
-- A `Static` array, an array declared `As New`, an array of `String`s or of records, an array field of `Me` or of a module, and an array in a record.
+- An element of an array of `String`s or of records.
 
 ### What compiled code does itself
 
@@ -101,7 +102,7 @@ Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar fields of `Me`, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays, the function's own result variable, and parentheses.|
+|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar fields of `Me`, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or of an element of one of its arrays of objects.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me`, or of the function's result; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
 |Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|

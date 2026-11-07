@@ -16,7 +16,7 @@ internal enum ElementClass
 // an array parameter or variable of the activation, and its elements: of Kind when they are scalars.
 internal sealed record class CompiledArray(int Slot, ElementClass Class, ScalarKind? Kind);
 
-// an element of an array of a scalar kind, at subscripts each let-coerced to a Long (MS-VBAL §5.6.13.1), read in the cell the array holds it in
+// an element of an array of a scalar kind, at subscripts each let-coerced to a Long (MS-VBAL §5.6.13), read in the cell the array holds it in
 // (ArrayOperations.ScalarElement).
 internal sealed record class ElementNode(int Array, IReadOnlyList<PayloadNode> Subscripts, ScalarKind Kind) : PayloadNode(Kind);
 

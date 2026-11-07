@@ -24,8 +24,8 @@ public sealed record class VBResizableByteArrayValue : VBResizableArrayValue
     /// </summary>
     /// <param name="dimensions">The lower and upper bound of each dimension.</param>
     /// <param name="elementCell">Makes the cell each element is stored in, when the runtime stores <c>Byte</c> elements in cells of its own
-    /// (<see cref="Runtime.Abstract.Execution.IVariableDefaults.ElementCellOf"/>); <see langword="null"/> for a cell that holds the default value as it
-    /// is.</param>
+    /// (<see cref="Runtime.Abstract.Execution.IVariableDefaults.ElementCellOf"/>); <see langword="null"/> to keep each element in a cell that holds its
+    /// default value.</param>
     public VBResizableByteArrayValue((int lBound, int uBound)[] dimensions, Func<IBindingHandle>? elementCell = null)
         : base(dimensions, VBByteType.TypeInfo, elementCell: elementCell) { }
 

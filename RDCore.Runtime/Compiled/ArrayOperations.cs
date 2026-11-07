@@ -60,7 +60,7 @@ public static class ArrayOperations
         return true;
     }
 
-    // the cell at the subscripts (MS-VBAL §5.6.13.1), in the order VBArrayValue.IndexOf numbers them: none outside a dimension, or of an array of another rank.
+    // the cell at the subscripts (MS-VBAL §5.6.13), in the order VBArrayValue.IndexOf numbers them: none outside a dimension, or of an array of another rank.
     private static IBindingHandle? ElementOf(object? holder, int rank, long first, long second, long third)
     {
         if (RuntimeExpressionEvaluator.PayloadArrayOf(holder as IBindingHandle) is not { } array || array.Rank != rank)
