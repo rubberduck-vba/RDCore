@@ -304,8 +304,7 @@ public sealed class ParserResilienceTests
     }
 
     [TestMethod]
-    // A4: a parameter is an `arg : … unrestrictedIdentifier …`, so its name can be a reserved word.
-    [DataRow("Next")]
+    // a parameter's name is a name (MS-VBAL 5.3.1.5): a keyword that is no reserved identifier is one. A reserved identifier is a syntax error there.
     [DataRow("Error")]
     [DataRow("Name")]
     public void KeywordNamedParameter_ParsesWithThatName(string keyword)

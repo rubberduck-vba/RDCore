@@ -112,6 +112,33 @@ public sealed class PrintItemKeywordOperatorTests
         Assert.HasCount(2, parse.SyntaxErrors, Said(parse));
     }
 
+    // a parameter's name is a name, as a variable's is (MS-VBAL 5.3.1.5): a reserved identifier there is a syntax error.
+    [TestMethod]
+    [DataRow("Public Sub S(ByVal Mod As Long)", DisplayName = "an operator keyword, ByVal")]
+    [DataRow("Public Sub S(And)", DisplayName = "an operator keyword alone")]
+    [DataRow("Public Sub S(Dim As Long)", DisplayName = "a statement keyword")]
+    [DataRow("Public Sub S(ByVal For As Long)", DisplayName = "a statement keyword, ByVal")]
+    [DataRow("Public Sub S(ByVal Next As Long)", DisplayName = "the statement keyword Next, ByVal")]
+    [DataRow("Public Declare PtrSafe Sub S Lib \"x\" (ByVal Like As Long)", DisplayName = "an operator keyword, in a Declare")]
+    public void AReservedIdentifierAsTheNameOfAParameter_IsASyntaxError(string header)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), header.Contains("Declare") ? $"{header}\r\n" : $"{header}\r\nEnd Sub\r\n");
+
+        Assert.IsTrue(parse.SyntaxErrors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.Line == 0), Said(parse));
+    }
+
+    [TestMethod]
+    [DataRow("Public Sub S(ByVal Name As String)")]
+    [DataRow("Public Sub S(ByVal Text As String, Optional ByVal Value$ = \"\")")]
+    [DataRow("Public Sub S(ByRef Items() As Variant, ParamArray Args() As Variant)")]
+    [DataRow("Public Sub S([Mod] As Long)")]
+    public void AParameterWithAName_IsValid(string header)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"{header}\r\nEnd Sub\r\n");
+
+        Assert.IsEmpty(parse.SyntaxErrors, Said(parse));
+    }
+
     private static string Said(ModuleParseResult parse)
         => string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.Location.Range}: {error.Verbose}"));
 }
