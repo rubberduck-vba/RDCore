@@ -158,6 +158,11 @@ public sealed class StatementBoundRecoveryTests
         {
             Assert.AreEqual(after.TrimStart(), TextOf(source, Assert.ContainsSingle(parse.Trivia.OfType<CommentTriviaNode>()).SourceLocation.Range));
         }
+
+        // the header's last expression is the operation, unbuilt: `2 -`, its operand and its operator.
+        var last = new[] { " To ", " Step ", " In " }.Select(word => header.LastIndexOf(word, StringComparison.Ordinal) + word.Length).Max();
+        var operation = Assert.ContainsSingle(Descendants(loop).OfType<UnbuiltExpressionTriviaNode>());
+        Assert.AreEqual(header[last..], TextOf(source, operation.SourceLocation.Range), "the header's last expression");
     }
 
     // a statement after a colon is read on its own too: the end of the statement the error is in is the colon.
