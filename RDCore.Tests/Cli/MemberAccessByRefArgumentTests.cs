@@ -1,3 +1,4 @@
+using RDCore.Runtime.Compiled;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
@@ -111,10 +112,10 @@ public sealed class MemberAccessByRefArgumentTests
         }, engine: VBExecutionEngine.Compiled);
     }
 
-    // what compiled code passes by reference is a variable of its own activation (S2.3c): a caller that passes a field or an element is the interpreter's,
-    // which binds it as the rows above have it.
+    // what compiled code passes by reference is a variable of its own activation: a call that passes a field or an element is the interpreter's, which
+    // binds it as the rows above have it, in a caller that runs compiled around it.
     [TestMethod]
-    public async Task ACallerThatPassesAField_RunsInTheInterpreter()
+    public async Task ACallThatPassesAField_IsTheInterpreters()
     {
         CompiledExecutionTests.RequirePayloads();
         await InspectAsync([], StandardModule("Program",
@@ -125,8 +126,10 @@ public sealed class MemberAccessByRefArgumentTests
         {
             Assert.AreEqual("11", string.Join("|", run.Output.Select(line => line.Trim())), run.ErrorMessage);
             Assert.IsTrue(provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "BumpLong" && result.Result.Body is not null), "BumpLong runs compiled");
-            Assert.IsTrue(provider.Image.Compiler.Results.Any(result => result.Procedure.Name == "Passes" && result.Result.Body is null && result.Result.Reasons.Count > 0),
-                "Passes runs in the interpreter");
+            var passes = provider.Image.Compiler.Results.Single(result => result.Procedure.Name == "Passes").Result;
+            Assert.IsNotNull(passes.Body, string.Join("; ", passes.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+            Assert.IsTrue(passes.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Call, Detail: "BumpLong" }),
+                string.Join("; ", passes.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
             return Task.CompletedTask;
         }, engine: VBExecutionEngine.Compiled);
     }
