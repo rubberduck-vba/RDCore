@@ -27,7 +27,7 @@ public sealed class SyntaxErrorRunRefusalTests
     [DataRow("a = 1 -\r\na = 2", DisplayName = "an operator the parse leaves unread at the end of its line, then a statement")]
     [DataRow("Print #1, 1 +\r\nClose #1", DisplayName = "an item of a Print at the end of its line, then a Close")]
     [DataRow("Debug.Print 1 +\r\nDebug.Print 2", DisplayName = "an item of Debug.Print at the end of its line, then another")]
-    [DataRow("Foo 1 -, 2", DisplayName = "a binary operator before a comma")]
+    [DataRow("a = Array(1 -, 2)", DisplayName = "a binary operator before a comma")]
     [DataRow("Dim d(1 -)", DisplayName = "a binary operator before the parenthesis of a Dim")]
     [DataRow("ReDim d(1 -)", DisplayName = "a binary operator before the parenthesis of a ReDim")]
     [DataRow("Call Foo(1) -", DisplayName = "a binary operator after a Call")]
