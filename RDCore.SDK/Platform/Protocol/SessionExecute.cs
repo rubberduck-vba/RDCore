@@ -17,7 +17,7 @@ public sealed record class SessionExecuteRequest : SessionExecuteParams, IReques
 /// </summary>
 /// <remarks>
 /// The parsed module rides a <see cref="System.Text.Json"/> string for the same reason
-/// <see cref="DiagnoseDocumentParams"/>'s does — the AST is polymorphic and the JSON-RPC
+/// <see cref="DiagnoseDocumentParams"/>'s does: the AST is polymorphic and the JSON-RPC
 /// transport's own serializer cannot round-trip it (see <see cref="PlatformJson"/>). The language
 /// server has already parsed and defined the module's symbols by the time it sends this, so the host
 /// lowers and runs rather than re-deriving any of it.
@@ -31,7 +31,7 @@ public record class HostExecuteParams : IRequest, IRequest<ExecuteResult>
     public string Json { get; init; } = string.Empty;
 
     /// <summary>
-    /// The module's programmatic name — the scope <see cref="EntryPoint"/> is resolved in.
+    /// The module's programmatic name: the scope <see cref="EntryPoint"/> is resolved in.
     /// </summary>
     public string ModuleName { get; init; } = string.Empty;
 
@@ -67,5 +67,5 @@ public record class HostExecuteParams : IRequest, IRequest<ExecuteResult>
 /// The <see cref="System.Text.Json"/> payload carried in <see cref="HostExecuteParams.Json"/>.
 /// </summary>
 /// <param name="DocumentUri">The document the module was parsed from.</param>
-/// <param name="ParseResult">The parsed module — AST plus syntax errors.</param>
+/// <param name="ParseResult">The parsed module: AST plus syntax errors.</param>
 public record class HostExecutePayload(Uri DocumentUri, ModuleParseResult ParseResult);

@@ -58,7 +58,7 @@ analysis knows of, and can be reported as unused. A module that has an expressio
 before any of it runs. The rest of the module is analyzed as it would be, and its text is kept as it is written: a tool that writes the module back out,
 such as the indenter, writes the expression as it is.
 
-> 🎯 **RD-VBAL diverges from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
+> **RD-VBA differs from MS-VBA** on the depth of an expression. **MS-VBA** runs a chain of 2,500 terms, 2,000 nested parentheses and 1,000 nested
 > calls, and crashes the host past the chain, with no error (recorded in Excel: chains of 3,000, 3,500 and 4,000 terms). RD-VBA runs every depth **MS-VBA**
 > was seen to run, and reports a syntax error where **MS-VBA** crashes: an expression nested in more than 2,500 others.
 
@@ -195,6 +195,3 @@ A directive line that is not well formed is the syntax error `VBC00001`, with **
 
 **MS-VBA** reports the first error of a module, and finds the errors of the blocks' structure (`VBC00056`–`VBC00059`) before those of the lines; RD-VBA
 reports every one of them. **MS-VBA** puts the caret of `VBC00059` on the module's last line, and RD-VBA reports it at the `#If` that is not ended.
-
----
-> ⏮️ [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md) | ⏭️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)

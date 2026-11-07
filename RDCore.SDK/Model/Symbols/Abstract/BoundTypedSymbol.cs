@@ -34,8 +34,8 @@ public abstract record class UnboundTypedSymbol(Uri WorkspaceRoot, Uri ParentUri
 /// itself is bound to a source location.
 /// </summary>
 /// <remarks>
-/// Unifies <see cref="BoundTypedSymbol"/> and <see cref="UnboundTypedSymbol"/> for a caller — a
-/// static-semantics rule reading the declared type off a resolved <c>Symbol</c>, chiefly — that does
+/// Unifies <see cref="BoundTypedSymbol"/> and <see cref="UnboundTypedSymbol"/> for a caller (a
+/// static-semantics rule reading the declared type off a resolved <c>Symbol</c>, chiefly) that does
 /// not care which of the two it got.
 /// </remarks>
 public interface ITypedSymbol

@@ -24,7 +24,7 @@ public sealed class ScopeTree
     }
 
     /// <summary>
-    /// The root scope — every lookup that is not bound sooner ends here.
+    /// The root scope: every lookup that is not bound sooner ends here.
     /// </summary>
     public LexicalScope Global { get; }
 

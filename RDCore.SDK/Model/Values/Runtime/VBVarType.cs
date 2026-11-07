@@ -3,7 +3,7 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 namespace RDCore.SDK.Model.Values.Runtime;
 
 /// <summary>
-/// <strong>MS-VBAL 6.1.1.16 VbVarType</strong> — the COM Automation <c>VARENUM</c> tag space a
+/// <strong>MS-VBAL 6.1.1.16 VbVarType</strong>: the COM Automation <c>VARENUM</c> tag space a
 /// <c>Variant</c> value carries. These are the same numeric values the <c>VarType()</c> standard
 /// library function reports and that OLE Automation marshals a <c>VARIANT</c> against, so RD-VBA's own
 /// <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> stays shaped correctly for COM
@@ -50,14 +50,14 @@ public enum VBVarType
     /// </summary>
     VBString = 8,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBObjectType"/>
-    /// — COM's own <c>VT_DISPATCH</c>: a late-bound Automation object reference (an <c>IDispatch*</c>
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBObjectType"/>:
+    /// COM's own <c>VT_DISPATCH</c>: a late-bound Automation object reference (an <c>IDispatch*</c>
     /// in the underlying COM representation).
     /// </summary>
     VBObject = 9,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBErrorType"/>
-    /// — also the subtype of the <c>Missing</c> data value an omitted <c>Variant</c> argument carries
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBErrorType"/>:
+    /// also the subtype of the <c>Missing</c> data value an omitted <c>Variant</c> argument carries
     /// (<c>DISP_E_PARAMNOTFOUND</c> in the underlying COM representation).
     /// </summary>
     VBError = 10,
@@ -73,8 +73,8 @@ public enum VBVarType
     /// </remarks>
     VBVariant = 12,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBObjectType"/>
-    /// — COM's own <c>VT_UNKNOWN</c>: an early-bound (<c>IUnknown</c>-only, non-Automation) object
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBObjectType"/>:
+    /// COM's own <c>VT_UNKNOWN</c>: an early-bound (<c>IUnknown</c>-only, non-Automation) object
     /// reference. RD-VBA does not yet distinguish this from <see cref="VBObject"/>; nothing constructs
     /// this value today.
     /// </summary>

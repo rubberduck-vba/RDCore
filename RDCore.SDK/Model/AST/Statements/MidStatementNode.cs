@@ -4,7 +4,7 @@ using RDCore.SDK.Model.AST.Abstract;
 namespace RDCore.SDK.Model.AST.Statements;
 
 /// <summary>
-/// <strong>MS-VBAL §5.4.3.5</strong> Mid/MidB/Mid$/MidB$ Statement — replaces a span of characters
+/// <strong>MS-VBAL §5.4.3.5</strong> Mid/MidB/Mid$/MidB$ Statement: replaces a span of characters
 /// (or bytes, in the <c>MidB</c>/<c>MidB$</c> forms) within <see cref="Target"/>, starting at the
 /// 1-based position <see cref="Start"/>, with characters from <see cref="Value"/>.
 /// </summary>
@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.AST.Statements;
 /// <see cref="IsByteMode"/> and <see cref="IsStringInput"/> are independent: all four spellings
 /// (<c>Mid</c>, <c>Mid$</c>, <c>MidB</c>, <c>MidB$</c>) are distinct combinations of the two. The
 /// runtime replacement mechanics MS-VBAL §5.4.3.5 spells out only ever split on byte vs. character
-/// indexing (<c>Mid</c>/<c>Mid$</c> together vs. <c>MidB</c>/<c>MidB$</c> together) — but the trailing
+/// indexing (<c>Mid</c>/<c>Mid$</c> together vs. <c>MidB</c>/<c>MidB$</c> together), but the trailing
 /// <c>$</c> still has to survive into the AST, because it mirrors the same intrinsic-family split as
 /// the <c>Mid</c>/<c>Mid$</c> *function* overloads (<c>Function Mid(String As Variant, ...) As
 /// Variant</c> vs. the String-only <c>$</c> form): <see cref="Target"/>/<see cref="Value"/> coerce

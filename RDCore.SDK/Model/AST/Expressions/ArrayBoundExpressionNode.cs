@@ -16,8 +16,8 @@ public enum ArrayBoundKind
 }
 
 /// <summary>
-/// <strong>MS-VBAL 3.3.5.2</strong> The <c>LBound</c> and <c>UBound</c> special forms —
-/// <c>LBound(&lt;array&gt;[, &lt;dimension&gt;])</c> — which read the bound of one dimension of an array.
+/// <strong>MS-VBAL 3.3.5.2</strong> The <c>LBound</c> and <c>UBound</c> special forms
+/// (<c>LBound(&lt;array&gt;[, &lt;dimension&gt;])</c>), which read the bound of one dimension of an array.
 /// </summary>
 /// <remarks>
 /// MS-VBAL reserves the names as <c>special-form</c> identifiers, "used in an expression as if [they were] a

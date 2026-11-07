@@ -20,7 +20,7 @@ public readonly record struct SourcePosition(int Line, int Character) :
 
     /// <summary>
     /// Translates this position, which is relative to a fragment of a document, into a position in that
-    /// document — where <paramref name="anchor"/> is where the fragment itself begins in it.
+    /// document, where <paramref name="anchor"/> is where the fragment itself begins in it.
     /// </summary>
     /// <param name="anchor">The position, in the document, of the fragment's first character.</param>
     /// <returns>The same point in the source, expressed in the document's own coordinates.</returns>

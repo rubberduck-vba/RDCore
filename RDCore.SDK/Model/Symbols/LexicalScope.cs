@@ -3,13 +3,13 @@
 namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
-/// One lexical scope of a composed workspace — a compile-time region a name lookup starts from and
+/// One lexical scope of a composed workspace: a compile-time region a name lookup starts from and
 /// then walks outward, through the <see cref="Parent"/> chain, until the name binds or the global
 /// scope is reached (<strong>MS-VBAL §5.2</strong> Name Binding, <strong>RD-VBAL §2.3.1.2</strong>).
 /// </summary>
 /// <remarks>
-/// A lexical scope is not a <see cref="ScopeKind"/> — that says which allocation heap a symbol lives
-/// in — nor a run-time call-stack frame, which holds one activation's values. The tree has four
+/// A lexical scope is not a <see cref="ScopeKind"/> (that says which allocation heap a symbol lives
+/// in) nor a run-time call-stack frame, which holds one activation's values. The tree has four
 /// tiers: the global scope, the project scope (a standard module's non-<c>Private</c> members,
 /// visible to every sibling module), one scope per module, and one per procedure / property /
 /// function / event body. Ordering referenced libraries by their <c>.rdproj</c> priority within the
@@ -24,7 +24,7 @@ public sealed class LexicalScope
     /// <paramref name="declarations"/>.
     /// </summary>
     /// <param name="uri">
-    /// The <see cref="Symbol.Uri"/> of the symbol this scope belongs to — a module, a procedure, the
+    /// The <see cref="Symbol.Uri"/> of the symbol this scope belongs to: a module, a procedure, the
     /// workspace root for the project scope, or the well-known <see cref="StaticSymbol.GlobalUri"/>
     /// for the global scope.
     /// </param>
@@ -32,11 +32,11 @@ public sealed class LexicalScope
     /// <param name="parent">The enclosing scope, or <c>null</c> for the global scope.</param>
     /// <param name="declarations">
     /// The symbols declared <em>directly</em> in this scope. A name declared more than once here
-    /// (a field and a procedure that collide, two <c>Dim</c>s of one name) keeps every declaration —
+    /// (a field and a procedure that collide, two <c>Dim</c>s of one name) keeps every declaration:
     /// reporting the <em>ambiguous name</em> is the caller's concern.
     /// </param>
     /// <param name="directives">
-    /// The declaring module's <see cref="ModuleDirectives"/> — <c>null</c> for every tier except the
+    /// The declaring module's <see cref="ModuleDirectives"/>: <c>null</c> for every tier except the
     /// module scope itself, which carries its <see cref="VBModuleSymbol.Directives"/>.
     /// </param>
     public LexicalScope(Uri uri, LexicalScopeKind kind, LexicalScope? parent, IEnumerable<Symbol> declarations, ModuleDirectives? directives = null)
@@ -69,7 +69,7 @@ public sealed class LexicalScope
     public ModuleDirectives? Directives { get; }
 
     /// <summary>
-    /// The <see cref="ModuleDirectives"/> of the module enclosing this scope — itself, if this
+    /// The <see cref="ModuleDirectives"/> of the module enclosing this scope: itself, if this
     /// <em>is</em> the module scope, otherwise the nearest ancestor that carries them. <c>null</c>
     /// when no enclosing module scope exists (the global or project scope, reached directly).
     /// </summary>
@@ -90,7 +90,7 @@ public sealed class LexicalScope
     public IEnumerable<Symbol> Declarations => _declarations.SelectMany(group => group);
 
     /// <summary>
-    /// This scope, then each enclosing scope out to the global scope — the order a name lookup
+    /// This scope, then each enclosing scope out to the global scope: the order a name lookup
     /// visits them (<strong>RD-VBAL §2.3.1.2</strong>).
     /// </summary>
     public IEnumerable<LexicalScope> SelfAndAncestors()

@@ -11,7 +11,7 @@ namespace RDCore.SDK.Model.Values;
 /// <strong>MS-VBAL §3.3.2</strong>.
 /// </summary>
 /// <remarks>
-/// 👉 Only bare literals (optionally with a leading <c>-</c>) are recognised — the full
+/// 👉 Only bare literals (optionally with a leading <c>-</c>) are recognised: the full
 /// <c>&lt;cc-expression&gt;</c> operator grammar is a semantic-layer concern. An unrecognised value is
 /// rejected rather than guessed.
 /// </remarks>

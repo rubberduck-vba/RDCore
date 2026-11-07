@@ -45,7 +45,7 @@ internal static class LabelOperands
 
     /// <summary>
     /// Whether <paramref name="operand"/> is the integer constant <paramref name="value"/>: a literal, or
-    /// the negation of one — <c>-1</c> is a unary minus over the literal <c>1</c>, not a literal itself.
+    /// the negation of one (<c>-1</c> is a unary minus over the literal <c>1</c>, not a literal itself).
     /// </summary>
     /// <param name="operand">The operand of a jump statement.</param>
     /// <param name="value">The constant to test for.</param>

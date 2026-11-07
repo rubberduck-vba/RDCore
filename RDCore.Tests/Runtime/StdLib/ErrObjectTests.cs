@@ -37,14 +37,19 @@ public sealed class ErrObjectTests
         public IEnumerable<Symbol> ProvideSymbols() => symbols;
     }
 
-    private static IRuntimeSession Session()
+    private static IRuntimeSession Session(IRuntimeEnvironmentProfile? environment = null)
         => RuntimeSessionComposer.Compose(
-            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new Provider([]));
+            environment ?? new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new Provider([]));
 
     /// <summary>Runs a procedure body in a frame named <paramref name="frameNames"/>' last entry.</summary>
-    private static IRuntimeSession Run(string[] frameNames, params string[] body)
+    private static IRuntimeSession Run(string[] frameNames, params string[] body) => Run(null, frameNames, body);
+
+    /// <summary>
+    /// Runs a procedure body in a frame named <paramref name="frameNames"/>' last entry, in <paramref name="environment"/>.
+    /// </summary>
+    private static IRuntimeSession Run(IRuntimeEnvironmentProfile? environment, string[] frameNames, params string[] body)
     {
-        var session = Session();
+        var session = Session(environment);
         var pipeline = RuntimeExecutionPipeline.Create(
             session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());
 
@@ -94,6 +99,39 @@ public sealed class ErrObjectTests
         Assert.AreEqual((int)VBRuntimeErrorId.DivisionByZero, IntOf(err.Number()));
         Assert.AreEqual("Division by zero", StringOf(err.Description()));
     }
+
+    // Erl is the error state's line number: Err.Clear resets it unless the environment keeps it, as MS-VBA does. The error is on the procedure's third line.
+    [TestMethod]
+    [DataRow(null, 0L, DisplayName = "the default resets it")]
+    [DataRow(VBErlAfterErrClear.Reset, 0L, DisplayName = "Reset")]
+    [DataRow(VBErlAfterErrClear.Kept, 3L, DisplayName = "Kept, as MS-VBA does")]
+    public void Clear_ResetsTheLineNumber_UnlessTheEnvironmentKeepsIt(VBErlAfterErrClear? setting, long expected)
+    {
+        var environment = setting is { } value
+            ? new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, ErlAfterErrClear: value)
+            : new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false);
+        var session = Run(environment, ["Foo"], "10 On Error Resume Next", "20 Error 11");
+        var err = new ErrObject(session);
+        Assert.AreEqual(3L, session.Errors.LineNumber, "the line of the error, before it is cleared");
+
+        err.Clear();
+
+        Assert.AreEqual(0, IntOf(err.Number()));
+        Assert.AreEqual(expected, session.Errors.LineNumber);
+    }
+
+    // only Err.Clear keeps it: a Resume, an On Error statement and leaving the procedure from an error handler reset it in MS-VBA too.
+    [TestMethod]
+    public void WhenTheEnvironmentKeepsTheLineNumber_AnOnErrorStatement_StillResetsIt()
+    {
+        var environment = new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, ErlAfterErrClear: VBErlAfterErrClear.Kept);
+        Assert.AreEqual(3L, Run(environment, ["Foo"], "10 On Error Resume Next", "20 Error 11").Errors.LineNumber, "the line of the error, before On Error");
+
+        var session = Run(environment, ["Foo"], "10 On Error Resume Next", "20 Error 11", "30 On Error GoTo 0");
+
+        Assert.AreEqual(0L, session.Errors.LineNumber);
+    }
+
     [TestMethod]
     public void AMemberThatYieldsNoValue_YieldsVoid_NotEmpty()
     {
