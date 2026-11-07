@@ -97,16 +97,15 @@ public sealed class SyntaxErrorRunRefusalTests
     private static string Module(string name, params string[] lines) => string.Join("\r\n", [$"Attribute VB_Name = \"{name}\"", .. lines, ""]);
 
     // a syntax error anywhere in the project refuses every run, with the module it is in named before it: nothing of the project runs while a module of it
-    // does not load. The rows are the ones MS-VBA was measured with (Excel, 2026-11-07), and say what it does with Compile On Demand on, then off. MS-VBA
-    // compiles what a run needs - with Compile On Demand on, the procedures the run reaches and every module's declarations section; off, every module the
-    // run uses - so it runs some of what is refused here: O1 in both modes.
+    // does not load. MS-VBA compiles what a run needs (with Compile On Demand on, the procedures the run reaches and every module's declarations section;
+    // off, every module the run uses), so it runs some of what is refused here (RD-VBAL 2.6.1).
     [TestMethod]
-    [DataRow("P", "", DisplayName = "P1: another procedure of the module run (MS-VBA: runs; refused)")]
-    [DataRow("B", "", DisplayName = "O1: a procedure of another module, not called (MS-VBA: runs; runs)")]
-    [DataRow("B", "Good", DisplayName = "O2: a procedure of another module, another procedure of it called (MS-VBA: runs; refused)")]
-    [DataRow("B", "Bad", DisplayName = "O3: a procedure of another module, called (MS-VBA: the syntax error at the call; refused)")]
-    [DataRow("D", "", DisplayName = "O4: the declarations section of another module (MS-VBA: refused; refused)")]
-    [DataRow("D", "Good", DisplayName = "O5: the declarations section of another module, a procedure of it called (MS-VBA: refused; refused)")]
+    [DataRow("P", "", DisplayName = "in another procedure of the module run")]
+    [DataRow("B", "", DisplayName = "in a procedure of another module, none of it called")]
+    [DataRow("B", "Good", DisplayName = "in a procedure of another module, another procedure of it called")]
+    [DataRow("B", "Bad", DisplayName = "in a procedure of another module, that procedure called")]
+    [DataRow("D", "", DisplayName = "in the declarations section of another module, none of it called")]
+    [DataRow("D", "Good", DisplayName = "in the declarations section of another module, a procedure of it called")]
     public async Task ASyntaxErrorAnywhereInTheProject_RefusesTheRun_WithTheModuleItIsIn(string where, string call)
     {
         var (program, other) = ProgramAndOther(where, call);
@@ -133,10 +132,10 @@ public sealed class SyntaxErrorRunRefusalTests
             string.Join("; ", result.Diagnostics!));
     }
 
-    // the controls, C0 and C1: the same modules with no syntax error run (MS-VBA: runs; runs).
+    // the controls: the same modules with no syntax error run.
     [TestMethod]
-    [DataRow("", new[] { "before", "after" }, DisplayName = "C0: nothing called")]
-    [DataRow("Good", new[] { "before", "good", "after" }, DisplayName = "C1: a procedure of the other module called")]
+    [DataRow("", new[] { "before", "after" }, DisplayName = "nothing of the other module called")]
+    [DataRow("Good", new[] { "before", "good", "after" }, DisplayName = "a procedure of the other module called")]
     public async Task TheSameModulesWithNoSyntaxError_Run(string call, string[] printed)
     {
         var (program, other) = ProgramAndOther("", call);
