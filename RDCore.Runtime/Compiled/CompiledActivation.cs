@@ -375,8 +375,11 @@ public sealed class CompiledActivation : ILightActivation
     /// <returns><see langword="false"/> when the variable cannot be given an address: the interpreter then makes the call.</returns>
     public bool SetTextReference(int index, int slot)
     {
-        if (!Frame.TryGetAddress(_body.SlotSymbols[slot], out var address))
+        // a run that fails accesses at random fails this one too, so the recovery is taken. The interpreter makes the call: the arguments given for it
+        // so far are let go of, as a call made lets go of them (ForgetReferences).
+        if (FailsAccessAtRandom() || !Frame.TryGetAddress(_body.SlotSymbols[slot], out var address))
         {
+            Array.Clear(_references);
             return false;
         }
 
