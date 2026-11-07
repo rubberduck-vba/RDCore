@@ -73,6 +73,45 @@ public sealed class VisualBasicRuntimeLibraryTests
         CollectionAssert.AreEqual(new[] { "2 Integer" }, ran.Output.Select(line => line.Trim()).ToArray());
     }
 
+    // as vb6.exe builds and runs it: the unqualified name is the standard library's, and each library's own is its qualified name.
+    [TestMethod]
+    public async Task AVB6Project_ANameOfBothLibraries_IsEachLibrarysByItsQualifiedName()
+    {
+        var ran = await RunVB6Async("Debug.Print vbCancel & \",\" & TypeName(vbCancel) & \",\" & VBA.vbCancel & \",\" & VBRUN.vbCancel");
+
+        CollectionAssert.AreEqual(new[] { "2,Long,2,0" }, ran.Output.ToArray());
+    }
+
+    // the enumerations are VBRUN's: VB6's VBA declares its key codes and colors as constants of a module, which is no type.
+    [TestMethod]
+    public async Task AVB6Project_AVariableOfAnEnumerationOfTheRuntime_ByItsQualifiedName_IsALong()
+    {
+        var ran = await RunVB6Async("Dim v As VBRUN.KeyCodeConstants", "v = 27", "Debug.Print TypeName(v)");
+
+        CollectionAssert.AreEqual(new[] { "Long" }, ran.Output.ToArray());
+    }
+
+    // in the type binding context a procedural module of a referenced library ranks before a type of one (MS-VBAL §5.6.10), so the unqualified name is VBA's
+    // module, and no type. vb6.exe builds each of these, the name being VBRUN's enumeration, a Long.
+    [TestMethod]
+    [DataRow("KeyCodeConstants")]
+    [DataRow("ColorConstants")]
+    [DataRow("SystemColorConstants")]
+    public async Task AVB6Project_AVariableOfTheUnqualifiedNameOfAModuleOfTheStandardLibrary_IsRefused(string type)
+    {
+        var errors = await LoadErrorsAsync([], Program($"Dim v As {type}", "v = 5"), NoneListed, SupportedLanguages.VB6);
+
+        Assert.IsTrue(errors.Any(error => error.Contains($"'{type}' is a procedural module of a library, not a type")), string.Join("; ", errors));
+    }
+
+    [TestMethod]
+    public async Task TheKeyCodesOfTheStandardLibrary_AreConstantsOfAModule_AndNoType()
+    {
+        var errors = await LoadErrorsAsync([], Program("Dim k As VBA.KeyCodeConstants", "k = 27"), NoneListed);
+
+        Assert.IsTrue(errors.Any(error => error.Contains("KeyCodeConstants")), string.Join("; ", errors));
+    }
+
     [TestMethod]
     public async Task AVBAProject_ThatListsNoReference_DoesNotHaveTheVisualBasicRuntime()
     {
