@@ -36,10 +36,14 @@ public class AppOptions
     [Setting(SettingReach.NextStart)]
     public bool Unattended { get; init; }
 
-    /// <summary>The number of lines a break lists by default (<see cref="BreakListingLines"/>).</summary>
+    /// <summary>
+    /// The number of lines a break lists by default (<see cref="BreakListingLines"/>).
+    /// </summary>
     public const int DefaultBreakListingLines = 2;
 
-    /// <summary>The greatest number of lines a break lists on either side of the line it stopped at (<see cref="BreakListingLines"/>).</summary>
+    /// <summary>
+    /// The greatest number of lines a break lists on either side of the line it stopped at (<see cref="BreakListingLines"/>).
+    /// </summary>
     public const int MaximumBreakListingLines = 100;
 
     /// <summary>
