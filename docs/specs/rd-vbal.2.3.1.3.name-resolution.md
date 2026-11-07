@@ -134,7 +134,7 @@ variable or field that is itself named `Widget` hides the default instance of cl
 |The bound `Symbol`|The name binds to that symbol.|
 |Unbound|The name is declared nowhere visible.|
 |**VBC09303** _Duplicate declaration_|A compile-time error: the name is declared more than once within one module or procedure. The colliding declarations are attached.|
-|**VBC09301** _Ambiguous name_|A compile-time error: within one tier of the project or global scope, the name resolves to more than one symbol of the highest reference precedence, which is the earliest reference (members of two modules of the workspace - of a class module, only a public Enum or user-defined type and that Enum's members - or of two modules of one library; see [Reference priority](#reference-priority)), and the reference must qualify the name. The colliding declarations are attached.|
+|**VBC09301** _Ambiguous name_|A compile-time error: within one tier of the project or global scope, the name resolves to more than one symbol of the project with the highest reference precedence (members of two modules of the workspace - of a class module, only a public Enum or user-defined type and that Enum's members - or of two modules of one library; see [Reference precedence](#reference-precedence)), and the reference must qualify the name. The colliding declarations are attached.|
 
 The symbol resolver reports the error _kind_. The caller, which knows where the reference is, builds the located
 diagnostic ([**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)).
@@ -278,7 +278,7 @@ How a `SimpleNameExpression`'s declared type is determined from a `ResolveValue`
 |Condition|Compile-time error|
 |---|---|
 |Multiple symbols match a specified name within one _module_ or _procedure_ scope.|**VBC09303** _Duplicate declaration_|
-|Multiple symbols of one tier of the _project_ or _global_ scope match a specified name and share the highest reference precedence, which is the earliest reference ([Reference priority](#reference-priority)): members of two modules of the workspace (of a class module, only a public Enum or user-defined type and that Enum's members), or of two modules of one library, the `VBA` library included. Every loaded library has a reference precedence of its own, so the symbols of two libraries never share it.|**VBC09301** _Ambiguous name_: the reference must qualify the name.|
+|Multiple symbols of one tier of the _project_ or _global_ scope match a specified name and are of the project with the highest reference precedence ([Reference precedence](#reference-precedence)): members of two modules of the workspace (of a class module, only a public Enum or user-defined type and that Enum's members), or of two modules of one library, the `VBA` library included. Every loaded library has a reference precedence of its own, so the symbols of two libraries never share it.|**VBC09301** _Ambiguous name_: the reference must qualify the name.|
 
 > [!NOTE]
 > **Not implemented.** A declared type whose name ties this way is not reported as **VBC09301**: the declaration is
@@ -297,33 +297,35 @@ be issued for a duplicate declaration and for an ambiguous name
 error outcomes, and reports an ambiguous or duplicate name as a coded compile-time error: the simple name expression
 yields an `Error` carrying `AmbiguousName` or `DuplicateDeclaration`.
 
-## Reference priority
+## Reference precedence
 
 When multiple symbols of one tier of the _project_ or _global_ scope match a specified name, and they are of different
 projects, the name is disambiguated by the _reference precedence_ of the project each matching symbol is defined in.
 A project reference that occurs earlier in a project's list of references has the higher reference precedence
 (**MS-VBAL §4.1**), and of the matches of the selected tier, those of the project that has the highest reference
-precedence are kept (**MS-VBAL §5.6.10**). Name resolution across referenced projects and libraries shall consult the
-`IRuntimeSession.References` ordering to disambiguate a global-scope name
-([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)). A referenced library's own members are
-contributed by an `ISymbolProvider` and resolved through `ISymbolResolver`, not from that list.
+precedence are kept (**MS-VBAL §5.6.10**). Name resolution takes the reference precedence of a library from the
+libraries the project loads, and not from `IRuntimeSession.References`: a referenced library's own members are
+contributed by an `ISymbolProvider` and resolved through `ISymbolResolver`, each carrying the precedence of its library
+([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 From the highest reference precedence to the lowest, the projects a name can be of are:
 
 1. The enclosing project: a declaration of the workspace comes before every library's.
-2. The `VBA` standard library, which every project references, whether or not its `.rdproj` lists it.
-3. The libraries that every project of its language references without its `.rdproj` listing them
+2. The `VBA` standard library, which every project has, though its `.rdproj` lists no reference to it
+   ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)).
+3. The libraries that every project of its language has, though its `.rdproj` lists no reference to them
    (`SupportedLanguage.ImplicitReferences`), in the order the language gives them.
 4. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
-   ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)).
+   ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA` is left out, and so is a second reference to a library listed earlier.
 5. The libraries that are loaded only because another library depends on them, in the order they are loaded.
 
 A VB6 project has one implicit reference: `VBRUN`, the Visual Basic runtime objects and procedures (the third type
-library of `MSVBVM60.DLL`), whose constants (`vbModal`, `vbKeyEscape`, `vbFormControlMenu`) and `PropertyBag` class are
-names of every VB6 project. It comes right after the `VBA` library, as the References dialog of the VB6 IDE orders them,
-so a name both libraries declare is the `VBA` library's. RD-VBA and the BASIC have none. The `VB` library of VB6
-(`VB6.OLB`: `Form`, its controls, and the `App`, `Screen`, `Printer`, `Clipboard` and `Forms` objects) is not described
-yet, and a VB6 project does not have it.
+library of `MSVBVM60.DLL`), whose constants (`vbFixedSingle`, `vbTwips`, `vbHourglass`, `vbChecked`, `vbShiftMask`,
+`vbLeftButton`) and `PropertyBag` class are names of every VB6 project. It comes right after the `VBA` library, as the
+References dialog of the VB6 IDE orders them, so a name both libraries declare is the `VBA` library's: `vbCancel` is
+`2`, the `VbMsgBoxResult` member, not the `DragConstants` member `0`. RD-VBA and the BASIC have none. The `VB` library
+of VB6 (`VB6.OLB`: `Form`, its controls, and the `App`, `Screen`, `Printer`, `Clipboard` and `Forms` objects) is not
+described yet, and a VB6 project does not have it.
 
 The `VBA` library therefore comes before every library a project lists. A library that declares a name the `VBA`
 library also declares, such as a class `Collection`, a function `Left` or a constant `vbCancel`, does not shadow it:
@@ -337,15 +339,16 @@ so that **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics
 
 `ScopeTreeSymbolResolver` consults the reference precedence within one tier of the lookup order above: the tier comes
 first, and the reference precedence decides only among the candidates of one tier. The symbols of a referenced library
-carry its reference precedence (`SymbolProperties.LibraryPriority`, from `ReferencedLibraries.Priorities`): `1` for
-the first library after the `VBA` library, `2` for the next, and so on: the language's implicit references, then the
-libraries the `.rdproj` lists, then the libraries loaded only for another.
+carry its reference precedence (`SymbolProperties.LibraryPriority`, from `ReferencedLibraries.Priorities`): the position
+of its reference among the language's implicit references followed by the references of the `.rdproj`, from `1`, with
+the references left out above not counted. A reference whose library fails to load keeps its number, so the libraries
+after it keep theirs. The libraries loaded only for another come after every listed one, in the order they are loaded.
 The lower number is the higher reference precedence. The symbols of the `VBA` library carry none, and come before
 every library that does; the symbol of any other library that carries none comes after every library that does, so
 that it never ties with the `VBA` library. Within a tier, a symbol of the workspace comes before every library's;
 across tiers it need not, since a class module of a referenced library ranks ahead of a type of another module of the
 project (orders 2 and 3 of the type binding context). Only symbols of one tier that share the highest reference
-precedence, which is the earliest reference, such as the members of two procedural modules of the workspace that both
+precedence, such as the members of two procedural modules of the workspace that both
 declare the name, are reported as **VBC09301** _Ambiguous name_ (see
 [Duplicate and ambiguous names](#duplicate-and-ambiguous-names)).
 

@@ -93,8 +93,9 @@ public static class SymbolProperties
     /// <summary>
     /// The reference precedence of the library a symbol is of among the libraries of a project: of two libraries that declare a name, the one with the lower number
     /// is the one the name means, as the earlier reference has the higher precedence (<strong>MS-VBAL §4.1</strong>). The standard library, which has none, comes
-    /// before every reference; a library a project references is its position in the project's references, from <c>1</c>; one that is only loaded because another
-    /// depends on it comes after every one the project references; and a symbol of a library that carries none comes after all of them.
+    /// before every reference; a library a project references is its position in the project's references, from <c>1</c>, a reference to the standard library, or a second
+    /// one to the same library, not counted; one that is only loaded because another depends on it comes after every one the project references; and a symbol
+    /// of any other library that carries none comes after all of them.
     /// </summary>
     public static readonly SymbolProperty<int> LibraryPriority = new(nameof(LibraryPriority));
     /// <summary>
