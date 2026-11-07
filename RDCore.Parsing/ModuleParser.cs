@@ -1143,9 +1143,9 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         Report(new SourceLocation(_uri, new(start, end)), id, verbose);
     }
 
-    // whether the grammar refused something of the module. VBC00061 (OutputItemsNotSeparated) is not one: the grammar read the statement, and a segment
-    // that has it is stitched as a segment that read well is.
-    public bool HasGrammarErrors => _errors.Any(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError);
+    // whether the grammar refused something of the module. VBC00061 (OutputItemsNotSeparated) is one too: the RD-VBA grammar reads no item written right after
+    // another, and a module that has one does not run (RD-VBAL 2.6.1).
+    public bool HasGrammarErrors => _errors.Any(error => error.ErrorId is (int)VBCompileErrorId.SyntaxError or (int)VBCompileErrorId.OutputItemsNotSeparated);
 
     // the errors of a part of the module parsed on its own, already located in the module (a header alternative).
     public void AddRange(IEnumerable<VBSyntaxErrorInfo> errors) => _errors.AddRange(errors);
