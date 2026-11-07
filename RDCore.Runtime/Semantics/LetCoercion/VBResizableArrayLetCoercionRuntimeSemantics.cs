@@ -20,13 +20,16 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// MS-VBAL 5.5.1.2.7 Let-coercion to and from <c>VBResizableArray</c>
 /// </summary>
 /// <remarks>
-/// The coercion provider dispatches by <em>destination</em> type only, so this class only ever runs when the
-/// destination is a resizable array. Any array source whose element type is the destination's is copied — a shallow
-/// copy, bounds and rank preserved exactly, so a whole-array Let-assignment implicitly ReDims the destination to the
-/// source's own bounds; an array of any other element type, and a numeric, Boolean, Date or String source, is a Type
-/// mismatch (runtime error 13), except that an array of objects is copied into one of objects of another class, or of
-/// <c>Object</c>, as MS-VBA copies it (RD-VBAL §5.5.1.2.7). The Byte() rows are
-/// <see cref="VBResizableByteArrayLetCoercionRuntimeSemantics"/>'s.
+/// The coercion provider dispatches by <em>destination</em> type only, so this class runs when the destination is a
+/// resizable array. An array source whose element type is the destination's is copied with its bounds and rank, so a
+/// whole-array Let-assignment resizes the destination to the source's bounds. Each element is Let-assigned (MS-VBAL
+/// §5.5.1.2.7): a record is copied with its fields, and an array a <c>Variant</c> element holds is copied too. An element
+/// that holds an object is Set-assigned, and refers to the same object as the source's element.
+/// <para>
+/// An array of any other element type, and a numeric, Boolean, Date or String source, is a Type mismatch (runtime error
+/// 13), except that an array of objects is copied into one of objects of another class, or of <c>Object</c>, as MS-VBA
+/// copies it (RD-VBAL §5.5.1.2.7). The Byte() rows are <see cref="VBResizableByteArrayLetCoercionRuntimeSemantics"/>'s.
+/// </para>
 /// </remarks>
 public record class VBResizableArrayLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
