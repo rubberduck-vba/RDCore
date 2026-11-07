@@ -46,7 +46,7 @@ public interface IRDCoreClientApp : IRDCoreApp
     /// </summary>
     Task WaitForReadyAsync(CancellationToken token);
     /// <summary>
-    /// Completes once the connection is terminally lost — the child exited and restart-with-backoff was exhausted.
+    /// Completes once the connection is terminally lost: the child exited and restart-with-backoff was exhausted.
     /// </summary>
     Task WaitForTerminalAsync();
     /// <summary>
@@ -333,10 +333,38 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
 
     /// <summary>
     /// What this client says of itself in the <c>initializationOptions</c> of the <c>initialize</c> request: the language the workspace is
-    /// written in, which only the client knows, and which the server needs to know before it builds anything.
+    /// written in, which only the client knows, and which the server needs to know before it builds anything; whether it runs unattended, as it says in
+    /// the platform handshake that follows (<see cref="RDCoreInitializationOptions.Unattended"/>); and whether it answers what the server asks before
+    /// that (<see cref="AnswersDuringInitialize"/>).
     /// </summary>
     protected virtual RDCoreInitializationOptions CreateInitializationOptions()
-        => new() { Language = _options.Value.Workspace.Language, Locale = Server.ClientLocale.TagOf(Thread.CurrentThread.CurrentUICulture) };
+        => InitializationOptionsOf(_options.Value.Workspace.Language, Thread.CurrentThread.CurrentUICulture, GetExpectedCapabilities(), AnswersDuringInitialize);
+
+    /// <summary>
+    /// Whether this client answers what the language server asks its user before <c>initialize</c> is answered (<c>window/showMessageRequest</c>), with a
+    /// choice or with none, and never with an error (<see cref="RDCoreInitializationOptions.AnswersDuringInitialize"/>).
+    /// </summary>
+    /// <remarks>
+    /// 🧩 The base implementation says it does not: a client that has no handler for the request answers it with an error, which the language client this
+    /// one is built on holds until it is initialized, and the server is not asked to wait for it. A client that answers, and is there to, overrides this; one
+    /// that runs unattended says it does not, whatever this says.
+    /// </remarks>
+    protected virtual bool AnswersDuringInitialize => false;
+
+    // what a client says in its initializationOptions, from what it is: whether it runs unattended is what it expects of the language server in the handshake,
+    // and a client that runs unattended answers nothing.
+    internal static RDCoreInitializationOptions InitializationOptionsOf(
+        string? language, System.Globalization.CultureInfo culture, CorePlatformClientCapabilities expected, bool answersDuringInitialize = false)
+    {
+        var unattended = expected.LanguageServer?.Unattended?.IsSupported == true;
+        return new()
+        {
+            Language = language,
+            Locale = Server.ClientLocale.TagOf(culture),
+            Unattended = unattended,
+            AnswersDuringInitialize = answersDuringInitialize && !unattended,
+        };
+    }
 
     /// <summary>
     /// Applies the app-specific parts of the language client configuration. The transport (input/output)

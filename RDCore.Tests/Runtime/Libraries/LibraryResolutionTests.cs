@@ -80,7 +80,7 @@ public sealed class LibraryResolutionTests
 
     private static ScopeTreeSymbolResolver ResolverOfReferences(string[] references, params LibraryDescription[] available)
     {
-        var libraries = ReferencedLibraries.Load(new Runtime.Libraries.InMemoryLibrarySource(available), references, ["VBA"]);
+        var libraries = ReferencedLibraries.Load(new Runtime.Libraries.InMemoryLibrarySource(available), references.Select(name => new LibraryIdentity(name)), ["VBA"]);
         Assert.IsEmpty(libraries.Problems);
 
         List<Symbol> symbols =
@@ -108,13 +108,32 @@ public sealed class LibraryResolutionTests
     }
 
     [TestMethod]
-    public void OfTwoLibrariesThatDeclareAName_TheOneReferencedLaterIsWhatTheNameMeans()
+    public void OfTwoLibrariesThatDeclareAName_TheOneReferencedFirstIsWhatTheNameMeans()
     {
+        // the earlier reference has the higher reference precedence (MS-VBAL §4.1), and of the matches of one tier, those of the project of the highest
+        // reference precedence are kept (MS-VBAL §5.6.10).
         var excelFirst = ResolverOfReferences(["Excel", "Word"], Hosting("Excel"), Hosting("Word"));
         var wordFirst = ResolverOfReferences(["Word", "Excel"], Hosting("Excel"), Hosting("Word"));
 
-        Assert.AreEqual("Word", LibraryOf(VBProjectSymbol.ResolveQualifiedType(excelFirst, null, "Application", Program.Uri)));
-        Assert.AreEqual("Excel", LibraryOf(VBProjectSymbol.ResolveQualifiedType(wordFirst, null, "Application", Program.Uri)));
+        Assert.AreEqual("Excel", LibraryOf(VBProjectSymbol.ResolveQualifiedType(excelFirst, null, "Application", Program.Uri)));
+        Assert.AreEqual("Word", LibraryOf(VBProjectSymbol.ResolveQualifiedType(wordFirst, null, "Application", Program.Uri)));
+    }
+
+    [TestMethod]
+    public void ALibraryThatDeclaresANameOfTheStandardLibrary_IsShadowedByIt()
+    {
+        // the standard library comes before every reference a project lists, so its names are what the names mean, and the library's own are qualified.
+        var shadowing = new LibraryDescription
+        {
+            Name = "Shadows",
+            Enums = [new EnumDescription { Name = "Choices", Members = [new EnumMemberDescription { Name = "vbCancel", Value = 99 }] }],
+            Classes = [new ClassDescription { Name = "Collection" }],
+        };
+        var resolver = ResolverOfReferences(["Shadows"], shadowing);
+
+        Assert.AreEqual("VBA", LibraryOf(VBProjectSymbol.ResolveQualifiedType(resolver, null, "Collection", Program.Uri)));
+        Assert.AreEqual("VBA", LibraryOf(resolver.ResolveValue("vbCancel", ScopeKind.Local, Program.Uri)));
+        Assert.AreEqual("Shadows", LibraryOf(VBProjectSymbol.ResolveQualifiedType(resolver, "Shadows", "Collection", Program.Uri)));
     }
 
     [TestMethod]

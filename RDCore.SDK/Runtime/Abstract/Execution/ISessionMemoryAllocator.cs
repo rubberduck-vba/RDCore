@@ -25,7 +25,7 @@ public interface ISessionMemoryAllocator
     bool TryDeallocate(MemoryAddress address, out SessionMemoryBlock block);
 
     /// <summary>
-    /// Finds the allocated block that <paramref name="address"/> falls inside — the first byte of one,
+    /// Finds the allocated block that <paramref name="address"/> falls inside: the first byte of one,
     /// or any byte within it.
     /// </summary>
     /// <remarks>

@@ -38,7 +38,7 @@ public static class SdkCommandLine
     /// <remarks>
     /// Writing the text, or the list of what it did not understand, is the parser's own side effect of
     /// being asked. It reports a help or version request as a parse <em>error</em> because there is
-    /// nothing left for it to parse, not because anything is wrong with what it was given — so an
+    /// nothing left for it to parse, not because anything is wrong with what it was given, so an
     /// application has to ask this before it decides it has failed. Either way what the parser hands back
     /// is a default instance, and reading that as configuration is what turned both cases into a
     /// <c>NullReferenceException</c> printed under the parser's own output.

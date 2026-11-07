@@ -1,0 +1,395 @@
+{
+  "formatVersion": 1,
+  "name": "StdFormat",
+  "description": "Microsoft Data Formatting Object Library",
+  "origin": {
+    "guid": "{6B263850-900B-11D0-9484-00A0C91110ED}",
+    "version": "1.0",
+    "file": "MSSTDFMT.DLL",
+    "exportedBy": "rdc export-library 0.1"
+  },
+  "enums": [
+    {
+      "name": "FormatType",
+      "description": "Format type enumeration",
+      "members": [
+        {
+          "name": "fmtGeneral"
+        },
+        {
+          "name": "fmtCustom",
+          "value": 1
+        },
+        {
+          "name": "fmtPicture",
+          "value": 2
+        },
+        {
+          "name": "fmtObject",
+          "value": 3
+        },
+        {
+          "name": "fmtCheckbox",
+          "value": 4
+        },
+        {
+          "name": "fmtBoolean",
+          "value": 5
+        },
+        {
+          "name": "fmtBytes",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "name": "FirstDayOfWeek",
+      "description": "First day of week enumeration",
+      "members": [
+        {
+          "name": "fmtDayUseSystem"
+        },
+        {
+          "name": "fmtSunday",
+          "value": 1
+        },
+        {
+          "name": "fmtMonday",
+          "value": 2
+        },
+        {
+          "name": "fmtTuesday",
+          "value": 3
+        },
+        {
+          "name": "fmtWednesday",
+          "value": 4
+        },
+        {
+          "name": "fmtThursday",
+          "value": 5
+        },
+        {
+          "name": "fmtFriday",
+          "value": 6
+        },
+        {
+          "name": "fmtSaturday",
+          "value": 7
+        }
+      ]
+    },
+    {
+      "name": "FirstWeekOfYear",
+      "description": "First week of year enumeration",
+      "members": [
+        {
+          "name": "fmtWeekUseSystem"
+        },
+        {
+          "name": "fmtFirstJan1",
+          "value": 1
+        },
+        {
+          "name": "fmtFirstFourDays",
+          "value": 2
+        },
+        {
+          "name": "fmtFirstFullWeek",
+          "value": 3
+        }
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "IDataFormatDisp",
+      "description": "DataFormat Object",
+      "isHidden": true
+    },
+    {
+      "name": "StdDataValue",
+      "description": "StdDataValue Object",
+      "defaultInterface": "IStdDataValueDisp",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Value",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "dispId": 0,
+          "description": "DataValue object passed to Format/Unformat events"
+        },
+        {
+          "name": "Value",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "description": "DataValue object passed to Format/Unformat events",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant"
+            }
+          ]
+        },
+        {
+          "name": "TargetObject",
+          "kind": "propertyGet",
+          "type": "Object",
+          "description": "TargetObject object passed to Format/Unformat events"
+        },
+        {
+          "name": "TargetObject",
+          "kind": "propertySet",
+          "description": "TargetObject object passed to Format/Unformat events",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Object",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "StdDataFormat",
+      "description": "StdDataFormat Object",
+      "isCreatable": true,
+      "defaultInterface": "IStdDataFormatDisp",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Type",
+          "kind": "propertyGet",
+          "type": "FormatType",
+          "description": "Format type enumeration"
+        },
+        {
+          "name": "Type",
+          "kind": "propertyLet",
+          "description": "Format type enumeration",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "FormatType",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Format",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "Format string used for formatting data"
+        },
+        {
+          "name": "Format",
+          "kind": "propertyLet",
+          "description": "Format string used for formatting data",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "TrueValue",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "description": "Value to use if data to be formatted is true"
+        },
+        {
+          "name": "TrueValue",
+          "kind": "propertyLet",
+          "description": "Value to use if data to be formatted is true",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant"
+            }
+          ]
+        },
+        {
+          "name": "FalseValue",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "description": "Value to use if data to be formatted is false"
+        },
+        {
+          "name": "FalseValue",
+          "kind": "propertyLet",
+          "description": "Value to use if data to be formatted is false",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant"
+            }
+          ]
+        },
+        {
+          "name": "NullValue",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "description": "Value to use if data to be formatted is NULL variant"
+        },
+        {
+          "name": "NullValue",
+          "kind": "propertyLet",
+          "description": "Value to use if data to be formatted is NULL variant",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant"
+            }
+          ]
+        },
+        {
+          "name": "FirstDayOfWeek",
+          "kind": "propertyGet",
+          "type": "FirstDayOfWeek",
+          "description": "First day of week enumeration"
+        },
+        {
+          "name": "FirstDayOfWeek",
+          "kind": "propertyLet",
+          "description": "First day of week enumeration",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "FirstDayOfWeek",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "FirstWeekOfYear",
+          "kind": "propertyGet",
+          "type": "FirstWeekOfYear",
+          "description": "First week of year enumeration"
+        },
+        {
+          "name": "FirstWeekOfYear",
+          "kind": "propertyLet",
+          "description": "First week of year enumeration",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "FirstWeekOfYear",
+              "isByVal": true
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "name": "Format",
+          "description": "Format event fired after formatting is applied to data",
+          "parameters": [
+            {
+              "name": "DataValue",
+              "type": "StdDataValue",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "UnFormat",
+          "description": "Unformat event fired before unformatting is applied to data",
+          "parameters": [
+            {
+              "name": "DataValue",
+              "type": "StdDataValue",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Changed",
+          "description": "Changed event fired when format property changed"
+        }
+      ]
+    },
+    {
+      "name": "IDataFormatsDisp",
+      "description": "DataFormats Collection",
+      "isHidden": true
+    },
+    {
+      "name": "StdDataFormats",
+      "description": "StdDataFormats Object",
+      "isCreatable": true,
+      "defaultInterface": "IStdDataFormatsDisp",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "IDataFormatDisp",
+          "dispId": 0,
+          "parameters": [
+            {
+              "name": "Index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_ItemField",
+          "type": "String",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Field",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Add",
+          "parameters": [
+            {
+              "name": "pFormat",
+              "type": "IDataFormatDisp",
+              "isByVal": true
+            },
+            {
+              "name": "Index",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Remove",
+          "parameters": [
+            {
+              "name": "Index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Clear"
+        }
+      ]
+    }
+  ]
+}

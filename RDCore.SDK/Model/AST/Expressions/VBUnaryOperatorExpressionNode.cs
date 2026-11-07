@@ -27,7 +27,7 @@ public record class VBUnaryOperatorExpressionNode(string Token, SyntaxNodeId Ide
         : this(Token, Identity, Location, (ImmutableArray<SyntaxNode>)[Operand]) { }
 
     /// <summary>
-    /// The operand — <c>Children[0]</c>.
+    /// The operand: <c>Children[0]</c>.
     /// </summary>
     public ExpressionNode Operand => (ExpressionNode)Children[0];
 }

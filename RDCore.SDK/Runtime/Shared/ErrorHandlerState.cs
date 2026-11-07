@@ -9,7 +9,7 @@ namespace RDCore.SDK.Runtime.Shared;
 public enum ErrorHandlingMode
 {
     /// <summary>
-    /// No handler is active — an <see cref="RDCore.SDK.Semantics.Instructions.InstructionKind"/>'s
+    /// No handler is active: an <see cref="RDCore.SDK.Semantics.Instructions.InstructionKind"/>'s
     /// <c>Error</c> outcome propagates out of the activation unchanged. The policy every activation
     /// starts with, and the one an <c>On Error GoTo</c> handler's own catch resets to.
     /// </summary>
@@ -18,14 +18,14 @@ public enum ErrorHandlingMode
     /// <summary>
     /// <c>On Error Resume Next</c>: an error is caught silently and execution continues with the
     /// statement right after the one that raised it. Unlike <see cref="GoTo"/>, catching one does not
-    /// reset the policy — every later error in the same activation is caught the same way.
+    /// reset the policy: every later error in the same activation is caught the same way.
     /// </summary>
     ResumeNext,
 
     /// <summary>
     /// <c>On Error GoTo</c> &lt;label&gt;: an error branches to <see cref="ErrorHandlerState.HandlerTarget"/>.
-    /// Catching one resets the policy to <see cref="Disabled"/> while the handler runs — a second error inside the
-    /// handler body itself propagates rather than re-entering the same handler, whatever <c>On Error</c> the handler runs — and a <c>Resume</c>, or
+    /// Catching one resets the policy to <see cref="Disabled"/> while the handler runs (a second error inside the
+    /// handler body itself propagates rather than re-entering the same handler, whatever <c>On Error</c> the handler runs), and a <c>Resume</c>, or
     /// an <c>On Error GoTo -1</c>, that ends the handler sets the policy to what it is to be after it (<see cref="ErrorHandlerState.AfterHandling"/>):
     /// <see cref="GoTo"/> the same label, unless the handler said otherwise.
     /// </summary>
@@ -34,7 +34,7 @@ public enum ErrorHandlingMode
 
 /// <summary>
 /// The hidden per-activation state that gives <c>On Error</c>/<c>Resume</c> meaning
-/// (<strong>MS-VBAL §5.4.4</strong>) — every activation carries exactly one of these (not one per
+/// (<strong>MS-VBAL §5.4.4</strong>): every activation carries exactly one of these (not one per
 /// block-opening instruction, the way <c>With</c>/<c>Select</c>/<c>For</c> hidden state is), since an
 /// <c>On Error</c> statement changes the activation's policy going forward, not a lexically-scoped value.
 /// </summary>
@@ -44,7 +44,7 @@ public enum ErrorHandlingMode
 /// offset the policy after it branches to, when <paramref name="AfterHandling"/> is <see cref="ErrorHandlingMode.GoTo"/>. Unused otherwise.
 /// </param>
 /// <param name="ActiveError">
-/// The error a handler most recently caught, if any — cleared by a <c>Resume</c> statement, or an <c>On Error GoTo -1</c>. <c>Resume</c>
+/// The error a handler most recently caught, if any: cleared by a <c>Resume</c> statement, or an <c>On Error GoTo -1</c>. <c>Resume</c>
 /// with no active error is <strong>MS-VBAL §5.4.4.2</strong> error 20, "Resume without error".
 /// </param>
 /// <param name="HandlerEntry">
@@ -53,7 +53,7 @@ public enum ErrorHandlingMode
 /// which an <c>On Error</c> statement the handler runs changes. <see langword="null"/> when no handler is running.
 /// </param>
 /// <param name="FaultStatementOffset">
-/// The offset of the instruction whose execution raised <see cref="ActiveError"/> — what a bare
+/// The offset of the instruction whose execution raised <see cref="ActiveError"/>: what a bare
 /// <c>Resume</c> re-executes, and what <c>Resume Next</c> continues past.
 /// </param>
 /// <param name="AfterHandling">

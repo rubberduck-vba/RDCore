@@ -45,8 +45,8 @@ public enum BindingCapabilities
 /// A handle to a binding to a runtime entity.
 /// </summary>
 /// <remarks>
-/// The value operations take <see cref="ISymbolResolver"/> — the read face over the current
-/// execution context — so a handle that is not self-contained (a reference to another address, a
+/// The value operations take <see cref="ISymbolResolver"/> (the read face over the current
+/// execution context), so a handle that is not self-contained (a reference to another address, a
 /// property- or member-backed binding) can resolve its value through the same read protocol that
 /// produced it. The self-contained literal/value/reference cases ignore it today.
 /// </remarks>

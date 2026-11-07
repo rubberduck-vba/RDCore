@@ -75,7 +75,7 @@ It overflows (6) when it runs, and in a `Const` it is the compile error `Overflo
 Excel); so is the least `LongLong` (`-&H8000000000000000^`, `oracle\s58` N09, N11). `-&H8000&` is a `Long`, and `-32768`.
 
 > [!NOTE]
-> 👉 **MS-VBA** evaluates a constant expression (**MS-VBAL §5.6.16.1**) when it compiles the code, and negates the least
+> **MS-VBA** evaluates a constant expression (**MS-VBAL §5.6.16.1**) when it compiles the code, and negates the least
 > `Long` of one as the `Long` it is: `-&H80000000` is `-2147483648`, in a `Const` too, and so are `-(-2147483647 - 1)`,
 > `-M` of a `Const M = &H80000000`, and `-CLng(&H80000000)` (`oracle\s58` N07, N08, N12, `s60` N13, N16, N17). `Abs` of
 > one is that `Long` too (`s60` A01, A02). The negation, or `Abs`, of a `Long` variable that holds it overflows (6), and so
@@ -110,6 +110,3 @@ value can be written as a literal, for example as a `Select Case` selector
 ### 3.2.0.2.1 Instance Expressions
 
 See [**RD-VBAL §5.6.11** Instance Expressions](rd-vbal.5.6.11.instance-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) | ⏭️ [**RD-VBAL §3.3.0** Operator Expressions](rd-vbal.3.3.0.operators.md)

@@ -29,13 +29,10 @@ body" (the wording of **MS-VBAL §5.4.2.17**). This is the same outcome as an ex
 ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
 **MS-VBAL §6.1.3.2.1** has `Exit Sub`, `Exit Function` and `Exit Property` clear `Err`. **MS-VBA** clears it as an
-activation completes, by an `Exit` or by reaching the end of the body alike, and only from within an error handler — an
+activation completes, by an `Exit` or by reaching the end of the body alike, and only from within an error handler: an
 error `On Error GoTo` caught. An error `On Error Resume Next` went on past was handled by none, and is still `Err` when
 the procedure returns; so is an error source set with `Err.Number` (recorded in Excel).
 
 ## Implementation
 
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `ExitProcedure` instructions.
-
----
-> ⏮️ [**RD-VBAL §5.4.2.16** On...GoSub Statement](rd-vbal.5.4.2.16.on-gosub-statement.md) | ⏭️ [**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md)

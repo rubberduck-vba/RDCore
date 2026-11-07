@@ -1,502 +1,504 @@
 - name: Overview
   href: index.md
-- name: VBC00001 — Syntax error
+- name: "VBC00001: Syntax error"
   href: vbc00001.md
-- name: VBC00042 — Numeric literal overflow
+- name: "VBC00042: Numeric literal overflow"
   href: vbc00042.md
-- name: VBC00043 — Next without For
+- name: "VBC00043: Next without For"
   href: vbc00043.md
-- name: VBC00044 — For without Next
+- name: "VBC00044: For without Next"
   href: vbc00044.md
-- name: VBC00045 — Loop without Do
+- name: "VBC00045: Loop without Do"
   href: vbc00045.md
-- name: VBC00046 — Do without Loop
+- name: "VBC00046: Do without Loop"
   href: vbc00046.md
-- name: VBC00047 — End If without block If
+- name: "VBC00047: End If without block If"
   href: vbc00047.md
-- name: VBC00048 — Block If without End If
+- name: "VBC00048: Block If without End If"
   href: vbc00048.md
-- name: VBC00049 — Else without If
+- name: "VBC00049: Else without If"
   href: vbc00049.md
-- name: VBC00050 — Case without Select Case
+- name: "VBC00050: Case without Select Case"
   href: vbc00050.md
-- name: VBC00051 — Select Case without End Select
+- name: "VBC00051: Select Case without End Select"
   href: vbc00051.md
-- name: VBC00052 — End With without With
+- name: "VBC00052: End With without With"
   href: vbc00052.md
-- name: VBC00053 — Expected End With
+- name: "VBC00053: Expected End With"
   href: vbc00053.md
-- name: VBC00054 — Invalid outside procedure
+- name: "VBC00054: Invalid outside procedure"
   href: vbc00054.md
-- name: VBC00055 — Only comments may appear after End Sub, End Function, or End Property
+- name: "VBC00055: Only comments may appear after End Sub, End Function, or End Property"
   href: vbc00055.md
-- name: "VBC00056 — An #ElseIf, #Else, or #EndIf must be preceded by an #If clause"
+- name: "VBC00056: An #ElseIf, #Else, or #EndIf must be preceded by an #If clause"
   href: vbc00056.md
-- name: "VBC00057 — An #Else clause must be preceded by an #If"
+- name: "VBC00057: An #Else clause must be preceded by an #If"
   href: vbc00057.md
-- name: "VBC00058 — An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf"
+- name: "VBC00058: An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf"
   href: vbc00058.md
-- name: "VBC00059 — You must terminate the #If block with an #EndIf"
+- name: "VBC00059: You must terminate the #If block with an #EndIf"
   href: vbc00059.md
-- name: VBC00060 — Expression nested too deeply
+- name: "VBC00060: Expression nested too deeply"
   href: vbc00060.md
-- name: VBC09301 — Ambiguous name detected
+- name: "VBC00061: Output items not separated"
+  href: vbc00061.md
+- name: "VBC09301: Ambiguous name detected"
   href: vbc09301.md
-- name: VBC09302 — Variable not defined
+- name: "VBC09302: Variable not defined"
   href: vbc09302.md
-- name: VBC09303 — Duplicate declaration in current scope
+- name: "VBC09303: Duplicate declaration in current scope"
   href: vbc09303.md
-- name: VBC09304 — Invalid use of object
+- name: "VBC09304: Invalid use of object"
   href: vbc09304.md
-- name: VBC09305 — Invalid ParamArray use
+- name: "VBC09305: Invalid ParamArray use"
   href: vbc09305.md
-- name: VBC09306 — Invalid ReDim
+- name: "VBC09306: Invalid ReDim"
   href: vbc09306.md
-- name: VBC09307 — Expected array
+- name: "VBC09307: Expected array"
   href: vbc09307.md
-- name: VBC09309 — Label not defined
+- name: "VBC09309: Label not defined"
   href: vbc09309.md
-- name: VBC09310 — Type mismatch
+- name: "VBC09310: Type mismatch"
   href: vbc09310.md
-- name: VBC09311 — User-defined type not defined
+- name: "VBC09311: User-defined type not defined"
   href: vbc09311.md
-- name: VBC09312 — Exit Do not within Do...Loop
+- name: "VBC09312: Exit Do not within Do...Loop"
   href: vbc09312.md
-- name: VBC09313 — Exit For not within For...Next
+- name: "VBC09313: Exit For not within For...Next"
   href: vbc09313.md
-- name: VBC09314 — Exit Function not allowed in Sub or Property
+- name: "VBC09314: Exit Function not allowed in Sub or Property"
   href: vbc09314.md
-- name: VBC09315 — Exit Property not allowed in Sub or Function
+- name: "VBC09315: Exit Property not allowed in Sub or Function"
   href: vbc09315.md
-- name: VBC09316 — Method or data member not found
+- name: "VBC09316: Method or data member not found"
   href: vbc09316.md
-- name: VBC09317 — Invalid use of Me
+- name: "VBC09317: Invalid use of Me"
   href: vbc09317.md
-- name: VBC09318 — With expression outside With block
+- name: "VBC09318: With expression outside With block"
   href: vbc09318.md
-- name: VBC09319 — Duplicate label definition
+- name: "VBC09319: Duplicate label definition"
   href: vbc09319.md
-- name: VBC09320 — Inconsistent property accessors
+- name: "VBC09320: Inconsistent property accessors"
   href: vbc09320.md
-- name: VBC09321 — Argument required for Property Let or Property Set
+- name: "VBC09321: Argument required for Property Let or Property Set"
   href: vbc09321.md
-- name: VBC09322 — Event not defined
+- name: "VBC09322: Event not defined"
   href: vbc09322.md
-- name: VBC09323 — Wrong number of arguments or invalid argument for event
+- name: "VBC09323: Wrong number of arguments or invalid argument for event"
   href: vbc09323.md
-- name: VBC09324 — Invalid type for WithEvents variable
+- name: "VBC09324: Invalid type for WithEvents variable"
   href: vbc09324.md
-- name: VBC09325 — Invalid event name
+- name: "VBC09325: Invalid event name"
   href: vbc09325.md
-- name: VBC09326 — Invalid event handler
+- name: "VBC09326: Invalid event handler"
   href: vbc09326.md
-- name: VBC09327 — ByVal argument not allowed here (no longer raised)
+- name: "VBC09327: ByVal argument not allowed here (no longer raised)"
   href: vbc09327.md
-- name: VBC09328 — Invalid Implements directive
+- name: "VBC09328: Invalid Implements directive"
   href: vbc09328.md
-- name: VBC09329 — Object module needs to implement all members of its interface
+- name: "VBC09329: Object module needs to implement all members of its interface"
   href: vbc09329.md
-- name: VBC09330 — Invalid implemented member
+- name: "VBC09330: Invalid implemented member"
   href: vbc09330.md
-- name: VBC09331 — Sub or Function not defined
+- name: "VBC09331: Sub or Function not defined"
   href: vbc09331.md
-- name: VBC09332 — Exit Sub not allowed in Function or Property
+- name: "VBC09332: Exit Sub not allowed in Function or Property"
   href: vbc09332.md
-- name: VBC09333 — Variable required
+- name: "VBC09333: Variable required"
   href: vbc09333.md
-- name: VBC09334 — Access not valid for the file mode
+- name: "VBC09334: Access not valid for the file mode"
   href: vbc09334.md
-- name: VBC09335 — Type-declaration character does not match declared data type
+- name: "VBC09335: Type-declaration character does not match declared data type"
   href: vbc09335.md
-- name: VBC09336 — Private Enum and user defined types cannot be used in public members
+- name: "VBC09336: Private Enum and user defined types cannot be used in public members"
   href: vbc09336.md
-- name: VBC09337 — Not allowed as a Public member of an object module
+- name: "VBC09337: Not allowed as a Public member of an object module"
   href: vbc09337.md
-- name: VBC09338 — Cannot define a Public user-defined type within an object module
+- name: "VBC09338: Cannot define a Public user-defined type within an object module"
   href: vbc09338.md
-- name: VBC09339 — Argument not optional
+- name: "VBC09339: Argument not optional"
   href: vbc09339.md
-- name: VBC09340 — Expected Function or variable
+- name: "VBC09340: Expected Function or variable"
   href: vbc09340.md
-- name: VBC09341 — Can't assign to read-only property
+- name: "VBC09341: Can't assign to read-only property"
   href: vbc09341.md
-- name: VBC09342 — Wrong number of arguments or invalid property assignment
+- name: "VBC09342: Wrong number of arguments or invalid property assignment"
   href: vbc09342.md
-- name: VBC09343 — LSet allowed only on strings and user-defined types
+- name: "VBC09343: LSet allowed only on strings and user-defined types"
   href: vbc09343.md
-- name: VBC09344 — RSet allowed only on strings
+- name: "VBC09344: RSet allowed only on strings"
   href: vbc09344.md
-- name: VBC09345 — Invalid use of property
+- name: "VBC09345: Invalid use of property"
   href: vbc09345.md
-- name: VBC09346 — Assignment to constant not permitted
+- name: "VBC09346: Assignment to constant not permitted"
   href: vbc09346.md
-- name: VBC09347 — Object required
+- name: "VBC09347: Object required"
   href: vbc09347.md
-- name: VBC09348 — Named argument already specified
+- name: "VBC09348: Named argument already specified"
   href: vbc09348.md
-- name: VBC09349 — Named argument not found
+- name: "VBC09349: Named argument not found"
   href: vbc09349.md
-- name: VBC09350 — Constant expression required
+- name: "VBC09350: Constant expression required"
   href: vbc09350.md
-- name: VBC09351 — Invalid data type for constant
+- name: "VBC09351: Invalid data type for constant"
   href: vbc09351.md
-- name: VBC09352 — Overflow
+- name: "VBC09352: Overflow"
   href: vbc09352.md
-- name: VBC09353 — Division by zero
+- name: "VBC09353: Division by zero"
   href: vbc09353.md
-- name: VBC09354 — Invalid qualifier
+- name: "VBC09354: Invalid qualifier"
   href: vbc09354.md
-- name: VBC09355 — Function call on left-hand side of assignment must return Variant or Object
+- name: "VBC09355: Function call on left-hand side of assignment must return Variant or Object"
   href: vbc09355.md
-- name: VBC09356 — Wrong number of dimensions
+- name: "VBC09356: Wrong number of dimensions"
   href: vbc09356.md
-- name: VBC09357 — Array already dimensioned
+- name: "VBC09357: Array already dimensioned"
   href: vbc09357.md
-- name: VBC09358 — For control variable already in use
+- name: "VBC09358: For control variable already in use"
   href: vbc09358.md
-- name: VBC09359 — Invalid Next control variable reference
+- name: "VBC09359: Invalid Next control variable reference"
   href: vbc09359.md
-- name: VBC09360 — Can't assign to array
+- name: "VBC09360: Can't assign to array"
   href: vbc09360.md
-- name: VBC09361 — ByRef argument type mismatch
+- name: "VBC09361: ByRef argument type mismatch"
   href: vbc09361.md
-- name: "VBC09362 — Type mismatch: array or user-defined type expected"
+- name: "VBC09362: Type mismatch: array or user-defined type expected"
   href: vbc09362.md
-- name: VBC09363 — Expected variable or procedure, not module
+- name: "VBC09363: Expected variable or procedure, not module"
   href: vbc09363.md
-- name: VBC09364 — Expected Sub, Function, or Property
+- name: "VBC09364: Expected Sub, Function, or Property"
   href: vbc09364.md
-- name: VBC09365 — Range has no values
+- name: "VBC09365: Range has no values"
   href: vbc09365.md
-- name: VBC09366 — A module is not a valid type
+- name: "VBC09366: A module is not a valid type"
   href: vbc09366.md
-- name: VBC09367 — Invalid use of AddressOf operator
+- name: "VBC09367: Invalid use of AddressOf operator"
   href: vbc09367.md
-- name: VBC09368 — Invalid use of New keyword
+- name: "VBC09368: Invalid use of New keyword"
   href: vbc09368.md
-- name: "VBC09369 — Can't change data types of array elements"
+- name: "VBC09369: Can't change data types of array elements"
   href: vbc09369.md
-- name: VBC09370 — Expected procedure, not variable
+- name: "VBC09370: Expected procedure, not variable"
   href: vbc09370.md
-- name: VBC09371 — Array argument must be ByRef
+- name: "VBC09371: Array argument must be ByRef"
   href: vbc09371.md
-- name: VBC09372 — Member already exists in an object module from which this object module derives
+- name: "VBC09372: Member already exists in an object module from which this object module derives"
   href: vbc09372.md
-- name: VBC09373 — Automation type not supported in Visual Basic
+- name: "VBC09373: Automation type not supported in Visual Basic"
   href: vbc09373.md
-- name: "VBC09374 — Expected user-defined type, not project"
+- name: "VBC09374: Expected user-defined type, not project"
   href: vbc09374.md
-- name: VBC09375 — Invalid length for fixed-length string
+- name: "VBC09375: Invalid length for fixed-length string"
   href: vbc09375.md
-- name: "VBC09376 — Expected variable or procedure, not project"
+- name: "VBC09376: Expected variable or procedure, not project"
   href: vbc09376.md
-- name: "VBC09377 — Expected variable or procedure, not enum type"
+- name: "VBC09377: Expected variable or procedure, not enum type"
   href: vbc09377.md
-- name: "VBC09378 — With object must be user-defined type, Object, or Variant"
+- name: "VBC09378: With object must be user-defined type, Object, or Variant"
   href: vbc09378.md
-- name: VBC09379 — For Each may only iterate over a collection object or an array
+- name: "VBC09379: For Each may only iterate over a collection object or an array"
   href: vbc09379.md
-- name: VBC09380 — Out of memory
+- name: "VBC09380: Out of memory"
   href: vbc09380.md
-- name: VBC09381 — User-defined type may not be passed ByVal
+- name: "VBC09381: User-defined type may not be passed ByVal"
   href: vbc09381.md
-- name: VBC09382 — Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions
+- name: "VBC09382: Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions"
   href: vbc09382.md
-- name: VBR-0001 — Application-defined or object-defined error
+- name: "VBR-0001: Application-defined or object-defined error"
   href: vbr-0001.md
-- name: VBR00003 — Return without GoSub
+- name: "VBR00003: Return without GoSub"
   href: vbr00003.md
-- name: VBR00005 — Invalid procedure call or argument
+- name: "VBR00005: Invalid procedure call or argument"
   href: vbr00005.md
-- name: VBR00006 — Overflow
+- name: "VBR00006: Overflow"
   href: vbr00006.md
-- name: VBR00007 — Out of memory
+- name: "VBR00007: Out of memory"
   href: vbr00007.md
-- name: VBR00009 — Subscript out of range
+- name: "VBR00009: Subscript out of range"
   href: vbr00009.md
-- name: VBR00010 — This array is fixed or temporarily locked
+- name: "VBR00010: This array is fixed or temporarily locked"
   href: vbr00010.md
-- name: VBR00011 — Division by zero
+- name: "VBR00011: Division by zero"
   href: vbr00011.md
-- name: VBR00013 — Type mismatch
+- name: "VBR00013: Type mismatch"
   href: vbr00013.md
-- name: VBR00014 — Out of string space
+- name: "VBR00014: Out of string space"
   href: vbr00014.md
-- name: VBR00016 — Expression too complex
+- name: "VBR00016: Expression too complex"
   href: vbr00016.md
-- name: VBR00017 — Can't perform requested operation
+- name: "VBR00017: Can't perform requested operation"
   href: vbr00017.md
-- name: VBR00018 — User interrupt occurred
+- name: "VBR00018: User interrupt occurred"
   href: vbr00018.md
-- name: VBR00020 — Resume without error
+- name: "VBR00020: Resume without error"
   href: vbr00020.md
-- name: VBR00028 — Out of stack space
+- name: "VBR00028: Out of stack space"
   href: vbr00028.md
-- name: VBR00035 — Sub or Function not defined
+- name: "VBR00035: Sub or Function not defined"
   href: vbr00035.md
-- name: VBR00047 — Too many DLL application clients
+- name: "VBR00047: Too many DLL application clients"
   href: vbr00047.md
-- name: VBR00048 — Error in loading DLL
+- name: "VBR00048: Error in loading DLL"
   href: vbr00048.md
-- name: VBR00049 — Bad DLL calling convention
+- name: "VBR00049: Bad DLL calling convention"
   href: vbr00049.md
-- name: VBR00051 — Internal error
+- name: "VBR00051: Internal error"
   href: vbr00051.md
-- name: VBR00052 — Bad file name or number
+- name: "VBR00052: Bad file name or number"
   href: vbr00052.md
-- name: VBR00053 — File not found
+- name: "VBR00053: File not found"
   href: vbr00053.md
-- name: VBR00054 — Bad file mode
+- name: "VBR00054: Bad file mode"
   href: vbr00054.md
-- name: VBR00055 — File already open
+- name: "VBR00055: File already open"
   href: vbr00055.md
-- name: VBR00057 — Device I/O error
+- name: "VBR00057: Device I/O error"
   href: vbr00057.md
-- name: VBR00058 — File already exists
+- name: "VBR00058: File already exists"
   href: vbr00058.md
-- name: VBR00059 — Bad record length
+- name: "VBR00059: Bad record length"
   href: vbr00059.md
-- name: VBR00061 — Disk full
+- name: "VBR00061: Disk full"
   href: vbr00061.md
-- name: VBR00062 — Input past end of file
+- name: "VBR00062: Input past end of file"
   href: vbr00062.md
-- name: VBR00063 — Bad record number
+- name: "VBR00063: Bad record number"
   href: vbr00063.md
-- name: VBR00067 — Too many files
+- name: "VBR00067: Too many files"
   href: vbr00067.md
-- name: VBR00068 — Device unavailable
+- name: "VBR00068: Device unavailable"
   href: vbr00068.md
-- name: VBR00070 — Permission denied
+- name: "VBR00070: Permission denied"
   href: vbr00070.md
-- name: VBR00071 — Disk not ready
+- name: "VBR00071: Disk not ready"
   href: vbr00071.md
-- name: VBR00074 — Can't rename with different drive
+- name: "VBR00074: Can't rename with different drive"
   href: vbr00074.md
-- name: VBR00075 — Path/File access error
+- name: "VBR00075: Path/File access error"
   href: vbr00075.md
-- name: VBR00076 — Path not found
+- name: "VBR00076: Path not found"
   href: vbr00076.md
-- name: VBR00091 — Object variable or With block variable not set
+- name: "VBR00091: Object variable or With block variable not set"
   href: vbr00091.md
-- name: VBR00092 — For loop not initialized
+- name: "VBR00092: For loop not initialized"
   href: vbr00092.md
-- name: VBR00093 — Invalid pattern string
+- name: "VBR00093: Invalid pattern string"
   href: vbr00093.md
-- name: VBR00094 — Invalid use of Null
+- name: "VBR00094: Invalid use of Null"
   href: vbr00094.md
-- name: VBR00096 — Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports
+- name: "VBR00096: Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports"
   href: vbr00096.md
-- name: VBR00097 — Can not call friend function on object which is not an instance of defining class
+- name: "VBR00097: Can not call friend function on object which is not an instance of defining class"
   href: vbr00097.md
-- name: VBR00098 — A property or method call cannot include a reference to a private object, either as an argument or as a return value
+- name: "VBR00098: A property or method call cannot include a reference to a private object, either as an argument or as a return value"
   href: vbr00098.md
-- name: VBR00321 — Invalid file format
+- name: "VBR00321: Invalid file format"
   href: vbr00321.md
-- name: VBR00322 — Can't create necessary temporary file
+- name: "VBR00322: Can't create necessary temporary file"
   href: vbr00322.md
-- name: VBR00325 — Invalid format in resource file
+- name: "VBR00325: Invalid format in resource file"
   href: vbr00325.md
-- name: VBR00361 — Can't load or unload this object
+- name: "VBR00361: Can't load or unload this object"
   href: vbr00361.md
-- name: VBR00380 — Invalid property value
+- name: "VBR00380: Invalid property value"
   href: vbr00380.md
-- name: VBR00381 — Invalid property array index
+- name: "VBR00381: Invalid property array index"
   href: vbr00381.md
-- name: VBR00382 — Set not supported at runtime
+- name: "VBR00382: Set not supported at runtime"
   href: vbr00382.md
-- name: VBR00383 — Set not supported (read-only property)
+- name: "VBR00383: Set not supported (read-only property)"
   href: vbr00383.md
-- name: VBR00385 — Need property array index
+- name: "VBR00385: Need property array index"
   href: vbr00385.md
-- name: VBR00387 — Set not permitted
+- name: "VBR00387: Set not permitted"
   href: vbr00387.md
-- name: VBR00393 — Get not supported at runtime
+- name: "VBR00393: Get not supported at runtime"
   href: vbr00393.md
-- name: VBR00394 — Get not supported (write-only property)
+- name: "VBR00394: Get not supported (write-only property)"
   href: vbr00394.md
-- name: VBR00422 — Property not found
+- name: "VBR00422: Property not found"
   href: vbr00422.md
-- name: VBR00423 — Property or method not found
+- name: "VBR00423: Property or method not found"
   href: vbr00423.md
-- name: VBR00424 — Object required
+- name: "VBR00424: Object required"
   href: vbr00424.md
-- name: VBR00429 — ActiveX component can't create object
+- name: "VBR00429: ActiveX component can't create object"
   href: vbr00429.md
-- name: VBR00430 — Class does not support Automation or does not support expected interface
+- name: "VBR00430: Class does not support Automation or does not support expected interface"
   href: vbr00430.md
-- name: VBR00432 — File name or class name not found during Automation operation
+- name: "VBR00432: File name or class name not found during Automation operation"
   href: vbr00432.md
-- name: VBR00438 — Object doesn't support this property or method
+- name: "VBR00438: Object doesn't support this property or method"
   href: vbr00438.md
-- name: VBR00440 — Automation error
+- name: "VBR00440: Automation error"
   href: vbr00440.md
-- name: VBR00442 — Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference.
+- name: "VBR00442: Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference."
   href: vbr00442.md
-- name: VBR00443 — Automation object does not have a default value
+- name: "VBR00443: Automation object does not have a default value"
   href: vbr00443.md
-- name: VBR00444 — Method not applicable in this context
+- name: "VBR00444: Method not applicable in this context"
   href: vbr00444.md
-- name: VBR00445 — Object doesn't support this action
+- name: "VBR00445: Object doesn't support this action"
   href: vbr00445.md
-- name: VBR00446 — Object doesn't support named arguments
+- name: "VBR00446: Object doesn't support named arguments"
   href: vbr00446.md
-- name: VBR00447 — Object doesn't support current locale setting
+- name: "VBR00447: Object doesn't support current locale setting"
   href: vbr00447.md
-- name: VBR00448 — Named argument not found
+- name: "VBR00448: Named argument not found"
   href: vbr00448.md
-- name: VBR00449 — Argument not optional
+- name: "VBR00449: Argument not optional"
   href: vbr00449.md
-- name: VBR00450 — Wrong number of arguments or invalid property assignment
+- name: "VBR00450: Wrong number of arguments or invalid property assignment"
   href: vbr00450.md
-- name: VBR00451 — Property let procedure not defined and property get procedure did not return an object
+- name: "VBR00451: Property let procedure not defined and property get procedure did not return an object"
   href: vbr00451.md
-- name: VBR00452 — Invalid ordinal
+- name: "VBR00452: Invalid ordinal"
   href: vbr00452.md
-- name: VBR00453 — Specified DLL function not found
+- name: "VBR00453: Specified DLL function not found"
   href: vbr00453.md
-- name: VBR00454 — Code resource not found
+- name: "VBR00454: Code resource not found"
   href: vbr00454.md
-- name: VBR00455 — Code resource lock error
+- name: "VBR00455: Code resource lock error"
   href: vbr00455.md
-- name: VBR00457 — This key is already associated with an element of this collection
+- name: "VBR00457: This key is already associated with an element of this collection"
   href: vbr00457.md
-- name: VBR00458 — Variable uses an Automation type not supported in Visual Basic
+- name: "VBR00458: Variable uses an Automation type not supported in Visual Basic"
   href: vbr00458.md
-- name: VBR00459 — Object or class does not support the set of events.
+- name: "VBR00459: Object or class does not support the set of events."
   href: vbr00459.md
-- name: VBR00460 — Invalid clipboard format
+- name: "VBR00460: Invalid clipboard format"
   href: vbr00460.md
-- name: VBR00461 — Method or data member not found
+- name: "VBR00461: Method or data member not found"
   href: vbr00461.md
-- name: VBR00462 — The remote machine does not exist or is unavailable
+- name: "VBR00462: The remote machine does not exist or is unavailable"
   href: vbr00462.md
-- name: VBR00463 — Class not registered on local machine
+- name: "VBR00463: Class not registered on local machine"
   href: vbr00463.md
-- name: VBR00481 — Invalid picture
+- name: "VBR00481: Invalid picture"
   href: vbr00481.md
-- name: VBR00482 — Printer error
+- name: "VBR00482: Printer error"
   href: vbr00482.md
-- name: VBR00735 — Can't save file to TEMP
+- name: "VBR00735: Can't save file to TEMP"
   href: vbr00735.md
-- name: VBR00744 — Search text not found
+- name: "VBR00744: Search text not found"
   href: vbr00744.md
-- name: VBR00746 — Replacements too long
+- name: "VBR00746: Replacements too long"
   href: vbr00746.md
-- name: VBR50001 — Nobody to answer
+- name: "VBR50001: Nobody to answer"
   href: vbr50001.md
-- name: VBR50002 — Unusable dialog answer
+- name: "VBR50002: Unusable dialog answer"
   href: vbr50002.md
-- name: RDC00101 — Implicit declarations enabled
+- name: "RDC00101: Implicit declarations enabled"
   href: rdc00101.md
-- name: RDC00102 — Implicit non-default array base
+- name: "RDC00102: Implicit non-default array base"
   href: rdc00102.md
-- name: RDC00103 — Implicit type declarations enabled
+- name: "RDC00103: Implicit type declarations enabled"
   href: rdc00103.md
-- name: RDC00104 — Implicit ByRef modifier
+- name: "RDC00104: Implicit ByRef modifier"
   href: rdc00104.md
-- name: RDC00105 — Implicit Public member
+- name: "RDC00105: Implicit Public member"
   href: rdc00105.md
-- name: RDC00106 — Implicit Variant declaration
+- name: "RDC00106: Implicit Variant declaration"
   href: rdc00106.md
-- name: RDC00107 — Implicit Variant return type
+- name: "RDC00107: Implicit Variant return type"
   href: rdc00107.md
-- name: RDC00112 — Implicit narrowing conversion
+- name: "RDC00112: Implicit narrowing conversion"
   href: rdc00112.md
-- name: RDC00114 — Implicit array declaration
+- name: "RDC00114: Implicit array declaration"
   href: rdc00114.md
-- name: RDC00115 — Implicit result local
+- name: "RDC00115: Implicit result local"
   href: rdc00115.md
-- name: RDC00201 — Integer data type declaration
+- name: "RDC00201: Integer data type declaration"
   href: rdc00201.md
-- name: RDC00202 — Module-scope Dim declaration
+- name: "RDC00202: Module-scope Dim declaration"
   href: rdc00202.md
-- name: RDC00203 — Multiline parameter declaration
+- name: "RDC00203: Multiline parameter declaration"
   href: rdc00203.md
-- name: RDC00204 — Multiple declarations
+- name: "RDC00204: Multiple declarations"
   href: rdc00204.md
-- name: RDC00205 — Misleading ByRef parameter
+- name: "RDC00205: Misleading ByRef parameter"
   href: rdc00205.md
-- name: RDC00206 — Not all code paths return a value
+- name: "RDC00206: Not all code paths return a value"
   href: rdc00206.md
-- name: RDC00207 — IsMissing that is always False
+- name: "RDC00207: IsMissing that is always False"
   href: rdc00207.md
-- name: RDC00208 — Shadowed declaration
+- name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
-- name: RDC00302 — Obsolete Call statement
+- name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
-- name: RDC00303 — Obsolete comment syntax
+- name: "RDC00303: Obsolete comment syntax"
   href: rdc00303.md
-- name: RDC00304 — Obsolete error syntax
+- name: "RDC00304: Obsolete error syntax"
   href: rdc00304.md
-- name: RDC00305 — Obsolete Global modifier
+- name: "RDC00305: Obsolete Global modifier"
   href: rdc00305.md
-- name: RDC00306 — Obsolete Let statement
+- name: "RDC00306: Obsolete Let statement"
   href: rdc00306.md
-- name: RDC00307 — Obsolete type hint
+- name: "RDC00307: Obsolete type hint"
   href: rdc00307.md
-- name: RDC00308 — Obsolete While…Wend
+- name: "RDC00308: Obsolete While…Wend"
   href: rdc00308.md
-- name: RDC00309 — Obsolete On Local Error statement
+- name: "RDC00309: Obsolete On Local Error statement"
   href: rdc00309.md
-- name: RDC00310 — Redundant ByVal argument
+- name: "RDC00310: Redundant ByVal argument"
   href: rdc00310.md
-- name: RDC00311 — Early binding opportunity
+- name: "RDC00311: Early binding opportunity"
   href: rdc00311.md
-- name: RDC00405 — Implementations should be private
+- name: "RDC00405: Implementations should be private"
   href: rdc00405.md
-- name: RDC00407 — Unmatched event handler
+- name: "RDC00407: Unmatched event handler"
   href: rdc00407.md
-- name: RDC01001 — Use meaningful identifier names
+- name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
-- name: RDC01002 — Hungarian notation
+- name: "RDC01002: Hungarian notation"
   href: rdc01002.md
-- name: RDC01005 — Hosted document code
+- name: "RDC01005: Hosted document code"
   href: rdc01005.md
-- name: RDC01006 — Unsupported document module
+- name: "RDC01006: Unsupported document module"
   href: rdc01006.md
-- name: RDC01007 — Host library not referenced
+- name: "RDC01007: Host library not referenced"
   href: rdc01007.md
-- name: RDC11005 — Bitwise operator
+- name: "RDC11005: Bitwise operator"
   href: rdc11005.md
-- name: RDC11006 — Ambiguous concatenation
+- name: "RDC11006: Ambiguous concatenation"
   href: rdc11006.md
-- name: RDC11011 — Variant number compared with a Variant String
+- name: "RDC11011: Variant number compared with a Variant String"
   href: rdc11011.md
-- name: RDC11012 — Set of a call that always fails
+- name: "RDC11012: Set of a call that always fails"
   href: rdc11012.md
-- name: RDC11013 — Variant compared with a String as text
+- name: "RDC11013: Variant compared with a String as text"
   href: rdc11013.md
-- name: RDC11014 — Case Is compared in the selector's type
+- name: "RDC11014: Case Is compared in the selector's type"
   href: rdc11014.md
-- name: RDC11015 — Object with no default member used as a value
+- name: "RDC11015: Object with no default member used as a value"
   href: rdc11015.md
-- name: RDC11016 — Empty or Null assigned to an array
+- name: "RDC11016: Empty or Null assigned to an array"
   href: rdc11016.md
-- name: RDC11017 — Like pattern MS-VBA matches otherwise than specified
+- name: "RDC11017: Like pattern MS-VBA matches otherwise than specified"
   href: rdc11017.md
-- name: RDC11018 — Integer arithmetic of Abs, Int or Fix that can overflow
+- name: "RDC11018: Integer arithmetic of Abs, Int or Fix that can overflow"
   href: rdc11018.md
-- name: RDC11019 — Type character ignored on a function of the library
+- name: "RDC11019: Type character ignored on a function of the library"
   href: rdc11019.md
-- name: RDC11020 — Variant String that is no number, compared with a number
+- name: "RDC11020: Variant String that is no number, compared with a number"
   href: rdc11020.md
-- name: RDC11021 — Constant of a procedure valued with Len
+- name: "RDC11021: Constant of a procedure valued with Len"
   href: rdc11021.md
-- name: RDC11022 — ReDim of a variable declared implicitly
+- name: "RDC11022: ReDim of a variable declared implicitly"
   href: rdc11022.md
-- name: RDC11023 — Procedure MS-VBA refuses as too large
+- name: "RDC11023: Procedure MS-VBA refuses as too large"
   href: rdc11023.md
-- name: RDC11024 — Implements in a document module
+- name: "RDC11024: Implements in a document module"
   href: rdc11024.md
-- name: RDC11025 — Array given a second empty argument list
+- name: "RDC11025: Array given a second empty argument list"
   href: rdc11025.md
-- name: RDC11026 — Public variable of an object passed ByRef as a copy
+- name: "RDC11026: Public variable of an object passed ByRef as a copy"
   href: rdc11026.md
-- name: RDC11027 — String compared with a number as a Double
+- name: "RDC11027: String compared with a number as a Double"
   href: rdc11027.md
-- name: RDC11028 — New of a class that is never created
+- name: "RDC11028: New of a class that is never created"
   href: rdc11028.md
-- name: RDC11029 — Public variable of an object passed late as a copy
+- name: "RDC11029: Public variable of an object passed late as a copy"
   href: rdc11029.md
-- name: RDC20001 — Edit not applied to the waiting program
+- name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md

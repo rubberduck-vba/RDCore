@@ -11,14 +11,14 @@ namespace RDCore.SDK.Semantics.Static.Expressions;
 /// <summary>
 /// MS-VBAL 5.6.14 Dictionary Access Expressions (static semantics). <c>owner!member</c> is
 /// syntactically an alternate way to invoke <see cref="DictionaryAccessExpressionNode.Owner"/>'s
-/// default member with a String argument — its declared type is that default member's declared type.
+/// default member with a String argument: its declared type is that default member's declared type.
 /// </summary>
 public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<DictionaryAccessExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
-    /// The shared instance — this rule has no state of its own.
+    /// The shared instance: this rule has no state of its own.
     /// </summary>
     public static DictionaryAccessExpressionStaticSemantics Instance => _instance.Value;
 
@@ -27,17 +27,17 @@ public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSe
     /// <see cref="DictionaryAccessExpressionNode.Owner"/>'s already-determined declared type.
     /// </summary>
     /// <param name="context">
-    /// The compile-time context this expression is evaluated against. Unused — member lookup here is
+    /// The compile-time context this expression is evaluated against. Unused: member lookup here is
     /// structural (the owner type's declared default member), not lexical.
     /// </param>
     /// <param name="expression">The <see cref="DictionaryAccessExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">
     /// The effective owner's already-determined declared type, at
-    /// <see cref="InputIndex.DictionaryAccessOwner"/> — <see cref="DictionaryAccessExpressionNode.Owner"/>'s
+    /// <see cref="InputIndex.DictionaryAccessOwner"/>: <see cref="DictionaryAccessExpressionNode.Owner"/>'s
     /// declared type, or, for a <c>with-expression</c> (<see cref="DictionaryAccessExpressionNode.Owner"/>
     /// is <c>null</c>), the innermost enclosing <c>With</c> block's target type (MS-VBAL §5.6.15),
-    /// which the caller is responsible for substituting in — this rule doesn't care which it was.
-    /// <see cref="DictionaryAccessExpressionNode.Member"/> has no independent declared type — it's the
+    /// which the caller is responsible for substituting in. This rule does not care which it was.
+    /// <see cref="DictionaryAccessExpressionNode.Member"/> has no independent declared type: it is the
     /// bare name passed as a String argument to the owner's default member, not a lexically resolved
     /// expression.
     /// </param>

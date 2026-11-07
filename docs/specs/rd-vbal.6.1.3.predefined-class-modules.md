@@ -10,6 +10,3 @@ The SDK defines the three **MS-VBAL §6.1.3** predefined class modules:
 |6.1.3.1|[Collection Object](rd-vbal.6.1.3.1.collection-object.md)|[IStdCollectionClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdCollectionClass.html)|
 |6.1.3.2|[Err Class](rd-vbal.6.1.3.2.err-class.md)|[IStdErrClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdErrClass.html)|
 |6.1.3.3|[Global Class](rd-vbal.6.1.3.3.global-class.md)|[IStdGlobalClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdGlobalClass.html)|
-
----
-> ⏮️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md) | ⏭️ [**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)

@@ -112,7 +112,7 @@ This specification refers to the following semantic compilation errors on other 
 
 |Code|`VBCompileErrorId`|Condition|See|
 |---|---|---|---|
-|`VBC09301`|`AmbiguousName`|Within one tier of the project or global scope, a name resolves to more than one symbol of the highest rank: members of two modules of the workspace (of a class module, only a public Enum or user-defined type and that Enum's members), or of two modules of one library, the `VBA` library included. The symbols of two libraries never share a rank. The reference must qualify the name. A declared type whose name ties this way is `VBC09311` instead.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
+|`VBC09301`|`AmbiguousName`|Within one tier of the project or global scope, a name resolves to more than one symbol of the project with the highest reference precedence, which is the earliest reference: members of two modules of the workspace (of a class module, only a public Enum or user-defined type and that Enum's members), or of two modules of one library, the `VBA` library included. Two libraries never tie: the name is the one referenced first. The reference must qualify the name. A declared type whose name ties this way is `VBC09311` instead.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09302`|`VariableNotDefined`|An unresolved simple name. The static-semantics layer consumes the module's `ModuleDirectives` to decide whether such a name is a deferred `VBUnknownType` or this error.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09303`|`DuplicateDeclaration`|A name is declared more than once within one module or procedure.|[**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)|
 |`VBC09304`|`InvalidUseOfObject`|The `Nothing` literal where a value is expected (`n = Nothing`), and a conditional-compilation expression that is an object.|[**RD-VBAL §5.5.1.1** Static Semantics](rd-vbal.5.5.1.1.static-semantics.md)|
@@ -120,6 +120,3 @@ This specification refers to the following semantic compilation errors on other 
 |`VBC09311`|`UserDefinedTypeNotDefined`|An unknown type should raise this error, and so does a `TypeOf ... Is` whose type is a name that binds no type (a variable's, a procedure's); a module or a project is `VBC09366`, `VBC09373` or `VBC09374` instead. Verbose diagnostic messages should help clarify its meaning.|[**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md), [**RD-VBAL §5.6.16.7** Type Expressions](rd-vbal.5.6.16.constrained-expressions.md#56167-type-expressions)|
 
 An appropriate compile-time error should be issued for a duplicate declaration and for an ambiguous name. The symbol resolver reports the error kind; the caller, which knows where the reference is, builds the located diagnostic.
-
----
-> ⏮️ [**RD-VBAL §2.6.1** Syntax Errors](rd-vbal.2.6.1.syntax-errors.md) | ⏭️ [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md)

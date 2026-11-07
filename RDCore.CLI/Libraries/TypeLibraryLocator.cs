@@ -18,8 +18,8 @@ internal sealed record LoadedTypeLibrary(ITypeLib Library, string Name, string? 
 /// </summary>
 /// <remarks>
 /// Only <see cref="Load"/> by name needs the registry's list of every library, and a library is found by the name it gives itself and by the description the
-/// registry holds for it ("Microsoft Scripting Runtime" is <c>Scripting</c>). Nothing else about a library identifies it to the platform: the identifier and
-/// version a machine gives it are a fact of the machine.
+/// registry holds for it ("Microsoft Scripting Runtime" is <c>Scripting</c>). The identifier and version of a type library are part of its description
+/// (<see cref="RDCore.SDK.Runtime.Libraries.LibraryOrigin"/>): a reference that gives them finds the description made from that type library, among the ones of its name.
 /// </remarks>
 internal static class TypeLibraryLocator
 {
@@ -37,7 +37,10 @@ internal static class TypeLibraryLocator
     /// <summary>
     /// Loads a library.
     /// </summary>
-    /// <param name="reference">A file (<c>scrrun.dll</c>, <c>EXCEL.EXE</c>, a <c>.tlb</c>), the identifier a machine gave a library, or the name of one.</param>
+    /// <param name="reference">
+    /// A file (<c>scrrun.dll</c>, <c>EXCEL.EXE</c>, a <c>.tlb</c>), a library a file holds after its first, by the number of its resource (<c>MSVBVM60.DLL\3</c>), the
+    /// identifier a machine gave a library, or the name of one.
+    /// </param>
     /// <param name="progress">Told what is being done when it takes a while.</param>
     /// <returns>The library, or <see langword="null"/> when the machine has none of the reference.</returns>
     public static LoadedTypeLibrary? Load(string reference, Action<string>? progress = null)
@@ -47,12 +50,35 @@ internal static class TypeLibraryLocator
             return FromFile(Path.GetFullPath(reference));
         }
 
+        if (ResourceOf(reference) is var (file, resource))
+        {
+            return FromFile($@"{Path.GetFullPath(file)}\{resource}");
+        }
+
         if (Guid.TryParse(reference, out var guid))
         {
             return Registered(guid) is { } registered ? FromFile(registered) : null;
         }
 
         return ByName(reference, progress);
+    }
+
+    /// <summary>
+    /// The name of the file a library was loaded from, without the folder it is in on this machine: with the number of its resource when it is not the file's
+    /// first library (<c>MSVBVM60.DLL\3</c>), as a <c>.vbp</c> references it.
+    /// </summary>
+    /// <param name="path">The path the library was loaded from.</param>
+    public static string FileNameOf(string path)
+        => ResourceOf(path) is var (file, resource) ? $@"{Path.GetFileName(file)}\{resource}" : Path.GetFileName(path);
+
+    // a type library a file holds besides its first is the file's resource of that number, which LoadTypeLibEx loads when it is written after the file's path.
+    private static (string File, int Resource)? ResourceOf(string reference)
+    {
+        var separator = reference.LastIndexOfAny(['\\', '/']);
+        return separator > 0 && int.TryParse(reference.AsSpan(separator + 1), System.Globalization.NumberStyles.None, null, out var resource) && resource > 0
+            && File.Exists(reference[..separator])
+                ? (reference[..separator], resource)
+                : null;
     }
 
     private static LoadedTypeLibrary? FromFile(string path)
@@ -69,10 +95,7 @@ internal static class TypeLibraryLocator
         {
             var attributes = Marshal.PtrToStructure<TYPELIBATTR>(pointer);
             var id = attributes.guid;
-            var path = QueryPathOfRegTypeLib(ref id, (ushort)attributes.wMajorVerNum, (ushort)attributes.wMinorVerNum, 0, out var registered) >= 0 && !string.IsNullOrWhiteSpace(registered)
-                ? registered.Trim('"')
-                : null;
-            return Described(library, path);
+            return Described(library, PathOf(id, attributes.wMajorVerNum, attributes.wMinorVerNum));
         }
         finally
         {
@@ -102,7 +125,7 @@ internal static class TypeLibraryLocator
             var id = Guid.Parse(key);
             if (Registered(id) is { } path)
             {
-                using var version = typeLibs.OpenSubKey($@"{key}\{VersionKey(id)}");
+                using var version = VersionKey(id) is { } versionKey ? typeLibs.OpenSubKey($@"{key}\{versionKey}") : null;
                 candidates.Add((id, version?.GetValue(null) as string, path));
             }
         }
@@ -123,8 +146,8 @@ internal static class TypeLibraryLocator
                 .Where(loaded => string.Equals(loaded.Name, name, StringComparison.OrdinalIgnoreCase))];
         }
 
-        // several libraries of a machine can be of one name - the versions of ADO are registered apart - and the name is all that identifies a library to the
-        // platform: the one that is described is the latest, however the machine happens to list them.
+        // several libraries of a machine can be of one name - the versions of ADO are registered apart - and a name alone asks for none of them in particular:
+        // the one that is described is the latest, however the machine happens to list them.
         return named.OrderByDescending(loaded => VersionOf(loaded.Library)).FirstOrDefault();
     }
 
@@ -146,35 +169,59 @@ internal static class TypeLibraryLocator
     private static string? Registered(Guid id)
     {
         var (major, minor) = LatestVersion(id);
-        if (major < 0)
-        {
-            return null;
-        }
-
-        return QueryPathOfRegTypeLib(ref id, (ushort)major, (ushort)minor, 0, out var path) >= 0 && !string.IsNullOrWhiteSpace(path)
-            ? path.Trim('"')
-            : null;
+        return major < 0 ? null : PathOf(id, major, minor);
     }
 
-    private static (int Major, int Minor) LatestVersion(Guid id)
+    // the file a version of a library is registered in. A version is registered under each locale it is for, as HKCR\TypeLib\{id}\{major.minor}\{lcid}, and
+    // asking for one locale finds no other: VBRUN is registered for English (9) and for no neutral locale (0). The neutral one is asked for first.
+    private static string? PathOf(Guid id, int major, int minor)
+    {
+        foreach (var lcid in RegisteredLocales(id, major, minor))
+        {
+            if (QueryPathOfRegTypeLib(ref id, (ushort)major, (ushort)minor, lcid, out var path) >= 0 && !string.IsNullOrWhiteSpace(path))
+            {
+                return path.Trim('"');
+            }
+        }
+
+        return null;
+    }
+
+    // the locales the version's key lists, or the neutral one when it lists none: the version's key is the registry's own, as a key of 1.00 or 01.0 is the
+    // version 1.0 too.
+    private static IEnumerable<int> RegisteredLocales(Guid id, int major, int minor)
+    {
+        var version = Versions(id).FirstOrDefault(version => version.Major == major && version.Minor == minor).Key;
+        using var root = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, RegistryView.Registry64);
+        using var key = version is null ? null : root.OpenSubKey($@"TypeLib\{id:B}\{version}");
+        var locales = (key?.GetSubKeyNames() ?? [])
+            .Select(name => int.TryParse(name, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var lcid) ? lcid : -1)
+            .Where(lcid => lcid >= 0)
+            .Order()
+            .ToArray();
+        return locales.Length == 0 ? [0] : locales;
+    }
+
+    // the versions a library is registered with, latest first, each with the name of its key.
+    private static (int Major, int Minor, string Key)[] Versions(Guid id)
     {
         using var root = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, RegistryView.Registry64);
         using var key = root.OpenSubKey($@"TypeLib\{id:B}");
-        var versions = (key?.GetSubKeyNames() ?? [])
-            .Select(version => version.Split('.'))
-            .Where(parts => parts.Length == 2 && int.TryParse(parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _)
-                && int.TryParse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
-            .Select(parts => (Major: int.Parse(parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture), Minor: int.Parse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture)))
+        return [.. (key?.GetSubKeyNames() ?? [])
+            .Select(version => (Key: version, Parts: version.Split('.')))
+            .Where(version => version.Parts.Length == 2 && int.TryParse(version.Parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _)
+                && int.TryParse(version.Parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
+            .Select(version => (
+                Major: int.Parse(version.Parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                Minor: int.Parse(version.Parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                version.Key))
             .OrderByDescending(version => version.Major)
-            .ThenByDescending(version => version.Minor)
-            .ToArray();
-
-        return versions.Length == 0 ? (-1, -1) : versions[0];
+            .ThenByDescending(version => version.Minor)];
     }
 
-    private static string VersionKey(Guid id)
-    {
-        var (major, minor) = LatestVersion(id);
-        return $"{major:x}.{minor:x}";
-    }
+    private static (int Major, int Minor) LatestVersion(Guid id)
+        => Versions(id) is [var latest, ..] ? (latest.Major, latest.Minor) : (-1, -1);
+
+    private static string? VersionKey(Guid id)
+        => Versions(id) is [var latest, ..] ? latest.Key : null;
 }

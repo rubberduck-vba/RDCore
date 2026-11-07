@@ -6,22 +6,22 @@ namespace RDCore.SDK.Runtime.Shared;
 
 /// <summary>
 /// The result of resolving an <em>identifier name</em> against a scope. Mirrors the other
-/// <c>*Result</c> records: it carries a payload — the bound <see cref="Symbol"/> — or a diagnostic,
+/// <c>*Result</c> records: it carries a payload (the bound <see cref="Symbol"/>), or a diagnostic,
 /// never both.
 /// </summary>
 /// <remarks>
 /// The resolver reports <em>which</em> compile-time error a lookup hit, not a located
-/// <see cref="VBCompileErrorInfo"/> — it does not know where the reference is. The caller, which has
+/// <see cref="VBCompileErrorInfo"/>: it does not know where the reference is. The caller, which has
 /// the syntax node, builds the diagnostic from <see cref="ErrorId"/> and <see cref="Candidates"/>.
 /// <list type="bullet">
-/// <item><see cref="VBCompileErrorId.DuplicateDeclaration"/> — the name is declared more than once
+/// <item><see cref="VBCompileErrorId.DuplicateDeclaration"/>: the name is declared more than once
 ///   within one module or procedure.</item>
-/// <item><see cref="VBCompileErrorId.AmbiguousName"/> — the name resolves in more than one enclosing
+/// <item><see cref="VBCompileErrorId.AmbiguousName"/>: the name resolves in more than one enclosing
 ///   scope (members promoted from different modules or references); the reference must qualify it.</item>
-/// <item><see cref="VBCompileErrorId.InconsistentPropertyAccessors"/> — the name resolves to a
+/// <item><see cref="VBCompileErrorId.InconsistentPropertyAccessors"/>: the name resolves to a
 ///   property's <c>Get</c>/<c>Let</c>/<c>Set</c> accessors, but their declarations are not a valid
 ///   property (<strong>MS-VBAL §5.3.1.7</strong>).</item>
-/// <item><see cref="VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet"/> — the name resolves to a
+/// <item><see cref="VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet"/>: the name resolves to a
 ///   <c>Property Let</c> or <c>Property Set</c> declared with no parameters at all, so it has no value
 ///   parameter (<strong>MS-VBAL §5.3.1.5</strong>: <c>value-param</c> is never bracketed).</item>
 /// </list>
@@ -40,7 +40,7 @@ public readonly record struct SymbolResolutionResult(
     public bool IsResolved => Symbol is not null && ErrorId is null;
 
     /// <summary>
-    /// <c>true</c> when no scope declared the name — not an error in itself.
+    /// <c>true</c> when no scope declared the name: not an error in itself.
     /// </summary>
     public bool IsUnbound => Symbol is null && ErrorId is null;
 

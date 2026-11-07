@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A call of a member of an object variable declared as a class, compiled (IR lowering S2.5e3): compiled code finds the member the object's class invokes for
+/// A call of a member of an object variable declared as a class, compiled: compiled code finds the member the object's class invokes for
 /// it, as the interpreter finds it (MS-VBAL §5.3.1.9), and calls it as the interpreter does, the object given as <c>Me</c>. A call on <c>Nothing</c> is the
 /// interpreter's, which raises error 91. A program runs the same either way.
 /// </summary>
@@ -62,8 +62,8 @@ public sealed class CompiledMemberCallTests
             "End Sub")),
     ];
 
-    // the program run both ways, as AssertAlikeAsync runs it, and each call of a member compiled code made, made through the member's typed entry (IR
-    // lowering S2.5e3b): none through its binding.
+    // the program run both ways, as AssertAlikeAsync runs it, and each call of a member compiled code made, made through the member's typed entry:
+    // none through its binding.
     private static async Task AssertCalledAsync(string program, string compiled, long recoveries, long direct)
     {
         var result = await AssertAlikeAsync(program, compiled, recoveries, classes: Classes);

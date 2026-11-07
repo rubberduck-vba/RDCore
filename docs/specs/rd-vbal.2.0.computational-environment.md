@@ -8,14 +8,14 @@
 
 ## Host
 
-👉 An RD-VBA program runs inside a _host_, but that host is `rdc.exe` rather than a _Microsoft Office_ application. This should not affect general _semantic compatibility_.
+An RD-VBA program runs inside a _host_, but that host is `rdc.exe` rather than a _Microsoft Office_ application. This should not affect general _semantic compatibility_.
 
 > [!NOTE]
 > Hosting RD-VBA programs in `rdc.exe` rather than a _Microsoft Office_ application has unresolved implications with regard to _run-time interoperability_.
 
-> 🎯 `rdc.exe` is a command-line interface (CLI) application whose role is to **assemble and host** the _library_ that is defined by the source code in a _workspace program_.
+> `rdc.exe` is a command-line interface (CLI) application whose role is to **assemble and host** the _library_ that is defined by the source code in a _workspace program_.
 
-🎯 `rdc.exe` is an RD-VBA _environment host_ (see [**RD-VBAL §1.0** Introduction](rd-vbal.1.0.introduction.md)). In the **RDCore** ecosystem, it is the default RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
+`rdc.exe` is an RD-VBA _environment host_ (see [**RD-VBAL §1.0** Introduction](rd-vbal.1.0.introduction.md)). In the **RDCore** ecosystem, it is the default RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
 
 _Compilation_ in RD-VBA is the responsibility of the _environment host_, i.e. the `rdc.exe` console client. Compilation is normally not a concern for any other RD-VBA client or IDE (see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)).
 
@@ -43,6 +43,3 @@ See [**RD-VBAL §2.2** RDPROJ Structure](rd-vbal.2.2.rdproj-structure.md) for th
 |2.4|[Static Types](rd-vbal.2.4.static-types.md)|
 |2.5|[Runtime Values](rd-vbal.2.5.runtime-values.md)|
 |2.6|[Diagnostics](rd-vbal.2.6.diagnostics.md)|
-
----
-> ⏮️ [**RD-VBAL §1.1.6** Capabilities Provider](rd-vbal.1.1.6.capabilities-provider.md) | ⏭️ [**RD-VBAL §2.0.1** Supported Languages](rd-vbal.2.0.1.supported-languages.md)

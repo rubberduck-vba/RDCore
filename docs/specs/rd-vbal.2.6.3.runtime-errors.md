@@ -156,6 +156,3 @@ An **application error** is a custom run-time error explicitly raised from works
 |Severity|`Error`|
 
 RDCore removes the need for the `vbObjectError` constant by internally representing run-time errors and application errors as different error metadata types; see [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
-
----
-> ⏮️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md) | ⏭️ [**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-core-diagnostics.md)

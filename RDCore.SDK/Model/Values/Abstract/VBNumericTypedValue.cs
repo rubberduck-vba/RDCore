@@ -19,7 +19,7 @@ public abstract record class VBNumericTypedValue(VBType TypeInfo) : VBTypedValue
 
     /// <summary>
     /// The value as a managed <c>double</c>. A transitional accessor while the semantic layer still
-    /// computes on <c>double</c> for anything numeric — safe against the boxed-primitive cast that a
+    /// computes on <c>double</c> for anything numeric: safe against the boxed-primitive cast that a
     /// bare <c>(double)RuntimeValue.BoxedValue</c> would throw.
     /// </summary>
     /// <remarks>

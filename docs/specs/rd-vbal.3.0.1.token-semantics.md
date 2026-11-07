@@ -72,10 +72,10 @@ comment body. The tokens of the annotation grammar are:
 |`LPAREN`|A literal `(` token.|
 |`RPAREN`|A literal `)` token.|
 |`COMMA`|A literal `,` token.|
-|`WS`|A literal ` ` (space) whitespace token.|
-|`LINE_CONTINUATION`|A whitespace (space) followed by a literal `_` underscore token.|
+|`WS`|One space or tab.|
+|`LINE_CONTINUATION`|One space or tab, an underscore, optional blanks, the line break, and the blanks that begin the next line. Blanks before that one are `WS` tokens of their own.|
 
-👉 In an annotation comment, anything that follows a `:` colon is a regular comment.
+In an annotation comment, anything that follows a `:` colon is a regular comment.
 
 ### 3.0.1.1.2 Annotation
 
@@ -150,6 +150,3 @@ whiteSpace : (WS | LINE_CONTINUATION)+;
 
 Whitespace around the parentheses and the commas is optional. The `LPAREN`, `RPAREN`, `COMMA`, `WS` and
 `LINE_CONTINUATION` tokens are defined in [§3.0.1.1.1](#30111-annotation-list).
-
----
-> ⏮️ [**RD-VBAL §3.0** Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.md) | ⏭️ [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md)

@@ -8,7 +8,7 @@ namespace RDCore.SDK.ConsoleIO;
 /// <summary>
 /// An immutable builder for a structured console message. Each <c>With*</c> call returns a new
 /// instance; a renderer consumes <see cref="Parts"/> and <see cref="Kind"/>. At most one part of each
-/// <see cref="MessagePart"/> role is kept (last write wins is <em>not</em> applied — the first is kept).
+/// <see cref="MessagePart"/> role is kept (last write wins is <em>not</em> applied: the first is kept).
 /// </summary>
 public record class ConsoleMessageBuilder
 {

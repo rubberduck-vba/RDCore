@@ -25,6 +25,3 @@ where the constant is written, and may name another constant.
 `RDCore.Runtime.Execution.RuntimeProcedureInvoker.HoistLocals` hoists a procedure's `Dim` and `Static` locals
 only; a local `Const` gets no storage. `RDCore.Runtime.Execution.ModuleLoader` hands the constants of the module, the local ones included, to
 `RuntimeExpressionEvaluator.FoldConstants`.
-
----
-> ⏮️ [**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md) | ⏭️ [**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)

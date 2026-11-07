@@ -22,11 +22,11 @@ Relational operators compare in the effective type, and yield a
 
 |Condition|Run-time error|
 |---|---|
-|An operand is `NaN`.|6 — Overflow|
+|An operand is `NaN`.|6 (Overflow)|
 
 Run-time error 6 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.Overflow`.
 
-👉 The range checks of a `For` loop use the relational operators
+The range checks of a `For` loop use the relational operators
 `RDCore.Runtime.Semantics.Operators.Relational.BinaryGtRelationalOperatorRuntimeSemantics` and
 `BinaryLtRelationalOperatorRuntimeSemantics`, not a raw numeric comparison
 ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)).
@@ -71,7 +71,7 @@ variable declared `As String`, or a string literal) **as text**, as MS-VBA does:
   ([String comparison](#string-comparison)).
 - No error is raised, whatever the `String` holds.
 
-🎯 This departs from **MS-VBAL §5.6.9.5**. Its effective-value-type table gives a numeric operand and a `String` operand
+**RD-VBA differs from MS-VBAL §5.6.9.5.** Its effective-value-type table gives a numeric operand and a `String` operand
 the numeric type, so the `String` is Let-coerced to a number, which raises run-time error 13 (Type mismatch) when it is
 not one. Its one exception covers two `Variant` operands only (above).
 
@@ -111,7 +111,7 @@ is not a `Variant` (a variable declared with the type, a literal). RD-VBA compar
   error: the two are compared as `Double` values ([below](#a-string-compared-with-a-byte-an-integer-or-a-long)), and
   `"40000" > 2` is `True` with an `Integer` `2` (`oracle\s56` H01, H06).
 
-🎯 This departs from **MS-VBAL §5.6.9.5**. Its table makes the `String`'s coercion to the effective type a type mismatch
+**RD-VBA differs from MS-VBAL §5.6.9.5.** Its table makes the `String`'s coercion to the effective type a type mismatch
 (13), and so does Microsoft Learn's
 [Comparison operators](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/comparison-operators)
 page, for a `Variant` string that can't be converted to a number. These results were measured in Excel (`oracle\s48` H,
@@ -136,7 +136,7 @@ the table says, and in RD-VBA. The analysis states the departure as a fact of th
 RD-VBA compares a `String` with a `Byte`, an `Integer` or a `Long` **as `Double` values**, as MS-VBA does. This holds whether the
 `String` is a `Variant`'s or one declared `As String`: the effective value type is `Double`, and `"2.5" = 2` is `False`.
 
-🎯 This departs from **MS-VBAL §5.6.9.5**. Its table gives the two the integral type, which Let-coerces `"2.5"` to `2` and
+**RD-VBA differs from MS-VBAL §5.6.9.5.** Its table gives the two the integral type, which Let-coerces `"2.5"` to `2` and
 makes `"2.5" = 2` `True`. [Microsoft Learn](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/comparison-operators)
 calls the comparison "numeric" and names no type. These results were measured in Excel (`oracle\s56` G01-G12):
 
@@ -202,7 +202,7 @@ and sees every byte of a string's data, a trailing byte included
 |Binary|Their data: the code units, in order, then a trailing byte. A string whose code units begin another's, followed by more, is greater. Between the same code units, no trailing byte is less than any, and two trailing bytes compare by value.|
 |Text|Their characters regardless of case, according to the environment's regional settings. A trailing byte is not text: it only breaks a tie between two strings that are equal regardless of case, the same way.|
 
-🎯 **MS-VBAL §5.6.9.5** compares "each byte of the implementation-specific representation of the string data". Binary
+**RD-VBA differs from MS-VBAL §5.6.9.5,** which compares "each byte of the implementation-specific representation of the string data". Binary
 mode compares the code units of that data rather than its bytes one by one. The two find the same strings equal, and
 order alike any two strings whose characters are all below `U+0100`. Where they differ, RD-VBA's representation is
 little-endian: `"Ł"` (`41 01`) is greater than `"B"` (`42 00`) by code unit, and would be less byte by byte.
@@ -251,6 +251,3 @@ This section corresponds to [**MS-VBAL §5.6.9.5.6** >= Operator](https://learn.
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.4** & Operator](rd-vbal.5.6.9.4.ampersand-operator.md) | ⏭️ [**RD-VBAL §5.6.9.6** Like Operator](rd-vbal.5.6.9.6.like-operator.md)
