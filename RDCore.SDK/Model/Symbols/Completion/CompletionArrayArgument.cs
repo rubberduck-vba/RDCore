@@ -21,7 +21,7 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// so is a project, a module or an <c>Enum</c>;</description></item>
 /// <item><description>an argument of a parameter declared as an array, which is passed by reference, named or not: the declared type of its argument must
 /// match the parameter's (<strong>MS-VBAL §5.3.1.11</strong>), so a <c>Variant</c> is not accepted there. The element types match as the compiler matches
-/// them: a <c>String * 3</c> is no <c>String</c>, and an array of any <c>Enum</c> is given to a parameter declared as an array of an <c>Enum</c>. A
+/// them: a <c>String * 3</c> does not match a <c>String</c>, and an array of any <c>Enum</c> matches a parameter declared as an array of an <c>Enum</c>. A
 /// fixed-size array is accepted as a resizable one is, as MS-VBA and RDCore's compiler accept it, though by the specification's letter it is of another
 /// declared type.</description></item>
 /// </list>
@@ -33,8 +33,8 @@ namespace RDCore.SDK.Model.Symbols.Completion;
 /// <para>
 /// What is offered ranks in four tiers (<see cref="GroupsOf"/>): the arrays the procedure declares, its own array parameters included; then the other
 /// arrays, of its module, of the project, and the members that return one; then the <c>Variant</c>s, for <c>LBound</c> and <c>UBound</c>; then the records
-/// and the objects that a member, or a member of a member, leads to an array the argument can be given (<c>UBound(o.Inner.Slots)</c>). One of these is
-/// offered to be written before its member, and a record or an object that leads to no such array is not offered.
+/// and the objects that a member, or a member of a member, leads to an array the argument can be given (<c>UBound(o.Inner.Slots)</c>). Such a record or
+/// object is offered so that its member can be written after it; a record or an object that leads to no such array is not offered.
 /// </para>
 /// </remarks>
 /// <param name="ItemType">
