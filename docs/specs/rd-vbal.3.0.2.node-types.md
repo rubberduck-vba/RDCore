@@ -54,7 +54,7 @@ semantic node does not exist. The fallback applies to any construct without a de
 It also applies to code with a syntax error:
 
 - A binary operator with no right operand at the end of its statement (`a = 1 -`, `Foo 1 Mod`) is a syntax error, reported as a zero-width range at the
-  operator: before a `-`, `*`, `=`, `Like`, `Is`, `Mod`, `And`, `Or`, `Xor`, `Eqv` or `Imp`, after a `+`, `/`, `\`, `^`, `&`, `<>`, `<`,
+  operator: before a `+`, `-`, `*`, `=`, `Like`, `Is`, `Mod`, `And`, `Or`, `Xor`, `Eqv` or `Imp`, after a `/`, `\`, `^`, `&`, `<>`, `<`,
   `>`, `<=` or `>=`. The operation is kept as an Unbuilt expression of its text (`1 -`), with its left operand under it, so the
   statement keeps its operator. The statement ends at its own line end or colon, and the next statement is read on its own.
 - A statement that no grammar rule reads (`a = 1-`, with no space before the operator, or `If x = 1 - Then`) is kept as

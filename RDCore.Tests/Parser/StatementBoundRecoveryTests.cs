@@ -56,6 +56,7 @@ public sealed class StatementBoundRecoveryTests
     // the parse's decision for an item of Debug.Print looks past the operator to the line end, and fails; the statement fails before that, at the operator,
     // and that is its one error.
     [TestMethod]
+    [DataRow("+")]
     [DataRow("-")]
     [DataRow("*")]
     [DataRow("=")]
