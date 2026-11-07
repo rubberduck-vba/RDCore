@@ -646,7 +646,9 @@ public sealed class CompiledRecordTests
 
     // the same, of an object element: the parameter is the element, which holds the other record's object after the Let, and the object it held is let go of.
     [TestMethod]
-    public async Task AnObjectElementOfAFixedSizeArrayFieldGivenByReference_IsTheElement_WhenItsRecordIsLet()
+    [DataRow("Q = O")]
+    [DataRow("LSet Q = O")]
+    public async Task AnObjectElementOfAFixedSizeArrayFieldGivenByReference_IsTheElement_WhenItsRecordIsLet(string let)
         => await AssertPrintsAsync(Noisy(), Program(
             "Private Type TObj",
             "    O(1 To 1) As Noisy",
@@ -665,7 +667,7 @@ public sealed class CompiledRecordTests
             "    Debug.Print \"after\"",
             "End Sub",
             "Private Sub Inner(ByRef Q As TObj, ByRef O As TObj, ByRef X As Noisy)",
-            "    Q = O",
+            $"    {let}",
             "    Debug.Print X.Name; Q.O(1).Name; X Is Q.O(1)",
             "End Sub"), null, 0, 0, "gone q", "ooTrue", "after", "gone o", "ended");
 

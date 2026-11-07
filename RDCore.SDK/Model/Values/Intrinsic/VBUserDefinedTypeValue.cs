@@ -299,8 +299,9 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     }
 
     // a field of a scalar type is written where it is, and so is a field that holds an object, given an object: the cell of each is the one a ByRef parameter
-    // given the field is bound to. The one Nothing every caller shares is no field's cell, and a field that holds it is replaced. A field of another kind is
-    // replaced, as a value of another type would have to be.
+    // given the field is bound to. A field of another kind is replaced, as a value of another type would have to be. The test for the one Nothing every
+    // caller shares is defensive: a field starts in a cell of its own (Fresh), and a write that puts the shared one there would make every Nothing in the
+    // session what the next write to the field holds.
     private static bool IsWrittenInItsCell(VBTypedValue held, VBTypedValue value) => held switch
     {
         VBObjectValue => value is VBObjectValue && !ReferenceEquals(held.Handle, VBObjectValue.Nothing.Handle),
