@@ -19,6 +19,15 @@ Every `VBCompileErrorId` value below 9300 belongs to the parser; `[9300..]` is r
 
 Conditions that need symbol information (an undefined name, a duplicate declaration) are not syntax errors. They are reported later, as semantic compilation errors.
 
+## A Module With a Syntax Error
+
+A module that has a syntax error does not run. A run of it is refused with its syntax errors before any of it runs, and a debugger writes them to its error output and ends with exit code 1. What the parser could not read is no code, and the statements around it do not run without it: `Debug.Print 1 +` followed by `Debug.Print 2` prints nothing. This is so of every syntax error: `VBC00001` in each of its forms, a line continued past the limit included, `VBC00060` and `VBC00061`.
+
+The language server goes on analyzing the module as it is written. Only the run is refused.
+
+> [!NOTE]
+> A run is refused for a syntax error of the module it runs. Whether a syntax error in another module of the project refuses it as well is not settled yet.
+
 ## Fallback and Dedicated Codes
 
 `VBC00001` is the general syntax-error fallback code: when the input is invalid and no more specific code applies, the parser reports `VBC00001`.
