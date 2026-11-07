@@ -254,9 +254,10 @@ public sealed class EnvironmentSessionProvider(
 
     // the .rdproj declares references in precedence order, the earliest highest (RD-VBAL §2.3.1.3, MS-VBAL §4.1); the list index is the rank. The standard
     // library, which every project has and no .rdproj lists, is the first of them, and the language's implicit references come next, as LibrarySymbolProvider.Load
-    // ranks them.
+    // ranks them; a second reference to a library already there is left out, as Load leaves it out.
     private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references, SupportedLanguage language)
         => [new ReferencePriorityInfo(StdLibSymbolProvider.LibraryName, 0),
             .. language.ImplicitReferences.Concat(references.Where(reference => !reference.IsStandardLibrary).Select(reference => reference.Name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Select((name, rank) => new ReferencePriorityInfo(name, rank + 1))];
 }

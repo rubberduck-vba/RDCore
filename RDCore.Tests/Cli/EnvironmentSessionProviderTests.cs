@@ -124,11 +124,15 @@ public sealed class EnvironmentSessionProviderTests
         Assert.AreEqual(1, session.References[1].Priority);
     }
 
-    // a VB6 project's Visual Basic runtime is in the session's references in its place: after the standard library, before the ones the project lists.
+    // a VB6 project's Visual Basic runtime is in the session's references in its place: after the standard library, before the ones the project lists, and once
+    // when the project lists it as well.
     [TestMethod]
-    public void Compose_ExposesTheLanguagesImplicitReferences_BetweenTheStandardLibraryAndTheReferences()
+    [DataRow(false, DisplayName = "a project that lists only Scripting")]
+    [DataRow(true, DisplayName = "a project that also lists VBRUN")]
+    public void Compose_ExposesTheLanguagesImplicitReferences_BetweenTheStandardLibraryAndTheReferences(bool listsTheRuntime)
     {
-        var project = new RDCoreProject { References = [new RDCoreReference { Name = "Scripting", Major = 1, Minor = 0 }] };
+        var scripting = new RDCoreReference { Name = "Scripting", Major = 1, Minor = 0 };
+        var project = new RDCoreProject { References = listsTheRuntime ? [new RDCoreReference { Name = "vbrun", Major = 6, Minor = 0 }, scripting] : [scripting] };
 
         var session = NewProvider(language: SupportedLanguages.VB6).Compose(project, WorkspaceRoot);
 
