@@ -226,8 +226,10 @@ internal sealed class BenchRunner(
         var parsed = new List<(BenchModule Module, Uri Uri, ModuleParseResult Parse)>();
         foreach (var module in workspace.Modules)
         {
+            // a module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a branch of a #If
+            // that is excluded, which only the host knows.
             var parse = new ModuleParser().Parse(new Uri(fileSystem.Path.Combine(workspace.Root, module.RelativePath)), module.Source);
-            if (parse.IsSuccess && parse.SyntaxTree is not null)
+            if (parse.SyntaxTree is not null)
             {
                 parsed.Add((module, SymbolUri.Module(root, module.Name), parse));
             }
