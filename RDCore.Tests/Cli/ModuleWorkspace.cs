@@ -176,14 +176,15 @@ internal static class ModuleWorkspace
     /// loads what the parser made of it. What came of the run, whatever it was.
     /// </summary>
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
-    public static async Task<ExecuteResult> RunWithSyntaxErrorsAsync(string program)
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c>, which may have syntax errors too.</param>
+    public static async Task<ExecuteResult> RunWithSyntaxErrorsAsync(string program, IReadOnlyList<(string Name, string Source)>? modules = null)
     {
         ExecuteResult? ran = null;
         await RunCoreAsync([], program, errorsOnly: false, inspect: (_, result, _) =>
         {
             ran = result;
             return Task.CompletedTask;
-        }, syntaxErrors: true);
+        }, modules: modules, syntaxErrors: true);
         return ran!;
     }
 
@@ -465,12 +466,25 @@ internal static class ModuleWorkspace
     /// <param name="only">The names of the modules that are defined and loaded again.</param>
     /// <param name="modules">Every module of the workspace, as it now reads.</param>
     /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
-    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+    public static Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+        params (string Name, ModuleType Type, string Source)[] modules)
+        => ReloadOnlyAsync(provider, only, syntaxErrors: false, modules);
+
+    /// <summary>
+    /// Edits modules of a session like <see cref="ReloadOnlyAsync(EnvironmentSessionProvider, IReadOnlyCollection{string}, ValueTuple{string, ModuleType, string}[])"/>,
+    /// where a module may have syntax errors: the language server sends what the parser made of it all the same.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="only">The names of the modules that are defined and loaded again.</param>
+    /// <param name="syntaxErrors">Whether a module may have syntax errors.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads.</param>
+    /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only, bool syntaxErrors,
         params (string Name, ModuleType Type, string Source)[] modules)
     {
         var defined = await DefineAsync(provider, "Project1",
             [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null,
-            only: only);
+            only: only, syntaxErrors: syntaxErrors);
         return [.. defined.SelectMany(module => module.CodeErrors)];
     }
 

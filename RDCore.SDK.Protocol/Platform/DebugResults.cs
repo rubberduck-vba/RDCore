@@ -182,7 +182,10 @@ public record class DebugEvaluateResult
     /// <summary>Non-zero if the value has parts to ask for, as a variable's <see cref="DebugVariable.Reference"/> is.</summary>
     public int Reference { get; init; }
 
-    /// <summary>Why there is no value: no program waits, no such activation, a name that is not defined, an error the expression raised.</summary>
+    /// <summary>
+    /// Why there is no value: no program waits, no such activation, a module of the project that does not load (each of its errors after its name), a name
+    /// that is not defined, an error the expression raised.
+    /// </summary>
     public string? Error { get; init; }
 
     /// <summary>What a call in the expression printed, one entry per line: output for a debug console, and not the program's.</summary>

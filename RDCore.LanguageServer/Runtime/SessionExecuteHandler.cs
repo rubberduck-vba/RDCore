@@ -21,8 +21,10 @@ namespace RDCore.LanguageServer.Runtime;
 /// <remarks>
 /// Three components do the work and the client addresses none of them: the parser turns the source
 /// into an AST, the environment host lowers and runs it, and the language server is what knows that
-/// either exists. A parse that fails never reaches the host — there is nothing to run, and the
-/// syntax errors are the answer.
+/// either exists. A parse with no syntax tree never reaches the host: there is nothing to run, and the
+/// syntax errors are the answer. A parse with a syntax error does: the host refuses to run the module
+/// when it loads it, unless the error is in a branch of a <c>#If</c> that is excluded, which only the
+/// host knows.
 /// <para>
 /// The handler's own cancellation token is the client's: cancelling the request cancels the request
 /// to the host, which cancels the interpreter loop. That is the whole chain behind
@@ -75,8 +77,10 @@ internal sealed class SessionExecuteHandler(
         // name that then resolves to neither.
         var moduleUri = SymbolUri.Module(options.Value.Workspace.WorkspaceUri, request.ModuleName);
 
+        // a module with a syntax error goes to the host as well, which refuses to run it when it loads it: unless the error is in a branch of a #If that is
+        // excluded, which only the host knows (RD-VBAL 2.6.1).
         var parseResult = await parsing.ParseFragmentAsync(moduleUri, request.Source, token);
-        if (!parseResult.IsSuccess || parseResult.SyntaxTree is null)
+        if (parseResult.SyntaxTree is null)
         {
             return new ExecuteResult
             {

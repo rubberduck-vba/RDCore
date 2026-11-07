@@ -56,7 +56,7 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// <param name="Compile">Compiling the procedures the cases called to IL, when the engine is <see cref="VBExecutionEngine.Compiled"/>: each the first time it was
 /// called, which is in the first run of its case.</param>
 /// <param name="Cases">The cases, in the order the modules declare them.</param>
-/// <param name="Problems">What kept a module from being parsed or loaded; a case of such a module is not run.</param>
+/// <param name="Problems">What kept a module from being parsed or loaded. While there is any, no case is run: each is refused with it.</param>
 /// <param name="Indent">
 /// Indenting the shell's program of <see cref="BenchRunner.ProgramLines"/> lines as the shell does (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>), the
 /// fastest of the runs (<see cref="BenchOptions.Runs"/>, <c>--runs</c>): the same program whatever the workspace; none when the cases are only listed.
@@ -115,12 +115,21 @@ internal sealed class BenchRunner(
         var load = await LoadAsync(workspace, profile, token);
         var provider = load.Provider;
 
+        // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): each case is refused with what keeps the modules from loading.
+        var refused = load.Problems.Count > 0 ? $"{ExecutionOutcome.SyntaxError} {string.Join("; ", load.Problems)}" : null;
+
         var cases = new List<BenchCase>();
         foreach (var (name, entryPoint) in Cases(provider.Session, load.Loaded).Where(found => Selected(found.Name, options.Filter)))
         {
             if (options.ListOnly)
             {
                 cases.Add(new BenchCase(name, []));
+                continue;
+            }
+
+            if (refused is not null)
+            {
+                cases.Add(new BenchCase(name, [], refused));
                 continue;
             }
 
@@ -217,8 +226,10 @@ internal sealed class BenchRunner(
         var parsed = new List<(BenchModule Module, Uri Uri, ModuleParseResult Parse)>();
         foreach (var module in workspace.Modules)
         {
+            // a module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a branch of a #If
+            // that is excluded, which only the host knows.
             var parse = new ModuleParser().Parse(new Uri(fileSystem.Path.Combine(workspace.Root, module.RelativePath)), module.Source);
-            if (parse.IsSuccess && parse.SyntaxTree is not null)
+            if (parse.SyntaxTree is not null)
             {
                 parsed.Add((module, SymbolUri.Module(root, module.Name), parse));
             }

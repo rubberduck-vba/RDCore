@@ -204,9 +204,6 @@ public class OutputListSeparationTests
     [DataRow("Debug.Print Tab & \"x\"")]
     [DataRow("Debug.Print Spc(2)&\"x\"")]
     [DataRow("Print #1, Spc(2) & \"x\"")]
-    // a KNOWN DIFFERENCE from MS-VBA: it reads `+ 1` as an item, the clause then 1, and the VBE writes `Tab(2); 1` (oracle\s71 B05). MS-VBAL has no unary +
-    // (5.6.9.3), and RD-VBA reads none anywhere (`x = +1` is a syntax error too); before VBC00061, `Tab(2) + 1` was read as an addition, with Tab a name.
-    [DataRow("Debug.Print Tab(2) + 1")]
     public void ATabOrSpcClauseBeforeAnOperator_IsASyntaxError(string statement)
     {
         var result = ParseInProcedure(statement);
@@ -231,6 +228,24 @@ public class OutputListSeparationTests
         Assert.HasCount(2, items);
         Assert.IsTrue(items[0].Value is PrintSpcClauseNode or PrintTabClauseNode, items[0].Value!.GetType().Name);
         Assert.IsInstanceOfType<LiteralExpressionNode>(items[1].Value, "-1, a literal, and no subtraction of the clause");
+    }
+
+    // a clause, then a unary + with a space before it, is two items too, as MS-VBA reads it: the VBE writes `Tab(2); 1`, and prints 1 after the clause. The +
+    // is erased, and is no addition to the clause.
+    [TestMethod]
+    [DataRow("Debug.Print Tab(2) + 1")]
+    [DataRow("Debug.Print Spc(2) + 1")]
+    [DataRow("Print #1, Tab + 1")]
+    public void ATabOrSpcClauseThenASpaceThenAUnaryPlus_IsTwoItems(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        var items = ItemsOf(result).Where(item => item.Value is not null).ToArray();
+        Assert.HasCount(2, items);
+        Assert.IsTrue(items[0].Value is PrintSpcClauseNode or PrintTabClauseNode, items[0].Value!.GetType().Name);
+        Assert.IsInstanceOfType<LiteralExpressionNode>(items[1].Value, "1, a literal, and no addition to the clause");
+        Assert.ContainsSingle(result.Trivia.OfType<ErasedPlusTriviaNode>());
     }
 
     // a Spc clause that is not complete is the parser's error as any other is, said with what it could not read: not the code of the grammar's predicate

@@ -192,14 +192,30 @@ public sealed class BenchCommandTests
         StringAssert.Contains(failed.Error, "5");
     }
 
+    // nothing of the project runs while a module of it does not load: a case of another module is refused with the problem, and not run.
     [TestMethod]
-    public async Task AModuleThatDoesNotParse_IsAProblem_AndTheOthersRunAllTheSame()
+    public async Task AModuleThatDoesNotParse_IsAProblem_AndTheCasesOfTheOthersAreRefused()
     {
         var fileSystem = Files(("Broken.bas", Module("Broken", "Public Sub BenchBroken(", "End Sub")), ("Cases.bas", Cases), ("Tally.cls", Tally));
         var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count"));
 
         StringAssert.StartsWith(report.Problems.Single(), "Broken:");
-        Assert.AreEqual("Cases.BenchCount", report.Cases.Single().Name);
+        var refused = report.Cases.Single();
+        Assert.AreEqual("Cases.BenchCount", refused.Name);
+        Assert.IsEmpty(refused.Runs);
+        StringAssert.Contains(refused.Error, "Broken:");
+    }
+
+    // a syntax error in a branch of a #If that is excluded is in no code of the module, which loads: the cases run.
+    [TestMethod]
+    public async Task ASyntaxErrorInAnExcludedBranch_IsNoProblem_AndTheCasesRun()
+    {
+        var dead = Module("Dead", "Public Sub Helper()", "#If False Then", "Debug.Print 1 +", "#End If", "End Sub");
+        var fileSystem = Files(("Dead.bas", dead), ("Cases.bas", Cases), ("Tally.cls", Tally));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count"));
+
+        Assert.IsEmpty(report.Problems, string.Join("; ", report.Problems));
+        Assert.IsNull(report.Cases.Single().Error, report.Cases.Single().Error);
     }
 
     [TestMethod]
