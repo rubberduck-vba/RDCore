@@ -269,8 +269,10 @@ public static class CompletionCandidates
     /// <para>
     /// A parameter that has an argument already is not offered (<strong>MS-VBAL §5.3.1.11</strong>: two arguments mapped to one parameter make the argument
     /// list incompatible): one given by position, an omitted one counted, and one named before or after the cursor, its name in any case. A <c>ParamArray</c>
-    /// is left out too: only the positional arguments left over are bound to it (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§5.3.1.11</strong>). An external procedure (<c>Declare</c>) takes named arguments as a procedure of the language does (<strong>MS-VBAL
-    /// §5.2.3.5</strong>).
+    /// is left out too: only the positional arguments left over are bound to it (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§5.3.1.11</strong>).
+    /// </para>
+    /// <para>
+    /// An external procedure (<c>Declare</c>) takes named arguments as a procedure of the language does (<strong>MS-VBAL §5.2.3.5</strong>).
     /// </para>
     /// </remarks>
     /// <param name="signature">The signature of what is called.</param>
