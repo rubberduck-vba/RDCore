@@ -662,7 +662,7 @@ public partial class ModuleParser(
         return listener;
     }
 
-    private static readonly HashSet<int> BinaryOperators =
+    internal static readonly HashSet<int> BinaryOperators =
     [
         VBAParser.PLUS, VBAParser.MINUS, VBAParser.MULT, VBAParser.DIV, VBAParser.INTDIV, VBAParser.MOD, VBAParser.POW, VBAParser.AMPERSAND,
         VBAParser.EQ, VBAParser.NEQ, VBAParser.LT, VBAParser.GT, VBAParser.LEQ, VBAParser.GEQ, VBAParser.LIKE, VBAParser.IS,

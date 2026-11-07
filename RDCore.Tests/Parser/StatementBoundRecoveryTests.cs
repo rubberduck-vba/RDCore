@@ -101,6 +101,69 @@ public sealed class StatementBoundRecoveryTests
         Assert.IsFalse(Descendants(print).OfType<VBBinaryOperatorExpressionNode>().Any(), "no operation is built");
     }
 
+    // the items before the operation are the items the statement is written with, as they are without the operator: its separators, a comma as a semicolon,
+    // and its Spc and Tab clauses.
+    [TestMethod]
+    [DataRow("Debug.Print 1, 2", "-", DisplayName = "Debug.Print, a comma")]
+    [DataRow("Debug.Print 1, 2", "+", DisplayName = "Debug.Print, a comma, and an operator the parse reads")]
+    [DataRow("Debug.Print 1,, 2", "-", DisplayName = "Debug.Print, two commas")]
+    [DataRow("Debug.Print 1, 2; 3", "-", DisplayName = "Debug.Print, a comma and a semicolon")]
+    [DataRow("Debug.Print 1, Spc(2), 3", "-", DisplayName = "Debug.Print, a Spc clause between commas")]
+    [DataRow("Debug.Print 1; Tab(4); 3", "-", DisplayName = "Debug.Print, a Tab clause between semicolons")]
+    [DataRow("Debug.Print 1, Tab, 3", "-", DisplayName = "Debug.Print, a Tab clause with no column")]
+    [DataRow("Debug.Print Spc(1), 2", "-", DisplayName = "Debug.Print, a Spc clause first")]
+    [DataRow("Print #1, 1, Spc(2), 3", "-", DisplayName = "Print, a Spc clause between commas")]
+    public void ADanglingOperatorAfterAnItemToPrint_KeepsTheItemsBeforeIt(string statement, string op)
+    {
+        static string[] ItemsOf(string text)
+        {
+            var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{text}\r\nEnd Sub\r\n");
+            var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+            return Assert.ContainsSingle(member.Children.OfType<StatementNode>()).Children.OfType<PrintOutputItemNode>()
+                .Select(item => item.Separator ?? item.Value?.GetType().Name ?? "(none)")
+                .ToArray();
+        }
+
+        var written = ItemsOf(statement);
+        var dangling = ItemsOf($"{statement} {op}");
+
+        Assert.AreEqual(string.Join(" ", written[..^1]), string.Join(" ", dangling[..^1]), "the items before the operation");
+        Assert.AreEqual(nameof(UnbuiltExpressionTriviaNode), dangling[^1], "the operation is the last item, unbuilt");
+    }
+
+    // a For whose header ends with an operator is the For it is: its body, its Next, the statements after it and the end of the procedure are read as they are.
+    [TestMethod]
+    [DataRow("For i = 1 To 2 -", "", DisplayName = "a For header, an operator the parse leaves unread")]
+    [DataRow("For i = 1 To 2 +", "", DisplayName = "a For header, an operator the parse reads")]
+    [DataRow("For i = 1 To 2 *", "", DisplayName = "a For header, a multiplication")]
+    [DataRow("For i = 1 To 2 -", " ' c", DisplayName = "a For header, an operator the parse leaves unread, then a comment")]
+    [DataRow("For i = 1 To 2 +", " ' c", DisplayName = "a For header, an operator the parse reads, then a comment")]
+    [DataRow("For i = 1 To 2 -", ": b = 1", DisplayName = "a For header, an operator the parse leaves unread, then a colon")]
+    [DataRow("For i = 1 To 9 Step 2 -", "", DisplayName = "a For header with a Step, an operator the parse leaves unread")]
+    [DataRow("For i = 1 To 9 Step 2 +", "", DisplayName = "a For header with a Step, an operator the parse reads")]
+    [DataRow("For Each x In xs -", "", DisplayName = "a For Each header, an operator the parse leaves unread")]
+    [DataRow("For Each x In xs +", "", DisplayName = "a For Each header, an operator the parse reads")]
+    public void AForWhoseHeaderEndsWithADanglingOperator_KeepsItsBody(string header, string after)
+    {
+        var source = $"Public Sub Main()\r\n{header}{after}\r\nb = 2\r\nNext\r\nc = 3\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors);
+        Assert.AreEqual(1, error.Location.Range.Start.Line, "the error is in the For's header");
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, members);
+        Assert.AreEqual(5, members[0].SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+        var loop = Assert.ContainsSingle(members[0].Children.Where(node => node is ForStatementNode or ForEachStatementNode));
+        Assert.AreEqual(3, loop.SourceLocation.Range.End.Line, "the For ends at its Next");
+        var body = loop is ForStatementNode @for ? @for.Body : ((ForEachStatementNode)loop).Body;
+        Assert.IsTrue(body.Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"), "the For's body");
+        Assert.IsTrue(members[0].Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "c = 3"), "the statement after the For");
+        if (after.TrimStart().StartsWith('\''))
+        {
+            Assert.AreEqual(after.TrimStart(), TextOf(source, Assert.ContainsSingle(parse.Trivia.OfType<CommentTriviaNode>()).SourceLocation.Range));
+        }
+    }
+
     // a statement after a colon is read on its own too: the end of the statement the error is in is the colon.
     [TestMethod]
     public void TheStatementAfterADanglingOperatorAndAColon_IsReadOnItsOwn()
