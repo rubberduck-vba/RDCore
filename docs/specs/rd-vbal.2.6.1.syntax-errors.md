@@ -36,7 +36,7 @@ excluded branch, and nothing closes it:
 End Sub
 ```
 
-MS-VBA compiles the live code only, and runs it. The parser reads every branch, so it reads the live statements after the branch into the `If`, and
+MS-VBA compiles the live code only, and runs it (observed in Excel). The parser reads every branch, so it reads the live statements after the branch into the `If`, and
 reports the error where the `If`'s end was expected, at `End Sub`. RD-VBA refuses the run, with "A block opened in a #If branch is not closed in it."
 The same goes for a `With`, a loop and a `Select Case`.
 
