@@ -888,18 +888,18 @@ public sealed class ScopeTreeSymbolResolverTests
     public void ResolveValue_ALibrarysModule_BeatsAnotherLibrarysMemberOfTheSameName()
         // MS-VBAL 5.6.10: a referenced project's procedural module (tier 5) comes before the members of a referenced project's
         // modules (tier 6), whatever the reference precedence of the libraries - Excel's Enum Constants does not hide VBA's module
-        // Constants. The project tier holds both the workspace's members and the libraries', so the libraries' modules rank between
-        // the two.
+        // Constants, nor a module of a library referenced after Excel. The project tier holds both the workspace's members and the
+        // libraries', so the libraries' modules rank between the two.
     {
         var constants = LibraryModule("Constants", "VBA", priority: 0);
         var excel = LibraryModule("_Excel", "Excel", priority: 2);
         var enumeration = (VBEnumMemberSymbol)EnumType(excel.Uri, "Constants").With(SymbolProperties.Library, "Excel").With(SymbolProperties.LibraryPriority, 2);
+        var widgets = LibraryModule("Constants", "Widgets", priority: 3);
         var caller = Module("Caller");
         var run = Procedure(caller.Uri, "Run");
 
-        var result = Resolver(constants, excel, enumeration, caller, run).ResolveValue("Constants", ScopeKind.Unallocated, run.Uri);
-
-        Assert.AreSame(constants, result.Symbol);
+        Assert.AreSame(constants, Resolver(constants, excel, enumeration, caller, run).ResolveValue("Constants", ScopeKind.Unallocated, run.Uri).Symbol);
+        Assert.AreSame(widgets, Resolver(widgets, excel, enumeration, caller, run).ResolveValue("Constants", ScopeKind.Unallocated, run.Uri).Symbol);
     }
 
     [TestMethod]
@@ -984,15 +984,18 @@ public sealed class ScopeTreeSymbolResolverTests
     [TestMethod]
     public void ResolveType_ALibrarysModule_BeatsAnotherLibrarysTypeOfTheSameName()
         // MS-VBAL 5.6.10: a referenced project's procedural module (the type binding context's fourth tier) comes before the types of a
-        // referenced project's modules (its fifth), whatever the priority of the libraries - with Excel referenced, `As Constants` names
-        // VBA's module Constants, not Excel's Enum Constants, although Excel is referenced later.
+        // referenced project's modules (its fifth), whatever the reference precedence of the libraries - with Excel referenced,
+        // `As Constants` names VBA's module Constants, not Excel's Enum Constants, and so does a module of a library referenced after
+        // Excel.
     {
         var constants = LibraryModule("Constants", "VBA", priority: 0);
         var excel = LibraryModule("_Excel", "Excel", priority: 2);
         var enumeration = (VBEnumMemberSymbol)EnumType(excel.Uri, "Constants").With(SymbolProperties.Library, "Excel").With(SymbolProperties.LibraryPriority, 2);
+        var widgets = LibraryModule("Constants", "Widgets", priority: 3);
         var caller = Module("Caller");
 
         Assert.AreSame(constants, Resolver(constants, excel, enumeration, caller).ResolveType("Constants", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(widgets, Resolver(widgets, excel, enumeration, caller).ResolveType("Constants", ScopeKind.Unallocated, caller.Uri).Symbol);
     }
 
     [TestMethod]
