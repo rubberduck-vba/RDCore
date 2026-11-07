@@ -287,6 +287,7 @@ public sealed class PrintItemKeywordOperatorTests
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors, Said(parse));
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId, Said(parse));
+        Assert.AreEqual(string.Format(SDK.Exceptions.VBCompileError_ReservedParameterName_Verbose, name), error.Verbose, "the error says the name is reserved");
         var at = header.IndexOf(name, header.IndexOf('('), StringComparison.Ordinal);
         Assert.AreEqual(new SourceRange(new SourcePosition(0, at), new SourcePosition(0, at + name.Length)), error.Location.Range, "the error is the name");
 
