@@ -14,7 +14,7 @@ An _array declaration_ creates an _array value_ of the appropriate _array type_ 
 
 The specialized array values exist to simplify pattern-matching in both static and runtime semantics.
 
-> 👉 If no _item type_ is specified in an array declaration, the _declared item type_ of the array is `Variant`.
+> If no _item type_ is specified in an array declaration, the _declared item type_ of the array is `Variant`.
 
 Array declarations are described in [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md) and [**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md).
 
@@ -88,11 +88,8 @@ Storage keeps the array value itself:
 2. For an array symbol, `SymbolAddressTable` boxes the array value itself, not a derived scalar, into the handle it allocates. It boxes the array value via [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html).
 3. On every subsequent read, [VBArrayType](../api/RDCore.SDK.Model.Types.VBArrayType.html)`.CreateValue(`[IBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html)`)` unboxes the array value back out unchanged. It does not attempt to reconstruct an array value from a bare handle.
 
-👉 Array values therefore round-trip through storage. When a plain array-typed variable is read back as an expression ([SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html), the ordinary shape of `arr` in `For Each item In arr`), `VBArrayType.CreateValue` unboxes the `VBRuntimeArrayValue` and returns the same instance, with its cells intact. See [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
+Array values therefore round-trip through storage. When a plain array-typed variable is read back as an expression ([SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html), the ordinary shape of `arr` in `For Each item In arr`), `VBArrayType.CreateValue` unboxes the `VBRuntimeArrayValue` and returns the same instance, with its cells intact. See [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
 
 `VBRuntimeArrayValue` is a plain (non-`record`) wrapper. Boxing the array through a structurally-equatable type would make comparing two array-typed `VBTypedValue`s recurse back into the array's own equality, through the same boxed value.
 
 A UDT value carries its field store as an array value carries its element block, and a `Variant` uses the same boxing pattern for storage; see [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md) and [**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md).
-
----
-> ⏮️ [**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md) | ⏭️ [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md)

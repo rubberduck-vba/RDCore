@@ -20,7 +20,7 @@ public class CorePlatformClientCapabilities
     public EnvironmentHostCapabilities? EnvironmentHost { get; set; }
 
     /// <summary>
-    /// The core platform capabilities of the language server — what a <em>client</em> (an IDE
+    /// The core platform capabilities of the language server: what a <em>client</em> (an IDE
     /// extension, <c>rdc.exe</c>'s interactive shell) expects the platform coordinator itself to
     /// serve beyond LSP.
     /// </summary>
@@ -99,7 +99,7 @@ public class EnvironmentHostCapabilities
 }
 
 /// <summary>
-/// Regroups all core platform <c>LanguageServer</c> capabilities — the non-LSP requests a client can
+/// Regroups all core platform <c>LanguageServer</c> capabilities: the non-LSP requests a client can
 /// make of the platform coordinator.
 /// </summary>
 public class LanguageServerCapabilities

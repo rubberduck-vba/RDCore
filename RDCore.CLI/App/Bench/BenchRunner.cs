@@ -233,7 +233,7 @@ internal sealed class BenchRunner(
         // as the language server does: the names of every module bound among all of them and the libraries the project references, then each module's symbols
         // defined in the host, then the code of each.
         stopwatch.Restart();
-        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References);
+        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, environment.Language);
         IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, environment.Is64Bit).ProvideSymbols()];
         var scope = environment.Language.ImplicitDeclarationScope;
 

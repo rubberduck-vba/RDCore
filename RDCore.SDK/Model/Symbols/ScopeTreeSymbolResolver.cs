@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Model.Symbols;
@@ -27,13 +28,14 @@ namespace RDCore.SDK.Model.Symbols;
 /// project, as the qualifier of a qualified type name, by <see cref="ResolveQualifier"/>), and a
 /// local, parameter, constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
 /// predeclared instance (<see cref="VBPredeclaredInstanceSymbol"/>) is also a name in the default binding
-/// context — as that instance, a variable of the class's type.
+/// context, as that instance: a variable of the class's type.
 /// <para>
-/// A name-resolution service only — the value-binding members throw, matching the intent of a
+/// A name-resolution service only: the value-binding members throw, matching the intent of a
 /// design-time resolver that holds no run-time bindings. Where the candidates of one tier of the project or
-/// global scope are of different projects, the workspace's own shadow every library's, and a library shadows
-/// one whose reference ranks below it in the project (<see cref="SymbolProperties.LibraryPriority"/>);
-/// candidates that still share the top rank are an ambiguous name, a result that carries
+/// global scope are of different projects, the workspace's own shadow every library's, the standard library
+/// shadows every referenced library, and a library shadows one the project references after it: the earlier
+/// reference has the higher reference precedence (<strong>MS-VBAL §4.1</strong>,
+/// <see cref="SymbolProperties.LibraryPriority"/>); candidates still tied after that, of the one project with the highest reference precedence, are an ambiguous name, a result that carries
 /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> and the candidates rather than an unbound one.
 /// </para>
 /// </remarks>
@@ -325,8 +327,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         // at the project and global tiers the candidates are of different projects - the workspace's own and each library's - and a name that several of them
-        // declare means the one that shadows the others: the workspace's declaration shadows every library's, and a library that is referenced later shadows
-        // one that is referenced earlier (RD-VBAL §2.3.1.2). Candidates of one rank are still a collision.
+        // declare means the one that shadows the others: the workspace's declaration shadows every library's, the standard library's every referenced library's,
+        // and a library that is referenced earlier one that is referenced later (MS-VBAL §4.1, RD-VBAL §2.3.1.3). Candidates of one rank are still a collision.
         if (matches.Length > 1 && lexicalScope.Kind is LexicalScopeKind.Project or LexicalScopeKind.Global)
         {
             matches = Shadowing(matches);
@@ -352,12 +354,19 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             : SymbolResolutionResult.Duplicate(matches);
     }
 
-    // what shadows: a symbol of no library is the workspace's own and outranks any library's; a library's rank is the precedence of its reference.
+    // what shadows, the lowest rank first: a symbol of no library is the workspace's own and outranks any library's; then the standard library's, which comes
+    // before every reference (MS-VBAL §4.1: the earlier reference has the higher precedence); then each library by the precedence of its reference; and a symbol
+    // of a library that carries no precedence comes after every one that does, so that it never ties with the standard library or the workspace.
     private static Symbol[] Shadowing(Symbol[] candidates)
     {
-        static int Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is null ? int.MaxValue : symbol.GetProperty(SymbolProperties.LibraryPriority);
+        static long Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) switch
+        {
+            null => -1,
+            StdLibSymbolProvider.LibraryName => 0,
+            _ => symbol.TryGetProperty(SymbolProperties.LibraryPriority, out var priority) ? priority : long.MaxValue,
+        };
 
-        var highest = candidates.Max(Rank);
+        var highest = candidates.Min(Rank);
         return [.. candidates.Where(candidate => Rank(candidate) == highest)];
     }
 

@@ -22,6 +22,3 @@ Keeping the source code on the file system completely decouples a VBA project fr
 |2.2.1|[Conventions](rd-vbal.2.2.1.conventions.md)|
 |2.2.2|[WorkspaceFile](rd-vbal.2.2.2.workspacefile.md)|
 |2.2.3|[ProjectFile](rd-vbal.2.2.3.projectfile.md)|
-
----
-> ⏮️ [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md) | ⏭️ [**RD-VBAL §2.2.1** Conventions](rd-vbal.2.2.1.conventions.md)

@@ -26,7 +26,7 @@ public interface ISymbolResolver
     /// <param name="scope">A memory-scope hint; the compile-time resolver does not consult it.</param>
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
     /// <returns>
-    /// A <see cref="SymbolResolutionResult"/> — the bound <see cref="Symbol"/>, an unbound result, or
+    /// A <see cref="SymbolResolutionResult"/>: the bound <see cref="Symbol"/>, an unbound result, or
     /// a <see cref="Model.Errors.VBCompileErrorId.DuplicateDeclaration"/> /
     /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
     /// </returns>
@@ -35,7 +35,7 @@ public interface ISymbolResolver
     /// <summary>
     /// Resolves the specified <em>identifier name</em> in the <em>type binding context</em>
     /// (<strong>MS-VBAL §5.6.4</strong>), as seen from the scope the symbol at <paramref name="handle"/>
-    /// belongs to. This is the context of an expression that expects a type or class name — an
+    /// belongs to. This is the context of an expression that expects a type or class name: an
     /// <c>As</c> clause, the operand of <c>New</c>: it binds a user-defined type, an Enum type, a class or
     /// procedural module, or the project. A local, parameter, constant, variable or procedure is never a
     /// candidate, however it is named, so it can neither be bound nor hide the type it shadows in
@@ -46,30 +46,30 @@ public interface ISymbolResolver
     /// <param name="scope">A memory-scope hint; the compile-time resolver does not consult it.</param>
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
     /// <returns>
-    /// A <see cref="SymbolResolutionResult"/> — the bound <see cref="Symbol"/>, an unbound result, or
+    /// A <see cref="SymbolResolutionResult"/>: the bound <see cref="Symbol"/>, an unbound result, or
     /// a <see cref="Model.Errors.VBCompileErrorId.DuplicateDeclaration"/> /
     /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
     /// </returns>
     SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle);
 
     /// <summary>
-    /// Resolves the specified <em>identifier name</em> as the <em>qualifier</em> of a qualified type name — the
-    /// <c>A</c> in <c>A.B</c> — in the <em>type binding context</em> (<strong>MS-VBAL §5.6.4</strong>), as seen from
+    /// Resolves the specified <em>identifier name</em> as the <em>qualifier</em> of a qualified type name (the
+    /// <c>A</c> in <c>A.B</c>) in the <em>type binding context</em> (<strong>MS-VBAL §5.6.4</strong>), as seen from
     /// the scope the symbol at <paramref name="handle"/> belongs to. A qualifier is a namespace: it binds the project,
     /// or a procedural or class module, and never a user-defined type or an Enum type, however the name ranks in
-    /// <see cref="ResolveType"/> — neither can contain a type. A local, parameter, constant, variable or procedure is
+    /// <see cref="ResolveType"/>: neither can contain a type. A local, parameter, constant, variable or procedure is
     /// never a candidate either.
     /// </summary>
     /// <remarks>
     /// Which lookup a name uses is positional: the last part of <c>A.B</c>, like a bare name, is bound by
-    /// <see cref="ResolveType"/>; only what precedes a dot is bound here. This holds wherever a type name appears —
+    /// <see cref="ResolveType"/>; only what precedes a dot is bound here. This holds wherever a type name appears:
     /// an <c>As</c> clause, <c>As New</c>, the operand of <c>New</c>.
     /// </remarks>
     /// <param name="name">The name of the <see cref="Symbol"/> to resolve.</param>
     /// <param name="scope">A memory-scope hint; the compile-time resolver does not consult it.</param>
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
     /// <returns>
-    /// A <see cref="SymbolResolutionResult"/> — the bound <see cref="Symbol"/>, an unbound result, or
+    /// A <see cref="SymbolResolutionResult"/>: the bound <see cref="Symbol"/>, an unbound result, or
     /// an <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
     /// </returns>
     SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle);
@@ -107,8 +107,8 @@ public interface ISymbolResolver
     /// Its own binding context, and the reason is <strong>MS-VBAL §3.4.1</strong>: a <c>#Const</c> "defines
     /// a constant binding <em>accessible to &lt;cc-expression&gt; elements</em> of the containing module",
     /// and <strong>§5.6.16.2</strong> is the only place a reference to one is defined at all. So a
-    /// conditional compilation constant is <em>not</em> a name in the default binding context — <c>x = Win64</c>
-    /// in ordinary source does not bind it, and <see cref="ResolveValue"/> never returns one — while a
+    /// conditional compilation constant is <em>not</em> a name in the default binding context (<c>x = Win64</c>
+    /// in ordinary source does not bind it, and <see cref="ResolveValue"/> never returns one), while a
     /// <c>#If Win64 Then</c> resolves it only here.
     /// <para>
     /// §3.4.1 also gives the shadowing rule this follows: a module's own <c>#Const</c> shadows a
@@ -119,7 +119,7 @@ public interface ISymbolResolver
     /// <param name="scope">A memory-scope hint; the compile-time resolver does not consult it.</param>
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
     /// <returns>
-    /// A <see cref="SymbolResolutionResult"/> carrying the bound constant, or an unbound result — which
+    /// A <see cref="SymbolResolutionResult"/> carrying the bound constant, or an unbound result, which
     /// <strong>§5.6.16.2</strong> gives a meaning of its own: a conditional compilation constant that
     /// names nothing evaluates to <c>0</c>, not to an error.
     /// </returns>
@@ -127,7 +127,7 @@ public interface ISymbolResolver
 
     /// <summary>
     /// Resolves <paramref name="name"/> as a member of <paramref name="owner"/>, a project or a procedural module: the
-    /// right-hand side of a member access whose left-hand side is one of them (<strong>MS-VBAL §5.6.12</strong>) —
+    /// right-hand side of a member access whose left-hand side is one of them (<strong>MS-VBAL §5.6.12</strong>):
     /// <c>Strings.LenB</c>, <c>VBA.Strings</c>, <c>VBA.LenB</c>.
     /// </summary>
     /// <remarks>
@@ -138,7 +138,7 @@ public interface ISymbolResolver
     /// What the member of a <em>project</em> can be is, in the order the specification gives them: a project, when
     /// <paramref name="owner"/> is the enclosing project; a procedural module of the project of that name; and, only
     /// when there is no such module, the one accessible member of that name that exactly one of the project's
-    /// procedural modules has — a name two of them declare is ambiguous, and the reference has to qualify it.
+    /// procedural modules has: a name two of them declare is ambiguous, and the reference has to qualify it.
     /// </para>
     /// <para>
     /// 👉 A class module is not an owner here: its members are reached through an instance of it, which is a member
@@ -168,7 +168,7 @@ public interface ISymbolResolver
     bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value);
 
     /// <summary>
-    /// Gets the <see cref="MemoryAddress"/> currently reserved for <paramref name="symbol"/>, if any —
+    /// Gets the <see cref="MemoryAddress"/> currently reserved for <paramref name="symbol"/>, if any:
     /// what a <c>ByRef</c> argument binds to (<strong>MS-VBAL §5.3.1.11</strong>: "a reference parameter
     /// binding... referring to the variable referenced by the argument's expression").
     /// </summary>
@@ -177,11 +177,11 @@ public interface ISymbolResolver
     bool TryGetAddress(Symbol symbol, out MemoryAddress address);
 
     /// <summary>
-    /// Reserves storage sized for <paramref name="value"/> and binds it to <paramref name="symbol"/> —
+    /// Reserves storage sized for <paramref name="value"/> and binds it to <paramref name="symbol"/>:
     /// a <c>Static</c> local's own first-call allocation (<strong>MS-VBAL §5.4.3.1</strong>: module
     /// extent, so it must persist past its own frame popping) chiefly. This is a storage-only
     /// operation: it never affects name resolution, so it is never how a symbol's name itself becomes
-    /// resolvable — that rides on its own declaring symbol instead (a procedure's own
+    /// resolvable; that rides on its own declaring symbol instead (a procedure's own
     /// <c>Locals</c>/<c>Parameters</c>), the same way calling this twice for an already-allocated
     /// symbol is safe (a fresh allocation, the previous one freed first) but never necessary.
     /// </summary>

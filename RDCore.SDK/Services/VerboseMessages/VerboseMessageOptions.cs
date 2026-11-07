@@ -43,7 +43,7 @@ public record class VerboseMessageOptions(
 {
     /// <summary>
     /// The defaults. Required by the options binder, which constructs a <c>T</c> before it binds
-    /// anything onto it — a positional record's own all-optional constructor is not parameterless, so
+    /// anything onto it: a positional record's own all-optional constructor is not parameterless, so
     /// without this an <c>IOptions&lt;VerboseMessageOptions&gt;</c> cannot be resolved at all.
     /// </summary>
     public VerboseMessageOptions() : this(IsEnabled: true) { }

@@ -92,6 +92,8 @@ StyleCopReport.xml
 *.rsp
 *.sbr
 *.tlb
+# a type library that a test reads is a fixture, not a build output
+!RDCore.Tests/Cli/Data/*.tlb
 *.tli
 *.tlh
 *.tmp

@@ -11,14 +11,14 @@ The following are *language core extensions*:
 |Language core extension|See|
 |---|---|
 |The comment annotations syntax from the *legacy Rubberduck VBIDE add-in*.|[**RD-VBAL §3.0.1** Token Semantics](rd-vbal.3.0.1.token-semantics.md)|
-|An explicit coercion operator ([BinaryLetCoerceOperatorStaticSemantics](../api/RDCore.SDK.Semantics.Static.Operators.BinaryLetCoerceOperatorStaticSemantics.html)), introduced for semantic disambiguation.|[**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md)|
+|An explicit let-coercion operator (`"__c()_op"`, [UnaryLetCoerceOperatorStaticSemantics](../api/RDCore.SDK.Semantics.Static.Operators.UnaryLetCoerceOperatorStaticSemantics.html)) for parentheses that are not around an operand of an operator. It tells the coercion to a value that MS-VBAL §5.6.6 gives a parenthesized expression apart from the grouping of an operand (`"__p()_op"`).|[**RD-VBAL §3.3.1** Unary Operators](rd-vbal.3.3.1.unary-operators.md)|
 |The explicit addition of runtime semantics for a unary `+` operator.|[**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md)|
 
 These extensions do not *alter* the language; they *reveal* it.
 
-> ✅ **A valid language core extension makes explicit what was implicit.**
+> **A valid language core extension makes explicit what was implicit.**
 >
-> ❌ **An invalid language core extension introduces new semantics.**
+> **An invalid language core extension introduces new semantics.**
 
 ## Valid Examples
 
@@ -37,6 +37,3 @@ Deferred execution semantics would effectively make *functions* a first-class RD
 ## Platform-level Extensions
 
 The invalid examples above are not invalid extensions in the *RDCore ecosystem*. Each of them could be a [*platform-level* extension](rd-vbal.1.1.1.platform-extensions.md).
-
----
-> ⏮️ [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md) | ⏭️ [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md)

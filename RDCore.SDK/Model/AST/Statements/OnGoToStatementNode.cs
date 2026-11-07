@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.AST.Statements;
 
 /// <summary>
-/// <strong>MS-VBAL §5.4.2.13</strong> On...GoTo Statement — evaluates <see cref="Selector"/>, Let-coerces
+/// <strong>MS-VBAL §5.4.2.13</strong> On...GoTo Statement: evaluates <see cref="Selector"/>, Let-coerces
 /// it to <c>Integer</c>, and moves the <em>current instruction</em> pointer to the corresponding label
 /// in <see cref="Labels"/> (1-based; out of range completes the statement without branching).
 /// </summary>

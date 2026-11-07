@@ -3,7 +3,7 @@
 > [!NOTE]
 > This specification is incomplete at this time.
 
-🎯 The **RDCore** platform tooling shall ultimately include a _lightweight VBIDE add-in_.
+This section specifies a _lightweight VBIDE add-in_ for the **RDCore** platform tooling.
 
 The VBIDE add-in is responsible for:
 
@@ -15,6 +15,3 @@ The VBIDE add-in is responsible for:
 
 Attaching an environment host to a host process is described in
 [**RD-VBAL §4.0** Program Structure and Organization](rd-vbal.4.0.program-structure.md).
-
----
-> ⏮️ [**RD-VBAL §4.0** Program Structure and Organization](rd-vbal.4.0.program-structure.md) | ⏭️ [**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md)

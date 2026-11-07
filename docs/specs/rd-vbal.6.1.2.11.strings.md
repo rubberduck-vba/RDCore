@@ -527,13 +527,13 @@ one function with two exceptions (strings and UDTs), rather than two functions.
 |A `String`|Its number of whole characters.|"the number of bytes used to represent that string": two per character, and one more for a trailing byte ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)).|
 |A fixed-length `String`|Its declared length.|Twice its declared length.|
 |`Null`|`Null`|`Null`|
-|🎯 An `Error` value|Error `13`, as **MS-VBA** has it (recorded in Excel).|Error `13`.|
+|An `Error` value|Error `13`, as **MS-VBA** has it (recorded in Excel).|Error `13`.|
 |Any other scalar|The bytes it occupies.|The same as `Len`: the bytes it occupies.|
-|A UDT|"the size as it will be written to the file": 👉 its members' memory widths, with no padding|"the in-memory size, including any implementation-specific padding between elements"|
+|A UDT|"the size as it will be written to the file": its members' memory widths, with no padding|"the in-memory size, including any implementation-specific padding between elements"|
 
 #### UDT sizes
 
-The UDT row is the one that needs the platform to know two different sizes for the same value. 🎯 A UDT has two
+The UDT row is the one that needs the platform to know two different sizes for the same value. A UDT has two
 sizes, and RD-VBA measures both as MS-VBA does (recorded in Excel, 64-bit), for the environment's pointer width:
 
 - `LenB` is its in-memory size: each member aligned to its own width (up to 8), and the whole padded to its widest
@@ -546,7 +546,7 @@ environment), a `Variant` is 24 (16 in a 32-bit one), and a fixed-size array mem
 `{ a As Long, s As String }` is `12` whatever `s` holds, and its `LenB` is `16`; `{ a As Byte, b As String * 3 }` is
 `4` and `7`.
 
-👉 This is not "the size as it will be written to the file": a `Put` of a record writes a variable-length `String`
+This is not "the size as it will be written to the file": a `Put` of a record writes a variable-length `String`
 member as its length and its characters. MS-VBAL warns that "`Len` might not be able to determine the actual number of
 storage bytes required when used with variable-length strings in user-defined data types"; MS-VBA, and RD-VBA, count the
 pointer.
@@ -568,14 +568,14 @@ returns a `String` or a `Variant` counts its characters, and of one whose defaul
 
 #### Declared types at external dispatch
 
-👉 An external call carries _runtime_ values rather than _typed_ ones, so the declared type of the value a member was
+An external call carries _runtime_ values rather than _typed_ ones, so the declared type of the value a member was
 called with is recovered at external dispatch
 ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).
 The declared type survives external dispatch because each intrinsic stores its own exact managed type: a `short` for
 `Integer` and an `int` for `Long`, not one integer type for both
 ([**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md)).
 
-👉 This is what lets `Len` return "the number of bytes required to store a variable" for the variable it is given.
+This is what lets `Len` return "the number of bytes required to store a variable" for the variable it is given.
 `Date` and `Double` are indistinguishable at external dispatch. That costs `Len` nothing, because they have the same
 width; a parameter declared `Date` will need its declared type to recover its argument.
 
@@ -717,6 +717,3 @@ the regional settings: `WeekdayName(1)` is `"lundi"` in fr-FR. The page's table 
 declaration does not: the declaration is what is declared, and MS-VBA's type library declares the same default, `0`
 (`VBE7.DLL`: `Optional FirstDayOfWeek As VbDayOfWeek = 0`). A `Weekday` other than `1` to `7`, then a `FirstDayOfWeek` that
 is no value of its enumeration, are error `5`.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.10** Math](rd-vbal.6.1.2.10.math.md) | ⏭️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md)

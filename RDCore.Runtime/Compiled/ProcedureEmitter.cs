@@ -35,11 +35,11 @@ internal sealed partial class ProcedureEmitter
     private readonly Dictionary<int, LocalBuilder> _cells = [];
     private readonly Dictionary<int, int> _cellNumbers = [];
 
-    // the Variant slots, each by the local the cell its frame holds it in is held in (IR lowering S2.5c).
+    // the Variant slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _variants = [];
     private static readonly Type Variants = typeof(VariantOperations);
 
-    // the object slots, each by the local the cell its frame holds it in is held in (IR lowering S2.5e2).
+    // the object slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _objects = [];
     private static readonly Type Objects = typeof(ObjectOperations);
 
@@ -163,7 +163,9 @@ internal sealed partial class ProcedureEmitter
             _objects[slot] = _il.DeclareLocal(typeof(object));
         }
 
+        DeclareTextCells();
         DeclareArrays();
+
         foreach (var next in _analysis.Steps.OfType<VariantForNextStep>())
         {
             if (_analysis.SpeculatedKinds.TryGetValue(next.Counter, out var counting) && !_variantLoops.ContainsKey(next.Opener))
@@ -262,7 +264,7 @@ internal sealed partial class ProcedureEmitter
 
         foreach (var slot in _analysis.CellSlots)
         {
-            // a field of Me is in the cell the object holds it in (IR lowering S2.5e): one held otherwise makes the activation the interpreter's from the start.
+            // a field of Me is in the cell the object holds it in: one held otherwise makes the activation the interpreter's from the start.
             if (_analysis.FieldSlots.Contains(slot))
             {
                 EmitFieldCell(slot, WalkBackAt(0), nameof(CompiledActivation.FieldCellOf));
@@ -293,6 +295,7 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, cell);
         }
 
+        EmitTextCells();
         EmitArrayEntry();
     }
 
@@ -325,22 +328,22 @@ internal sealed partial class ProcedureEmitter
         switch (step)
         {
             case LetStep let when let.Slot < 0:
-                Store(EmitPayload(let.Value, FailureAt(let.Offset)), let.Value.Kind, _result!);
+                Store(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, _result!);
                 break;
 
             case LetStep let:
-                StoreSlot(EmitPayload(let.Value, FailureAt(let.Offset)), let.Value.Kind, let.Slot);
+                StoreSlot(EmitPayload(let.Value, FailureOf(let.Value, let.Offset)), let.Value.Kind, let.Slot);
                 break;
 
             case BranchStep branch:
                 // true falls through into the branch, false goes to its Else.
-                EmitBranch(branch.Condition, branch.Negate, whenFalse: _instructions[branch.Else], FailureAt(branch.Offset));
+                EmitBranch(branch.Condition, branch.Negate, whenFalse: _instructions[branch.Else], FailureOf(branch.Condition, branch.Offset));
                 break;
 
             case LoopBackStep loopBack:
                 EmitPoll(loopBack.Offset);
                 var past = _il.DefineLabel();
-                EmitBranch(loopBack.Condition, loopBack.Negate, whenFalse: past, FailureAt(loopBack.Offset));
+                EmitBranch(loopBack.Condition, loopBack.Negate, whenFalse: past, FailureOf(loopBack.Condition, loopBack.Offset));
                 _il.Emit(OpCodes.Br, _instructions[loopBack.Target]);
                 _il.MarkLabel(past);
                 break;
@@ -465,6 +468,10 @@ internal sealed partial class ProcedureEmitter
 
             case VariantForNextStep variantNext:
                 EmitVariantForNext(variantNext);
+                break;
+
+            case TextLetStep textLet:
+                EmitTextLet(textLet);
                 break;
 
             case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
@@ -648,14 +655,16 @@ internal sealed partial class ProcedureEmitter
     private void EmitCall(CallStep call)
     {
         // the arguments, each held where it is - a variable, a constant - or in a local of its own; one that fails fails the instruction before anything is called.
+        // A String compiled code reads nothing of - one that ends with a lone byte, or is held in no cell of its own - is the interpreter's: the instruction
+        // is run by it alone, as a Let of one is.
         var failure = FailureAt(call.Offset);
         var arguments = new Operand[call.Arguments.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = EmitArgument(call.Arguments[i], failure);
+            arguments[i] = EmitArgument(call.Arguments[i], call.Arguments[i] is TextArgumentNode or TextReferenceNode ? RecoverAt(call.Offset) : failure);
         }
 
-        // a member of an object (IR lowering S2.5e3): the object the variable refers to, and the member its class invokes, found before anything is called.
+        // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
         if (call.Receiver is { } receiver)
         {
             _il.Emit(OpCodes.Ldarg_0);
@@ -678,7 +687,7 @@ internal sealed partial class ProcedureEmitter
 
         // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
-        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has (IR lowering S2.5e3b).
+        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has.
         var direct = _directs[call.Callee];
         if (direct is not null || call.Receiver is not null)
         {
@@ -713,7 +722,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.MemberEntry))!.GetMethod!);
                 _il.EmitCalli(OpCodes.Calli, CallingConventions.Standard, typeof(RuntimeExecutionOutcome),
-                    [typeof(CompiledActivation), .. member.Parameters.Select((kind, i) => member.ByReference[i] ? typeof(object) : ClrTypeOf(kind))], null);
+                    [typeof(CompiledActivation), .. member.Parameters.Select((kind, i) => member.ByReference[i] ? typeof(object) : ClrTypeOf(kind!.Value))], null);
             }
 
             _il.Emit(OpCodes.Stloc, outcome);
@@ -743,6 +752,22 @@ internal sealed partial class ProcedureEmitter
             {
                 Load(arguments[i], call.Arguments[i].Kind);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetReference))!);
+                continue;
+            }
+
+            // a String: the address of the variable given, or the text given.
+            if (call.Arguments[i] is TextReferenceNode reference)
+            {
+                _il.Emit(OpCodes.Ldc_I4, reference.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetTextReference))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                continue;
+            }
+
+            if (call.Arguments[i] is TextArgumentNode)
+            {
+                _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetText))!);
                 continue;
             }
 
@@ -885,13 +910,17 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.State);
         }
 
-        // each field's cell, found again, as each Variant's is: an edit made while the program waited may have given the object others.
+        // each field's cell, found again (FieldCellOf): the body's cache gives the cell of the same object as it is, and finds it again on the object when a
+        // callee ran the body on another object meanwhile, and the cache is that object's. An edit made while the program waited hands the activation to the
+        // interpreter, so no edit is read here.
         foreach (var slot in _analysis.FieldSlots)
         {
             EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
         }
 
-        // each Variant's cell, found again: what the interpreter ran may have bound the slot to another.
+        // each Variant's cell, found again. Nothing the interpreter runs binds a Variant's slot to another cell: a ReDim keeps the Variant in its cell, and
+        // an edit of the procedure while it waits leaves the rest of its activation to the interpreter. So this finds the same cell. It is the reload's own
+        // read: one that fails (FailsAccessAtRandom) goes to unread like any other, and a statement that came to rebind a slot would be read here.
         foreach (var (slot, cell) in _variants)
         {
             _il.Emit(OpCodes.Ldarg_0);
@@ -901,7 +930,8 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, unread);
         }
 
-        // each object's cell, found again: a Set the interpreter ran binds the slot to another.
+        // each object's cell, found again as each Variant's is. A Set the interpreter ran stores the reference into the cell the slot holds, so this finds
+        // the same cell; it is read from the frame again rather than assumed kept.
         foreach (var (slot, cell) in _objects)
         {
             _il.Emit(OpCodes.Ldarg_0);
@@ -911,6 +941,7 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, unread);
         }
 
+        EmitReloadTextCells(unread);
         EmitArrayReload(unread);
 
         // the function result variable too, which the spill before the call wrote.
@@ -1090,6 +1121,33 @@ internal sealed partial class ProcedureEmitter
     // the label an operation of the instruction at offset goes to when it fails: the instruction is the interpreter's, from there on - or, in a body with an
     // error handler, the interpreter's alone, which gives its error to the handler, and the activation goes on compiled where the handler sends it.
     private Label FailureAt(int offset) => _analysis.HandlesErrors ? RecoverAt(offset) : WalkBackAt(offset);
+
+    // the label the evaluation of value in the instruction at offset goes to when it fails: a Variant it reads declines when it holds what compiled code
+    // does not evaluate, which is no error - the interpreter runs the instruction alone, as it does a Let of the Variant, and compiled code goes on after it.
+    private Label FailureOf(PayloadNode value, int offset) => ReadsVariant(value) ? RecoverAt(offset) : FailureAt(offset);
+
+    private static bool ReadsVariant(PayloadNode node) => node switch
+    {
+        UnvariantNode or TruthNode => true,
+        ConvertNode convert => ReadsVariant(convert.Operand),
+        IntegralNode integral => ReadsVariant(integral.Left) || ReadsVariant(integral.Right),
+        LogicalNode logical => ReadsVariant(logical.Left) || ReadsVariant(logical.Right),
+        CompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
+        NotNode not => ReadsVariant(not.Operand),
+        NegateNode negate => ReadsVariant(negate.Operand),
+        StoreNode store => ReadsVariant(store.Value),
+        ExtendedCompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
+        TemporaryNode temporary => ReadsVariant(temporary.Value),
+        _ => false,
+    };
+
+    private static bool ReadsVariant(ExtendedNode node) => node switch
+    {
+        WidenNode widen => ReadsVariant(widen.Operand),
+        ExtendedOperationNode operation => ReadsVariant(operation.Left) || ReadsVariant(operation.Right),
+        ExtendedNegateNode negate => ReadsVariant(negate.Operand),
+        _ => false,
+    };
 
     // the label the activation is handed to the interpreter at, before the instruction at offset, for good.
     private Label WalkBackAt(int offset)
@@ -1371,13 +1429,25 @@ internal sealed partial class ProcedureEmitter
     }
 
     // the argument of a call: a value - which is all a parameter passed by reference is given of one that is no variable, until the call is made directly
-    // (EmitTemporaries) - or the cell of a variable passed by reference.
-    private Operand EmitArgument(PayloadNode node, Label failure) => node switch
+    // (EmitTemporaries) - or the cell of a variable passed by reference. A String's text, or its cell, is in a local of its own.
+    private Operand EmitArgument(PayloadNode node, Label failure)
     {
-        ReferenceNode reference => new Operand(_cells[reference.Slot], 0, 0),
-        TemporaryNode temporary => EmitPayload(temporary.Value, failure),
-        _ => EmitPayload(node, failure),
-    };
+        switch (node)
+        {
+            case ReferenceNode reference:
+                return new Operand(_cells[reference.Slot], 0, 0);
+            case TemporaryNode temporary:
+                return EmitPayload(temporary.Value, failure);
+            case TextArgumentNode text:
+                return new Operand(EmitTextInto(text.Value, failure), 0, 0);
+            case TextReferenceNode reference:
+                _il.Emit(OpCodes.Ldloc, _texts[reference.Slot]);
+                _il.Emit(OpCodes.Brfalse, failure);
+                return new Operand(_texts[reference.Slot], 0, 0);
+            default:
+                return EmitPayload(node, failure);
+        }
+    }
 
     // the arguments of a call made directly: a parameter passed by reference that is given a value is given a cell of its own holding it, which is the
     // callee's alone (MS-VBAL §5.3.1.11). The invoker is given the value, and the interpreter makes the callee's cell of it, as for a call it makes.
@@ -1614,6 +1684,10 @@ internal sealed partial class ProcedureEmitter
                 return AsBoolean();
             }
 
+            case TextCompareNode compared:
+                EmitTextCompare(compared, failure);
+                return AsBoolean();
+
             // TypeOf, as the interpreter tests it; of Nothing, which raises error 91, the interpreter's.
             case TypeOfNode typeOf:
             {
@@ -1679,7 +1753,7 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // evaluates what a Variant is into a local (IR lowering S2.5c): each operation planned for the subtypes of its operands, and one the evaluation on
+    // evaluates what a Variant is into a local: each operation planned for the subtypes of its operands, and one the evaluation on
     // payloads declines going to failure.
     private LocalBuilder EmitVariant(VariantNode node, Label failure)
     {

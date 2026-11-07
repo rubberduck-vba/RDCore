@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.Values.Bindings;
 /// <remarks>
 /// <see cref="IBindingHandle.Invoke"/> throws a run-time error, because it has only an
 /// <see cref="IRuntimeValue"/> to return; the semantics layer never throws, and needs the error in the
-/// result. Both callable bindings have always had a <c>Call</c> that does that — this is the shape they
+/// result. Both callable bindings have always had a <c>Call</c> that does that: this is the shape they
 /// share, so a call site can hold one without knowing whether the code behind it is the workspace's.
 /// </remarks>
 public interface ICallableBinding : IBindingHandle
@@ -37,7 +37,7 @@ public interface ICallableBinding : IBindingHandle
 /// The one place that decides <em>what kind of code a member is</em>: the workspace's own, which an
 /// <see cref="IProcedureInvoker"/> runs, or something outside it, which an
 /// <see cref="IExternalDispatcher"/> reaches. Every call site asks for a binding and invokes it, so none of
-/// them carries that decision — and a new kind of callable target is a case here rather than a branch in
+/// them carries that decision, and a new kind of callable target is a case here rather than a branch in
 /// each of them.
 /// <para>
 /// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
@@ -50,7 +50,7 @@ public interface ICallableBindingFactory
     /// </summary>
     /// <param name="member">The member to bind.</param>
     /// <param name="receiver">
-    /// The object a member of a class is bound to — the <c>Me</c> of the call — or <see langword="null"/> for
+    /// The object a member of a class is bound to (the <c>Me</c> of the call), or <see langword="null"/> for
     /// a member of a module.
     /// </param>
     /// <param name="callSite">

@@ -6,7 +6,7 @@
 
 
 ---
-## 💡 L'idée
+## L'idée
 
 Pensez **Roslyn, mais pour VBA**.
 
@@ -22,10 +22,10 @@ VBA n'est pas qu'un runtime vieillissant - c'est aussi une _spécification de la
 
 
 ---
-## 🚀 Architecture
+## Architecture
 
-- **Les librairies RDCore.SDK et RDCore.SDK.Protocol** sont sous licence  **⚖️MIT**;
-- **Tout le reste** construit par-dessus, est sous licence **⚖️GPLv3**.
+- **Les librairies RDCore.SDK et RDCore.SDK.Protocol** sont sous licence  **MIT**;
+- **Tout le reste** construit par-dessus, est sous licence **GPLv3**.
 
 ![Survol de la Solution RDCore](images/solution-overview.png)
 
@@ -37,7 +37,7 @@ RDCore est constitué de :
 
 
 ---
-## ✨ Ce que RDCore rend possible
+## Ce que RDCore rend possible
 - Analyse sémantique profonde de code VBA
 - Exécution de code VBA hors du VBIDE
 - Outillage langage via le protocole _Language Server_ (LSP)
@@ -46,10 +46,10 @@ RDCore est constitué de :
 
 
 ---
-## 📊 Statut du projet
+## Statut du projet
 RDCore est présentement en phase active de développement **pré-alpha**.
 
-👉 Le **statut courant du projet** est tenu à jour dans **README.md** aux côtés de l'implémentation de la plateforme dans le [référentiel sur GitHub](https://github.com/rubberduck-vba/RDCore).
+Le **statut courant du projet** est tenu à jour dans **README.md** aux côtés de l'implémentation de la plateforme dans le [référentiel sur GitHub](https://github.com/rubberduck-vba/RDCore).
 
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ BIENVENUE • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](/RDCore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

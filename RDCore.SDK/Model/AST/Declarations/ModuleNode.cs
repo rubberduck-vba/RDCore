@@ -8,7 +8,7 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// An AST root node, representing an entire module.
 /// </summary>
 /// <remarks>
-/// A module's <em>kind</em> — standard vs. class vs. document/form — is not a syntactic fact this
+/// A module's <em>kind</em>: standard vs. class vs. document/form: is not a syntactic fact this
 /// node carries: the parser is never told it and does not derive it (the grammar drops the
 /// <c>VERSION</c>/<c>BEGIN…END</c> header rather than keeping it as trivia). It is a property of the
 /// <c>Attribute VB_*</c> block a caller reads off the parsed tree, or of the raw source

@@ -9,12 +9,12 @@ namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
 /// Chains <see cref="ISymbolResolver"/>s: <see cref="ResolveValue"/> tries each in order and returns the
-/// first result that is not <see cref="SymbolResolutionResult.IsUnbound"/> — a bound symbol, or an
+/// first result that is not <see cref="SymbolResolutionResult.IsUnbound"/>: a bound symbol, or an
 /// error result (a duplicate or ambiguous name found by an earlier resolver is not masked by a later
 /// fallback). The result is unbound only when every resolver is unbound.
 /// </summary>
 /// <remarks>
-/// A compile-time composite — the value-binding members throw. Used to layer a workspace's
+/// A compile-time composite: the value-binding members throw. Used to layer a workspace's
 /// <see cref="ScopeTreeSymbolResolver"/> over an intrinsic type-name resolver, most specific first.
 /// </remarks>
 /// <param name="resolvers">The resolvers to try, in priority order.</param>

@@ -36,6 +36,3 @@ A UDT field is reachable from source code in both directions, read and write:
 
 A UDT's fields are held in its field store. See
 [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md).
-
----
-> ⏮️ [**RD-VBAL §5.6.11** Instance Expressions](rd-vbal.5.6.11.instance-expressions.md) | ⏭️ [**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)

@@ -25,7 +25,7 @@ Let-coercion, by contrast, dispatches to a per-destination-type strategy; see
 [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html) pattern-match. The unwrap is recursive,
 because a `Variant` may wrap another `Variant`.
 
-> 👉 A [VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html)'s `TypeInfo` mirrors its wrapped
+> A [VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html)'s `TypeInfo` mirrors its wrapped
 > value's, but the instance remains a `VBVariantValue`: without the unwrap, the pattern-match would see the box
 > instead of the object
 > ([**RD-VBAL §5.5.1.2.12** Let-coercion to Variant](rd-vbal.5.5.1.2.runtime-semantics.md#551212-let-coercion-to-variant)).
@@ -37,6 +37,3 @@ This section corresponds to [**MS-VBAL §5.5.2.2.2** Set-coercion to and from no
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.5.2.1** Static semantics](rd-vbal.5.5.2.1.static-semantics.md) | ⏭️ [**RD-VBAL §5.6** Expressions](rd-vbal.5.6.expressions.md)

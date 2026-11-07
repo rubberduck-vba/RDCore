@@ -8,14 +8,14 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.SDK.Model.Values.Bindings;
 
 /// <summary>
-/// A handle to a binding to a member whose code is <em>not</em> the workspace's — a standard-library
+/// A handle to a binding to a member whose code is <em>not</em> the workspace's: a standard-library
 /// member, a referenced library's, a host application's object model, or a native export a
 /// <c>Declare</c> named.
 /// </summary>
 /// <remarks>
 /// The sibling of <see cref="CallableBindingHandle"/>, and deliberately the same shape: the handle says
 /// <em>which</em> member and, for a member of a class, <em>which object</em>; something else runs it. The
-/// only difference is which engine that is — an <see cref="IProcedureInvoker"/> for code the workspace
+/// only difference is which engine that is: an <see cref="IProcedureInvoker"/> for code the workspace
 /// declares, an <see cref="IExternalDispatcher"/> for everything else.
 /// <para>
 /// Like its sibling it only ever supports <see cref="BindingCapabilities.Invoke"/>. A property of a host's
@@ -29,7 +29,7 @@ namespace RDCore.SDK.Model.Values.Bindings;
 /// <param name="Dispatcher">The engine that reaches whatever really implements <paramref name="Member"/>.</param>
 /// <param name="Receiver">
 /// The object a member of a class is bound to, <see langword="null"/> for a member of a module. It is
-/// passed as the argument at index <c>0</c>, the same as the <c>Me</c> of a workspace member — an external
+/// passed as the argument at index <c>0</c>, the same as the <c>Me</c> of a workspace member: an external
 /// object is an opaque handle, so this travels as a reference to something the provider owns rather than as
 /// anything marshalled.
 /// </param>

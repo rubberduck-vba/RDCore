@@ -14,7 +14,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// with <see cref="System.Text.Json"/> and carried inside a <see cref="PlatformJsonEnvelope"/> whose
 /// only wire field is a string the transport passes through untouched. Shares <see cref="SyntaxNodeJson.
 /// Options"/> rather than its own bare <see cref="JsonSerializerOptions"/> so an AST payload
-/// (<c>ModuleParseResult</c>) gets the same size-reducing resolver on the wire as it does under test —
+/// (<c>ModuleParseResult</c>) gets the same size-reducing resolver on the wire as it does under test:
 /// see that type's remarks for why serializing every AST node's generic <c>Children</c> spine
 /// unconditionally, alongside its typed properties, made the wire payload exponential in tree depth.
 /// </remarks>

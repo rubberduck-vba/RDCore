@@ -24,9 +24,9 @@ RD-VBA also adds members that manage the workspace application settings explicit
 
 |Member|Specification|SDK member|
 |---|---|---|
-|🧩 `GetAllJsonSettings`|[**RD-VBAL §6.1.2.8.1.7.1** GetAllJsonSettings](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetAllJsonSettings`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
-|🧩 `GetJsonSetting`|[**RD-VBAL §6.1.2.8.1.10.1** GetJsonSetting](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
-|🧩 `SaveJsonSetting`|[**RD-VBAL §6.1.2.8.2.4.1** SaveJsonSetting](rd-vbal.6.1.2.8.interaction.md#61282-public-subroutines)|[`IStdInteractionModule.SaveJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
+|`GetAllJsonSettings`|[**RD-VBAL §6.1.2.8.1.7.1** GetAllJsonSettings](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetAllJsonSettings`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
+|`GetJsonSetting`|[**RD-VBAL §6.1.2.8.1.10.1** GetJsonSetting](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
+|`SaveJsonSetting`|[**RD-VBAL §6.1.2.8.2.4.1** SaveJsonSetting](rd-vbal.6.1.2.8.interaction.md#61282-public-subroutines)|[`IStdInteractionModule.SaveJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
 
 There is no `DeleteJsonSetting`: a configuration file is the workspace's to edit, and `DeleteSetting` covers the settings a program keeps for itself.
 
@@ -42,7 +42,4 @@ There is no `DeleteJsonSetting`: a configuration file is the workspace's to edit
 
 An _analysis_ reaches no settings: what it saves is not kept, and nothing is read.
 
-The `ErlLineNumbering` environment setting is bound from `appsettings.json`, with the rest of the runtime profile (see [**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)).
-
----
-> ⏮️ [**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.client-server-capabilities.md) | ⏭️ [**RD-VBAL §2.2** RDPROJ Structure](rd-vbal.2.2.rdproj-structure.md)
+The `ErlLineNumbering` and `ErlAfterErrClear` environment settings are bound from `appsettings.json`, with the rest of the runtime profile (see [**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)).

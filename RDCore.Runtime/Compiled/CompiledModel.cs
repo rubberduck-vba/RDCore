@@ -187,7 +187,7 @@ internal sealed record class ExtendedOperationNode(string Token, ExtendedNode Le
 // Extended.Negate.
 internal sealed record class ExtendedNegateNode(ExtendedNode Operand) : ExtendedNode;
 
-// the value of an expression of a Variant (IR lowering S2.5c): a payload whose kind is the subtype it is of, which is known only when it is evaluated
+// the value of an expression of a Variant: a payload whose kind is the subtype it is of, which is known only when it is evaluated
 // (VariantPayload).
 internal abstract record class VariantNode;
 
@@ -215,17 +215,44 @@ internal sealed record class IsNode(int? Left, int? Right) : PayloadNode(ScalarK
 // TypeOf of an object variable of the activation, against the class the body knows by its number (CompiledActivation.TypeOf).
 internal sealed record class TypeOfNode(int Slot, int Class) : PayloadNode(ScalarKind.Boolean);
 
+// an expression of Strings, as RuntimeExpressionEvaluator.TryEvaluateText evaluates it: to the text it is, with no value made of it.
+internal abstract record class TextNode;
+
+// a String literal, or Strings joined that are all literals: the text the literal's runtime value holds.
+internal sealed record class TextConstantNode(string Text) : TextNode;
+
+// a String variable of the activation, by its slot: the text its cell holds (StringOperations.TryRead).
+internal sealed record class TextSlotNode(int Slot) : TextNode;
+
+// two Strings joined, by & or by + of two Strings (MS-VBAL §5.6.9.4, §5.6.5).
+internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNode;
+
+// two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
+internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
+
+// the argument of a String parameter (CompiledCallee.Parameters, null): the text of an expression of Strings, given to a parameter passed by value, or to
+// one passed by reference that is given no variable, of which the callee makes a cell of its own (MS-VBAL §5.3.1.11). Only an argument of a call; its
+// Kind is not read.
+internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(default(ScalarKind));
+
+// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11): the variable's address, which
+// the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
-// a Let of a Variant variable of the activation (IR lowering S2.5c): the payload written into its cell, of its own subtype - when the cell holds no object,
+// a Let of a Variant variable of the activation: the payload written into its cell, of its own subtype - when the cell holds no object,
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
 
-// the Next of a For whose counter is a Variant (IR lowering S2.5c): stepped as the interpreter steps it on payloads, with the state its stepped For
+// the Next of a For whose counter is a Variant: stepped as the interpreter steps it on payloads, with the state its stepped For
 // statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's. Counter: the counter's Variant slot, whose
 // speculated subtype the step is done in when it holds it (VariantSpeculation).
 internal sealed record class VariantForNextStep(int Offset, int Opener, int Body, int Counter) : CompiledStep(Offset);
+
+// a Let of a String variable of the activation - not a fixed-length one: the text written into its cell as it is (MS-VBAL §5.4.3.8).
+internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).
 internal sealed record class LetStep(int Offset, int Slot, PayloadNode Value) : CompiledStep(Offset);
@@ -288,22 +315,30 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
 // an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
-// slot of the object variable it is made on (Receiver, IR lowering S2.5e3).
+// slot of the object variable it is made on (Receiver).
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
 }
 
-/// <summary>A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.</summary>
+/// <summary>
+/// A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.
+/// </summary>
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
-/// <param name="Parameters">The kind of each parameter, each a scalar.</param>
+/// <param name="Parameters">
+/// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
+/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>).
+/// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
-internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind> Parameters, ScalarKind? Result,
+internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind?> Parameters, ScalarKind? Result,
     IReadOnlyList<bool> ByReference)
 {
-    /// <summary>Whether any parameter is passed by reference.</summary>
-    public bool TakesReferences { get; } = ByReference.Contains(true);
+    /// <summary>
+    /// Whether the call is made with the arguments as the interpreter gives them (<c>RuntimeProcedureInvoker.Invoke</c>): any parameter is passed by
+    /// reference, or is a <c>String</c>.
+    /// </summary>
+    public bool TakesReferences { get; } = ByReference.Contains(true) || Parameters.Contains(null);
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
@@ -317,29 +352,37 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// </summary>
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
 
-    /// <summary>The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).</summary>
+    /// <summary>
+    /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).
+    /// </summary>
     public MemberEntry? Entered { get; set; }
 }
 
 /// <summary>
-/// A member of a class a compiled call of a member of an object enters directly (IR lowering S2.5e3b): its body, compiled, and its typed entry, which the
-/// caller's IL calls through <paramref name="Entry"/>, a pointer to it - the member is the object's class's to say, each time - with the arguments as it
+/// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
+/// caller's IL calls through <paramref name="Entry"/>, a pointer to it (the member is the object's class's to say, each time), with the arguments as it
 /// holds them.
 /// </summary>
+/// <param name="Member">The member of the class.</param>
+/// <param name="List">The member's lowered body, the one the invoker runs.</param>
+/// <param name="Body">The member's compiled body.</param>
+/// <param name="Entry">A pointer to the compiled body's typed entry.</param>
+/// <param name="Context">The context the member's code is evaluated in.</param>
 internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, SDK.Semantics.Instructions.InstructionList List, CompiledBody Body,
     nint Entry, Semantics.RuntimeEvaluationContext Context)
 {
 }
 
 /// <summary>
-/// The cells of the fields of an object a body found (IR lowering S2.5e3b, <see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
-/// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
-/// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does.
+/// The cells of the fields of an object a body found (<see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
+/// by: each found as it is first asked for, and looked for again while it is none (the object holds the field in no cell of its type). The cells keep the
+/// object's identity, which no other object is ever given, and hold no reference to it: a body keeps no object alive once nothing else does. A live object keeps the cell
+/// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body
+/// again, with none found.
 /// </summary>
 /// <param name="Object">The object's identity.</param>
-/// <param name="Generation">What the session's storage bound when they were found: a cell is the field's for as long as that has not changed.</param>
 /// <param name="Cells">The cells, by number.</param>
-internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, int Generation, object?[] Cells)
+internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObjectId Object, object?[] Cells)
 {
 }
 

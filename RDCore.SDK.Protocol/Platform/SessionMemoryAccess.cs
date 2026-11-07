@@ -39,7 +39,7 @@ public record class PeekResult
 /// </summary>
 /// <remarks>
 /// Unchecked, and deliberately so. Writing a byte into the middle of a live variable changes that
-/// variable to whatever the new bytes spell — an ordinary, valid value of its declared type, or a
+/// variable to whatever the new bytes spell: an ordinary, valid value of its declared type, or a
 /// nonsensical one. Nothing here prevents that; being able to do it is the point.
 /// </remarks>
 public record class SessionPokeParams
@@ -61,7 +61,7 @@ public record class PokeResult
 
     /// <summary>
     /// Whether the byte was written. <c>false</c> means nothing is allocated at that address, or what
-    /// is cannot be expressed as bytes — an object reference, an array, a user-defined type — or
+    /// is cannot be expressed as bytes (an object reference, an array, a user-defined type), or
     /// that a program runs (<see cref="Error"/>).
     /// </summary>
     public bool IsWritten { get; init; }

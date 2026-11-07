@@ -31,7 +31,7 @@ public abstract record class VBReturningMemberSymbol(Uri WorkspaceRoot, Uri Pare
 
     /// <summary>
     /// An <em>immutable array</em> containing the <c>Dim</c>/<c>Static</c>/<c>Const</c> local
-    /// declarations of this procedure member (<strong>MS-VBAL §5.4.3</strong>) — a
+    /// declarations of this procedure member (<strong>MS-VBAL §5.4.3</strong>): a
     /// <see cref="VBLocalVariableSymbol"/> per <c>Dim</c>/<c>Static</c>, a
     /// <see cref="VBLocalConstantSymbol"/> per <c>Const</c>.
     /// </summary>

@@ -6,7 +6,7 @@ This chapter describes the **RD-VBA** implementation of the VBA standard library
 The `VBA` project consists of a set of classes, functions, `Enum` types and constants that together form VBA's
 _standard library_ ([**RD-VBAL §6.1** VBA Project](rd-vbal.6.1.vba-project.md)).
 
-🎯 The **RDCore** platform must implement the VBA standard library. The _environment host_ shall inject the standard
+The **RDCore** platform must implement the VBA standard library. The _environment host_ shall inject the standard
 library's symbols into all `VBA` projects, and those symbols shall carry the appropriate _return type_ metadata.
 
 The SDK defines the interfaces for the _internal representation_ of each standard-library module
@@ -22,8 +22,8 @@ The following standard-library topics are described with their module or class:
 |Topic|Described in|
 |---|---|
 |The `Err` function, and the shape of the error object it returns|[**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md)|
-|🧩 `ErrObject.StackTrace`|[**RD-VBAL §6.1.3.2.2.7** StackTrace](rd-vbal.6.1.3.2.err-class.md#613227-stacktrace)|
-|🧩 `Information.Erl`|[**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)|
+|`ErrObject.StackTrace` (RD-VBA addition)|[**RD-VBAL §6.1.3.2.2.7** StackTrace](rd-vbal.6.1.3.2.err-class.md#613227-stacktrace)|
+|`Information.Erl` (RD-VBA addition)|[**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl)|
 |`Strings.Len` / `Strings.LenB`|[**RD-VBAL §6.1.2.11.1.22** Len / LenB](rd-vbal.6.1.2.11.strings.md#61211122-len--lenb)|
 |The `$` functions of the `Strings` module, and how a name written with a type-declaration character binds one|[**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#string-returning-twins)|
 |An omitted `Compare`, which is the calling module's `Option Compare`|[**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)|
@@ -54,7 +54,7 @@ The declared type of an argument survives external dispatch, because each intrin
 managed type: a `short` for `Integer` and an `int` for `Long`
 ([**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md)).
 
-👉 Because each intrinsic stores its exact managed type, `Len` returns "the number of bytes required to store a
+Because each intrinsic stores its exact managed type, `Len` returns "the number of bytes required to store a
 variable" ([**RD-VBAL §6.1.2.11.1.22** Len / LenB](rd-vbal.6.1.2.11.strings.md#61211122-len--lenb)).
 
 ### Late-Bound Calls
@@ -65,12 +65,12 @@ the member:
 
 |Late-bound call|Error|Early-bound|
 |---|---|---|
-|`Null` given for a parameter, or as the value of a property, that is not a `Variant` (`r.Pattern = Null`, `e.HelpContext = Null`, `m(Null)`)|13 — Type mismatch|94 — Invalid use of Null|
-|A property with no `Property Let`, assigned with no argument (`m.Count = 3`, `e.LastDllError = 1`, `mt = "x"` for a `Match`); one that returns an object has the default member of the object assigned instead|450 — Wrong number of arguments or invalid property assignment|Compile error|
-|A member with no `Property Let`, assigned with arguments (`c.Item(1) = 5`, `r.Test("a") = True`): it is invoked with them, and the default member of the object it returns is assigned; an error it raises is the assignment's (`e.Raise(5) = 1` is 5)|451 — Property let procedure not defined and property get procedure did not return an object, for what is no object|Compile error|
-|A method, or a member that takes arguments, assigned with none (`c.Count = 3`, `Collection.Count` being a function; `m.Item = 1`)|438 — Object doesn't support this property or method|Compile error|
+|`Null` given for a parameter, or as the value of a property, that is not a `Variant` (`r.Pattern = Null`, `e.HelpContext = Null`, `m(Null)`)|13 (Type mismatch)|94 (Invalid use of Null)|
+|A property with no `Property Let`, assigned with no argument (`m.Count = 3`, `e.LastDllError = 1`, `mt = "x"` for a `Match`); one that returns an object has the default member of the object assigned instead|450 (Wrong number of arguments or invalid property assignment)|Compile error|
+|A member with no `Property Let`, assigned with arguments (`c.Item(1) = 5`, `r.Test("a") = True`): it is invoked with them, and the default member of the object it returns is assigned; an error it raises is the assignment's (`e.Raise(5) = 1` is 5)|451 (Property let procedure not defined and property get procedure did not return an object, for what is no object)|Compile error|
+|A method, or a member that takes arguments, assigned with none (`c.Count = 3`, `Collection.Count` being a function; `m.Item = 1`)|438 (Object doesn't support this property or method)|Compile error|
 |A property with no `Property Set` in a `Set` (`Set m.Count = r`); a method, or a property with no argument that returns an object (`Set m(0).SubMatches = r`), is 438|450|Compile error|
-|The default member of the object a variable declared `Variant` holds, assigned with arguments (`v(1) = 5`): it is not invoked to have what it returns assigned; a method, or a member given arguments it does not take, is 438|450|—|
+|The default member of the object a variable declared `Variant` holds, assigned with arguments (`v(1) = 5`): it is not invoked to have what it returns assigned; a method, or a member given arguments it does not take, is 438|450|None|
 
 The object is reached late-bound through a variable, a parameter or a `With` block declared `Object` or `Variant`, and through what a late-bound call
 returns: `m(0).SubMatches(Null)` is 13, `MatchCollection.Item` being declared `Object`, as the library's own type library declares it. Recorded in Excel
@@ -87,7 +87,7 @@ signature an implementation has to satisfy. Each of them is stated once, in that
 are its public `static readonly` fields, each declared as the value it is
 ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)).
 
-👉 Because the symbols are read off the SDK signatures, a symbol the _workspace_ resolves cannot describe a member the
+Because the symbols are read off the SDK signatures, a symbol the _workspace_ resolves cannot describe a member the
 runtime does not have.
 
 ### Return Types
@@ -163,6 +163,3 @@ The pointer width belongs to the environment. The environment host passes
 [StdLibSymbolProvider](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.html) the pointer width of its own
 runtime profile
 ([IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)).
-
----
-> ⏮️ [**RD-VBAL §5.6.16** Constrained Expressions](rd-vbal.5.6.16.constrained-expressions.md) | ⏭️ [**RD-VBAL §6.1** VBA Project](rd-vbal.6.1.vba-project.md)

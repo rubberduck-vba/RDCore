@@ -10,8 +10,8 @@ namespace RDCore.SDK.Server.Services;
 /// <c>rdcore/platform/initialize</c> handshake, so handlers can act on it.
 /// </summary>
 /// <remarks>
-/// The handshake has always been two-way on the wire — the caller sends
-/// <see cref="PlatformInitializeParams.Expected"/>, the callee answers with what it provides — but
+/// The handshake has always been two-way on the wire (the caller sends
+/// <see cref="PlatformInitializeParams.Expected"/>, the callee answers with what it provides), but
 /// only the answer was ever used. A server that serves optional, client-driven request families
 /// (an interactive shell's, say) needs the question too: a request for something the client never
 /// advertised is a client bug, and refusing it is how the client finds out. Every RDCore server gets

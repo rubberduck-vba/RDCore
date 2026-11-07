@@ -5,9 +5,9 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>Variant</c> parameter or variable, compiled (IR lowering S2.5c): held in the cell its frame holds it in, read and written there by compiled code,
+/// A <c>Variant</c> parameter or variable, compiled: held in the cell its frame holds it in, read and written there by compiled code,
 /// and each operation of it planned for the subtypes of its operands, as the interpreter's evaluation on payloads plans it (MS-VBAL §5.6.9). What that
-/// evaluation declines - a Variant holding a <c>String</c>, an object, a sum that overflows its subtype - the interpreter runs alone. A program runs the same
+/// evaluation declines (a Variant holding a <c>String</c>, an object, a sum that overflows its subtype) the interpreter runs alone. A program runs the same
 /// either way.
 /// </summary>
 [TestClass]
@@ -137,7 +137,9 @@ public sealed class CompiledVariantTests
             "    If B = False Then Flipped = V",
             "End Function"), "Flipped", recoveries: 0);
 
-    // a Variant let-assigned to a scalar variable is converted to its type as any payload is: exactly, or by the interpreter, which rounds.
+    // a Variant let-assigned to a scalar variable is converted to its type as any payload is: an integral one by compiled code, a floating-point one to an
+    // integral type by the interpreter, which rounds, running that statement alone - compiled code goes on after it. L = V converts the Integer 6;
+    // L + V is the Double 8.5, which the interpreter converts: 1.
     [TestMethod]
     public async Task AVariantAssignedToALong_ThatIsNoInteger_IsRoundedByTheInterpreter()
         => await AssertAlikeAsync(Program(
@@ -152,7 +154,38 @@ public sealed class CompiledVariantTests
             "    V = 2.5",
             "    L = L + V",
             "    Rounded = L",
-            "End Function"), "Rounded", recoveries: 0, walkBacks: 1);
+            "End Function"), "Rounded", recoveries: 1);
+
+    // a loop condition reading a Variant that is Empty, which compiled code does not compare: the interpreter runs the Do statement alone, and the loop
+    // goes on compiled once the Variant holds a number. Empty is read twice: by the first test of the condition, and by the first S + 3: 2.
+    [TestMethod]
+    public async Task ALoopConditionOnAVariantThatIsEmpty_IsTheInterpretersOnce_AndTheLoopGoesOnCompiled()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Climbed()",
+            "End Sub",
+            "Private Function Climbed() As Long",
+            "    Dim S As Variant",
+            "    Do While S < 10",
+            "        S = S + 3",
+            "        Climbed = Climbed * 10 + S",
+            "    Loop",
+            "End Function"), "Climbed", recoveries: 2);
+
+    // a condition reading a Variant that holds a String, which the interpreter compares as a number: each If is the interpreter's alone, and the loop it
+    // is in goes on compiled. The If of each of the 3 passes of Judged("5") is the interpreter's; Judged(2) compares an Integer, compiled: 3.
+    [TestMethod]
+    public async Task AConditionOnAVariantHoldingAString_IsTheInterpreters_StatementByStatement()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Judged(\"5\"); Judged(2)",
+            "End Sub",
+            "Private Function Judged(ByVal V As Variant) As Long",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        If V > 3 Then Judged = Judged * 10 + I Else Judged = Judged * 10 - I",
+            "    Next",
+            "End Function"), "Judged", recoveries: 3);
 
     // a Variant parameter is held in the cell its caller gave it: by reference, its caller's variable.
     [TestMethod]
@@ -459,11 +492,12 @@ public sealed class CompiledVariantTests
             "    Counted = Counted & TypeName(I)",
             "End Function"), "Counted");
 
-    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant that is no whole number to a Long, which rounds - and
-    // compiled code goes on after it, with what the Variant then holds.
+    // a statement the interpreter runs alone in the middle of a speculated loop - a Let of a Variant holding a Double to a Long, which compiled code does
+    // not convert, whole or not - and compiled code goes on after it, with what the Variant then holds: never handed to the interpreter for good.
+    // L = L + V is a Double at each of the 6 passes, the 7 of the fourth among them; and the last Let joins Strings, which is the interpreter's: 7.
     [TestMethod]
     public async Task AStatementTheInterpreterRunsInASpeculatedLoop_IsGoneOnFrom()
-        => await AssertSpeculatedAsync(Program(
+        => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Rounded()",
             "End Sub",
@@ -477,5 +511,131 @@ public sealed class CompiledVariantTests
             "        L = L + V",
             "    Next",
             "    Rounded = L & \" \" & V & \" \" & TypeName(V)",
-            "End Function"), "Rounded");
+            "End Function"), "Rounded", recoveries: 7);
+
+    // a Variant counter stepped by a Double, in a loop whose body compiled code runs whole: each Next steps it as the loop decided at its For, from the
+    // state it found then.
+    [TestMethod]
+    public async Task AVariantCounterSteppedByADouble_InABodyWithNothingStepped_IsSteppedAsTheLoopDecided()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Halves(); Wholes()",
+            "End Sub",
+            "Private Function Halves() As Double",
+            "    Dim I As Variant",
+            "    Dim S As Double",
+            "    For I = 1 To 4 Step 0.25",
+            "        S = S * 2 + I",
+            "    Next",
+            "    Halves = S + I",
+            "End Function",
+            "Private Function Wholes() As Long",
+            "    Dim I As Variant",
+            "    Dim S As Long",
+            "    For I = 1 To 200",
+            "        S = (S * 3 + I) Mod 100003",
+            "    Next",
+            "    Wholes = S + I",
+            "End Function"), "Halves");
+
+    // a Variant of each other scalar subtype - LongLong, Decimal, Boolean - and one that holds an error value, operated on as the interpreter does.
+    [TestMethod]
+    public async Task AVariantOfEachOtherSubtype_IsOperatedOnAsTheInterpreterDoes()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Kinds()",
+            "    Debug.Print Errored()",
+            "End Sub",
+            "Private Function Kinds() As String",
+            "    Dim V As Variant",
+            "    Dim I As Long",
+            "    V = CLngLng(5)",
+            "    For I = 1 To 3",
+            "        V = V * 3 + I",
+            "    Next",
+            "    Kinds = V & \" \" & TypeName(V)",
+            "    V = CDec(1.5)",
+            "    For I = 1 To 3",
+            "        V = V * 2 + 0.25",
+            "    Next",
+            "    Kinds = Kinds & \" \" & V & \" \" & TypeName(V)",
+            "    V = True",
+            "    For I = 1 To 3",
+            "        V = V + True",
+            "        If V Then Kinds = Kinds & \" \" & V",
+            "    Next",
+            "    Kinds = Kinds & \" \" & TypeName(V)",
+            "End Function",
+            "Private Function Errored() As String",
+            "    Dim V As Variant",
+            "    Dim W As Variant",
+            "    Dim I As Long",
+            "    On Error GoTo Failed",
+            "    V = CVErr(2042)",
+            "    For I = 1 To 2",
+            "        W = V + I",
+            "    Next",
+            "    Exit Function",
+            "Failed:",
+            "    Errored = Err.Number & \" \" & TypeName(V) & \" \" & IsEmpty(W)",
+            "End Function"), "Kinds");
+
+    // one Variant passed by reference as two parameters: each is another name for the caller's variable, and what one writes the other reads.
+    [TestMethod]
+    public async Task AVariantPassedByReferenceAsTwoParameters_IsOneVariable()
+        => await AssertSpeculatedAsync(Program(
+            "Public Sub Main()",
+            "    Dim X As Variant",
+            "    X = 1",
+            "    Twice X, X",
+            "    Debug.Print X; TypeName(X)",
+            "End Sub",
+            "Private Sub Twice(ByRef A As Variant, ByRef B As Variant)",
+            "    Dim I As Long",
+            "    For I = 1 To 3",
+            "        A = A + 1",
+            "        B = B * 2",
+            "    Next",
+            "End Sub"), "Twice");
+
+    // a loop of a Variant counter entered again, its For statement run again with another end: each Next steps the counter to the end it was given
+    // this time, not the one before. The inner For statement, the interpreter's at each of the 2 passes: 2.
+    [TestMethod]
+    public async Task AVariantLoopEnteredAgain_IsSteppedToItsNewEnd()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Nested()",
+            "End Sub",
+            "Private Function Nested() As Long",
+            "    Dim I As Long",
+            "    Dim V As Variant",
+            "    Dim N As Long",
+            "    For I = 1 To 2",
+            "        For V = 1 To I * 2",
+            "            N = N + V",
+            "        Next",
+            "    Next",
+            "    Nested = N",
+            "End Function"), "Nested", recoveries: 2);
+
+    // a Variant ReDim'd by the interpreter, then assigned: the ReDim keeps the Variant in its cell, which compiled code goes on reading. The ReDim, the
+    // two statements of an element of it, V = N, a Let over the array the Variant holds, and the Let of the function's String result: 5.
+    [TestMethod]
+    public async Task AVariantReDimmedByTheInterpreter_IsWrittenWhereTheFrameHoldsIt()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Rebound()",
+            "End Sub",
+            "Private Function Rebound() As String",
+            "    Dim V As Variant",
+            "    Dim N As Long",
+            "    V = 1",
+            "    N = V + 1",
+            "    ReDim V(2)",
+            "    V(1) = N",
+            "    N = N + V(1)",
+            "    V = N",
+            "    N = V * 2",
+            "    Rebound = TypeName(V) & N",
+            "End Function"), "Rebound", recoveries: 5);
 }
