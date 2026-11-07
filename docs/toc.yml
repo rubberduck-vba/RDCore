@@ -10,5 +10,3 @@
   href: specs/rd-vbal.md
 - name: Diagnostics
   href: diagnostics/index.md
-- name: SDK
-  href: api/
