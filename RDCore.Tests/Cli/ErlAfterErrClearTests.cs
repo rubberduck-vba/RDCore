@@ -99,6 +99,39 @@ public sealed class ErlAfterErrClearTests
         CollectionAssert.AreEqual(new[] { cleared, "second 20 11" }, output);
     }
 
+    // leaving a procedure under On Error Resume Next keeps the error, and Erl with it, for the caller to see: by its end, or by Exit Sub. Err.Clear in it
+    // clears the error, and Erl as the environment says.
+    [TestMethod]
+    [DataRow(VBExecutionEngine.Interpreter, VBErlAfterErrClear.Reset, "", "inner 20 11|after 20 11")]
+    [DataRow(VBExecutionEngine.Interpreter, VBErlAfterErrClear.Kept, "", "inner 20 11|after 20 11")]
+    [DataRow(VBExecutionEngine.Interpreter, VBErlAfterErrClear.Reset, "Err.Clear", "inner 0 0|after 0 0")]
+    [DataRow(VBExecutionEngine.Interpreter, VBErlAfterErrClear.Kept, "Err.Clear", "inner 20 0|after 20 0")]
+    [DataRow(VBExecutionEngine.Interpreter, VBErlAfterErrClear.Reset, "Exit Sub", "after 20 11")]
+    [DataRow(VBExecutionEngine.Interpreter, VBErlAfterErrClear.Kept, "Exit Sub", "after 20 11")]
+    [DataRow(VBExecutionEngine.Compiled, VBErlAfterErrClear.Reset, "", "inner 20 11|after 20 11")]
+    [DataRow(VBExecutionEngine.Compiled, VBErlAfterErrClear.Kept, "", "inner 20 11|after 20 11")]
+    [DataRow(VBExecutionEngine.Compiled, VBErlAfterErrClear.Reset, "Err.Clear", "inner 0 0|after 0 0")]
+    [DataRow(VBExecutionEngine.Compiled, VBErlAfterErrClear.Kept, "Err.Clear", "inner 20 0|after 20 0")]
+    [DataRow(VBExecutionEngine.Compiled, VBErlAfterErrClear.Reset, "Exit Sub", "after 20 11")]
+    [DataRow(VBExecutionEngine.Compiled, VBErlAfterErrClear.Kept, "Exit Sub", "after 20 11")]
+    public async Task LeavingAProcedureUnderResumeNext_KeepsTheErrorAndErl_ForTheCaller(VBExecutionEngine engine, VBErlAfterErrClear afterErrClear, string then, string expected)
+    {
+        var output = await RunAsync(engine, afterErrClear,
+            "Private Sub Case1()",
+            "    Inner",
+            "    Debug.Print \"after \" & Erl & \" \" & Err.Number",
+            "End Sub",
+            "Private Sub Inner()",
+            "    Dim x As Variant",
+            "    On Error Resume Next",
+            "20  x = 1 / 0",
+            then.Length == 0 ? "" : "    " + then,
+            "    Debug.Print \"inner \" & Erl & \" \" & Err.Number",
+            "End Sub");
+
+        CollectionAssert.AreEqual(expected.Split('|'), output);
+    }
+
     // a Resume resets Erl whatever the environment says of Err.Clear: each form, with the error not cleared first.
     [TestMethod]
     [DataRow(VBExecutionEngine.Interpreter, "Resume Next", "after 0 0")]
