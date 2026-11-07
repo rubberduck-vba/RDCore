@@ -134,7 +134,8 @@ public static class CompletionCandidates
     /// <para>
     /// An underscore typed ends a part and matches nothing itself: what follows it is the start of the next hump, as after an underscore in a label, and
     /// underscores typed in a row are one. <c>C_I</c> and <c>C_</c> match <c>Class_Initialize</c>; <c>Cl_ass</c> does not. A word that starts with an
-    /// underscore matches the humps of a label that starts with one: <c>_NEn</c> matches <c>_NewEnum</c>, and <c>_x</c> does not match <c>xyz</c>.
+    /// underscore matches the humps of a label that starts with one: <c>_NEn</c> matches <c>_NewEnum</c>, <c>__</c> matches <c>_private</c>, and <c>_x</c>
+    /// does not match <c>xyz</c>.
     /// </para>
     /// <para>
     /// A label that a word matches is matched by the word without its last character as well, so a client narrows the list of a word by this rule as the
@@ -154,11 +155,16 @@ public static class CompletionCandidates
             return CompletionMatch.Prefix;
         }
 
-        // the underscores a word starts with are of a label that starts with one, and start no part.
+        // the underscores a word starts with are of a label that starts with one, and start no part: a word of underscores alone matches every such label.
         var first = PastUnderscores(word, 0);
-        if (first == word.Length || first > 0 && label is not ['_', ..])
+        if (first > 0 && label is not ['_', ..])
         {
             return CompletionMatch.None;
+        }
+
+        if (first == word.Length)
+        {
+            return CompletionMatch.Humps;
         }
 
         // where a part of the word that is still to match a hump can start, after the humps walked so far; a part ends at the end of the word, or at an
