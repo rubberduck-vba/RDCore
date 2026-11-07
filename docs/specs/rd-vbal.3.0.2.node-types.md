@@ -64,6 +64,4 @@ It also applies to code with a syntax error:
   error is at that word, and the next statement is read on its own.
 - A declaration with a word that is no name where its name is written (`Dim For As Long`, `Dim 1 As Long`, `Dim Mod As Long`) is a syntax error
   at that word. The statement is kept at its place, and the next statement is read on its own.
-- A parameter whose name is a reserved identifier (`Sub S(ByVal Mod As Long)`, `Sub S(ByVal Next As Long)`) is a syntax error
-  (**MS-VBAL §5.3.1.5**). A keyword that is no reserved identifier, such as `Name` or `Error`, names a parameter.
 - A statement has one syntax error, the first one the parser finds in it. Two statements on one line (`a = 1 -: b = = 2`) have one error each.
