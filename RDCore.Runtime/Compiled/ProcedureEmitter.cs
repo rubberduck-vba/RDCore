@@ -649,11 +649,13 @@ internal sealed partial class ProcedureEmitter
     private void EmitCall(CallStep call)
     {
         // the arguments, each held where it is - a variable, a constant - or in a local of its own; one that fails fails the instruction before anything is called.
+        // A String compiled code reads nothing of - one that ends with a lone byte, or is held in no cell of its own - is the interpreter's: the instruction
+        // is run by it alone, as a Let of one is.
         var failure = FailureAt(call.Offset);
         var arguments = new Operand[call.Arguments.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = EmitArgument(call.Arguments[i], failure);
+            arguments[i] = EmitArgument(call.Arguments[i], call.Arguments[i] is TextArgumentNode or TextReferenceNode ? RecoverAt(call.Offset) : failure);
         }
 
         // a member of an object: the object the variable refers to, and the member its class invokes, found before anything is called.
@@ -714,7 +716,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldarg_0);
                 _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.MemberEntry))!.GetMethod!);
                 _il.EmitCalli(OpCodes.Calli, CallingConventions.Standard, typeof(RuntimeExecutionOutcome),
-                    [typeof(CompiledActivation), .. member.Parameters.Select((kind, i) => member.ByReference[i] ? typeof(object) : ClrTypeOf(kind))], null);
+                    [typeof(CompiledActivation), .. member.Parameters.Select((kind, i) => member.ByReference[i] ? typeof(object) : ClrTypeOf(kind!.Value))], null);
             }
 
             _il.Emit(OpCodes.Stloc, outcome);
@@ -744,6 +746,22 @@ internal sealed partial class ProcedureEmitter
             {
                 Load(arguments[i], call.Arguments[i].Kind);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetReference))!);
+                continue;
+            }
+
+            // a String: the address of the variable given, or the text given.
+            if (call.Arguments[i] is TextReferenceNode reference)
+            {
+                _il.Emit(OpCodes.Ldc_I4, reference.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetTextReference))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                continue;
+            }
+
+            if (call.Arguments[i] is TextArgumentNode)
+            {
+                _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetText))!);
                 continue;
             }
 
@@ -886,7 +904,9 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.State);
         }
 
-        // each field's cell, found again: an edit made while the program waited may have given the object others.
+        // each field's cell, found again (FieldCellOf): the body's cache gives the cell of the same object as it is, and finds it again on the object when a
+        // callee ran the body on another object meanwhile, and the cache is that object's. An edit made while the program waited hands the activation to the
+        // interpreter, so no edit is read here.
         foreach (var slot in _analysis.FieldSlots)
         {
             EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
@@ -1402,13 +1422,25 @@ internal sealed partial class ProcedureEmitter
     }
 
     // the argument of a call: a value - which is all a parameter passed by reference is given of one that is no variable, until the call is made directly
-    // (EmitTemporaries) - or the cell of a variable passed by reference.
-    private Operand EmitArgument(PayloadNode node, Label failure) => node switch
+    // (EmitTemporaries) - or the cell of a variable passed by reference. A String's text, or its cell, is in a local of its own.
+    private Operand EmitArgument(PayloadNode node, Label failure)
     {
-        ReferenceNode reference => new Operand(_cells[reference.Slot], 0, 0),
-        TemporaryNode temporary => EmitPayload(temporary.Value, failure),
-        _ => EmitPayload(node, failure),
-    };
+        switch (node)
+        {
+            case ReferenceNode reference:
+                return new Operand(_cells[reference.Slot], 0, 0);
+            case TemporaryNode temporary:
+                return EmitPayload(temporary.Value, failure);
+            case TextArgumentNode text:
+                return new Operand(EmitTextInto(text.Value, failure), 0, 0);
+            case TextReferenceNode reference:
+                _il.Emit(OpCodes.Ldloc, _texts[reference.Slot]);
+                _il.Emit(OpCodes.Brfalse, failure);
+                return new Operand(_texts[reference.Slot], 0, 0);
+            default:
+                return EmitPayload(node, failure);
+        }
+    }
 
     // the arguments of a call made directly: a parameter passed by reference that is given a value is given a cell of its own holding it, which is the
     // callee's alone (MS-VBAL §5.3.1.11). The invoker is given the value, and the interpreter makes the callee's cell of it, as for a call it makes.

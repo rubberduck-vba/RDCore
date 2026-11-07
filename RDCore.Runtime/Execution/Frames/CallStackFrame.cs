@@ -933,7 +933,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     /// <summary>
     /// Declares <paramref name="symbol"/>, a parameter of an object, held in <paramref name="cell"/>: the cell of its reference, as <see cref="HoldArgument"/>
-    /// gives it one - the cell an activation of a member of a class entered without a frame held its <c>Me</c> in, which the activation
+    /// gives it one: the cell an activation of a member of a class entered without a frame held its <c>Me</c> in, which the activation
     /// lets go of as its own.
     /// </summary>
     /// <param name="symbol">The parameter.</param>

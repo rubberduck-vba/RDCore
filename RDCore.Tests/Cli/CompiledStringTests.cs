@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>String</c> parameter or variable - not a fixed-length one - compiled: held in the cell its frame holds it in, whose text compiled
+/// A <c>String</c> parameter or variable of variable length, compiled: held in the cell its frame holds it in, whose text compiled
 /// code reads, joins (MS-VBAL §5.6.9.4, §5.6.5), compares under the module's comparison mode (MS-VBAL §5.6.9.5) and writes as it is assigned, as the
 /// interpreter's evaluation of Strings does. A String it reads no text of is the interpreter's. A program runs the same either way.
 /// </summary>
@@ -32,15 +32,41 @@ public sealed class CompiledStringTests
             "    S = (\"<\" & S) & \">\"",
             "End Sub"), "Build", recoveries: 0);
 
-    // =, <>, <, <=, > and >= of Strings that differ in case, and in length, under Option Compare Text.
+    // =, <>, <, <=, > and >= of Strings that differ in case, and in length, under Option Compare Text: "abc" is "ABC" (100101), "a" is before "B" and
+    // "ab" before "abc" (011111), and "" is "" (100101).
     [TestMethod]
     public async Task StringsCompared_UnderOptionCompareText_IgnoreCase()
-        => await AssertAlikeAsync(Comparisons("Option Compare Text"), "Compared", recoveries: 0);
+        => await AssertAlikeAsync(Comparisons("Option Compare Text"), "Compared", recoveries: 0, expected: " 37  31  31  37 ");
 
-    // the same comparisons under the default, Option Compare Binary.
+    // the same comparisons under the default, Option Compare Binary: "abc" is after "ABC" and "a" after "B" (010000), as their codes are.
     [TestMethod]
     public async Task StringsCompared_UnderOptionCompareBinary_AreComparedByCode()
-        => await AssertAlikeAsync(Comparisons("Option Compare Binary"), "Compared", recoveries: 0);
+        => await AssertAlikeAsync(Comparisons("Option Compare Binary"), "Compared", recoveries: 0, expected: " 16  16  31  37 ");
+
+    // a comparison is made under the comparison mode of the module of the procedure that makes it (MS-VBAL §5.6.9.5), the callee's: "a" = "A" is True in
+    // the Text one, and False in the Binary one, whichever module calls the other.
+    [TestMethod]
+    [DataRow("Option Compare Binary", "Option Compare Text", " 1  0 ", DisplayName = "a Text class called from a Binary module")]
+    [DataRow("Option Compare Text", "Option Compare Binary", " 0  1 ", DisplayName = "a Binary class called from a Text module")]
+    public async Task StringsCompared_InAnotherModule_AreComparedUnderItsMode(string callerMode, string calleeMode, string expected)
+    {
+        var program = callerMode + "\r\n" + Program(
+            "Public Sub Main()",
+            "    Dim C As New Comparer",
+            "    Debug.Print C.Matched(\"a\", \"A\"); Equal(\"a\", \"A\")",
+            "End Sub",
+            "Private Function Equal(ByVal L As String, ByVal R As String) As Long",
+            "    If L = R Then Equal = 1",
+            "End Function");
+        (string Name, string Source)[] classes =
+        [
+            ("Comparer", ModuleWorkspace.ClassModule("Comparer", "Option Explicit", calleeMode,
+                "Public Function Matched(ByVal L As String, ByVal R As String) As Long", "    If L = R Then Matched = 1", "End Function")),
+        ];
+
+        await AssertAlikeAsync(program, "Matched", recoveries: 0, classes: classes, expected: expected);
+        await AssertAlikeAsync(program, "Equal", recoveries: 0, classes: classes, expected: expected);
+    }
 
     private static string Comparisons(string mode) => mode + "\r\n" + Program(
         "Public Sub Main()",

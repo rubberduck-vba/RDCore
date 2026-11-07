@@ -15,6 +15,8 @@ passed `ByVal` or `ByRef`, its scalar variables, and the result of a function th
 `Boolean`, `Currency`, `Single`, `Double` and `Date`. Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`,
 an object, a `String`, a `Variant`, an array, a record, and a `Static` variable.
 
+### Variants
+
 Compiled code reads and writes a `Variant` parameter or variable where its frame keeps it, whenever the `Variant` holds a value of a scalar type. An
 operation with a `Variant` operand is worked out for the type of the value the `Variant` holds when it runs, as the interpreter works it out (MS-VBAL
 §5.6.9), so `V + 1` adds two `Integer`s while `V` holds an `Integer`, and two `Double`s once it holds a `Double`. A `Variant` assigned a scalar holds it as
@@ -23,24 +25,35 @@ overflow its type, the interpreter runs that statement on its own and compiled c
 that overflows to a `Long`, and where a `Variant` that held an object lets go of it. A `Variant` holding a `Single` or a `Double` assigned to a variable
 of an integer type is the interpreter's too, whole or not: it rounds the value (MS-VBAL §5.5.1.2.1).
 
-When a procedure is compiled, compiled code also guesses the type each of its `Variant`s holds. The guess comes from what the procedure assigns the
+When a procedure is compiled, the compiler also guesses the type each of its `Variant`s holds. The guess comes from what the procedure assigns the
 `Variant` and from the type a `For` loop of a `Variant` counter counts in. For `S = 0#` and then `S = S + I` with `I` an `Integer`, it guesses `Double`. An
 operation on `Variant`s that hold the types they are guessed to hold is then compiled as an operation on those types, using the same operations as the
 interpreter (`PayloadOperations`). The `Next` of a `For` loop of a `Variant` counter, and a condition such as `S > 100`, are compiled the same way. Each
 time it runs, compiled code first checks the type the `Variant` holds. When it does not hold the guessed type, the operation is worked out as above, for
 the type it does hold. That is the case for an `Empty` `Variant` before its first assignment, a `Variant` that came to hold a `String` or `Null`, and a sum
-that has overflowed to a wider type. A wrong guess makes the operation slower, never its result different.
+that has overflowed to a wider type. A wrong guess makes the operation slower; its result is the same.
 
-Compiled code reads and writes a `String` parameter or variable where its frame keeps it, too, unless it's a fixed-length `String`, which pads or truncates
+### Strings
+
+Compiled code reads and writes a `String` parameter or variable where its frame keeps it, too, unless it is a fixed-length `String`, which pads or truncates
 what it is assigned. A `Let` of a literal, of another `String` variable, or of `String`s joined by `&` (or by `+`, of two `String`s) assigns the text it is
 (MS-VBAL §5.6.9.4, §5.6.5), and two such `String`s are compared under the module's `Option Compare` (MS-VBAL §5.6.9.5), as the interpreter compares them.
 `vbNullString` reads as the zero-length string, and a copy of it is still `vbNullString`. A `String` that ends with a lone byte (`ChrB(65)`) is the
-interpreter's to join and compare: compiled code hands it each statement that reads one. So is a call that takes or returns a `String`, such as `Len(S)`
-or `CStr(I)`.
+interpreter's to join and compare: compiled code hands it each statement that reads one. So is a call of a library function that takes or returns a
+`String`, such as `Len(S)` or `CStr(I)`.
+
+Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
+parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`
+variable given. Either way the callee holds its own frame, which the interpreter makes. A `Variant` or a number given to a `String` parameter, a constant,
+a fixed-length `String`, a field and an element of an array are the interpreter's to give, and it makes the call.
+
+### Fields of `Me`
 
 In a procedure of a class, compiled code reads and writes a field of `Me` of a scalar type where the object keeps it, so the member's code and a caller
 outside the class (`C.Total = 10`) see the same field. A field passed `ByRef` is passed as the field itself: what the callee assigns its parameter, it
 assigns the field. Each object has its own fields, and a member called on one reads and writes that object's.
+
+### Objects
 
 Compiled code reads the reference held by an object parameter or variable (declared `As Object`, or as a class or an interface) where its frame keeps it.
 It compares two such references with `Is`, or one with `Nothing`, and tests one with `TypeOf`, as the interpreter does (MS-VBAL §5.6.9.7, §5.6.7). A
@@ -62,6 +75,8 @@ Compiled code remembers where it last found an object's fields, and looks for th
 field for as long as it lives, and a procedure is compiled again when its class is edited. What compiled code remembers never keeps an object alive: once
 nothing else holds the object, it is gone.
 
+### What compiled code does itself
+
 Compiled code does these itself:
 
 |Kind|What compiled code does|
@@ -69,7 +84,7 @@ Compiled code does these itself:
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar fields of `Me`, the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables and `Nothing`, and `TypeOf` of one of its object variables.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of a scalar field of `Me`, or of the function's result.|
-|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of an object variable declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`). A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 

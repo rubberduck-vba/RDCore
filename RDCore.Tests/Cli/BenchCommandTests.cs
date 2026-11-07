@@ -301,7 +301,8 @@ public sealed class BenchCommandTests
             "Strings.BenchStringAssignment", "Strings.BenchStringConcatenation", "Arrays.BenchArrayFillAndSum",
             "Calls.BenchProcedureCalls", "Calls.BenchClassMemberCalls", "Calls.BenchStandardLibraryCalls",
             "Calls.BenchFactoryCalls", "Calls.BenchDefaultInstanceCalls", "Calls.BenchSiblingCalls",
-            "Calls.BenchRecursion", "Strings.BenchStringBuilding", "Statements.BenchOnErrorResumeNext", "Numeric.BenchVariantTypedMix",
+            "Calls.BenchRecursion", "Strings.BenchStringBuilding", "Strings.BenchStringArguments", "Statements.BenchOnErrorResumeNext",
+            "Numeric.BenchVariantTypedMix",
         })
         {
             StringAssert.Contains(text, expected);

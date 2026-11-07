@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// Instructions compiled code does not do, in a compiled procedure: the interpreter runs each alone, and the activation goes on compiled where it leaves
-/// it. What compiled code holds nothing of - a <c>Static</c>, a variable of the module - is the frame's, and the instructions that read or write it the
+/// it. What compiled code holds nothing of (a <c>Static</c>, a variable of the module) is the frame's, and the instructions that read or write it the
 /// interpreter's; so is a call of a member bound late. A program runs the same either way.
 /// </summary>
 [TestClass]
@@ -345,24 +345,29 @@ public sealed class CompiledSteppingTests
     }
 
     // a compiled variable passed by reference in a call the interpreter makes is its cell in the frame, which the callee writes: read back after the call.
+    // The call is the interpreter's because it also gives a late-bound call's result; the interpreter runs it at each of 3 passes, and the Len after the
+    // loop: 4.
     [TestMethod]
     public async Task AVariablePassedByReferenceInACallTheInterpreterMakes_IsWhatTheCalleeWrote()
-        => await AssertAlikeAsync(Program(
-            "Public Sub Main()",
+    {
+        var program = LateBound(
             "    Debug.Print Counted()",
             "End Sub",
             "Private Function Counted() As Long",
             "    Dim S As String, N As Long, I As Long",
             "    For I = 1 To 3",
-            "        Append S, N",
+            "        Append S, N, P.Text",
             "        N = N * 2",
             "    Next",
             "    Counted = N * 10 + Len(S)",
             "End Function",
-            "Private Sub Append(ByRef S As String, ByRef N As Long)",
-            "    S = S & \"x\"",
+            "Private Sub Append(ByRef S As String, ByRef N As Long, ByVal Tag As String)",
+            "    S = S & Tag",
             "    N = N + 1",
-            "End Sub"), "Counted", recoveries: 4);
+            "End Sub");
+
+        AssertLateBoundIsStepped(program, await AssertAlikeAsync(program, "Counted", recoveries: 4, classes: Pieces));
+    }
 
     // an object the interpreter makes and calls: the frame's, from one statement to the next.
     [TestMethod]

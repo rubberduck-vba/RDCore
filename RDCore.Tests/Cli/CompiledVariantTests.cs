@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Variant</c> parameter or variable, compiled: held in the cell its frame holds it in, read and written there by compiled code,
 /// and each operation of it planned for the subtypes of its operands, as the interpreter's evaluation on payloads plans it (MS-VBAL §5.6.9). What that
-/// evaluation declines - a Variant holding a <c>String</c>, an object, a sum that overflows its subtype - the interpreter runs alone. A program runs the same
+/// evaluation declines (a Variant holding a <c>String</c>, an object, a sum that overflows its subtype) the interpreter runs alone. A program runs the same
 /// either way.
 /// </summary>
 [TestClass]

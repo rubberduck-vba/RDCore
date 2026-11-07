@@ -59,20 +59,20 @@ namespace RDCore.Runtime.Compiled;
 /// </para>
 /// <para>
 /// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes
-/// (<see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred - each operand evaluated on payloads, and the
-/// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines - a Variant that holds no payload, a sum that
-/// overflows its subtype - the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
+/// (<see cref="VariantSlots"/>): a <c>Let</c> of it, and an operation of a Variant operand, whose plan is deferred: each operand evaluated on payloads, and the
+/// operation planned for their types, as <c>TryEvaluatePayload</c> plans it. What that evaluation declines (a Variant that holds no payload, a sum that
+/// overflows its subtype) the interpreter runs alone. So does the <c>For</c> statement of a Variant counter, which decides the type its loop counts in;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
-/// A <c>String</c> parameter or variable - not a fixed-length one - is held in the cell its frame holds it in too (<see cref="TextSlots"/>):
-/// a <c>Let</c> of an expression of Strings - a literal, a String variable, two joined by <c>&amp;</c> or by <c>+</c> - writes the text it is, and two Strings
+/// A <c>String</c> parameter or variable of variable length is held in the cell its frame holds it in too (<see cref="TextSlots"/>):
+/// a <c>Let</c> of an expression of Strings (a literal, a String variable, two joined by <c>&amp;</c> or by <c>+</c>) writes the text it is, and two Strings
 /// are compared under the module's comparison mode, as <c>TryEvaluateText</c> and <c>TryCompareText</c> evaluate them. A String that holds no text compiled
-/// code reads - one that ends with a lone byte - the interpreter runs the statement of.
+/// code reads (one that ends with a lone byte) the interpreter runs the statement of.
 /// </para>
 /// <para>
 /// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="FieldSlots"/>), found where the
-/// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
+/// interpreter finds it (through the frame, whose object is <c>Me</c>) as the activation begins and again wherever it goes on after the interpreter ran
 /// an instruction: compiled code reads and writes it as it does a variable held in a cell.
 /// </para>
 /// <para>
@@ -134,7 +134,7 @@ internal sealed partial class ProcedureAnalysis
 
     /// <summary>
     /// The slots of the object parameters and variables, in order: each is held in the cell its frame holds it in, which compiled code
-    /// reads the reference it holds from - for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
+    /// reads the reference it holds from, for <c>Is</c> and <c>TypeOf</c>. A <c>Set</c> of one is the interpreter's.
     /// </summary>
     public IReadOnlyList<int> ObjectSlots => [.. _objectSlots];
 
@@ -153,7 +153,7 @@ internal sealed partial class ProcedureAnalysis
     /// <summary>
     /// The subtype each <c>Variant</c> slot is speculated to hold (<see cref="VariantSpeculation"/>): the join of the subtypes of what
     /// compiled code assigns it, and of the type a loop it counts counts in, where those are known when the procedure is compiled. A slot assigned anything
-    /// else - or that compiled code assigns nothing of a known subtype - has no speculation, and is evaluated as any Variant is.
+    /// else, or that compiled code assigns nothing of a known subtype, has no speculation, and is evaluated as any Variant is.
     /// </summary>
     public IReadOnlyDictionary<int, ScalarKind> SpeculatedKinds => _speculatedKinds ??= Speculate();
 
@@ -712,11 +712,12 @@ internal sealed partial class ProcedureAnalysis
     public List<CompiledCallee> Callees { get; } = [];
 
     // a call of a procedure of the workspace in a standard module - no Me to give it - every parameter a scalar of its own kind, none a Variant, and given an
-    // argument of its kind; of a function returning resultKind when what it returns is read, and of a scalar kind when it is not - what it returns is let go
-    // of as a temporary of the statement, which compiled code holds none of. A parameter passed by reference is given the cell of a variable of the
-    // activation of its kind, which is held in one from then on, or a cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made
-    // with RuntimeProcedureInvoker.InvokeScalars, as RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with
-    // the cells as the interpreter passes them (CellReference) when any is passed by reference.
+    // argument of its kind, or a String given Strings (TextArgumentOf); of a function returning resultKind when what it returns is read, and of a scalar
+    // kind when it is not - what it returns is let go of as a temporary of the statement, which compiled code holds none of. A parameter passed by
+    // reference is given the cell of a variable of the activation of its kind, which is held in one from then on, the address of a String variable, or a
+    // cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made with RuntimeProcedureInvoker.InvokeScalars, as
+    // RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with the arguments as the interpreter passes them
+    // (CellReference, VBRuntimeReference) when any is passed by reference.
     private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
@@ -774,12 +775,26 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        var kinds = new List<ScalarKind>(parameters.Length);
+        var kinds = new List<ScalarKind?>(parameters.Length);
         var byReference = new List<bool>(parameters.Length);
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
         for (var i = 0; i < parameters.Length; i++)
         {
+            // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
+            if (parameters[i] is not ParamArrayParameterSymbol && site is null && IsText(parameters[i].ResolvedType))
+            {
+                if (TextArgumentOf(arguments[i]) is not { } text)
+                {
+                    return null;
+                }
+
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(text);
+                continue;
+            }
+
             if (parameters[i] is ParamArrayParameterSymbol || ScalarKinds.Of(parameters[i].ResolvedType) is not { } kind || ArgumentOf(arguments[i], kind) is not { } value)
             {
                 return null;

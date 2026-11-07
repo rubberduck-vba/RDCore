@@ -356,6 +356,38 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter given Strings: the text they
+    /// are (<see langword="null"/> for <c>vbNullString</c>), a <c>String</c> as the interpreter passes one by value. A <c>String</c> variable given by
+    /// reference is given with <see cref="SetTextReference"/>.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list.</param>
+    /// <param name="text">The text given; <see langword="null"/> for <c>vbNullString</c>.</param>
+    public void SetText(int index, string? text) => SetReference(index, new VBRuntimeValue<string>(text!));
+
+    /// <summary>
+    /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of a <c>String</c> parameter passed by reference given
+    /// a <c>String</c> variable of the activation: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The variable has one address
+    /// from then on, whichever name it is read by, so <c>VarPtr</c> of the parameter is <c>VarPtr</c> of the variable; its cell is bound at the address,
+    /// and compiled code goes on reading and writing that cell.
+    /// </summary>
+    /// <param name="index">The argument's position in the callee's parameter list.</param>
+    /// <param name="slot">The slot of the variable given.</param>
+    /// <returns><see langword="false"/> when the variable cannot be given an address: the interpreter then makes the call.</returns>
+    public bool SetTextReference(int index, int slot)
+    {
+        // a run that fails accesses at random fails this one too, so the recovery is taken. The interpreter makes the call: the arguments given for it
+        // so far are let go of, as a call made lets go of them (ForgetReferences).
+        if (FailsAccessAtRandom() || !Frame.TryGetAddress(_body.SlotSymbols[slot], out var address))
+        {
+            Array.Clear(_references);
+            return false;
+        }
+
+        SetReference(index, new VBRuntimeReference(address));
+        return true;
+    }
+
+    /// <summary>
     /// Whether compiled code writes its variables into its frame before a call: under a debugger, which shows the frame of a caller while the program waits
     /// in its callee.
     /// </summary>
@@ -364,7 +396,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// Calls the procedure numbered <paramref name="callee"/> of the body with the arguments given (<see cref="SetArgument"/>, <see cref="SetReference"/>), as
     /// the interpreter calls a procedure every parameter of which is a scalar passed by value - or, when any is passed by reference, with the cell of each
-    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>), and the value of anything else, of which the callee
+    /// variable given to one, which the parameter is a second name for (<see cref="CellReference"/>; the address of a <c>String</c> variable,
+    /// <see cref="SetTextReference"/>), and the value of anything else, of which the callee
     /// makes a cell of its own: the instruction at <paramref name="pc"/> is the one that makes
     /// the call, which the frame says while the callee runs.
     /// </summary>
@@ -396,11 +429,13 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
     /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
-    /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called - its parameters after <c>Me</c> of the same
+    /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called: its parameters after <c>Me</c> of the same
     /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
     /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
     /// member: the interpreter makes the call.
     /// </summary>
+    /// <param name="callee">The number of the call among the body's callees.</param>
+    /// <param name="cell">The cell of the object variable the member is called on.</param>
     public bool CanCallMember(int callee, object? cell)
     {
         (_member, _receiver, _memberInstance) = (null, null, null);
@@ -453,6 +488,10 @@ public sealed class CompiledActivation : ILightActivation
     /// <see cref="SetReference"/>), as the interpreter calls a member of an object: through its binding, the object given as <c>Me</c>. The instruction at
     /// <paramref name="pc"/> is the one that makes the call, which the frame says while the member runs.
     /// </summary>
+    /// <param name="pc">The offset of the instruction that makes the call.</param>
+    /// <param name="callee">The number of the call among the body's callees.</param>
+    /// <param name="integral">What the member returned, when it is of an integral kind.</param>
+    /// <param name="floating">What the member returned, when it is of a floating-point kind.</param>
     /// <returns>Whether the call returned, as <see cref="Call"/> says.</returns>
     public bool CallMember(int pc, int callee, out long integral, out double floating)
     {
@@ -504,7 +543,7 @@ public sealed class CompiledActivation : ILightActivation
         var arguments = new ScalarPayload[called.Parameters.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
-            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating);
+            arguments[i] = new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]!.Value), _arguments[i].Integral, _arguments[i].Floating);
         }
 
         return arguments;
@@ -512,15 +551,21 @@ public sealed class CompiledActivation : ILightActivation
 
     // the arguments as the interpreter passes them (RuntimeExpressionEvaluator.BindArguments): the cell of a variable, or a value of the parameter's type -
     // of which the callee makes a cell of its own when the parameter is passed by reference. They come after the first ones, which are the caller's to give:
-    // the object a member is called on.
+    // the object a member is called on. A String is given the text (SetText), or the address of the String variable given (SetTextReference).
     private IRuntimeValue[] ArgumentsOf(CompiledCallee called, int first)
     {
         var arguments = new IRuntimeValue[first + called.Parameters.Count];
         for (var i = 0; i < called.Parameters.Count; i++)
         {
+            if (called.Parameters[i] is not { } kind)
+            {
+                arguments[first + i] = (IRuntimeValue)_references[i]!;
+                continue;
+            }
+
             arguments[first + i] = i < _references.Length && _references[i] is { } cell
                 ? new CellReference(Unsafe.As<ScalarCell>(cell))
-                : new ScalarPayload(ScalarKinds.TypeOf(called.Parameters[i]), _arguments[i].Integral, _arguments[i].Floating).Box();
+                : new ScalarPayload(ScalarKinds.TypeOf(kind), _arguments[i].Integral, _arguments[i].Floating).Box();
         }
 
         ForgetReferences(called);
@@ -608,11 +653,13 @@ public sealed class CompiledActivation : ILightActivation
     /// The activation of the member <see cref="CanCallMember"/> found, which compiled code is about to call through its typed entry (<see cref="MemberEntry"/>)
     /// with the arguments as it holds them, on the object it found, the object its <c>Me</c>: on the stack without a frame, as
     /// <see cref="EnterDirectly"/> makes one, when the frame would hold nothing compiled code does not but <c>Me</c> (<see cref="CompiledBody.EntersWithoutFrame"/>)
-    /// and no debugger is to see it - the activation holds <c>Me</c>, and its frame, once something is to see it, is the one the invoker would have made; with
+    /// and no debugger is to see it (the activation holds <c>Me</c>, and its frame, once something is to see it, is the one the invoker would have made); with
     /// its frame otherwise (<c>RuntimeProcedureInvoker.PushMemberActivation</c>). The instruction at <paramref name="pc"/> is the one that makes the call,
     /// which the frame says while the member runs. The call is made through its binding (<see cref="CallMember"/>) when it is not made this way, or not now, for the reasons
     /// <see cref="EnterDirectly"/> gives; or when the member is not compiled, or is not the workspace's to run.
     /// </summary>
+    /// <param name="pc">The offset of the instruction that makes the call.</param>
+    /// <param name="callee">The number of the call among the body's callees.</param>
     /// <returns>The member's activation, which its entry is called with; <see langword="null"/> when the call is to be made through its binding.</returns>
     public CompiledActivation? EnterMemberDirectly(int pc, int callee)
     {
@@ -708,6 +755,11 @@ public sealed class CompiledActivation : ILightActivation
     /// typed entry (<see cref="EnterDirectly"/>, <see cref="EnterMemberDirectly"/>), and which returned <paramref name="outcome"/>: the frame off the stack,
     /// as the invoker takes it off.
     /// </summary>
+    /// <param name="call">The number of the call among the body's callees.</param>
+    /// <param name="callee">The activation the call entered.</param>
+    /// <param name="outcome">How the callee's code ended.</param>
+    /// <param name="integral">What the callee returned, when it is of an integral kind.</param>
+    /// <param name="floating">What the callee returned, when it is of a floating-point kind.</param>
     /// <returns>
     /// Whether the call returned: what it returned is then a payload of its kind, when what it returns is read. When not, the interpreter is given the call
     /// (<see cref="AfterFailedCall"/>), with the error the callee raised, or with the program stopped in it.
@@ -943,6 +995,7 @@ public sealed class CompiledActivation : ILightActivation
     /// The cell numbered <paramref name="number"/> of a field of <c>Me</c> of a scalar type: the one the object holds it in, as the
     /// interpreter resolves it, which compiled code reads and writes it in.
     /// </summary>
+    /// <param name="number">The number the body knows the field's cell by.</param>
     /// <returns><see langword="null"/> when the object holds it in no cell of its type: the activation is then the interpreter's.</returns>
     public object? FieldCellOf(int number)
     {
@@ -975,6 +1028,8 @@ public sealed class CompiledActivation : ILightActivation
     /// <summary>
     /// The cell of a field of <c>Me</c> (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.
     /// </summary>
+    /// <param name="number">The number the body knows the field's cell by.</param>
+    /// <returns><see langword="null"/> when the frame cannot be read, or the object holds the field in no cell of its type.</returns>
     public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
 
     /// <summary>
@@ -982,9 +1037,10 @@ public sealed class CompiledActivation : ILightActivation
     /// writes it in, for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is bound to its caller's variable's
     /// address (<c>CallStackFrame.PushByRef</c>) is in the cell held at that address: the caller's variable.
     /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
-    /// <see langword="null"/> when the frame holds it in no Variant's cell - a Variant parameter passed a <c>String</c> by value, a variable of another type
-    /// passed by reference, an element of an array: compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
+    /// <see langword="null"/> when the frame holds it in no Variant's cell (a Variant parameter passed a <c>String</c> by value, a variable of another type
+    /// passed by reference, an element of an array): compiled code reads and writes nothing of it (<see cref="VariantOperations.Read"/>), and the interpreter
     /// runs each statement that does.
     /// </returns>
     public object? VariantCellOf(int slot)
@@ -997,6 +1053,8 @@ public sealed class CompiledActivation : ILightActivation
     /// The cell of the <c>Variant</c> in <paramref name="slot"/> (<see cref="VariantCellOf"/>), found again after the interpreter ran an instruction or the
     /// program waited.
     /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <param name="cell">The cell found, as <see cref="VariantCellOf"/> finds it.</param>
     /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
     public bool TryReloadVariantCell(int slot, out object? cell)
     {
@@ -1015,6 +1073,7 @@ public sealed class CompiledActivation : ILightActivation
     /// it holds from (<see cref="ObjectOperations"/>), for as long as the interpreter runs nothing of the activation. A parameter passed by reference that is
     /// bound to its caller's variable's address is in the cell held at that address, as a <c>Variant</c>'s is (<see cref="VariantCellOf"/>).
     /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
     /// <see langword="null"/> when the frame holds it in no cell of an object reference: compiled code reads nothing of it, and the interpreter runs each
     /// statement that does.
@@ -1035,6 +1094,8 @@ public sealed class CompiledActivation : ILightActivation
     /// The cell of the object in <paramref name="slot"/> (<see cref="ObjectCellOf"/>), found again after the interpreter ran an instruction or the program
     /// waited. A <c>Set</c> stores the reference into the cell the slot holds, which this finds again.
     /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <param name="cell">The cell found, as <see cref="ObjectCellOf"/> finds it.</param>
     /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
     public bool TryReloadObjectCell(int slot, out object? cell)
     {
@@ -1050,9 +1111,10 @@ public sealed class CompiledActivation : ILightActivation
 
     /// <summary>
     /// The cell the frame holds the <c>String</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads the text
-    /// it holds from and writes the text it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation -
+    /// it holds from and writes the text it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation:
     /// the cell the interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>).
     /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
     /// <returns>
     /// <see langword="null"/> when the frame holds it in no cell of its own: a parameter passed by reference bound to a variable of another type, which
     /// compiled code reads and writes nothing of, and the interpreter runs each statement that does.
@@ -1071,6 +1133,8 @@ public sealed class CompiledActivation : ILightActivation
     /// The cell of the <c>String</c> in <paramref name="slot"/> (<see cref="StringCellOf"/>), found again after the interpreter ran an instruction or the
     /// program waited.
     /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <param name="cell">The cell found, as <see cref="StringCellOf"/> finds it.</param>
     /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
     public bool TryReloadStringCell(int slot, out object? cell)
     {
@@ -1088,6 +1152,10 @@ public sealed class CompiledActivation : ILightActivation
     /// Two texts compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as the interpreter compares them
     /// (<c>RuntimeExpressionEvaluator.TryCompareText</c>): the mode of the frame the activation is, which is the current one.
     /// </summary>
+    /// <param name="comparison">The comparison operator.</param>
+    /// <param name="left">The left text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <param name="right">The right text; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns>The comparison's result.</returns>
     public bool CompareText(ComparisonOperator comparison, string? left, string? right)
     {
         var order = SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session).Compare(left.AsSpan(), right.AsSpan());
@@ -1106,6 +1174,9 @@ public sealed class CompiledActivation : ILightActivation
     /// <c>TypeOf</c> of the object held in <paramref name="cell"/>, tested against the class the body knows by <paramref name="number"/> (MS-VBAL §5.6.7): as
     /// the interpreter tests it (<c>RuntimeExpressionEvaluator.IsInstanceOf</c>).
     /// </summary>
+    /// <param name="cell">The cell of the object variable tested.</param>
+    /// <param name="number">The number the body knows the class by.</param>
+    /// <param name="isOf">Whether the object is of the class.</param>
     /// <returns>
     /// <see langword="false"/> when it is the interpreter's: the cell holds no reference compiled code reads, or holds <c>Nothing</c>, of which <c>TypeOf</c>
     /// raises error 91.
@@ -1127,6 +1198,7 @@ public sealed class CompiledActivation : ILightActivation
     /// Steps the <c>For</c> loop whose statement is at <paramref name="opener"/>, of a <c>Variant</c> counter, as the interpreter steps it on payloads
     /// (<c>RuntimeExpressionEvaluator.TryStepForUnboxed</c>), with the state its statement, which the interpreter ran, gave the frame.
     /// </summary>
+    /// <param name="opener">The offset of the loop's <c>For</c> statement.</param>
     /// <returns>1 when the counter is past the end and the loop ends; 0 when the body runs again; -1 when the step is the interpreter's.</returns>
     public int StepVariantFor(int opener)
         => Frame.TryGetForLoopState(opener, out var state) && _executor.Expressions.TryStepForUnboxed(_session, state, _context, out var past) ? (past ? 1 : 0) : -1;
@@ -1136,6 +1208,14 @@ public sealed class CompiledActivation : ILightActivation
     /// in the subtype <paramref name="kind"/> compiled code speculates the counter holds, and whether it counts down: what each Next that finds the counter
     /// holding a value of that subtype steps it with, as the interpreter does (<c>RuntimeExpressionEvaluator.TryVariantForBounds</c>).
     /// </summary>
+    /// <param name="opener">The offset of the loop's <c>For</c> statement.</param>
+    /// <param name="cell">The cell of the counter.</param>
+    /// <param name="kind">The subtype compiled code speculates the counter holds.</param>
+    /// <param name="stepIntegral">The step, when <paramref name="kind"/> is integral.</param>
+    /// <param name="stepFloating">The step, when <paramref name="kind"/> is floating-point.</param>
+    /// <param name="endIntegral">The end, when <paramref name="kind"/> is integral.</param>
+    /// <param name="endFloating">The end, when <paramref name="kind"/> is floating-point.</param>
+    /// <param name="countsDown">Whether the step is negative, so the loop counts down.</param>
     /// <returns>1 when each Next is stepped in that subtype; -1 when each is stepped as any is (<see cref="StepVariantFor"/>).</returns>
     public int VariantForBounds(int opener, object? cell, ScalarKind kind, out long stepIntegral, out double stepFloating, out long endIntegral,
         out double endFloating, out bool countsDown)
@@ -1501,8 +1581,8 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>
     /// The cells of the fields of <c>Me</c> the body found last: those of the object an activation of it was last on, which keeps
-    /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The object is known by its
-    /// identity, not held.
+    /// them for as long as it lives (<see cref="FieldCells"/>). Another object's are found again, whatever class it is of. The cache keeps the object's
+    /// identity and holds no reference to it.
     /// </summary>
     internal FieldCells? Fields { get; set; }
 

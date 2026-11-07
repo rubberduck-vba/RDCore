@@ -230,6 +230,15 @@ internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNod
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
 
+// the argument of a String parameter (CompiledCallee.Parameters, null): the text of an expression of Strings, given to a parameter passed by value, or to
+// one passed by reference that is given no variable, of which the callee makes a cell of its own (MS-VBAL §5.3.1.11). Only an argument of a call; its
+// Kind is not read.
+internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(default(ScalarKind));
+
+// the argument of a String parameter passed by reference that is a String variable of the activation (MS-VBAL §5.3.1.11): the variable's address, which
+// the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
@@ -312,16 +321,24 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
     public const int NoResult = -2;
 }
 
-/// <summary>A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.</summary>
+/// <summary>
+/// A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.
+/// </summary>
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
-/// <param name="Parameters">The kind of each parameter, each a scalar.</param>
+/// <param name="Parameters">
+/// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
+/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>).
+/// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
-internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind> Parameters, ScalarKind? Result,
+internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, IReadOnlyList<ScalarKind?> Parameters, ScalarKind? Result,
     IReadOnlyList<bool> ByReference)
 {
-    /// <summary>Whether any parameter is passed by reference.</summary>
-    public bool TakesReferences { get; } = ByReference.Contains(true);
+    /// <summary>
+    /// Whether the call is made with the arguments as the interpreter gives them (<c>RuntimeProcedureInvoker.Invoke</c>): any parameter is passed by
+    /// reference, or is a <c>String</c>.
+    /// </summary>
+    public bool TakesReferences { get; } = ByReference.Contains(true) || Parameters.Contains(null);
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
@@ -343,9 +360,14 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 
 /// <summary>
 /// A member of a class a compiled call of a member of an object enters directly: its body, compiled, and its typed entry, which the
-/// caller's IL calls through <paramref name="Entry"/>, a pointer to it - the member is the object's class's to say, each time - with the arguments as it
+/// caller's IL calls through <paramref name="Entry"/>, a pointer to it (the member is the object's class's to say, each time), with the arguments as it
 /// holds them.
 /// </summary>
+/// <param name="Member">The member of the class.</param>
+/// <param name="List">The member's lowered body, the one the invoker runs.</param>
+/// <param name="Body">The member's compiled body.</param>
+/// <param name="Entry">A pointer to the compiled body's typed entry.</param>
+/// <param name="Context">The context the member's code is evaluated in.</param>
 internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, SDK.Semantics.Instructions.InstructionList List, CompiledBody Body,
     nint Entry, Semantics.RuntimeEvaluationContext Context)
 {
@@ -353,8 +375,8 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 
 /// <summary>
 /// The cells of the fields of an object a body found (<see cref="CompiledBody.Fields"/>), by the number compiled code knows each cell
-/// by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
-/// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does. A live object keeps the cell
+/// by: each found as it is first asked for, and looked for again while it is none (the object holds the field in no cell of its type). The cells keep the
+/// object's identity, which no other object is ever given, and hold no reference to it: a body keeps no object alive once nothing else does. A live object keeps the cell
 /// of each of its fields: what is assigned to a field, a <c>ReDim</c> of it included, is written in that cell, and a change to its class compiles the body
 /// again, with none found.
 /// </summary>
