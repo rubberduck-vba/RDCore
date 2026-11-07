@@ -8,9 +8,8 @@
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IncludeBuildOutput>false</IncludeBuildOutput>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 $(Authors)</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore Runtime Generators</AssemblyTitle>
+    <Description>The source generators of the RDCore runtime: they write the invokers of the VBA standard library's members from its declarations, at compile time.</Description>
   </PropertyGroup>
 
   <ItemGroup>
