@@ -87,9 +87,8 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // the client's own module - rdc's shell's program, which runs `? 1 + 1` - is run in a workspace whose project does not list it, as a module of the session: in a
-    // workspace whose project file can't be read, which loads no project (the client is told why), and in one whose project has other modules. The first was an
-    // internal error: the workspace's root was set only once the project file was read, and the run's module was addressed under no root at all; then the host
-    // composed no session to run in. Both were then a module the session did not have.
+    // workspace whose project file can't be read, which loads no project (the client is told why), and in one whose project has other modules. In the first, the
+    // run's module is addressed under the workspace's root although no project was read, and the host composes a session with no modules to run it in.
     [TestMethod]
     [DataRow(UnreadableProjectFile, DisplayName = "a project file that can't be read")]
     [DataRow(AProjectOfOtherModules, DisplayName = "a project that does not list it")]
