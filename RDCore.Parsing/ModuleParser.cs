@@ -1255,13 +1255,16 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         return ends;
     }
 
-    // where the statement whose block the parse failed to end begins, when it failed at what ends a block, or in a Select Case outside the blocks of its
-    // Cases: the innermost statement of a procedure, else the declaration of the module. A block that is not closed is reported where its end was expected,
-    // which is in the statement that begins it.
+    // where the statement whose block the parse failed to end begins, when it failed at what ends a block where a statement begins, or in a Select Case
+    // outside the blocks of its Cases: the innermost statement of a procedure, else the declaration of the module. A block that is not closed is reported
+    // where its end was expected, which is in the statement that begins it.
     private SourcePosition? StatementStartOf(IRecognizer recognizer, IToken? offendingSymbol)
     {
-        var at = (recognizer as Parser)?.Context;
-        if (offendingSymbol is null || !EndsABlock.Contains(offendingSymbol.Type) && !InASelectOutsideItsCases(at))
+        var parser = recognizer as Parser;
+        var at = parser?.Context;
+        if (offendingSymbol is null
+            || !(EndsABlock.Contains(offendingSymbol.Type) && BeginsAStatement(parser?.InputStream as ITokenStream, offendingSymbol))
+            && !InASelectOutsideItsCases(at))
         {
             return null;
         }
@@ -1271,6 +1274,40 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             if (context is VBAParser.BlockStmtContext or VBAParser.ModuleDeclarationsElementContext && context.Start is { } start)
             {
                 return new SourcePosition(start.Line - 1, start.Column).AnchoredAt(anchorOffset);
+            }
+        }
+
+        return null;
+    }
+
+    // whether a token is where a statement begins: first on its line, after a statement's separator, or after the number of its line (10 Next), and the end
+    // of the module wherever it is. A block's end written after an expression (b = 1 Loop) ends no block: the error is that statement's.
+    private static bool BeginsAStatement(ITokenStream? stream, IToken token)
+    {
+        if (token.Type == TokenConstants.Eof || stream is null)
+        {
+            return true;
+        }
+
+        var before = TokenBefore(stream, token.TokenIndex);
+        if (before?.Type is VBALexer.HEXLITERAL or VBALexer.OCTLITERAL or VBALexer.FLOATLITERAL or VBALexer.INTEGERLITERAL)
+        {
+            var sign = TokenBefore(stream, before.TokenIndex);
+            var line = sign?.Type == VBALexer.MINUS ? TokenBefore(stream, sign.TokenIndex) : sign;
+            return line is null || line.Type == VBALexer.NEWLINE;
+        }
+
+        return before is null || before.Type is VBALexer.NEWLINE or VBALexer.COLON;
+    }
+
+    // the token before the one at an index, past the blanks; null at the start of the module.
+    private static IToken? TokenBefore(ITokenStream stream, int index)
+    {
+        for (var i = index - 1; i >= 0; i--)
+        {
+            if (stream.Get(i) is { Type: not (VBALexer.WS or VBALexer.LINE_CONTINUATION) } token)
+            {
+                return token;
             }
         }
 

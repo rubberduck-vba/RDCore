@@ -100,6 +100,12 @@ public sealed class SyntaxErrorRunRefusalTests
     [DataRow("With a", DisplayName = "a With not closed")]
     [DataRow("b = 1 c", DisplayName = "a name after the end of an expression")]
     [DataRow("b = 1 2", DisplayName = "a number after the end of an expression")]
+    [DataRow("b = 1 Loop", DisplayName = "a Loop after the end of an expression")]
+    [DataRow("b = 1 Next", DisplayName = "a Next after the end of an expression")]
+    [DataRow("b = 1 Wend", DisplayName = "a Wend after the end of an expression")]
+    [DataRow("b = 1 Else", DisplayName = "an Else after the end of an expression")]
+    [DataRow("b = 1 End", DisplayName = "an End after the end of an expression")]
+    [DataRow("b = -1 Next", DisplayName = "a Next after the end of an expression with a sign")]
     public async Task ALiveSyntaxErrorAfterABlockAnExcludedBranchDoesNotClose_RefusesTheRun_WithItsOwnError(string live)
     {
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
@@ -110,6 +116,23 @@ public sealed class SyntaxErrorRunRefusalTests
         Assert.IsTrue(result.Diagnostics!.Any(error => !error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)), said);
         Assert.IsLessThanOrEqualTo(1, result.Diagnostics!.Count(error => error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
             said);
+    }
+
+    // the end of a block where a statement begins - first on its line, after a separator, after a label or the number of its line - is where the block that
+    // the excluded branch opens is not closed: the block's message is said.
+    [TestMethod]
+    [DataRow("Loop", DisplayName = "first on its line")]
+    [DataRow("10 Loop", DisplayName = "after the number of its line")]
+    [DataRow("L1: Loop", DisplayName = "after a label")]
+    [DataRow("b = 1: Loop", DisplayName = "after a separator")]
+    public async Task TheEndOfABlockWhereAStatementBegins_AfterABlockAnExcludedBranchDoesNotClose_IsTheBlocks(string live)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
+            "Dim a As Variant, b As Variant", "#If False Then", "If a Then", "#End If", live));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
+            string.Join("; ", result.Diagnostics!));
     }
 
     // a syntax error in the header of a procedure that is not run refuses the run of the module as well.
