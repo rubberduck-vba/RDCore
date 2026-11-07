@@ -618,7 +618,10 @@ pSetSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? PSET (whiteSpace 
 tuple : LPAREN whiteSpace? expression whiteSpace? COMMA whiteSpace? expression whiteSpace? RPAREN;
 lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition(1)),"b","bf")}? unrestrictedIdentifier;
 
-unrestrictedIdentifier : identifier | statementKeyword | markerKeyword;
+unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier;
+// MS-VBAL 3.3.5.2: an operator-identifier is a reserved-identifier, which is no name: it names a member (`x.And`, `d!Mod`), as any keyword does, and
+// nothing else. `Debug.Print 1 Mod` is the operator with no right operand, and not two items, the second a variable named Mod.
+operatorIdentifier : ADDRESSOF | AND | EQV | IMP | IS | LIKE | MOD | NEW | NOT | OR | TYPEOF | XOR;
 legalLabelIdentifier : { !IsTokenType(TokenTypeAtRelativePosition(1),DOEVENTS,END,CLOSE,ELSE,LOOP,NEXT,RANDOMIZE,REM,RESUME,RETURN,STOP,WEND)}? identifier | markerKeyword;
 //The predicate in the following rule has been introduced to lessen the problem that VBA uses the same characters used as type hints in other syntactical constructs, 
 //e.g. in the bang notation (see withDictionaryAccessExpr). Generally, it is not legal to have an identifier or opening bracket follow immediately after a type hint.
@@ -775,9 +778,7 @@ addressOfExpression : ADDRESSOF whiteSpace expression;
 
 keyword : 
       ABS
-    | ADDRESSOF
     | ALIAS
-    | AND
     | ANY
     | ARRAY
     | ATTRIBUTE
@@ -810,35 +811,27 @@ keyword :
     | DOUBLE
     | END
     | ENDPROPERTY
-    | EQV
     | FALSE
     | FIX
-    | IMP
     | IN
     | INPUTB
     | INT
     | INTEGER
-    | IS
     | LBOUND
     | LEN
     | LEN
     | LENB
     | LIB
-    | LIKE
     | LONG
     | LONGLONG
     | LONGPTR
     | ME
     | MID
     | MIDB
-    | MOD
-    | NEW
-    | NOT
     | NOTHING
     | NULL
     | OBJECT
     | OPTIONAL
-    | OR
     | PARAMARRAY
     | PRESERVE
     | PSET
@@ -852,13 +845,11 @@ keyword :
     | THEN
     | TO
     | TRUE
-    | TYPEOF
     | UBOUND
     | UNTIL
     | VARIANT
     | VERSION
     | WITHEVENTS
-    | XOR
     | STEP
     | ON_ERROR
     | ERROR
