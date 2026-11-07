@@ -109,10 +109,9 @@ public sealed class ReferencedLibraries
     /// </remarks>
     /// <param name="source">Where the descriptions are.</param>
     /// <param name="references">
-    /// The libraries the project references, in the order of its references. A second reference to a name is left out: it is a problem
-    /// (<see cref="LibraryProblemKind.DuplicateName"/>) when it means another library than the first: when the source finds another description for it, or,
-    /// when the source finds none for either of them, when it is another identity. The standard library (<c>VBA</c>) is the platform's own, and is not asked of
-    /// the source.
+    /// The libraries the project references, in the order of its references. A second reference to a name is left out, and is a problem
+    /// (<see cref="LibraryProblemKind.DuplicateName"/>) unless it means the library of the first: it is the same identity, or the source finds the same
+    /// description for both. The standard library (<c>VBA</c>) is the platform's own, and is not asked of the source.
     /// </param>
     /// <param name="provided">The names of the libraries the platform provides itself.</param>
     public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<LibraryIdentity> references, IReadOnlyCollection<string> provided)
