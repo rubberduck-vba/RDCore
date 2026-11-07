@@ -146,6 +146,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // expression the walk built inside it (the 1.0 of VERSION 1.0 CLASS, an annotation's argument) is kept with it and not left among the module's nodes.
     private readonly List<SyntaxNode> _trivia = [];
     private readonly List<AnnotationTriviaNode> _annotationsOfLine = [];
+    private readonly HashSet<int> _erasedPlusSigns = [];
 
     /// <summary>The trivia of the module, in the order it is written.</summary>
     public ImmutableArray<SyntaxNode> Trivia
@@ -1938,6 +1939,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         AddIfBuilt(BuildUnary(Tokens.NegationOp, context));
     }
 
+    // RD-VBAL §5.6.9.3: a unary + is no operator - the VBE erases it - and builds no node: the operand is the node it is, and every rule reads it as if
+    // the + were not written (`+"1"` is the String "1", and `Foo +x` passes x by reference). The + is trivia, kept once however many walks read it: an
+    // expression captured for its statement is walked again.
+    public override void ExitUnaryPlusOp([NotNull] VBAParser.UnaryPlusOpContext context)
+    {
+        var plus = context.PLUS().Symbol;
+        if (_erasedPlusSigns.Add(plus.TokenIndex))
+        {
+            _trivia.Add(new ErasedPlusTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeOf(plus))));
+        }
+    }
+
     // MS-VBAL 5.6.6: a parenthesized expression is a value expression — its parentheses are an operator,
     // not punctuation, and this builds it. Erasing them made `Foo (x)` and `Foo x` the same tree, so an
     // argument written to be passed by value was aliased to a ByRef parameter and mutated the caller's
@@ -1958,11 +1971,19 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         AddIfBuilt(BuildUnary(token, context));
     }
 
+    // a unary + before the parentheses is no operator: what encloses it decides, as if it were not written (`Foo +(x)` is `Foo (x)`).
     private static bool IsOperandOfAnOperator(VBAParser.ParenthesizedExprContext context)
-        => context.Parent is VBAParser.PowOpContext or VBAParser.UnaryMinusOpContext or VBAParser.MultOpContext or VBAParser.IntDivOpContext
+    {
+        var parent = context.Parent;
+        while (parent is VBAParser.UnaryPlusOpContext)
+        {
+            parent = parent.Parent;
+        }
+        return parent is VBAParser.PowOpContext or VBAParser.UnaryMinusOpContext or VBAParser.MultOpContext or VBAParser.IntDivOpContext
             or VBAParser.ModOpContext or VBAParser.AddOpContext or VBAParser.ConcatOpContext or VBAParser.RelationalOpContext
             or VBAParser.LogicalNotOpContext or VBAParser.LogicalAndOpContext or VBAParser.LogicalOrOpContext or VBAParser.LogicalXorOpContext
             or VBAParser.LogicalEqvOpContext or VBAParser.LogicalImpOpContext or VBAParser.ParenthesizedExprContext or VBAParser.TypeofexprContext;
+    }
 
     public override void ExitPowOp([NotNull] VBAParser.PowOpContext context)
     {

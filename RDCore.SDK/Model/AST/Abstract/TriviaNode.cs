@@ -27,6 +27,23 @@ public record class AnnotationTriviaNode(SyntaxNodeId Identity, SourceLocation S
     : SyntaxNode(Identity, SourceLocation, Children);
 
 /// <summary>
+/// Preserves a unary <c>+</c> written before an expression (<strong>RD-VBAL §5.6.9.3</strong>): <c>x = +1</c>, <c>Foo +x</c>.
+/// </summary>
+/// <remarks>
+/// A unary <c>+</c> is no code. MS-VBAL's grammar has no unary <c>+</c>, and the VBE erases one from the code, whether it is typed or imported:
+/// <c>x = +1</c> is <c>x = 1</c>, and <c>+"1"</c> is the String <c>"1"</c>. So no node of the syntax tree stands for it. The expression after it is the
+/// node it would be without it, of its own type: <c>Foo +x</c> passes <c>x</c> by reference, and <c>Set o = +obj</c> assigns the object.
+/// <para>
+/// It is still source, kept as the module's trivia is, so that a formatter or an exporter can write the module back out as it was read, and a diagnostic can
+/// say where it is.
+/// </para>
+/// </remarks>
+/// <param name="Identity">A unique identifier for this specific syntax node.</param>
+/// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the <c>+</c>.</param>
+public sealed record class ErasedPlusTriviaNode(SyntaxNodeId Identity, SourceLocation SourceLocation)
+    : SyntaxNode(Identity, SourceLocation, []);
+
+/// <summary>
 /// Preserves the raw source text of an <c>expression</c> that the tree does not model: an alternative the grammar recognizes but that has no dedicated AST
 /// node yet (e.g. <c>New &lt;class&gt;</c>, <c>TypeOf &lt;expr&gt; Is &lt;type&gt;</c>), or an expression nested too deeply to be analyzed (<c>VBC00060</c>,
 /// <strong>RD-VBAL §2.6.1</strong>).

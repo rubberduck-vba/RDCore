@@ -686,6 +686,7 @@ expression :
     | NEW whiteSpace expression                                                                     # newExpr
     | expression whiteSpace? POW whiteSpace? expression                                             # powOp
     | MINUS whiteSpace? expression                                                                  # unaryMinusOp
+    | PLUS whiteSpace? expression                                                                   # unaryPlusOp // no operator: the tree keeps it on its operand, which is what the VBE keeps of it
     | expression whiteSpace? (MULT | DIV) whiteSpace? expression                                    # multOp
     | expression whiteSpace? INTDIV whiteSpace? expression                                          # intDivOp
     | expression whiteSpace? MOD whiteSpace? expression                                             # modOp
