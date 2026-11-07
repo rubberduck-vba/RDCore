@@ -27,7 +27,7 @@ public sealed class StatementBoundRecoveryTests
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 
     [TestMethod]
-    [DataRow("a = 1 +", "b = 2", typeof(AssignmentStatementNode), DisplayName = "an operator the parse reads, then an assignment")]
+    [DataRow("a = 1 +", "b = 2", typeof(AssignmentStatementNode), DisplayName = "an addition, then an assignment")]
     [DataRow("a = 1 &", "b = 2", typeof(AssignmentStatementNode), DisplayName = "a concatenation, then an assignment")]
     [DataRow("a = 1 + _\r\n", "b = 2", typeof(AssignmentStatementNode), DisplayName = "an operator, a line continuation and a blank line, then an assignment")]
     [DataRow("a = 1 -", "b = 2", typeof(AssignmentStatementNode), DisplayName = "an operator the parse leaves unread, then an assignment")]
@@ -80,6 +80,9 @@ public sealed class StatementBoundRecoveryTests
     [DataRow("Debug.Print x -", "x", typeof(SimpleNameExpressionNode))]
     [DataRow("Debug.Print 1; 2 &", "2", typeof(LiteralExpressionNode))]
     [DataRow("Debug.Print 1; 2 -", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1 +", "1", typeof(LiteralExpressionNode))]
+    [DataRow("Debug.Print 1; 2 +", "2", typeof(LiteralExpressionNode))]
+    [DataRow("Print #1, 1; 2 +", "2", typeof(LiteralExpressionNode))]
     [DataRow("Print #1, 1; 2 &", "2", typeof(LiteralExpressionNode))]
     [DataRow("Print #1, 1; x -", "x", typeof(SimpleNameExpressionNode))]
     public void ADanglingOperatorAfterAnItemToPrint_IsTheLastItem_Unbuilt_WithItsLeftOperand(string statement, string operand, Type kind)
@@ -114,6 +117,7 @@ public sealed class StatementBoundRecoveryTests
     // a comment after the operator is the comment it is, and the procedure ends where it does.
     [TestMethod]
     [DataRow("a = 1 -", " ' c", DisplayName = "an operator the parse leaves unread, then a comment")]
+    [DataRow("a = 1 +", " ' c", DisplayName = "an addition, then a comment")]
     [DataRow("a = 1 &", "'c", DisplayName = "a concatenation, then a comment with no space before it")]
     [DataRow("a = 1 /", " ' c", DisplayName = "a division, then a comment")]
     [DataRow("a = 1 &", " ' c: d", DisplayName = "a concatenation, then a comment with a colon in it")]
