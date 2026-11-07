@@ -677,7 +677,9 @@ public partial class ModuleParser(
     /// operator: the listener keeps the two as an unbuilt expression, and not the expression alone as if it were all the statement said.
     /// </summary>
     /// <remarks>
-    /// The operation has no right operand, and the grammar's error is reported at its operator. Where the operator can also begin something that follows an
+    /// The operation has no right operand, and is a syntax error, reported as a zero-width range at the operator: before a <c>-</c>, <c>*</c>, <c>=</c>,
+    /// <c>Like</c>, <c>Is</c>, <c>Mod</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c> or <c>Imp</c>, after a <c>+</c>, <c>/</c>, <c>\</c>, <c>^</c>,
+    /// <c>&amp;</c>, <c>&lt;&gt;</c>, <c>&lt;</c>, <c>&gt;</c>, <c>&lt;=</c> or <c>&gt;=</c>. Where the operator can also begin something that follows an
     /// expression (a unary <c>-</c>, a name such as <c>Mod</c>, the next item of a list to print), the parse ends the expression before it, and the operator
     /// is a token no rule read; where it cannot, the parse reads the operation, and the listener keeps it unbuilt when it exits it. Valid code has no token
     /// that no rule read.
@@ -712,6 +714,13 @@ public partial class ModuleParser(
                 && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
             {
                 operand.DanglingOperator = (token, tokens.GetText(operand.Start, token));
+
+                // what ends with the operand - the assignment, the item of a list to print, the statement - holds the operation it is kept as.
+                for (var parent = operand.Parent as VBABaseParserRuleContext; parent is { Stop: { } stop } && stop.TokenIndex < token.TokenIndex;
+                    parent = parent.Parent as VBABaseParserRuleContext)
+                {
+                    parent.ExtendThrough(token);
+                }
             }
         }
     }
