@@ -11,7 +11,7 @@ The `Err` class is represented in the SDK by the interface
 
 ## The Err function
 
-🎯 The error object has two shapes. RD-VBA deliberately implements the MS-VBA one:
+**RD-VBA differs from MS-VBAL:** the error object has two shapes, and RD-VBA implements the MS-VBA one.
 
 |Shape|Described by|The error object is|
 |---|---|---|
@@ -64,7 +64,7 @@ create its object. Both forms are reported as [`RDC11028`](../diagnostics/rdc110
 |6.1.3.2.2.4|[LastDllError](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/54c13521-19f1-46aa-a34d-4cd5733102f8)||
 |6.1.3.2.2.5|[Number](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/af123ad2-997f-4180-9d99-11d529757bf4)||
 |6.1.3.2.2.6|[Source](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a282720f-a558-4918-b5cb-6aa7114c0d47)|See [§6.1.3.2.2.6](#613226-source).|
-|6.1.3.2.2.7|🧩 `StackTrace`|RD-VBA addition. See [§6.1.3.2.2.7](#613227-stacktrace).|
+|6.1.3.2.2.7|`StackTrace`|RD-VBA addition. See [§6.1.3.2.2.7](#613227-stacktrace).|
 
 ### 6.1.3.2.2.3 HelpFile
 
@@ -107,7 +107,7 @@ The `rdcore/session/execute` result reports the same source for the error a run 
 
 ### 6.1.3.2.2.7 StackTrace
 
-🧩 `ErrObject.StackTrace` is an RD-VBA addition to the MS-VBAL `Err` class, and the only member RD-VBA adds to it.
+`ErrObject.StackTrace` is an RD-VBA addition to the MS-VBAL `Err` class, and the only member RD-VBA adds to it.
 
 The MS-VBA error object identifies what an error was, not the call chain it was raised in. `StackTrace` reports that
 call chain.
@@ -135,6 +135,3 @@ itself it is suspended.
 [VBStackTrace](../api/RDCore.SDK.Model.Errors.VBStackTrace.html) type. The current error's stack trace is held on
 `ISessionErrorState.StackTrace`, and is built from
 [ICallStack](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStack.html)`.Frames`.
-
----
-> ⏮️ [**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md) | ⏭️ [**RD-VBAL §6.1.3.3** Global Class](rd-vbal.6.1.3.3.global-class.md)
