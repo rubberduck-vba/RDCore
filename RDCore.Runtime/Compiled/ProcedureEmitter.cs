@@ -904,7 +904,9 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, loop.State);
         }
 
-        // each field's cell, found again: an edit made while the program waited may have given the object others.
+        // each field's cell, found again (FieldCellOf): the body's cache gives the cell of the same object as it is, and finds it again on the object when a
+        // callee ran the body on another object meanwhile, and the cache is that object's. An edit made while the program waited hands the activation to the
+        // interpreter, so no edit is read here.
         foreach (var slot in _analysis.FieldSlots)
         {
             EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
