@@ -187,7 +187,7 @@ public sealed class CompiledModuleFieldTests
             "        Summed = Summed * 100 + Total Mod 100",
             "    Next",
             "End Function"), [("Summed", 0)], modules: Store(
-                "Private Declare PtrSafe Sub CopyMemory Lib \"kernel32\" Alias \"RtlMoveMemory\" (Destination As Any, Source As Any, ByVal Length As LongPtr)",
+                $"Private Declare PtrSafe Sub CopyMemory Lib \"{CompiledMemberEntryTests.CLibrary}\" Alias \"memmove\" (Destination As Any, Source As Any, ByVal Length As LongPtr)",
                 "Public Sub Poke(ByVal V As Long)",
                 "    CopyMemory Total, V, 4",
                 "End Sub"));

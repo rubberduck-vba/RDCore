@@ -405,8 +405,8 @@ public sealed class CompiledMemberEntryTests
             "End Function")),
     ];
 
-    // the C library of the platform the tests run on, whose memcpy copies bytes on each of them.
-    private static string CLibrary => OperatingSystem.IsWindows() ? "msvcrt" : OperatingSystem.IsMacOS() ? "libc.dylib" : "libc.so.6";
+    // the C library of the platform the tests run on, whose memcpy and memmove copy bytes on each of them.
+    internal static string CLibrary => OperatingSystem.IsWindows() ? "msvcrt" : OperatingSystem.IsMacOS() ? "libc.dylib" : "libc.so.6";
 
     // the bytes of a field written by the interpreter, at the field's address, in the middle of a member: compiled code reads the field after it as it now is.
     // Bump returns 8, then 170, then 3412.
