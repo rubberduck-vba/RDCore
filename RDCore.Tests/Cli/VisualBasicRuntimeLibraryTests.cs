@@ -64,9 +64,10 @@ public sealed class VisualBasicRuntimeLibraryTests
         CollectionAssert.AreEqual(new[] { "1  1  11  1  1  1  1", "True" }, ran.Output.Select(line => line.Trim()).ToArray());
     }
 
+    // VBRUN's DragConstants.vbCancel is 0, and VBA, which comes first as the VB6 References dialog lists it, has vbCancel 2. vbKeyEscape is the KeyCodeConstants
+    // module's of RDCore's VB6 standard library, an Integer: MSVBVM60's VBA has no such module, and vb6.exe types it as VBRUN's, a Long.
     [TestMethod]
     public async Task AVB6Project_ANameOfBothTheStandardLibraryAndTheRuntime_IsTheStandardLibrarys()
-        // VBRUN's DragConstants.vbCancel is 0 and its vbKeyEscape a Long; VBA comes first, as the VB6 References dialog lists it.
     {
         var ran = await RunVB6Async("Debug.Print vbCancel; TypeName(vbKeyEscape)");
 
@@ -82,7 +83,7 @@ public sealed class VisualBasicRuntimeLibraryTests
         CollectionAssert.AreEqual(new[] { "2,Long,2,0" }, ran.Output.ToArray());
     }
 
-    // the enumerations are VBRUN's: VB6's VBA declares its key codes and colors as constants of a module, which is no type.
+    // the enumerations of the key codes and colors are VBRUN's.
     [TestMethod]
     public async Task AVB6Project_AVariableOfAnEnumerationOfTheRuntime_ByItsQualifiedName_IsALong()
     {
@@ -91,8 +92,9 @@ public sealed class VisualBasicRuntimeLibraryTests
         CollectionAssert.AreEqual(new[] { "Long" }, ran.Output.ToArray());
     }
 
-    // in the type binding context a procedural module of a referenced library ranks before a type of one (MS-VBAL §5.6.10), so the unqualified name is VBA's
-    // module, and no type. vb6.exe builds each of these, the name being VBRUN's enumeration, a Long.
+    // RDCore's VB6 standard library has a module of each of these names, which MSVBVM60's VBA does not. A procedural module of a referenced library ranks
+    // before a type of one in the type binding context (MS-VBAL §5.6.10), so the unqualified name is that module, and no type. vb6.exe builds each of these,
+    // the name being VBRUN's enumeration, a Long.
     [TestMethod]
     [DataRow("KeyCodeConstants")]
     [DataRow("ColorConstants")]
@@ -104,12 +106,14 @@ public sealed class VisualBasicRuntimeLibraryTests
         Assert.IsTrue(errors.Any(error => error.Contains($"'{type}' is a procedural module of a library, not a type")), string.Join("; ", errors));
     }
 
+    // the module of RDCore's VB6 standard library, which MSVBVM60's VBA does not have: vb6.exe reports "User-defined type not defined", as of a name nothing declares.
     [TestMethod]
-    public async Task TheKeyCodesOfTheStandardLibrary_AreConstantsOfAModule_AndNoType()
+    public async Task AVB6Project_AVariableOfTheKeyCodesModuleOfTheStandardLibrary_IsRefused()
     {
-        var errors = await LoadErrorsAsync([], Program("Dim k As VBA.KeyCodeConstants", "k = 27"), NoneListed);
+        var errors = await LoadErrorsAsync([], Program("Dim k As VBA.KeyCodeConstants", "k = 27"), NoneListed, SupportedLanguages.VB6);
 
-        Assert.IsTrue(errors.Any(error => error.Contains("KeyCodeConstants")), string.Join("; ", errors));
+        CollectionAssert.AreEqual(
+            new[] { "Automation type not supported in Visual Basic: 'VBA.KeyCodeConstants' is a procedural module of a library, not a type." }, errors, string.Join("; ", errors));
     }
 
     [TestMethod]
