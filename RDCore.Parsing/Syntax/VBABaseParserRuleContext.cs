@@ -39,7 +39,16 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     // first line alone. Adding it to every line pushed every line after the first that many columns to
     // the right - with an anchor of L5C4, a member ending at the start of the fragment's second line
     // reported 7:4 instead of 7:0.
-    public SourceRange SourceRange => RangeThrough(Stop);
+    public SourceRange SourceRange => RangeThrough(_through ?? Stop);
+
+    // a token after the rule's own last one that its range runs through: the binary operator no rule read, at the end of the statement the rule ends with.
+    private IToken? _through;
+
+    /// <summary>
+    /// Makes the rule's range run through <paramref name="token"/>, a token written after its own last one that is part of what it says: the binary operator no
+    /// rule read at the end of the statement the rule ends with (<c>a = 1 -</c>), which the unbuilt operation of the rule's last expression holds.
+    /// </summary>
+    internal void ExtendThrough(IToken token) => _through = token;
 
     /// <summary>
     /// The binary operator written right after this expression, at the end of its statement, of which the parse read no operation, and the text of the

@@ -615,10 +615,10 @@ public partial class ModuleParser(
         }
     }
 
-    // LL with default recovery and the error listener, on a fresh listener: what produces the located errors.
+    // LL with recovery and the error listener, on a fresh listener: what produces the located errors. The recovery is ANTLR's, bound to the statement the error is in.
     private TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
-        => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
+        => ParseOnce(content, PredictionMode.Ll, new StatementBoundErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
 
     // errorListener hears the grammar's errors, and none when it is null; findings is where what the parse finds of the tokens around its rules is reported.
     private TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, ErrorListener findings,
@@ -677,7 +677,9 @@ public partial class ModuleParser(
     /// operator: the listener keeps the two as an unbuilt expression, and not the expression alone as if it were all the statement said.
     /// </summary>
     /// <remarks>
-    /// The operation has no right operand, and the grammar's error is reported at its operator. Where the operator can also begin something that follows an
+    /// The operation has no right operand, and is a syntax error, reported as a zero-width range at the operator: before a <c>-</c>, <c>*</c>, <c>=</c>,
+    /// <c>Like</c>, <c>Is</c>, <c>Mod</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c> or <c>Imp</c>, after a <c>+</c>, <c>/</c>, <c>\</c>, <c>^</c>,
+    /// <c>&amp;</c>, <c>&lt;&gt;</c>, <c>&lt;</c>, <c>&gt;</c>, <c>&lt;=</c> or <c>&gt;=</c>. Where the operator can also begin something that follows an
     /// expression (a unary <c>-</c>, a name such as <c>Mod</c>, the next item of a list to print), the parse ends the expression before it, and the operator
     /// is a token no rule read; where it cannot, the parse reads the operation, and the listener keeps it unbuilt when it exits it. Valid code has no token
     /// that no rule read.
@@ -712,6 +714,13 @@ public partial class ModuleParser(
                 && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
             {
                 operand.DanglingOperator = (token, tokens.GetText(operand.Start, token));
+
+                // what ends with the operand - the assignment, the item of a list to print, the statement - holds the operation it is kept as.
+                for (var parent = operand.Parent as VBABaseParserRuleContext; parent is { Stop: { } stop } && stop.TokenIndex < token.TokenIndex;
+                    parent = parent.Parent as VBABaseParserRuleContext)
+                {
+                    parent.ExtendThrough(token);
+                }
             }
         }
     }
@@ -1180,6 +1189,16 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             msg = $"no viable alternative at input {EscapeWSAndQuote(tokens.GetText(start, offendingSymbol))}";
         }
 
+        // one error where the parse stopped: a rule that fails at a token, and the rule it is in that fails at the same token, are one syntax error, said as the
+        // parse first said it.
+        if (_errors.Any(existing => existing.ErrorId == (int)VBCompileErrorId.SyntaxError && existing.Location.Equals(location)))
+        {
+            return;
+        }
+
+        // an error before one the parse reported is in tokens it reads again: the decision that failed looked past them, to the end of the statement
+        // (Debug.Print 1 -, at the line end), and the statement fails before that, at the error the parse reports now, which is the one error.
+        _errors.RemoveAll(existing => existing.ErrorId == (int)VBCompileErrorId.SyntaxError && existing.Location.Range.Start.CompareTo(position) > 0);
         _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
     }
 
