@@ -55,6 +55,9 @@ implementation, references and highlights, call and type hierarchy, rename and c
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html)
+- [RDCore.SDK](https://github.com/rubberduck-vba/RDCore.SDK): the language model and platform plumbing that every RDCore component and extension builds on
+- [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE): the add-in that brings RDCore into HexIDE
+- [HexIDE](https://github.com/hexide-io/HexIDE): the IDE for VB developers that RDCore.HexIDE extends
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>

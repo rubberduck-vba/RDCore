@@ -67,10 +67,10 @@ Ouvrez ensuite le _shell_ sur cet espace de travail avec `rdc --workspace <chemi
 ---
 ## Utiliser RDCore à partir d'un IDE
 
-Le _shell_ est amusant, mais le vrai travail se fait dans le serveur de langage derrière lui, et un serveur de langage a besoin d'un éditeur. Nous recommandons **HexIDE** : contrairement à la plupart des éditeurs, il a été conçu pour les développeurs VB, et vous vous y sentirez chez vous.
+Le _shell_ est amusant, mais le vrai travail se fait dans le serveur de langage derrière lui, et un serveur de langage a besoin d'un éditeur. Nous recommandons **[HexIDE](https://github.com/hexide-io/HexIDE)** : contrairement à la plupart des éditeurs, il a été conçu pour les développeurs VB, et vous vous y sentirez chez vous.
 
 > [!NOTE]
-> La prise en charge de RDCore dans HexIDE est en cours de développement.
+> La prise en charge de RDCore dans HexIDE est en cours de développement, dans le module d'extension [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE).
 
 ---
 ## Bon à savoir
