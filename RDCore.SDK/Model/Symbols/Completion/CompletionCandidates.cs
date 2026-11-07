@@ -127,7 +127,7 @@ public static class CompletionCandidates
 
     /// <summary>
     /// How <paramref name="word"/> matches <paramref name="label"/>: as its start, as its humps (the way Visual Studio matches PascalCase names), or not at all.
-    /// Case does not tell one name from another in VBA (<strong>MS-VBAL §3.3.5.1</strong>), and every comparison here ignores it.
+    /// Case does not tell one name from another in VBA (<strong>MS-VBAL §3.3.5</strong>), and every comparison here ignores it.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -145,8 +145,9 @@ public static class CompletionCandidates
     /// <para>
     /// The word matches the humps when it can be cut into as many parts as there are humps from the first, each part the start of its hump, in order: no hump
     /// is skipped, and the humps after the last part are not needed. <c>MP</c> and <c>MuPl</c> match <c>MultiPlayer</c>, <c>LoPi</c> matches
-    /// <c>LoadPicture</c>, <c>vbKEs</c> matches <c>vbKeyEscape</c>, <c>CLP</c> matches <c>CLngPtr</c>; <c>Pr</c> does not match <c>CLngPtr</c>, nor
-    /// <c>Player</c> <c>MultiPlayer</c>, nor <c>WA</c> <c>Win32Api</c>. An underscore typed separates parts as one in a label does, and matches nothing itself.
+    /// <c>LoadPicture</c>, <c>vbKEs</c> matches <c>vbKeyEscape</c>, <c>CLP</c> matches <c>CLngPtr</c>. <c>Pr</c> does not match <c>CLngPtr</c>,
+    /// <c>Player</c> does not match <c>MultiPlayer</c>, and <c>WA</c> does not match <c>Win32Api</c>. An underscore typed separates parts as one in a
+    /// label does, and matches nothing itself.
     /// </para>
     /// </remarks>
     /// <param name="label">The label of a candidate: a name, as it is written.</param>
