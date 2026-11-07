@@ -69,4 +69,38 @@ public sealed class UnaryPlusTests
     [TestMethod]
     public void AUnaryPlus_BeforeAnObject_IsTheObjectASetAssigns()
         => Assert.AreEqual("True Boolean|", Run("Dim c As Collection ;; Set c = New Collection ;; Dim o As Object ;; Set o = +c ;; P o Is c"));
+
+    // a Tab clause, a space, then a + is two items: the + begins the second, and is erased. The file holds 1 printed at the second column.
+    [TestMethod]
+    public void AUnaryPlus_AfterATabClauseAndASpace_BeginsTheNextItem_OfAPrintToAFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"rdcore-uplus-{Guid.NewGuid():N}.txt");
+        try
+        {
+            string[] lines =
+            [
+                "Attribute VB_Name = \"Program\"",
+                "Public Sub Main()",
+                "    Dim ff As Integer",
+                "    Dim s As String",
+                "    ff = FreeFile",
+                $"    Open \"{path}\" For Output As #ff",
+                "    Print #ff, Tab(2) + 1",
+                "    Close #ff",
+                $"    Open \"{path}\" For Input As #ff",
+                "    Line Input #ff, s",
+                "    Close #ff",
+                "    Debug.Print \"[\" & s & \"]\"",
+                "End Sub",
+            ];
+
+            var output = RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult();
+
+            Assert.AreEqual("[  1 ]", Assert.ContainsSingle(output));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
