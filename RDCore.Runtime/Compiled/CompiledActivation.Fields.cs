@@ -3,12 +3,12 @@ using RDCore.Runtime.Execution.Memory;
 
 namespace RDCore.Runtime.Compiled;
 
-// where compiled code finds the cell of a field it reaches, and how long it keeps it (IR lowering S2.6c): the scope rule. What a cell found is - which
-// cells compiled code takes for a field of a kind - is CompiledActivation.FieldKinds.cs's.
+// where compiled code finds the cell of a field it reaches, and how long it keeps it: the scope rule. What a cell found is - which cells compiled code takes
+// for a field of a kind - is CompiledActivation.FieldKinds.cs's.
 public sealed partial class CompiledActivation
 {
     /// <summary>
-    /// The cell of the field numbered <paramref name="number"/> (IR lowering S2.5e, S2.6c): the one the interpreter resolves the variable to, which compiled
+    /// The cell of the field numbered <paramref name="number"/>: the one the interpreter resolves the variable to, which compiled
     /// code reads and writes it in - the object's, for a variable of <c>Me</c>'s class or a <c>Static</c> variable of a member of it, and the session's, for
     /// a variable of a standard module or a <c>Static</c> variable of a procedure of one.
     /// </summary>
@@ -24,7 +24,9 @@ public sealed partial class CompiledActivation
         return field.Scope is FieldScope.Object ? ObjectFieldCellOf(number, field, storage) : SessionFieldCellOf(number, field, storage);
     }
 
-    /// <summary>The cell of a field (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.</summary>
+    /// <summary>
+    /// The cell of a field (<see cref="FieldCellOf"/>), found again after the interpreter ran an instruction or the program waited.
+    /// </summary>
     public object? ReloadFieldCell(int number) => FailsAccessAtRandom() ? null : FieldCellOf(number);
 
     // Me is the object the activation was entered on (EnterMemberDirectly), or the one its frame is a call on, which the interpreter resolves a field on.

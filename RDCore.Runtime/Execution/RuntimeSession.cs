@@ -782,6 +782,10 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             && type.Members.Zip(edited.Members).All(pair => string.Equals(pair.First.Name, pair.Second.Name, StringComparison.OrdinalIgnoreCase)
                 && IsSameType(pair.First.ResolvedType, pair.Second.ResolvedType));
 
+    // the Static variables a procedure declares.
+    private static IEnumerable<VBLocalVariableSymbol> StaticsOf(VBTypeMemberSymbol member)
+        => RuntimeProcedureInvoker.GetLocals(member).OfType<VBLocalVariableSymbol>().Where(local => local.IsStatic);
+
     // the Statics held as they were while a program is in progress, by identity: each as it was declared when it was given its storage.
     private ImmutableDictionary<SemanticId, VBLocalVariableSymbol> _heldStatics = ImmutableDictionary<SemanticId, VBLocalVariableSymbol>.Empty;
 
@@ -790,9 +794,6 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     // program is in progress, that is held until the program is over (ApplyHeldDefinitions), and the Static declared as it was again takes it back.
     private void RetireStatics(VBTypeMemberSymbol procedure, VBTypeMemberSymbol edited)
     {
-        static IEnumerable<VBLocalVariableSymbol> StaticsOf(VBTypeMemberSymbol member)
-            => RuntimeProcedureInvoker.GetLocals(member).OfType<VBLocalVariableSymbol>().Where(local => local.IsStatic);
-
         var declared = StaticsOf(edited).ToDictionary(local => local.SemanticId);
         foreach (var current in StaticsOf(procedure))
         {
@@ -965,9 +966,10 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             _ = SessionBindings.TryAllocate(variable, DefaultValueOf(variable), out _);
         }
 
-        // a Static local is allocated by its procedure's first call, and so starts from nothing: the call that comes next allocates it again.
-        var statics = table.LocalSymbols.OfType<VBLocalVariableSymbol>()
-            .Where(symbol => symbol.IsStatic && SessionBindings.TryGetAddress(symbol, out _))
+        // a Static local is allocated by its procedure's first call, and so starts from nothing: the call that comes next allocates it again. It is no symbol of
+        // the table - the call gives it its storage (RuntimeProcedureInvoker.HoistLocals) - so it is found among the locals of each procedure.
+        var statics = table.All().OfType<VBTypeMemberSymbol>().SelectMany(StaticsOf)
+            .Where(symbol => SessionBindings.TryGetAddress(symbol, out _))
             .ToList();
         foreach (var local in statics)
         {

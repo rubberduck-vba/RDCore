@@ -78,6 +78,11 @@ public enum IneligibilityKind
     /// variables, and hands its activation to the interpreter in them, which only the unboxed evaluation keeps.
     /// </summary>
     BoxedEvaluation,
+
+    /// <summary>
+    /// An object made with <c>New</c> (MS-VBAL §5.6.10.3): the interpreter makes it, and runs its <c>Class_Initialize</c>. Its detail is the class.
+    /// </summary>
+    New,
 }
 
 /// <summary>
@@ -332,7 +337,7 @@ internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMember
 }
 
 /// <summary>
-/// The cells of the fields of an object a body found (IR lowering S2.5e3b, <see cref="CompiledBody.ObjectFields"/>), by the number compiled code knows each
+/// The cells of the fields of an object a body found (<see cref="CompiledBody.ObjectFields"/>), by the number compiled code knows each
 /// field by: each found as it is first asked for, and looked for again while it is none - the object holds the field in no cell of its type. The object is known
 /// by its identity, which no other object is ever given, and not held: a body keeps no object alive once nothing else does.
 /// </summary>
@@ -344,7 +349,7 @@ internal sealed record class FieldCells(SDK.Model.Values.Runtime.VBRuntimeObject
 }
 
 /// <summary>
-/// The cells of the variables of the session a body found (IR lowering S2.6c, <see cref="CompiledBody.SessionFields"/>), by the number compiled code knows
+/// The cells of the variables of the session a body found (<see cref="CompiledBody.SessionFields"/>), by the number compiled code knows
 /// each field by, as <see cref="FieldCells"/> are an object's. The storage is known by a weak reference: a body is shared by every session composed over the
 /// same scopes, and keeps none of them alive.
 /// </summary>
@@ -356,7 +361,7 @@ internal sealed record class SessionFieldCells(WeakReference<Execution.Memory.Se
 }
 
 /// <summary>
-/// Where a field compiled code reaches is held (IR lowering S2.6c, <see cref="ProcedureAnalysis.Fields"/>): what its cell is found in, and cached by.
+/// Where a field compiled code reaches is held (<see cref="ProcedureAnalysis.Fields"/>): what its cell is found in, and cached by.
 /// </summary>
 internal enum FieldScope
 {
@@ -374,7 +379,7 @@ internal enum FieldScope
 }
 
 /// <summary>
-/// A field compiled code reaches (IR lowering S2.6c): a variable of the activation's object or of the session, held in a cell compiled code finds where the
+/// A field compiled code reaches: a variable of the activation's object or of the session, held in a cell compiled code finds where the
 /// interpreter finds it, by the number it knows the field by.
 /// </summary>
 /// <param name="Slot">The slot compiled code numbers it by, past the slots of the procedure's layout.</param>

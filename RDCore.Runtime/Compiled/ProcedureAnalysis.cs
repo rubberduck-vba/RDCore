@@ -65,10 +65,10 @@ namespace RDCore.Runtime.Compiled;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
-/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (IR lowering S2.5e, <see cref="Fields"/>), found where the
+/// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="Fields"/>), found where the
 /// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
 /// an instruction: compiled code reads and writes it as it does a variable held in a cell. So is a field of a standard module, of any, in the cell the
-/// session holds it in (IR lowering S2.6c). Which fields compiled code reaches is one rule (<c>ProcedureAnalysis.Fields.cs</c>), and what it holds each as
+/// session holds it in. Which fields compiled code reaches is one rule (<c>ProcedureAnalysis.Fields.cs</c>), and what it holds each as
 /// is another (<c>ProcedureAnalysis.FieldKinds.cs</c>).
 /// </para>
 /// <para>
@@ -309,7 +309,8 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or FieldLetStep or VariantFieldLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or FieldLetStep or VariantFieldLetStep or SetStep or CallStep or BranchStep or CaseStep or LoopBackStep
+            or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -541,6 +542,9 @@ internal sealed partial class ProcedureAnalysis
         {
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet } assignment:
                 return AnalyzeLet(instruction.Offset, assignment);
+
+            case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.Set } set:
+                return AnalyzeSet(instruction.Offset, set);
 
             case InstructionKind.Simple when instruction.Node is CallStatementNode call:
                 return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments)) switch
@@ -974,9 +978,12 @@ internal sealed partial class ProcedureAnalysis
     private int? VariantSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _variantSlots.Contains(slot.Index) ? slot.Index : null;
 
-    // an object variable of the activation: one declared As New is made when it is read (MS-VBAL §5.2.3.1.4), which is the interpreter's.
+    // an object variable of the activation, or an object field it reaches (ProcedureAnalysis.Fields.cs): one declared As New is made when it is read
+    // (MS-VBAL §5.2.3.1.4), which is the interpreter's.
     private int? ObjectSlotOf(BoundVariable variable)
-        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index) ? slot.Index : null;
+        => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index)
+            ? slot.Index
+            : FieldSlotOf(variable) is { } field && _objectSlots.Contains(field) ? field : null;
 
     // a type whose values are object references: Object, a class or an interface.
     private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;
@@ -1212,6 +1219,7 @@ internal sealed partial class ProcedureAnalysis
             BoundMember member => (IneligibilityKind.Member, member.Access.Member.IdentifierName),
             BoundIndex => (IneligibilityKind.Element, string.Empty),
             BoundLate or BoundError => (IneligibilityKind.LateBound, (node.Expression as SimpleNameExpressionNode)?.IdentifierName ?? string.Empty),
+            BoundNew made => (IneligibilityKind.New, made.Class.Name),
             BoundLiteral literal => (IneligibilityKind.Literal, literal.Literal.StaticValue.TypeInfo.Name),
             BoundVariable variable => (IneligibilityKind.ForeignVariable, variable.Variable.Name),
             BoundBinary { Plan: { } plan } => (IneligibilityKind.Operator, plan.Operator),

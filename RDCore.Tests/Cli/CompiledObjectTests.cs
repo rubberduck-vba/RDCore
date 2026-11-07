@@ -35,7 +35,8 @@ public sealed class CompiledObjectTests
             "    Next",
             "End Function"), "Counted", recoveries: 1, classes: Things);
 
-    // two references to one object are the same; Nothing is Nothing; a reference compared with the variable it was copied from, after either is Set again.
+    // two references to one object are the same; Nothing is Nothing; a reference compared with the variable it was copied from, after either is Set again -
+    // by compiled code, to the other, or by the interpreter, to a New one.
     [TestMethod]
     public async Task TwoObjectVariables_AreTheSame_WhenTheyReferToOneObject()
         => await AssertAlikeAsync(Program(
@@ -52,7 +53,7 @@ public sealed class CompiledObjectTests
             "        If I = 3 Then Set B = A",
             "        If I = 5 Then Set B = New Thing",
             "    Next",
-            "End Function"), "Compared", recoveries: 3, classes: Things);
+            "End Function"), "Compared", recoveries: 2, classes: Things);
 
     // Nothing on the left, in parentheses, under Not, and of an Object variable; Nothing Is Nothing.
     [TestMethod]
