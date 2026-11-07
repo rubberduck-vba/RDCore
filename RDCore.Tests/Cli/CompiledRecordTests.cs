@@ -965,4 +965,28 @@ public sealed class CompiledRecordTests
             File.Delete(path);
         }
     }
+
+    // an element of a resizable array field given by reference does not lock the field against a write of its whole record, as it locks it against ReDim and
+    // Erase: the field takes the other record's array, bounds and all, and the parameter is still the element it was given, which the field no longer holds.
+    [TestMethod]
+    [DataRow("2", "Q = O", "main 7  2")]
+    [DataRow("2", "LSet Q = O", "main 7  2")]
+    [DataRow("3", "Q = O", "main 7  3")]
+    public async Task AnElementOfAResizableArrayFieldGivenByReference_IsTheElementItWas_WhenItsRecordIsWritten(string upper, string write, string printed)
+        => await AssertPrintsAsync(Module(
+            "Private Type TDyn",
+            "    D() As Long",
+            "End Type",
+            "Private Q As TDyn, O As TDyn",
+            "Public Sub Main()",
+            $"    ReDim Q.D(1 To 2): ReDim O.D(1 To {upper})",
+            "    Q.D(1) = 1: O.D(1) = 7",
+            "    Inner Q.D(1)",
+            "    Debug.Print \"main\"; Q.D(1); UBound(Q.D)",
+            "End Sub",
+            "Private Sub Inner(ByRef N As Long)",
+            $"    {write}",
+            "    Debug.Print \"N\"; N",
+            "    N = N + 100",
+            "End Sub"), null, 0, 0, "N 1", printed);
 }
