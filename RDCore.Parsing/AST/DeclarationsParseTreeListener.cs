@@ -862,7 +862,6 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     // Let (MS-VBAL §5.4.3.8) and Set (§5.4.3.9) share one shape: both are `[keyword] lExpression =
     // expression`, and only their static/runtime coercion semantics differ, not their syntax.
-
     public override void ExitLetStmt([NotNull] VBAParser.LetStmtContext context)
         => BuildAssignmentStatement(context, context.LET() is not null ? AssignmentKind.ExplicitLet : AssignmentKind.ImplicitLet, context.lExpression(), context.expression());
 
