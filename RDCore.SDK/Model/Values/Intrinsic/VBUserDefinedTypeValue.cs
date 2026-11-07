@@ -192,20 +192,25 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     }
 
     /// <summary>
-    /// Let-assigns <paramref name="value"/> to the field at <paramref name="index"/> in declaration order (MS-VBAL §5.4.3.8): a field of a scalar type is
-    /// written in its own cell, which a <c>ByRef</c> parameter given the field is bound to (<see cref="GetFieldHandle"/>, MS-VBAL §5.3.1.11), so the
-    /// parameter reads what the field holds after the assignment, and the field holds what the parameter is assigned after it.
+    /// Let-assigns <paramref name="value"/> to the field at <paramref name="index"/> in declaration order, in place (MS-VBAL §5.4.3.8): a <c>ByRef</c>
+    /// parameter given the field (<see cref="GetFieldHandle"/>, MS-VBAL §5.3.1.11) reads the value assigned, and the field reads what the parameter is
+    /// assigned.
     /// </summary>
     /// <remarks>
-    /// A field declared as a record is let <paramref name="value"/> where it is in its turn (<see cref="TryLetFrom"/>). A field that holds an object,
-    /// a <c>Variant</c> or an array is given <paramref name="value"/> instead (<see cref="TrySetFieldAt"/>): a <c>Variant</c> field given by reference
-    /// is bound to the record and the field's position, not to the field's cell, and what holds an object is told by its cell.
-    /// <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to, and shares no cell with anything else: a
-    /// record or an array in it becomes the field's own.
+    /// <para>
+    /// A field of a scalar type is written in its own cell, the cell a <c>ByRef</c> parameter given the field is bound to. A field declared as a record is
+    /// let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>). A field that holds an object, a <c>Variant</c> or an array is replaced by
+    /// <paramref name="value"/>, as <see cref="TrySetFieldAt"/> replaces it. A <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record
+    /// and the field's position, so it reads the value that replaced it.
+    /// </para>
+    /// <para>
+    /// <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to, and shares no cell with anything else: a record or
+    /// an array in it becomes the field's own.
+    /// </para>
     /// </remarks>
     /// <param name="index">The field's position in declaration order.</param>
     /// <param name="value">The value to assign, of the field's declared type.</param>
-    /// <returns><c>false</c> when there is no field there.</returns>
+    /// <returns><see langword="false"/> when there is no field at <paramref name="index"/>.</returns>
     public bool TryLetFieldAt(int index, VBTypedValue value)
     {
         if (index < 0 || index >= _fields.Length)
@@ -227,16 +232,15 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     }
 
     /// <summary>
-    /// Let-assigns <paramref name="source"/> to this record where it is (MS-VBAL §5.4.3.8): each field is let the same field of
-    /// <paramref name="source"/> (<see cref="TryLetFieldAt"/>), so a <c>ByRef</c> parameter given a field of this record reads what the field holds
-    /// after the assignment (MS-VBAL §5.3.1.11).
+    /// Let-assigns <paramref name="source"/> to this record in place (MS-VBAL §5.4.3.8), each field from the same field of <paramref name="source"/>
+    /// (<see cref="TryLetFieldAt"/>): a <c>ByRef</c> parameter given a field of this record (MS-VBAL §5.3.1.11) reads the value assigned.
     /// </summary>
     /// <remarks>
-    /// <paramref name="source"/> is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else: what it holds
-    /// that is not written in a cell of this record, an array or a <c>Variant</c>, becomes this record's own.
+    /// <paramref name="source"/> is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else: a value of it that
+    /// replaces a field (an object, a <c>Variant</c> or an array) becomes this record's own.
     /// </remarks>
     /// <param name="source">The record assigned, of this record's type.</param>
-    /// <returns><c>false</c> when <paramref name="source"/> is of another type: nothing was written.</returns>
+    /// <returns><see langword="false"/> when <paramref name="source"/> is of another type, and nothing is written.</returns>
     public bool TryLetFrom(VBUserDefinedTypeValue source)
     {
         if (!Equals(TypeInfo, source.TypeInfo) || source._fields.Length != _fields.Length)
@@ -271,8 +275,8 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
 
     /// <summary>
     /// Reserves storage sized for this UDT through <paramref name="storage"/>, and returns a copy of
-    /// this value bound to the resulting address — a UDT's identity <em>is</em> its address, so the
-    /// allocated copy self-reports the very address it was allocated at.
+    /// this value bound to the resulting address. A UDT's identity is its address, so the allocated
+    /// copy reports the address it was allocated at.
     /// </summary>
     /// <param name="storage">The session storage the record is given an address in.</param>
     /// <param name="allocated">The copy of this record bound to its address; <c>null</c> when none was reserved.</param>

@@ -14,12 +14,12 @@ namespace RDCore.Runtime.Compiled;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Compiled code holds the cell its frame holds the record in - its <em>holder</em> - and nothing below it: each access finds the record the holder holds
-/// now, then the field. What the interpreter does of the record in between - a Let of the whole record, which writes a copy of another into it
-/// (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>), a Let of one of its fields, written in the field's cell - compiled code then sees.
+/// Compiled code holds the cell its frame holds the record in (its <em>holder</em>) and nothing below it: each access finds the record the holder holds
+/// now, then the field. Compiled code then sees what the interpreter did to the record in between: a Let of the whole record writes a copy of another
+/// into it (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>), and a Let of one of its fields writes the field's cell.
 /// </para>
 /// <para>
-/// What it doesn't read or write - a holder that holds no record, a field that holds no payload of its type, a <c>Variant</c> field over an object - is the
+/// What it does not read or write (a holder that holds no record, a field that holds no payload of its type, a <c>Variant</c> field over an object) is the
 /// interpreter's: each operation returns <see langword="false"/>, and the interpreter runs the statement.
 /// </para>
 /// </remarks>
@@ -61,8 +61,8 @@ public static class RecordOperations
     }
 
     /// <summary>
-    /// Let-assigns a payload of the field's integral kind to the field at <paramref name="index"/> of <paramref name="record"/> (MS-VBAL §5.4.3.8): written
-    /// in the field's cell, which a <c>ByRef</c> parameter given the field is bound to, as <c>AssignField</c> writes it
+    /// Let-assigns a payload of the field's integral kind to the field at <paramref name="index"/> of <paramref name="record"/> (MS-VBAL §5.4.3.8). The payload is
+    /// written in the field's cell, which a <c>ByRef</c> parameter given the field is bound to, as <c>AssignField</c> writes it
     /// (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>).
     /// </summary>
     public static bool WriteIntegral(object? record, int index, ScalarKind kind, long value) => TryWrite(record, index, new ScalarPayload(ScalarKinds.TypeOf(kind), value, 0));
