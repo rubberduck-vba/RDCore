@@ -89,8 +89,8 @@ public abstract record class VBArrayValue : VBTypedValue
     }
 
     /// <summary>
-    /// Let-assigns the elements of <paramref name="source"/> to the elements of this array, in place (MS-VBAL §5.4.3.8): what a fixed-size array
-    /// field of a record is given when the record is let, because the record holds its elements itself.
+    /// Let-assigns the elements of <paramref name="source"/> to the elements of this array, in place (MS-VBAL §5.4.3.8). A fixed-size array
+    /// field of a record is let this way when the record is let, since the record holds the array's elements itself.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -99,12 +99,12 @@ public abstract record class VBArrayValue : VBTypedValue
     /// (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>).
     /// </para>
     /// <para>
-    /// An element that holds an object or a <c>Variant</c> takes the cell of <paramref name="source"/>'s element instead. <paramref name="source"/>
+    /// An element that holds an object or a <c>Variant</c> is given the cell of <paramref name="source"/>'s element. <paramref name="source"/>
     /// is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else.
     /// </para>
     /// </remarks>
     /// <param name="source">The array assigned, of this array's element type and bounds.</param>
-    /// <returns><see langword="false"/> when <paramref name="source"/> has another element type or other bounds: nothing was written.</returns>
+    /// <returns><see langword="false"/> when <paramref name="source"/> has another element type or other bounds, and nothing is written.</returns>
     public bool TryLetFrom(VBArrayValue source)
     {
         if (!Equals(ItemType, source.ItemType) || !Dimensions.SequenceEqual(source.Dimensions) || _cells.Length != source._cells.Length)
