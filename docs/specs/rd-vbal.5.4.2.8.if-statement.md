@@ -9,8 +9,8 @@
 |---|---|---|
 |[IfBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.IfBlockStatementNode.html)|`ConditionalBranch`|The `If` header.|
 |[ElseIfBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseIfBlockStatementNode.html)|`ConditionalBranch`|An `ElseIf` header.|
-|[ElseBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseBlockStatementNode.html)|—|The `Else` branch needs no condition. The last header's `Else` offset names the first instruction of its body.|
-|— (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
+|[ElseBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseBlockStatementNode.html)|None|The `Else` branch needs no condition. The last header's `Else` offset names the first instruction of its body.|
+|None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
 
 See [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md) and
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md).

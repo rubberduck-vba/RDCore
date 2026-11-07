@@ -13,15 +13,15 @@ A hidden member is left out of a completion list and resolves anyway, being a me
 (`StdLibModuleAttribute.IsHidden`), and so are its members; the flag is the `hidden` bit (`SymbolProperties.HiddenMemberFlag`, `0x40`) of the symbol's
 `SymbolProperties.MemberFlags`. `ObjPtr`, `StrPtr` and `VarPtr` are hidden members of the module on their own account.
 
-|Member|Implemented|
+|Member|Notes|
 |---|---|
-|`Array(ParamArray arglist())`|✅ See below.|
-|`Input(Number, FileNumber)`, `Input$(Number, FileNumber)`|✅ The characters read from a file opened for `Input` or `Binary`, with no parsing: a quotation mark or a comma is a character. Error 62 when the file ends first, 52 when the file number is not open, 54 when it was opened in a mode that cannot be read this way ([**RD-VBAL §5.4.5.1**](rd-vbal.5.4.5.file-statements.md)).|
+|`Array(ParamArray arglist())`|See below.|
+|`Input(Number, FileNumber)`, `Input$(Number, FileNumber)`|The characters read from a file opened for `Input` or `Binary`, with no parsing: a quotation mark or a comma is a character. Error 62 when the file ends first, 52 when the file number is not open, 54 when it was opened in a mode that cannot be read this way ([**RD-VBAL §5.4.5.1**](rd-vbal.5.4.5.file-statements.md)).|
 |`InputB(Number, FileNumber)`, `InputB$(Number, FileNumber)`|The bytes of the file as they are, not the characters they encode: a `String` of `Number` bytes (`LenB` is `Number`), which `StrConv(…, vbUnicode)` reads as characters. It reads at the same position `Input` does, on a file opened `For Input` or `For Binary`; on any other, error `54`; past the end of the file, `62`; a negative `Number`, `5`. As **MS-VBA** has it (recorded in Excel).|
-|`ObjPtr(Ptr As Unknown)`|✅ The address of an interface of an object in the session's memory, a `LongPtr`. See below.|
-|`StrPtr(Ptr As String)`|✅ The address of the characters of a `String` in the session's memory, a `LongPtr`. See below.|
-|`VarPtr(Ptr As Any)`|✅ The address of a variable in the session's memory, a `LongPtr`. See below.|
-|`Width(FileNumber, Width)`|✅ The member the [**Width statement**](rd-vbal.5.4.5.file-statements.md) is the syntax of: error 5 outside `0`–`255`, 52 and 54 as for any file statement.|
+|`ObjPtr(Ptr As Unknown)`|The address of an interface of an object in the session's memory, a `LongPtr`. See below.|
+|`StrPtr(Ptr As String)`|The address of the characters of a `String` in the session's memory, a `LongPtr`. See below.|
+|`VarPtr(Ptr As Any)`|The address of a variable in the session's memory, a `LongPtr`. See below.|
+|`Width(FileNumber, Width)`|The member the [**Width statement**](rd-vbal.5.4.5.file-statements.md) is the syntax of: error 5 outside `0`–`255`, 52 and 54 as for any file statement.|
 
 ## Array
 
@@ -35,7 +35,7 @@ The language has **two** of it, and which one a call is depends on whether the n
 |`Array(1, 2, 3)`|The `Array` _keyword_: [ArrayExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ArrayExpressionNode.html)|The `Option Base` of the module the expression is written in: `Option Base 1` makes `LBound(Array(1, 2, 3))` `1`.|
 |`VBA.Array(1, 2, 3)`|A call of the library's member of the hidden module|Always `0`, whatever `Option Base` says.|
 
-👉 This is the classic gotcha of the language, and it is modelled rather than papered over. Like `LBound` and `UBound` (**MS-VBAL §3.3.5.2**, the special forms; see [**RD-VBAL §2.5.2.1.2**](rd-vbal.2.5.2.1.2.array-values.md)),
+This is the classic gotcha of the language, and it is modelled rather than papered over. Like `LBound` and `UBound` (**MS-VBAL §3.3.5.2**, the special forms; see [**RD-VBAL §2.5.2.1.2**](rd-vbal.2.5.2.1.2.array-values.md)),
 the keyword is let through by the grammar as an identifier, and the parse listener recognizes it by its token when it is written without a qualifier and with positional arguments: it builds an `ArrayExpressionNode`
 rather than an `IndexExpressionNode`. The qualified form reaches the listener as a member access, which stays what it is and resolves to the library's member like any other call of one. A name written `[Array]`, or
 typed, or a member called that, is an ordinary name; arguments that are named or omitted leave the call an index expression for the rules about calls to say what is wrong with it.
@@ -74,7 +74,7 @@ fixed-length `String` are their bytes, a variable-length `String` the address of
 or the field the byte is part of ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 > [!NOTE]
-> 🚧 Not implemented yet: a `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
+> **Not implemented.** A `Single` passed `ByVal` has its four bytes and zeros above them, where **MS-VBA** leaves whatever was there.
 
 ### SAFEARRAY
 
@@ -161,4 +161,4 @@ counts none: the weak reference programs make so - and `0` makes it `Nothing`. A
 bytes as they were written.
 
 > [!NOTE]
-> 🚧 Not implemented yet: the table of an interface holds no address a program can call through.
+> **Not implemented.** The table of an interface holds no address a program can call through.

@@ -24,9 +24,9 @@ RD-VBA also adds members that manage the workspace application settings explicit
 
 |Member|Specification|SDK member|
 |---|---|---|
-|🧩 `GetAllJsonSettings`|[**RD-VBAL §6.1.2.8.1.7.1** GetAllJsonSettings](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetAllJsonSettings`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
-|🧩 `GetJsonSetting`|[**RD-VBAL §6.1.2.8.1.10.1** GetJsonSetting](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
-|🧩 `SaveJsonSetting`|[**RD-VBAL §6.1.2.8.2.4.1** SaveJsonSetting](rd-vbal.6.1.2.8.interaction.md#61282-public-subroutines)|[`IStdInteractionModule.SaveJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
+|`GetAllJsonSettings`|[**RD-VBAL §6.1.2.8.1.7.1** GetAllJsonSettings](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetAllJsonSettings`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
+|`GetJsonSetting`|[**RD-VBAL §6.1.2.8.1.10.1** GetJsonSetting](rd-vbal.6.1.2.8.interaction.md#61281-public-functions)|[`IStdInteractionModule.GetJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
+|`SaveJsonSetting`|[**RD-VBAL §6.1.2.8.2.4.1** SaveJsonSetting](rd-vbal.6.1.2.8.interaction.md#61282-public-subroutines)|[`IStdInteractionModule.SaveJsonSetting`](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html)|
 
 There is no `DeleteJsonSetting`: a configuration file is the workspace's to edit, and `DeleteSetting` covers the settings a program keeps for itself.
 
