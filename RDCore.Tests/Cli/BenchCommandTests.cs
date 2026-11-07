@@ -46,10 +46,11 @@ public sealed class BenchCommandTests
         "End Function",
         "Public Sub NotNamedForACase()",
         "End Sub",
-        "Public Sub AppendsInALoop()",
-        "    Dim I As Long, S As String, T As Long",
+        "Public Sub CallsLateBoundInALoop()",
+        "    Dim I As Long, T As Long, O As Object",
+        "    Set O = New Tally",
         "    For I = 1 To 3",
-        "        S = S & \"x\"",
+        "        O.Add",
         "        T = T + I",
         "    Next",
         "End Sub");
@@ -333,11 +334,14 @@ public sealed class BenchCommandTests
         // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
 
-        // a compiled procedure says what of it the interpreter runs, and where.
-        var stepping = lines.Single(line => line.Contains("Cases.AppendsInALoop ", StringComparison.Ordinal));
+        // a compiled procedure says what of it the interpreter runs, and where: the call of a member of an Object, bound late, which compiled code does not
+        // make (rd-vbal.3.5.6), counted from 1 in the file.
+        var stepping = lines.Single(line => line.Contains("Cases.CallsLateBoundInALoop ", StringComparison.Ordinal));
         StringAssert.StartsWith(stepping, "compiled");
         StringAssert.Contains(stepping, "run by the interpreter: ");
-        StringAssert.Contains(stepping, "(line ");
+        var called = Array.IndexOf(Cases.Split("\r\n"), "        O.Add") + 1;
+        StringAssert.Contains(stepping, $"(line {called})",
+            $"the late-bound call at line {called} is no longer stepped: the case needs a statement compiled code does not do; give it another.");
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
     }
 

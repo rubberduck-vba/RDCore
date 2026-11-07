@@ -65,6 +65,12 @@ namespace RDCore.Runtime.Compiled;
 /// its <c>Next</c> is stepped on payloads, with the state the statement gave the frame.
 /// </para>
 /// <para>
+/// A <c>String</c> parameter or variable - not a fixed-length one - is held in the cell its frame holds it in too (<see cref="TextSlots"/>):
+/// a <c>Let</c> of an expression of Strings - a literal, a String variable, two joined by <c>&amp;</c> or by <c>+</c> - writes the text it is, and two Strings
+/// are compared under the module's comparison mode, as <c>TryEvaluateText</c> and <c>TryCompareText</c> evaluate them. A String that holds no text compiled
+/// code reads - one that ends with a lone byte - the interpreter runs the statement of.
+/// </para>
+/// <para>
 /// A field of <c>Me</c> of a scalar type is held in the cell the object holds it in (<see cref="FieldSlots"/>), found where the
 /// interpreter finds it - through the frame, whose object is <c>Me</c> - as the activation begins and again wherever it goes on after the interpreter ran
 /// an instruction: compiled code reads and writes it as it does a variable held in a cell.
@@ -79,7 +85,7 @@ namespace RDCore.Runtime.Compiled;
 /// later reads of either is what compiled code wrote. Every other variable is a local of the compiled code.
 /// </para>
 /// </remarks>
-internal sealed class ProcedureAnalysis
+internal sealed partial class ProcedureAnalysis
 {
     private readonly IRuntimeSession _session;
     private readonly RuntimeExpressionEvaluator _evaluator;
@@ -321,7 +327,7 @@ internal sealed class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -477,6 +483,13 @@ internal sealed class ProcedureAnalysis
                 continue;
             }
 
+            // a String is held in the cell its frame holds it in, whose text compiled code reads and writes.
+            if (parameter is not ParamArrayParameterSymbol && IsText(parameter.ResolvedType) && _layout.ParameterSlots[i] >= 0)
+            {
+                HoldText(_layout.ParameterSlots[i], parameter);
+                continue;
+            }
+
             // what is not a scalar the frame holds: a ParamArray, an object, a String, a Variant, an array, a record; and Me.
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) is not { } kind || _layout.ParameterSlots[i] < 0)
             {
@@ -514,6 +527,9 @@ internal sealed class ProcedureAnalysis
                     NeedsFrame = true;
                     _ = _objectSlots.Add(_layout.LocalSlots[i]);
                     _slotSymbols[_layout.LocalSlots[i]] = variable;
+                    continue;
+                case VBLocalVariableSymbol { IsStatic: false } variable when IsText(variable.ResolvedType) && _layout.LocalSlots[i] >= 0:
+                    HoldText(_layout.LocalSlots[i], variable);
                     continue;
 
                 // a Static outlives the activation, and what is no scalar is held as the interpreter holds it: both are the frame's, and the instructions that
@@ -682,6 +698,10 @@ internal sealed class ProcedureAnalysis
 
                 _variantAssignments.Add((variantSlot, variantValue));
                 return new VariantLetStep(offset, variantSlot, variantValue);
+
+            // a String is assigned the text as it is, as TryAssignUnboxed assigns it.
+            case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
+                return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
                 return null;
@@ -1113,6 +1133,10 @@ internal sealed class ProcedureAnalysis
             // MS-VBAL §5.6.7: what TypeOf tests is the interpreter's own test (RuntimeExpressionEvaluator.IsInstanceOf).
             case BoundTypeOf { Operand: BoundVariable tested } typeOf when ObjectSlotOf(tested) is { } typed:
                 return new TypeOfNode(typed, ClassNumberOf(typeOf.Class));
+
+            // MS-VBAL §5.6.9.5: two Strings compared, as TryEvaluatePayload compares them (TryCompareText).
+            case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } compared:
+                return CompareText(compared);
 
             case BoundBinary or BoundUnary when IsExtended(node):
                 return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;

@@ -1049,6 +1049,60 @@ public sealed class CompiledActivation : ILightActivation
     }
 
     /// <summary>
+    /// The cell the frame holds the <c>String</c> parameter or variable in <paramref name="slot"/> in: what compiled code reads the text
+    /// it holds from and writes the text it is assigned to (<see cref="StringOperations"/>), for as long as the interpreter runs nothing of the activation -
+    /// the cell the interpreter's own evaluation of Strings reads and writes (<c>RuntimeExpressionEvaluator.BindingOf</c>).
+    /// </summary>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds it in no cell of its own: a parameter passed by reference bound to a variable of another type, which
+    /// compiled code reads and writes nothing of, and the interpreter runs each statement that does.
+    /// </returns>
+    public object? StringCellOf(int slot)
+    {
+        var frame = Frame;
+        return frame.Procedure is { } procedure
+            && frame.TryReadSlot(new SDK.Semantics.Binding.FrameSlot(SDK.Semantics.Binding.FrameLayout.For(procedure), slot), _body.SlotSymbols[slot], out var cell, out var referenced)
+            && referenced is null && cell is ValueBindingHandle handle
+                ? handle
+                : null;
+    }
+
+    /// <summary>
+    /// The cell of the <c>String</c> in <paramref name="slot"/> (<see cref="StringCellOf"/>), found again after the interpreter ran an instruction or the
+    /// program waited.
+    /// </summary>
+    /// <returns><see langword="false"/> when the frame cannot be read: the activation is then the interpreter's, from where it is.</returns>
+    public bool TryReloadStringCell(int slot, out object? cell)
+    {
+        cell = null;
+        if (FailsAccessAtRandom())
+        {
+            return false;
+        }
+
+        cell = StringCellOf(slot);
+        return true;
+    }
+
+    /// <summary>
+    /// Two texts compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as the interpreter compares them
+    /// (<c>RuntimeExpressionEvaluator.TryCompareText</c>): the mode of the frame the activation is, which is the current one.
+    /// </summary>
+    public bool CompareText(ComparisonOperator comparison, string? left, string? right)
+    {
+        var order = SDK.Runtime.RuntimeSessionExtensions.CurrentStringComparison(_session).Compare(left.AsSpan(), right.AsSpan());
+        return comparison switch
+        {
+            ComparisonOperator.Equal => order == 0,
+            ComparisonOperator.NotEqual => order != 0,
+            ComparisonOperator.Less => order < 0,
+            ComparisonOperator.LessOrEqual => order <= 0,
+            ComparisonOperator.Greater => order > 0,
+            _ => order >= 0,
+        };
+    }
+
+    /// <summary>
     /// <c>TypeOf</c> of the object held in <paramref name="cell"/>, tested against the class the body knows by <paramref name="number"/> (MS-VBAL §5.6.7): as
     /// the interpreter tests it (<c>RuntimeExpressionEvaluator.IsInstanceOf</c>).
     /// </summary>
