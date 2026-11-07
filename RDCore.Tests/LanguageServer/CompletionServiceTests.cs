@@ -178,12 +178,20 @@ public sealed class CompletionServiceTests
             Light
             Dark
         End Enum
+        Public Enum Hue
+            DeepRed
+            Pale
+        End Enum
         Public Sub Paint(ByVal Colour As Shade)
         End Sub
         Public Sub Brush(ByVal Width As Long, Optional ByVal Colour As Shade = Light)
         End Sub
         Public Sub Stroke(ByVal Width As Long)
         End Sub
+        Public Sub Tint(ByVal Colour As Hue)
+        End Sub
+        Public Function Drum() As Long
+        End Function
         """;
 
     private async Task<CompletionList> ListAsync(string line, string? triggerCharacter = null)
@@ -200,7 +208,7 @@ public sealed class CompletionServiceTests
 
         Assert.AreEqual("vbAbortRetryIgnore", items[0].Label, "VbMsgBoxStyle's first constant by name");
         Assert.IsTrue(items[0].Preselect);
-        var constants = items.TakeWhile(item => item.SortText!.StartsWith('!')).Select(item => item.Label).ToList();
+        var constants = items.TakeWhile(IsConstantFirst).Select(item => item.Label).ToList();
         // names in any case, as VBA reads them: the standard library spells two of them vbOkOnly and vbOkCancel.
         CollectionAssert.IsSubsetOf(new[] { "VBOKONLY", "VBOKCANCEL", "VBYESNO", "VBCRITICAL", "VBEXCLAMATION" }, constants.Select(constant => constant.ToUpperInvariant()).ToArray());
         Assert.IsTrue(constants.All(constant => items.Count(item => item.Label == constant) == 1), "a constant is offered once, first");
@@ -229,7 +237,7 @@ public sealed class CompletionServiceTests
     {
         var items = (await ListAsync("Paint Da|")).Items.ToList();
 
-        CollectionAssert.AreEqual(new[] { "Dark" }, items.Where(item => item.SortText!.StartsWith('!')).Select(item => item.Label).ToArray(),
+        CollectionAssert.AreEqual(new[] { "Dark" }, items.Where(IsConstantFirst).Select(item => item.Label).ToArray(),
             string.Join(", ", items.Take(8).Select(item => item.Label + "/" + item.SortText)));
     }
 
@@ -238,9 +246,24 @@ public sealed class CompletionServiceTests
     {
         var items = (await ListAsync("Stroke |")).Items.ToList();
 
-        Assert.IsFalse(items.Any(item => item.Preselect || item.SortText!.StartsWith('!')));
+        Assert.IsFalse(items.Any(IsConstantFirst));
         CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Len");
     }
+
+    // the constants of the Enum are a tier before every other name: the word's best match among them is selected, though it only matches a constant's humps
+    // and starts another name.
+    [TestMethod]
+    public async Task AConstantWhoseHumpsTheWordMatches_RanksAndIsSelected_BeforeANameTheWordStarts()
+    {
+        var items = (await ListAsync("Tint DR|")).Items.ToList();
+
+        Assert.AreEqual("DeepRed", items[0].Label, string.Join(", ", items.Take(5).Select(item => item.Label + "/" + item.SortText)));
+        Assert.IsTrue(items[0].Preselect);
+        CollectionAssert.Contains(items.Select(item => item.Label).ToArray(), "Drum");
+    }
+
+    // the sort text of a constant ranked first: a `!` before any other item's.
+    private static bool IsConstantFirst(CompletionItem item) => item.SortText is ['!', ..];
 
     // a ( , or space a client asks on lists an Enum argument's constants where a value of it starts, and nothing anywhere else: not a whole list at each comma,
     // nor after an operand.
@@ -405,7 +428,7 @@ public sealed class CompletionServiceTests
         }
 
         CollectionAssert.Contains(await CompleteAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Tw|\r\nEnd Sub\r\n"), "Twice");
-        CollectionAssert.Contains(await CompleteAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Twice(1) + Wh|\r\nEnd Sub\r\n"), "vbWhite");
+        CollectionAssert.Contains(await CompleteAsync("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Twice(1) + vbWh|\r\nEnd Sub\r\n"), "vbWhite");
         Assert.AreEqual(1, compositions.Composed, "the line is taken out of the module the list is composed of: the rest of it is what it was");
 
         WorkspaceHas(new WorkspaceDocument("Helpers.bas", Root, Helpers.Replace("Twice", "Thrice")));
@@ -413,20 +436,78 @@ public sealed class CompletionServiceTests
         Assert.AreEqual(2, compositions.Composed, "a module that changed is another parse, and the workspace is composed again");
     }
 
+    // HexIDE selects the first label the word starts: Pr offered CLngPtr, DatePart and NPer, and none of them starts with it.
     [TestMethod]
-    public async Task AListIsNarrowedToTheLettersTyped_InTheirOrder_WhereverTheyAreInTheName()
+    public async Task AWord_OffersTheNamesItStarts_AndNoneThatOnlyHaveItsLetters()
     {
-        var labels = await LabelsAsync("""
+        var (source, position) = At("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Pr|\r\nEnd Sub\r\nPublic Function Progress() As Long\r\nEnd Function\r\n");
+        var items = (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items.OrderBy(item => item.SortText, StringComparer.Ordinal).ToList();
+        var labels = items.Select(item => item.Label).ToArray();
+
+        CollectionAssert.Contains(labels, "Progress");
+        CollectionAssert.DoesNotContain(labels, "CLngPtr");
+        CollectionAssert.DoesNotContain(labels, "DatePart");
+        CollectionAssert.DoesNotContain(labels, "NPer");
+        Assert.IsTrue(items[0].Label.StartsWith("Pr", StringComparison.OrdinalIgnoreCase), items[0].Label);
+    }
+
+    [TestMethod]
+    public async Task TheNamesAWordStarts_RankBeforeTheOnesItMatchesTheHumpsOf_ThoughTheseAreNearer()
+    {
+        var (source, position) = At("""
             Attribute VB_Name = "Main"
+            Private Const MPEG As Long = 1
             Public Sub Run()
-                x = tc|
+                Dim MultiPlayer As Long
+                x = MP|
             End Sub
             """);
+        var items = (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None)).Items.OrderBy(item => item.SortText, StringComparer.Ordinal).ToList();
 
-        CollectionAssert.Contains(labels, "Twice", "letters that are not next to each other: what a client narrows to as it likes");
-        CollectionAssert.DoesNotContain(labels, "Helpers", "it has neither");
-        CollectionAssert.DoesNotContain(labels, "Chr", "it has a c, and no t before it");
+        CollectionAssert.AreEqual(new[] { "MPEG", "MultiPlayer" }, items.Select(item => item.Label).Take(2).ToArray(),
+            string.Join(", ", items.Take(5).Select(item => item.Label + "/" + item.SortText)));
     }
+
+    // LSP 3.17 §Completion Request: a list that is narrowed by the word typed is not the list of a longer word, which the client asks for again.
+    [TestMethod]
+    public async Task AList_IsIncomplete_AndItsBestItemIsPreselected()
+    {
+        var (source, position) = At("Attribute VB_Name = \"Main\"\r\nPublic Sub Run()\r\n    x = Le|\r\nEnd Sub\r\n");
+        var list = await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None);
+        var items = list.Items.OrderBy(item => item.SortText, StringComparer.Ordinal).ToList();
+
+        Assert.IsTrue(list.IsIncomplete);
+        Assert.IsTrue(items[0].Preselect, items[0].Label);
+        Assert.AreEqual(1, items.Count(item => item.Preselect));
+    }
+
+    // ---- a dictionary access (MS-VBAL §5.6.14): the name after a `!` is no declaration's, and nothing true can be offered for it ----
+
+    private async Task<string[]> BangAsync(string line, string? triggerCharacter = null)
+    {
+        var (source, position) = At($"Attribute VB_Name = \"Main\"\r\nPublic Sub Main()\r\n    Dim rs As New Collection\r\n    Dim total!\r\n    {line}\r\nEnd Sub\r\n");
+        return [.. (await Sut().CompleteFragmentAsync("Main", source, position, CancellationToken.None, triggerCharacter)).Items.Select(item => item.Label)];
+    }
+
+    [TestMethod]
+    [DataRow("x = rs!|", null, DisplayName = "after the bang")]
+    [DataRow("x = rs!|", "!", DisplayName = "asked for by the bang")]
+    [DataRow("x = rs!Co|", null, DisplayName = "a name after the bang")]
+    [DataRow("Debug.Print total!|", null, DisplayName = "after a type suffix")]
+    public async Task AfterABang_NothingIsOffered(string line, string? triggerCharacter)
+    {
+        var labels = await BangAsync(line, triggerCharacter);
+
+        Assert.AreEqual(0, labels.Length, string.Join(", ", labels.Take(8)));
+    }
+
+    [TestMethod]
+    public async Task AfterADot_TheMembersAreOffered()
+        => CollectionAssert.IsSubsetOf(new[] { "Add", "Count", "Item" }, await BangAsync("x = rs.|"));
+
+    [TestMethod]
+    public async Task AVariableDeclaredWithATypeSuffix_IsOfferedLikeAnyOther()
+        => CollectionAssert.Contains(await BangAsync("x = to|"), "total");
 
     [TestMethod]
     public async Task NothingIsOffered_InAComment()
