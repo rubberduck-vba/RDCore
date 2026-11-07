@@ -13,8 +13,9 @@ namespace RDCore.Runtime.Semantics;
 /// <remarks>
 /// An element of a scalar type is kept in a cell that holds it as a payload, as a scalar variable is: an expression of it is evaluated on the payload,
 /// and an assignment to it writes one, with no value made of it either way. An element of a <c>Variant</c> array is kept in a Variant's cell, as a
-/// Variant variable is, where compiled code reads and writes the payload it holds. An array of another element type keeps its elements in the cells
-/// <see cref="VBArrayValue"/> makes of their default value.
+/// Variant variable is, where compiled code reads and writes the payload it holds. An element of another type is in the cell <see cref="VBArrayValue"/>
+/// makes of the type's default value when the array is declared or sized, and in a cell of its own holding the element's value when an assignment
+/// copies the array (<see cref="Store"/>).
 /// </remarks>
 internal static class ElementCells
 {
