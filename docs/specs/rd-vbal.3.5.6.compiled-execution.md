@@ -181,7 +181,7 @@ are the interpreter's. The rest of the activation runs in the interpreter.
 A `Variant` that holds what compiled code does not evaluate is the exception: the interpreter runs that one statement, whether it assigns, tests a
 condition or ends a loop, and compiled code goes on after it, as described above.
 
-Compiled code does the same when the program is to stop or a debugger attaches: the interpreter then breaks, or runs the activation under the debugger.
+Compiled code also hands the activation to the interpreter when the program is to stop or a debugger attaches: the interpreter then breaks, or runs the activation under the debugger.
 Compiled code checks for either at the back edge of each loop, after each call it makes, and after each instruction the interpreter runs for it. A break asked for
 while a call or such an instruction ran is answered before the next instruction, where the interpreter answers it. A procedure called while the program
 is to stop runs in the interpreter, which breaks before its first statement.

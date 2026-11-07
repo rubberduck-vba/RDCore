@@ -1558,7 +1558,7 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     /// <summary>
     /// The cells of the fields of the session the body found last: those of the storage an activation of it last ran in, for as long as
-    /// what it binds is what it bound then - a variable's cell is the one it was until anything is allocated, freed or rebound
+    /// what it binds is what it bound then: a variable's cell is the one it was until anything is allocated, freed or rebound
     /// (<c>SessionStorage.Generation</c>).
     /// </summary>
     internal SessionFieldCells? SessionFields { get; set; }
