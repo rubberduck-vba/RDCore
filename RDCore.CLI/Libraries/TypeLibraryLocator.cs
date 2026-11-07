@@ -125,7 +125,7 @@ internal static class TypeLibraryLocator
             var id = Guid.Parse(key);
             if (Registered(id) is { } path)
             {
-                using var version = typeLibs.OpenSubKey($@"{key}\{VersionKey(id)}");
+                using var version = VersionKey(id) is { } versionKey ? typeLibs.OpenSubKey($@"{key}\{versionKey}") : null;
                 candidates.Add((id, version?.GetValue(null) as string, path));
             }
         }
@@ -187,36 +187,41 @@ internal static class TypeLibraryLocator
         return null;
     }
 
+    // the locales the version's key lists, or the neutral one when it lists none: the version's key is the registry's own, as a key of 1.00 or 01.0 is the
+    // version 1.0 too.
     private static IEnumerable<int> RegisteredLocales(Guid id, int major, int minor)
     {
+        var version = Versions(id).FirstOrDefault(version => version.Major == major && version.Minor == minor).Key;
         using var root = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, RegistryView.Registry64);
-        using var key = root.OpenSubKey($@"TypeLib\{id:B}\{major:x}.{minor:x}");
-        return (key?.GetSubKeyNames() ?? [])
+        using var key = version is null ? null : root.OpenSubKey($@"TypeLib\{id:B}\{version}");
+        var locales = (key?.GetSubKeyNames() ?? [])
             .Select(name => int.TryParse(name, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var lcid) ? lcid : -1)
             .Where(lcid => lcid >= 0)
             .Order()
             .ToArray();
+        return locales.Length == 0 ? [0] : locales;
     }
 
-    private static (int Major, int Minor) LatestVersion(Guid id)
+    // the versions a library is registered with, latest first, each with the name of its key.
+    private static (int Major, int Minor, string Key)[] Versions(Guid id)
     {
         using var root = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, RegistryView.Registry64);
         using var key = root.OpenSubKey($@"TypeLib\{id:B}");
-        var versions = (key?.GetSubKeyNames() ?? [])
-            .Select(version => version.Split('.'))
-            .Where(parts => parts.Length == 2 && int.TryParse(parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _)
-                && int.TryParse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
-            .Select(parts => (Major: int.Parse(parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture), Minor: int.Parse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture)))
+        return [.. (key?.GetSubKeyNames() ?? [])
+            .Select(version => (Key: version, Parts: version.Split('.')))
+            .Where(version => version.Parts.Length == 2 && int.TryParse(version.Parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _)
+                && int.TryParse(version.Parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
+            .Select(version => (
+                Major: int.Parse(version.Parts[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                Minor: int.Parse(version.Parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                version.Key))
             .OrderByDescending(version => version.Major)
-            .ThenByDescending(version => version.Minor)
-            .ToArray();
-
-        return versions.Length == 0 ? (-1, -1) : versions[0];
+            .ThenByDescending(version => version.Minor)];
     }
 
-    private static string VersionKey(Guid id)
-    {
-        var (major, minor) = LatestVersion(id);
-        return $"{major:x}.{minor:x}";
-    }
+    private static (int Major, int Minor) LatestVersion(Guid id)
+        => Versions(id) is [var latest, ..] ? (latest.Major, latest.Minor) : (-1, -1);
+
+    private static string? VersionKey(Guid id)
+        => Versions(id) is [var latest, ..] ? latest.Key : null;
 }
