@@ -190,7 +190,7 @@ public sealed record class FixedAssignmentRuntimeSemantics(
         return (Unwrapped(current), Unwrapped(source)) switch
         {
             (VBUserDefinedTypeValue target, VBUserDefinedTypeValue from)
-                when assignment.Kind is AssignmentKind.LSet => CopyRecord(from, target),
+                when assignment.Kind is AssignmentKind.LSet => CopyRecord(session, assignment, from, target),
 
             (VBStringValue target, var from) => Fit(session, assignment, target, from),
 
@@ -201,10 +201,20 @@ public sealed record class FixedAssignmentRuntimeSemantics(
 
     // "The data in <expression>... is copied into <bound-variable-expression> variable" - bytes, not fields,
     // so that a copy between two differently-shaped records reinterprets rather than refusing. The target is
-    // filled in place: a UDT has location identity, and LSet assigns no new one.
-    private static RuntimeSemanticsEvaluationResult CopyRecord(VBUserDefinedTypeValue source, VBUserDefinedTypeValue target)
+    // filled in place: a UDT has location identity, and LSet assigns no new one. How the data is copied is the implementation's, and RD-VBA's copy holds
+    // what it copies as an assignment would: each object the target is given is a reference of its own, counted, and each one it held is let go of. Bytes
+    // read as an object field that are the address of no object are an object that is not there: error 424, and nothing is written.
+    private static RuntimeSemanticsEvaluationResult CopyRecord(
+        IRuntimeSession session, AssignmentStatementNode assignment, VBUserDefinedTypeValue source, VBUserDefinedTypeValue target)
     {
-        VBUserDefinedTypeImage.Copy(source, target);
+        var before = ObjectReferences.HeldInRecord(target);
+        if (!VBUserDefinedTypeImage.Copy(source, target, session.Storage as IObjectPointers))
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+                VBRuntimeErrorId.ObjectRequired, assignment.SourceLocation, "LSet read an object field from bytes that are no object's address"));
+        }
+
+        ObjectReferences.RebindRecord(session, target, before);
         return RuntimeSemanticsEvaluationResult.Success(target);
     }
 

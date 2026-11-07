@@ -4,13 +4,14 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.Execution.Memory;
 
 // the objects and the Variants of the session's memory, as MS-VBA lays them out (recorded in Excel, oracle\s17 O rows, V16, V22): an object variable is a
 // pointer to an interface of the object (ObjectHeader), a Variant a VARIANT.
-internal sealed partial class SessionStorage
+internal sealed partial class SessionStorage : IObjectPointers
 {
     // the interfaces of the objects, by the address each starts at and by the object and the interface; the tables of the classes' interfaces, which the
     // first pointer of an interface is the address of; and the declared types of the variables that are objects, whose bytes are the address of an interface.
@@ -62,6 +63,32 @@ internal sealed partial class SessionStorage
         }
 
         return TryHeaderOf(held, declared, out pointer);
+    }
+
+    public int PointerWidth => pointerSize;
+
+    public bool TryGetPointer(VBRuntimeObjectId instance, VBType? declared, out long pointer)
+    {
+        pointer = 0;
+        return instance.Equals(VBObjectValue.Nothing.Value) || TryHeaderOf(instance, declared, out pointer);
+    }
+
+    // an interface the session made for an object, at any address ObjPtr gave out for it: the object's, until it is destroyed (ReleaseHeadersOf).
+    public bool TryGetObject(long pointer, out VBRuntimeObjectId instance)
+    {
+        instance = VBObjectValue.Nothing.Value;
+        if (pointer == 0)
+        {
+            return true;
+        }
+
+        if (pointer is < int.MinValue or > int.MaxValue || !_headers.TryGetValue(new MemoryAddress(unchecked((int)pointer)), out var header))
+        {
+            return false;
+        }
+
+        instance = header.Object;
+        return true;
     }
 
     /// <summary>

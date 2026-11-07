@@ -669,6 +669,165 @@ public sealed class CompiledRecordTests
             "    Debug.Print X.Name; Q.O(1).Name; X Is Q.O(1)",
             "End Sub"), null, 0, 0, "gone q", "ooTrue", "after", "gone o", "ended");
 
+    private static readonly string[] Holders =
+    [
+        "Private Type THold",
+        "    O As Noisy",
+        "    N As Long",
+        "End Type",
+        "Private Type TPtr",
+        "    P As LongPtr",
+        "    N As Long",
+        "End Type",
+    ];
+
+    // a program of the holder types whose Main runs Run, then prints "ended": what Run's locals hold is let go of before that.
+    private static string Holding(params string[] run)
+        => Program([.. Holders, "Public Sub Main()", "    Run", "    Debug.Print \"ended\"", "End Sub", "Private Sub Run()", .. run, "End Sub"]);
+
+    // LSet of a record (MS-VBAL §5.4.3.6, implementation-defined) gives an object field the object the other record's field holds at the same offset, as
+    // `Set B.O = A.O` would: a reference of its own, counted, in a cell of its own.
+    [TestMethod]
+    public async Task AnObjectFieldCopiedByLSet_IsAReferenceOfItsOwn()
+        => await AssertPrintsAsync(Noisy(), Holding(
+            "    Dim A As THold, B As THold",
+            "    Set A.O = New Noisy",
+            "    A.O.Name = \"a\"",
+            "    LSet B = A",
+            "    Debug.Print B.O Is A.O; B.O.Name",
+            "    Set A.O = Nothing",
+            "    Debug.Print \"cleared a\"",
+            "    Set B.O = Nothing",
+            "    Debug.Print \"cleared b\""), null, 0, 0, "Truea", "cleared a", "gone a", "cleared b", "ended");
+
+    // an object Set to the field LSet copied is the field's: the other record keeps its own.
+    [TestMethod]
+    public async Task AnObjectSetToAFieldLSetCopied_LeavesTheOtherRecordAlone()
+        => await AssertPrintsAsync(Noisy(), Holding(
+            "    Dim A As THold, B As THold",
+            "    Set A.O = New Noisy",
+            "    A.O.Name = \"a\"",
+            "    LSet B = A",
+            "    Set B.O = New Noisy",
+            "    B.O.Name = \"b\"",
+            "    Debug.Print A.O.Name; B.O.Name",
+            "    Set A.O = Nothing",
+            "    Debug.Print \"cleared a\"",
+            "    Set B.O = Nothing",
+            "    Debug.Print \"cleared b\""), null, 0, 0, "ab", "gone a", "cleared a", "gone b", "cleared b", "ended");
+
+    // the object the field held before LSet is let go of as the LSet is made.
+    [TestMethod]
+    public async Task AnObjectFieldLSetOver_LetsGoOfTheObjectItHeld()
+        => await AssertPrintsAsync(Noisy(), Holding(
+            "    Dim A As THold, B As THold",
+            "    Set B.O = New Noisy",
+            "    B.O.Name = \"old\"",
+            "    Set A.O = New Noisy",
+            "    A.O.Name = \"a\"",
+            "    LSet B = A",
+            "    Debug.Print \"lset\"",
+            "    Set A.O = Nothing",
+            "    Set B.O = Nothing",
+            "    Debug.Print \"cleared\""), null, 0, 0, "gone old", "lset", "gone a", "cleared", "ended");
+
+    // a record LSet copied into a local lets go of its own reference when the procedure ends: the record it copied keeps the object.
+    [TestMethod]
+    public async Task ALocalRecordLSetCopiedInto_LetsGoOfItsOwnReferenceWhenItsProcedureEnds()
+        => await AssertPrintsAsync(Noisy(), Program([.. Holders,
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim A As THold",
+            "    Set A.O = New Noisy",
+            "    A.O.Name = \"a\"",
+            "    Copy A",
+            "    Debug.Print \"after \"; A.O.Name",
+            "    Set A.O = Nothing",
+            "    Debug.Print \"cleared\"",
+            "End Sub",
+            "Private Sub Copy(ByRef A As THold)",
+            "    Dim B As THold",
+            "    LSet B = A",
+            "    Debug.Print \"copied \"; B.O.Name",
+            "End Sub"]), null, 0, 0, "copied a", "after a", "gone a", "cleared", "ended");
+
+    // the bytes of an object field LSet gives a field of another type are the object's address, what ObjPtr says it is.
+    [TestMethod]
+    public async Task AnObjectFieldLSetOntoALongPtr_IsTheObjectsAddress()
+        => await AssertPrintsAsync(Noisy(), Holding(
+            "    Dim A As THold, W As TPtr",
+            "    Set A.O = New Noisy",
+            "    A.O.Name = \"a\"",
+            "    A.N = 7",
+            "    LSet W = A",
+            "    Debug.Print W.P = ObjPtr(A.O); W.P <> 0; W.N"), null, 0, 0, "TrueTrue 7", "gone a", "ended");
+
+    // the address of an object LSet gives an object field is that object, counted: the field holds it after the variable it came from lets go of it.
+    [TestMethod]
+    public async Task AnObjectsAddressLSetOntoAnObjectField_IsTheObject()
+        => await AssertPrintsAsync(Noisy(), Holding(
+            "    Dim A As THold, W As TPtr, R As THold",
+            "    Set A.O = New Noisy",
+            "    A.O.Name = \"a\"",
+            "    W.P = ObjPtr(A.O)",
+            "    LSet R = W",
+            "    Debug.Print R.O Is A.O; R.O.Name",
+            "    Set A.O = Nothing",
+            "    Debug.Print \"cleared a\"",
+            "    Set R.O = Nothing",
+            "    Debug.Print \"cleared r\""), null, 0, 0, "Truea", "cleared a", "gone a", "cleared r", "ended");
+
+    // 0 LSet onto an object field is Nothing: the object the field held is let go of.
+    [TestMethod]
+    public async Task ZeroLSetOntoAnObjectField_IsNothing()
+        => await AssertPrintsAsync(Noisy(), Holding(
+            "    Dim W As TPtr, R As THold",
+            "    Set R.O = New Noisy",
+            "    R.O.Name = \"r\"",
+            "    LSet R = W",
+            "    Debug.Print \"lset\"; R.O Is Nothing"), null, 0, 0, "gone r", "lsetTrue", "ended");
+
+    // a number that is no object's address LSet onto an object field is no object: error 424, and nothing of the record is written.
+    [TestMethod]
+    public async Task ANumberThatIsNoObjectsAddressLSetOntoAnObjectField_IsAnError()
+        => await AssertPrintsAsync(Noisy(), Holding(
+            "    On Error Resume Next",
+            "    Dim W As TPtr, R As THold",
+            "    Set R.O = New Noisy",
+            "    R.O.Name = \"r\"",
+            "    W.P = 12345",
+            "    W.N = 7",
+            "    LSet R = W",
+            "    Debug.Print Err.Number; R.O.Name; R.N"), null, 0, 0, "424 r 0", "gone r", "ended");
+
+    // the objects of a fixed-size array field LSet copies are each element's own reference, counted; the ones the elements held are let go of.
+    [TestMethod]
+    public async Task AnObjectElementOfAFixedSizeArrayFieldCopiedByLSet_IsAReferenceOfItsOwn()
+        => await AssertPrintsAsync(Noisy(), Program(
+            "Private Type TArr",
+            "    O(1 To 2) As Noisy",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim A As TArr, B As TArr",
+            "    Set A.O(1) = New Noisy",
+            "    A.O(1).Name = \"a\"",
+            "    Set B.O(1) = New Noisy",
+            "    B.O(1).Name = \"old\"",
+            "    LSet B = A",
+            "    Debug.Print B.O(1) Is A.O(1)",
+            "    Set A.O(1) = Nothing",
+            "    Debug.Print \"cleared a\"",
+            "    Set B.O(1) = Nothing",
+            "    Debug.Print \"cleared b\"",
+            "End Sub"), null, 0, 0, "gone old", "True", "cleared a", "gone a", "cleared b", "ended");
+
     // an object set to a Variant field given by reference is the field's: it is let go of when the field is cleared, set to Nothing, or ends with its record.
     [TestMethod]
     public async Task AnObjectSetToAVariantFieldGivenByReference_IsLetGoOfWithTheField()
@@ -696,6 +855,78 @@ public sealed class CompiledRecordTests
             "    Set V = New Noisy",
             "    V.Name = Name",
             "End Sub"), null, 0, 0, "gone a", "cleared", "gone b", "nothing", "left", "gone c", "ended");
+
+    // an object a Variant field holds is the Variant field's own reference once LSet copied it, counted, as an object field's is.
+    [TestMethod]
+    public async Task AnObjectInAVariantFieldCopiedByLSet_IsAReferenceOfItsOwn()
+        => await AssertPrintsAsync(Noisy(), Program(
+            "Private Type TVar",
+            "    V As Variant",
+            "    N As Long",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim A As TVar, B As TVar",
+            "    Hold A.V, \"v\"",
+            "    LSet B = A",
+            "    Debug.Print B.V Is A.V; B.V.Name",
+            "    A.V = Empty",
+            "    Debug.Print \"cleared a\"",
+            "    B.V = Empty",
+            "    Debug.Print \"cleared b\"",
+            "End Sub",
+            "Private Sub Hold(ByRef V As Variant, ByVal Name As String)",
+            "    Set V = New Noisy",
+            "    V.Name = Name",
+            "End Sub"), null, 0, 0, "Truev", "cleared a", "gone v", "cleared b", "ended");
+
+    // an array a Variant field holds is copied by LSet, as a Let of the Variant would copy it.
+    [TestMethod]
+    public async Task AnArrayInAVariantFieldCopiedByLSet_IsACopy()
+        => await AssertPrintsAsync(Module(
+            "Public Sub Main()",
+            "    Dim A As TPoint, B As TPoint",
+            "    A.V = Array(1, 2)",
+            "    LSet B = A",
+            "    B.V(0) = 9",
+            "    Debug.Print A.V(0); B.V(0)",
+            "End Sub"), null, 0, 0, "1  9");
+
+    private static (string Name, string Source)[] Nodes()
+        => [("Node", ModuleWorkspace.ClassModule("Node", ["Option Explicit", "Public Name As String", "Public Parent As Node", "Public Child As Node",
+            "Private Sub Class_Terminate()", "    Debug.Print \"gone \" & Name", "End Sub"]))];
+
+    // an RD-VBA divergence, ruled: the address of an object LSet onto an object field is a reference counted as any other, where MS-VBA copies the pointer
+    // and counts nothing. A child given its parent that way - the weak reference MS-VBA programs make so - holds it, and a parent and a child that hold each
+    // other are never let go of: neither Class_Terminate runs.
+    [TestMethod]
+    public async Task AWeakReferenceMadeByLSet_IsCounted_SoAParentAndAChildThatHoldEachOtherAreNeverLetGoOf()
+        => await AssertPrintsAsync(Nodes(), Program(
+            "Private Type TPtr",
+            "    P As LongPtr",
+            "End Type",
+            "Private Type TRef",
+            "    O As Node",
+            "End Type",
+            "Public Sub Main()",
+            "    Run",
+            "    Debug.Print \"ended\"",
+            "End Sub",
+            "Private Sub Run()",
+            "    Dim Mom As Node, Kid As Node, W As TPtr, R As TRef",
+            "    Set Mom = New Node",
+            "    Mom.Name = \"mom\"",
+            "    Set Kid = New Node",
+            "    Kid.Name = \"kid\"",
+            "    Set Mom.Child = Kid",
+            "    W.P = ObjPtr(Mom)",
+            "    LSet R = W",
+            "    Set Kid.Parent = R.O",
+            "    Debug.Print Kid.Parent.Name",
+            "End Sub"), null, 0, 0, "mom", "ended");
 
     // a field given by reference is the field when its record is written by LSet, by Get, or let a record whose fixed-size array field holds the element
     // given: each writes the record where it is.

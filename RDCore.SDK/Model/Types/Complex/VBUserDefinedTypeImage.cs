@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace RDCore.SDK.Model.Types;
@@ -68,6 +69,10 @@ public static class VBUserDefinedTypeImage
     /// offset is from the start of the outermost record. <see langword="null"/>, or a field it gives no bytes for, leaves those bytes zero.
     /// </param>
     public static byte[] Of(VBUserDefinedTypeValue value, int pointerWidth, Func<int, byte[]?>? hostBytes)
+        => LaidOut(value, pointerWidth, hostBytes is null ? null : (at, _, _) => hostBytes(at));
+
+    // the image, with the bytes the host lays out for a field given by what is at the offset: its declared type and its value.
+    private static byte[] LaidOut(VBUserDefinedTypeValue value, int pointerWidth, Func<int, VBType, VBTypedValue, byte[]?>? hostBytes)
     {
         var layout = VBUserDefinedTypeLayout.Of(value, pointerWidth);
         var image = new byte[layout.Size];
@@ -95,16 +100,18 @@ public static class VBUserDefinedTypeImage
 
     // what a field, or an element of a fixed-size array field, is in memory at an offset of the outermost record: what the host lays out for a pointer or a
     // VARIANT, a record its own fields, a fixed-size array its elements side by side - in the record (oracle\s24 P04) - and anything else as Encoded lays it out.
-    private static byte[]? ImageOf(VBType type, VBTypedValue? value, int width, int pointerWidth, Func<int, byte[]?>? hostBytes, int at) => type switch
+    private static byte[]? ImageOf(
+        VBType type, VBTypedValue? value, int width, int pointerWidth, Func<int, VBType, VBTypedValue, byte[]?>? hostBytes, int at) => type switch
     {
         _ when value is null => null,
-        _ when IsLaidOutByTheHost(type) => hostBytes?.Invoke(at),
-        VBUserDefinedType when value is VBUserDefinedTypeValue nested => Of(nested, pointerWidth, hostBytes is null ? null : offset => hostBytes(at + offset)),
+        _ when IsLaidOutByTheHost(type) => hostBytes?.Invoke(at, type, value),
+        VBUserDefinedType when value is VBUserDefinedTypeValue nested
+            => LaidOut(nested, pointerWidth, hostBytes is null ? null : (offset, held, of) => hostBytes(at + offset, held, of)),
         _ when value is VBFixedSizeArrayValue inline => InlineImage(inline, width, pointerWidth, hostBytes, at),
         _ => Encoded(type, value, width, pointerWidth),
     };
 
-    private static byte[] InlineImage(VBFixedSizeArrayValue array, int width, int pointerWidth, Func<int, byte[]?>? hostBytes, int at)
+    private static byte[] InlineImage(VBFixedSizeArrayValue array, int width, int pointerWidth, Func<int, VBType, VBTypedValue, byte[]?>? hostBytes, int at)
     {
         var image = new byte[width];
         var elementWidth = Math.Max(1, VBUserDefinedTypeLayout.WidthOf(array.ItemType, pointerWidth));
@@ -221,59 +228,145 @@ public static class VBUserDefinedTypeImage
     /// (<strong>MS-VBAL §5.4.3.6</strong>), reinterpreting them through the destination's own layout.
     /// </summary>
     /// <remarks>
-    /// Only the bytes both types have are copied, as a copy between records of different sizes must be: a
-    /// destination field that does not fit entirely inside the source's image is left at its declared type's
-    /// default rather than being filled with half a value.
+    /// <para>
+    /// Only the bytes both types have are copied, as a copy between records of different sizes must be: a destination field that does not fit entirely
+    /// inside the source's image is left at its declared type's default (<see cref="VBUserDefinedTypeValue.TryResetFieldAt"/>) rather than being filled
+    /// with half a value.
+    /// </para>
+    /// <para>
+    /// The specification leaves how the bytes are copied to the implementation. RD-VBA copies what a pointer points at, never the pointer: a String, an
+    /// array, a record or a <c>Variant</c> field of the source at the same offset is copied into cells of the destination's own
+    /// (<see cref="DataValues.Copy"/>), and an object field there gives the destination's object field the object, in a cell of its own, as <c>Set</c>
+    /// would. Counting that reference is the caller's. An object field read as the bytes of another type is the address of the object, what <c>ObjPtr</c>
+    /// returns, and those bytes read as an object field are the object at that address: <c>Nothing</c> for 0.
+    /// </para>
     /// </remarks>
     /// <param name="source">The value read.</param>
     /// <param name="destination">The value written, field by field, in place.</param>
-    public static void Copy(VBUserDefinedTypeValue source, VBUserDefinedTypeValue destination)
+    /// <param name="pointers">
+    /// The session's object addresses and pointer width. <see langword="null"/> lays both records out for 32 bits, and reads an object field from bytes as
+    /// <c>Nothing</c>.
+    /// </param>
+    /// <returns>
+    /// <see langword="false"/> when the bytes an object field is read from are an address no object of the session has, and nothing is written.
+    /// </returns>
+    public static bool Copy(VBUserDefinedTypeValue source, VBUserDefinedTypeValue destination, IObjectPointers? pointers = null)
     {
-        var image = Of(source);
-        var sourceLayout = source.Layout;
-        var layout = destination.Layout;
+        var pointerWidth = pointers?.PointerWidth ?? VBUserDefinedTypeLayout.DefaultPointerWidth;
+        var sourceLayout = VBUserDefinedTypeLayout.Of(source, pointerWidth);
+        var layout = VBUserDefinedTypeLayout.Of(destination, pointerWidth);
 
+        // the destination fields the source's bytes give a value, which are all the image is laid out for: an object of the source is given the address of
+        // its interface (which ObjPtr would make) only where one of them reads it.
+        var read = new List<(int Offset, int Width)>();
         for (var index = 0; index < layout.Fields.Count; index++)
         {
             var field = layout.Fields[index];
-            var type = field.Symbol.ResolvedType;
-
-            // a field with no byte representation takes the source's own value when the source has a field of
-            // the same type at the same offset - the only reading of "copied" that is both meaningful and
-            // safe, since the alternative is handing the destination a pointer it does not own. (MS-VBA copies
-            // the pointer of a variable-length String, which is what HoldsVariableLengthString is for telling
-            // a program about: an analyzer flags it, FixedAssignmentSemanticFlags.)
-            if (type is null || !HasImage(type))
+            if (IsReadFromBytes(field.Symbol.ResolvedType, field.Offset, field.Width))
             {
-                // an array, a String and a record are data: the destination's field is let a copy of the source's (TryLetFieldAt), written in its own
-                // cells, which a ByRef parameter given the field is bound to, and none of the source's. An object or a Variant is the source's value.
-                switch (ReferenceAt(source, sourceLayout, field.Offset, type))
+                read.Add((field.Offset, field.Width));
+            }
+        }
+
+        var image = read.Count == 0 ? [] : LaidOut(source, pointerWidth, AddressBytes);
+
+        // each field's value first, then the writes: bytes that are no object's address leave the destination as it was.
+        var writes = new List<Action>(layout.Fields.Count);
+        for (var index = 0; index < layout.Fields.Count; index++)
+        {
+            if (WriteOf(index, layout.Fields[index]) is not { } write)
+            {
+                return false;
+            }
+
+            writes.Add(write);
+        }
+
+        foreach (var write in writes)
+        {
+            write();
+        }
+
+        return true;
+
+        bool Fits(int offset, int width) => offset + width <= sourceLayout.Size;
+
+        // an object field reads the bytes when the source has no object field at its offset; a field that has bytes of its own always does.
+        bool IsReadFromBytes(VBType? type, int offset, int width)
+            => Fits(offset, width) && (IsObject(type) ? ObjectAt(source, sourceLayout, offset) is null : type is not null && HasImage(type));
+
+        byte[]? AddressBytes(int at, VBType type, VBTypedValue value)
+            => pointers is not null && IsObject(type) && value is VBObjectValue held
+                && read.Any(range => at < range.Offset + range.Width && range.Offset < at + pointerWidth)
+                && pointers.TryGetPointer(held.Value, type, out var pointer)
+                ? PointerBytes(pointer, pointerWidth)
+                : null;
+
+        Action? WriteOf(int index, VBUserDefinedTypeField field)
+        {
+            var type = field.Symbol.ResolvedType;
+            if (IsObject(type))
+            {
+                if (ObjectAt(source, sourceLayout, field.Offset) is { } held)
                 {
-                    case { } data when data is VBArrayValue or VBStringValue or VBUserDefinedTypeValue:
-                        destination.TryLetFieldAt(index, DataValues.Copy(data));
-                        break;
-                    case { } held:
-                        destination.TrySetFieldAt(index, held);
-                        break;
-                    default:
-                        destination.TryResetFieldAt(index);
-                        break;
+                    return () => destination.TrySetFieldAt(index, DataValues.Copy(held));
                 }
 
-                continue;
+                if (!Fits(field.Offset, field.Width))
+                {
+                    return () => destination.TryResetFieldAt(index);
+                }
+
+                var address = pointerWidth == sizeof(long)
+                    ? BitConverter.ToInt64(image, field.Offset)
+                    : BitConverter.ToInt32(image, field.Offset);
+                if (address == 0 || pointers is null)
+                {
+                    return () => destination.TryResetFieldAt(index);
+                }
+
+                return pointers.TryGetObject(address, out var instance)
+                    ? () => destination.TrySetFieldAt(index, new VBObjectValue(instance))
+                    : null;
+            }
+
+            // a field with no bytes of its own is let a copy of the source's field of the same type at the same offset, in cells of its own.
+            if (type is null || !HasImage(type))
+            {
+                return ReferenceAt(source, sourceLayout, field.Offset, type) is { } data
+                    ? () => destination.TryLetFieldAt(index, DataValues.Copy(data))
+                    : () => destination.TryResetFieldAt(index);
             }
 
             // a field the bytes give a value is let it in place, as the field of a record let is (TryLetFieldAt).
-            if (field.Offset + field.Width <= image.Length)
+            if (!Fits(field.Offset, field.Width))
             {
-                destination.TryLetFieldAt(index, Decoded(type, image.AsSpan(field.Offset, field.Width)));
+                return () => destination.TryResetFieldAt(index);
             }
-            else
-            {
-                destination.TryResetFieldAt(index);
-            }
+
+            var value = Decoded(type, image.AsSpan(field.Offset, field.Width));
+            return () => destination.TryLetFieldAt(index, value);
         }
     }
+
+    private static bool IsObject(VBType? type) => type is VBObjectType or VBClassType;
+
+    // the object a field of an object type of the source holds at the offset, whatever its class.
+    private static VBObjectValue? ObjectAt(VBUserDefinedTypeValue source, VBUserDefinedTypeLayout layout, int offset)
+    {
+        for (var index = 0; index < layout.Fields.Count; index++)
+        {
+            if (layout.Fields[index].Offset == offset && IsObject(layout.Fields[index].Symbol.ResolvedType))
+            {
+                return source.FieldAt(index) as VBObjectValue;
+            }
+        }
+
+        return null;
+    }
+
+    private static byte[] PointerBytes(long pointer, int pointerWidth)
+        => pointerWidth == sizeof(long) ? BitConverter.GetBytes(pointer) : BitConverter.GetBytes(unchecked((int)pointer));
 
     // the source field sitting at the same offset, when it is of the same declared type. Anything else would
     // be reinterpreting a reference as a different kind of reference, which is the one thing a byte copy
@@ -318,7 +411,8 @@ public static class VBUserDefinedTypeImage
         VBIntegerType => BitConverter.GetBytes(Convert.ToInt16(Boxed(value) ?? (short)0)),
         // an Enum field holds a Long (MS-VBAL §5.2.3.4), and its four bytes are the Long's.
         VBLongType or VBErrorType or VBEnumType => BitConverter.GetBytes(Convert.ToInt32(Boxed(value) ?? 0)),
-        VBLongLongType => BitConverter.GetBytes(Convert.ToInt64(Boxed(value) ?? 0L)),
+        VBLongLongType or VBLongPtrType_x64 => BitConverter.GetBytes(Convert.ToInt64(Boxed(value) ?? 0L)),
+        VBLongPtrType_x86 => BitConverter.GetBytes(Convert.ToInt32(Boxed(value) ?? 0)),
         VBSingleType => BitConverter.GetBytes(Convert.ToSingle(Boxed(value) ?? 0f)),
         // a Currency is a 64-bit integer of ten-thousandths, which is what makes its arithmetic exact.
         VBCurrencyType => BitConverter.GetBytes(decimal.ToInt64(Convert.ToDecimal(Boxed(value) ?? 0m) * CurrencyScale)),
@@ -337,6 +431,9 @@ public static class VBUserDefinedTypeImage
         VBIntegerType => new VBIntegerValue(BitConverter.ToInt16(bytes)),
         VBLongType or VBEnumType => new VBLongValue(BitConverter.ToInt32(bytes)),
         VBLongLongType => new VBLongLongValue(BitConverter.ToInt64(bytes)),
+        // a LongPtr is the integer a pointer of the host is: eight bytes in a 64-bit host, four in a 32-bit one.
+        VBLongPtrType_x64 => new VBLongPtrValue(BitConverter.ToInt64(bytes)),
+        VBLongPtrType_x86 => new VBLongPtrValue(BitConverter.ToInt32(bytes)),
         VBSingleType => new VBSingleValue(BitConverter.ToSingle(bytes)),
         VBCurrencyType => new VBCurrencyValue(BitConverter.ToInt64(bytes) / CurrencyScale),
         VBDateType => new VBDateValue(BitConverter.ToDouble(bytes)),

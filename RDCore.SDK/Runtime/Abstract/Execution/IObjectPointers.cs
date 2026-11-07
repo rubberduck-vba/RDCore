@@ -1,0 +1,38 @@
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Runtime;
+
+namespace RDCore.SDK.Runtime.Abstract.Execution;
+
+/// <summary>
+/// The addresses a session gives its objects (<c>ObjPtr</c>), read both ways: the address an object is laid out as in the bytes of a record, and the object
+/// an address read from those bytes is. A copy of a record as bytes (<c>LSet</c>, <strong>MS-VBAL §5.4.3.6</strong>) reads them this way when an object
+/// field and a field of another type overlap.
+/// </summary>
+/// <remarks>
+/// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
+/// </remarks>
+public interface IObjectPointers
+{
+    /// <summary>
+    /// The host's pointer width in bytes, which the layout of a record depends on.
+    /// </summary>
+    int PointerWidth { get; }
+
+    /// <summary>
+    /// The address of the interface of <paramref name="instance"/> that <paramref name="declared"/> says: what <c>ObjPtr</c> returns of a variable of that
+    /// type that holds it, and <c>0</c> for <c>Nothing</c>.
+    /// </summary>
+    /// <param name="instance">The object.</param>
+    /// <param name="declared">The declared type of what holds it: a class, <c>Object</c>, or <see langword="null"/> for the class's own interface.</param>
+    /// <param name="pointer">The address.</param>
+    /// <returns><see langword="false"/> when there is no room in the session's memory for the interface.</returns>
+    bool TryGetPointer(VBRuntimeObjectId instance, VBType? declared, out long pointer);
+
+    /// <summary>
+    /// The object an interface at <paramref name="pointer"/> is an interface of, as <c>ObjPtr</c> gave the address out: <c>Nothing</c> for <c>0</c>.
+    /// </summary>
+    /// <param name="pointer">The address.</param>
+    /// <param name="instance">The object.</param>
+    /// <returns><see langword="false"/> when no object of the session has an interface at <paramref name="pointer"/>.</returns>
+    bool TryGetObject(long pointer, out VBRuntimeObjectId instance);
+}

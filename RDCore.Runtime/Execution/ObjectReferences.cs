@@ -371,6 +371,30 @@ internal static class ObjectReferences
         Release(session, before);
     }
 
+    /// <summary>
+    /// Reads what each field of a record holds, before the record is written field by field where it is (<c>LSet</c>).
+    /// </summary>
+    /// <param name="record">The record.</param>
+    public static Held HeldInRecord(VBUserDefinedTypeValue record)
+    {
+        var holds = default(Collector);
+        CollectRecord(record, ref holds);
+        return new Held(holds);
+    }
+
+    /// <summary>
+    /// Records what each field of a record holds now that the record was written, and lets go of what they held before.
+    /// </summary>
+    public static void RebindRecord(IRuntimeSession session, VBUserDefinedTypeValue record, Held before)
+    {
+        foreach (var (cell, instance) in HeldInRecord(record))
+        {
+            session.Objects.AddRef(instance, cell);
+        }
+
+        Release(session, before);
+    }
+
     private static void CollectRecord(VBUserDefinedTypeValue record, ref Collector holds)
     {
         for (var index = 0; index < record.FieldCount; index++)
