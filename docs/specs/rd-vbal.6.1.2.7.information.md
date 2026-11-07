@@ -78,9 +78,8 @@ In MS-VBA, `Err.Clear` resets the error's number and the other properties of the
 reporting the line of the error it cleared. Every other way an error is cleared resets `Erl` to `0`: a `Resume`
 statement in any form, an `On Error` statement, and leaving the procedure.
 
-What `Err.Clear` does to `Erl` is a second setting of the environment, `ErlAfterErrClear`, bound from
-`appsettings.json` like `ErlLineNumbering`. It changes only `Err.Clear`: the other ways to clear an error reset `Erl`
-whatever it says.
+What `Err.Clear` does to `Erl` is a second environment setting, `ErlAfterErrClear`, bound from `appsettings.json` like
+`ErlLineNumbering`. It applies to `Err.Clear` only.
 
 |`ErlAfterErrClear` value ([VBErlAfterErrClear](../api/RDCore.SDK.Runtime.Abstract.Execution.VBErlAfterErrClear.html))|`Erl` after `Err.Clear`|
 |---|---|
