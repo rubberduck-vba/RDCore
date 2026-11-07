@@ -314,7 +314,7 @@ From the highest reference precedence to the lowest, the projects a name can be 
 2. The `VBA` standard library, which every project has, though its `.rdproj` lists no reference to it
    ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)).
 3. The libraries that every project of its language has, though its `.rdproj` lists no reference to them
-   (`SupportedLanguage.ImplicitReferences`), in the order the language gives them.
+   ([SupportedLanguage.ImplicitReferences](../api/RDCore.SDK.Workspace.SupportedLanguage.html)), in the order the language gives them.
 4. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
    ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA` is left out, and so is a second reference to a library listed earlier.
 5. The libraries that are loaded only because another library depends on them, in the order they are loaded.
@@ -323,9 +323,11 @@ A VB6 project has one implicit reference: `VBRUN`, the Visual Basic runtime obje
 library of `MSVBVM60.DLL`), whose constants (`vbFixedSingle`, `vbTwips`, `vbHourglass`, `vbChecked`, `vbShiftMask`,
 `vbLeftButton`) and `PropertyBag` class are names of every VB6 project. It comes right after the `VBA` library, as the
 References dialog of the VB6 IDE orders them, so a name both libraries declare is the `VBA` library's: `vbCancel` is
-`2`, the `VbMsgBoxResult` member, not the `DragConstants` member `0`. RD-VBA and the BASIC have none. The `VB` library
-of VB6 (`VB6.OLB`: `Form`, its controls, and the `App`, `Screen`, `Printer`, `Clipboard` and `Forms` objects) is not
-described yet, and a VB6 project does not have it.
+the `VbMsgBoxResult` member `2`, where `VBRUN`'s `DragConstants` member is `0`. RD-VBA and RDCore BASIC have none.
+
+> [!NOTE]
+> **Not implemented.** The `VB` library of VB6 (`VB6.OLB`: `Form`, its controls, and the `App`, `Screen`,
+> `Printer`, `Clipboard` and `Forms` objects) is not described yet, and a VB6 project does not have it.
 
 The `VBA` library therefore comes before every library a project lists. A library that declares a name the `VBA`
 library also declares, such as a class `Collection`, a function `Left` or a constant `vbCancel`, does not shadow it:
