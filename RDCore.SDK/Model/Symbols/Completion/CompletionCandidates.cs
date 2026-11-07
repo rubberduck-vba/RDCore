@@ -28,17 +28,46 @@ public sealed record class CompletionCandidate(string Label, CompletionItemKind 
     /// The candidate as an item of an LSP completion list (<strong>LSP 3.17</strong> §Completion Request).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// What is inserted and what is filtered by is the label, which is what a client takes when an item has no <c>insertText</c> and no <c>filterText</c>: they
     /// are not written, since a list can have a thousand items, and each travels.
+    /// </para>
+    /// <para>
+    /// The <c>sortText</c> orders a label the word starts before one whose humps it matches, then by <see cref="Rank"/>, then by the label in any case.
+    /// </para>
     /// </remarks>
-    public CompletionItem ToCompletionItem() => new()
+    /// <param name="match">How the label matches the word typed (<see cref="CompletionCandidates.MatchOf"/>).</param>
+    public CompletionItem ToCompletionItem(CompletionMatch match = CompletionMatch.Prefix) => new()
     {
         Label = Label,
         Kind = Kind,
         Detail = Detail,
         Documentation = Documentation is { Length: > 0 } documentation ? new StringOrMarkupContent(documentation) : null,
-        SortText = $"{Rank:D2}{Label.ToLowerInvariant()}",
+        SortText = $"{TierOf(match)}{Rank:D2}{Label.ToLowerInvariant()}",
     };
+
+    internal static char TierOf(CompletionMatch match) => match == CompletionMatch.Humps ? '1' : '0';
+}
+
+/// <summary>
+/// How a label matches the word being typed, which decides whether it is offered and where it ranks (<see cref="CompletionCandidates.MatchOf"/>).
+/// </summary>
+public enum CompletionMatch
+{
+    /// <summary>
+    /// The label does not match: it is not offered.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// The word is the start of the label, in any case; an empty word is the start of every label.
+    /// </summary>
+    Prefix,
+
+    /// <summary>
+    /// The word is not the start of the label, and matches its humps: <c>MP</c> for <c>MultiPlayer</c>. It ranks after every <see cref="Prefix"/> match.
+    /// </summary>
+    Humps,
 }
 
 /// <summary>
@@ -74,36 +103,202 @@ public static class CompletionCandidates
     private const int KeywordRank = 4;
 
     /// <summary>
-    /// The candidates whose label has the letters of <paramref name="prefix"/>, in their order, in any case: what a client can still show for the name being
-    /// typed, however it narrows its list - by the start of the label, by a part of it, or by letters that are not next to each other (<c>gtc</c> for
-    /// <c>GetCount</c>). A list narrowed this way is complete for every word the prefix is the start of.
+    /// The candidates whose label <paramref name="prefix"/> matches (<see cref="MatchOf"/>): the ones it is the start of first, then the ones it matches the
+    /// humps of, each in the order they were given.
     /// </summary>
     /// <remarks>
-    /// A list is the length of what is in scope - the members of the standard library, of the libraries the project references, of every module of the
-    /// workspace - and travels to the client each time a name starts: the letters typed by then are what it is narrowed to before it does.
+    /// Every label a word matches starts with the word's first letter, so the list for a word holds the list of every longer word that starts with it: a client
+    /// can narrow it further itself, by the same rule. A list is the length of what is in scope (the standard library, the libraries the project references,
+    /// every module of the workspace), and is narrowed before it travels.
     /// </remarks>
     /// <param name="candidates">The candidates, in the order they rank.</param>
     /// <param name="prefix">What is typed of the name; an empty prefix is every candidate.</param>
-    /// <returns>The candidates that match, in the order they were given.</returns>
+    /// <returns>The candidates that match.</returns>
     public static IReadOnlyList<CompletionCandidate> Matching(IReadOnlyList<CompletionCandidate> candidates, string prefix)
-        => prefix.Length == 0 ? candidates : [.. candidates.Where(candidate => HasInOrder(candidate.Label, prefix))];
-
-    // whether every letter of the prefix is in the label, each after the one before it.
-    private static bool HasInOrder(string label, string prefix)
     {
-        var at = 0;
-        foreach (var letter in prefix)
+        if (prefix.Length == 0)
         {
-            var found = label.AsSpan(at).IndexOf(letter.ToString(), StringComparison.OrdinalIgnoreCase);
-            if (found < 0)
-            {
-                return false;
-            }
-
-            at += found + 1;
+            return candidates;
         }
 
-        return true;
+        var matches = candidates.Select(candidate => (Candidate: candidate, Match: MatchOf(candidate.Label, prefix))).Where(pair => pair.Match != CompletionMatch.None).ToList();
+        return [.. matches.Where(pair => pair.Match == CompletionMatch.Prefix).Concat(matches.Where(pair => pair.Match == CompletionMatch.Humps)).Select(pair => pair.Candidate)];
+    }
+
+    /// <summary>
+    /// How <paramref name="word"/> matches <paramref name="label"/>: as its start, as its humps (the way Visual Studio matches PascalCase names), or not at all.
+    /// Case does not tell one name from another in VBA (<strong>MS-VBAL §3.3.5.1</strong>), and every comparison here ignores it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A label is cut into humps, and the underscores between them belong to none:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>the first letter starts a hump, and so does the first character after an underscore;</description></item>
+    /// <item><description>a capital after a lowercase letter or a digit starts one: <c>vbKeyEscape</c> is <c>vb</c>, <c>Key</c>, <c>Escape</c>, so a lowercase
+    /// prefix is a hump of its own;</description></item>
+    /// <item><description>a run of capitals is one hump, and its last capital starts the next when a lowercase letter follows it: <c>CLngPtr</c> is <c>C</c>,
+    /// <c>Lng</c>, <c>Ptr</c>, <c>IOError</c> is <c>IO</c>, <c>Error</c>, and <c>VBA</c> is one hump;</description></item>
+    /// <item><description>a run of digits is one hump, and a letter after it starts the next: <c>Win32Api</c> is <c>Win</c>, <c>32</c>, <c>Api</c>;</description></item>
+    /// <item><description><c>Class_Initialize</c> is <c>Class</c>, <c>Initialize</c>.</description></item>
+    /// </list>
+    /// <para>
+    /// The word matches the humps when it can be cut into as many parts as there are humps from the first, each part the start of its hump, in order: no hump
+    /// is skipped, and the humps after the last part are not needed. <c>MP</c> and <c>MuPl</c> match <c>MultiPlayer</c>, <c>LoPi</c> matches
+    /// <c>LoadPicture</c>, <c>vbKEs</c> matches <c>vbKeyEscape</c>, <c>CLP</c> matches <c>CLngPtr</c>; <c>Pr</c> does not match <c>CLngPtr</c>, nor
+    /// <c>Player</c> <c>MultiPlayer</c>, nor <c>WA</c> <c>Win32Api</c>. An underscore typed separates parts as one in a label does, and matches nothing itself.
+    /// </para>
+    /// </remarks>
+    /// <param name="label">The label of a candidate: a name, as it is written.</param>
+    /// <param name="word">What is typed of the name.</param>
+    /// <returns><see cref="CompletionMatch.Prefix"/> when the word is the start of the label, else <see cref="CompletionMatch.Humps"/> when it matches its
+    /// humps, else <see cref="CompletionMatch.None"/>.</returns>
+    public static CompletionMatch MatchOf(string label, string word)
+    {
+        if (label.StartsWith(word, StringComparison.OrdinalIgnoreCase))
+        {
+            return CompletionMatch.Prefix;
+        }
+
+        var letters = word.Replace("_", string.Empty, StringComparison.Ordinal);
+        if (letters.Length == 0)
+        {
+            return CompletionMatch.None;
+        }
+
+        var humps = HumpsOf(label);
+        return MatchesHumps(label, humps, 0, letters, 0, new HashSet<(int, int)>()) ? CompletionMatch.Humps : CompletionMatch.None;
+    }
+
+    // the humps of a label, as (start, length).
+    private static List<(int Start, int Length)> HumpsOf(string label)
+    {
+        var humps = new List<(int Start, int Length)>();
+        var start = -1;
+        for (var index = 0; index < label.Length; index++)
+        {
+            var character = label[index];
+            if (character == '_')
+            {
+                if (start >= 0)
+                {
+                    humps.Add((start, index - start));
+                    start = -1;
+                }
+
+                continue;
+            }
+
+            if (start >= 0 && StartsHump(label, index))
+            {
+                humps.Add((start, index - start));
+                start = -1;
+            }
+
+            if (start < 0)
+            {
+                start = index;
+            }
+        }
+
+        if (start >= 0)
+        {
+            humps.Add((start, label.Length - start));
+        }
+
+        return humps;
+    }
+
+    // whether the character at index starts a hump, the one before it being of the same hump or of the one before.
+    private static bool StartsHump(string label, int index)
+    {
+        var character = label[index];
+        var before = label[index - 1];
+        if (char.IsDigit(character))
+        {
+            return !char.IsDigit(before);
+        }
+
+        if (char.IsDigit(before))
+        {
+            return true;
+        }
+
+        return char.IsUpper(character)
+            && (char.IsLower(before) || char.IsUpper(before) && index + 1 < label.Length && char.IsLower(label[index + 1]));
+    }
+
+    // whether the letters from `at` are the starts of the humps from `hump` on, in order; `failed` holds what was tried and does not match.
+    private static bool MatchesHumps(string label, List<(int Start, int Length)> humps, int hump, string letters, int at, HashSet<(int, int)> failed)
+    {
+        if (at == letters.Length)
+        {
+            return true;
+        }
+
+        if (hump == humps.Count || failed.Contains((hump, at)))
+        {
+            return false;
+        }
+
+        var (start, length) = humps[hump];
+        for (var taken = Math.Min(length, letters.Length - at); taken > 0; taken--)
+        {
+            if (string.Compare(label, start, letters, at, taken, StringComparison.OrdinalIgnoreCase) == 0
+                && MatchesHumps(label, humps, hump + 1, letters, at + taken, failed))
+            {
+                return true;
+            }
+        }
+
+        failed.Add((hump, at));
+        return false;
+    }
+
+    /// <summary>
+    /// The completion list for the word being typed (<strong>LSP 3.17</strong> §Completion Request): the candidates <paramref name="word"/> matches
+    /// (<see cref="MatchOf"/>), each label once, the best of them preselected.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The items rank the labels the word starts before the ones whose humps it matches; then the candidates of <paramref name="first"/> in their order; then
+    /// the others by <see cref="CompletionCandidate.Rank"/>, then by label in any case. The item that ranks first is the one <c>preselect</c> marks.
+    /// </para>
+    /// <para>
+    /// The list is incomplete (<c>isIncomplete</c>): it is the list of this word, and a client asks again as the word grows. Every label a longer word
+    /// matches is in it, so a client that narrows it by <see cref="MatchOf"/> itself narrows it to the same list.
+    /// </para>
+    /// </remarks>
+    /// <param name="word">What is typed of the name; an empty word matches every candidate.</param>
+    /// <param name="first">The candidates most likely to be written: the constants of the <c>Enum</c> an argument's parameter is declared as.</param>
+    /// <param name="candidates">The other candidates; a label of <paramref name="first"/> is not offered again.</param>
+    public static CompletionList ListOf(string word, IReadOnlyList<CompletionCandidate> first, IReadOnlyList<CompletionCandidate> candidates)
+    {
+        var offered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var items = new List<CompletionItem>();
+        foreach (var (candidate, index) in first.Select((candidate, index) => (candidate, index)))
+        {
+            if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
+            {
+                items.Add(candidate.ToCompletionItem(match) with { SortText = $"{CompletionCandidate.TierOf(match)}!{index:D3}" });
+            }
+        }
+
+        foreach (var candidate in candidates)
+        {
+            if (MatchOf(candidate.Label, word) is var match and not CompletionMatch.None && offered.Add(candidate.Label))
+            {
+                items.Add(candidate.ToCompletionItem(match));
+            }
+        }
+
+        items.Sort((left, right) => string.CompareOrdinal(left.SortText, right.SortText));
+        if (items.Count > 0)
+        {
+            items[0] = items[0] with { Preselect = true };
+        }
+
+        return new CompletionList(items, isIncomplete: true);
     }
 
     /// <summary>

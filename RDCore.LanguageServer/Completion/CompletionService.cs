@@ -331,21 +331,15 @@ internal sealed class CompletionService(
             return Empty;
         }
 
-        // a list is for the name being typed: what has the letters typed so far, in their order, is all a client can still show of it as more is typed. The name
-        // a qualifier is assigned to in the line that stands for the one typed is no name of the module.
-        var first = CompletionCandidates.Matching(constants, context.Prefix);
-        var offered = first.Select(constant => constant.Label).Append(Probe).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var matching = CompletionCandidates.Matching(candidates, context.Prefix).Where(candidate => !offered.Contains(candidate.Label)).ToList();
+        // the name a qualifier is assigned to in the line that stands for the one typed is no name of the module.
+        var list = CompletionCandidates.ListOf(context.Prefix, constants, [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase))]);
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) first, {count} of {all} candidate(s).",
-                moduleName, line, character, context.Kind, context.Prefix, first.Count, matching.Count, candidates.Count);
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) first, {count} item(s) of {all} candidate(s).",
+                moduleName, line, character, context.Kind, context.Prefix, constants.Count, list.Items.Count(), candidates.Count);
         }
 
-        return new CompletionList(
-            first.Select((constant, index) => constant.ToCompletionItem() with { SortText = $"!{index:D3}", Preselect = index == 0 })
-                .Concat(matching.Select(candidate => candidate.ToCompletionItem())),
-            isIncomplete: false);
+        return list;
     }
 
     public async Task<SignatureHelp?> SignatureHelpDocumentAsync(Uri documentUri, Position position, CancellationToken token)

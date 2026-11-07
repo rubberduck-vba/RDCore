@@ -188,6 +188,57 @@ public sealed class CompletionCandidatesTests
         CollectionAssert.Contains(Labels(CompletionCandidates.TypesOf(tree, vba, creatable: true)), "Collection");
     }
 
+    // a word matches a label it starts, or the label's humps, a part of the word to the start of each hump in turn: never letters spread anywhere in the label.
+    [TestMethod]
+    [DataRow("Print", "Pr", true, DisplayName = "a prefix")]
+    [DataRow("Print", "pR", true, DisplayName = "a prefix in any case")]
+    [DataRow("CLngPtr", "Pr", false, DisplayName = "letters inside the label")]
+    [DataRow("DatePart", "Pr", false, DisplayName = "letters in two humps, the first not the label's")]
+    [DataRow("NPer", "Pr", false, DisplayName = "letters after the first hump")]
+    [DataRow("MultiPlayer", "MP", true, DisplayName = "the first letter of each hump")]
+    [DataRow("MultiPlayer", "mp", true, DisplayName = "humps in any case")]
+    [DataRow("MultiPlayer", "MuPl", true, DisplayName = "the first letters of each hump")]
+    [DataRow("MultiPlayer", "MuuP", false, DisplayName = "a letter the hump does not start with")]
+    [DataRow("MultiPlayer", "Player", false, DisplayName = "a hump that is not the first")]
+    [DataRow("MultiPlayer", "MPx", false, DisplayName = "more than the humps have")]
+    [DataRow("LoadPicture", "LoPi", true, DisplayName = "two letters of each hump")]
+    [DataRow("LoadPicture", "LoadPc", false, DisplayName = "a whole hump, then a letter the next does not start with")]
+    [DataRow("vbKeyEscape", "vbKEs", true, DisplayName = "a lowercase prefix is a hump")]
+    [DataRow("vbKeyEscape", "vKE", true, DisplayName = "a part of the lowercase prefix")]
+    [DataRow("vbKeyEscape", "KE", false, DisplayName = "the lowercase prefix left out")]
+    [DataRow("vbKeyEscape", "vbE", false, DisplayName = "a hump skipped")]
+    [DataRow("CLngPtr", "CLP", true, DisplayName = "a capital before a hump is a hump of its own")]
+    [DataRow("CLngPtr", "CLnP", true, DisplayName = "a part of the hump after the capital")]
+    [DataRow("CLngPtr", "LP", false, DisplayName = "the capital left out")]
+    [DataRow("ADODBRecordset", "ADR", true, DisplayName = "a run of capitals is one hump")]
+    [DataRow("ADODBRecordset", "AR", true, DisplayName = "a part of a run of capitals")]
+    [DataRow("ADODBRecordset", "DR", false, DisplayName = "the run of capitals started inside")]
+    [DataRow("IOError", "IE", true, DisplayName = "a run of two capitals")]
+    [DataRow("IOError", "OE", false, DisplayName = "a run of two capitals started inside")]
+    [DataRow("VBA", "VA", false, DisplayName = "capitals alone are one hump")]
+    [DataRow("DDEInitiate", "DI", true, DisplayName = "a run of capitals ends before the capital of a word")]
+    [DataRow("Win32Api", "W32A", true, DisplayName = "digits are a hump")]
+    [DataRow("Win32Api", "W3A", true, DisplayName = "a part of the digits")]
+    [DataRow("Win32Api", "WA", false, DisplayName = "the digits skipped")]
+    [DataRow("Class_Initialize", "CI", true, DisplayName = "an underscore separates humps")]
+    [DataRow("Class_Initialize", "C_I", true, DisplayName = "an underscore typed separates as well")]
+    [DataRow("Class_Initialize", "Class_I", true, DisplayName = "a prefix with its underscore")]
+    [DataRow("Class_Initialize", "CsI", false, DisplayName = "a letter not at the start of a hump")]
+    public void AWord_MatchesALabelItStarts_OrTheLabelsHumps(string label, string word, bool matches)
+    {
+        var matching = CompletionCandidates.Matching([new CompletionCandidate(label, CompletionItemKind.Variable)], word);
+
+        Assert.AreEqual(matches, matching.Count == 1);
+    }
+
+    [TestMethod]
+    public void TheLabelsAWordStarts_ComeBeforeTheOnesItMatchesTheHumpsOf_WhateverTheirRank()
+    {
+        CompletionCandidate[] candidates = [new("MultiPlayer", CompletionItemKind.Variable, Rank: 0), new("MPEG", CompletionItemKind.Constant, Rank: 3)];
+
+        CollectionAssert.AreEqual(new[] { "MPEG", "MultiPlayer" }, Labels(CompletionCandidates.Matching(candidates, "MP")));
+    }
+
     [TestMethod]
     public void TheItems_RankWhatIsNearerFirst()
     {
