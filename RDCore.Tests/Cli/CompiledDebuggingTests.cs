@@ -326,7 +326,8 @@ public sealed class CompiledDebuggingTests
                 Assert.AreEqual("Outer", provider.Execution.Stack().Frames[1].Procedure);
                 if (edited is not null)
                 {
-                    _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, edited));
+                    var errors = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, edited));
+                    Assert.IsEmpty(errors, string.Join("; ", errors));
                 }
 
                 resumed = await Resume(provider);
@@ -341,16 +342,21 @@ public sealed class CompiledDebuggingTests
     }
 
     // a stop in the middle of a loop that speculates what a Variant holds, and an edit there that makes it hold a Double from then on: the loop goes on with
-    // what the Variant holds, as the interpreter's does.
+    // what the Variant holds, as the interpreter's does. An edit that declares a Variant W, set to 1 in the loop after the call that stops and added to
+    // the sum, adds 1 at each of the 3 passes that are left: 153.
     [TestMethod]
     [DataRow(null, "150 Long", DisplayName = "resumed")]
     [DataRow("        S = S + t|        S = S + t + 0.5", "151.5 Double", DisplayName = "edited to add a Double")]
-    [DataRow("    Dim i As Long, t As Long|    Dim W As Variant\r\n    Dim i As Long, t As Long", "150 Long", DisplayName = "a Variant declared above the others")]
-    [DataRow("    Dim S As Variant|    Dim W As Variant, S As Variant\r\n    W = 1", "150 Long", DisplayName = "a Variant declared before the summed one")]
+    [DataRow("    Dim i As Long, t As Long|    Dim W As Variant\r\n    Dim i As Long, t As Long|        S = S + t|        W = 1\r\n        S = S + t + W", "153 Long",
+        DisplayName = "a Variant declared above the others")]
+    [DataRow("    Dim S As Variant|    Dim W As Variant, S As Variant|        S = S + t|        W = 1\r\n        S = S + t + W", "153 Long",
+        DisplayName = "a Variant declared before the summed one")]
     public async Task ASpeculatedLoop_StoppedInAndEdited_GoesOnAsTheInterpretersDoes(string? edit, string expected)
     {
         CompiledExecutionTests.RequirePayloads();
-        var edited = edit is null ? null : VariantCalling.Replace(edit.Split('|')[0], edit.Split('|')[1], StringComparison.Ordinal);
+
+        // the edit is pairs of the text replaced and the text it is replaced with, separated by |.
+        var edited = edit?.Split('|').Chunk(2).Aggregate(VariantCalling, (source, pair) => source.Replace(pair[0], pair[1], StringComparison.Ordinal));
 
         var interpreted = await StoppedInASpeculatedLoopAsync(VBExecutionEngine.Interpreter, edited);
         var compiled = await StoppedInASpeculatedLoopAsync(VBExecutionEngine.Compiled, edited);
@@ -382,11 +388,13 @@ public sealed class CompiledDebuggingTests
                         "Outer is running compiled, in the middle of its call");
                 }
 
-                _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, firstEdit));
+                var errors = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, firstEdit));
+                Assert.IsEmpty(errors, string.Join("; ", errors));
                 var again = await Resume(provider);
                 Assert.AreEqual((ExecutionOutcome.Suspended, 13), (again.Outcome, again.ErrorLine), again.ErrorMessage);
 
-                _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, secondEdit));
+                errors = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", RDCore.SDK.Model.AST.Declarations.ModuleType.StdModule, secondEdit));
+                Assert.IsEmpty(errors, string.Join("; ", errors));
                 resumed = await Resume(provider);
             }
             finally
