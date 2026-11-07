@@ -8,6 +8,9 @@ Parentheses written in source are one of two unary operators ([**RD-VBAL §5.6.6
   ([**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md)). The explicit coercion operator is a language
   core extension ([**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)).
 
+A unary `+` is read and erased, as the VBE erases it. It is no operator, and the code runs as if it were not written
+([**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md)).
+
 See [**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md) for the unary `-`
 operator, and [**RD-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md) for the `Not`
 operator.
