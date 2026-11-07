@@ -797,6 +797,29 @@ public sealed class ProgramDebugAdapterTests
 
     // ---- the end of the program ----
 
+    // a module with a syntax error is not run: what the host refused it with is the program's error output, and the program is over with exit code 1.
+    [TestMethod]
+    public async Task AProgramRefusedForASyntaxError_IsSaidToHaveEnded_WithTheErrors()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.SyntaxError,
+            Diagnostics = ["Syntax error: Expected: expression", "Output items not separated"],
+        }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new SetBreakpointsArguments { Source = new Source { Path = Path }, Breakpoints = new Container<SourceBreakpoint>() });
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        var output = await session.NextAsync<OutputEvent>();
+        Assert.AreEqual("Syntax error: Expected: expression\nOutput items not separated\n", output.Output);
+        Assert.AreEqual(OutputEventCategory.StandardError, output.Category);
+        Assert.AreEqual(1, (await session.NextAsync<ExitedEvent>()).ExitCode);
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
+
     [TestMethod]
     public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas()
     {

@@ -1,0 +1,124 @@
+using RDCore.SDK.Platform.Protocol;
+
+namespace RDCore.Tests.Cli;
+
+/// <summary>
+/// A module with a syntax error does not run (<strong>RD-VBAL §2.6.1</strong>): a run of it is refused with its errors before any of it runs, whatever the error is
+/// - a statement the parser stopped in, a statement no rule reads, two output items written side by side (<c>VBC00061</c>), a line continued past the limit. The
+/// statements around the error do not run without it.
+/// </summary>
+[TestClass]
+[TestCategory("RD-VBAL 2.6.1 Syntax Errors")]
+public sealed class SyntaxErrorRunRefusalTests
+{
+    private static string Program(params string[] body)
+        => string.Join("\r\n", ["Attribute VB_Name = \"Program\"", "Public Sub Main()", .. body.Select(line => "    " + line), "End Sub", ""]);
+
+    [TestMethod]
+    [DataRow("Debug.Print 1 +", DisplayName = "a binary operator the parse reads, at the end of its statement")]
+    [DataRow("Debug.Print 1 -", DisplayName = "a binary operator the parse leaves unread, at the end of its statement")]
+    [DataRow("a = 1-", DisplayName = "a statement no rule reads")]
+    [DataRow("If a = 1 - Then", DisplayName = "a block If no rule reads")]
+    [DataRow("a = = 1", DisplayName = "an operator where an expression is")]
+    [DataRow("Debug.Print 1(2)", DisplayName = "two output items side by side")]
+    public async Task AModuleWithASyntaxError_IsRefused_BeforeAnyOfItRuns(string statement)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
+            "Dim a As Variant",
+            "Debug.Print \"before\"",
+            statement,
+            "Debug.Print \"after\""));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.IsNotEmpty(result.Diagnostics!);
+    }
+
+    // the output items written side by side are refused with the error that says so, and only with it.
+    [TestMethod]
+    public async Task TwoOutputItemsSideBySide_AreRefused_WithTheErrorThatSaysSo()
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program("Debug.Print 1(2)"));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), RDCore.SDK.Exceptions.VBCompileError_OutputItemsNotSeparated);
+    }
+
+    // a statement that would have opened a file is not run: the file is never created, and the Close the error stood before is not needed.
+    [TestMethod]
+    public async Task AFileStatementAfterASyntaxError_IsNotRun_NorTheOneBeforeIt()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"rdcore-refused-{Guid.NewGuid():N}.txt");
+        try
+        {
+            var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
+                "Dim ff As Integer",
+                "ff = FreeFile",
+                $"Open \"{path}\" For Output As #ff",
+                "Print #ff, Tab(2) & \"x\"",
+                "Close #ff"));
+
+            Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+            Assert.IsEmpty(result.Output);
+            Assert.IsFalse(File.Exists(path), "the Open before the error is not run either");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    // the control: the same statements, with a Print # that has no error, run, and the file holds what it printed.
+    [TestMethod]
+    public async Task TheSameFileStatementsWithNoSyntaxError_Run()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"rdcore-refused-{Guid.NewGuid():N}.txt");
+        try
+        {
+            var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(
+                "Dim ff As Integer",
+                "Dim s As String",
+                "ff = FreeFile",
+                $"Open \"{path}\" For Output As #ff",
+                "Print #ff, Tab(2); 1",
+                "Close #ff",
+                $"Open \"{path}\" For Input As #ff",
+                "Line Input #ff, s",
+                "Close #ff",
+                "Debug.Print \"[\" & s & \"]\""));
+
+            Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, string.Join("; ", result.Diagnostics ?? []));
+            Assert.AreEqual("[  1 ]", Assert.ContainsSingle(result.Output));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    // a logical line of 25 physical lines: 24 line continuations are valid, and the 25th is the error.
+    [TestMethod]
+    public async Task ALineContinuedPastTheLimit_IsRefused()
+    {
+        var continued = string.Join(" _\r\n", Enumerable.Range(1, 26).Select(term => term == 1 ? "Debug.Print 1" : "+ 1"));
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program("Debug.Print \"before\"", continued));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_TooManyLineContinuations_Verbose)),
+            string.Join("; ", result.Diagnostics!));
+    }
+
+    // the control: 24 line continuations are one line of the module, which runs.
+    [TestMethod]
+    public async Task ALineContinuedToTheLimit_Runs()
+    {
+        var continued = string.Join(" _\r\n", Enumerable.Range(1, 25).Select(term => term == 1 ? "Debug.Print 1" : "+ 1"));
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(continued));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, string.Join("; ", result.Diagnostics ?? []));
+        Assert.AreEqual(" 25 ", Assert.ContainsSingle(result.Output));
+    }
+}

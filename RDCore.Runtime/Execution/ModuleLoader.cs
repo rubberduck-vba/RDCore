@@ -173,11 +173,12 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, messages);
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
 
-        // what the error is, and the detail that says which of the module's statements it is about. An expression nested too deeply to be analyzed is kept as
-        // text, which is no code (RD-VBAL 2.6.1): a module that has one is not loaded either, so that a run of it is refused before any of it runs. It is the
-        // parser's error, which the module's model does not repeat.
+        // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
+        // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
+        // expression kept as text - and the statements around it would run without it. The syntax errors are the parser's, which the module's model does not
+        // repeat.
         var errors = moduleModel.CompileErrors.Select(error => (error.Description, error.Verbose))
-            .Concat(parseResult.SyntaxErrors.Where(error => error.ErrorId == (int)VBCompileErrorId.ExpressionNestedTooDeeply).Select(error => (error.Description, error.Verbose)))
+            .Concat(parseResult.SyntaxErrors.Select(error => (error.Description, error.Verbose)))
             .Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
                 ? error.Description
                 : $"{error.Description}: {error.Verbose}").ToImmutableArray();
