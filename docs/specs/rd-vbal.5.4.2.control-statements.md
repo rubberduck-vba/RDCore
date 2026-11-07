@@ -39,7 +39,7 @@ effects between them (a branch's fall-through-versus-skip choice, a loop's back-
 |[**RD-VBAL §5.4.2.20** RaiseEvent Statement](rd-vbal.5.4.2.20.raiseevent-statement.md)|`KeywordStatementNode` (`Token`: `RaiseEvent`)|`Simple`|
 |[**RD-VBAL §5.4.2.21** With Statement](rd-vbal.5.4.2.21.with-statement.md)|[WithStatementNode](../api/RDCore.SDK.Model.AST.Statements.WithStatementNode.html)|`With`|
 |[**RD-VBAL §5.4.2.22** End Statement](rd-vbal.5.4.2.22.end-statement.md)|`KeywordStatementNode` (`Token`: `End`)|`Halt`|
-|[**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)|—|—|
+|[**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)|None|None|
 
 For a block statement, a `Jump` in the table above is the synthesized trailing jump of a branch, or a loop's
 back-edge. See

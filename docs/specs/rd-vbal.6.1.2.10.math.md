@@ -36,7 +36,7 @@ object whose default member returns `Null` is `Null`, and `Nothing` is error 91.
 |6.1.2.10.1.8|[Sgn](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b7bbdcd3-c8fc-4f42-b362-18ace8f2be55)|An `Integer`, of any number, `Date`, `Boolean` or numeric `String`. `Null` is error 94.|
 |6.1.2.10.1.9|[Sin](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/3aa1e60f-bd65-48da-abf3-96bfb17e22eb)|As `Cos`.|
 |6.1.2.10.1.10|[Sqr](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/46c6000d-c501-44f7-9270-60d9a13fc8d4)|A negative number is error 5; the square root of `0` is `0`.|
-|6.1.2.10.1.11|[Tan](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/9bf01a1b-d5b3-40b5-ab72-d9eca988dc40)|As `Cos`. The tangent is MS-VBA's: the sine over the cosine, divided in 80 bits — the platform's own tangent differs from it in the last bit for one argument in three.|
+|6.1.2.10.1.11|[Tan](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/9bf01a1b-d5b3-40b5-ab72-d9eca988dc40)|As `Cos`. The tangent is MS-VBA's: the sine over the cosine, divided in 80 bits; the platform's own tangent differs from it in the last bit for one argument in three.|
 
 
 ## 6.1.2.10.2 Public Subroutines

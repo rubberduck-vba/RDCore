@@ -7,8 +7,8 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)|—|A line label. Its name is a key of [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)`.Labels`.|
-|[LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html)|—|A line number. Its number is a key of `InstructionList.Labels`.|
+|[LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)|None|A line label. Its name is a key of [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)`.Labels`.|
+|[LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html)|None|A line number. Its number is a key of `InstructionList.Labels`.|
 
 Statement labels and line numbers are captured as separate nodes. A jump statement's target is an expression naming
 or numbering a label, with no static link to the label node
@@ -35,8 +35,8 @@ symbols in scope.
 
 |Condition|Diagnostic|
 |---|---|
-|A jump names a line label or line number the procedure does not define.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
-|A label is defined more than once in a procedure, including two labels differing only by case.|[VBC09319](../diagnostics/vbc09319.md) — Duplicate label definition|
+|A jump names a line label or line number the procedure does not define.|[VBC09309](../diagnostics/vbc09309.md): Label not defined|
+|A label is defined more than once in a procedure, including two labels differing only by case.|[VBC09319](../diagnostics/vbc09319.md): Duplicate label definition|
 
 For a repeated label definition, lowering keeps the first offset the label was defined at; every jump to the label
 resolves against that first definition

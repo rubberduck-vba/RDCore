@@ -45,6 +45,6 @@ The same layered refinement through templated methods applies to all _semantics_
 |§|Title|
 |---|---|
 |3.3.1|[Unary Operators](rd-vbal.3.3.1.unary-operators.md)|
-|3.3.2|[Arithmetic Operators](rd-vbal.3.3.2.arithmetic-operators.md) — *reserved*|
-|3.3.3|[Logical (Bitwise) Operators](rd-vbal.3.3.3.logical-operators.md) — *reserved*|
-|3.3.4|[Relational (Comparison) Operators](rd-vbal.3.3.4.relational-operators.md) — *reserved*|
+|3.3.2|[Arithmetic Operators](rd-vbal.3.3.2.arithmetic-operators.md) (*reserved*)|
+|3.3.3|[Logical (Bitwise) Operators](rd-vbal.3.3.3.logical-operators.md) (*reserved*)|
+|3.3.4|[Relational (Comparison) Operators](rd-vbal.3.3.4.relational-operators.md) (*reserved*)|
