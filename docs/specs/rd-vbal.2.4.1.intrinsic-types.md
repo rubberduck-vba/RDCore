@@ -83,7 +83,7 @@ included. Two strings that differ only in a trailing byte are different values.
 |Its bytes, a trailing byte included|`LenB`; let-coercion to `String` from a `String` (a copy) and to and from `Byte()`; `&`, and `+` between two `String`s; the relational operators; the `MidB` statement, and the `Mid` statement, which keeps a trailing byte it does not replace; a standard-library member's `String` argument.|
 |Its whole characters|`Len`; `Print`, `Print #`, `Write #` and `Put`; the numeric, `Boolean` and `Date` conversions; `LSet`, `RSet` and a fixed-length `String`; `Like`; a `Declare`d procedure's `String` argument, and the `String` and `String * n` fields of a record passed to one; a `String` passed to an automation server.|
 
-👉 The debugger shows a `String`'s characters: a trailing byte is not displayed.
+The debugger shows a `String`'s characters: a trailing byte is not displayed.
 
 ## 2.4.1.3 VBArrayType
 

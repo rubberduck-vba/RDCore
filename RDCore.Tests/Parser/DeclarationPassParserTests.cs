@@ -890,6 +890,21 @@ End Sub
         Assert.AreEqual(expectedIsStringInput, mid.IsStringInput);
     }
 
+    // MS-VBAL §3.3: the `(` of a Mid statement takes the blanks before it, as any token does. With them, it is the Mid statement still, and no assignment
+    // to what a call of a function Mid returns.
+    [TestMethod]
+    [DataRow("Mid (x, 1, 3) = \"foo\"")]
+    [DataRow("Mid$ (x, 1) = \"foo\"")]
+    [DataRow("MidB\t(x, 1, 3) = \"foo\"")]
+    public void MidStatement_WithBlanksBeforeItsParentheses_IsAMidStatement(string statement)
+    {
+        var result = ParseInProcedure(statement);
+
+        Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        Assert.AreEqual("x", ((SimpleNameExpressionNode)member.Children.OfType<MidStatementNode>().Single().Target).IdentifierName);
+    }
+
     [TestMethod]
     public void GoToStatement_CapturesLabelExpression()
     {
@@ -2520,6 +2535,23 @@ End Sub
     [DataRow("Sheet1.Print x = 0")]
     [DataRow("Me.Print x = 0")]
     public void AnObjectPrintOfAComparison_OnAnythingElse_IsACallStatement(string statement)
+    {
+        var result = ParseInProcedure(statement);
+        var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        var print = (ObjectPrintExpressionNode)member.Children.OfType<CallStatementNode>().Single().Callee;
+
+        Assert.IsEmpty(member.Children.OfType<AssignmentStatementNode>());
+        Assert.AreEqual(Tokens.CompareEqualOp, ((VBBinaryOperatorExpressionNode)print.Items.Single().Value!).Token);
+    }
+
+    [TestMethod]
+    // a line continuation before or after the dot of `obj.Print` leaves it the Print of an object, however many blanks are written before the underscore: those
+    // before the continuation's own blank are whitespace tokens of their own.
+    [DataRow("obj. _\r\n    Print x = 0", DisplayName = "a blank, then the underscore after the dot")]
+    [DataRow("obj.   _\r\n    Print x = 0", DisplayName = "blanks, then the underscore after the dot")]
+    [DataRow("obj.\t\t_\r\n    Print x = 0", DisplayName = "tabs, then the underscore after the dot")]
+    [DataRow("obj   _\r\n    .Print x = 0", DisplayName = "blanks, then the underscore before the dot")]
+    public void AnObjectPrintOfAComparison_ContinuedAtItsDot_IsACallStatement(string statement)
     {
         var result = ParseInProcedure(statement);
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();

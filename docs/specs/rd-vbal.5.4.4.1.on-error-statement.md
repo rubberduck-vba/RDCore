@@ -25,7 +25,7 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) 
 
 |Condition|Compile error|
 |---|---|
-|`On Error GoTo` names a handler label that is not defined, e.g. `On Error GoTo Handler` with no `Handler:`.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
+|`On Error GoTo` names a handler label that is not defined, e.g. `On Error GoTo Handler` with no `Handler:`.|[VBC09309](../diagnostics/vbc09309.md): Label not defined|
 
 `On Error GoTo 0` and `On Error GoTo -1` do not refer to a label. The `0` of `On Error GoTo 0` and the `-1` of
 `On Error GoTo -1` are never looked up as labels: `VBC09309` is not raised for them, whether or not the procedure

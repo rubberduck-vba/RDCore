@@ -3,7 +3,7 @@
 > [!NOTE]
 > This specification may be incomplete at this time.
 
-🎯 The **RDCore** platform shall provide, with the `rdc.exe` CLI client, the ability to _compose, host, analyze, run, and debug_ any **RD-VBA** application.
+The **RDCore** platform shall provide, with the `rdc.exe` CLI client, the ability to _compose, host, analyze, run, and debug_ any **RD-VBA** application.
 
 The _environment host_ composes an application and runs it in an _execution session_
 ([**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md)). At any point in time, the host

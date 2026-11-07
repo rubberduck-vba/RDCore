@@ -11,13 +11,13 @@ A semantic flag typically exists because the specified semantics contain a branc
 |The *effective type* of an operation evaluates a [VBNullType](../api/RDCore.SDK.Model.Types.VBNullType.html) differently than a [VBNumericType](../api/RDCore.SDK.Model.Types.Abstract.VBNumericType.html).|The semantic flags for that operation should reflect the `NullEffectiveType` flag.|
 |The specifications mention a `NaN` operand.|There should be a `HasNaNOperand` semantic flag.|
 
-> 👉 **Do** create new core semantic flags as needed to accurately reflect the semantic reality of an operation.
+> **Do** create new core semantic flags as needed to accurately reflect the semantic reality of an operation.
 >
-> ❌ **Do not** create new core semantic flags that no specified (RD-VBAL) semantics justify.
+> **Do not** create new core semantic flags that no specified (RD-VBAL) semantics justify.
 
 ## Extensions
 
-> 🧩 **Extensions can, and should,** enrich a semantic context well beyond the responsibilities of the language core. They do so with *diagnostics* issued by *analyzers* that can inspect the complete semantic reality of the application.
+> **Extensions can, and should,** enrich a semantic context well beyond the responsibilities of the language core. They do so with *diagnostics* issued by *analyzers* that can inspect the complete semantic reality of the application.
 
 Semantic flags aim to expose all the facts of the application's semantic reality. Diagnostics are described in [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
 
