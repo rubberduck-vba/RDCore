@@ -73,23 +73,25 @@ internal sealed class ExportLibraryCommand(IConsoleMessageWriter writer, IFileSy
         {
             var (reference, referenced) = pending.Dequeue();
 
-            // a library is known by its name, and the name is what finds it: a dependency is the latest library of its name, as it is when it is asked for, and
-            // the version that the library which depends on it happens to be linked with is only what is described when the machine has none of the name.
-            var loaded = TypeLibraryLocator.Load(reference, message => Write(MessageKind.Information, message))
-                ?? (referenced is null ? null : TypeLibraryLocator.Of(referenced));
+            // a dependency is the type library the one that depends on it is linked with: a machine can have several libraries of its name (DAO), and the
+            // latest of them is not the one the library was built against.
+            var loaded = referenced is null
+                ? TypeLibraryLocator.Load(reference, message => Write(MessageKind.Information, message))
+                : TypeLibraryLocator.Of(referenced);
             if (loaded is null)
             {
                 Write(MessageKind.Error, string.Format(Resources.ExportLibrary_NotFound, reference));
                 return 1;
             }
 
-            if (!done.Add(loaded.Name))
+            var identity = TypeLibraryExporter.IdentityOf(loaded.Name, loaded.Library);
+            if (!done.Add(identity.ToString()))
             {
                 continue;
             }
 
             var export = new TypeLibraryExporter(!options.WithoutDescriptions).Export(loaded, exportedBy);
-            var path = fileSystem.Path.Combine(output, loaded.Name + DirectoryLibrarySource.Extension);
+            var path = PathOf(output, loaded, identity);
             fileSystem.File.WriteAllText(path, LibraryJson.Write(export.Description), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
             Write(MessageKind.Success, string.Format(Resources.ExportLibrary_Written, loaded.Name, path), Counts(export.Description));
@@ -100,7 +102,7 @@ internal sealed class ExportLibraryCommand(IConsoleMessageWriter writer, IFileSy
 
             if (options.Dependencies)
             {
-                foreach (var (name, library) in export.Dependencies.Where(dependency => !done.Contains(dependency.Key)))
+                foreach (var (name, library) in export.Dependencies)
                 {
                     pending.Enqueue((name, library));
                 }
@@ -112,6 +114,36 @@ internal sealed class ExportLibraryCommand(IConsoleMessageWriter writer, IFileSy
         }
 
         return 0;
+    }
+
+    // <Name>.json, unless the folder has one that describes another type library of the name: then <Name>.<file stem>.json, which the platform reads as
+    // a library of the same name (DirectoryLibrarySource).
+    private string PathOf(string output, LoadedTypeLibrary loaded, LibraryIdentity identity)
+    {
+        var path = fileSystem.Path.Combine(output, loaded.Name + DirectoryLibrarySource.Extension);
+        if (!fileSystem.File.Exists(path) || IsOf(path, identity))
+        {
+            return path;
+        }
+
+        var qualifier = loaded.File is null
+            ? $"v{identity.Version}"
+            : fileSystem.Path.GetFileNameWithoutExtension(TypeLibraryLocator.FileNameOf(loaded.File).Split('\\')[0]);
+        return fileSystem.Path.Combine(output, $"{loaded.Name}.{qualifier}{DirectoryLibrarySource.Extension}");
+    }
+
+    // a file that cannot be read is written over, as it always was.
+    private bool IsOf(string path, LibraryIdentity identity)
+    {
+        try
+        {
+            var existing = LibraryIdentity.Of(LibraryJson.Read(fileSystem.File.ReadAllText(path)));
+            return existing.Guid is null || (existing.Guid == identity.Guid && existing.Major == identity.Major && existing.Minor == identity.Minor);
+        }
+        catch (InvalidDataException)
+        {
+            return true;
+        }
     }
 
     private static string Counts(LibraryDescription description)

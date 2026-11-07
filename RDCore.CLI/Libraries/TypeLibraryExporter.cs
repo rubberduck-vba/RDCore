@@ -118,7 +118,8 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
                 File = loaded.File is null ? null : TypeLibraryLocator.FileNameOf(loaded.File),
                 ExportedBy = exportedBy,
             },
-            DependsOn = [.. _dependencies.Keys.Order(StringComparer.OrdinalIgnoreCase)],
+            // a dependency is the type library this one is linked with, by its identifier and version: a machine can have several libraries of a name (DAO).
+            DependsOn = [.. _dependencies.OrderBy(dependency => dependency.Key, StringComparer.OrdinalIgnoreCase).Select(dependency => IdentityOf(dependency.Key, dependency.Value))],
             Enums = [.. enums],
             Classes = [.. classes],
         };
@@ -657,6 +658,12 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
         {
             info.ReleaseTypeAttr(pointer);
         }
+    }
+
+    internal static LibraryIdentity IdentityOf(string name, ITypeLib library)
+    {
+        var attributes = Attributes(library);
+        return new LibraryIdentity(name, attributes.guid, attributes.wMajorVerNum, attributes.wMinorVerNum);
     }
 
     private static TYPELIBATTR Attributes(ITypeLib library)

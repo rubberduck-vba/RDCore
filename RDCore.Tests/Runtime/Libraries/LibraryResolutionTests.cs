@@ -80,7 +80,7 @@ public sealed class LibraryResolutionTests
 
     private static ScopeTreeSymbolResolver ResolverOfReferences(string[] references, params LibraryDescription[] available)
     {
-        var libraries = ReferencedLibraries.Load(new Runtime.Libraries.InMemoryLibrarySource(available), references, ["VBA"]);
+        var libraries = ReferencedLibraries.Load(new Runtime.Libraries.InMemoryLibrarySource(available), references.Select(name => new LibraryIdentity(name)), ["VBA"]);
         Assert.IsEmpty(libraries.Problems);
 
         List<Symbol> symbols =

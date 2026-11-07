@@ -7,7 +7,9 @@ namespace RDCore.SDK.Runtime.Libraries;
 /// </summary>
 public enum LibraryProblemKind
 {
-    /// <summary>The source has no library of the name.</summary>
+    /// <summary>
+    /// The source has no library of the name, or, for one asked for by the identifier and version of its type library, none that they identify.
+    /// </summary>
     NotFound = 0,
 
     /// <summary>The source has one, and it cannot be read.</summary>
@@ -28,7 +30,8 @@ public enum LibraryProblemKind
 /// <param name="Related">
 /// What else the problem is about: for <see cref="LibraryProblemKind.Cyclic"/>, the libraries on the cycle in the order they depend on one another, ending with
 /// the one the path started from; for <see cref="LibraryProblemKind.DependencyFailed"/>, the library that failed; for <see cref="LibraryProblemKind.Unreadable"/>,
-/// the reason it cannot be read.
+/// the reason it cannot be read; for <see cref="LibraryProblemKind.NotFound"/>, the identity that was asked for (<see cref="LibraryIdentity"/>), when it gives
+/// an identifier, followed by the name of the library the source has of that identifier, when it is another name.
 /// </param>
 public sealed record class LibraryProblem(string Name, LibraryProblemKind Kind, ImmutableArray<string> Related);
 
@@ -86,15 +89,23 @@ public sealed class ReferencedLibraries
     /// <summary>
     /// Loads the libraries a project references.
     /// </summary>
+    /// <remarks>
+    /// A library is found by its identity (<see cref="ILibrarySource.TryGet(LibraryIdentity, out LibraryDescription?)"/>): the library of its name, or the
+    /// description of the type library it gives. A session has one library of a name: a dependency whose name the project references is the library the
+    /// project references, whatever identity the library that depends on it states (<strong>RD-VBAL §2.3.1.2</strong>).
+    /// </remarks>
     /// <param name="source">Where the descriptions are.</param>
     /// <param name="references">
-    /// The names the project references, in the order of its references. The standard library (<c>VBA</c>) is the platform's own, and is not asked of the source.
+    /// The libraries the project references, in the order of its references; a second reference to a name is left out. The standard library (<c>VBA</c>) is the
+    /// platform's own, and is not asked of the source.
     /// </param>
     /// <param name="provided">The names of the libraries the platform provides itself.</param>
-    public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<string> references, IReadOnlyCollection<string> provided)
+    public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<LibraryIdentity> references, IReadOnlyCollection<string> provided)
     {
-        var loader = new Loader(source, provided);
-        var referenced = references.Where(reference => !provided.Contains(reference, StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var referenced = references.Where(reference => !provided.Contains(reference.Name, StringComparer.OrdinalIgnoreCase))
+            .DistinctBy(reference => reference.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var loader = new Loader(source, provided, referenced.ToDictionary(reference => reference.Name, StringComparer.OrdinalIgnoreCase));
         foreach (var reference in referenced)
         {
             loader.Load(reference, []);
@@ -104,9 +115,9 @@ public sealed class ReferencedLibraries
         var priorities = ImmutableDictionary.CreateBuilder<string, int>(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < referenced.Length; i++)
         {
-            if (loaded.Contains(referenced[i]))
+            if (loaded.Contains(referenced[i].Name))
             {
-                priorities[referenced[i]] = i + 1;
+                priorities[referenced[i].Name] = i + 1;
             }
         }
 
@@ -119,7 +130,8 @@ public sealed class ReferencedLibraries
         return new ReferencedLibraries([.. loader.Loaded], [.. loader.Problems], priorities.ToImmutable());
     }
 
-    private sealed class Loader(ILibrarySource source, IReadOnlyCollection<string> provided)
+    // `claimed` is the identity of each name the project references: what a dependency of that name loads.
+    private sealed class Loader(ILibrarySource source, IReadOnlyCollection<string> provided, IReadOnlyDictionary<string, LibraryIdentity> claimed)
     {
         private readonly Dictionary<string, LibraryDescription> _loaded = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, LibraryProblem> _failed = new(StringComparer.OrdinalIgnoreCase);
@@ -130,9 +142,12 @@ public sealed class ReferencedLibraries
 
         public IReadOnlyList<LibraryProblem> Problems => _problems;
 
-        // true when the library is loaded. `path` is the libraries being loaded that depend on this one, outermost first.
-        public bool Load(string name, ImmutableArray<string> path)
+        // true when the library is loaded. `path` is the libraries being loaded that depend on this one, outermost first. A library of a name that is already
+        // loaded is that library, whatever identity is asked for.
+        public bool Load(LibraryIdentity asked, ImmutableArray<string> path)
         {
+            var name = asked.Name;
+            var identity = claimed.TryGetValue(name, out var referenced) ? referenced : asked;
             if (provided.Contains(name, StringComparer.OrdinalIgnoreCase) || _loaded.ContainsKey(name))
             {
                 return true;
@@ -152,9 +167,9 @@ public sealed class ReferencedLibraries
             LibraryDescription? description;
             try
             {
-                if (!source.TryGet(name, out description))
+                if (!source.TryGet(identity, out description))
                 {
-                    return Fail(new LibraryProblem(name, LibraryProblemKind.NotFound, []));
+                    return Fail(new LibraryProblem(name, LibraryProblemKind.NotFound, NotFound(identity)));
                 }
             }
             catch (InvalidDataException exception)
@@ -170,7 +185,7 @@ public sealed class ReferencedLibraries
                     // a library on a cycle has already been rejected by the one that found the cycle, and says so.
                     if (!_failed.ContainsKey(name))
                     {
-                        Fail(new LibraryProblem(name, LibraryProblemKind.DependencyFailed, [dependency]));
+                        Fail(new LibraryProblem(name, LibraryProblemKind.DependencyFailed, [dependency.Name]));
                     }
 
                     return false;
@@ -180,6 +195,20 @@ public sealed class ReferencedLibraries
             _loaded[name] = description;
             _order.Add(description);
             return true;
+        }
+
+        // the identity that was asked for, and the library its identifier is of when that is another name: the reference names one library and identifies
+        // another, and neither is chosen for it.
+        private ImmutableArray<string> NotFound(LibraryIdentity identity)
+        {
+            if (identity.Guid is not { } guid)
+            {
+                return [];
+            }
+
+            return source.TryGetByGuid(guid, out var other) && !string.Equals(other.Name, identity.Name, StringComparison.OrdinalIgnoreCase)
+                ? [identity.ToString(), other.Name]
+                : [identity.ToString()];
         }
 
         private bool Fail(LibraryProblem problem)

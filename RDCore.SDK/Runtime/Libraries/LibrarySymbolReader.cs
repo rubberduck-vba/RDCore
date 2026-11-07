@@ -373,7 +373,7 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
                     : new VBUnresolvedType(text);
             }
 
-            foreach (var library in new[] { from }.Concat(from.DependsOn.Where(libraries.ContainsKey).Select(dependency => libraries[dependency])))
+            foreach (var library in new[] { from }.Concat(from.DependsOn.Select(dependency => dependency.Name).Where(libraries.ContainsKey).Select(dependency => libraries[dependency])))
             {
                 if (Find(library.Name, text) is { } found)
                 {
