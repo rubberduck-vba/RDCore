@@ -155,8 +155,12 @@ public interface ISessionErrorState
     /// <c>Resume</c> statement, <c>Exit Sub</c>/<c>Exit Function</c>/<c>Exit Property</c>, and an
     /// <c>On Error</c> statement.
     /// </remarks>
+    /// <param name="keepLineNumber">
+    /// Whether <see cref="LineNumber"/> is left as it is: <c>Err.Clear</c>'s, when the environment says it keeps <c>Erl</c>
+    /// (<see cref="VBErlAfterErrClear.Kept"/>, <strong>RD-VBAL §6.1.2.7.1.14</strong>). Every other way to clear the error resets it.
+    /// </param>
     /// <returns><c>true</c> if there was an error to clear.</returns>
-    bool Clear();
+    bool Clear(bool keepLineNumber = false);
 
     /// <summary>
     /// The error a <c>Class_Terminate</c> raised and left unhandled, which ends the program: no handler of the code that let go of the object handles it

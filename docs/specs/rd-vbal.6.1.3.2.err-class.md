@@ -45,7 +45,7 @@ create its object. Both forms are reported as [`RDC11028`](../diagnostics/rdc110
 
 |§|Member|Notes|
 |---|---|---|
-|6.1.3.2.1.1|[Clear](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/8329612a-cea0-4f18-a0bf-5b5f77efbf7e)||
+|6.1.3.2.1.1|[Clear](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/8329612a-cea0-4f18-a0bf-5b5f77efbf7e)|Also resets `Erl` to `0`, unless the environment keeps it as MS-VBA does. See [**RD-VBAL §6.1.2.7.1.14** Erl](rd-vbal.6.1.2.7.information.md#6127114-erl).|
 |6.1.3.2.1.2|[Raise](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/51d5d48c-8c9c-4a5d-a5f0-855eb28739f1)|Raises an _application error_. See [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md).|
 
 

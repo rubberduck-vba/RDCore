@@ -46,7 +46,8 @@ run-time error was raised.
 
 MS-VBAL does not document `Erl`. MS-VBA exposes `Erl` from the `Information` module as a hidden member.
 
-`Erl` is a deliberate RD-VBA departure from MS-VBA, in two respects: what it counts, and its width.
+`Erl` is a deliberate RD-VBA departure from MS-VBA, in three respects: what it counts, what `Err.Clear` does to it,
+and its width.
 
 #### What Erl counts
 
@@ -70,6 +71,21 @@ A named label never sets `Erl`, in either `ErlLineNumbering` mode. Only a label 
 
 In a program that numbers every line, the line-number label is the document line, and `LineLabel` reports it.
 `LineLabel` mode exists for a workspace whose own code depends on MS-VBA's `Erl` behaviour.
+
+#### After Err.Clear
+
+In MS-VBA, `Err.Clear` resets the error's number and the other properties of the error object, but `Erl` keeps
+reporting the line of the error it cleared. Every other way an error is cleared resets `Erl` to `0`: a `Resume`
+statement in any form, an `On Error` statement, and leaving the procedure.
+
+What `Err.Clear` does to `Erl` is a second setting of the environment, `ErlAfterErrClear`, bound from
+`appsettings.json` like `ErlLineNumbering`. It changes only `Err.Clear`: the other ways to clear an error reset `Erl`
+whatever it says.
+
+|`ErlAfterErrClear` value ([VBErlAfterErrClear](../api/RDCore.SDK.Runtime.Abstract.Execution.VBErlAfterErrClear.html))|`Erl` after `Err.Clear`|
+|---|---|
+|`Reset` (the default)|`0`, as there is no error any more.|
+|`Kept`|The line of the error `Err.Clear` cleared. This matches MS-VBA's `Erl`.|
 
 #### Width
 

@@ -46,6 +46,7 @@ public sealed class RuntimeEnvironmentProfileTests
             AnsiCodePage = 1250,
             SupportsOptionCompareDatabase = true,
             ErlLineNumbering = VBErlLineNumbering.LineLabel,
+            ErlAfterErrClear = VBErlAfterErrClear.Kept,
             AllowDllImports = false,
         };
 
@@ -57,6 +58,7 @@ public sealed class RuntimeEnvironmentProfileTests
         Assert.IsTrue(sut.SupportsOptionCompareDatabase);
         Assert.AreEqual("fr-FR", sut.Culture.Name);
         Assert.AreEqual(VBErlLineNumbering.LineLabel, sut.ErlLineNumbering);
+        Assert.AreEqual(VBErlAfterErrClear.Kept, sut.ErlAfterErrClear);
         Assert.IsFalse(sut.AllowDllImports, "the switch an administrator sets, which nothing else may override");
     }
 
@@ -118,9 +120,9 @@ public sealed class RuntimeEnvironmentProfileTests
         // a property added to the interface and not to Of differs here, and one added without a value here fails the first assertion.
         var source = new RuntimeEnvironmentProfile(false, 1036, 1250, true, OptionCompare.Binary, VBErlLineNumbering.DocumentLine + 1, false,
             SDK.Workspace.SupportedLanguages.BASIC, false, true, RegionalSettings.Default with { DecimalSymbol = "," }, VBExecutionEngine.Compiled,
-            VBBuildConfiguration.Release, true);
+            VBBuildConfiguration.Release, true, VBErlAfterErrClear.Kept);
         var baseline = new RuntimeEnvironmentProfile(true, 0, 1252, false);
-        var other = System.Reflection.DispatchProxy.Create<IRuntimeEnvironmentProfile, Forwarding>();
+        var other =System.Reflection.DispatchProxy.Create<IRuntimeEnvironmentProfile, Forwarding>();
         ((Forwarding)(object)other).Target = source;
 
         var copy = RuntimeEnvironmentProfile.Of(other);
