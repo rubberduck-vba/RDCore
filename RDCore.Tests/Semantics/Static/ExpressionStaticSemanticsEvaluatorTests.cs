@@ -219,8 +219,7 @@ public sealed class ExpressionStaticSemanticsEvaluatorTests
 
     [TestMethod]
     public void UnmappedOperatorToken_DefersToUnknown()
-        // an operator with no static semantics rule - unary '+', which no source has but the runtime has semantics for - defers: it is not misreported, and
-        // nothing throws.
+        // an operator with no static semantics rule - a unary '+' node, which the parser never builds - defers: it is not misreported, and nothing throws.
     {
         var module = Module("Caller");
         var x = ModuleField(module.Uri, "x", VBLongType.TypeInfo);

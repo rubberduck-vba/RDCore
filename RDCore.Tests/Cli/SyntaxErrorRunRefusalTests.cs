@@ -92,19 +92,18 @@ public sealed class SyntaxErrorRunRefusalTests
         StringAssert.StartsWith(result.Diagnostics[0], prefix + RDCore.SDK.Exceptions.VBSyntaxError_DefaultMessage, string.Join("; ", result.Diagnostics));
     }
 
-    // O5: the procedure called is not found, its module's declarations not being read; the syntax error that is why is said first.
+    // a syntax error in the declarations section of a module the run calls is the one error the run is refused with: the parse reads the procedures after
+    // the declaration's line, and the one called is declared, not said not to be found.
     [TestMethod]
-    public async Task AMemberOfAModuleWithASyntaxError_IsSaidNotFound_AfterTheSyntaxError()
+    public async Task ASyntaxErrorInTheDeclarationsOfAModuleTheRunCalls_IsTheOneErrorOfTheRefusal()
     {
         var (program, other) = ProgramAndOther("D", "Good");
 
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [("Other", other)]);
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
-        Assert.IsTrue(result.Diagnostics.Count >= 2, string.Join("; ", result.Diagnostics));
-        Assert.IsTrue(result.Diagnostics.Take(result.Diagnostics.Count - 1).All(error => error.StartsWith("Other: ", StringComparison.Ordinal)),
-            string.Join("; ", result.Diagnostics));
-        StringAssert.Contains(result.Diagnostics[^1], "Good");
+        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), "Other: " + RDCore.SDK.Exceptions.VBSyntaxError_DefaultMessage,
+            string.Join("; ", result.Diagnostics!));
     }
 
     // the controls, C0 and C1: the same modules with no syntax error run (MS-VBA: runs; runs).

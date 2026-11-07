@@ -57,6 +57,17 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     public override void EnterEveryRule([NotNull] ParserRuleContext context)
         => RuntimeHelpers.EnsureSufficientExecutionStack();
 
+    // an expression a binary operator the parse could not read is written right after, at the end of its statement (ModuleParser.MarkDanglingOperators): the
+    // operation, its right operand missing, is kept unbuilt with the expression in it, and not the expression alone, as if it were all the statement said.
+    public override void ExitEveryRule([NotNull] ParserRuleContext context)
+    {
+        if (context is VBAParser.ExpressionContext { DanglingOperator: var (@operator, text) } expression && IsDeclarationPassExpression)
+        {
+            CurrentBuilder.AddChild(new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), expression.GetSourceLocation(_rootUri, @operator), text,
+                CurrentBuilder.PopLastChildren(1)));
+        }
+    }
+
     public ModuleNode BuildModuleNode()
     {
         // ANTLR error recovery can leave scopes open (an Enter with no matching Exit); unwind to the
@@ -135,6 +146,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // expression the walk built inside it (the 1.0 of VERSION 1.0 CLASS, an annotation's argument) is kept with it and not left among the module's nodes.
     private readonly List<SyntaxNode> _trivia = [];
     private readonly List<AnnotationTriviaNode> _annotationsOfLine = [];
+    private readonly HashSet<int> _erasedPlusSigns = [];
 
     /// <summary>The trivia of the module, in the order it is written.</summary>
     public ImmutableArray<SyntaxNode> Trivia
@@ -839,6 +851,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(new ErrorStatementNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), number));
     }
 
+    // a statement no alternative reads - `a = 1-`, `If x = 1 - Then` - is tokens no rule read, and is kept as the text it is: the syntax error is reported
+    // where the parse stopped, and the statement does not vanish from the tree.
+    public override void ExitMainBlockStmt([NotNull] VBAParser.MainBlockStmtContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
     // Let (MS-VBAL §5.4.3.8) and Set (§5.4.3.9) share one shape: both are `[keyword] lExpression =
     // expression`, and only their static/runtime coercion semantics differ, not their syntax.
     public override void ExitLetStmt([NotNull] VBAParser.LetStmtContext context)
@@ -942,12 +964,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // Debug.Print arrives as an objectPrintExpr (its output list is not an argument list). Debug.Assert
     // is an ordinary call, so its argument arrives one of two ways: parenthesized, it rides inside the
     // callee's own IndexExpressionNode; bare, it is the statement's own argument list.
-    private static StatementNode? AsDebugStatement(
+    //
+    // A Debug.Print with arguments is a syntax error the parse recovered from: it read the output list to the
+    // last item it could, and what is after it as the arguments of a call (`Debug.Print 1; 2 +` is a print of
+    // `1;` and an argument `2 +`, unbuilt). They are the items the statement is written with, kept as items. A missing
+    // argument is no item: it is the blank after the output list, before a comment.
+    private StatementNode? AsDebugStatement(
         SyntaxNodeId identity, SourceLocation location, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments)
         => callee switch
         {
             ObjectPrintExpressionNode print when IsDebugObject(print.Owner)
-                => new DebugPrintStatementNode(identity, location, print.Items),
+                => new DebugPrintStatementNode(identity, location,
+                    [.. print.Items, .. arguments.Where(argument => argument is not MissingArgumentNode).Select(argument => new PrintOutputItemNode(GetCurrentNodeId(), argument.Location, argument, Separator: null))]),
 
             IndexExpressionNode { Callee: MemberAccessExpressionNode member, Arguments: [var argument] }
                 when IsDebugMember(member, Tokens.Assert)
@@ -1830,9 +1858,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     }
     private SyntaxNode BuildBinary(string token, VBABaseParserRuleContext context)
     {
-        if (CurrentBuilder.PeekLastChildren(2) is not [ExpressionNode, ExpressionNode])
+        // an operation the parse read without its right operand holds its left one alone: the node before that is the one before the operation (in
+        // `Print #1, 1; 2 +`, the `;`), and not an operand of it.
+        var operands = context.children?.Count(child => child is VBAParser.ExpressionContext) ?? 0;
+        if (operands < 2 || CurrentBuilder.PeekLastChildren(2) is not [ExpressionNode, ExpressionNode])
         {
-            return BuildUnbuiltExpressionTrivia(context, 2);
+            return BuildUnbuiltExpressionTrivia(context, Math.Min(operands, 2));
         }
         return new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2));
     }
@@ -1916,6 +1947,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         AddIfBuilt(BuildUnary(Tokens.NegationOp, context));
     }
 
+    // RD-VBAL §5.6.9.3: a unary + is no operator - the VBE erases it - and builds no node: the operand is the node it is, and every rule reads it as if
+    // the + were not written (`+"1"` is the String "1", and `Foo +x` passes x by reference). The + is trivia, kept once however many walks read it: an
+    // expression captured for its statement is walked again.
+    public override void ExitUnaryPlusOp([NotNull] VBAParser.UnaryPlusOpContext context)
+    {
+        var plus = context.PLUS().Symbol;
+        if (_erasedPlusSigns.Add(plus.TokenIndex))
+        {
+            _trivia.Add(new ErasedPlusTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeOf(plus))));
+        }
+    }
+
     // MS-VBAL 5.6.6: a parenthesized expression is a value expression — its parentheses are an operator,
     // not punctuation, and this builds it. Erasing them made `Foo (x)` and `Foo x` the same tree, so an
     // argument written to be passed by value was aliased to a ByRef parameter and mutated the caller's
@@ -1936,11 +1979,19 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         AddIfBuilt(BuildUnary(token, context));
     }
 
+    // a unary + before the parentheses is no operator: what encloses it decides, as if it were not written (`Foo +(x)` is `Foo (x)`).
     private static bool IsOperandOfAnOperator(VBAParser.ParenthesizedExprContext context)
-        => context.Parent is VBAParser.PowOpContext or VBAParser.UnaryMinusOpContext or VBAParser.MultOpContext or VBAParser.IntDivOpContext
+    {
+        var parent = context.Parent;
+        while (parent is VBAParser.UnaryPlusOpContext)
+        {
+            parent = parent.Parent;
+        }
+        return parent is VBAParser.PowOpContext or VBAParser.UnaryMinusOpContext or VBAParser.MultOpContext or VBAParser.IntDivOpContext
             or VBAParser.ModOpContext or VBAParser.AddOpContext or VBAParser.ConcatOpContext or VBAParser.RelationalOpContext
             or VBAParser.LogicalNotOpContext or VBAParser.LogicalAndOpContext or VBAParser.LogicalOrOpContext or VBAParser.LogicalXorOpContext
             or VBAParser.LogicalEqvOpContext or VBAParser.LogicalImpOpContext or VBAParser.ParenthesizedExprContext or VBAParser.TypeofexprContext;
+    }
 
     public override void ExitPowOp([NotNull] VBAParser.PowOpContext context)
     {
@@ -2007,8 +2058,9 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
         // `TypeOf <expr> Is <type>` (MS-VBAL §5.6.9.4) arrives here as an ordinary IS relationalOp
         // whose left operand is grammatically a typeofexpr (see that Exit override's own remarks) —
-        // recognized from the parse-tree shape itself, not from anything on the builder stack.
-        if (context.IS() is not null && context.expression(0) is VBAParser.TypeofexprContext)
+        // recognized from the parse-tree shape itself, not from anything on the builder stack. A unary + before the TypeOf builds no node, and the left
+        // operand is the TypeOf it is written before (`+TypeOf o Is Collection`).
+        if (context.IS() is not null && WithoutUnaryPlus(context.expression(0)) is VBAParser.TypeofexprContext)
         {
             AddIfBuilt(BuildTypeOfIs(context));
             return;
@@ -2024,6 +2076,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             : context.LIKE() is not null ? Tokens.CompareLikeOp
             : context.GetText();
         AddIfBuilt(BuildBinary(token, context));
+    }
+
+    // the expression a unary + is written before, however many there are: the + is no operator, and the expression is what a rule reads.
+    private static VBAParser.ExpressionContext WithoutUnaryPlus(VBAParser.ExpressionContext expression)
+    {
+        while (expression is VBAParser.UnaryPlusOpContext plus)
+        {
+            expression = plus.expression();
+        }
+        return expression;
     }
 
     // ExitTypeofexpr always wraps its operand in an UnbuiltExpressionTriviaNode with exactly one input

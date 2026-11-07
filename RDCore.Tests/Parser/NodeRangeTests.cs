@@ -254,4 +254,36 @@ public sealed class NodeRangeTests
             }
         }
     }
+
+    // a binary operator at the end of its statement is held by the operation it is kept as, and what ends with the operation - the statement, the item of a
+    // list to print - holds it too.
+    [TestMethod]
+    [DataRow("a = 1 -", DisplayName = "an assignment")]
+    [DataRow("a = 1 +", DisplayName = "an assignment, of an operator the parse reads")]
+    [DataRow("a = 1 Mod", DisplayName = "an assignment, of a keyword operator")]
+    [DataRow("Const c = 1 -", DisplayName = "a constant")]
+    [DataRow("For i = 1 To 2 -\r\nNext", DisplayName = "a For")]
+    [DataRow("While x -\r\nWend", DisplayName = "a While")]
+    [DataRow("With x -\r\nEnd With", DisplayName = "a With")]
+    [DataRow("Open \"f\" For Output As #1 Len = 2 -", DisplayName = "an Open")]
+    [DataRow("Print #1, 1 -", DisplayName = "an item of a Print")]
+    [DataRow("Foo 1 -", DisplayName = "the argument of a call")]
+    [DataRow("a = 1 - _\r\n", DisplayName = "a line continuation after it")]
+    public void AChild_IsWithinItsParent_WhereABinaryOperatorEndsItsStatement(string body)
+    {
+        var source = $"Public Sub Main()\r\n{body}\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+        Assert.IsNotEmpty(parse.SyntaxErrors);
+
+        var nodes = Descendants(parse.SyntaxTree!).Where(node => node is not ModuleNode).ToArray();
+        Assert.IsTrue(nodes.Any(node => node is UnbuiltExpressionTriviaNode), "the operation is kept");
+        foreach (var parent in nodes)
+        {
+            foreach (var child in parent.Children)
+            {
+                var (inner, outer) = (child.SourceLocation.Range, parent.SourceLocation.Range);
+                Assert.IsTrue(inner.Start >= outer.Start && inner.End <= outer.End, $"{child.GetType().Name} {inner} is not within {parent.GetType().Name} {outer}");
+            }
+        }
+    }
 }

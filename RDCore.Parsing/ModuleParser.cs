@@ -615,10 +615,10 @@ public partial class ModuleParser(
         }
     }
 
-    // LL with default recovery and the error listener, on a fresh listener: what produces the located errors.
+    // LL with recovery and the error listener, on a fresh listener: what produces the located errors. The recovery is ANTLR's, bound to the statement the error is in.
     private TListener ParseSlowly<TListener>(string content, ErrorListener errorListener, TListener listener, SourcePosition anchorOffset, CancellationToken token)
         where TListener : IParseTreeListener
-        => ParseOnce(content, PredictionMode.Ll, new DefaultErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
+        => ParseOnce(content, PredictionMode.Ll, new StatementBoundErrorStrategy(), errorListener, errorListener, listener, anchorOffset, token);
 
     // errorListener hears the grammar's errors, and none when it is null; findings is where what the parse finds of the tokens around its rules is reported.
     private TListener ParseOnce<TListener>(string content, PredictionMode mode, IAntlrErrorStrategy errorStrategy, ErrorListener? errorListener, ErrorListener findings,
@@ -654,8 +654,86 @@ public partial class ModuleParser(
         var tree = parser.startRule();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
+        if (parser.NumberOfSyntaxErrors > 0)
+        {
+            MarkDanglingOperators(tree, tokens);
+        }
         ParseTreeWalker.Default.Walk(listener, tree);
         return listener;
+    }
+
+    private static readonly HashSet<int> BinaryOperators =
+    [
+        VBAParser.PLUS, VBAParser.MINUS, VBAParser.MULT, VBAParser.DIV, VBAParser.INTDIV, VBAParser.MOD, VBAParser.POW, VBAParser.AMPERSAND,
+        VBAParser.EQ, VBAParser.NEQ, VBAParser.LT, VBAParser.GT, VBAParser.LEQ, VBAParser.GEQ, VBAParser.LIKE, VBAParser.IS,
+        VBAParser.AND, VBAParser.OR, VBAParser.XOR, VBAParser.EQV, VBAParser.IMP,
+    ];
+
+    // what ends a statement: a line, a colon, a comment, the end of the module.
+    private static readonly HashSet<int> EndsOfStatement = [VBAParser.NEWLINE, VBAParser.COLON, VBAParser.SINGLEQUOTE, VBAParser.REM, TokenConstants.Eof];
+
+    /// <summary>
+    /// Marks each expression that a binary operator the parse could not read is written right after, at the end of its statement (<c>a = 1 -</c>), with that
+    /// operator: the listener keeps the two as an unbuilt expression, and not the expression alone as if it were all the statement said.
+    /// </summary>
+    /// <remarks>
+    /// The operation has no right operand, and is a syntax error, reported as a zero-width range at the operator: before a <c>+</c>, <c>-</c>, <c>*</c>,
+    /// <c>=</c>, <c>Like</c>, <c>Is</c>, <c>Mod</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c> or <c>Imp</c>, after a <c>/</c>, <c>\</c>, <c>^</c>,
+    /// <c>&amp;</c>, <c>&lt;&gt;</c>, <c>&lt;</c>, <c>&gt;</c>, <c>&lt;=</c> or <c>&gt;=</c>. Where the operator can also begin something that follows an
+    /// expression (a unary <c>+</c> or <c>-</c>, a name such as <c>Mod</c>, the next item of a list to print), the parse ends the expression before it, and
+    /// the operator is a token no rule read; where it cannot, the parse reads the operation, and the listener keeps it unbuilt when it exits it. Valid code
+    /// has no token that no rule read.
+    /// </remarks>
+    private static void MarkDanglingOperators(IParseTree tree, CommonTokenStream tokens)
+    {
+        // each token no rule read, and the outermost expression that ends at each token: an expression is met before the ones it holds.
+        var unread = new List<IToken>();
+        var expressions = new Dictionary<int, VBAParser.ExpressionContext>();
+        var pending = new Stack<IParseTree>([tree]);
+        while (pending.TryPop(out var node))
+        {
+            switch (node)
+            {
+                case IErrorNode error:
+                    unread.Add(error.Symbol);
+                    break;
+                case VBAParser.ExpressionContext { Stop: { } stop } expression:
+                    expressions.TryAdd(stop.TokenIndex, expression);
+                    break;
+            }
+
+            for (var i = node.ChildCount - 1; i >= 0; i--)
+            {
+                pending.Push(node.GetChild(i));
+            }
+        }
+
+        foreach (var token in unread.Where(token => BinaryOperators.Contains(token.Type)))
+        {
+            if (EndsOfStatement.Contains(tokens.Get(SignificantIndex(tokens, token.TokenIndex, +1)).Type)
+                && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
+            {
+                operand.DanglingOperator = (token, tokens.GetText(operand.Start, token));
+
+                // what ends with the operand - the assignment, the item of a list to print, the statement - holds the operation it is kept as.
+                for (var parent = operand.Parent as VBABaseParserRuleContext; parent is { Stop: { } stop } && stop.TokenIndex < token.TokenIndex;
+                    parent = parent.Parent as VBABaseParserRuleContext)
+                {
+                    parent.ExtendThrough(token);
+                }
+            }
+        }
+    }
+
+    // the index of the token before or after the one at index that is no blank: a whitespace or a line continuation.
+    private static int SignificantIndex(CommonTokenStream tokens, int index, int step)
+    {
+        do
+        {
+            index += step;
+        }
+        while (index > 0 && index < tokens.Size - 1 && tokens.Get(index).Type is VBAParser.WS or VBAParser.LINE_CONTINUATION);
+        return index;
     }
 
     // the tokens an output clause can begin with, but the whitespace a parenthesized expression may begin with.
@@ -1111,7 +1189,39 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
             msg = $"no viable alternative at input {EscapeWSAndQuote(tokens.GetText(start, offendingSymbol))}";
         }
 
-        _errors.Add(VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg));
+        // one error where the parse stopped: a rule that fails at a token, and the rule it is in that fails at the same token, are one syntax error, said as the
+        // parse first said it.
+        if (_reportedAt.Contains(location))
+        {
+            return;
+        }
+
+        // an error before one the parse reported is in tokens it reads again: the decision that failed looked past them, to the end of the statement
+        // (Debug.Print 1 -, at the line end), and the statement fails before that, at the error the parse reports now, which is the one error. The parse's
+        // errors are in the order of their positions, so the ones past this one are the last it reported; the errors of the directives, and of the parts of
+        // the module parsed on their own, are not the parse's.
+        while (_reported.Count > 0 && _reported[^1].Location.Range.Start.CompareTo(position) > 0)
+        {
+            ForgetTheLastReported();
+        }
+
+        var error = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, location, msg);
+        _reported.Add(error);
+        _reportedAt.Add(location);
+        _errors.Add(error);
+    }
+
+    // the syntax errors the parse reported, in the order of their positions, and where they are.
+    private readonly List<VBSyntaxErrorInfo> _reported = [];
+    private readonly HashSet<SourceLocation> _reportedAt = [];
+
+    // the last error the parse reported is no longer one. It is near the end of the module's errors, which are searched from there.
+    private void ForgetTheLastReported()
+    {
+        var error = _reported[^1];
+        _reported.RemoveAt(_reported.Count - 1);
+        _reportedAt.Remove(error.Location);
+        _errors.RemoveAt(_errors.FindLastIndex(existing => ReferenceEquals(existing, error)));
     }
 
     // a token's text as ANTLR quotes it in an error (DefaultErrorStrategy.EscapeWSAndQuote, which is not public): its line breaks and tabs escaped.
@@ -1131,6 +1241,8 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 
         var first = blockErrors.Min(error => error.Location.Range.Start);
         _errors.RemoveAll(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.CompareTo(first) >= 0);
+        _reported.RemoveAll(error => error.Location.Range.Start.CompareTo(first) >= 0);
+        _reportedAt.RemoveWhere(location => location.Range.Start.CompareTo(first) >= 0);
         _errors.AddRange(blockErrors);
     }
 
@@ -1140,6 +1252,8 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         var start = new SourcePosition(token.Line - 1, token.Column).AnchoredAt(anchorOffset);
         var end = new SourcePosition(token.Line - 1, token.Column + token.Text.Length).AnchoredAt(anchorOffset);
         _errors.RemoveAll(error => error.ErrorId == (int)VBCompileErrorId.SyntaxError && error.Location.Range.Start.Equals(start));
+        _reported.RemoveAll(error => error.Location.Range.Start.Equals(start));
+        _reportedAt.RemoveWhere(location => location.Range.Start.Equals(start));
         Report(new SourceLocation(_uri, new(start, end)), id, verbose);
     }
 
