@@ -21,7 +21,9 @@ public sealed class CompiledBreakTests
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
-    /// <summary>A program run again by the pipeline of a session that has run it compiled to load it, under a gate: each line it prints is said to said, as it prints it.</summary>
+    /// <summary>
+    /// A program run again by the pipeline of a session that has run it compiled to load it, under a gate: each line it prints is said to said, as it prints it.
+    /// </summary>
     private sealed class Run : IDisposable
     {
         private readonly EnvironmentSessionProvider provider;
