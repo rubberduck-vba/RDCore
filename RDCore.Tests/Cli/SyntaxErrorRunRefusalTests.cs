@@ -67,6 +67,81 @@ public sealed class SyntaxErrorRunRefusalTests
         Assert.IsEmpty(result.Output);
     }
 
+    private static string Module(string name, params string[] lines) => string.Join("\r\n", [$"Attribute VB_Name = \"{name}\"", .. lines, ""]);
+
+    // a syntax error anywhere in the project refuses every run, with the module it is in named before it: nothing of the project runs while a module of it
+    // does not load. The rows are the ones MS-VBA was measured with (Excel, 2026-11-07), and say what it does with Compile On Demand on, then off. MS-VBA
+    // compiles what a run needs - with Compile On Demand on, the procedures the run reaches and every module's declarations section; off, every module the
+    // run uses - so it runs some of what is refused here: O1 in both modes.
+    [TestMethod]
+    [DataRow("P", "", DisplayName = "P1: another procedure of the module run (MS-VBA: runs; refused)")]
+    [DataRow("B", "", DisplayName = "O1: a procedure of another module, not called (MS-VBA: runs; runs)")]
+    [DataRow("B", "Good", DisplayName = "O2: a procedure of another module, another procedure of it called (MS-VBA: runs; refused)")]
+    [DataRow("B", "Bad", DisplayName = "O3: a procedure of another module, called (MS-VBA: the syntax error at the call; refused)")]
+    [DataRow("D", "", DisplayName = "O4: the declarations section of another module (MS-VBA: refused; refused)")]
+    [DataRow("D", "Good", DisplayName = "O5: the declarations section of another module, a procedure of it called (MS-VBA: refused; refused)")]
+    public async Task ASyntaxErrorAnywhereInTheProject_RefusesTheRun_WithTheModuleItIsIn(string where, string call)
+    {
+        var (program, other) = ProgramAndOther(where, call);
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [("Other", other)]);
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        var prefix = where == "P" ? "" : "Other: ";
+        StringAssert.StartsWith(result.Diagnostics[0], prefix + RDCore.SDK.Exceptions.VBSyntaxError_DefaultMessage, string.Join("; ", result.Diagnostics));
+    }
+
+    // O5: the procedure called is not found, its module's declarations not being read; the syntax error that is why is said first.
+    [TestMethod]
+    public async Task AMemberOfAModuleWithASyntaxError_IsSaidNotFound_AfterTheSyntaxError()
+    {
+        var (program, other) = ProgramAndOther("D", "Good");
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [("Other", other)]);
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsTrue(result.Diagnostics.Count >= 2, string.Join("; ", result.Diagnostics));
+        Assert.IsTrue(result.Diagnostics.Take(result.Diagnostics.Count - 1).All(error => error.StartsWith("Other: ", StringComparison.Ordinal)),
+            string.Join("; ", result.Diagnostics));
+        StringAssert.Contains(result.Diagnostics[^1], "Good");
+    }
+
+    // the controls, C0 and C1: the same modules with no syntax error run (MS-VBA: runs; runs).
+    [TestMethod]
+    [DataRow("", new[] { "before", "after" }, DisplayName = "C0: nothing called")]
+    [DataRow("Good", new[] { "before", "good", "after" }, DisplayName = "C1: a procedure of the other module called")]
+    public async Task TheSameModulesWithNoSyntaxError_Run(string call, string[] printed)
+    {
+        var (program, other) = ProgramAndOther("", call);
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [("Other", other)]);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, string.Join("; ", result.Diagnostics));
+        CollectionAssert.AreEqual(printed, result.Output.ToArray());
+    }
+
+    // Program.Main notes "before", calls nothing or a procedure of Other, then notes "after"; the syntax error is in another procedure of Program (P), in
+    // Other.Bad (B), or in Other's declarations section (D).
+    private static (string Program, string Other) ProgramAndOther(string where, string call)
+        => (Module("Program",
+                "Public Sub Main()",
+                "    Debug.Print \"before\"",
+                call.Length > 0 ? $"    Other.{call}" : "",
+                "    Debug.Print \"after\"",
+                "End Sub",
+                "Public Sub Unrelated()",
+                where == "P" ? "    Debug.Print 1 +" : "",
+                "End Sub"),
+            Module("Other",
+                where == "D" ? "Public x As Integer +" : "",
+                "Public Sub Good()",
+                "    Debug.Print \"good\"",
+                "End Sub",
+                "Public Sub Bad()",
+                where == "B" ? "    Debug.Print 1 +" : "",
+                "End Sub"));
+
     // the output items written side by side are refused with the error that says so, and only with it.
     [TestMethod]
     public async Task TwoOutputItemsSideBySide_AreRefused_WithTheErrorThatSaysSo()

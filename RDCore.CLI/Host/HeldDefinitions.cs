@@ -109,10 +109,14 @@ internal static class HeldDefinitions
     /// <param name="session">The session it is made in.</param>
     /// <param name="key">The module and the phase of the definition it makes: a later request with the same key replaces it.</param>
     /// <param name="module">The module's name.</param>
-    /// <param name="loadsCode">Whether it loads the module's code, which says again what is wrong with it.</param>
+    /// <param name="codeErrors">
+    /// What is wrong with the module's code, as the request that loads it says; <see langword="null"/> for a request that loads no code. A module whose code
+    /// failed to load refuses every run until a request loads it (<see cref="FailedToLoad"/>).
+    /// </param>
     /// <param name="define">What makes it.</param>
     /// <param name="again">What makes it again, and says what is wrong with the module's code the way the request did.</param>
-    public static TResult Define<TResult>(IRuntimeSession session, string key, string module, bool loadsCode, Func<TResult> define, Func<ImmutableArray<string>> again)
+    public static TResult Define<TResult>(IRuntimeSession session, string key, string module, Func<TResult, ImmutableArray<string>>? codeErrors, Func<TResult> define,
+        Func<ImmutableArray<string>> again)
     {
         var received = ReceivedBySession.GetOrCreateValue(session);
         lock (received.Defining)
@@ -125,10 +129,10 @@ internal static class HeldDefinitions
             else
             {
                 received.Remove(key);
-                if (loadsCode)
+                if (codeErrors is not null)
                 {
-                    // what is wrong with the module's code is the request's to say now.
-                    received.Loaded(module, []);
+                    // what is wrong with the module's code is the request's to say now: nothing of the project runs while it does not load.
+                    received.Loaded(module, codeErrors(result));
                 }
             }
 
@@ -144,8 +148,8 @@ internal static class HeldDefinitions
         => session.Symbols.HeldDefinitions.Count > 0 && ReceivedBySession.TryGetValue(session, out var received) && received.Contains(module);
 
     /// <summary>
-    /// What is wrong with the code of each module that no longer compiled once it was made again (<see cref="Release"/>), and that no request has loaded since:
-    /// a run is refused with it, rather than running the code the module had.
+    /// What is wrong with the code of each module that failed to load - at a request, or once it was made again (<see cref="Release"/>) - and that no request
+    /// has loaded since: a run is refused with it, rather than running the code the module had, or none of it.
     /// </summary>
     /// <param name="session">The session.</param>
     /// <param name="except">A module the run loads itself, which says what is wrong with it.</param>

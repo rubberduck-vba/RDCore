@@ -45,7 +45,7 @@ internal sealed class DefineSymbolsHandler(
         // the order the requests came in, the latest of each module and phase.
         var session = sessionProvider.Session;
         var result = HeldDefinitions.Define(session, $"{request.ModuleName}|{request.DeclareTypesOnly}|{request.CodeOnly}", request.ModuleName,
-            loadsCode: !request.DeclareTypesOnly, () => Define(session, request), () => [.. Define(session, request).CodeErrors]);
+            request.DeclareTypesOnly ? null : defined => [.. defined.CodeErrors], () => Define(session, request), () => [.. Define(session, request).CodeErrors]);
 
         // told once it is made: a statement typed at a stop from now on is given what the code as edited declares.
         ProgramEdits.Edited(session);

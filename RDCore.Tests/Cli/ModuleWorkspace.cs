@@ -175,14 +175,15 @@ internal static class ModuleWorkspace
     /// loads what the parser made of it. What came of the run, whatever it was.
     /// </summary>
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
-    public static async Task<ExecuteResult> RunWithSyntaxErrorsAsync(string program)
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c>, which may have syntax errors too.</param>
+    public static async Task<ExecuteResult> RunWithSyntaxErrorsAsync(string program, IReadOnlyList<(string Name, string Source)>? modules = null)
     {
         ExecuteResult? ran = null;
         await RunCoreAsync([], program, errorsOnly: false, inspect: (_, result, _) =>
         {
             ran = result;
             return Task.CompletedTask;
-        }, syntaxErrors: true);
+        }, modules: modules, syntaxErrors: true);
         return ran!;
     }
 
