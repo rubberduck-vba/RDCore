@@ -84,18 +84,47 @@ public sealed class StatementBoundRecoveryTests
 
     // a comment after the operator is the comment it is, and the procedure ends where it does.
     [TestMethod]
-    public void ACommentAfterADanglingOperator_IsKept_AndTheProcedureEndsWhereItDoes()
+    [DataRow("a = 1 -", " ' c", DisplayName = "an operator the parse leaves unread, then a comment")]
+    [DataRow("a = 1 &", "'c", DisplayName = "a concatenation, then a comment with no space before it")]
+    [DataRow("a = 1 /", " ' c", DisplayName = "a division, then a comment")]
+    [DataRow("a = 1 &", " ' c: d", DisplayName = "a concatenation, then a comment with a colon in it")]
+    [DataRow("a = 1 ^", " Rem c", DisplayName = "an exponentiation, then a Rem comment")]
+    public void ACommentAfterADanglingOperator_IsKept_AndTheProcedureEndsWhereItDoes(string broken, string comment)
     {
-        var source = "Public Sub Main()\r\na = 1 - ' c\r\nb = 2\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
+        var source = $"Public Sub Main()\r\n{broken}{comment}\r\nb = 2\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
 
-        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, Assert.ContainsSingle(parse.SyntaxErrors).ErrorId);
+        var error = Assert.ContainsSingle(parse.SyntaxErrors);
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
+        Assert.AreEqual(1, error.Location.Range.Start.Line, "the error is in the statement's line");
+        Assert.AreEqual(comment.TrimStart(), TextOf(source, Assert.ContainsSingle(parse.Trivia.OfType<CommentTriviaNode>()).SourceLocation.Range));
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, members);
+        Assert.AreEqual(new SourcePosition(3, 7), members[0].SourceLocation.Range.End, "the first procedure ends with its End Sub");
+        // an operation the parse reads, its right operand missing, ends after the blank it read before the comment.
+        CollectionAssert.AreEqual(new[] { broken, "b = 2" },
+            members[0].Children.OfType<AssignmentStatementNode>().Select(node => TextOf(source, node.SourceLocation.Range).TrimEnd()).ToArray());
+    }
+
+    // a statement the parse cannot read ends at its comment too, whether the parse skips what it cannot read, or supplies the token the statement is
+    // missing before the comment.
+    [TestMethod]
+    [DataRow("State = this.", DisplayName = "a member access with no member, skipped to the comment")]
+    [DataRow("x = Foo(Bar(", DisplayName = "two unclosed argument lists, skipped to the comment")]
+    [DataRow("Set p = A.Offset(IIf(this.", DisplayName = "a closing parenthesis supplied before the comment")]
+    public void ACommentAfterAStatementTheParseCannotRead_IsKept_AndTheNextStatementIsReadOnItsOwn(string broken)
+    {
+        var source = $"Public Sub Main()\r\n{broken} ' c\r\nb = 2\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        Assert.IsNotEmpty(parse.SyntaxErrors);
+        Assert.IsTrue(parse.SyntaxErrors.All(error => error.Location.Range.Start.Line == 1), "the errors are in the statement's line");
         Assert.AreEqual("' c", TextOf(source, Assert.ContainsSingle(parse.Trivia.OfType<CommentTriviaNode>()).SourceLocation.Range));
         var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
         Assert.HasCount(2, members);
         Assert.AreEqual(new SourcePosition(3, 7), members[0].SourceLocation.Range.End, "the first procedure ends with its End Sub");
-        CollectionAssert.AreEqual(new[] { "a = 1 -", "b = 2" },
-            members[0].Children.OfType<AssignmentStatementNode>().Select(node => TextOf(source, node.SourceLocation.Range)).ToArray());
+        Assert.AreEqual("b = 2", TextOf(source, Assert.ContainsSingle(members[0].Children.OfType<AssignmentStatementNode>()
+            .Where(node => node.SourceLocation.Range.Start.Line == 2)).SourceLocation.Range));
     }
 
     // the errors of the directives are not the parse's: a later one stays when the parse reports an error before it.
