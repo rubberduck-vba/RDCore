@@ -31,6 +31,21 @@ public sealed class ExportLibraryTests
         Assert.IsEmpty(description.DependsOn);
     }
 
+    // a file can hold more than one library, each a resource of its own number, and a reference names the one it means after the file: the VB6 runtime's
+    // MSVBVM60.DLL\3 is VBRUN, as a .vbp references it, where MSVBVM60.DLL alone is its first, VBA.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ALibraryThatIsNotTheFirstOfItsFile_IsFoundByTheNumberOfItsResource()
+    {
+        var runtime = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "MSVBVM60.DLL");
+
+        var description = Export(runtime + @"\3");
+
+        Assert.AreEqual("VBRUN", description.Name);
+        Assert.AreEqual(@"MSVBVM60.DLL\3", description.Origin?.File, "the file and the number of its resource, and not the folder it is in on this machine");
+        Assert.AreEqual("VBA", TypeLibraryLocator.Load(runtime)?.Name, "the file alone is its first library");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ALibraryIsFoundByItsName_AsWellAsByItsFile()
@@ -41,10 +56,40 @@ public sealed class ExportLibraryTests
         Assert.AreEqual("Scripting", byName.Name);
     }
 
+    // a library is registered under the locale it is for, and the VB6 runtime's VBRUN is registered for English (9) only, with no neutral (0) registration.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow("{EA544A21-C82D-11D1-A3E4-00A0C90AEA82}", DisplayName = "by its identifier")]
+    [DataRow("VBRUN", DisplayName = "by its name")]
+    public void ALibraryRegisteredForALocale_IsFound_WithItsFile(string reference)
+    {
+        var loaded = TypeLibraryLocator.Load(reference);
+
+        Assert.IsNotNull(loaded, "the machine registers VBRUN for one locale");
+        Assert.AreEqual("VBRUN", loaded.Name);
+        Assert.AreEqual(@"MSVBVM60.DLL\3", loaded.File is null ? null : TypeLibraryLocator.FileNameOf(loaded.File), ignoreCase: true, "the file it is registered in");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ALibraryThatTheMachineDoesNotHave_IsNotFound()
         => Assert.IsNull(TypeLibraryLocator.Load("NoSuchLibraryOnAnyMachine"));
+
+    // Data\Widgets.tlb declares a class Widget whose default interface has a property Thing, and whose events interface an event Changed(Value), both of the
+    // type IThing of a library (Missing, {0D7C2B6E-5E39-4C47-9D0B-1A6F0E5C3A01}) that no machine has; Count and Ready are of no other library.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void WhatIsDeclaredInTermsOfALibraryTheMachineDoesNotHave_IsLeftOut_AndTheRestDescribed()
+    {
+        var export = new TypeLibraryExporter().Export(
+            TypeLibraryLocator.Load(Path.Combine(AppContext.BaseDirectory, "Cli", "Data", "Widgets.tlb")) ?? throw new AssertFailedException("the fixture loads"), "tests");
+
+        var widget = export.Description.Classes.Single(declared => declared.Name == "Widget");
+        CollectionAssert.AreEqual(new[] { "Count" }, widget.Members.Select(member => member.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Ready" }, widget.Events.Select(declared => declared.Name).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "member _Widget.Thing", "event _WidgetEvents.Changed" }, export.Skipped.ToArray());
+        Assert.IsEmpty(export.Description.DependsOn, "a library the machine does not have is not one it can be described with");
+    }
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]

@@ -313,9 +313,21 @@ From the highest reference precedence to the lowest, the projects a name can be 
 1. The enclosing project: a declaration of the workspace comes before every library's.
 2. The `VBA` standard library, which every project has, though its `.rdproj` lists no reference to it
    ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)).
-3. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
+3. The libraries that every project of its language has, though its `.rdproj` lists no reference to them
+   ([SupportedLanguage.ImplicitReferences](../api/RDCore.SDK.Workspace.SupportedLanguage.html)), in the order the language gives them.
+4. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
    ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA` is left out, and so is a second reference to a library listed earlier.
-4. The libraries that are loaded only because another library depends on them, in the order they are loaded.
+5. The libraries that are loaded only because another library depends on them, in the order they are loaded.
+
+A VB6 project has one implicit reference: `VBRUN`, the Visual Basic runtime objects and procedures (the third type
+library of `MSVBVM60.DLL`), whose constants (`vbFixedSingle`, `vbTwips`, `vbHourglass`, `vbChecked`, `vbShiftMask`,
+`vbLeftButton`) and `PropertyBag` class are names of every VB6 project. It comes right after the `VBA` library, as the
+References dialog of the VB6 IDE orders them, so a name both libraries declare is the `VBA` library's: `vbCancel` is
+the `VbMsgBoxResult` member `2`, where `VBRUN`'s `DragConstants` member is `0`. RD-VBA and RDCore BASIC have none.
+
+> [!NOTE]
+> **Not implemented.** The `VB` library of VB6 (`VB6.OLB`: `Form`, its controls, and the `App`, `Screen`,
+> `Printer`, `Clipboard` and `Forms` objects) is not described yet, and a VB6 project does not have it.
 
 The `VBA` library therefore comes before every library a project lists. A library that declares a name the `VBA`
 library also declares, such as a class `Collection`, a function `Left` or a constant `vbCancel`, does not shadow it:
@@ -330,9 +342,9 @@ so that **RDCore.Diagnostics** can issue _shadowed declaration_ diagnostics
 `ScopeTreeSymbolResolver` consults the reference precedence within one tier of the lookup order above: the tier comes
 first, and the reference precedence decides only among the candidates of one tier. The symbols of a referenced library
 carry its reference precedence (`SymbolProperties.LibraryPriority`, from `ReferencedLibraries.Priorities`): the position
-of its reference among the references of the `.rdproj`, from `1`, with the references left out above not counted. A
-reference whose library fails to load keeps its number, so the libraries after it keep theirs. The libraries loaded
-only for another come after every listed one, in the order they are loaded.
+of its reference among the language's implicit references followed by the references of the `.rdproj`, from `1`, with
+the references left out above not counted. A reference whose library fails to load keeps its number, so the libraries
+after it keep theirs. The libraries loaded only for another come after every listed one, in the order they are loaded.
 The lower number is the higher reference precedence. The symbols of the `VBA` library carry none, and come before
 every library that does; the symbol of any other library that carries none comes after every library that does, so
 that it never ties with the `VBA` library. Within a tier, a symbol of the workspace comes before every library's;

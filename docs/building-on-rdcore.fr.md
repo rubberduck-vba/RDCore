@@ -4,27 +4,27 @@
 Cette page s'adresse aux contributeurs, et à quiconque crée une extension ou un client sur la plateforme. Pour utiliser RDCore, voyez [Démarrage](getting-started.fr.md).
 
 ---
-## 🚀 Contribuer
+## Contribuer
 
 1. **Lisez et acceptez d'abord** l'accord de licence contributeur (CLA) qui convient à votre situation. Ça facilitera la suite.
 1. Parcourez la _feuille de route_ du projet et choisissez un ticket du _jalon en cours_.
 1. Faites un _fork_ du référentiel **RDCore** dans **votre compte GitHub**.
 1. Faites un _clone_ du référentiel sur un poste libre de droits (donc pas sur un poste fourni par votre employeur).
 1. Ouvrez `RDCore.slnx` dans _Microsoft Visual Studio Community Edition 2026_ (gratuit pour les contributions open source).
-   - 👉 Vous pouvez aussi compiler la solution avec `dotnet build`.
+   - Vous pouvez aussi compiler la solution avec `dotnet build`.
 1. Démarrez une nouvelle _branche_ à partir de **main**, nommée d'après le ticket.
 1. Effectuez et testez votre contribution dans votre branche locale.
 1. Lorsqu'elle fonctionne et est prête pour revue, ouvrez une _pull request_ qui fait référence au ticket.
-   - 👉 Écrivez `Closes #` suivi du numéro du ticket dans le corps de la _pull request_.
-   - 👉 La même mention dans un _commit_ de votre branche paraît dans l'historique du ticket dès que vous poussez le commit dans votre _fork_. Les autres contributeurs voient ainsi que le ticket est en cours.
+   - Écrivez `Closes #` suivi du numéro du ticket dans le corps de la _pull request_.
+   - La même mention dans un _commit_ de votre branche paraît dans l'historique du ticket dès que vous poussez le commit dans votre _fork_. Les autres contributeurs voient ainsi que le ticket est en cours.
 1. Signez la CLA : copiez le texte de signature qu'elle donne dans un commentaire sur votre pull request.
-   - 👉 Vous ne le faites qu'une seule fois.
+   - Vous ne le faites qu'une seule fois.
 1. Une fois votre _pull request_ fusionnée, **supprimez votre branche** et resynchronisez _main_ avant de commencer un autre ticket.
-   - 👉 Une pull request est fusionnée en un seul commit (_squash_), sans les commits de votre branche. D'autres commits sur une branche déjà fusionnée se fusionnent mal. Pour soumettre un correctif, démarrez une nouvelle branche à partir de _main_, une fois que _main_ a le commit fusionné.
+   - Une pull request est fusionnée en un seul commit (_squash_), sans les commits de votre branche. D'autres commits sur une branche déjà fusionnée se fusionnent mal. Pour soumettre un correctif, démarrez une nouvelle branche à partir de _main_, une fois que _main_ a le commit fusionné.
 
 
 ---
-## 🛠️ Compiler la plateforme à partir des sources
+## Compiler la plateforme à partir des sources
 
 Pour assembler l'arborescence de la plateforme que livre une préversion, exécutez `PlatformPublish.ps1` à partir d'un clone. Il requiert `git` dans le `PATH`, pour consigner le _commit_ qu'il compile.
 
@@ -38,7 +38,7 @@ Le _workflow_ de publication y ajoute ensuite `THIRD-PARTY-NOTICES.txt`, `SOURCE
 
 
 ---
-## 🧩 Créer une extension RDCore
+## Créer une extension RDCore
 
 Il suffit de quelques lignes dans votre point d'entrée pour que votre application **RDCore** soit prise en charge :
 
@@ -147,11 +147,11 @@ Dans les deux cas, l'application configure ses _capacités_ LSP, et les _handler
 
 - Une application _client_ est généralement une application de type IDE.
 - Une application _serveur_ peut être un serveur de langage satellite ou une extension (plug-in) de la plateforme.
-- 🌐[LSP 3.17 Specifications](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
+- [LSP 3.17 Specifications](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
 
 
 > [!IMPORTANT]
-> 🧩 **Les extensions de la plateforme RDCore** requièrent un _manifest_ (`extension.manifest.json`, schéma [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html)) pour que le serveur de langage puisse les _découvrir_ et les démarrer lors de l'assemblage de la plateforme. Le manifest est généré par la CLI en _mode commande_ :
+> **Les extensions de la plateforme RDCore** requièrent un _manifest_ (`extension.manifest.json`, schéma [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html)) pour que le serveur de langage puisse les _découvrir_ et les démarrer lors de l'assemblage de la plateforme. Le manifest est généré par la CLI en _mode commande_ :
 >
 > ```
 > rdc.exe describe-ext RDCore.Diagnostics.exe --description "…" --unsafe-dev-mode
@@ -160,7 +160,7 @@ Dans les deux cas, l'application configure ses _capacités_ LSP, et les _handler
 > `describe-ext` reflète les capacités déclarées par l'exécutable d'extension (ses déclarations `[assembly: ProvidesCorePlatformClientCapability<T>]`) dans le manifest. `PlatformPublish.ps1` l'exécute une fois par extension lors de l'assemblage de la plateforme.
 
 > [!IMPORTANT]
-> 📚 **Les bibliothèques référencées** (`Excel`, `Word`, `Access`, `ADODB`, `Scripting`, …) sont connues d'un projet par leur _nom_, comme si la bibliothèque était du code VBA, et ce que chacune déclare est livré avec la plateforme sous forme de _description de bibliothèque_ dans `Symbols/<Nom>.json` (format : [LibraryDescription](./api/RDCore.SDK.Runtime.Libraries.LibraryDescription.html)). Un projet est vérifié contre la description : il peut donc être analysé sur une machine qui n'a pas la bibliothèque. Une bibliothèque dont la plateforme n'a pas de description est une référence qui ne peut pas être résolue, et les types qui la nomment sont des erreurs de compilation. Les bibliothèques qui dépendent les unes des autres sont rejetées, non résolues.
+> **Les bibliothèques référencées** (`Excel`, `Word`, `Access`, `ADODB`, `Scripting`, …) sont connues d'un projet par leur _nom_, comme si la bibliothèque était du code VBA, et ce que chacune déclare est livré avec la plateforme sous forme de _description de bibliothèque_ dans `Symbols/<Nom>.json` (format : [LibraryDescription](./api/RDCore.SDK.Runtime.Libraries.LibraryDescription.html)). Un projet est vérifié contre la description : il peut donc être analysé sur une machine qui n'a pas la bibliothèque. Une bibliothèque dont la plateforme n'a pas de description est une référence qui ne peut pas être résolue, et les types qui la nomment sont des erreurs de compilation. Les bibliothèques qui dépendent les unes des autres sont rejetées, non résolues.
 >
 > Une description est générée, jamais écrite à la main, sur une machine Windows qui a la bibliothèque, par la CLI en _mode commande_ :
 >
@@ -168,7 +168,7 @@ Dans les deux cas, l'application configure ses _capacités_ LSP, et les _handler
 > rdc.exe export-library Excel --dependencies --output Symbols
 > ```
 >
-> `export-library` accepte un fichier (`scrrun.dll`), l'identifiant que la machine a donné à la bibliothèque, ou son nom; quand plusieurs versions d'une bibliothèque sont enregistrées, la plus récente est décrite. `--dependencies` décrit aussi les bibliothèques dont elle dépend, qu'un projet doit avoir pour la référencer.
+> `export-library` accepte un fichier (`scrrun.dll`), l'identifiant que la machine a donné à la bibliothèque, ou son nom; quand plusieurs versions d'une bibliothèque sont enregistrées, la plus récente est décrite. Un fichier qui contient plus d'une bibliothèque se donne avec le numéro de la ressource de la bibliothèque, comme un `.vbp` la référence : `MSVBVM60.DLL\3` est `VBRUN`, alors que `MSVBVM60.DLL` seul est sa première bibliothèque, `VBA`. `--dependencies` décrit aussi les bibliothèques dont elle dépend, qu'un projet doit avoir pour la référencer. Un membre dont le type est déclaré par une bibliothèque que la machine n'a pas n'est pas décrit, et l'exportation dit lequel.
 >
 > La description est ce contre quoi un projet est _vérifié_; ce contre quoi il _s'exécute_, ce sont les objets de la bibliothèque sur la machine qui l'exécute. `New Scripting.Dictionary` est un vrai dictionnaire, et `New Excel.Application` démarre un vrai Excel, piloté de l'extérieur par son modèle objet. Ce sont les serveurs d'automation de Windows. Sur un autre système, un programme qui crée un de ces objets apprend que la plateforme n'en a pas (erreur 429), mais le même programme peut être analysé n'importe où. Chacun de ces appels passe par la même chaîne d'interception que tout appel à l'extérieur de l'espace de travail, et un administrateur peut tous les refuser avec `"AllowAutomation": false` dans `appsettings.json` (erreur 70, _Permission denied_).
 
@@ -181,14 +181,14 @@ Le serveur de langage démarre chaque extension qui a un _manifest_ valide, et e
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
 ```
 
-> 👉 La section [RD-VBAL §2.0.2](specs/rd-vbal.2.0.2.client-server-capabilities.md) décrit les capacités de la plateforme.
+> La section [RD-VBAL §2.0.2](specs/rd-vbal.2.0.2.client-server-capabilities.md) décrit les capacités de la plateforme.
 
 > [!NOTE]
 > **Les extensions tant de première que de tierces parties** distribuées à travers l'**infranuagique RDCore** _PEUVENT_ utiliser un _capability provider_ qui _PEUT_ valider la disponibilité de certaines capacités avancées en **requérant une authentification 2FA**, la validation d'une **inscription active** (gratuite ou payante), et la validation d'un _build signé_ avec le _build officiel_ du canal de distribution certifié.
 
 
 ---
-## 🧩 Extension de la plateforme (SDK et _coeur de langage_)
+## Extension de la plateforme (SDK et _coeur de langage_)
 
 Le _coeur de langage_ est conçu pour être étendu à travers des extensions de la plateforme de type _serveur_, moyennant un échange de _capacités_ donnant accès à des points d'extensions.
 

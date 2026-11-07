@@ -15,7 +15,7 @@ namespace RDCore.CLI.App.Commands;
 /// </summary>
 internal sealed class ExportLibraryOptions
 {
-    [Value(0, MetaName = "library", Required = true, HelpText = "The library: a file (scrrun.dll, EXCEL.EXE, a .tlb), the identifier the machine gave it, or its name (Scripting).")]
+    [Value(0, MetaName = "library", Required = true, HelpText = "The library: a file (scrrun.dll, EXCEL.EXE, a .tlb), the identifier the machine gave it, or its name (Scripting). A file that holds more than one library is given with the number of the library's resource, as a .vbp references it (MSVBVM60.DLL\\3).")]
     public string Library { get; set; } = string.Empty;
 
     [Option('o', "output", HelpText = "The folder the description is written to. The Symbols folder of the current directory when omitted.")]

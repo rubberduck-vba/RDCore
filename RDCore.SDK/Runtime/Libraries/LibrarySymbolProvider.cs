@@ -42,8 +42,12 @@ public sealed class LibrarySymbolProvider : ISymbolProvider
     /// </summary>
     /// <param name="source">Where the descriptions are.</param>
     /// <param name="references">The references of the project.</param>
-    public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<RDCoreReference> references)
-        => ReferencedLibraries.Load(source, references.Select(reference => reference.Name), [StdLibSymbolProvider.LibraryName]);
+    /// <param name="language">
+    /// The language the project is written in, whose implicit references (<see cref="SupportedLanguage.ImplicitReferences"/>) come before the ones the project lists;
+    /// RD-VBA, which has none, when it is not given.
+    /// </param>
+    public static ReferencedLibraries Load(ILibrarySource source, IEnumerable<RDCoreReference> references, SupportedLanguage? language = null)
+        => ReferencedLibraries.Load(source, [.. language?.ImplicitReferences ?? [], .. references.Select(reference => reference.Name)], [StdLibSymbolProvider.LibraryName]);
 
     /// <summary>
     /// Reads the symbols of a library whether or not the project references it, and of the libraries it depends on: what tooling knows of the class of an object

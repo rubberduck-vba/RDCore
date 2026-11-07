@@ -1,0 +1,4688 @@
+{
+  "formatVersion": 1,
+  "name": "VBRUN",
+  "description": "Visual Basic runtime objects and procedures",
+  "origin": {
+    "guid": "{EA544A21-C82D-11D1-A3E4-00A0C90AEA82}",
+    "version": "6.0",
+    "file": "msvbvm60.dll\\3",
+    "exportedBy": "rdc export-library 0.1"
+  },
+  "dependsOn": [
+    "MSDATASRC",
+    "StdFormat",
+    "stdole"
+  ],
+  "enums": [
+    {
+      "name": "PaletteModeConstants",
+      "description": "Constants for the PaletteMode property (Form, UserControl, UserDocument, PropertyPage, ActiveX Designer).",
+      "members": [
+        {
+          "name": "vbPaletteModeHalftone",
+          "description": "Use system halftone palette."
+        },
+        {
+          "name": "vbPaletteModeUseZOrder",
+          "value": 1,
+          "description": "Use palette from topmost control that has a palette."
+        },
+        {
+          "name": "vbPaletteModeCustom",
+          "value": 2,
+          "description": "Use palette specified in Palette property."
+        },
+        {
+          "name": "vbPaletteModeContainer",
+          "value": 3,
+          "description": "Use the container\u0027s palette for container\u0027s that support ambient Palette property."
+        },
+        {
+          "name": "vbPaletteModeNone",
+          "value": 4,
+          "description": "Do not use any palette"
+        },
+        {
+          "name": "vbPaletteModeObject",
+          "value": 5,
+          "description": "Use the ActiveX Designer\u0027s palette."
+        }
+      ]
+    },
+    {
+      "name": "AsyncTypeConstants",
+      "description": "Constants used for the AsyncRead method",
+      "members": [
+        {
+          "name": "vbAsyncTypePicture",
+          "description": "The data is provided in a Picture object."
+        },
+        {
+          "name": "vbAsyncTypeFile",
+          "value": 1,
+          "description": "The data is provided in a file that is created by Visual Basic."
+        },
+        {
+          "name": "vbAsyncTypeByteArray",
+          "value": 2,
+          "description": "The data is provided as a byte array that contains the retrieved data.  It is assumed that the control author will know how to handle the data."
+        }
+      ]
+    },
+    {
+      "name": "AsyncReadConstants",
+      "description": "Options for AsyncRead.  The default behavior is to asynchronously download checking the server version once per-application lifetime. Some constants can be combined.",
+      "members": [
+        {
+          "name": "vbAsyncReadSynchronousDownload",
+          "value": 1,
+          "description": "AsyncRead will not return until the AsyncReadComplete event has fired."
+        },
+        {
+          "name": "vbAsyncReadOfflineOperation",
+          "value": 8,
+          "description": "AsyncRead will only use the locally cached resource."
+        },
+        {
+          "name": "vbAsyncReadForceUpdate",
+          "value": 16,
+          "description": "AsyncRead will force a download of the resource from the server, ignoring any locally cached copy."
+        },
+        {
+          "name": "vbAsyncReadResynchronize",
+          "value": 512,
+          "description": "AsyncRead will only update the locally cached copy if the server version is newer."
+        },
+        {
+          "name": "vbAsyncReadGetFromCacheIfNetFail",
+          "value": 524288,
+          "description": "AsyncRead will use the cached copy if the server connection is not successful."
+        }
+      ]
+    },
+    {
+      "name": "AsyncStatusCodeConstants",
+      "description": "Constants used for AsyncProperty.StatusCode property.",
+      "members": [
+        {
+          "name": "vbAsyncStatusCodeError",
+          "description": "An error occured during the asynchronous download."
+        },
+        {
+          "name": "vbAsyncStatusCodeFindingResource",
+          "value": 1,
+          "description": "AsyncRead is finding the resource specified in AsyncProperty.Status that holds the storage being downloaded."
+        },
+        {
+          "name": "vbAsyncStatusCodeConnecting",
+          "value": 2,
+          "description": "AsyncRead is connecting to the resource specified in AsyncProperty.Status that holds the storage being downloaded."
+        },
+        {
+          "name": "vbAsyncStatusCodeRedirecting",
+          "value": 3,
+          "description": "AsyncRead has been redirected to a different location specified in AsyncProperty.Status."
+        },
+        {
+          "name": "vbAsyncStatusCodeBeginDownloadData",
+          "value": 4,
+          "description": "AsyncRead has begun receiving data for the storage specified in AsyncProperty.Status."
+        },
+        {
+          "name": "vbAsyncStatusCodeDownloadingData",
+          "value": 5,
+          "description": "AsyncRead has received more data for the storage specified in AsyncProperty.Status."
+        },
+        {
+          "name": "vbAsyncStatusCodeEndDownloadData",
+          "value": 6,
+          "description": "AsyncRead has finished receiving data for the storage specified in AsyncProperty.Status."
+        },
+        {
+          "name": "vbAsyncStatusCodeUsingCachedCopy",
+          "value": 10,
+          "description": "AsyncRead is retreiving the requested storage from a cached copy.  AsyncProperty.Status is empty."
+        },
+        {
+          "name": "vbAsyncStatusCodeSendingRequest",
+          "value": 11,
+          "description": "AsyncRead is requesting the storage specified in AsyncProperty.Status."
+        },
+        {
+          "name": "vbAsyncStatusCodeMIMETypeAvailable",
+          "value": 13,
+          "description": "The MIME type of the requested storage is specified in AsyncProperty.Status."
+        },
+        {
+          "name": "vbAsyncStatusCodeCacheFileNameAvailable",
+          "value": 14,
+          "description": "The file name of the local file cache for requested storage is specified in AsyncProperty.Status."
+        },
+        {
+          "name": "vbAsyncStatusCodeBeginSyncOperation",
+          "value": 15,
+          "description": "The AsyncRead will operate synchronously."
+        },
+        {
+          "name": "vbAsyncStatusCodeEndSyncOperation",
+          "value": 16,
+          "description": "The AsyncRead has completed synchronous operation."
+        }
+      ]
+    },
+    {
+      "name": "LogEventTypeConstants",
+      "description": "Constants used for Event Log types",
+      "members": [
+        {
+          "name": "vbLogEventTypeError",
+          "value": 1,
+          "description": "Log an Error Event"
+        },
+        {
+          "name": "vbLogEventTypeWarning",
+          "value": 2,
+          "description": "Log a Warning Event"
+        },
+        {
+          "name": "vbLogEventTypeInformation",
+          "value": 4,
+          "description": "Log an Information Event"
+        }
+      ]
+    },
+    {
+      "name": "QueryUnloadConstants",
+      "description": "Constants for the UnloadMode parameter of the QueryUnload event of a Form.",
+      "members": [
+        {
+          "name": "vbFormControlMenu",
+          "description": "User has chosen Close command from Control menu box on form."
+        },
+        {
+          "name": "vbFormCode",
+          "value": 1,
+          "description": "Unload method invoked from code."
+        },
+        {
+          "name": "vbAppWindows",
+          "value": 2,
+          "description": "Current Windows session ending."
+        },
+        {
+          "name": "vbAppTaskManager",
+          "value": 3,
+          "description": "Windows Task Manager is closing the application."
+        },
+        {
+          "name": "vbFormMDIForm",
+          "value": 4,
+          "description": "MDI child form is closing because the MDI form is closing."
+        },
+        {
+          "name": "vbFormOwner",
+          "value": 5,
+          "description": "The owner of the form is closing."
+        }
+      ]
+    },
+    {
+      "name": "ZOrderConstants",
+      "description": "Constants for the ZOrder method.",
+      "members": [
+        {
+          "name": "vbBringToFront",
+          "description": "Bring to front (ZOrder method)."
+        },
+        {
+          "name": "vbSendToBack",
+          "value": 1,
+          "description": "Send to back (ZOrder method)."
+        }
+      ]
+    },
+    {
+      "name": "ShiftConstants",
+      "description": "Shift parameter constants (bitfields for the Shift parameter of various events).",
+      "members": [
+        {
+          "name": "vbShiftMask",
+          "value": 1,
+          "description": "Shift key bit mask."
+        },
+        {
+          "name": "vbCtrlMask",
+          "value": 2,
+          "description": "Ctrl key bit mask."
+        },
+        {
+          "name": "vbAltMask",
+          "value": 4,
+          "description": "Alt key bit mask."
+        }
+      ]
+    },
+    {
+      "name": "MouseButtonConstants",
+      "description": "Mouse button bitfield constants.",
+      "members": [
+        {
+          "name": "vbLeftButton",
+          "value": 1,
+          "description": "Left mouse button."
+        },
+        {
+          "name": "vbRightButton",
+          "value": 2,
+          "description": "Right mouse button."
+        },
+        {
+          "name": "vbMiddleButton",
+          "value": 4,
+          "description": "Middle mouse button."
+        }
+      ]
+    },
+    {
+      "name": "ApplicationStartConstants",
+      "description": "Application start mode constants.",
+      "members": [
+        {
+          "name": "vbSModeStandalone",
+          "description": "Stand-alone application (Application start mode)."
+        },
+        {
+          "name": "vbSModeAutomation",
+          "value": 1,
+          "description": "Automation server (Application start mode)."
+        }
+      ]
+    },
+    {
+      "name": "ScrollBarConstants",
+      "description": "Scrollbar property constants.",
+      "members": [
+        {
+          "name": "vbSBNone",
+          "description": "No scroll bar."
+        },
+        {
+          "name": "vbHorizontal",
+          "value": 1,
+          "description": "Horizontal scroll bar."
+        },
+        {
+          "name": "vbVertical",
+          "value": 2,
+          "description": "Vertical scroll bar."
+        },
+        {
+          "name": "vbBoth",
+          "value": 3,
+          "description": "Both horizontal and vertical scroll bars."
+        }
+      ]
+    },
+    {
+      "name": "ShapeConstants",
+      "description": "Constants for the Shape property of the Shape control.",
+      "members": [
+        {
+          "name": "vbShapeRectangle",
+          "description": "Rectangle shape."
+        },
+        {
+          "name": "vbShapeSquare",
+          "value": 1,
+          "description": "Square shape."
+        },
+        {
+          "name": "vbShapeOval",
+          "value": 2,
+          "description": "Oval shape."
+        },
+        {
+          "name": "vbShapeCircle",
+          "value": 3,
+          "description": "Circle shape."
+        },
+        {
+          "name": "vbShapeRoundedRectangle",
+          "value": 4,
+          "description": "Rounded rectangle shape."
+        },
+        {
+          "name": "vbShapeRoundedSquare",
+          "value": 5,
+          "description": "Rounded square shape."
+        }
+      ]
+    },
+    {
+      "name": "PictureTypeConstants",
+      "description": "Picture Object type constants.",
+      "members": [
+        {
+          "name": "vbPicTypeNone",
+          "description": "None (empty) type of picture object."
+        },
+        {
+          "name": "vbPicTypeBitmap",
+          "value": 1,
+          "description": "Bitmap type of picture object."
+        },
+        {
+          "name": "vbPicTypeMetafile",
+          "value": 2,
+          "description": "Metafile type of picture object."
+        },
+        {
+          "name": "vbPicTypeIcon",
+          "value": 3,
+          "description": "Icon type of picture object."
+        },
+        {
+          "name": "vbPicTypeEMetafile",
+          "value": 4,
+          "description": "Enhanced metafile type of picture object."
+        }
+      ]
+    },
+    {
+      "name": "ComboBoxConstants",
+      "description": "Constants for the Style property of a ComboBox control.",
+      "members": [
+        {
+          "name": "vbComboDropdown",
+          "description": "ComboBox control style that allows typing in a text box or selection from a drop-down list."
+        },
+        {
+          "name": "vbComboSimple",
+          "value": 1,
+          "description": "ComboBox control style that allows typing in a text box or selection from a list, which doesn\u0027t drop down."
+        },
+        {
+          "name": "vbComboDropdownList",
+          "value": 2,
+          "description": "Only allows selection from the drop-down list in a ComboBox control."
+        }
+      ]
+    },
+    {
+      "name": "MultiSelectConstants",
+      "description": "Constants for the MultiSelect property of a ListBox.",
+      "members": [
+        {
+          "name": "vbMultiSelectNone",
+          "description": "Doesn\u0027t allow multiple selections in the list of a ListBox control."
+        },
+        {
+          "name": "vbMultiSelectSimple",
+          "value": 1,
+          "description": "Allows clicking the mouse or pressing the SPACEBAR to select or deselect an item in a ListBox control. (Arrow keys move the focus.)"
+        },
+        {
+          "name": "vbMultiSelectExtended",
+          "value": 2,
+          "description": "Allows multiple-item selection in a ListBox control list. (CTRL\u002BClick selects/deselects individual items. Click on the first item in a group and SHIFT\u002BClick on the last item selects all items in the group.)"
+        }
+      ]
+    },
+    {
+      "name": "DataErrorConstants",
+      "description": "Data control error event constants.",
+      "members": [
+        {
+          "name": "vbDataErrContinue",
+          "description": "Continue (Error event)."
+        },
+        {
+          "name": "vbDataErrDisplay",
+          "value": 1,
+          "description": "Display the message (Error event, default)."
+        }
+      ]
+    },
+    {
+      "name": "DataValidateConstants",
+      "description": "Data control validate event action constants.",
+      "members": [
+        {
+          "name": "vbDataActionCancel",
+          "description": "Cancel the operation when the Sub exits (Validate event)."
+        },
+        {
+          "name": "vbDataActionMoveFirst",
+          "value": 1,
+          "description": "MoveFirst method (Validate event)."
+        },
+        {
+          "name": "vbDataActionMovePrevious",
+          "value": 2,
+          "description": "MovePrevious method (Validate event)."
+        },
+        {
+          "name": "vbDataActionMoveNext",
+          "value": 3,
+          "description": "MoveNext method (Validate event)."
+        },
+        {
+          "name": "vbDataActionMoveLast",
+          "value": 4,
+          "description": "MoveLast method (Validate event)."
+        },
+        {
+          "name": "vbDataActionAddNew",
+          "value": 5,
+          "description": "AddNew method (Validate event)."
+        },
+        {
+          "name": "vbDataActionUpdate",
+          "value": 6,
+          "description": "Update operation -- not update record (Validate event)."
+        },
+        {
+          "name": "vbDataActionDelete",
+          "value": 7,
+          "description": "Delete method (Validate event)."
+        },
+        {
+          "name": "vbDataActionFind",
+          "value": 8,
+          "description": "Find method (Validate event)."
+        },
+        {
+          "name": "vbDataActionBookmark",
+          "value": 9,
+          "description": "The Bookmark property has been set."
+        },
+        {
+          "name": "vbDataActionClose",
+          "value": 10,
+          "description": "Close method (Validate event)."
+        },
+        {
+          "name": "vbDataActionUnload",
+          "value": 11,
+          "description": "The form is being unloaded."
+        }
+      ]
+    },
+    {
+      "name": "DataBOFconstants",
+      "description": "Data control beginning-of-file constants.",
+      "members": [
+        {
+          "name": "vbMoveFirst",
+          "description": "Move to first record."
+        },
+        {
+          "name": "vbBOF",
+          "value": 1,
+          "description": "Move to beginning of file."
+        }
+      ]
+    },
+    {
+      "name": "DataEOFConstants",
+      "description": "Data control end-of-file constants.",
+      "members": [
+        {
+          "name": "vbMoveLast",
+          "description": "Move to last record."
+        },
+        {
+          "name": "vbEOF",
+          "value": 1,
+          "description": "Move to end of file."
+        },
+        {
+          "name": "vbAddNew",
+          "value": 2,
+          "description": "Add new record to end of file."
+        }
+      ]
+    },
+    {
+      "name": "DefaultCursorTypeConstants",
+      "description": "Cursor Driver-type constants.",
+      "members": [
+        {
+          "name": "vbUseDefaultCursor",
+          "description": "The ODBC driver will choose the appropriate style of cursors. Server-side cursors are used if they are available."
+        },
+        {
+          "name": "vbUseODBCCursor",
+          "value": 1,
+          "description": "Use the ODBC cursor library."
+        },
+        {
+          "name": "vbUseServersideCursor",
+          "value": 2,
+          "description": "Use server-side cursors."
+        }
+      ]
+    },
+    {
+      "name": "VariantTypeConstants",
+      "description": "Variant type constants.",
+      "members": [
+        {
+          "name": "vbVEmpty",
+          "description": "Empty (uninitialized) data type."
+        },
+        {
+          "name": "vbVNull",
+          "value": 1,
+          "description": "Null (no valid data) data type."
+        },
+        {
+          "name": "vbVInteger",
+          "value": 2,
+          "description": "Integer data type."
+        },
+        {
+          "name": "vbVLong",
+          "value": 3,
+          "description": "Long integer data type."
+        },
+        {
+          "name": "vbVSingle",
+          "value": 4,
+          "description": "Single-precision floating-point data type."
+        },
+        {
+          "name": "vbVDouble",
+          "value": 5,
+          "description": "Double-precision floating-point data type."
+        },
+        {
+          "name": "vbVCurrency",
+          "value": 6,
+          "description": "Currency (scaled integer) data type."
+        },
+        {
+          "name": "vbVDate",
+          "value": 7,
+          "description": "Date data type."
+        },
+        {
+          "name": "vbVString",
+          "value": 8,
+          "description": "String data type."
+        }
+      ]
+    },
+    {
+      "name": "LinkErrorConstants",
+      "description": "DDE LinkError event constants.",
+      "members": [
+        {
+          "name": "vbWrongFormat",
+          "value": 1,
+          "description": "Another application requested data in wrong format."
+        },
+        {
+          "name": "vbDDESourceClosed",
+          "value": 6,
+          "description": "Destination application attempted to continue after source closed."
+        },
+        {
+          "name": "vbTooManyLinks",
+          "value": 7,
+          "description": "All source links are in use."
+        },
+        {
+          "name": "vbDataTransferFailed",
+          "value": 8,
+          "description": "Failure to update data in destination control."
+        }
+      ]
+    },
+    {
+      "name": "LinkModeConstants",
+      "description": "Constants for the LinkMode property.",
+      "members": [
+        {
+          "name": "vbLinkNone",
+          "description": "No DDE interaction."
+        },
+        {
+          "name": "vbLinkSource",
+          "value": 1,
+          "description": "Control is source of data in a DDE conversation.",
+          "isHidden": true
+        },
+        {
+          "name": "vbLinkAutomatic",
+          "value": 1,
+          "description": "Control is updated each time linked data changes in a DDE conversation."
+        },
+        {
+          "name": "vbLinkManual",
+          "value": 2,
+          "description": "Control is updated only when the LinkRequest method is invoked."
+        },
+        {
+          "name": "vbLinkNotify",
+          "value": 3,
+          "description": "A LinkNotify event occurs when linked data changes."
+        }
+      ]
+    },
+    {
+      "name": "OldLinkModeConstants",
+      "description": "Old constants for the LinkMode property (used for Visual Basic 1.0 compatibility).",
+      "members": [
+        {
+          "name": "vbHot",
+          "value": 1,
+          "description": "Hot LinkMode (used for Visual Basic 1.0 compatibility)."
+        },
+        {
+          "name": "vbServer",
+          "value": 1,
+          "description": "Server LinkMode (used for Visual Basic 1.0 compatibility)."
+        },
+        {
+          "name": "vbCold",
+          "value": 2,
+          "description": "Cold LinkMode (used for Visual Basic 1.0 compatibility)."
+        }
+      ]
+    },
+    {
+      "name": "ClipBoardConstants",
+      "description": "Clipboard format constants.",
+      "members": [
+        {
+          "name": "vbCFLink",
+          "value": -16640,
+          "description": "DDE conversation information."
+        },
+        {
+          "name": "vbCFText",
+          "value": 1,
+          "description": "Text (.TXT file)."
+        },
+        {
+          "name": "vbCFBitmap",
+          "value": 2,
+          "description": "Bitmap (.BMP file)."
+        },
+        {
+          "name": "vbCFMetafile",
+          "value": 3,
+          "description": "Metafile (.WMF file)."
+        },
+        {
+          "name": "vbCFDIB",
+          "value": 8,
+          "description": "Device-independent bitmap."
+        },
+        {
+          "name": "vbCFPalette",
+          "value": 9,
+          "description": "Color palette."
+        },
+        {
+          "name": "vbCFEMetafile",
+          "value": 14,
+          "description": "Enhanced metafile (.EMF file)."
+        },
+        {
+          "name": "vbCFFiles",
+          "value": 15,
+          "description": "Filename list (Microsoft Windows Explorer)"
+        },
+        {
+          "name": "vbCFRTF",
+          "value": -16639,
+          "description": "Rich Text Format (.RTF file)."
+        }
+      ]
+    },
+    {
+      "name": "DragOverConstants",
+      "description": "State transition constants for the DragOver and OLEDragOver events.",
+      "members": [
+        {
+          "name": "vbEnter",
+          "description": "Source control dragged into target."
+        },
+        {
+          "name": "vbLeave",
+          "value": 1,
+          "description": "Source control dragged out of target."
+        },
+        {
+          "name": "vbOver",
+          "value": 2,
+          "description": "Source control dragged from one position in target to another."
+        }
+      ]
+    },
+    {
+      "name": "DragConstants",
+      "description": "Constants for the Drag method.",
+      "members": [
+        {
+          "name": "vbCancel",
+          "description": "Cancel drag operation."
+        },
+        {
+          "name": "vbBeginDrag",
+          "value": 1,
+          "description": "Begin dragging control."
+        },
+        {
+          "name": "vbEndDrag",
+          "value": 2,
+          "description": "Drop control."
+        }
+      ]
+    },
+    {
+      "name": "DragModeConstants",
+      "description": "Constants for the DragMode property (but not the OLEDragMode or OLEDropMode properties).",
+      "members": [
+        {
+          "name": "vbManual",
+          "description": "Manual drag mode."
+        },
+        {
+          "name": "vbAutomatic",
+          "value": 1,
+          "description": "Automatic drag mode."
+        }
+      ]
+    },
+    {
+      "name": "OLEDropEffectConstants",
+      "description": "Drop effect constants for OLE drag and drop events.",
+      "members": [
+        {
+          "name": "vbDropEffectNone",
+          "description": "No OLE drag/drop operation has taken place/would take place."
+        },
+        {
+          "name": "vbDropEffectCopy",
+          "value": 1,
+          "description": "A mask to indicate that a copy has taken place/would take place."
+        },
+        {
+          "name": "vbDropEffectMove",
+          "value": 2,
+          "description": "A mask to indicate that a move has take place/would take place."
+        },
+        {
+          "name": "vbDropEffectScroll",
+          "value": -2147483648,
+          "description": "A mask to indicate that the drop target window has scrolled/would scroll."
+        }
+      ]
+    },
+    {
+      "name": "OLEDragConstants",
+      "description": "Constants for the OLEDragMode property (but not the DragMode or OLEDropMode properties).",
+      "members": [
+        {
+          "name": "vbOLEDragManual",
+          "description": "OLE drag/drop will be initialized only under programmatic control."
+        },
+        {
+          "name": "vbOLEDragAutomatic",
+          "value": 1,
+          "description": "OLE drag/drop will be initialized when the user drags \u0027out\u0027 of the control, or under programmatic control."
+        }
+      ]
+    },
+    {
+      "name": "OLEDropConstants",
+      "description": "Constants for the OLEDropMode property (but not the DragMode or OLEDragMode properties).",
+      "members": [
+        {
+          "name": "vbOLEDropNone",
+          "description": "Accepts no OLE drag/drop operations."
+        },
+        {
+          "name": "vbOLEDropManual",
+          "value": 1,
+          "description": "Accepts an OLE drag/drop under programmatic control only."
+        },
+        {
+          "name": "vbOLEDropAutomatic",
+          "value": 2,
+          "description": "Accepts an OLE drag/drop without programmatic control."
+        }
+      ]
+    },
+    {
+      "name": "FormShowConstants",
+      "description": "Constants for a Form\u0027s Show method.",
+      "members": [
+        {
+          "name": "vbModeless",
+          "description": "Modeless form."
+        },
+        {
+          "name": "vbModal",
+          "value": 1,
+          "description": "Modal form."
+        }
+      ]
+    },
+    {
+      "name": "FormArrangeConstants",
+      "description": "Constants for the Arrange method for MDI forms.",
+      "members": [
+        {
+          "name": "vbCascade",
+          "description": "Cascade all non-minimized MDI child forms."
+        },
+        {
+          "name": "vbTileHorizontal",
+          "value": 1,
+          "description": "Horizontally tile all non-minimized MDI child forms."
+        },
+        {
+          "name": "vbTileVertical",
+          "value": 2,
+          "description": "Vertically tile all non-minimized MDI child forms."
+        },
+        {
+          "name": "vbArrangeIcons",
+          "value": 3,
+          "description": "Arrange icons for minimized MDI child forms."
+        }
+      ]
+    },
+    {
+      "name": "FormWindowStateConstants",
+      "description": "Form WindowState property constants.",
+      "members": [
+        {
+          "name": "vbNormal",
+          "description": "Normal window state."
+        },
+        {
+          "name": "vbMinimized",
+          "value": 1,
+          "description": "Minimized window state."
+        },
+        {
+          "name": "vbMaximized",
+          "value": 2,
+          "description": "Maximized window state."
+        }
+      ]
+    },
+    {
+      "name": "KeyCodeConstants",
+      "description": "Keycode constants.",
+      "members": [
+        {
+          "name": "vbKeyLButton",
+          "value": 1,
+          "description": "Left mouse button"
+        },
+        {
+          "name": "vbKeyRButton",
+          "value": 2,
+          "description": "Right mouse button."
+        },
+        {
+          "name": "vbKeyCancel",
+          "value": 3,
+          "description": "Cancel key."
+        },
+        {
+          "name": "vbKeyMButton",
+          "value": 4,
+          "description": "Middle mouse button."
+        },
+        {
+          "name": "vbKeyBack",
+          "value": 8,
+          "description": "Backspace key."
+        },
+        {
+          "name": "vbKeyTab",
+          "value": 9,
+          "description": "Tab key."
+        },
+        {
+          "name": "vbKeyClear",
+          "value": 12,
+          "description": "Clear key."
+        },
+        {
+          "name": "vbKeyReturn",
+          "value": 13,
+          "description": "Return (Enter) key."
+        },
+        {
+          "name": "vbKeyShift",
+          "value": 16,
+          "description": "Shift key."
+        },
+        {
+          "name": "vbKeyControl",
+          "value": 17,
+          "description": "Ctrl key."
+        },
+        {
+          "name": "vbKeyMenu",
+          "value": 18,
+          "description": "Menu key."
+        },
+        {
+          "name": "vbKeyPause",
+          "value": 19,
+          "description": "Pause key."
+        },
+        {
+          "name": "vbKeyCapital",
+          "value": 20,
+          "description": "Caps key."
+        },
+        {
+          "name": "vbKeyEscape",
+          "value": 27,
+          "description": "Esc key."
+        },
+        {
+          "name": "vbKeySpace",
+          "value": 32,
+          "description": "Spacebar key."
+        },
+        {
+          "name": "vbKeyPageUp",
+          "value": 33,
+          "description": "PAGE UP key."
+        },
+        {
+          "name": "vbKeyPageDown",
+          "value": 34,
+          "description": "PAGE DOWN key."
+        },
+        {
+          "name": "vbKeyEnd",
+          "value": 35,
+          "description": "End key."
+        },
+        {
+          "name": "vbKeyHome",
+          "value": 36,
+          "description": "Home key."
+        },
+        {
+          "name": "vbKeyLeft",
+          "value": 37,
+          "description": "Left key."
+        },
+        {
+          "name": "vbKeyUp",
+          "value": 38,
+          "description": "Up key."
+        },
+        {
+          "name": "vbKeyRight",
+          "value": 39,
+          "description": "Right key."
+        },
+        {
+          "name": "vbKeyDown",
+          "value": 40,
+          "description": "Down key."
+        },
+        {
+          "name": "vbKeySelect",
+          "value": 41,
+          "description": "Select key."
+        },
+        {
+          "name": "vbKeyPrint",
+          "value": 42,
+          "description": "PrintScreen key."
+        },
+        {
+          "name": "vbKeyExecute",
+          "value": 43,
+          "description": "Execute key."
+        },
+        {
+          "name": "vbKeySnapshot",
+          "value": 44,
+          "description": "Snapshot key."
+        },
+        {
+          "name": "vbKeyInsert",
+          "value": 45,
+          "description": "Insert key."
+        },
+        {
+          "name": "vbKeyDelete",
+          "value": 46,
+          "description": "Delete key."
+        },
+        {
+          "name": "vbKeyHelp",
+          "value": 47,
+          "description": "Help key."
+        },
+        {
+          "name": "vbKeyNumlock",
+          "value": 144,
+          "description": "Num Lock key."
+        },
+        {
+          "name": "vbKeyScrollLock",
+          "value": 145,
+          "description": "Scroll Lock key."
+        },
+        {
+          "name": "vbKeyA",
+          "value": 65,
+          "description": "A key."
+        },
+        {
+          "name": "vbKeyB",
+          "value": 66,
+          "description": "B key."
+        },
+        {
+          "name": "vbKeyC",
+          "value": 67,
+          "description": "C key."
+        },
+        {
+          "name": "vbKeyD",
+          "value": 68,
+          "description": "D key."
+        },
+        {
+          "name": "vbKeyE",
+          "value": 69,
+          "description": "E key."
+        },
+        {
+          "name": "vbKeyF",
+          "value": 70,
+          "description": "F key."
+        },
+        {
+          "name": "vbKeyG",
+          "value": 71,
+          "description": "G key."
+        },
+        {
+          "name": "vbKeyH",
+          "value": 72,
+          "description": "H key."
+        },
+        {
+          "name": "vbKeyI",
+          "value": 73,
+          "description": "I key."
+        },
+        {
+          "name": "vbKeyJ",
+          "value": 74,
+          "description": "J key."
+        },
+        {
+          "name": "vbKeyK",
+          "value": 75,
+          "description": "K key."
+        },
+        {
+          "name": "vbKeyL",
+          "value": 76,
+          "description": "L key."
+        },
+        {
+          "name": "vbKeyM",
+          "value": 77,
+          "description": "M key."
+        },
+        {
+          "name": "vbKeyN",
+          "value": 78,
+          "description": "N key."
+        },
+        {
+          "name": "vbKeyO",
+          "value": 79,
+          "description": "O key."
+        },
+        {
+          "name": "vbKeyP",
+          "value": 80,
+          "description": "P key."
+        },
+        {
+          "name": "vbKeyQ",
+          "value": 81,
+          "description": "Q key."
+        },
+        {
+          "name": "vbKeyR",
+          "value": 82,
+          "description": "R key."
+        },
+        {
+          "name": "vbKeyS",
+          "value": 83,
+          "description": "S key."
+        },
+        {
+          "name": "vbKeyT",
+          "value": 84,
+          "description": "T key."
+        },
+        {
+          "name": "vbKeyU",
+          "value": 85,
+          "description": "U key."
+        },
+        {
+          "name": "vbKeyV",
+          "value": 86,
+          "description": "V key."
+        },
+        {
+          "name": "vbKeyW",
+          "value": 87,
+          "description": "W key."
+        },
+        {
+          "name": "vbKeyX",
+          "value": 88,
+          "description": "X key."
+        },
+        {
+          "name": "vbKeyY",
+          "value": 89,
+          "description": "Y key."
+        },
+        {
+          "name": "vbKeyZ",
+          "value": 90,
+          "description": "Z key."
+        },
+        {
+          "name": "vbKey0",
+          "value": 48,
+          "description": "0 key."
+        },
+        {
+          "name": "vbKey1",
+          "value": 49,
+          "description": "1 key."
+        },
+        {
+          "name": "vbKey2",
+          "value": 50,
+          "description": "2 key."
+        },
+        {
+          "name": "vbKey3",
+          "value": 51,
+          "description": "3 key."
+        },
+        {
+          "name": "vbKey4",
+          "value": 52,
+          "description": "4 key."
+        },
+        {
+          "name": "vbKey5",
+          "value": 53,
+          "description": "5 key."
+        },
+        {
+          "name": "vbKey6",
+          "value": 54,
+          "description": "6 key."
+        },
+        {
+          "name": "vbKey7",
+          "value": 55,
+          "description": "7 key."
+        },
+        {
+          "name": "vbKey8",
+          "value": 56,
+          "description": "8 key."
+        },
+        {
+          "name": "vbKey9",
+          "value": 57,
+          "description": "9 key."
+        },
+        {
+          "name": "vbKeyNumpad0",
+          "value": 96,
+          "description": "0 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad1",
+          "value": 97,
+          "description": "1 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad2",
+          "value": 98,
+          "description": "2 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad3",
+          "value": 99,
+          "description": "3 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad4",
+          "value": 100,
+          "description": "4 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad5",
+          "value": 101,
+          "description": "5 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad6",
+          "value": 102,
+          "description": "6 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad7",
+          "value": 103,
+          "description": "7 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad8",
+          "value": 104,
+          "description": "8 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyNumpad9",
+          "value": 105,
+          "description": "9 key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyMultiply",
+          "value": 106,
+          "description": "Multiply (*) key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyAdd",
+          "value": 107,
+          "description": "Plus (\u002B) key on the numeric keypad."
+        },
+        {
+          "name": "vbKeySeparator",
+          "value": 108,
+          "description": "Enter key on the numeric keypad."
+        },
+        {
+          "name": "vbKeySubtract",
+          "value": 109,
+          "description": "Minus (-) key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyDecimal",
+          "value": 110,
+          "description": "Decimal (.) key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyDivide",
+          "value": 111,
+          "description": "Divide (/) key on the numeric keypad."
+        },
+        {
+          "name": "vbKeyF1",
+          "value": 112,
+          "description": "F1 key."
+        },
+        {
+          "name": "vbKeyF2",
+          "value": 113,
+          "description": "F2 key."
+        },
+        {
+          "name": "vbKeyF3",
+          "value": 114,
+          "description": "F3 key."
+        },
+        {
+          "name": "vbKeyF4",
+          "value": 115,
+          "description": "F4 key."
+        },
+        {
+          "name": "vbKeyF5",
+          "value": 116,
+          "description": "F5 key."
+        },
+        {
+          "name": "vbKeyF6",
+          "value": 117,
+          "description": "F6 key."
+        },
+        {
+          "name": "vbKeyF7",
+          "value": 118,
+          "description": "F7 key."
+        },
+        {
+          "name": "vbKeyF8",
+          "value": 119,
+          "description": "F8 key."
+        },
+        {
+          "name": "vbKeyF9",
+          "value": 120,
+          "description": "F9 key."
+        },
+        {
+          "name": "vbKeyF10",
+          "value": 121,
+          "description": "F10 key."
+        },
+        {
+          "name": "vbKeyF11",
+          "value": 122,
+          "description": "F11 key."
+        },
+        {
+          "name": "vbKeyF12",
+          "value": 123,
+          "description": "F12 key."
+        },
+        {
+          "name": "vbKeyF13",
+          "value": 124,
+          "description": "F13 key."
+        },
+        {
+          "name": "vbKeyF14",
+          "value": 125,
+          "description": "F14 key."
+        },
+        {
+          "name": "vbKeyF15",
+          "value": 126,
+          "description": "F15 key."
+        },
+        {
+          "name": "vbKeyF16",
+          "value": 127,
+          "description": "F16 key."
+        }
+      ]
+    },
+    {
+      "name": "MenuAccelConstants",
+      "description": "User-defined shortcut keystrokes",
+      "members": [
+        {
+          "name": "vbMenuAccelCtrlA",
+          "value": 1,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlB",
+          "value": 2,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlC",
+          "value": 3,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlD",
+          "value": 4,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlE",
+          "value": 5,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF",
+          "value": 6,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlG",
+          "value": 7,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlH",
+          "value": 8,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlI",
+          "value": 9,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlJ",
+          "value": 10,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlK",
+          "value": 11,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlL",
+          "value": 12,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlM",
+          "value": 13,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlN",
+          "value": 14,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlO",
+          "value": 15,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlP",
+          "value": 16,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlQ",
+          "value": 17,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlR",
+          "value": 18,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlS",
+          "value": 19,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlT",
+          "value": 20,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlU",
+          "value": 21,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlV",
+          "value": 22,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlW",
+          "value": 23,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlX",
+          "value": 24,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlY",
+          "value": 25,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlZ",
+          "value": 26,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF1",
+          "value": 27,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF2",
+          "value": 28,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF3",
+          "value": 29,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF4",
+          "value": 30,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF5",
+          "value": 31,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF6",
+          "value": 32,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF7",
+          "value": 33,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF8",
+          "value": 34,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF9",
+          "value": 35,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF11",
+          "value": 36,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelF12",
+          "value": 37,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF1",
+          "value": 38,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF2",
+          "value": 39,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF3",
+          "value": 40,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF4",
+          "value": 41,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF5",
+          "value": 42,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF6",
+          "value": 43,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF7",
+          "value": 44,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF8",
+          "value": 45,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF9",
+          "value": 46,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF11",
+          "value": 47,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlF12",
+          "value": 48,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF1",
+          "value": 49,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShfitF2",
+          "value": 50,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF3",
+          "value": 51,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF4",
+          "value": 52,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF5",
+          "value": 53,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF6",
+          "value": 54,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF7",
+          "value": 55,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF8",
+          "value": 56,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF9",
+          "value": 57,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF11",
+          "value": 58,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftF12",
+          "value": 59,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF1",
+          "value": 60,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF2",
+          "value": 61,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF3",
+          "value": 62,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF4",
+          "value": 63,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF5",
+          "value": 64,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF6",
+          "value": 65,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF7",
+          "value": 66,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF8",
+          "value": 67,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF9",
+          "value": 68,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF11",
+          "value": 69,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftCtrlF12",
+          "value": 70,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelCtrlIns",
+          "value": 71,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftIns",
+          "value": 72,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelDel",
+          "value": 73,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelShiftDel",
+          "value": 74,
+          "description": "User-defined shortcut keystrokes"
+        },
+        {
+          "name": "vbMenuAccelAltBksp",
+          "value": 75,
+          "description": "User-defined shortcut keystrokes"
+        }
+      ]
+    },
+    {
+      "name": "ColorConstants",
+      "description": "Color constants (see also SystemColorConstants).",
+      "members": [
+        {
+          "name": "vbBlack",
+          "description": "Black."
+        },
+        {
+          "name": "vbRed",
+          "value": 255,
+          "description": "Red."
+        },
+        {
+          "name": "vbGreen",
+          "value": 65280,
+          "description": "Green."
+        },
+        {
+          "name": "vbYellow",
+          "value": 65535,
+          "description": "Yellow."
+        },
+        {
+          "name": "vbBlue",
+          "value": 16711680,
+          "description": "Blue."
+        },
+        {
+          "name": "vbMagenta",
+          "value": 16711935,
+          "description": "Magenta."
+        },
+        {
+          "name": "vbCyan",
+          "value": 16776960,
+          "description": "Cyan."
+        },
+        {
+          "name": "vbWhite",
+          "value": 16777215,
+          "description": "White."
+        }
+      ]
+    },
+    {
+      "name": "SystemColorConstants",
+      "description": "System color constants (see also ColorConstants).",
+      "members": [
+        {
+          "name": "vbScrollBars",
+          "value": -2147483648,
+          "description": "Scroll-bars gray area color."
+        },
+        {
+          "name": "vbDesktop",
+          "value": -2147483647,
+          "description": "Desktop color."
+        },
+        {
+          "name": "vbActiveTitleBar",
+          "value": -2147483646,
+          "description": "Active window caption color."
+        },
+        {
+          "name": "vbInactiveTitleBar",
+          "value": -2147483645,
+          "description": "Inactive window caption color."
+        },
+        {
+          "name": "vbMenuBar",
+          "value": -2147483644,
+          "description": "Menu background color."
+        },
+        {
+          "name": "vbWindowBackground",
+          "value": -2147483643,
+          "description": "Window background color."
+        },
+        {
+          "name": "vbWindowFrame",
+          "value": -2147483642,
+          "description": "Window frame color."
+        },
+        {
+          "name": "vbMenuText",
+          "value": -2147483641,
+          "description": "Text color in menus."
+        },
+        {
+          "name": "vbWindowText",
+          "value": -2147483640,
+          "description": "Text color in windows."
+        },
+        {
+          "name": "vbTitleBarText",
+          "value": -2147483639,
+          "description": "Text color in active caption, size box, scroll-bar arrow box."
+        },
+        {
+          "name": "vbActiveBorder",
+          "value": -2147483638,
+          "description": "Active window border color."
+        },
+        {
+          "name": "vbInactiveBorder",
+          "value": -2147483637,
+          "description": "Inactive window border color."
+        },
+        {
+          "name": "vbApplicationWorkspace",
+          "value": -2147483636,
+          "description": "Background color of multiple document interface (MDI) applications."
+        },
+        {
+          "name": "vbHighlight",
+          "value": -2147483635,
+          "description": "Background color of items selected in a control."
+        },
+        {
+          "name": "vbHighlightText",
+          "value": -2147483634,
+          "description": "Text color of items selected in a control."
+        },
+        {
+          "name": "vbButtonFace",
+          "value": -2147483633,
+          "description": "Face shading on command buttons."
+        },
+        {
+          "name": "vbButtonShadow",
+          "value": -2147483632,
+          "description": "Edge shading on command buttons."
+        },
+        {
+          "name": "vbGrayText",
+          "value": -2147483631,
+          "description": "Grayed (disabled) text."
+        },
+        {
+          "name": "vbButtonText",
+          "value": -2147483630,
+          "description": "Text color on push buttons."
+        },
+        {
+          "name": "vbActiveTitleBarText",
+          "value": -2147483639,
+          "description": "Text color in active caption, size box, scroll-bar arrow box."
+        },
+        {
+          "name": "vbInactiveTitleBarText",
+          "value": -2147483629,
+          "description": "Text color in inactive window caption, size box, scroll-bar arrow box."
+        },
+        {
+          "name": "vbInactiveCaptionText",
+          "value": -2147483629,
+          "description": "Color of text in an inactive caption."
+        },
+        {
+          "name": "vb3DHighlight",
+          "value": -2147483628,
+          "description": "Highlight color for 3D display elements."
+        },
+        {
+          "name": "vb3DFace",
+          "value": -2147483633,
+          "description": "Dark shadow color for three-dimensional display elements."
+        },
+        {
+          "name": "vb3DShadow",
+          "value": -2147483632,
+          "description": "Color of automatic window shadows."
+        },
+        {
+          "name": "vb3DDKShadow",
+          "value": -2147483627,
+          "description": "Darkest shadow."
+        },
+        {
+          "name": "vb3DLight",
+          "value": -2147483626,
+          "description": "Second lightest of the 3D colors after vb3DHilight."
+        },
+        {
+          "name": "vbInfoText",
+          "value": -2147483625,
+          "description": "Color of text in ToolTips."
+        },
+        {
+          "name": "vbInfoBackground",
+          "value": -2147483624,
+          "description": "Background color of ToolTips."
+        }
+      ]
+    },
+    {
+      "name": "AlignConstants",
+      "description": "Constants for the Align property.",
+      "members": [
+        {
+          "name": "vbAlignNone",
+          "description": "Size and location set at design time or in code."
+        },
+        {
+          "name": "vbAlignTop",
+          "value": 1,
+          "description": "Control at top of form (Align)."
+        },
+        {
+          "name": "vbAlignBottom",
+          "value": 2,
+          "description": "Control at bottom of form (Align)."
+        },
+        {
+          "name": "vbAlignLeft",
+          "value": 3,
+          "description": "Control at left of form (Align)."
+        },
+        {
+          "name": "vbAlignRight",
+          "value": 4,
+          "description": "Control at right of form (Align)."
+        }
+      ]
+    },
+    {
+      "name": "AlignmentConstants",
+      "description": "Constants for the Alignment property.",
+      "members": [
+        {
+          "name": "vbLeftJustify",
+          "description": "Left justify (Alignment)."
+        },
+        {
+          "name": "vbRightJustify",
+          "value": 1,
+          "description": "Right justify (Alignment)."
+        },
+        {
+          "name": "vbCenter",
+          "value": 2,
+          "description": "Center (Alignment)."
+        }
+      ]
+    },
+    {
+      "name": "FormBorderStyleConstants",
+      "description": "Form BorderStyle property constants.",
+      "members": [
+        {
+          "name": "vbBSNone",
+          "description": "No border"
+        },
+        {
+          "name": "vbFixedSingle",
+          "value": 1,
+          "description": "Fixed single (form BorderStyle)."
+        },
+        {
+          "name": "vbSizable",
+          "value": 2,
+          "description": "Sizable (form BorderStyle)."
+        },
+        {
+          "name": "vbFixedDouble",
+          "value": 3,
+          "description": "Fixed double (same as vbFixedDialog).",
+          "isHidden": true
+        },
+        {
+          "name": "vbFixedDialog",
+          "value": 3,
+          "description": "Fixed dialog (form BorderStyle)."
+        },
+        {
+          "name": "vbFixedToolWindow",
+          "value": 4,
+          "description": "Fixed Toolwindow (form BorderStyle)."
+        },
+        {
+          "name": "vbSizableToolWindow",
+          "value": 5,
+          "description": "Sizable Toolwindow (form BorderStyle)."
+        }
+      ]
+    },
+    {
+      "name": "BorderStyleConstants",
+      "description": "Constants for the BorderStyle property of controls (not Forms).",
+      "members": [
+        {
+          "name": "vbTransparent",
+          "description": "Transparent (shape and line BorderStyle)."
+        },
+        {
+          "name": "vbBSSolid",
+          "value": 1,
+          "description": "Solid (shape and line BorderStyle)."
+        },
+        {
+          "name": "vbBSDash",
+          "value": 2,
+          "description": "Dash (shape and line BorderStyle)."
+        },
+        {
+          "name": "vbBSDot",
+          "value": 3,
+          "description": "Dot (shape and line BorderStyle)."
+        },
+        {
+          "name": "vbBSDashDot",
+          "value": 4,
+          "description": "Dash-dot (shape and line BorderStyle)."
+        },
+        {
+          "name": "vbBSDashDotDot",
+          "value": 5,
+          "description": "Dash-dot-dot (shape and line BorderStyle)."
+        },
+        {
+          "name": "vbBSInsideSolid",
+          "value": 6,
+          "description": "Inside solid (shape and line BorderStyle)."
+        }
+      ]
+    },
+    {
+      "name": "MousePointerConstants",
+      "description": "MousePointer property constants.",
+      "members": [
+        {
+          "name": "vbDefault",
+          "description": "Default (MousePointer)."
+        },
+        {
+          "name": "vbArrow",
+          "value": 1,
+          "description": "Arrow mouse pointer."
+        },
+        {
+          "name": "vbCrosshair",
+          "value": 2,
+          "description": "Cross mouse pointer."
+        },
+        {
+          "name": "vbIbeam",
+          "value": 3,
+          "description": "I-Beam mouse pointer."
+        },
+        {
+          "name": "vbIconPointer",
+          "value": 4,
+          "description": "Icon mouse pointer."
+        },
+        {
+          "name": "vbSizePointer",
+          "value": 5,
+          "description": "Size mouse pointer."
+        },
+        {
+          "name": "vbSizeNESW",
+          "value": 6,
+          "description": "Size NE SW mouse pointer."
+        },
+        {
+          "name": "vbSizeNS",
+          "value": 7,
+          "description": "Size N S mouse pointer."
+        },
+        {
+          "name": "vbSizeNWSE",
+          "value": 8,
+          "description": "Size NW SE mouse pointer."
+        },
+        {
+          "name": "vbSizeWE",
+          "value": 9,
+          "description": "Size W E mouse pointer."
+        },
+        {
+          "name": "vbUpArrow",
+          "value": 10,
+          "description": "Up arrow mouse pointer."
+        },
+        {
+          "name": "vbHourglass",
+          "value": 11,
+          "description": "Hourglass mouse pointer."
+        },
+        {
+          "name": "vbNoDrop",
+          "value": 12,
+          "description": "No drop mouse pointer."
+        },
+        {
+          "name": "vbArrowHourglass",
+          "value": 13,
+          "description": "Arrow and hourglass."
+        },
+        {
+          "name": "vbArrowQuestion",
+          "value": 14,
+          "description": "Arrow and question mark."
+        },
+        {
+          "name": "vbSizeAll",
+          "value": 15,
+          "description": "Size all."
+        },
+        {
+          "name": "vbCustom",
+          "value": 99,
+          "description": "Custom mouse pointer icon specified by the MouseIcon property."
+        }
+      ]
+    },
+    {
+      "name": "DrawModeConstants",
+      "description": "DrawMode property constants.",
+      "members": [
+        {
+          "name": "vbBlackness",
+          "value": 1,
+          "description": "Black (DrawMode)."
+        },
+        {
+          "name": "vbNotMergePen",
+          "value": 2,
+          "description": "Not Merge Pen (DrawMode)."
+        },
+        {
+          "name": "vbMaskNotPen",
+          "value": 3,
+          "description": "Mask Not Pen (DrawMode)."
+        },
+        {
+          "name": "vbNotCopyPen",
+          "value": 4,
+          "description": "Not Copy Pen (DrawMode)."
+        },
+        {
+          "name": "vbMaskPenNot",
+          "value": 5,
+          "description": "Mask Pen Not (DrawMode)."
+        },
+        {
+          "name": "vbInvert",
+          "value": 6,
+          "description": "Invert (DrawMode)."
+        },
+        {
+          "name": "vbXorPen",
+          "value": 7,
+          "description": "Xor Pen (DrawMode)."
+        },
+        {
+          "name": "vbNotMaskPen",
+          "value": 8,
+          "description": "Not Mask Pen (DrawMode)."
+        },
+        {
+          "name": "vbMaskPen",
+          "value": 9,
+          "description": "Mask Pen (DrawMode)."
+        },
+        {
+          "name": "vbNotXorPen",
+          "value": 10,
+          "description": "Not Xor Pen (DrawMode)."
+        },
+        {
+          "name": "vbNop",
+          "value": 11,
+          "description": "No operation - output remains unchanged (DrawMode)."
+        },
+        {
+          "name": "vbMergeNotPen",
+          "value": 12,
+          "description": "Merge Not Pen (DrawMode)."
+        },
+        {
+          "name": "vbCopyPen",
+          "value": 13,
+          "description": "Copy Pen (DrawMode)."
+        },
+        {
+          "name": "vbMergePenNot",
+          "value": 14,
+          "description": "Merge Pen Not (DrawMode)."
+        },
+        {
+          "name": "vbMergePen",
+          "value": 15,
+          "description": "Merge Pen (DrawMode)."
+        },
+        {
+          "name": "vbWhiteness",
+          "value": 16,
+          "description": "White (DrawMode)."
+        }
+      ]
+    },
+    {
+      "name": "StartUpPositionConstants",
+      "description": "StartUpPosition property constants",
+      "members": [
+        {
+          "name": "vbStartUpManual",
+          "description": "Startup position will be set using Top and Left properties"
+        },
+        {
+          "name": "vbStartUpOwner",
+          "value": 1,
+          "description": "Startup position will be centered on the owner window"
+        },
+        {
+          "name": "vbStartUpScreen",
+          "value": 2,
+          "description": "Startup position will be centered on the screen"
+        },
+        {
+          "name": "vbStartUpWindowsDefault",
+          "value": 3,
+          "description": "Startup position will use Windows default location"
+        }
+      ]
+    },
+    {
+      "name": "DrawStyleConstants",
+      "description": "DrawStyle property constants.",
+      "members": [
+        {
+          "name": "vbSolid",
+          "description": "Solid (DrawStyle)."
+        },
+        {
+          "name": "vbDash",
+          "value": 1,
+          "description": "Dash (DrawStyle)."
+        },
+        {
+          "name": "vbDot",
+          "value": 2,
+          "description": "Dot (DrawStyle)."
+        },
+        {
+          "name": "vbDashDot",
+          "value": 3,
+          "description": "Dash-dot (DrawStyle)."
+        },
+        {
+          "name": "vbDashDotDot",
+          "value": 4,
+          "description": "Dash-dot-dot (DrawStyle)."
+        },
+        {
+          "name": "vbInvisible",
+          "value": 5,
+          "description": "Invisible (DrawStyle)."
+        },
+        {
+          "name": "vbInsideSolid",
+          "value": 6,
+          "description": "Inside solid (DrawStyle)."
+        }
+      ]
+    },
+    {
+      "name": "FillStyleConstants",
+      "description": "FillStyle property constants.",
+      "members": [
+        {
+          "name": "vbFSSolid",
+          "description": "Solid (FillStyle)."
+        },
+        {
+          "name": "vbFSTransparent",
+          "value": 1,
+          "description": "Transparent (FillStyle)."
+        },
+        {
+          "name": "vbHorizontalLine",
+          "value": 2,
+          "description": "Horizontal line (FillStyle)."
+        },
+        {
+          "name": "vbVerticalLine",
+          "value": 3,
+          "description": "Vertical line (FillStyle)."
+        },
+        {
+          "name": "vbUpwardDiagonal",
+          "value": 4,
+          "description": "Upward diagonal (FillStyle)."
+        },
+        {
+          "name": "vbDownwardDiagonal",
+          "value": 5,
+          "description": "Downward diagonal (FillStyle)."
+        },
+        {
+          "name": "vbCross",
+          "value": 6,
+          "description": "Cross (FillStyle)."
+        },
+        {
+          "name": "vbDiagonalCross",
+          "value": 7,
+          "description": "Diagonal cross (FillStyle)."
+        }
+      ]
+    },
+    {
+      "name": "ScaleModeConstants",
+      "description": "ScaleMode property constants.",
+      "members": [
+        {
+          "name": "vbUser",
+          "description": "User (ScaleMode)."
+        },
+        {
+          "name": "vbTwips",
+          "value": 1,
+          "description": "Twip (ScaleMode)."
+        },
+        {
+          "name": "vbPoints",
+          "value": 2,
+          "description": "Point (ScaleMode)."
+        },
+        {
+          "name": "vbPixels",
+          "value": 3,
+          "description": "Pixel (ScaleMode)."
+        },
+        {
+          "name": "vbCharacters",
+          "value": 4,
+          "description": "Character (ScaleMode)."
+        },
+        {
+          "name": "vbInches",
+          "value": 5,
+          "description": "Inch (ScaleMode)."
+        },
+        {
+          "name": "vbMillimeters",
+          "value": 6,
+          "description": "Millimeter (ScaleMode)."
+        },
+        {
+          "name": "vbCentimeters",
+          "value": 7,
+          "description": "Centimeter (ScaleMode)."
+        },
+        {
+          "name": "vbHimetric",
+          "value": 8,
+          "description": "Himetric (ScaleMode)."
+        },
+        {
+          "name": "vbContainerPosition",
+          "value": 9,
+          "description": "Units used by the control\u0027s container to determine the control\u0027s position (ScaleX/ScaleY method, UserControl only)"
+        },
+        {
+          "name": "vbContainerSize",
+          "value": 10,
+          "description": "Units used by the control\u0027s container to determine the control\u0027s size (ScaleX/ScaleY method, UserControl only)"
+        }
+      ]
+    },
+    {
+      "name": "OLEContainerConstants",
+      "description": "Miscellaneous OLE container control properties.",
+      "members": [
+        {
+          "name": "vbOLELinked",
+          "description": "OLE container control contains a linked object."
+        },
+        {
+          "name": "vbOLEEmbedded",
+          "value": 1,
+          "description": "OLE container control contains an embedded object."
+        },
+        {
+          "name": "vbOLENone",
+          "value": 3,
+          "description": "OLE container control does not contain an object."
+        },
+        {
+          "name": "vbOLEEither",
+          "value": 2,
+          "description": "OLE container control can contain either a linked or an embedded object."
+        },
+        {
+          "name": "vbOLEAutomatic",
+          "description": "Object is updated each time the linked data changes."
+        },
+        {
+          "name": "vbOLEFrozen",
+          "value": 1,
+          "description": "Object is updated whenever the user saves the linked document."
+        },
+        {
+          "name": "vbOLEManual",
+          "value": 2,
+          "description": "Object is updated only when the Action property is set to 6 (Update)."
+        },
+        {
+          "name": "vbOLEActivateManual",
+          "description": "OLE object is not automatically activated."
+        },
+        {
+          "name": "vbOLEActivateGetFocus",
+          "value": 1,
+          "description": "Object is activated when the OLE container control gets the focus."
+        },
+        {
+          "name": "vbOLEActivateDoubleclick",
+          "value": 2,
+          "description": "Object is activated when the OLE container control is double-clicked."
+        },
+        {
+          "name": "vbOLEActivateAuto",
+          "value": 3,
+          "description": "Object is activated based on the object\u0027s preferred method of activation."
+        },
+        {
+          "name": "vbOLESizeClip",
+          "description": "Object\u0027s image is clipped by the OLE container control\u0027s borders."
+        },
+        {
+          "name": "vbOLESizeStretch",
+          "value": 1,
+          "description": "Object\u0027s image is sized to fill the OLE container control."
+        },
+        {
+          "name": "vbOLESizeAutoSize",
+          "value": 2,
+          "description": "OLE container control is automatically resized to display the entire object."
+        },
+        {
+          "name": "vbOLESizeZoom",
+          "value": 3,
+          "description": "Object\u0027s image is stretched but is still shown proportionally correct."
+        },
+        {
+          "name": "vbOLEDisplayContent",
+          "description": "Object\u0027s data is displayed in the OLE container control."
+        },
+        {
+          "name": "vbOLEDisplayIcon",
+          "value": 1,
+          "description": "Object\u0027s icon is displayed in the OLE container control."
+        },
+        {
+          "name": "vbOLEChanged",
+          "description": "Object\u0027s data has changed."
+        },
+        {
+          "name": "vbOLESaved",
+          "value": 1,
+          "description": "Object\u0027s data has been saved by the application that created the object."
+        },
+        {
+          "name": "vbOLEClosed",
+          "value": 2,
+          "description": "Application file containing the linked object\u0027s data has been closed."
+        },
+        {
+          "name": "vbOLERenamed",
+          "value": 3,
+          "description": "Application file containing the linked object\u0027s data has been renamed."
+        },
+        {
+          "name": "vbOLEPrimary",
+          "description": "Default action for the object."
+        },
+        {
+          "name": "vbOLEShow",
+          "value": -1,
+          "description": "Activates the object for editing."
+        },
+        {
+          "name": "vbOLEOpen",
+          "value": -2,
+          "description": "Opens the object in a separate application window."
+        },
+        {
+          "name": "vbOLEHide",
+          "value": -3,
+          "description": "For embedded objects, hides the application that created the object."
+        },
+        {
+          "name": "vbOLEUIActivate",
+          "value": -4,
+          "description": "All UI\u0027s associated with the object are visible and ready for use."
+        },
+        {
+          "name": "vbOLEInPlaceActivate",
+          "value": -5,
+          "description": "Object is ready for the user to click inside it and start working with it."
+        },
+        {
+          "name": "vbOLEDiscardUndoState",
+          "value": -6,
+          "description": "For discarding all record of changes that the object\u0027s application can undo."
+        },
+        {
+          "name": "vbOLEFlagGrayed",
+          "value": 1,
+          "description": "Grayed menu item."
+        },
+        {
+          "name": "vbOLEFlagDisabled",
+          "value": 2,
+          "description": "Disabled menu item."
+        },
+        {
+          "name": "vbOLEFlagChecked",
+          "value": 8,
+          "description": "Checked menu item."
+        },
+        {
+          "name": "vbOLEFlagSeparator",
+          "value": 2048,
+          "description": "Separator bar in menu item list."
+        },
+        {
+          "name": "vbOLEMiscFlagMemStorage",
+          "value": 1,
+          "description": "Causes control to use memory to store the object while it is loaded."
+        },
+        {
+          "name": "vbOLEMiscFlagDisableInPlace",
+          "value": 2,
+          "description": "Forces OLE container control to activate objects in a separate window."
+        }
+      ]
+    },
+    {
+      "name": "MenuControlConstants",
+      "description": "Miscellaneous Menu control constants.",
+      "members": [
+        {
+          "name": "vbPopupMenuLeftAlign",
+          "description": "Pop-up menu aligned left."
+        },
+        {
+          "name": "vbPopupMenuCenterAlign",
+          "value": 4,
+          "description": "Pop-up menu centered."
+        },
+        {
+          "name": "vbPopupMenuRightAlign",
+          "value": 8,
+          "description": "Pop-up menu aligned right."
+        },
+        {
+          "name": "vbPopupMenuLeftButton",
+          "description": "Pop-up menu recognizes left mouse button only."
+        },
+        {
+          "name": "vbPopupMenuRightButton",
+          "value": 2,
+          "description": "Pop-up menu recognizes right and left mouse button."
+        }
+      ]
+    },
+    {
+      "name": "PrinterObjectConstants",
+      "description": "Miscellaneous Printer object constants.",
+      "members": [
+        {
+          "name": "vbPRCMMonochrome",
+          "value": 1,
+          "description": "Monochrome printer output."
+        },
+        {
+          "name": "vbPRCMColor",
+          "value": 2,
+          "description": "Color printer output."
+        },
+        {
+          "name": "vbPRDPSimplex",
+          "value": 1,
+          "description": "Single-sided printing."
+        },
+        {
+          "name": "vbPRDPHorizontal",
+          "value": 2,
+          "description": "Double-sided horizontal printing."
+        },
+        {
+          "name": "vbPRDPVertical",
+          "value": 3,
+          "description": "Double-sided vertical printing."
+        },
+        {
+          "name": "vbPRORPortrait",
+          "value": 1,
+          "description": "Documents print with the top at the narrow side of the paper."
+        },
+        {
+          "name": "vbPRORLandscape",
+          "value": 2,
+          "description": "Documents print with the top at the wide side of the paper."
+        },
+        {
+          "name": "vbPRPQDraft",
+          "value": -1,
+          "description": "Draft print quality."
+        },
+        {
+          "name": "vbPRPQLow",
+          "value": -2,
+          "description": "Low print quality."
+        },
+        {
+          "name": "vbPRPQMedium",
+          "value": -3,
+          "description": "Medium print quality."
+        },
+        {
+          "name": "vbPRPQHigh",
+          "value": -4,
+          "description": "High print quality."
+        },
+        {
+          "name": "vbPRBNUpper",
+          "value": 1,
+          "description": "Use paper from the upper bin."
+        },
+        {
+          "name": "vbPRBNLower",
+          "value": 2,
+          "description": "Use paper from the lower bin."
+        },
+        {
+          "name": "vbPRBNMiddle",
+          "value": 3,
+          "description": "Use paper from the middle bin."
+        },
+        {
+          "name": "vbPRBNManual",
+          "value": 4,
+          "description": "Wait for manual insertion of each sheet of paper."
+        },
+        {
+          "name": "vbPRBNEnvelope",
+          "value": 5,
+          "description": "Use envelopes from the envelope feeder."
+        },
+        {
+          "name": "vbPRBNEnvManual",
+          "value": 6,
+          "description": "Use envelopes from the envelope feeder, but wait for manual insertion."
+        },
+        {
+          "name": "vbPRBNAuto",
+          "value": 7,
+          "description": "Use paper from the current default bin (Default)."
+        },
+        {
+          "name": "vbPRBNTractor",
+          "value": 8,
+          "description": "Use paper fed from the tractor feeder."
+        },
+        {
+          "name": "vbPRBNSmallFmt",
+          "value": 9,
+          "description": "Use paper from the small paper feeder."
+        },
+        {
+          "name": "vbPRBNLargeFmt",
+          "value": 10,
+          "description": "Use paper from the large paper bin."
+        },
+        {
+          "name": "vbPRBNLargeCapacity",
+          "value": 11,
+          "description": "Use paper from the large capacity feeder."
+        },
+        {
+          "name": "vbPRBNCassette",
+          "value": 14,
+          "description": "Use paper from the attached cassette cartridge."
+        },
+        {
+          "name": "vbPRPSLetter",
+          "value": 1,
+          "description": "Letter, 8 1/2 x 11 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSLetterSmall",
+          "value": 2,
+          "description": "\u002BA611Letter Small, 8 1/2 x 11 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSTabloid",
+          "value": 3,
+          "description": "Tabloid, 11 x 17 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSLedger",
+          "value": 4,
+          "description": "Ledger, 17 x 11 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSLegal",
+          "value": 5,
+          "description": "Legal, 8 1/2 x 14 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSStatement",
+          "value": 6,
+          "description": "Statement, 5 1/2 x 8 1/2 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSExecutive",
+          "value": 7,
+          "description": "Executive, 7 1/2 x 10 1/2 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSA3",
+          "value": 8,
+          "description": "A3, 297 x 420 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSA4",
+          "value": 9,
+          "description": "A4, 210 x 297 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSA4Small",
+          "value": 10,
+          "description": "A4 Small, 210 x 297 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSA5",
+          "value": 11,
+          "description": "A5, 148 x 210 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSB4",
+          "value": 12,
+          "description": "B4, 250 x 354 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSB5",
+          "value": 13,
+          "description": "B5, 182 x 257 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSFolio",
+          "value": 14,
+          "description": "Folio, 8 1/2 x 13 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSQuarto",
+          "value": 15,
+          "description": "Quarto, 215 x 275 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPS10x14",
+          "value": 16,
+          "description": "10 x 14 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPS11x17",
+          "value": 17,
+          "description": "11 x 17 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSNote",
+          "value": 18,
+          "description": "Note, 8 1/2 x 11 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnv9",
+          "value": 19,
+          "description": "Envelope #9, 3 7/8 x 8 7/8 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnv10",
+          "value": 20,
+          "description": "Envelope #10, 4 1/8 x 9 1/2 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnv11",
+          "value": 21,
+          "description": "Envelope #11, 4 1/2 x 10 3/8 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnv12",
+          "value": 22,
+          "description": "Envelope #12, 4 1/2 x 11 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnv14",
+          "value": 23,
+          "description": "Envelope #14, 5 x 11 1/2 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSCSheet",
+          "value": 24,
+          "description": "C size sheet (PaperSize)."
+        },
+        {
+          "name": "vbPRPSDSheet",
+          "value": 25,
+          "description": "D size sheet (PaperSize)."
+        },
+        {
+          "name": "vbPRPSESheet",
+          "value": 26,
+          "description": "E size sheet (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvDL",
+          "value": 27,
+          "description": "Envelope DL, 110 x 220 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvC3",
+          "value": 29,
+          "description": "Envelope C3, 324 x 458 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvC4",
+          "value": 30,
+          "description": "Envelope C4, 229 x 324 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvC5",
+          "value": 28,
+          "description": "Envelope C5, 162 x 229 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvC6",
+          "value": 31,
+          "description": "Envelope C6, 114 x 162 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvC65",
+          "value": 32,
+          "description": "Envelope C65, 114 x 229 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvB4",
+          "value": 33,
+          "description": "Envelope B4, 250 x 353 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvB5",
+          "value": 34,
+          "description": "Envelope B5, 176 x 250 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvB6",
+          "value": 35,
+          "description": "Envelope B6, 176 x 125 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvItaly",
+          "value": 36,
+          "description": "Envelope, 110 x 230 mm (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvMonarch",
+          "value": 37,
+          "description": "Envelope Monarch, 3 7/8 x 7 1/2 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSEnvPersonal",
+          "value": 38,
+          "description": "Envelope, 3 5/8 x 6 1/2 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSFanfoldUS",
+          "value": 39,
+          "description": "U.S. Standard Fanfold, 14 7/8 x 11 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSFanfoldStdGerman",
+          "value": 40,
+          "description": "German Standard Fanfold, 8 1/2 x 12 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSFanfoldLglGerman",
+          "value": 41,
+          "description": "German Legal Fanfold, 8 1/2 x 13 in. (PaperSize)."
+        },
+        {
+          "name": "vbPRPSUser",
+          "value": 256,
+          "description": "User-defined (PaperSize)."
+        }
+      ]
+    },
+    {
+      "name": "RasterOpConstants",
+      "description": "Opcode constants for the PaintPicture method.",
+      "members": [
+        {
+          "name": "vbDstInvert",
+          "value": 5570569,
+          "description": "Inverts the destination bitmap."
+        },
+        {
+          "name": "vbMergeCopy",
+          "value": 12583114,
+          "description": "Combines the pattern and the source bitmap."
+        },
+        {
+          "name": "vbMergePaint",
+          "value": 12255782,
+          "description": "Combines the inverted source bitmap with the destination bitmap."
+        },
+        {
+          "name": "vbNotSrcCopy",
+          "value": 3342344,
+          "description": "Copies the inverted source bitmap to the destination."
+        },
+        {
+          "name": "vbNotSrcErase",
+          "value": 1114278,
+          "description": "Inverts the result of combining the destination and source bitmaps."
+        },
+        {
+          "name": "vbSrcAnd",
+          "value": 8913094,
+          "description": "Combines pixels of the destination and source bitmaps."
+        },
+        {
+          "name": "vbSrcCopy",
+          "value": 13369376,
+          "description": "Copies the source bitmap to the destination bitmap."
+        },
+        {
+          "name": "vbSrcErase",
+          "value": 4457256,
+          "description": "Inverts the destination bitmap; combines the result with the source bitmap."
+        },
+        {
+          "name": "vbSrcInvert",
+          "value": 6684742,
+          "description": "Combines pixels of the destination and source bitmaps."
+        },
+        {
+          "name": "vbSrcPaint",
+          "value": 15597702,
+          "description": "Combines pixels of the destination and source bitmaps."
+        },
+        {
+          "name": "vbPatCopy",
+          "value": 15728673,
+          "description": "Copies the pattern to the destination bitmap."
+        },
+        {
+          "name": "vbPatPaint",
+          "value": 16452105,
+          "description": "Combines the destination bitmap with the pattern."
+        },
+        {
+          "name": "vbPatInvert",
+          "value": 5898313,
+          "description": "Combines the inverted source bitmap/pattern with a destination bitmap."
+        }
+      ]
+    },
+    {
+      "name": "CheckBoxConstants",
+      "description": "Checkbox Value property constants.",
+      "members": [
+        {
+          "name": "vbUnchecked",
+          "description": "Unchecked check value."
+        },
+        {
+          "name": "vbChecked",
+          "value": 1,
+          "description": "Checked check value."
+        },
+        {
+          "name": "vbGrayed",
+          "value": 2,
+          "description": "Grayed check value."
+        }
+      ]
+    },
+    {
+      "name": "LoadResConstants",
+      "description": "Constants for the LoadResData and LoadResPicture methods.",
+      "members": [
+        {
+          "name": "vbResBitmap",
+          "description": "Bitmap resource."
+        },
+        {
+          "name": "vbResIcon",
+          "value": 1,
+          "description": "Cursor resource."
+        },
+        {
+          "name": "vbResCursor",
+          "value": 2,
+          "description": "Cursor resource."
+        }
+      ]
+    },
+    {
+      "name": "ButtonConstants",
+      "description": "Button Constants (for CommandButton, CheckBox, and OptionButton).",
+      "members": [
+        {
+          "name": "vbButtonStandard",
+          "description": "Standard Windows appearance."
+        },
+        {
+          "name": "vbButtonGraphical",
+          "value": 1,
+          "description": "Graphical appearance (picture, text, and/or non-standard Backcolor)."
+        }
+      ]
+    },
+    {
+      "name": "ListBoxConstants",
+      "description": "ListBox Constants for the Style property.",
+      "members": [
+        {
+          "name": "vbListBoxStandard",
+          "description": "Standard Windows appearance."
+        },
+        {
+          "name": "vbListBoxCheckbox",
+          "value": 1,
+          "description": "Entries contain selectable checkboxes."
+        }
+      ]
+    },
+    {
+      "name": "ParentControlsType",
+      "description": "Constants for the ParentControlsType property.",
+      "members": [
+        {
+          "name": "vbNoExtender",
+          "description": "The ParentControls collection will return the control itself."
+        },
+        {
+          "name": "vbExtender",
+          "value": 1,
+          "description": "The ParentControls collection will return the extender for the control."
+        }
+      ]
+    },
+    {
+      "name": "LoadPictureSizeConstants",
+      "description": "Constants used for LoadPicture Size.",
+      "members": [
+        {
+          "name": "vbLPSmall",
+          "description": "System small icon"
+        },
+        {
+          "name": "vbLPLarge",
+          "value": 1,
+          "description": "System large icon"
+        },
+        {
+          "name": "vbLPSmallShell",
+          "value": 2,
+          "description": "Shell small icon"
+        },
+        {
+          "name": "vbLPLargeShell",
+          "value": 3,
+          "description": "Shell large icon"
+        },
+        {
+          "name": "vbLPCustom",
+          "value": 4,
+          "description": "Custom size"
+        }
+      ]
+    },
+    {
+      "name": "LoadPictureColorConstants",
+      "description": "Constants used for LoadPicture ColorDepth.",
+      "members": [
+        {
+          "name": "vbLPDefault",
+          "description": "System chooses best match"
+        },
+        {
+          "name": "vbLPMonochrome",
+          "value": 1,
+          "description": "2 colors"
+        },
+        {
+          "name": "vbLPVGAColor",
+          "value": 2,
+          "description": "16 colors"
+        },
+        {
+          "name": "vbLPColor",
+          "value": 3,
+          "description": "256 colors"
+        }
+      ]
+    },
+    {
+      "name": "HitResultConstants",
+      "description": "Constants used for HitResult parameter of HitTest event",
+      "members": [
+        {
+          "name": "vbHitResultOutside",
+          "description": "Outside the object."
+        },
+        {
+          "name": "vbHitResultTransparent",
+          "value": 1,
+          "description": "Within the bounds of the object, but on a transparent area."
+        },
+        {
+          "name": "vbHitResultClose",
+          "value": 2,
+          "description": "Not on the object, but close enough to be considered a hit."
+        },
+        {
+          "name": "vbHitResultHit",
+          "value": 3,
+          "description": "On the visible area of the object."
+        }
+      ]
+    },
+    {
+      "name": "LogModeConstants",
+      "description": "Constants for the App object\u0027s LogMode property",
+      "members": [
+        {
+          "name": "vbLogAuto",
+          "description": "Under Windows 95, messages are logged to the file in the LogPath property. Under Windows NT, messages are logged to the NT Application Event Log (using App.Title as the application source)."
+        },
+        {
+          "name": "vbLogOff",
+          "value": 1,
+          "description": "Turns all logging off."
+        },
+        {
+          "name": "vbLogToFile",
+          "value": 2,
+          "description": "Forces logging to the file specified by the LogPath property."
+        },
+        {
+          "name": "vbLogToNT",
+          "value": 3,
+          "description": "Forces logging to the NT event log if running on Windows NT, otherwise logging is ignored."
+        },
+        {
+          "name": "vbLogOverwrite",
+          "value": 16,
+          "description": "Indicates that the logfile should be recreated each time the application starts. This value can be combined with other mode options using the OR operator."
+        },
+        {
+          "name": "vbLogThreadID",
+          "value": 32,
+          "description": "Indicates that the current thread ID be prepended to the message. This value can be combined with other mode options using the OR operator."
+        }
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "PropertyBag_VB5",
+      "description": "VB5 version of PropertyBag interface.  Use this interface to maintain binary compatibility with VB5 projects that use this interface.",
+      "members": [
+        {
+          "name": "ReadProperty",
+          "type": "Variant",
+          "description": "Returns a persisted value from a PropertyBag class object.",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DefaultValue",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "WriteProperty",
+          "description": "Writes a value to be persisted to a PropertyBag class object.",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            },
+            {
+              "name": "DefaultValue",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PropertyBag",
+      "description": "A PropertyBag object holds information that is to be persisted across invocations of a control.",
+      "isCreatable": true,
+      "defaultInterface": "_PropertyBag",
+      "isDefaultInterfaceHidden": true,
+      "members": [
+        {
+          "name": "ReadProperty",
+          "type": "Variant",
+          "description": "Returns a persisted value from a PropertyBag class object.",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "DefaultValue",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "WriteProperty",
+          "description": "Writes a value to be persisted to a PropertyBag class object.",
+          "parameters": [
+            {
+              "name": "Name",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            },
+            {
+              "name": "DefaultValue",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Contents",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "description": "A byte array representing the contents of the PropertyBag"
+        },
+        {
+          "name": "Contents",
+          "kind": "propertyLet",
+          "description": "A byte array representing the contents of the PropertyBag",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DataObjectFiles",
+      "description": "The DataObjectFiles object is a collection of filenames used by the DataObject object (vbCFFiles format only).",
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0,
+          "description": "Returns a specific filename by index from the Files collection of a DataObject object (vbCFFiles format only).",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns the number of filenames in the Files collection of a DataObject object (vbCFFiles format only)"
+        },
+        {
+          "name": "Add",
+          "description": "Adds a filename to the Files collection of a DataObject object (vbCFFiles format only).",
+          "parameters": [
+            {
+              "name": "Filename",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "index",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "Clear",
+          "description": "Clears all filenames stored in the Files collection of a DataObject object (vbCFFiles format only)."
+        },
+        {
+          "name": "Remove",
+          "description": "Removes a filename from the Files collection of a DataObject object (vbCFFiles format only).",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "DataObject",
+      "description": "The DataObject object is used for specifying formats and data that will be supported for OLE drag and drop operations.",
+      "members": [
+        {
+          "name": "Clear",
+          "description": "Clears all data and formats in a DataObject object."
+        },
+        {
+          "name": "SetData",
+          "description": "Adds a supported format and possibly its data to a DataObject object.",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            },
+            {
+              "name": "Format",
+              "type": "Variant",
+              "isByVal": true,
+              "isOptional": true
+            }
+          ]
+        },
+        {
+          "name": "GetData",
+          "type": "Variant",
+          "description": "Retrieves data of a specified format from a DataObject object.",
+          "parameters": [
+            {
+              "name": "Format",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "GetFormat",
+          "type": "Boolean",
+          "description": "Determines if a specified clipboard format is supported by the DataObject object.",
+          "parameters": [
+            {
+              "name": "Format",
+              "type": "Integer",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Files",
+          "kind": "propertyGet",
+          "type": "DataObjectFiles",
+          "description": "A collection of filenames used by the vbCFFiles format."
+        }
+      ]
+    },
+    {
+      "name": "AmbientProperties",
+      "description": "The AmbientProperties object allows access to the ambient properties of the container.",
+      "members": [
+        {
+          "name": "BackColor",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "A color that contains the suggested interior color of the contained control."
+        },
+        {
+          "name": "DisplayName",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "A string containing the name that the control should display for itself."
+        },
+        {
+          "name": "Font",
+          "kind": "propertyGet",
+          "type": "stdole.StdFont",
+          "description": "Returns a Font object."
+        },
+        {
+          "name": "ForeColor",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "A color that contains the suggested foreground color of the contained control."
+        },
+        {
+          "name": "LocaleID",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns a long value that contains the Locale identification (language and country) of the user."
+        },
+        {
+          "name": "MessageReflect",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value stating whether the control container handles message reflection automatically."
+        },
+        {
+          "name": "ScaleUnits",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "Returns a string value that is the name of the coordinate units being used by the container."
+        },
+        {
+          "name": "TextAlign",
+          "kind": "propertyGet",
+          "type": "Integer",
+          "description": "Returns an enumerated value of type TextAlignChoices stating what kind of text alignment the container would like the control to do."
+        },
+        {
+          "name": "UserMode",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value indicating whether the control is being used by a form designer or a form user."
+        },
+        {
+          "name": "UIDead",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value indicating whether the control should be responsive to the user or not."
+        },
+        {
+          "name": "ShowGrabHandles",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value stating whether the control should show grab handles."
+        },
+        {
+          "name": "ShowHatching",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value stating whether the control should show hatching around the control."
+        },
+        {
+          "name": "DisplayAsDefault",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value to determine if the control is the default button for the container, and therefore should display itself as the default control."
+        },
+        {
+          "name": "SupportsMnemonics",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value stating whether the control\u2019s container handles access keys for the control."
+        },
+        {
+          "name": "Palette",
+          "kind": "propertyGet",
+          "type": "stdole.StdPicture",
+          "description": "Returns/sets an image that contains the palette to use for the control."
+        },
+        {
+          "name": "RightToLeft",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a boolean value indicating text display direction and control visual appearance on a bidirectional system."
+        }
+      ]
+    },
+    {
+      "name": "SelectedControls",
+      "description": "A collection object that can contain all the currently selected controls on an object.",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns the number of members in a collection."
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Object",
+          "dispId": 0,
+          "description": "Returns a specific member of a Collection object.",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "ParentControls",
+      "description": "A collection that allows access to the other controls in the control\u0027s container.",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns the number of members in a collection."
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Object",
+          "dispId": 0,
+          "description": "Returns a specific member of a collection.",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        },
+        {
+          "name": "ParentControlsType",
+          "kind": "propertyGet",
+          "type": "ParentControlsType",
+          "description": "Returns/sets whether the ParentControls collection returns the extender or the control itself."
+        },
+        {
+          "name": "ParentControlsType",
+          "kind": "propertyLet",
+          "description": "Returns/sets whether the ParentControls collection returns the extender or the control itself.",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "ParentControlsType",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ContainedControls",
+      "description": "A collection that allows access to the controls contained within the control that were added to the control by the developer who uses the control.",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns the number of members in a collection."
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Object",
+          "dispId": 0,
+          "description": "Returns a specific member of a collection.",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "DataBindings",
+      "description": "DataBindings is a collection of DataBinding objects.",
+      "members": [
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns the number of DataBinding objects in this collection."
+        },
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "Object",
+          "dispId": 0,
+          "description": "Returns a specific DataBinding object by index or PropertyName from this collection.",
+          "parameters": [
+            {
+              "name": "_Index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "DataBinding",
+      "description": "An object describing the attributes of the property a control is bound to.",
+      "members": [
+        {
+          "name": "PropertyName",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "Returns the name of the property this object refers to."
+        },
+        {
+          "name": "DataField",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0,
+          "description": "Returns/sets the column name used in binding this property to a recordsource."
+        },
+        {
+          "name": "DataField",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "description": "Returns/sets the column name used in binding this property to a recordsource.",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DataChanged",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns/sets a value indicating that data in this property has changed by some process other than by retrieving data from the current record."
+        },
+        {
+          "name": "DataChanged",
+          "kind": "propertyLet",
+          "description": "Returns/sets a value indicating that data in this property has changed by some process other than by retrieving data from the current record.",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Boolean",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DataSourceName",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "Returns the name of the data source control this property is bound to.",
+          "isHidden": true
+        },
+        {
+          "name": "DataSourceName",
+          "kind": "propertyLet",
+          "description": "Returns the name of the data source control this property is bound to.",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "IsDataSource",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a Boolean to indicate whether the property  is a data source"
+        },
+        {
+          "name": "IsBindable",
+          "kind": "propertyGet",
+          "type": "Boolean",
+          "description": "Returns a Boolean to indicate if the property is bindable"
+        },
+        {
+          "name": "DataMember",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "Returns/sets the name of the DataMember of the DataSource this property is bound to"
+        },
+        {
+          "name": "DataMember",
+          "kind": "propertyLet",
+          "description": "Returns/sets the name of the DataMember of the DataSource this property is bound to",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DataFormat",
+          "kind": "propertyGet",
+          "type": "StdFormat.IDataFormatDisp",
+          "description": "Returns/sets the DataFormat object for this property"
+        },
+        {
+          "name": "DataFormat",
+          "kind": "propertySet",
+          "description": "Returns/sets the DataFormat object for this property",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "StdFormat.IDataFormatDisp",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "DataSource",
+          "kind": "propertyGet",
+          "type": "MSDATASRC.DataSource",
+          "description": "Returns/sets the DataSource object for this property"
+        },
+        {
+          "name": "DataSource",
+          "kind": "propertySet",
+          "description": "Returns/sets the DataSource object for this property",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "MSDATASRC.DataSource",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "EventParameter",
+      "description": "An object describing a single parameter of an event",
+      "members": [
+        {
+          "name": "Value",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "dispId": 0,
+          "description": "The value of the event parameter"
+        },
+        {
+          "name": "Value",
+          "kind": "propertyLet",
+          "dispId": 0,
+          "description": "The value of the event parameter",
+          "parameters": [
+            {
+              "name": "Value",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "The name of the event parameter"
+        }
+      ]
+    },
+    {
+      "name": "EventParameters",
+      "description": "A collection of EventParameter objects",
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "EventParameter",
+          "dispId": 0,
+          "description": "Returns a specific EventParameter by index or by name",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "The number of EventParameters in the collection"
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "EventInfo",
+      "description": "An object describing an event",
+      "members": [
+        {
+          "name": "Name",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0,
+          "description": "The name of the event"
+        },
+        {
+          "name": "EventParameters",
+          "kind": "propertyGet",
+          "type": "EventParameters",
+          "description": "The collection of parameters to the event"
+        }
+      ]
+    },
+    {
+      "name": "Hyperlink",
+      "description": "The Hyperlink object allows browser navigation in a suitable host",
+      "members": [
+        {
+          "name": "GoForward",
+          "description": "Execute a hyperlink jump forward in the history list."
+        },
+        {
+          "name": "GoBack",
+          "description": "Execute a hyperlink jump back in the history list."
+        },
+        {
+          "name": "NavigateTo",
+          "description": "Execute a hyperlink jump to the specified target.",
+          "parameters": [
+            {
+              "name": "Target",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "Location",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            },
+            {
+              "name": "FrameName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AsyncProperty_VB5",
+      "description": "VB5 version of the AsyncProperty interface.  Use this interface to maintain binary compatibility with VB5 projects that use this interface.",
+      "members": [
+        {
+          "name": "Value",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "description": "A Variant containing the results of the asychronous read.  This is the default property of the AsyncProperty object."
+        },
+        {
+          "name": "AsyncType",
+          "kind": "propertyGet",
+          "type": "AsyncTypeConstants",
+          "description": "An enumeration specifying the type of the data in the Value property."
+        },
+        {
+          "name": "PropertyName",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "A string containing the property name that was passed in the AsyncRead method."
+        }
+      ]
+    },
+    {
+      "name": "AsyncProperty",
+      "description": "The AsyncProperty object is passed in to the AsyncReadComplete and AsyncReadProgress events, and contains the results of the asynchronous read.",
+      "members": [
+        {
+          "name": "Value",
+          "kind": "propertyGet",
+          "type": "Variant",
+          "description": "A Variant containing the results of the asychronous read.  This is the default property of the AsyncProperty object."
+        },
+        {
+          "name": "AsyncType",
+          "kind": "propertyGet",
+          "type": "AsyncTypeConstants",
+          "description": "An enumeration specifying the type of the data in the Value property."
+        },
+        {
+          "name": "PropertyName",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "A string containing the property name that was passed in the AsyncRead method."
+        },
+        {
+          "name": "Target",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "The Target parameter that was passed to AsyncRead."
+        },
+        {
+          "name": "BytesRead",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "The total number of bytes that have been read."
+        },
+        {
+          "name": "BytesMax",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "The estimated maximum number of bytes to be read."
+        },
+        {
+          "name": "Status",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "Protocol specific status information about the AsyncRead."
+        },
+        {
+          "name": "StatusCode",
+          "kind": "propertyGet",
+          "type": "AsyncStatusCodeConstants",
+          "description": "An enumeration specifying the current status of the AsyncRead."
+        }
+      ]
+    },
+    {
+      "name": "DataMembers",
+      "description": "A collection of data members to show at design time for this data source.",
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0,
+          "description": "Returns a specific data member by index from the DataMembers collection.",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns the number of data members in the DataMembers collection."
+        },
+        {
+          "name": "Add",
+          "description": "Adds a data member string to the DataMembers collection.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Clear",
+          "description": "Removes all data member strings from the DataMembers collection."
+        },
+        {
+          "name": "Remove",
+          "description": "Removes a data member string from the DataMembers collection.",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "IClassModuleEvt",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Initialize",
+          "description": "Occurs when an application creates an instance of a Class."
+        },
+        {
+          "name": "Terminate",
+          "description": "Occurs when an instance of a Class is removed from memory by setting all the variables that refer to the object to Nothing or when the last reference to the object falls out of scope."
+        }
+      ]
+    },
+    {
+      "name": "IDataSourceClassEvt",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Initialize",
+          "description": "Occurs when an application creates an instance of a Class."
+        },
+        {
+          "name": "Terminate",
+          "description": "Occurs when an instance of a Class is removed from memory by setting all the variables that refer to the object to Nothing or when the last reference to the object falls out of scope."
+        },
+        {
+          "name": "GetDataMember",
+          "dispId": 0,
+          "description": "Occurs when a data consumer requests a data member from the Class.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String"
+            },
+            {
+              "name": "Data",
+              "type": "Object"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IPersistableClassEvt",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Initialize",
+          "description": "Occurs when an application creates an instance of a Class."
+        },
+        {
+          "name": "Terminate",
+          "description": "Occurs when an instance of a Class is removed from memory by setting all the variables that refer to the object to Nothing or when the last reference to the object falls out of scope."
+        },
+        {
+          "name": "InitProperties"
+        },
+        {
+          "name": "ReadProperties",
+          "parameters": [
+            {
+              "name": "PropBag",
+              "type": "PropertyBag"
+            }
+          ]
+        },
+        {
+          "name": "WriteProperties",
+          "parameters": [
+            {
+              "name": "PropBag",
+              "type": "PropertyBag"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IPersistableDataSourceClassEvt",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Initialize",
+          "description": "Occurs when an application creates an instance of a Class."
+        },
+        {
+          "name": "Terminate",
+          "description": "Occurs when an instance of a Class is removed from memory by setting all the variables that refer to the object to Nothing or when the last reference to the object falls out of scope."
+        },
+        {
+          "name": "GetDataMember",
+          "dispId": 0,
+          "description": "Occurs when a data consumer requests a data member from the Class.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String"
+            },
+            {
+              "name": "Data",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "InitProperties"
+        },
+        {
+          "name": "ReadProperties",
+          "parameters": [
+            {
+              "name": "PropBag",
+              "type": "PropertyBag"
+            }
+          ]
+        },
+        {
+          "name": "WriteProperties",
+          "parameters": [
+            {
+              "name": "PropBag",
+              "type": "PropertyBag"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IDataProviderClassEvt",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Initialize",
+          "description": "Occurs when an application creates an instance of a Class."
+        },
+        {
+          "name": "Terminate",
+          "description": "Occurs when an instance of a Class is removed from memory by setting all the variables that refer to the object to Nothing or when the last reference to the object falls out of scope."
+        },
+        {
+          "name": "GetDataMember",
+          "dispId": 0,
+          "description": "Occurs when a data consumer requests a data member from the Class.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String"
+            },
+            {
+              "name": "Data",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "DataConnection",
+          "description": "Occurs when a data consumer requests a data member from the Class.",
+          "parameters": [
+            {
+              "name": "ConnectionString",
+              "type": "String"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IPersistableDataProviderClassEvt",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "Initialize",
+          "description": "Occurs when an application creates an instance of a Class."
+        },
+        {
+          "name": "Terminate",
+          "description": "Occurs when an instance of a Class is removed from memory by setting all the variables that refer to the object to Nothing or when the last reference to the object falls out of scope."
+        },
+        {
+          "name": "GetDataMember",
+          "dispId": 0,
+          "description": "Occurs when a data consumer requests a data member from the Class.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String"
+            },
+            {
+              "name": "Data",
+              "type": "Object"
+            }
+          ]
+        },
+        {
+          "name": "DataConnection",
+          "description": "Occurs when a data consumer requests a data member from the Class.",
+          "parameters": [
+            {
+              "name": "ConnectionString",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "InitProperties"
+        },
+        {
+          "name": "ReadProperties",
+          "parameters": [
+            {
+              "name": "PropBag",
+              "type": "PropertyBag"
+            }
+          ]
+        },
+        {
+          "name": "WriteProperties",
+          "parameters": [
+            {
+              "name": "PropBag",
+              "type": "PropertyBag"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "_DClass",
+      "isHidden": true
+    },
+    {
+      "name": "_DDataBoundClass",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "PropertyChanged",
+          "description": "Notifies data binding agents that a property on a Class has been changed.",
+          "parameters": [
+            {
+              "name": "PropertyName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "CanPropertyChange",
+          "type": "Boolean",
+          "description": "Asks data binding agents if a property bound to a data source can be changed.",
+          "parameters": [
+            {
+              "name": "PropertyName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "_DDataSourceClass",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "DataMemberChanged",
+          "description": "Notifies data consumers that a data member of the Class has changed.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "DataMembers",
+          "kind": "propertyGet",
+          "type": "DataMembers",
+          "description": "Returns a collection of data members to show at design time for this data source."
+        }
+      ]
+    },
+    {
+      "name": "_DDataBoundAndDataSourceClass",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "PropertyChanged",
+          "description": "Notifies data binding agents that a property on a Class has been changed.",
+          "parameters": [
+            {
+              "name": "PropertyName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "CanPropertyChange",
+          "type": "Boolean",
+          "description": "Asks data binding agents if a property bound to a data source can be changed.",
+          "parameters": [
+            {
+              "name": "PropertyName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "DataMemberChanged",
+          "description": "Notifies data consumers that a data member of the Class has changed.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "DataMembers",
+          "kind": "propertyGet",
+          "type": "DataMembers",
+          "description": "Returns a collection of data members to show at design time for this data source."
+        }
+      ]
+    },
+    {
+      "name": "_DPersistableClass",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "PropertyChanged",
+          "description": "Notifies data binding agents that a property on a Class has been changed.",
+          "parameters": [
+            {
+              "name": "PropertyName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "_DPersistableDataSourceClass",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "PropertyChanged",
+          "description": "Notifies data binding agents that a property on a Class has been changed.",
+          "parameters": [
+            {
+              "name": "PropertyName",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "DataMemberChanged",
+          "description": "Notifies data consumers that a data member of the Class has changed.",
+          "parameters": [
+            {
+              "name": "DataMember",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "DataMembers",
+          "kind": "propertyGet",
+          "type": "DataMembers",
+          "description": "Returns a collection of data members to show at design time for this data source."
+        }
+      ]
+    },
+    {
+      "name": "LicenseInfo",
+      "description": "An object returned by the Licenses collection that contains license information for a control.",
+      "members": [
+        {
+          "name": "ProgId",
+          "kind": "propertyGet",
+          "type": "String",
+          "dispId": 0,
+          "description": "The ProgId for the control."
+        },
+        {
+          "name": "LicenseKey",
+          "kind": "propertyGet",
+          "type": "String",
+          "description": "The license key for the control specified by the ProgId property of this object."
+        }
+      ]
+    },
+    {
+      "name": "Licenses",
+      "description": "A collection of LicenseInfo objects for use with Controls.Add.",
+      "members": [
+        {
+          "name": "Item",
+          "kind": "propertyGet",
+          "type": "LicenseInfo",
+          "dispId": 0,
+          "description": "Returns a specific LicenseInfo object by index from the Licenses collection.",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "Count",
+          "kind": "propertyGet",
+          "type": "Long",
+          "description": "Returns the number of LicenseInfo objects in the Licenses collection."
+        },
+        {
+          "name": "Add",
+          "type": "String",
+          "description": "Creates a LicenseInfo object and adds it to the Licenses collection.",
+          "parameters": [
+            {
+              "name": "ProgId",
+              "type": "String",
+              "isByVal": true
+            },
+            {
+              "name": "LicenseKey",
+              "type": "String",
+              "isByVal": true,
+              "isOptional": true,
+              "defaultValue": "\u0022\u0022"
+            }
+          ]
+        },
+        {
+          "name": "Clear",
+          "description": "Removes all LicenseInfo objects from the Licenses collection."
+        },
+        {
+          "name": "Remove",
+          "description": "Removes a LicenseInfo object from the Licenses collection.",
+          "parameters": [
+            {
+              "name": "index",
+              "type": "Variant",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "_NewEnum",
+          "type": "Object",
+          "dispId": -4,
+          "isHidden": true
+        }
+      ]
+    },
+    {
+      "name": "IProjectControl",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "RetainProject",
+          "dispId": 0,
+          "description": "Retain the project data structures on the threads."
+        },
+        {
+          "name": "UnloadProject",
+          "description": "Allow the project data structures to be unloaded from threads."
+        },
+        {
+          "name": "IsRetained",
+          "type": "Boolean",
+          "description": "Run time project retention is active"
+        },
+        {
+          "name": "IsPermanent",
+          "type": "Boolean",
+          "description": "Design time project retention is active"
+        }
+      ]
+    },
+    {
+      "name": "IVbeRuntimeHost",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "get_AppObject",
+          "parameters": [
+            {
+              "name": "pguidTypeInfo",
+              "type": "stdole.GUID"
+            },
+            {
+              "name": "ppdispAppObject",
+              "type": "Object"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

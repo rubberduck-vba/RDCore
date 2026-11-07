@@ -115,7 +115,7 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             {
                 Guid = attributes.guid.ToString("B").ToUpperInvariant(),
                 Version = $"{attributes.wMajorVerNum}.{attributes.wMinorVerNum}",
-                File = loaded.File is null ? null : Path.GetFileName(loaded.File),
+                File = loaded.File is null ? null : TypeLibraryLocator.FileNameOf(loaded.File),
                 ExportedBy = exportedBy,
             },
             DependsOn = [.. _dependencies.Keys.Order(StringComparer.OrdinalIgnoreCase)],
@@ -217,9 +217,15 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
         {
             info.GetFuncDesc(i, out var pointer);
             MemberDescription? member;
+            var function = Marshal.PtrToStructure<FUNCDESC>(pointer);
             try
             {
-                member = Member(loaded, info, Marshal.PtrToStructure<FUNCDESC>(pointer));
+                member = Member(loaded, info, function);
+            }
+            catch (COMException exception) when (exception.HResult == CannotLoadLibrary)
+            {
+                member = null;
+                SkipMemberOfAMissingLibrary(info, function.memid);
             }
             finally
             {
@@ -246,7 +252,18 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
                 info.ReleaseVarDesc(pointer);
             }
 
-            foreach (var property in DispatchProperty(loaded, info, variable))
+            List<MemberDescription> properties;
+            try
+            {
+                properties = [.. DispatchProperty(loaded, info, variable)];
+            }
+            catch (COMException exception) when (exception.HResult == CannotLoadLibrary)
+            {
+                properties = [];
+                SkipMemberOfAMissingLibrary(info, variable.memid);
+            }
+
+            foreach (var property in properties)
             {
                 yield return property;
             }
@@ -262,6 +279,15 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             }
         }
     }
+
+    // TYPE_E_CANTLOADLIBRARY: a type is declared by a library the machine does not have.
+    private const int CannotLoadLibrary = unchecked((int)0x80029C4A);
+
+    // a member or an event of a type of a library the machine does not have is not described: what that type is - an object or not - is the other library's
+    // to say, and it is said once among what was not described (VBRUN's DataBinding.DataFormat is of MSSTDFMT.DLL, which not every machine has).
+    private void SkipMemberOfAMissingLibrary(ITypeInfo info, int memberId) => Skip("member", info, memberId);
+
+    private void Skip(string what, ITypeInfo info, int memberId) => _skipped.Add($"{what} {Name(info)}.{NameOf(info, memberId)}");
 
     private IEnumerable<MemberDescription> DispatchProperty(LoadedTypeLibrary loaded, ITypeInfo info, VARDESC variable)
     {
@@ -375,43 +401,53 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
     private static ImmutableArray<MemberDescription> Ordered(IEnumerable<MemberDescription> members)
         => [.. members.GroupBy(member => member.Name, StringComparer.OrdinalIgnoreCase).SelectMany(group => group.OrderBy(member => member.Kind))];
 
-    private IEnumerable<EventDescription> EventsOf(LoadedTypeLibrary loaded, ITypeInfo source)
+    private List<EventDescription> EventsOf(LoadedTypeLibrary loaded, ITypeInfo source)
     {
         var attr = Attr(source);
+        var events = new List<EventDescription>();
         for (var i = 0; i < attr.cFuncs; i++)
         {
             source.GetFuncDesc(i, out var pointer);
+            var function = Marshal.PtrToStructure<FUNCDESC>(pointer);
             try
             {
-                var function = Marshal.PtrToStructure<FUNCDESC>(pointer);
-                if (((FUNCFLAGS)function.wFuncFlags).HasFlag(FUNCFLAGS.FUNCFLAG_FRESTRICTED))
+                if (!((FUNCFLAGS)function.wFuncFlags).HasFlag(FUNCFLAGS.FUNCFLAG_FRESTRICTED))
                 {
-                    continue;
+                    events.Add(Event(source, function));
                 }
-
-                var names = new string[function.cParams + 1];
-                source.GetNames(function.memid, names, names.Length, out var count);
-                var parameters = new List<ParameterDescription>();
-                var size = Marshal.SizeOf<ELEMDESC>();
-                for (var p = 0; p < function.cParams; p++)
-                {
-                    var element = Marshal.PtrToStructure<ELEMDESC>(IntPtr.Add(function.lprgelemdescParam, p * size));
-                    var type = ParameterType(element.tdesc, source, out var byRef);
-                    parameters.Add(new ParameterDescription
-                    {
-                        Name = p + 1 < count && !string.IsNullOrWhiteSpace(names[p + 1]) ? names[p + 1] : $"arg{p + 1}",
-                        Type = type,
-                        IsByVal = !byRef,
-                    });
-                }
-
-                yield return new EventDescription { Name = names[0], Description = Doc(source, function.memid), Parameters = [.. parameters] };
+            }
+            catch (COMException exception) when (exception.HResult == CannotLoadLibrary)
+            {
+                Skip("event", source, function.memid);
             }
             finally
             {
                 source.ReleaseFuncDesc(pointer);
             }
         }
+
+        return events;
+    }
+
+    private EventDescription Event(ITypeInfo source, FUNCDESC function)
+    {
+        var names = new string[function.cParams + 1];
+        source.GetNames(function.memid, names, names.Length, out var count);
+        var parameters = new List<ParameterDescription>();
+        var size = Marshal.SizeOf<ELEMDESC>();
+        for (var p = 0; p < function.cParams; p++)
+        {
+            var element = Marshal.PtrToStructure<ELEMDESC>(IntPtr.Add(function.lprgelemdescParam, p * size));
+            var type = ParameterType(element.tdesc, source, out var byRef);
+            parameters.Add(new ParameterDescription
+            {
+                Name = p + 1 < count && !string.IsNullOrWhiteSpace(names[p + 1]) ? names[p + 1] : $"arg{p + 1}",
+                Type = type,
+                IsByVal = !byRef,
+            });
+        }
+
+        return new EventDescription { Name = names[0], Description = Doc(source, function.memid), Parameters = [.. parameters] };
     }
 
     // ---- types ----

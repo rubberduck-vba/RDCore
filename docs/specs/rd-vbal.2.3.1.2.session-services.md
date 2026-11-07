@@ -39,7 +39,9 @@ For object values and their lifetime, see
 `IRuntimeSession.References` is the workspace's project and library references, as an ordered
 `IReadOnlyList<ReferencePriorityInfo>`. It is the runtime-facing view of the `.rdproj` _RDCoreReference_ list
 ([**RD-VBAL §2.2.3.2** RDCoreReference](rd-vbal.2.2.3.projectfile.md)), after the standard library (`VBA`, rank `0`): every project has it, and
-no `.rdproj` lists it ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)).
+no `.rdproj` lists it ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)). The
+libraries every project of its language has come after the standard library and before the listed references, in the
+order the language gives them: `VBRUN` for a VB6 project, and none for RD-VBA.
 
 Each [ReferencePriorityInfo](../api/RDCore.SDK.Model.Symbols.ReferencePriorityInfo.html) entry carries only:
 

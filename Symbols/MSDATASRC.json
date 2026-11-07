@@ -1,0 +1,96 @@
+{
+  "formatVersion": 1,
+  "name": "MSDATASRC",
+  "description": "Microsoft Data Source Interfaces for ActiveX Data Binding Type Library",
+  "origin": {
+    "guid": "{7C0FFAB0-CD84-11D0-949A-00A0C91110ED}",
+    "version": "1.0",
+    "file": "msdatsrc.tlb",
+    "exportedBy": "rdc export-library 0.1"
+  },
+  "classes": [
+    {
+      "name": "DataSourceListener",
+      "isHidden": true,
+      "members": [
+        {
+          "name": "dataMemberChanged",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "bstrDM",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "dataMemberAdded",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "bstrDM",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "dataMemberRemoved",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "bstrDM",
+              "type": "String",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DataSource",
+      "members": [
+        {
+          "name": "getDataMemberName",
+          "type": "String",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "lIndex",
+              "type": "Long",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "getDataMemberCount",
+          "type": "Long",
+          "isHidden": true
+        },
+        {
+          "name": "addDataSourceListener",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "pDSL",
+              "type": "DataSourceListener",
+              "isByVal": true
+            }
+          ]
+        },
+        {
+          "name": "removeDataSourceListener",
+          "isHidden": true,
+          "parameters": [
+            {
+              "name": "pDSL",
+              "type": "DataSourceListener",
+              "isByVal": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
