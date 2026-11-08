@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Semantics.Binding;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.Runtime.LanguageCore.Plans;
 
 namespace RDCore.Runtime.Execution.Frames;
 

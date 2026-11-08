@@ -12,10 +12,11 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Binding;
-using RDCore.SDK.Semantics.Plans;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.Runtime.LanguageCore.Plans;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Services;
 
 namespace RDCore.Tests.Semantics.Binding;
 
