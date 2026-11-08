@@ -472,8 +472,11 @@ public sealed partial class CompiledActivation : ILightActivation
         for (var i = 0; i < called.Parameters.Count; i++)
         {
             var parameter = parameters[i + 1];
+            // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject).
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
-                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i])
+                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
+                || called.Parameters[i] is null
+                    && (i >= called.ObjectParameters.Count || called.ObjectParameters[i] is not { } passed || !passed.Type.Equals(parameter.ResolvedType)))
             {
                 return false;
             }

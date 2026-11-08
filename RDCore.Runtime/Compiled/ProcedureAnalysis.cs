@@ -794,8 +794,24 @@ internal sealed partial class ProcedureAnalysis
         var byReference = new List<bool>(parameters.Length);
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
+        ObjectParameter?[]? objects = null;
         for (var i = 0; i < parameters.Length; i++)
         {
+            // an object, given the object a variable holds, Me or Nothing, or the address of an object variable of the activation.
+            if (parameters[i] is not ParamArrayParameterSymbol && IsObjectType(parameters[i].ResolvedType))
+            {
+                if (ObjectArgumentOf(arguments[i]) is not { } passed)
+                {
+                    return null;
+                }
+
+                (objects ??= new ObjectParameter?[parameters.Length])[i] = new ObjectParameter(arguments[i].Expression!, parameters[i].ResolvedType);
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(passed);
+                continue;
+            }
+
             // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
             if (parameters[i] is not ParamArrayParameterSymbol && site is null && IsText(parameters[i].ResolvedType))
             {
@@ -826,7 +842,7 @@ internal sealed partial class ProcedureAnalysis
 
         // the variables passed by reference are held in cells from the start of the activation, which the call is made with.
         _cellSlots.UnionWith(escaping);
-        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference) { Site = site });
+        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference) { Site = site, ObjectParameters = objects ?? [] });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
 
