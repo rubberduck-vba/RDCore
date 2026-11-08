@@ -28,7 +28,7 @@ namespace RDCore.SDK.Semantics.Flow;
 /// The definitions are those of the statements, not what their text looks like: an assignment, the control variable of a loop, <c>ReDim</c>, <c>Erase</c>, a
 /// <c>Mid</c> statement, <c>Input #</c>, <c>Line Input #</c>, <c>Get #</c>, and <em>every argument a procedure may take by reference</em>, since the procedure may write
 /// to it (<see cref="ValueExpressionSemanticFlags.PassedAsArgument"/>: an argument written <c>ByVal</c>, or in parentheses, is evaluated and passed by value, and is
-/// none). A write to a part of a variable - an element, a member of a <c>Type</c> - is a definition that leaves the rest of its value as it was
+/// none). A write to a part of a variable (an element, a member of a <c>Type</c>) is a definition that leaves the rest of its value as it was
 /// (<see cref="VariableDefinition.IsComplete"/>); a member of an object is the object's to write, and a read of the variable that holds it.
 /// </para>
 /// <para>

@@ -16,8 +16,8 @@ namespace RDCore.SDK.Semantics.Flow;
 /// </summary>
 /// <remarks>
 /// <para>
-/// An assignment of a literal to a variable of an intrinsic type, where the literal is let-coerced to the type without an error - <c>F = 1</c>, <c>s = "x"</c>,
-/// <c>b = True</c> - runs no code and overflows nothing: under <c>On Error Resume Next</c> it always completes. Nothing else is told of: an expression that is not a
+/// An assignment of a literal to a variable of an intrinsic type, where the literal is let-coerced to the type without an error (<c>F = 1</c>, <c>s = "x"</c>,
+/// <c>b = True</c>), runs no code and overflows nothing: under <c>On Error Resume Next</c> it always completes. Nothing else is told of: an expression that is not a
 /// literal, a <c>Set</c>, a target that is a property or an element, and a literal the type may not hold (<c>b = 300</c> to a <c>Byte</c>, <c>n = "1"</c> to a
 /// number) can raise, as far as is known.
 /// </para>
