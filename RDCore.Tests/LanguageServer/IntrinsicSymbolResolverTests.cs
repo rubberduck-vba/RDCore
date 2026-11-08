@@ -2,6 +2,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Symbols;
 
@@ -39,14 +40,8 @@ public sealed class IntrinsicSymbolResolverTests
         // a reserved data-type name is a keyword, not a name a simple name expression can bind (MS-VBAL 5.6.16.7).
         => Assert.IsTrue(_sut.ResolveValue("Long", ScopeKind.Global, Handle).IsUnbound);
 
+    // it resolves type names, and holds no run-time bindings: it is no storage to read one from.
     [TestMethod]
-    public void GetValue_Throws()
-        => Assert.ThrowsExactly<NotSupportedException>(() => _sut.GetValue(new StaticSymbol("x", SymbolKindExt.Ignored, VBUnknownType.TypeInfo)));
-
-    [TestMethod]
-    public void TryRead_ReturnsFalse()
-    {
-        Assert.IsFalse(_sut.TryRead(new MemoryAddress(0), out var value));
-        Assert.IsNull(value);
-    }
+    public void ItBindsNamesOnly_AndHoldsNoStorage()
+        => Assert.IsNotInstanceOfType<ISymbolStorage>(_sut);
 }

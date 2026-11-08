@@ -1036,7 +1036,7 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
         }
     }
 
-    public ISymbolResolver Resolver => Bindings;
+    public IRuntimeSymbolResolver Resolver => Bindings;
 
     public bool TryGetModule(string moduleName, [NotNullWhen(true)] out VBModuleSymbol? module) => table.TryGetModule(moduleName, out module);
 

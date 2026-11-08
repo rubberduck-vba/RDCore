@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Tests.Model.Symbols;
@@ -1072,16 +1073,8 @@ public sealed class ScopeTreeSymbolResolverTests
     }
 
     [TestMethod]
-    public void GetValue_Throws_ItBindsNamesOnly()
-        => Assert.ThrowsExactly<NotSupportedException>(
-            () => Resolver(Module("Mod1")).GetValue(GlobalSymbols.UnresolvedSymbol));
-
-    [TestMethod]
-    public void TryRead_ReturnsFalse_ItHoldsNoRuntimeBindings()
-    {
-        Assert.IsFalse(Resolver(Module("Mod1")).TryRead(new MemoryAddress(0), out var value));
-        Assert.IsNull(value);
-    }
+    public void ItBindsNamesOnly_AndHoldsNoRuntimeBindings()
+        => Assert.IsNotInstanceOfType<ISymbolStorage>(Resolver(Module("Mod1")));
 
     // MS-VBAL §5.3.1: a Function declares a local of its own name, its result variable; a Property Get returns its value the same way.
     [TestMethod]

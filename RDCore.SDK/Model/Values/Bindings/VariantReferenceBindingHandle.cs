@@ -46,10 +46,10 @@ public sealed record class VariantReferenceBindingHandle(IBindingHandle Variable
     public bool IsKnown => Variable is not IKnowledgeBinding { IsKnown: false };
 
     /// <inheritdoc/>
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => Value;
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver) => Value;
 
     /// <inheritdoc/>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => Variable.SetValue(resolver, ValueOfTheVariable(value));
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value) => Variable.SetValue(resolver, ValueOfTheVariable(value));
 
     /// <inheritdoc/>
     public void Store(IRuntimeValue value, bool isKnown)
@@ -73,7 +73,7 @@ public sealed record class VariantReferenceBindingHandle(IBindingHandle Variable
     }
 
     /// <inheritdoc/>
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
 
     // what the variable holds: the value, coerced to its declared type by whatever assigns the element (DeclaredTypeOf) - or a Variant holding a value of
     // that type, which is the same value. A Variant holding a value of another type was not coerced, and the variable cannot hold it.

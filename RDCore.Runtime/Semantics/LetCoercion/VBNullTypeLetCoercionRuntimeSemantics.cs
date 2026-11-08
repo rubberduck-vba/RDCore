@@ -19,7 +19,7 @@ public record class VBNullTypeLetCoercionRuntimeSemantics(
     : LetCoercionRuntimeSemantics<VBNullType>(FormatterService)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
@@ -35,7 +35,7 @@ public record class VBNullTypeLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {

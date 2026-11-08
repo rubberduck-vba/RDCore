@@ -75,8 +75,8 @@ public sealed class CompositeSymbolResolverTests
         first.DidNotReceive().ResolveType(Arg.Any<string>(), Arg.Any<ScopeKind>(), Arg.Any<Uri>());
     }
 
+    // a compile-time composite: it binds names, and holds no run-time bindings.
     [TestMethod]
-    public void GetValue_Throws()
-        => Assert.ThrowsExactly<NotSupportedException>(
-            () => new CompositeSymbolResolver().GetValue(ASymbol));
+    public void ItBindsNamesOnly_AndHoldsNoStorage()
+        => Assert.IsNotInstanceOfType<ISymbolStorage>(new CompositeSymbolResolver());
 }

@@ -79,7 +79,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
     // guard (keyed on NodeId+SourceValue+DestinationTypeDesc) catches a cyclic default-member chain
     // (e.g. an object whose default member returns itself) as OutOfStackSpace.
     private LetCoercionResult GetObjectSimpleDataValue(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame,
         VBObjectValue value)
@@ -146,7 +146,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
             FormatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose, expression, [frame]));
 
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
         => frame.SourceValue switch
@@ -170,7 +170,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) => builder; // TODO
 }

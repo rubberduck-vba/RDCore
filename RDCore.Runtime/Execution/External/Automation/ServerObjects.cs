@@ -48,7 +48,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// An object whose class no referenced library declares is a late-bound one, whose members are reached by name (<see cref="LateBinding"/>): what
     /// <c>CreateObject</c> gives for a class the project does not reference, and what a member of one returns.
     /// </remarks>
-    public VBTypedValue Wrap(object value, VBType declared, ISymbolResolver resolver)
+    public VBTypedValue Wrap(object value, VBType declared, IRuntimeSymbolResolver resolver)
     {
         // an object of the session the server held is the session's object again: `d("key") Is w`.
         if (value is ISessionObjectStandIn standIn && SessionObjectHost.Of(session).TryFind(standIn, out var own))
@@ -72,7 +72,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// <summary>
     /// The object the language holds for an enumerator a server returned: one of the standard library's <c>IEnumVARIANT</c>.
     /// </summary>
-    public VBTypedValue WrapEnumerator(object enumerator, ISymbolResolver resolver)
+    public VBTypedValue WrapEnumerator(object enumerator, IRuntimeSymbolResolver resolver)
     {
         var classModule = Current(resolver, StdLibSymbolProvider.LibraryName, "IEnumVARIANT")
             ?? throw new AutomationException(unchecked((int)0x80020005), "The standard library has no enumerator to enumerate with.");
@@ -101,7 +101,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
 
     // The class an object is an instance of: the one its member declares to return, as the project has it now, or - for a member that is declared to return an
     // Object, as `ActiveSheet` is - the one the server says it is, which is how late binding finds the members.
-    private VBClassModuleSymbol? ClassOf(object value, VBType declared, ISymbolResolver resolver)
+    private VBClassModuleSymbol? ClassOf(object value, VBType declared, IRuntimeSymbolResolver resolver)
     {
         if (declared is VBClassType { Symbol: { } named })
         {
@@ -138,7 +138,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     }
 
     // the class the server says the object is, among the classes the project's libraries declare.
-    private VBClassModuleSymbol? ServerClassOf(object value, ISymbolResolver resolver)
+    private VBClassModuleSymbol? ServerClassOf(object value, IRuntimeSymbolResolver resolver)
     {
         if (ClassNameOf(value) is not { Length: > 0 } qualified)
         {
@@ -183,6 +183,6 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// <summary>
     /// The class of a library by its name, as the project has it now.
     /// </summary>
-    public static VBClassModuleSymbol? Current(ISymbolResolver resolver, string? library, string name)
+    public static VBClassModuleSymbol? Current(IRuntimeSymbolResolver resolver, string? library, string name)
         => VBProjectSymbol.ResolveQualifiedType(resolver, library, name, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol;
 }

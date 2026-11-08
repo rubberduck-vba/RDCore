@@ -28,7 +28,7 @@ where TContext : SemanticContext<TFlags>, new()
 where TFlags : struct, Enum
 {
     protected sealed override ISemanticContextContributor<TContext, TFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<TContext, TFlags> builder,
         ExpressionNode expression,
@@ -50,7 +50,7 @@ where TFlags : struct, Enum
         DetermineOperatorEffectiveTypeResult context) => builder;
 
     public sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         TContext context, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
@@ -67,7 +67,7 @@ where TFlags : struct, Enum
     /// <param name="expression">The <c>VBUnaryOperatorExpression</c> to be evaluated.</param>
     /// <param name="frame">The current evaluation frame for this operation.</param>
     protected abstract DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
@@ -82,6 +82,6 @@ where TFlags : struct, Enum
     /// This implementation satifies the specifiations of every defined unary operator with regards to <c>VBNullValue</c> operands.
     /// </remarks>
     /// <returns>An evaluation result containing the value <c>VBNullValue.Null</c>.</returns>
-    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(ISymbolResolver resolver, ExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
+    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(IRuntimeSymbolResolver resolver, ExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
         RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
 }

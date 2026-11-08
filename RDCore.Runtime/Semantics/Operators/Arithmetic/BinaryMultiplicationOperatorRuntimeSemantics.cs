@@ -30,7 +30,7 @@ public record class BinaryMultiplicationOperatorRuntimeSemantics(
     protected override string Operator => Tokens.MultiplicationOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch
