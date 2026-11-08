@@ -93,6 +93,10 @@ public interface IEnvironmentSessionProvider
     /// Composes the session from a loaded project's module structure and precompiler constants.
     /// Replaces any previously composed session.
     /// </summary>
+    /// <remarks>
+    /// The current directory of the session is then the workspace root (RD-VBAL §6.1.2.5), at start-up and after a reload alike; a root that is the shell's
+    /// scratch workspace (<see cref="App.Repl.ReplWorkspace.IsScratch"/>), or that is not there, leaves it where it was.
+    /// </remarks>
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
     IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot);
@@ -220,6 +224,7 @@ public sealed class EnvironmentSessionProvider(
         }
 
         ModuleCount = project.Modules.Length;
+        EnterWorkspaceRoot(workspaceRoot);
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
         // makes no such call, and nothing is started for it.
@@ -236,6 +241,27 @@ public sealed class EnvironmentSessionProvider(
         }
 
         return _session;
+    }
+
+    // a program starts in the folder of its workspace, as opening a project in VB6 makes its folder current: a relative path is a file of the workspace. The
+    // directory is the session's, which ChDir moves too; End leaves it where the program put it. The shell's scratch workspace is no folder of the user's.
+    private void EnterWorkspaceRoot(Uri workspaceRoot)
+    {
+        if (!workspaceRoot.IsFile)
+        {
+            return;
+        }
+
+        var root = WorkspacePaths.Normalized(workspaceRoot.LocalPath);
+        if (App.Repl.ReplWorkspace.IsScratch(fileSystem, root))
+        {
+            return;
+        }
+
+        if (_session!.Files.TryChangeDirectory(root) is { } error && logger.IsEnabled(LogLevel.Warning))
+        {
+            logger.LogWarning("📂 The workspace root {root} could not be made the current directory ({error}): it is left where it was.", root, error);
+        }
     }
 
     // the settings are the workspace's (RD-VBAL 2.1.1), and a dialog is the client's to answer when it shows dialogs, the platform's when it does not.
