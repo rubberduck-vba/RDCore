@@ -190,8 +190,8 @@ public sealed class CompiledVariantResultTests
             "End Function"), "a;gone 1;after made;b;value;holder gone;read;42;c;", ("Discarded", 1, 0), ("Read", 1, 0));
 
     // two calls in one statement, each returning a Variant that holds an object only it holds: both objects live until the statement is over, after its
-    // assignment, and are let go of then, the last made first - none before the other call is made. Compiled code gives that statement to the interpreter
-    // today; whichever engine runs it, the order is the same.
+    // assignment, and are let go of then, the last made first - none before the other call is made. Compiled code gives that statement to the interpreter;
+    // whichever engine runs it, the order is the same.
     [TestMethod]
     public async Task ObjectsTwoVariantResultsOfAStatementHold_AreLetGoOfWhenTheStatementIsOver()
         => await AssertRunAsync(Program(
