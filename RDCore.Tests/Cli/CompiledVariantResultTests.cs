@@ -216,8 +216,8 @@ public sealed class CompiledVariantResultTests
             "    Set Made = N",
             "End Function"), "a;gone 2;gone 1;12;b;");
 
-    // a member of an object that returns a Variant, called by compiled code and assigned to a Variant, which compiled code then adds. The recovery is the
-    // Set of the object.
+    // a member of an object that returns a Variant, called by compiled code and assigned to a Variant, which compiled code then adds. The Set of the
+    // object is a support call.
     [TestMethod]
     public async Task AVariantResultOfAMember_IsAssignedToItsCaller()
         => await AssertRunAsync(Program(
@@ -234,7 +234,7 @@ public sealed class CompiledVariantResultTests
             "        V = O.Twice(K)",
             "        Total = Total + V",
             "    Next",
-            "End Function"), "110", ("Total", 1, 0));
+            "End Function"), "110", ("Total", 0, 0));
 
     // an error the assignment of what a call returned raises - an object with no default member, assigned to a Variant - is the statement's: the handler
     // is given it, and the call is not made again. The 2 recoveries are that statement's error and Err.Number.
