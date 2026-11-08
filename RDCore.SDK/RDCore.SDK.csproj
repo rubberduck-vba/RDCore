@@ -5,30 +5,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationIcon>logo.ico</ApplicationIcon>
     <AssemblyTitle>RDCore SDK</AssemblyTitle>
     <Description>The RDCore language model and the plumbing every process and extension of the platform shares.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Logger\**" />
-    <Compile Remove="Model\Symbols\Statements\**" />
-    <Compile Remove="Model\Types\Builders\**" />
-    <Compile Remove="_site\**" />
-    <EmbeddedResource Remove="Logger\**" />
-    <EmbeddedResource Remove="Model\Symbols\Statements\**" />
-    <EmbeddedResource Remove="Model\Types\Builders\**" />
-    <EmbeddedResource Remove="_site\**" />
-    <None Remove="Logger\**" />
-    <None Remove="Model\Symbols\Statements\**" />
-    <None Remove="Model\Types\Builders\**" />
-    <None Remove="_site\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="logo.ico" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
@@ -78,12 +58,6 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>TraceMessages.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project>
