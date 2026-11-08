@@ -404,11 +404,12 @@ public sealed class OperatorFactAnalyzerTests
         CollectionAssert.AreEqual(new[] { (4, 8, 4, 12) }, RangesOf(findings));
     }
 
-    // the operator locates a diagnostic; a run-time error of the operation stays located at the operation, where Erl and the stack trace say it is.
+    // the operator locates a diagnostic; a run-time error of the operation stays located at the operation, where Erl and the stack trace say it is. The
+    // operands are literals: an error is stated of an operation whose operands are known.
     [TestMethod]
     public async Task TheErrorOfAnOperation_IsLocatedAtTheOperation_AndItsOperatorAtTheToken()
     {
-        var source = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nDim z As Long, r As Long\r\nz = 0\r\nr = 1 + 5 \\ z\r\nEnd Sub\r\n";
+        var source = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nDim r As Long\r\nr = 0\r\nr = 1 + 5 \\ 0\r\nEnd Sub\r\n";
         var payload = await ModuleWorkspace.SemanticsAsync([], source);
 
         var division = payload.Modules.Single().Procedures.Single().Runtime!.Operations.Single(op => op.Operator == RDCore.SDK.Model.Tokens.IntegerDivisionOp);
