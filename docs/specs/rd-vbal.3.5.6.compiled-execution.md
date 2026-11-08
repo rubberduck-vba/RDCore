@@ -43,11 +43,11 @@ call returns. Compiled code makes the call, then assigns its result as the inter
 
 - a value of any type is assigned as it is (MS-VBAL §5.5.1.2.12): `Empty` and `Null` stay `Empty` and `Null`, a `String` and an error value keep their
   type, and an array is copied;
-- an object is assigned its default member. An object with no default member raises error 438 at that statement, and the procedure's error handler gets
+- for an object, its default member's value is assigned. An object with no default member raises error 438 at that statement, and the procedure's error handler gets
   the error. The call is not made again.
 
 What the call returned is let go of when its statement is over, as in the interpreter. An object only the result held is destroyed there, and its
-`Class_Terminate` runs before the next statement. A function of the `Variant` type called as a statement (`Made 1`) is compiled too, and its result is let
+`Class_Terminate` runs before the next statement. A function of the `Variant` type called as a statement (`F 1`) is compiled too, and its result is let
 go of the same way.
 
 A `Variant` result assigned to a variable of a scalar type (`N = F()`) is the interpreter's, and so is a `Set` of a function's `Variant` result.
