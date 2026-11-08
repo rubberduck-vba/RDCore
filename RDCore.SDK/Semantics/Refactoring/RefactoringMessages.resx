@@ -75,6 +75,36 @@
   <data name="Rename_InString_Leave" xml:space="preserve">
     <value>Leave the strings</value>
   </data>
+  <data name="Rename_LateBound_Label" xml:space="preserve">
+    <value>Late-bound: the object may hold a {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Label" xml:space="preserve">
+    <value>Late-bound: the object holds a {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Description" xml:space="preserve">
+    <value>What is known of the object says it holds a {1}. Which member a late-bound access calls is only known when the code runs. An access left as it is no longer finds '{0}'.</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_One" xml:space="preserve">
+    <value>'{0}' is accessed late-bound on an object that holds a {3}, at {2}. Rename it there too?</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_Many" xml:space="preserve">
+    <value>'{0}' is accessed late-bound on objects that hold a {3}, in {1} places, the first at {2}. Rename it there too?</value>
+  </data>
+  <data name="Rename_LateBound_Description" xml:space="preserve">
+    <value>Which member a late-bound access calls is only known when the code runs. An access left as it is no longer finds the member when the object is of the class of '{0}'.</value>
+  </data>
+  <data name="Rename_LateBound_Question_One" xml:space="preserve">
+    <value>'{0}' may be accessed late-bound on an object that may hold a {3}, at {2}. Rename it there too?</value>
+  </data>
+  <data name="Rename_LateBound_Question_Many" xml:space="preserve">
+    <value>'{0}' may be accessed late-bound on objects that may hold a {3}, in {1} places, the first at {2}. Rename it there too?</value>
+  </data>
+  <data name="Rename_LateBound_Rename" xml:space="preserve">
+    <value>Rename it there too</value>
+  </data>
+  <data name="Rename_LateBound_Leave" xml:space="preserve">
+    <value>Leave the late-bound accesses</value>
+  </data>
   <!-- What a client is told of the references of a symbol (SymbolNavigationTarget.Unresolved): {0} is its name, {1} where the first such name is written. -->
   <data name="References_Incomplete" xml:space="preserve">
     <value>The references of '{0}' may be incomplete: what '{0}' refers to at {1} is not known.</value>
