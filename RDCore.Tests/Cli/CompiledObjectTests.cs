@@ -170,7 +170,8 @@ public sealed class CompiledObjectTests
             "End Function"), "Watched", recoveries: 8, classes:
             [("Noisy", ModuleWorkspace.ClassModule("Noisy", "Option Explicit", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"gone\"; Id", "End Sub"))]);
 
-    // TypeOf of Nothing raises error 91 (MS-VBAL §5.6.7), which the interpreter raises, and the handler is given.
+    // TypeOf of Nothing raises error 91 (MS-VBAL §5.6.7), which the interpreter raises, and the handler is given. Err.Number is stepped, and
+    // Err.Clear is a support call.
     [TestMethod]
     public async Task TypeOfNothing_IsRaisedByTheInterpreter_ToTheHandler()
         => await AssertAlikeAsync(Program(
@@ -186,7 +187,7 @@ public sealed class CompiledObjectTests
             "        Raised = Raised + Err.Number",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Raised", recoveries: 9, classes: Things);
+            "End Function"), "Raised", recoveries: 6, classes: Things);
 
     // an object parameter passed by reference is its caller's variable: compared where the caller's cell is, after the callee Sets it.
     [TestMethod]

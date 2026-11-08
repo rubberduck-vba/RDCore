@@ -38,6 +38,21 @@ public sealed class CompiledStringArgumentTests
         }
     }
 
+    // the lines of the program that make the call statement written as `call` are each run by the interpreter as a support call, which steps nothing:
+    // the call is made through the invoker, and the variables are read back after it.
+    private static void AssertCallsAreSupportCalls(string program, CompilationResult result, string call)
+    {
+        var stepped = result.Stepped.Concat(result.Reasons).Select(reason => reason.Location!.Value.Range.Start.Line).ToHashSet();
+        var calls = program.Split("\r\n").Select((line, number) => (line, number))
+            .Where(each => each.line.Contains(call, StringComparison.Ordinal))
+            .Select(each => each.number).ToArray();
+        Assert.IsNotEmpty(calls);
+        foreach (var line in calls)
+        {
+            Assert.DoesNotContain(line, stepped, $"line {line}, a call statement compiled code gives no argument of, is stepped: it is a support call.");
+        }
+    }
+
     // Strings given by value: the callee's own, which it assigns without the caller seeing it - the next call is given what the caller's variable holds.
     // Every statement of Built is compiled: 0.
     [TestMethod]
@@ -267,8 +282,8 @@ public sealed class CompiledStringArgumentTests
         AssertCallsAreStepped(program, result, "= Size(F)");
     }
 
-    // a String field of the module, and an element of an array of Strings, given by reference: the interpreter gives them, making the call. The two Lets
-    // of them, the two calls, and the Let of the function's String result are the interpreter's: 5.
+    // a String field of the module, and an element of an array of Strings, given by reference: the interpreter gives them, making the call, as a support
+    // call. The two Lets of them, and the Let of the function's String result, are stepped: 3.
     [TestMethod]
     public async Task AStringFieldAndAStringElementGivenByReference_AreTheInterpretersToGive()
     {
@@ -291,9 +306,9 @@ public sealed class CompiledStringArgumentTests
             "Private Sub Appended(ByRef T As String)",
             "    T = T & \"!\"",
             "End Sub");
-        var result = await AssertAlikeAsync(program, "Given", recoveries: 5);
+        var result = await AssertAlikeAsync(program, "Given", recoveries: 3);
 
-        AssertCallsAreStepped(program, result, "    Appended ");
+        AssertCallsAreSupportCalls(program, result, "    Appended ");
     }
 
     // a String variable given by reference has one address, whichever of its names it is asked for by, as MS-VBA gives it (VarPtr of a ByRef parameter is
@@ -391,7 +406,7 @@ public sealed class CompiledStringArgumentTests
 
     // Strings given by name, in another order than their parameters, and an Optional String omitted: the callee is given each where its parameter is, and
     // its default when it is omitted. S is "y", "yd", "ydy", then "ydyd". Compiled code makes the call given names, at each of 2 passes; it gives no
-    // argument of an omitted parameter, so the interpreter makes that call, at each of 2 passes: 2.
+    // argument of an omitted parameter, so the interpreter makes that call, as a support call, at each of 2 passes, stepping nothing: 0.
     [TestMethod]
     public async Task StringsGivenByName_AreGivenWhereTheirParametersAre_AndAnOmittedOneIsTheInterpretersToGive()
     {
@@ -410,9 +425,9 @@ public sealed class CompiledStringArgumentTests
             "Private Sub Tag(ByRef T As String, Optional ByVal Suffix As String = \"d\")",
             "    T = T & Suffix",
             "End Sub");
-        var result = await AssertAlikeAsync(program, "Tagged", recoveries: 2, expected: " 1 ");
+        var result = await AssertAlikeAsync(program, "Tagged", recoveries: 0, expected: " 1 ");
 
-        AssertCallsAreStepped(program, result, "Call Tag(S)");
+        AssertCallsAreSupportCalls(program, result, "Call Tag(S)");
         AssertCalledThroughInvoker(result, 2);
     }
 }

@@ -174,7 +174,8 @@ public sealed class CompiledMemberCallTests
             "    Next",
             "End Function"), "Counted", recoveries: 0, direct: 12);
 
-    // a call on Nothing raises error 91: the interpreter makes it, and the handler is given the error.
+    // a call on Nothing raises error 91: the interpreter makes it, as a support call, and the handler is given the error. Err.Number is stepped, and
+    // Err.Clear is a support call too.
     [TestMethod]
     public async Task ACallOnNothing_IsMadeByTheInterpreter_WhichRaisesTheError()
         => await AssertCalledAsync(Program(
@@ -191,7 +192,7 @@ public sealed class CompiledMemberCallTests
             "        Err.Clear",
             "        If I = 2 Then Set T = New Tally",
             "    Next",
-            "End Function"), "Raised", recoveries: 8, direct: 1);
+            "End Function"), "Raised", recoveries: 5, direct: 1);
 
     // the object a member is called on lives at least as long as the call: Set to another, the one before is let go of after the call, and terminates.
     [TestMethod]
@@ -211,7 +212,7 @@ public sealed class CompiledMemberCallTests
             "    Touched = I",
             "End Function"), "Touched", recoveries: 0, direct: 6);
 
-    // a member of a variable declared Object is late-bound: the interpreter's.
+    // a member of a variable declared Object is late-bound: the interpreter's, which makes it as a support call of the compiled caller.
     [TestMethod]
     public async Task AMemberOfAnObjectDeclaredObject_IsCalledByTheInterpreter()
         => await AssertCalledAsync(Program(
@@ -226,5 +227,5 @@ public sealed class CompiledMemberCallTests
             "        O.Add I",
             "    Next",
             "    Late = 1",
-            "End Function"), "Late", recoveries: 3, direct: 0);
+            "End Function"), "Late", recoveries: 0, direct: 0);
 }

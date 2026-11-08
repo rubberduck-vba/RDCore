@@ -100,7 +100,7 @@ public sealed class CompiledArrayTests
             "End Function"), "Grid", recoveries: 0);
 
     // a subscript outside its dimension is error 9, raised by the interpreter at the statement, which Resume Next goes past: a read and a write each
-    // recovered once at each end of the array - and Err.Number and Err.Clear, the interpreter's, at each of the 7 times round.
+    // recovered once at each end of the array - and Err.Number, the interpreter's, at each of the 7 times round; Err.Clear is a support call.
     [TestMethod]
     public async Task ASubscriptOutOfRange_UnderResumeNext_IsGonePast()
         => await AssertAlikeAsync(Program(
@@ -117,7 +117,7 @@ public sealed class CompiledArrayTests
             "        Ranged = Ranged + Err.Number",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Ranged", recoveries: 4 + 7 * 2);
+            "End Function"), "Ranged", recoveries: 4 + 7);
 
     // a subscript outside its dimension with no handler: error 9, at the statement, with the stack the interpreter gives it - in the middle of the loop,
     // after the 6 Debug.Print the interpreter ran.
@@ -157,7 +157,8 @@ public sealed class CompiledArrayTests
             "    Based = Based + Err.Number * 100000",
             "End Function"), "Based", recoveries: 1 + 1);
 
-    // LBound and UBound of a dimension the array doesn't have, 0 and 3: error 9, the interpreter's - as Err.Number and Err.Clear are, 4 times round.
+    // LBound and UBound of a dimension the array doesn't have, 0 and 3: error 9, the interpreter's - as Err.Number is, 4 times round; Err.Clear is a
+    // support call.
     [TestMethod]
     public async Task ABoundOfADimensionTheArrayHasNot_IsTheInterpretersError()
         => await AssertAlikeAsync(Program(
@@ -173,7 +174,7 @@ public sealed class CompiledArrayTests
             "        Bounded = Bounded + Err.Number * 1000",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Bounded", recoveries: 2 + 4 * 2);
+            "End Function"), "Bounded", recoveries: 2 + 4);
 
     // a ReDim Preserve inside a loop over the array grows it as the loop goes: compiled code finds each element in the array the cell holds after it.
     [TestMethod]
@@ -202,7 +203,7 @@ public sealed class CompiledArrayTests
             "End Function"), "Grown", recoveries: 0);
 
     // an element of an array Erase emptied, and a ReDim to bounds the program can't have, and UBound of the array it left
-    // erased: the interpreter's errors, given to the handler - and the two Err.Number and two Err.Clear.
+    // erased: the interpreter's errors, given to the handler - and the two Err.Number. The two Err.Clear are support calls.
     [TestMethod]
     public async Task AnErasedArray_AndAReDimThatFails_AreTheInterpretersErrors()
         => await AssertAlikeAsync(Program(
@@ -224,7 +225,7 @@ public sealed class CompiledArrayTests
             "    Emptied = Emptied * 100 + Err.Number",
             "    Err.Clear",
             "    Emptied = Emptied * 100 + UBound(V)",
-            "End Function"), "Emptied", recoveries: 3 + 4);
+            "End Function"), "Emptied", recoveries: 3 + 2);
 
     // an array passed by reference whole - to a callee compiled code runs, which writes its elements, and to one the interpreter runs, whose loop counts
     // with a parameter passed by reference - and an element passed by reference, which the interpreter passes: what each callee writes is in the caller's

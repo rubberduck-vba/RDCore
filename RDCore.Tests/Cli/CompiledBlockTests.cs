@@ -76,7 +76,8 @@ public sealed class CompiledBlockTests
             "    Report Held",
             "End Function"), "Held", recoveries: 3, classes: Noisy);
 
-    // the element a For Each assigns V each pass is in V's cell, which compiled code reads: the statements of the body are its own.
+    // the element a For Each assigns V each pass is in V's cell, which compiled code reads: the statements of the body are its own. The Add of the
+    // Collection is a support call.
     [TestMethod]
     public async Task AForEach_IsSteppedByTheInterpreter_AroundACompiledBody()
         => await AssertAlikeAsync(Program(
@@ -94,7 +95,7 @@ public sealed class CompiledBlockTests
             "        I = I + 1",
             "    Next",
             "    Summed = Summed + I",
-            "End Function"), "Summed", recoveries: 9);
+            "End Function"), "Summed", recoveries: 5);
 
     // the array a For Each reads is let go of when the loop ends, at its Next: the element V does not hold is gone before the call compiled code makes next.
     [TestMethod]

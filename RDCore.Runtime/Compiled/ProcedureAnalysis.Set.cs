@@ -13,25 +13,13 @@ namespace RDCore.Runtime.Compiled;
 // what compiled code does of a Set statement.
 internal sealed partial class ProcedureAnalysis
 {
-    // MS-VBAL §5.4.3.9: a Set compiled code assigns (SetStep), or else the interpreter's statement, run as a support call (SetStatementStep) - what is
+    // MS-VBAL §5.4.3.9: a Set compiled code assigns (SetStep), or else the interpreter's statement, run as a support call (SupportCallStep) - what is
     // given is a call, a member of an object, New, or anything else the interpreter evaluates, or what is assigned is a WithEvents variable, a parameter
-    // passed by reference, or anything else the interpreter assigns. Not inside a With block, whose target the statement is evaluated against: that one the
-    // interpreter steps.
+    // passed by reference, or anything else the interpreter assigns.
     private CompiledStep? AnalyzeSet(Instruction instruction, AssignmentStatementNode assignment)
     {
         var mark = _reasons.Count;
-        if (SetOf(instruction.Offset, assignment) is { } set)
-        {
-            return set;
-        }
-
-        if (instruction.EnclosingWith is not null)
-        {
-            return null;
-        }
-
-        _reasons.RemoveRange(mark, _reasons.Count - mark);
-        return new SetStatementStep(instruction.Offset);
+        return SetOf(instruction.Offset, assignment) is { } set ? set : SupportCallOf(instruction, mark);
     }
 
     // a Set compiled code assigns, as ExecuteSetAssignment assigns: an object variable of the activation - neither Me nor a parameter passed by reference,
@@ -99,9 +87,3 @@ internal sealed record class SetStep(int Offset, int Target, int? Source) : Comp
     /// </summary>
     public const int Result = -1;
 }
-
-/// <summary>
-/// The <c>Set</c> statement at <see cref="CompiledStep.Offset"/>, run by the interpreter as a support call, every variable written into the frame before it
-/// and read back after it.
-/// </summary>
-internal sealed record class SetStatementStep(int Offset) : CompiledStep(Offset);
