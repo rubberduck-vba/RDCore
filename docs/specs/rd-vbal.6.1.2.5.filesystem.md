@@ -15,8 +15,9 @@ recorded in Excel; where **MS-VBA** does other than the specification says, RD-V
 ## Current directory
 
 MS-VBAL leaves the current directory a program starts in to the host: `CurDir` gives the path of an implementation-defined current drive
-([**MS-VBAL §6.1.2.5.1.1**](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/8e82dffc-c920-4ed9-9960-cbd9b6613069)),
-`Open` combines a relative path with the current directory in an implementation-defined manner (**MS-VBAL §5.4.5.1**), and the host maps file I/O to the
+([**MS-VBAL §6.1.2.5.1.1** CurDir](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/8e82dffc-c920-4ed9-9960-cbd9b6613069)),
+`Open` combines a relative path with the current drive and directory in an implementation-defined manner
+([**MS-VBAL §5.4.5.1** Open Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/29a62f38-5bf6-4e08-9dae-0094e377058b)), and the host maps file I/O to the
 platform's storage (**MS-VBAL §2.7.3**). In RD-VBA:
 
 - A session composed for a workspace starts in the workspace root, the folder of its `.rdproj`, when the workspace loads and each time the project is
