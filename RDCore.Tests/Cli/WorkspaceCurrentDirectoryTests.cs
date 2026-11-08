@@ -65,6 +65,19 @@ public sealed class WorkspaceCurrentDirectoryTests
         CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed);
     }
 
+    // an LSP client's file: URI may spell the drive in lower case, as OmniSharp's does: CurDir gives the drive as a drive is written, in upper case.
+    [TestMethod]
+    public void AWorkspaceRootWithALowerCaseDrive_IsTheCurrentDirectory_WithAnUpperCaseDrive()
+    {
+        var uri = Wire.FileUri(_root);
+        var lowered = OperatingSystem.IsWindows() ? new Uri(uri.AbsoluteUri.Replace($"file:///{_root[0]}:", $"file:///{char.ToLowerInvariant(_root[0])}:")) : uri;
+        var provider = new EnvironmentSessionProvider(Profile(), new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance);
+
+        provider.Compose(Project(_root).ProjectInfo, lowered);
+
+        Assert.AreEqual(_root, CurrentDirectoryOf(provider), ignoreCase: false);
+    }
+
     [TestMethod]
     public async Task ChDir_MovesTheDirectory_OfAWorkspaceSession()
     {

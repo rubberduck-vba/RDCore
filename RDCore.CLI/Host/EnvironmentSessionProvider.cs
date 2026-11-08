@@ -252,7 +252,13 @@ public sealed class EnvironmentSessionProvider(
             return;
         }
 
+        // a client's file: URI may spell the drive in lower case (file:///c:/...), which CurDir would give back as it was set: a drive is its upper-case letter.
         var root = WorkspacePaths.Normalized(workspaceRoot.LocalPath);
+        if (OperatingSystem.IsWindows() && root.Length >= 2 && root[1] == ':' && char.IsAsciiLetterLower(root[0]))
+        {
+            root = char.ToUpperInvariant(root[0]) + root[1..];
+        }
+
         if (App.Repl.ReplWorkspace.IsScratch(fileSystem, root))
         {
             return;
