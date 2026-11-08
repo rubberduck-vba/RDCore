@@ -44,7 +44,7 @@ The current program is the body of an implicit procedure named `Main`, in an imp
 | `VARS`, `STACK` | Shows the variables and the call stack at a stop. |
 | `CONFIG` | Shows and edits your settings, with completion. Formatting changes apply right away. |
 
-`Ctrl+C` stops a running program. At a stop (a `Stop` statement, a breakpoint, or `Ctrl+C`) the shell says `BREAK IN` and the line number, and lists the two lines above and below that line, with it highlighted. `CONFIG CLI.BreakListingLines` sets how many lines it lists on each side; `0` lists none.
+`Ctrl+C` stops a running program. At a stop (a `Stop` statement, a breakpoint, or `Ctrl+C`) the shell says `BREAK IN` and the line number, and lists the two lines above it and the two below it, with the stopped line highlighted. `CONFIG CLI.BreakListingLines` sets how many lines are listed on each side, from the next start of the shell; `0` lists none.
 
 At a stop you can type statements as you would in the VBIDE's immediate pane, and edit the program before you go on.
 

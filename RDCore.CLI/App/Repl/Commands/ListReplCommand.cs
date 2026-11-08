@@ -54,9 +54,9 @@ internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
     /// <param name="context">The live session.</param>
     /// <param name="from">The first line number to list, or <see langword="null"/> for the start of the program.</param>
     /// <param name="to">The last line number to list, or <see langword="null"/> for its end.</param>
-    /// <param name="current">The line marked as a whole as the statement the program waits before; <see langword="null"/> for none.</param>
+    /// <param name="current">The line marked as the statement the program waits before; <see langword="null"/> for none.</param>
     /// <param name="withFolds">
-    /// Whether a block that is folded (<c>FOLD</c>) is listed folded. Without them, every line of the range is listed, and each block is marked as open.
+    /// Whether a block that is folded (<c>FOLD</c>) is listed folded. When <see langword="false"/>, every line of the range is listed, and each block is marked as open.
     /// </param>
     /// <param name="token">A token that cancels the requests the listing makes of the language server.</param>
     internal static async Task WriteAsync(ReplCommandContext context, int? from, int? to, int? current, bool withFolds, CancellationToken token)
