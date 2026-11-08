@@ -9,12 +9,39 @@ An _execution session_'s services are rooted at an
 
 |Exposes|Description|
 |---|---|
-|`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). It also sets the default value of the `#If Win64` pre-compiler constant. `#If VBA7` does not depend on it: the environment host defaults `VBA7` to true in either bitness. A `.rdproj` `#Const` or a `--define` argument overrides these defaults.|
+|`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). With `Environment.OperatingSystem`, it sets the [predefined conditional-compilation constants](#predefined-conditional-compilation-constants).|
+|`Environment.OperatingSystem`|The operating system the environment host runs on: Windows, macOS, Linux, or another. It decides which of `Win32`, `Win64`, `Mac`, `Linux` and `Linux64` is `True` ([below](#predefined-conditional-compilation-constants)).|
 |`Environment.Culture`|The culture of the environment, which its `Lcid` selects; `0` is the invariant culture. Text compares in it (`Option Compare Text`, `Like`), and `Format` writes in it given a format.|
 |`Environment.Regional`|The regional settings of the environment: a number or a date let-coerced to `String` is written in them, and a `String` let-coerced to a number or a date is read in them ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)). en-US unless the platform says otherwise.|
 |`Environment.AnsiEncoding`|The `Encoding` of the environment's `AnsiCodePage`: what a character is as one or two bytes outside a `String`'s own data, which the session's files are written and read in. Let-coercion between `String` and `Byte()` takes no code page ([**RD-VBAL §5.5.1.2.6** Let-coercion to and from resizable Byte()](rd-vbal.5.5.1.2.runtime-semantics.md#55126-let-coercion-to-and-from-resizable-byte)).|
 |`References`|The workspace's project and library references ([References](#references), below).|
 |The three session services|`ISessionMemoryAllocator`, `ISessionSymbols` and `ISessionObjects` ([Services](#services), below).|
+
+## Predefined conditional-compilation constants
+
+The environment host defines these constants in every session, from the environment
+([PredefinedConditionalConstants](../api/RDCore.SDK.Runtime.PredefinedConditionalConstants.html)). The language server
+decides which `#If` branch is live from the same session, so every part of the platform sees the same values.
+
+|Constant|`True` (`-1`) when|Otherwise|
+|---|---|---|
+|`Win16`|Never.|`0`|
+|`Win32`|The environment runs on Windows, 32-bit or 64-bit. It means the Win32 API is there, as in MS-VBA, where 64-bit Office defines it `True` too.|`0`|
+|`Win64`|The environment runs on 64-bit Windows.|`0`|
+|`Mac`|The environment runs on macOS.|`0`|
+|`Linux`|The environment runs on Linux, 32-bit or 64-bit. RD-VBA addition.|`0`|
+|`Linux64`|The environment runs on 64-bit Linux. RD-VBA addition.|`0`|
+|`VBA6`|Never.|`0`|
+|`VBA7`|Always.|`0`|
+|`DEBUG`|The build is a debug build (`Environment.Configuration`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md)). RD-VBA addition.|`0`|
+
+- Each constant is `-1` or `0`, as a `Boolean` stores `True` and `False`, so `#If Not Win64` and `#If Win64 = True` mean what they say.
+- Each operating system's constant is defined `0` on every other one. `#If Linux` on Windows is `False`, as an undefined constant would be.
+- A `.rdproj` `#Const`, a `--define` argument, or a module's own `#Const` overrides any of them.
+
+A constant of the project or the module that stands for `True` with another number, such as `#Const DEV = 1`, is `True` in `#If DEV`, but `Not DEV` is
+`-2`, which is also `True` ([**MS-VBAL §5.6.9.8** Logical Operators](rd-vbal.5.6.9.8.logical-operators.md)). The analyzers report such a condition as
+[**RDC11031** True value that is not -1](../diagnostics/rdc11031.md).
 
 ## Services
 
