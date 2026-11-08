@@ -4,9 +4,13 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
+using RDCore.Tests.Runtime.Libraries;
 using System.Globalization;
+using MemberKind = RDCore.SDK.Runtime.Libraries.MemberKind;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -39,7 +43,61 @@ public sealed class SymbolRenameTests
     private static string Module(string name, params string[] lines) => Lines([$"Attribute VB_Name = \"{name}\"", .. lines]);
 
     // the workspace of the modules, by name: a .cls when the source is a class's.
-    private static RenameContext Compose(params (string Name, string Source)[] modules)
+    private static RenameContext Compose(params (string Name, string Source)[] modules) => ComposeReferencing([], modules);
+
+    // the workspace of the modules, referencing the standard library and a host's: what calls a procedure by its name in a string.
+    private static RenameContext ComposeWithHost(params (string Name, string Source)[] modules)
+        => ComposeReferencing(
+            [
+                .. new LibrarySymbolProvider(Root, ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols(),
+                .. new LibrarySymbolReader(Root).Read([Host]),
+            ], modules);
+
+    // a host's library: the members a host calls a procedure by its name with - a macro it runs, a procedure it runs at a time or on a key, a control's action.
+    private static readonly LibraryDescription Host = new()
+    {
+        Name = "Host",
+        Origin = new LibraryOrigin { Guid = "{00000000-0000-0000-0000-0000000000AA}", Version = "1.0", ExportedBy = "tests" },
+        Classes =
+        [
+            new ClassDescription
+            {
+                Name = "Application",
+                Members =
+                [
+                    new MemberDescription
+                    {
+                        Name = "Run", Kind = MemberKind.Method, Type = "Variant",
+                        Parameters = [new ParameterDescription { Name = "Macro", Type = "Variant", IsOptional = true }],
+                    },
+                    new MemberDescription
+                    {
+                        Name = "OnTime", Kind = MemberKind.Method,
+                        Parameters =
+                        [
+                            new ParameterDescription { Name = "EarliestTime", Type = "Variant" },
+                            new ParameterDescription { Name = "Procedure", Type = "String" },
+                        ],
+                    },
+                ],
+            },
+            new ClassDescription
+            {
+                Name = "Button",
+                Members =
+                [
+                    new MemberDescription { Name = "OnAction", Kind = MemberKind.PropertyGet, Type = "String" },
+                    new MemberDescription
+                    {
+                        Name = "OnAction", Kind = MemberKind.PropertyLet,
+                        Parameters = [new ParameterDescription { Name = "RHS", Type = "String", IsByVal = true }],
+                    },
+                ],
+            },
+        ],
+    };
+
+    private static RenameContext ComposeReferencing(IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> libraries, (string Name, string Source)[] modules)
     {
         var parsed = modules.Select(module =>
         {
@@ -49,7 +107,8 @@ public sealed class SymbolRenameTests
             return (Uri: new UriBuilder(Root) { Fragment = module.Name }.Uri, Type: isClass ? ModuleType.ClassModule : ModuleType.StdModule, Parse: parse, module.Source);
         }).ToList();
 
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [.. parsed.Select(module => (module.Uri, module.Type, module.Parse))], new IntrinsicSymbolResolver());
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [.. parsed.Select(module => (module.Uri, module.Type, module.Parse))], new IntrinsicSymbolResolver(),
+            libraries: libraries.Count == 0 ? null : libraries);
         return new RenameContext(composition.Resolver, composition.ScopeTree, [.. parsed.Select(module => new RenameModule(module.Uri, module.Parse.SyntaxTree!, module.Source))]);
     }
 
@@ -413,5 +472,89 @@ public sealed class SymbolRenameTests
 
         Assert.AreEqual("'Next' is a keyword of the language: nothing can be named 'Next'.", refusal.ToMessage(culture: CultureInfo.InvariantCulture));
         Assert.AreEqual("« Next » est un mot clé du langage : rien ne peut être nommé « Next ».", refusal.ToMessage(culture: new CultureInfo("fr-CA")));
+    }
+
+    // what a library calls by its name in a string is only known when the code runs: the string is renamed too, and its edit says so, for the user to confirm.
+    [TestMethod]
+    public void AProcedureCalledByItsNameInAString_IsRenamedThere_AsAnEditToConfirm()
+    {
+        var context = ComposeWithHost(
+            ("Main", Module("Main",
+                "Public Sub Foo()",
+                "End Sub",
+                "Public Sub Bar(ByVal app As Application, ByVal b As Button)",
+                "    Dim o As Object",
+                "    CallByName o, \"Foo\", VbMethod",
+                "    app.Run \"Main.Foo\"",
+                "    app.Run Macro:=\"'Book1.xlsm'!Foo\"",
+                "    app.OnTime Now, \"Foo\"",
+                "    b.OnAction = \"Main.Foo\"",
+                "End Sub")));
+
+        var plan = Rename(context, "Main", "Public Sub Foo", "Foo", "Baz");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Baz()",
+            "End Sub",
+            "Public Sub Bar(ByVal app As Application, ByVal b As Button)",
+            "    Dim o As Object",
+            "    CallByName o, \"Baz\", VbMethod",
+            "    app.Run \"Main.Baz\"",
+            "    app.Run Macro:=\"'Book1.xlsm'!Baz\"",
+            "    app.OnTime Now, \"Baz\"",
+            "    b.OnAction = \"Main.Baz\"",
+            "End Sub"), Renamed(context, plan, "Main"));
+        Assert.AreEqual(1, plan.Edits.Count(edit => !edit.IsInString), "the declaration is the only edit that is not in a string");
+        Assert.AreEqual(5, plan.Edits.Count(edit => edit.IsInString));
+    }
+
+    // a string is renamed only where a library calls a procedure by it: not a message, not the name of a local, not a member of another module.
+    [TestMethod]
+    public void AStringThatDoesNotCallTheProcedure_IsNotRenamed()
+    {
+        var context = ComposeWithHost(
+            ("Main", Module("Main",
+                "Public Sub Foo()",
+                "End Sub",
+                "Public Sub Bar(ByVal app As Application)",
+                "    MsgBox \"Foo\"",
+                "    app.Run \"Other.Foo\"",
+                "    Debug.Print \"Foo\"",
+                "End Sub")),
+            ("Other", Module("Other", "Public Sub Foo()", "End Sub")));
+
+        var plan = Rename(context, "Main", "Public Sub Foo", "Foo", "Baz");
+
+        Assert.IsTrue(plan.IsValid, plan.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
+        Assert.IsFalse(plan.Edits.Any(edit => edit.IsInString), "no string calls Main.Foo");
+        Assert.HasCount(1, plan.Edits);
+    }
+
+    // a local is not called by its name: a string that names it is a string.
+    [TestMethod]
+    public void ALocalNamedByAString_IsRenamed_AndTheStringIsNot()
+    {
+        var context = ComposeWithHost(("Main", Module("Main",
+            "Public Sub Bar()",
+            "    Dim Foo As Object",
+            "    CallByName Foo, \"Foo\", VbMethod",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "Dim Foo", "Foo", "Baz");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Bar()",
+            "    Dim Baz As Object",
+            "    CallByName Baz, \"Foo\", VbMethod",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheConfirmation_IsAskedInTheLanguageOfTheReader()
+    {
+        Assert.AreEqual("'Foo' is called by its name in 2 strings, the first at Main 5:17. Rename it there too?",
+            RefactoringTitles.RenameInStringQuestion("Foo", 2, "Main 5:17", CultureInfo.InvariantCulture));
+        Assert.AreEqual("« Foo » est appelé par son nom dans une chaîne, à Main 5:17. Le renommer là aussi ?",
+            RefactoringTitles.RenameInStringQuestion("Foo", 1, "Main 5:17", new CultureInfo("fr-CA")));
     }
 }

@@ -385,7 +385,7 @@ The interactive shell asks it once for the conditions of all the breakpoints `BR
 
 ### `textDocument/rename` and `textDocument/prepareRename`
 
-The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
+The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed, except a string a library calls the symbol by ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
 
 `textDocument/prepareRename` answers the range of the name at the position and the name the symbol is declared with (`placeholder`). `textDocument/rename` answers a `WorkspaceEdit` of `documentChanges`, one `TextDocumentEdit` per document whose text changes, at the version the server holds, to a client that says it takes them (`workspace.workspaceEdit.documentChanges`); any other client is answered the same edits as `changes`, by document, which name no version (**LSP 3.17** §WorkspaceEdit). An edit whose change annotation asks the user to confirm it is sent only to a client that takes change annotations (`changeAnnotationSupport`); an edit the client could not apply at all is refused, with why. An edit replaces a name only: a type-declaration character after it stays (`s$`).
 
@@ -400,6 +400,8 @@ What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.
 |The key of a dictionary access (`c!key`)|Nothing: it is a string.|
 
 The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to the symbol, and is not renamed.
+
+A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A client that takes change annotations is sent them annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: it is sent the edits with the strings, the edits without them, or nothing when the user chooses neither. A string left as it is names nothing the call can find, and the call fails only when the code runs.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 

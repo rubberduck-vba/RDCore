@@ -48,6 +48,44 @@ public static class RefactoringTitles
     public static string References(int count, CultureInfo? culture = null)
         => Say(count switch { 0 => "CodeLens_References_None", 1 => "CodeLens_References_One", _ => "CodeLens_References_Many" }, culture, count);
 
+    /// <summary>
+    /// The label of a rename's edits of the strings a library calls the symbol by (<see cref="RenameEdit.IsInString"/>): <c>Called by its name in a string</c>.
+    /// A client that takes change annotations shows it with the edits it asks its user to confirm (<strong>LSP 3.17</strong> <c>ChangeAnnotation.label</c>).
+    /// </summary>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameInStringLabel(CultureInfo? culture = null) => Say("Rename_InString_Label", culture);
+
+    /// <summary>
+    /// What the edits of <see cref="RenameInStringLabel"/> are, less prominently than the label (<strong>LSP 3.17</strong> <c>ChangeAnnotation.description</c>):
+    /// why the user is asked.
+    /// </summary>
+    /// <param name="name">The name the symbol is declared with.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameInStringDescription(string name, CultureInfo? culture = null) => Say("Rename_InString_Description", culture, name);
+
+    /// <summary>
+    /// What the user of a client that does not take change annotations is asked, before a rename's edits of the strings a library calls the symbol by are sent
+    /// to it: <c>'Foo' is called by its name in 2 strings, the first at Module1 4:12. Rename it there too?</c>
+    /// </summary>
+    /// <param name="name">The name the symbol is declared with.</param>
+    /// <param name="count">How many strings the rename edits.</param>
+    /// <param name="where">Where the first of them is, as the client names a position.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameInStringQuestion(string name, int count, string where, CultureInfo? culture = null)
+        => Say(count == 1 ? "Rename_InString_Question_One" : "Rename_InString_Question_Many", culture, name, count, where);
+
+    /// <summary>
+    /// The answer to <see cref="RenameInStringQuestion"/> that renames the name in the strings too.
+    /// </summary>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameInStringRename(CultureInfo? culture = null) => Say("Rename_InString_Rename", culture);
+
+    /// <summary>
+    /// The answer to <see cref="RenameInStringQuestion"/> that renames the symbol and leaves the strings as they are.
+    /// </summary>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameInStringLeave(CultureInfo? culture = null) => Say("Rename_InString_Leave", culture);
+
     private static string Say(string key, CultureInfo? culture, params object[] arguments)
     {
         culture ??= CultureInfo.CurrentUICulture;

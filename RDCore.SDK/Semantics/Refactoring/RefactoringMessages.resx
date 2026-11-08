@@ -55,6 +55,26 @@
   <data name="Rename_Unresolved" xml:space="preserve">
     <value>What '{0}' refers to at {2} is not known: the rename could miss it.</value>
   </data>
+  <!-- A rename's edits of the strings a library calls the symbol by (RenameEdit.IsInString): what they are labelled, what the user is asked ({0} is the name, {1}
+       how many strings there are, {2} where the first is), and the answers. -->
+  <data name="Rename_InString_Label" xml:space="preserve">
+    <value>Called by its name in a string</value>
+  </data>
+  <data name="Rename_InString_Description" xml:space="preserve">
+    <value>What a string says is only known when the code runs. Left as it is, the call would no longer find '{0}'.</value>
+  </data>
+  <data name="Rename_InString_Question_One" xml:space="preserve">
+    <value>'{0}' is called by its name in a string, at {2}. Rename it there too?</value>
+  </data>
+  <data name="Rename_InString_Question_Many" xml:space="preserve">
+    <value>'{0}' is called by its name in {1} strings, the first at {2}. Rename it there too?</value>
+  </data>
+  <data name="Rename_InString_Rename" xml:space="preserve">
+    <value>Rename it there too</value>
+  </data>
+  <data name="Rename_InString_Leave" xml:space="preserve">
+    <value>Leave the strings</value>
+  </data>
   <!-- What a client is told of the references of a symbol (SymbolNavigationTarget.Unresolved): {0} is its name, {1} where the first such name is written. -->
   <data name="References_Incomplete" xml:space="preserve">
     <value>The references of '{0}' may be incomplete: what '{0}' refers to at {1} is not known.</value>

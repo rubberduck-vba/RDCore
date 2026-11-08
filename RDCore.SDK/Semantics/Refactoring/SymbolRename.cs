@@ -128,7 +128,12 @@ public sealed record class RenameTarget(string Name, Uri Module, SourceRange Ran
 /// <param name="Module">The module.</param>
 /// <param name="Range">Where the name is written: the name only, never a type-declaration character after it.</param>
 /// <param name="NewText">The new name.</param>
-public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText);
+/// <param name="IsInString">
+/// Whether the name is written in a string that a member of a library calls the symbol by: the procedure name of <c>CallByName</c>
+/// (<strong>MS-VBAL §6.1.2.8.1.1</strong>), a host's macro (<c>Application.Run "Module1.Foo"</c>), or the <c>OnAction</c> of a control. What a string names is
+/// only known when the code runs, so the user is asked to confirm the edit. A string left as it is names nothing the call can find.
+/// </param>
+public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false);
 
 /// <summary>
 /// What a rename would rename, where it was asked for (<see cref="SymbolRename.Prepare"/>): the target, or why there is none.
@@ -164,6 +169,10 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 /// </para>
 /// <para>
 /// A member that code accesses late-bound - on an <c>Object</c> or a <c>Variant</c> - is not known to refer to the symbol, and is not renamed.
+/// </para>
+/// <para>
+/// A string is renamed where a member of a library calls a member of a module by its name in it - <c>CallByName</c>, a host's macro, a control's
+/// <c>OnAction</c> - and its edit says so (<see cref="RenameEdit.IsInString"/>), for the user to confirm: what a string names is only known when the code runs.
 /// </para>
 /// </remarks>
 public static class SymbolRename
@@ -264,8 +273,19 @@ public static class SymbolRename
         var old = NameOccurrences.Find(context, target.Name, context.Modules);
 
         // a name written as the renamed one whose meaning is not known, where the symbol could be what it means.
+        var inStrings = new List<NameOccurrence>();
         foreach (var unknown in old.Unknown)
         {
+            if (unknown.Kind == OccurrenceKind.String)
+            {
+                if (IsCalledBy(context, symbols, unknown))
+                {
+                    inStrings.Add(unknown);
+                }
+
+                continue;
+            }
+
             if (unknown.Kind == OccurrenceKind.Member || symbols.Any(symbol => ChainIndex(unknown.Scope, symbol) < int.MaxValue))
             {
                 return Refused(new(RenameRefusalKind.Unresolved, target.Name, Module: unknown.Module, Position: unknown.Range.Start));
@@ -282,9 +302,22 @@ public static class SymbolRename
             .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
             .OrderBy(occurrence => occurrence.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(occurrence => occurrence.Range.Start)
-            .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName));
+            .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName))
+            .Concat(inStrings
+                .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
+                .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, IsInString: true)))
+            .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
+            .ThenBy(edit => edit.Range.Start);
         return new([.. edits], null);
     }
+
+    // whether a string a library calls a procedure by may name one of the symbols: only a member of a module is called by its name, and a string that names a
+    // module of the workspace names the member of that one.
+    private static bool IsCalledBy(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence named)
+        => symbols.Any(symbol => NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri)) is VBModuleSymbol module
+            && (named.Qualifier is not { } qualifier
+                || string.Equals(qualifier, module.Name, StringComparison.OrdinalIgnoreCase)
+                || !context.Modules.Any(candidate => string.Equals(SymbolUri.ModuleNameOf(candidate.Module), qualifier, StringComparison.OrdinalIgnoreCase))));
 
     private static RenamePlan Refused(RenameRefusal refusal) => new([], refusal);
 
