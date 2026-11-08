@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The stack trace of a run-time error locates every activation: the one the error was raised in at the statement or the expression that faulted, and each
-/// of its callers at the statement it was suspended at, the one that made the call. Each program is run by the interpreter and compiled, and is traced alike.
+/// of its callers at the call expression it was suspended at. Each program is run by the interpreter and compiled, and is traced alike.
 /// </summary>
 [TestClass]
 public sealed class StackTraceLocationTests
@@ -77,7 +77,7 @@ public sealed class StackTraceLocationTests
         {
             Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{engine}: {result.ErrorMessage}");
             CollectionAssert.AreEqual(
-                new[] { "  at CalculateGrossMargin (18:28)", "  at ProcessOrders (14:5) from (11:5)", "  at Main (3:5)" },
+                new[] { "  at CalculateGrossMargin (18:28)", "  at ProcessOrders (14:17) from (11:5)", "  at Main (3:5)" },
                 string.Join("\r\n", result.Output).Split("\r\n"),
                 engine.ToString());
         }
@@ -109,7 +109,7 @@ public sealed class StackTraceLocationTests
         {
             Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, engine.ToString());
             CollectionAssert.AreEqual(
-                new[] { $"Inner@15:{result.ErrorCharacter}", "Middle@11:4", "Outer@6:4", "Main@2:4" },
+                new[] { $"Inner@15:{result.ErrorCharacter}", "Middle@11:8", "Outer@6:8", "Main@2:8" },
                 Frames(result),
                 engine.ToString());
         }
@@ -129,19 +129,20 @@ public sealed class StackTraceLocationTests
             "    GoSub Second",
             "    Return",
             "Second:",
-            "    Fail d",
+            "    d = Fail(d)",
             "    Return",
             "End Sub",
-            "Private Sub Fail(ByVal d As Long)",
+            "Private Function Fail(ByVal d As Long) As Long",
             "    Dim r As Long",
             "    r = 1 \\ d",
-            "End Sub");
+            "    Fail = r",
+            "End Function");
 
         foreach (var (engine, result) in await RunAsync(program, NoClasses, "Main", "Caller", "Fail"))
         {
             Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, engine.ToString());
             CollectionAssert.AreEqual(
-                new[] { $"Fail@15:{result.ErrorCharacter}", "Caller@10:4 from 7 from 4", "Main@1:4" },
+                new[] { $"Fail@15:{result.ErrorCharacter}", "Caller@10:8 from 7 from 4", "Main@1:4" },
                 Frames(result),
                 engine.ToString());
         }
@@ -170,6 +171,83 @@ public sealed class StackTraceLocationTests
             Assert.AreEqual(5, result.ErrorLine, engine.ToString());
             Assert.AreNotEqual(4, result.ErrorCharacter, $"{engine}: the expression that faulted, not the start of its statement");
             CollectionAssert.AreEqual(new[] { $"Main@5:{result.ErrorCharacter}" }, Frames(result), engine.ToString());
+        }
+    }
+
+    // a call in the argument of another: the caller is located at the call that raised, the inner one while it runs, and the outer one once it returned.
+    [TestMethod]
+    [DataRow(0, "Inner", 22, DisplayName = "the inner call raises")]
+    [DataRow(5, "Outer", 16, DisplayName = "the outer call raises")]
+    public async Task ACallInTheArgumentOfAnother_LocatesItsCallerAtTheCallThatRaised(int argument, string raising, int character)
+    {
+        var program = CompiledDirectCallTests.Program(
+            "Public Sub Main()",
+            $"    Debug.Print Outer(Inner({argument}))",
+            "End Sub",
+            "Private Function Outer(ByVal n As Long) As Long",
+            "    Outer = 10 \\ (n - 2)",
+            "End Function",
+            "Private Function Inner(ByVal x As Long) As Long",
+            "    Inner = 10 \\ x",
+            "End Function");
+
+        foreach (var (engine, result) in await RunAsync(program, NoClasses))
+        {
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, engine.ToString());
+            CollectionAssert.AreEqual(
+                new[] { $"{raising}@{result.ErrorLine}:{result.ErrorCharacter}", $"Main@1:{character}" },
+                Frames(result),
+                engine.ToString());
+        }
+    }
+
+    [TestMethod]
+    public async Task ACallInAnIfCondition_LocatesItsCallerAtTheCall()
+    {
+        var program = CompiledDirectCallTests.Program(
+            "Public Sub Main()",
+            "    If Check(0) > 0 Then Debug.Print \"never\"",
+            "End Sub",
+            "Private Function Check(ByVal x As Long) As Long",
+            "    Check = 1 \\ x",
+            "End Function");
+
+        foreach (var (engine, result) in await RunAsync(program, NoClasses))
+        {
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, engine.ToString());
+            CollectionAssert.AreEqual(new[] { $"Check@4:{result.ErrorCharacter}", "Main@1:7" }, Frames(result), engine.ToString());
+        }
+    }
+
+    private static readonly (string Name, string Source)[] Divider =
+    [
+        ("Divider", ModuleWorkspace.ClassModule("Divider",
+            "Public Function M(ByVal x As Long) As Long",
+            "    M = 1 \\ x",
+            "End Function")),
+    ];
+
+    // a call of a member of an object: its caller is located at the call, which begins with the object it is made on.
+    [TestMethod]
+    public async Task AMemberCall_LocatesItsCallerAtTheCall()
+    {
+        var program = CompiledDirectCallTests.Program(
+            "Public Sub Main()",
+            "    Debug.Print Through(0)",
+            "End Sub",
+            "Private Function Through(ByVal x As Long) As Long",
+            "    Dim o As Divider",
+            "    Set o = New Divider",
+            "    Through = o.M(x)",
+            "End Function");
+
+        foreach (var (engine, result) in await RunAsync(program, Divider, "Through"))
+        {
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, engine.ToString());
+            CollectionAssert.AreEqual(
+                new[] { $"M@{result.ErrorLine}:{result.ErrorCharacter}", "Through@6:14", "Main@1:16" },
+                Frames(result),
+                engine.ToString());
         }
     }
 

@@ -112,9 +112,9 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
     /// <inheritdoc/>
     public void ClearUntrappable() => Untrappable = null;
 
-    // the innermost activation is located where the error was raised, at the statement or the expression that faulted; each caller at the statement it is
-    // suspended at, the one that made the call. The GoSubs every activation has not returned from are its own, and are captured now: by the time anyone
-    // reads the trace they are popped.
+    // the innermost activation is located where the error was raised, at the statement or the expression that faulted; each caller at the call it is
+    // suspended at, the call expression or call statement that was running. The GoSubs every activation has not returned from are its own, and are
+    // captured now: by the time anyone reads the trace they are popped.
     private VBStackTrace Capture(IVBRaisableError error)
         => new(
         [

@@ -748,7 +748,7 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null);
+        return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null, call.Call.SourceLocation);
     }
 
     // a call of a member of an object variable of the activation declared as a class, its parameters after Me taken as CallOf takes a
@@ -776,11 +776,13 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return CallWith(call.Member, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver);
+        return CallWith(call.Member, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver,
+            ((SyntaxNode?)call.Arguments ?? call.Access).SourceLocation);
     }
 
+    // at: where the call expression is, which the activation is located at while the callee runs (CompiledCallee.CallLocation).
     private CallStep? CallWith(VBTypeMemberSymbol procedure, ReadOnlySpan<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments, int result, int offset,
-        ScalarKind? resultKind, BoundMember? site, int? receiver)
+        ScalarKind? resultKind, BoundMember? site, int? receiver, SourceLocation at)
     {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar: an object it returned would be held by the statement until it ends.
@@ -826,7 +828,7 @@ internal sealed partial class ProcedureAnalysis
 
         // the variables passed by reference are held in cells from the start of the activation, which the call is made with.
         _cellSlots.UnionWith(escaping);
-        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference) { Site = site });
+        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference) { Site = site, CallLocation = at });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
 

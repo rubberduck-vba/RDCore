@@ -713,7 +713,7 @@ public sealed class CompiledDirectCallTests
             "End Function");
         var (observed, direct, _) = await AssertAlikeAsync(program, "First", "Second");
 
-        StringAssert.Matches(observed, new System.Text.RegularExpressions.Regex(@"\| Interpreted@21:\d+ < Third@15:4 < Second@10:4 < First@5:4 < Main@1:4$"));
+        StringAssert.Matches(observed, new System.Text.RegularExpressions.Regex(@"\| Interpreted@21:\d+ < Third@15:8 < Second@10:8 < First@5:8 < Main@1:16$"));
         if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(2L, direct, "First calls Second, and Second calls Third, through their typed entries");

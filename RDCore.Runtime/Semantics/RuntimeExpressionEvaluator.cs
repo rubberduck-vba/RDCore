@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.External;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.Expressions;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -166,7 +167,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private RuntimeSemanticsEvaluationResult EvaluateSimpleName(IRuntimeSession session, RuntimeEvaluationContext context, SimpleNameExpressionNode simpleName)
         => ReadSymbol(
             session, context, session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol,
-            nameOfEnclosingFunctionIsItsResult: true);
+            nameOfEnclosingFunctionIsItsResult: true, call: simpleName);
 
     /// <summary>
     /// What a name that resolved to <paramref name="symbol"/> evaluates to when nothing supplies arguments to it: a
@@ -175,16 +176,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// <remarks>
     /// Shared by a bare name and a name qualified by a project or module (<strong>MS-VBAL §5.6.12</strong>), which
     /// resolve differently and then mean the same thing. They differ in one rule only:
-    /// <paramref name="nameOfEnclosingFunctionIsItsResult"/>.
+    /// <paramref name="nameOfEnclosingFunctionIsItsResult"/>. <paramref name="call"/> is the name as it is written, which a call is made at.
     /// </remarks>
     private RuntimeSemanticsEvaluationResult ReadSymbol(
-        IRuntimeSession session, RuntimeEvaluationContext context, Symbol? symbol, bool nameOfEnclosingFunctionIsItsResult)
+        IRuntimeSession session, RuntimeEvaluationContext context, Symbol? symbol, bool nameOfEnclosingFunctionIsItsResult, SyntaxNode? call = null)
     {
         if (symbol is VBProcedureMemberSymbol sub)
         {
             // a bare reference to a Sub, with no enclosing Index to supply arguments, is a call with
             // none (MS-VBAL §5.6.10) - "Foo" alone, or Call Foo's own Callee.
-            return InvokeProcedure(session, context, sub, []);
+            return InvokeProcedure(session, context, sub, [], call: call);
         }
 
         if (symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol)
@@ -207,7 +208,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return nameOfEnclosingFunctionIsItsResult
                 && returningMember.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing
                     ? Assumed(RuntimeSemanticsEvaluationResult.Success(enclosing.ReturnValue!))
-                    : InvokeProcedure(session, context, returningMember, []);
+                    : InvokeProcedure(session, context, returningMember, [], call: call);
         }
 
         // MS-VBAL 5.4.3.2 / 5.2.3.3: a Const statically evaluates to a value and is substituted at each
@@ -919,7 +920,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             && TryClassifyNamespace(session, context, namespaceExpression) is { } qualifier)
         {
             return ReadSymbol(
-                session, context, ResolveNamespaceMember(session, context, qualifier, memberAccess), nameOfEnclosingFunctionIsItsResult: false);
+                session, context, ResolveNamespaceMember(session, context, qualifier, memberAccess), nameOfEnclosingFunctionIsItsResult: false, call: memberAccess);
         }
 
         // MS-VBAL §5.6.12: likewise a member of an enumeration named by its type is a constant to read, not a member of a value.
@@ -955,7 +956,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         return TryResolveDefaultMember(session, indexed) is { } defaultMember
-            ? InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver, reachedThrough: indexExpression.Callee)
+            ? InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver, reachedThrough: indexExpression.Callee,
+                call: indexExpression)
             : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to index."));
     }
@@ -975,8 +977,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         }
 
         return ReturnsToBeIndexed(found.Member, found.Receiver, indexExpression.Arguments)
-            ? (InvokeProcedure(session, context, found.Member, [], found.Receiver), false)
-            : (InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver, reachedThrough: ReachedThrough(qualified, context)), true);
+            ? (InvokeProcedure(session, context, found.Member, [], found.Receiver, call: qualified), false)
+            : (InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver, reachedThrough: ReachedThrough(qualified, context),
+                call: indexExpression), true);
     }
 
     private RuntimeSemanticsEvaluationResult AccessMember(
@@ -989,7 +992,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // a Property Get, Function or Sub of the object is an invocation with no arguments of its own; a field is a read.
         return TryResolveInvocableMember(session, context, memberAccess.Owner, owner, memberName) is { } found
-            ? InvokeProcedure(session, context, found.Member, [], found.Receiver)
+            ? InvokeProcedure(session, context, found.Member, [], found.Receiver, call: memberAccess)
             : EvaluateInstanceField(session, memberAccess, owner, memberName);
     }
 
@@ -1485,10 +1488,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             // returns is what is indexed - `Items(1)` of a function that returns a Collection.
             if (!ReturnsToBeIndexed(sub, null, indexExpression.Arguments))
             {
-                return InvokeProcedure(session, context, sub, indexExpression.Arguments);
+                return InvokeProcedure(session, context, sub, indexExpression.Arguments, call: indexExpression);
             }
 
-            calleeResult = InvokeProcedure(session, context, sub, []);
+            calleeResult = InvokeProcedure(session, context, sub, [], call: indexExpression);
         }
 
         // a call written on an object - Err.Raise 5, obj.Item(1) - invokes the member the object's class has by that
@@ -1508,14 +1511,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 var procedure = (VBTypeMemberSymbol)member;
                 if (!ReturnsToBeIndexed(procedure, null, indexExpression.Arguments))
                 {
-                    return InvokeProcedure(session, context, procedure, indexExpression.Arguments);
+                    return InvokeProcedure(session, context, procedure, indexExpression.Arguments, call: indexExpression);
                 }
 
-                calleeResult = InvokeProcedure(session, context, procedure, []);
+                calleeResult = InvokeProcedure(session, context, procedure, [], call: indexExpression);
             }
             else
             {
-                calleeResult = ReadSymbol(session, context, member, nameOfEnclosingFunctionIsItsResult: false);
+                calleeResult = ReadSymbol(session, context, member, nameOfEnclosingFunctionIsItsResult: false, call: indexExpression);
             }
         }
         else if (indexExpression.Callee is MemberAccessExpressionNode qualified)
@@ -1808,12 +1811,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // resolves to, and how each argument is passed.
         if (callee is SimpleNameExpressionNode && BoundTreeOf(session, StatementCall(callee, argumentNodes), context) is BoundCall { Procedure: VBTypeMemberSymbol bound } call)
         {
-            return InvokeProcedure(session, context, bound, argumentNodes, boundArguments: call.BoundArguments);
+            return InvokeProcedure(session, context, bound, argumentNodes, boundArguments: call.BoundArguments, call: callee);
         }
 
         if (TryResolveCallableSub(session, context, callee) is { } procedure)
         {
-            return InvokeProcedure(session, context, procedure, argumentNodes);
+            return InvokeProcedure(session, context, procedure, argumentNodes, call: callee);
         }
 
         // a call on an object - Err.Raise 5 - is the same call with the same arguments, written without parentheses: the same expression every time the
@@ -1831,9 +1834,27 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // boundArguments: how each argument is passed, bound with the call (S1.7), for the parameters of the very procedure invoked; null when it was not bound.
     // reachedThrough: for a call on an object, the expression the object was reached through (DispatchedThrough).
+    // call: the call expression, which the activation that makes the call is located at while the callee runs (CallStackFrame.EnterCall); null for a call
+    // that is written nowhere - a default member, an enumerator - which is located by its statement. A call made while the arguments of this one are
+    // evaluated is located at its own, until it returns.
     private RuntimeSemanticsEvaluationResult InvokeProcedure(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
         ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver = null, ImmutableArray<BoundArgument>? boundArguments = null,
-        ExpressionNode? reachedThrough = null)
+        ExpressionNode? reachedThrough = null, SyntaxNode? call = null)
+    {
+        var caller = session.CallStack.Current as CallStackFrame;
+        var before = caller?.EnterCall(call?.SourceLocation) ?? default;
+        try
+        {
+            return InvokeProcedureFrom(session, context, procedure, argumentNodes, receiver, boundArguments, reachedThrough);
+        }
+        finally
+        {
+            caller?.LeaveCall(before);
+        }
+    }
+
+    private RuntimeSemanticsEvaluationResult InvokeProcedureFrom(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
+        ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver, ImmutableArray<BoundArgument>? boundArguments, ExpressionNode? reachedThrough)
     {
         var allParameters = RuntimeProcedureInvoker.GetParameters(procedure);
 
@@ -3081,7 +3102,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var name = new LiteralExpressionNode(
             dictionaryAccess.Member.Identity, dictionaryAccess.Member.Location, new VBStringValue(dictionaryAccess.Member.IdentifierName));
-        return InvokeProcedure(session, context, defaultMember.Member, [name], defaultMember.Receiver);
+        return InvokeProcedure(session, context, defaultMember.Member, [name], defaultMember.Receiver, call: expression);
     }
 
     private RuntimeSemanticsEvaluationResult EvaluateTypeOfIs(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression, TypeOfIsExpressionNode typeOfIs)

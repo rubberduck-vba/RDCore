@@ -74,10 +74,52 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public InstructionList? Body { get; set; }
 
     /// <summary>
-    /// Where the activation stands in its body: the location of the instruction at <see cref="Pc"/>, which is the statement it runs, or the call it is suspended
-    /// at while a procedure it called runs. <see langword="null"/> when <see cref="Pc"/> is past the end of the body, and for an activation that has none.
+    /// Where the activation stands in its body: while a procedure it called runs, the call expression it is suspended at (<see cref="EnterCall"/>);
+    /// otherwise the location of the instruction at <see cref="Pc"/>, the statement it runs. <see langword="null"/> when <see cref="Pc"/> is past the end of
+    /// the body, and for an activation that has none.
     /// </summary>
-    public SourceLocation? CurrentLocation => Body is { } body && Pc >= 0 && Pc < body.Items.Length ? body.Items[Pc].Location : null;
+    /// <remarks>
+    /// A call is the activation's only for as long as it stands at the instruction that made it, and only if the call is in that instruction's statement:
+    /// what it is at otherwise - an instruction it went on to, a body an edit moved it into, a statement typed where the program waited - is located by
+    /// the statement.
+    /// </remarks>
+    public SourceLocation? CurrentLocation
+    {
+        get
+        {
+            if (Body is not { } body || Pc < 0 || Pc >= body.Items.Length)
+            {
+                return null;
+            }
+
+            var statement = body.Items[Pc].Location;
+            return _call is { } call && _callPc == Pc && statement is { } at && call.Uri == at.Uri
+                && call.Range.Start >= at.Range.Start && call.Range.Start <= at.Range.End
+                    ? call
+                    : statement;
+        }
+    }
+
+    // the call expression the activation is suspended at, and the instruction it made the call at (EnterCall).
+    private SourceLocation? _call;
+    private int _callPc = -1;
+
+    /// <summary>
+    /// The activation makes the call at <paramref name="call"/>, from the instruction at <see cref="Pc"/>: it is located there while the callee runs
+    /// (<see cref="CurrentLocation"/>).
+    /// </summary>
+    /// <param name="call">Where the call expression is; <see langword="null"/> for a call that is written nowhere, which is located by its statement.</param>
+    /// <returns>The call the activation was making before, which <see cref="LeaveCall"/> gives back when this one returns.</returns>
+    public (SourceLocation? Call, int Pc) EnterCall(SourceLocation? call)
+    {
+        var before = (_call, _callPc);
+        (_call, _callPc) = (call, Pc);
+        return before;
+    }
+
+    /// <summary>The call <see cref="EnterCall"/> began returned: the activation is making the one it was making before, if any.</summary>
+    /// <param name="before">What <see cref="EnterCall"/> returned.</param>
+    public void LeaveCall((SourceLocation? Call, int Pc) before) => (_call, _callPc) = before;
 
     /// <summary>
     /// The offset the program waited before, and is resumed at: a breakpoint there is not waited at again, once.

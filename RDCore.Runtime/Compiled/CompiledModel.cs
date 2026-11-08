@@ -352,6 +352,12 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public SDK.Semantics.Binding.BoundMember? Site { get; init; }
 
     /// <summary>
+    /// Where the call expression is: what the activation that makes the call is located at while the callee runs (<c>CallStackFrame.EnterCall</c>), as the
+    /// interpreter locates it.
+    /// </summary>
+    public SourceLocation? CallLocation { get; init; }
+
+    /// <summary>
     /// The member other than <see cref="Procedure"/> the call last invoked, of an object of another class, found to be called as
     /// <see cref="Procedure"/> is (<see cref="CompiledActivation.CanCallMember"/>): one implementing it, of an object declared as an interface.
     /// </summary>
