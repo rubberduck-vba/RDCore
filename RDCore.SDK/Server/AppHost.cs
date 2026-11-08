@@ -184,11 +184,16 @@ public abstract class AppHost<TApp>() : IDisposable
     /// platform's parser has never heard of, and would be rejected as a mistake before the verb was ever reached.
     /// What is wrong with such a command line is for the verb to say.
     /// </para>
+    /// <para>
+    /// <see cref="RunAsync"/> asks this first, and returns <paramref name="exitCode"/> without building the host when it answers
+    /// <see langword="true"/>. An entry point or a launcher may ask it as well, to tell a command line the application answers by itself
+    /// from one it starts with: answering it writes the help, version or error text the parser writes, and builds and starts nothing.
+    /// </para>
     /// </remarks>
     /// <param name="args">The command-line arguments as received.</param>
-    /// <param name="exitCode">The process exit code, when this returns <see langword="true"/>.</param>
+    /// <param name="exitCode">The process exit code, when this returns <see langword="true"/>. The base implementation answers <c>0</c> for a help or version request, and <c>-1</c> for a command line that cannot be parsed.</param>
     /// <returns><see langword="true"/> if the command line has been answered and there is nothing to run.</returns>
-    protected internal virtual bool TryAnswerCommandLine(string[] args, out int exitCode)
+    public virtual bool TryAnswerCommandLine(string[] args, out int exitCode)
         => SdkCommandLine.TryAnswer(args, out exitCode);
 
     /// <summary>

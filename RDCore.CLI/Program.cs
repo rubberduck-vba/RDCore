@@ -421,7 +421,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
     // `rdc.exe <verb> <the verb's own options>` is not the platform's command line: --description and --overwrite are
     // options of describe-ext, which the platform's parser has never heard of and would reject as mistakes before the
     // verb ran. The verb parses - and answers for - its own.
-    protected override bool TryAnswerCommandLine(string[] args, out int exitCode)
+    public override bool TryAnswerCommandLine(string[] args, out int exitCode)
     {
         exitCode = 0;
         return false;
