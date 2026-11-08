@@ -97,6 +97,69 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to More than one module declares a Sub Main, so the program has more than one place to start: {0}..
+        /// </summary>
+        public static string Build_AmbiguousEntryPoint {
+            get {
+                return ResourceManager.GetString("Build_AmbiguousEntryPoint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Built {0} in {1}..
+        /// </summary>
+        public static string Build_Built {
+            get {
+                return ResourceManager.GetString("Build_Built", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A program cannot be named {0}: the runtime it runs on has an assembly of that name. Name it with --name..
+        /// </summary>
+        public static string Build_NameTaken {
+            get {
+                return ResourceManager.GetString("Build_NameTaken", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No .NET application host for {0} is installed, so no executable was written: run the program with dotnet {1}..
+        /// </summary>
+        public static string Build_NoAppHost {
+            get {
+                return ResourceManager.GetString("Build_NoAppHost", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No standard module declares a Public Sub Main() or Sub Main(ParamArray Args()): the program has nowhere to start..
+        /// </summary>
+        public static string Build_NoEntryPoint {
+            get {
+                return ResourceManager.GetString("Build_NoEntryPoint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Builds a workspace into a program: its assembly, its executable, and the runtime it runs on..
+        /// </summary>
+        public static string Build_Summary {
+            get {
+                return ResourceManager.GetString("Build_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Runs a workspace&apos;s program, and exits with its exit code: 0 when it ends, 1 on a run-time error, 2 when it cannot start..
+        /// </summary>
+        public static string Run_Summary {
+            get {
+                return ResourceManager.GetString("Run_Summary", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to compiled.
         /// </summary>
         public static string Compilation_Compiled {

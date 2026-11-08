@@ -1,0 +1,94 @@
+using CommandLine;
+using RDCore.CLI.App.Bench;
+using RDCore.CLI.App.Build;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Workspace;
+using System.IO.Abstractions;
+
+namespace RDCore.CLI.App.Commands;
+
+internal sealed class RunCommandOptions
+{
+    [Value(0, MetaName = "path", Required = false, HelpText = "A workspace folder (with or without a .rdproj), or a module file. The current folder when omitted.")]
+    public string? Path { get; set; }
+
+    [Option('c', "configuration", Required = false, Default = VBBuildConfiguration.Debug, HelpText = "Debug or Release.")]
+    public VBBuildConfiguration Configuration { get; set; }
+
+    [Option("unattended", Required = false, HelpText = "Nobody answers a dialog: a MsgBox or an InputBox fails the run.")]
+    public bool Unattended { get; set; }
+}
+
+/// <summary>
+/// <c>rdc run [path] [-- args…]</c>: runs the program of a workspace - its entry point, in a session of its own, in-process - and exits as the program
+/// ends: 0 when it ran to its end, 1 when a run-time error stopped it, 2 when it could not be started. Nothing is written.
+/// </summary>
+/// <remarks>
+/// The workspace is loaded as <c>rdc bench</c> loads it, and run as a program <c>rdc build</c> builds of it runs (<see cref="ProgramRunner"/>).
+/// </remarks>
+/// <param name="fileSystem">The file system the workspace is on.</param>
+/// <param name="projects">Reads a <c>.rdproj</c>.</param>
+/// <param name="runner">Loads the workspace.</param>
+/// <param name="messages">Builds the verbose half of a run-time error's message.</param>
+/// <param name="output">Where what the program prints is written; standard output unless said otherwise.</param>
+/// <param name="error">Where what stops it is written; standard error unless said otherwise.</param>
+internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IVerboseMessageBuilder messages,
+    TextWriter? output = null, TextWriter? error = null) : ICliCommand
+{
+    private TextWriter Output => output ?? global::System.Console.Out;
+    private TextWriter Error => error ?? global::System.Console.Error;
+
+    public string Name => CommandNames.RunCommand.Name;
+    public IReadOnlyList<string> Aliases => [CommandNames.RunCommand.Alias];
+    public string Summary => Resources.Run_Summary;
+
+    public async Task<int> ExecuteAsync(IReadOnlyList<string> args, CancellationToken token)
+    {
+        // what follows -- is the program's, and not rdc's.
+        var separator = args.ToList().IndexOf("--");
+        var own = separator < 0 ? args : args.Take(separator).ToList();
+        var parsed = Parser.Default.ParseArguments<RunCommandOptions>(own);
+        if (parsed.Errors.Any())
+        {
+            // CommandLine already wrote the usage/errors to stderr.
+            return ProgramRunner.Refused;
+        }
+
+        var options = parsed.Value;
+        BenchWorkspace workspace;
+        try
+        {
+            workspace = await BenchWorkspace.LoadAsync(fileSystem, projects, options.Path ?? fileSystem.Directory.GetCurrentDirectory(), token);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
+        {
+            await Error.WriteLineAsync(exception.Message);
+            return ProgramRunner.Refused;
+        }
+
+        var profile = RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = options.Configuration };
+        var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, token);
+
+        // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1).
+        if (problems.Count > 0)
+        {
+            foreach (var problem in problems)
+            {
+                await Error.WriteLineAsync(problem);
+            }
+
+            return ProgramRunner.Refused;
+        }
+
+        if (ProgramRunner.EntryPointOf(provider.Session, modules, ProjectBuildSettings.Of(workspace.Project), out var refusal) is not { } entryPoint)
+        {
+            await Error.WriteLineAsync(refusal);
+            return ProgramRunner.Refused;
+        }
+
+        IReadOnlyList<string> arguments = separator < 0 ? [] : [.. args.Skip(separator + 1)];
+        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, arguments, messages, Output, Error, options.Unattended, token);
+    }
+}

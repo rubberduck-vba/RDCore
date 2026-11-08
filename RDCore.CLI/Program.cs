@@ -449,6 +449,8 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, ExportLibraryCommand>()
             .AddSingleton<ICliCommand, BenchCommand>()
             .AddSingleton<ICliCommand, CompilationCommand>()
+            .AddSingleton<ICliCommand, BuildCommand>()
+            .AddSingleton<ICliCommand, RunCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
             .AddSingleton<ConfigCommand>()

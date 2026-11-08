@@ -625,6 +625,27 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Summary" xml:space="preserve">
     <value>Says, for each procedure of a workspace or of the built-in corpus, whether it runs compiled, and what keeps it in the interpreter.</value>
   </data>
+  <data name="Build_Summary" xml:space="preserve">
+    <value>Builds a workspace into a program: its assembly, its executable, and the runtime it runs on.</value>
+  </data>
+  <data name="Build_NoEntryPoint" xml:space="preserve">
+    <value>No standard module declares a Public Sub Main() or Sub Main(ParamArray Args()): the program has nowhere to start.</value>
+  </data>
+  <data name="Build_AmbiguousEntryPoint" xml:space="preserve">
+    <value>More than one module declares a Sub Main, so the program has more than one place to start: {0}.</value>
+  </data>
+  <data name="Build_NameTaken" xml:space="preserve">
+    <value>A program cannot be named {0}: the runtime it runs on has an assembly of that name. Name it with --name.</value>
+  </data>
+  <data name="Build_NoAppHost" xml:space="preserve">
+    <value>No .NET application host for {0} is installed, so no executable was written: run the program with dotnet {1}.</value>
+  </data>
+  <data name="Build_Built" xml:space="preserve">
+    <value>Built {0} in {1}.</value>
+  </data>
+  <data name="Run_Summary" xml:space="preserve">
+    <value>Runs a workspace's program, and exits with its exit code: 0 when it ends, 1 on a run-time error, 2 when it cannot start.</value>
+  </data>
   <data name="Compilation_Compiled" xml:space="preserve">
     <value>compiled</value>
   </data>
