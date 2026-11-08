@@ -72,7 +72,7 @@ public sealed class ReachingDefinitions
     {
         var edges = (states ?? ErrorHandlingStates.Of(graph)).Edges;
         var definitions = accesses.Definitions;
-        var indices = definitions.Select((definition, index) => (definition, index)).ToDictionary(pair => pair.definition, pair => pair.index, ReferenceEqualityComparer.Instance);
+        var indices = definitions.Select((definition, index) => (definition, index)).ToDictionary(pair => pair.definition, pair => pair.index, (IEqualityComparer<VariableDefinition>)ReferenceEqualityComparer.Instance);
         var reaching = Enumerable.Range(0, edges.Count).Select(_ => new HashSet<int>()).ToArray();
         reaching[graph.Entry].UnionWith(definitions.Select((definition, index) => (definition, index)).Where(pair => pair.definition.Kind is VariableDefinitionKind.Entry).Select(pair => pair.index));
 
