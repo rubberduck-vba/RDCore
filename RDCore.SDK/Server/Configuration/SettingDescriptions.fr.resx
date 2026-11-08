@@ -86,7 +86,7 @@
     <value>Si SaveSetting, GetSetting, GetAllSettings et DeleteSetting utilisent le Registre de Windows, comme le fait MS-VBA, plutôt que les paramètres de l'espace de travail.</value>
   </data>
   <data name="Environment_ExecutionEngine" xml:space="preserve">
-    <value>Ce qui exécute un programme : l'interpréteur (Interpreter), ou du code compilé là où chaque instruction d'une procédure peut l'être (Compiled).</value>
+    <value>Ce qui exécute un programme : du code compilé là où il peut exécuter une procédure, et l'interpréteur ailleurs (Compiled), ou l'interpréteur seul (Interpreter).</value>
   </data>
   <data name="Environment_Configuration" xml:space="preserve">
     <value>Si un programme est construit pour être débogué (Debug) ou pour être exécuté (Release). Dans une version Release, un Stop termine le programme comme le fait End, et DEBUG est False.</value>
