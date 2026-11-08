@@ -149,7 +149,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
         services
             .Configure<AppOptions>(configuration.GetSection($"{SettingsSchema.Root}:{AppOptions.Section}"))
             // the details of a run-time error, as the console words them.
-            .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
+            .Configure<VerboseMessageOptions>(configuration.GetSection($"{SettingsSchema.Root}:{AppOptions.Section}:{nameof(AppOptions.VerboseMessages)}"))
             .AddVerboseMessages()
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()

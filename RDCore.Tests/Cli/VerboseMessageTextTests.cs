@@ -17,7 +17,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The verbose text of a run-time error, character for character: the message, the expression it was raised at, and the frames of the operation, as each
-/// setting of <c>Configuration:VerboseMessages</c> has it. The runtime records the details, and the console words them.
+/// setting of <c>CLI.VerboseMessages</c> has it. The runtime records the details, and the console words them.
 /// </summary>
 [TestClass]
 public sealed class VerboseMessageTextTests

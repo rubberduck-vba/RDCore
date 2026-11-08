@@ -739,6 +739,60 @@ Long Live the Cucumber (Latin)</comment>
   <data name="CLI_BreakListingLines" xml:space="preserve">
     <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>
   </data>
+  <data name="CLI_VerboseMessages_IsEnabled" xml:space="preserve">
+    <value>Whether the details of a run-time error are worded: the expression it was raised at, and the frames of the operation that failed.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ShowMessageIcon" xml:space="preserve">
+    <value>Whether the message of the details begins with its icon (MessageIcon).</value>
+  </data>
+  <data name="CLI_VerboseMessages_MessageIcon" xml:space="preserve">
+    <value>The icon the message of the details begins with.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ExpressionType" xml:space="preserve">
+    <value>Whether the details name the kind of expression the error was raised at.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ExpressionSemanticId" xml:space="preserve">
+    <value>Whether the details give the semantic identifier (a URI) of the expression.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ShowSemanticIdIcon" xml:space="preserve">
+    <value>Whether the semantic identifier begins with its icon (SemanticIdIcon).</value>
+  </data>
+  <data name="CLI_VerboseMessages_SemanticIdIcon" xml:space="preserve">
+    <value>The icon the semantic identifier begins with.</value>
+  </data>
+  <data name="CLI_VerboseMessages_DocumentLocation" xml:space="preserve">
+    <value>Whether the details say where the expression is, as L1C1 coordinates.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ShowDocumentLocationIcon" xml:space="preserve">
+    <value>Whether the location begins with its icon (DocumentLocationIcon).</value>
+  </data>
+  <data name="CLI_VerboseMessages_DocumentLocationIcon" xml:space="preserve">
+    <value>The icon the location begins with.</value>
+  </data>
+  <data name="CLI_VerboseMessages_StackTrace" xml:space="preserve">
+    <value>Whether the details list the frames of the operation that failed.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ShowStackTraceIcon" xml:space="preserve">
+    <value>Whether the list of frames begins with its icon (StackTraceIcon).</value>
+  </data>
+  <data name="CLI_VerboseMessages_StackTraceIcon" xml:space="preserve">
+    <value>The icon the list of frames begins with.</value>
+  </data>
+  <data name="CLI_VerboseMessages_StackFrameMarker" xml:space="preserve">
+    <value>The marker each frame below the top one begins with.</value>
+  </data>
+  <data name="CLI_VerboseMessages_TopStackFrameMarker" xml:space="preserve">
+    <value>The marker the top frame, the one the error was raised in, begins with.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ShowValues" xml:space="preserve">
+    <value>Whether each input of a frame is given with its value, and not only its type.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ShowValuesIcon" xml:space="preserve">
+    <value>Whether the inputs of a frame begin with their icon (ValuesIcon), whether or not their values are shown.</value>
+  </data>
+  <data name="CLI_VerboseMessages_ValuesIcon" xml:space="preserve">
+    <value>The icon the inputs of a frame begin with.</value>
+  </data>
   <data name="Config_Summary" xml:space="preserve">
     <value>Shows the settings of the platform, and sets them for you</value>
   </data>
