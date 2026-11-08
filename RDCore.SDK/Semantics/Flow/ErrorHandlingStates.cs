@@ -138,8 +138,13 @@ public sealed class ErrorHandlingStates
         => graph.SuccessorsOf(fault).Where(edge => edge.Kind is not ControlFlowEdgeKind.Error).Select(edge => edge.To)
             .Append(fault + 1).Append(ControlFlowGraph.NextAfterAnError(graph.Instructions.Items[fault])).Distinct();
 
-    // what running the instruction to completion leaves.
-    private static ErrorHandlingState After(Instruction instruction, ErrorHandlingState before) => instruction.Kind switch
+    /// <summary>
+    /// The state an instruction leaves when it runs to completion: an <c>On Error</c> statement sets the policy, and <c>On Error GoTo -1</c> or a <c>Resume</c>
+    /// ends the error being handled. Any other instruction leaves the state as it was.
+    /// </summary>
+    /// <param name="instruction">The instruction.</param>
+    /// <param name="before">The state it runs in.</param>
+    public static ErrorHandlingState After(Instruction instruction, ErrorHandlingState before) => instruction.Kind switch
     {
         // inside a handler, the policy set is for after the handler ends: the error stays active (MS-VBA, Excel-verified).
         InstructionKind.OnErrorGoTo => new ErrorHandlingState(ErrorHandlingPolicy.GoTo, instruction.Target, before.IsHandling),

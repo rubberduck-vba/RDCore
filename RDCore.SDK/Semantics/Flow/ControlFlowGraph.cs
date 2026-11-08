@@ -378,6 +378,6 @@ public sealed class ControlFlowGraph
     /// <c>For Each</c> or in the object of a <c>With</c> goes on at the next instruction, the first statement of the body; MS-VBA's behaviour there is unverified.
     /// </remarks>
     /// <param name="instruction">The instruction that raised the error.</param>
-    internal static int NextAfterAnError(Instruction instruction)
+    public static int NextAfterAnError(Instruction instruction)
         => instruction is { Kind: InstructionKind.Select, End: { } after } ? after : instruction.Offset + 1;
 }
