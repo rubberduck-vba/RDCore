@@ -35,15 +35,16 @@ public static class FormControlExtender
 
     /// <summary>
     /// The events the procedures named for <paramref name="variable"/> handle: those of <paramref name="source"/>, its class, and - when it is a form's
-    /// control - those of the extender after them.
+    /// control - those of <paramref name="extender"/> after them, but for the ones its class declares too.
     /// </summary>
     /// <param name="variable">A <c>WithEvents</c> variable of a class module.</param>
     /// <param name="source">The class the variable is declared as.</param>
-    /// <param name="resolver">What finds the extender class.</param>
-    public static IEnumerable<VBEventMemberSymbol> EventsOf(VBTypeMemberSymbol variable, VBClassModuleSymbol source, ISymbolResolver resolver)
+    /// <param name="extender">The extender the form wraps its controls in (<see cref="FormClasses.ExtenderOf"/>), or <see langword="null"/> when there is
+    /// none.</param>
+    public static IEnumerable<VBEventMemberSymbol> EventsOf(VBTypeMemberSymbol variable, VBClassModuleSymbol source, VBClassModuleSymbol? extender)
     {
         var events = source.Events;
-        return variable.GetProperty(SymbolProperties.DesignerControl) && Of(resolver, variable.ParentUri) is { } extender
+        return variable.GetProperty(SymbolProperties.DesignerControl) && extender is not null
             ? events.Concat(extender.Events.Where(extended => source.FindEvent(extended.Name) is null))
             : events;
     }

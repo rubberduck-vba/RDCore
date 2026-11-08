@@ -15,6 +15,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
@@ -211,27 +212,27 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     }
 
     /// <summary>
-    /// The members a form's class has besides its controls and its code: those of the VBA form object (<see cref="FormObject"/>: <c>Show</c>, <c>Hide</c>,
-    /// <c>Left</c>…), and those of the Microsoft Forms <c>UserForm</c> it hosts (<c>Caption</c>, <c>Controls</c>…), when the project references Microsoft
-    /// Forms. They are members of the form's class itself, part of its default interface: <c>Me.Caption</c> is a member of the form whose code it is in, and
+    /// The members a form's class has besides its controls and its code: those of the classes it is composed with (<see cref="FormClasses.Of"/>): for a UserForm, the
+    /// Microsoft Forms <c>UserForm</c>'s (<c>Caption</c>, <c>Controls</c>…), when the project references Microsoft Forms, and the VBA form object's
+    /// (<see cref="FormObject"/>: <c>Show</c>, <c>Hide</c>, <c>Left</c>…); for a Visual Basic 6.0 form, the <c>VB.Form</c>'s (<c>Show</c>, <c>Caption</c>…).
+    /// They are members of the form's class itself, part of its default interface: <c>Me.Caption</c> is a member of the form whose code it is in, and
     /// <c>Caption</c>, there, is too.
     /// </summary>
     /// <remarks>
     /// Each is declared as the member it is of its own class, with the form for its parent, and dispatched outside the workspace's code
     /// (<see cref="FormObject.TargetOf"/>). A name the form's code or one of its controls declares is not declared again: that one is the member of that name.
     /// </remarks>
-    /// <param name="form">The name of the form.</param>
+    /// <param name="designer">What the form's designer declares.</param>
     /// <param name="taken">The names the form's code and its controls declare.</param>
-    public IEnumerable<Symbol> BuildFormMembers(string form, IReadOnlySet<string> taken)
+    public IEnumerable<Symbol> BuildFormMembers(FormDescriptor designer, IReadOnlySet<string> taken)
     {
-        var userForm = VBProjectSymbol.ResolveQualifiedType(resolver, FormDesigner.MSFormsLibrary, FormObject.ClassName, moduleUri).Symbol as VBClassModuleSymbol;
-        var inherited = (userForm?.Members ?? []).Concat(FormObject.ClassIn(workspaceRoot).Members)
+        var inherited = FormClasses.Of(designer, resolver, moduleUri, workspaceRoot).SelectMany(form => form.Members)
             .Where(member => member is not VBEventMemberSymbol && !taken.Contains(member.Name));
         foreach (var member in inherited)
         {
             if (Rehome(member) is { } rehomed)
             {
-                yield return rehomed.With(SymbolProperties.ExternalTarget, FormObject.TargetOf(form, member.Name, KindOf(member)));
+                yield return rehomed.With(SymbolProperties.ExternalTarget, FormObject.TargetOf(designer.Name, member.Name, KindOf(member)));
             }
         }
     }
