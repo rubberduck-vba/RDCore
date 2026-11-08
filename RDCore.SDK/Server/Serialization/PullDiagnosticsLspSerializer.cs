@@ -8,9 +8,15 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Serialization;
 namespace RDCore.SDK.Server.Serialization;
 
 /// <summary>
-/// The LSP serializer, with the <strong>LSP 3.17</strong> pull diagnostic report types made writable.
+/// The LSP serializer, with the <strong>LSP 3.17</strong> pull diagnostic report types made writable, and the change annotations of a
+/// <see cref="WorkspaceEdit"/> keyed by their identifiers.
 /// </summary>
 /// <remarks>
+/// <para>
+/// OmniSharp 0.19.9 writes the keys of <c>WorkspaceEdit.changeAnnotations</c> as the text of the identifier record
+/// (<c>changeAnnotationIdentifier { Identifier = x }</c>), because the record has no type converter for a dictionary key. No client finds the annotation an
+/// edit names (<c>annotationId: "x"</c>) under that key. Here a key is the identifier, both ways.
+/// </para>
 /// <para>
 /// OmniSharp 0.19.9 declares the pull diagnostic report records with a <c>[JsonConverter]</c> whose
 /// <c>WriteJson</c> is <c>throw new NotImplementedException()</c>. The types compile, the handler base
@@ -56,6 +62,7 @@ public sealed class PullDiagnosticsLspSerializer
     {
         Settings.Converters.Add(new RelatedDocumentDiagnosticReportConverter());
         Settings.Converters.Add(new WorkspaceDocumentDiagnosticReportConverter());
+        Settings.Converters.Add(new ChangeAnnotationsConverter());
         Repair();
     }
 
@@ -190,6 +197,48 @@ public sealed class PullDiagnosticsLspSerializer
         public override WorkspaceDocumentDiagnosticReport ReadJson(
             JsonReader reader, Type objectType, WorkspaceDocumentDiagnosticReport? existingValue, bool hasExistingValue, JsonSerializer serializer) =>
             throw new NotSupportedException("Reading a workspace diagnostic report is not needed on the server side.");
+    }
+
+    /// <summary>
+    /// Writes and reads the change annotations of a <see cref="WorkspaceEdit"/> (<strong>LSP 3.17</strong> §WorkspaceEdit): an object whose keys are the
+    /// identifiers the edits name.
+    /// </summary>
+    private sealed class ChangeAnnotationsConverter : JsonConverter<IDictionary<ChangeAnnotationIdentifier, ChangeAnnotation>>
+    {
+        public override void WriteJson(JsonWriter writer, IDictionary<ChangeAnnotationIdentifier, ChangeAnnotation>? value, JsonSerializer serializer)
+        {
+            if (value is null)
+            {
+                writer.WriteNull();
+                return;
+            }
+
+            writer.WriteStartObject();
+            foreach (var (identifier, annotation) in value)
+            {
+                writer.WritePropertyName(identifier.Identifier);
+                serializer.Serialize(writer, annotation);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        public override IDictionary<ChangeAnnotationIdentifier, ChangeAnnotation>? ReadJson(JsonReader reader, Type objectType,
+            IDictionary<ChangeAnnotationIdentifier, ChangeAnnotation>? existingValue, bool hasExistingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null)
+            {
+                return null;
+            }
+
+            var annotations = new Dictionary<ChangeAnnotationIdentifier, ChangeAnnotation>();
+            foreach (var property in Newtonsoft.Json.Linq.JObject.Load(reader).Properties())
+            {
+                annotations[property.Name] = property.Value.ToObject<ChangeAnnotation>(serializer)!;
+            }
+
+            return annotations;
+        }
     }
 
     /// <summary>

@@ -61,7 +61,11 @@ internal interface IRenameService
 /// </summary>
 /// <param name="Value">The answer.</param>
 /// <param name="Refusal">Why there is none, in the language of the reader.</param>
-internal sealed record class RenameAnswer<T>(T? Value, string? Refusal) where T : class
+/// <param name="Question">
+/// What a client that does not take change annotations asks its user before it is sent the edits that need confirming (<see cref="RenameWorkspace.InString"/>),
+/// in the language of the reader; none when there are none.
+/// </param>
+internal sealed record class RenameAnswer<T>(T? Value, string? Refusal, string? Question = null) where T : class
 {
     /// <summary>JSON-RPC "Request Failed" (<strong>LSP 3.17</strong> <c>ErrorCodes.RequestFailed</c>): the request was valid, and is refused.</summary>
     public const int RequestFailedCode = -32803;
@@ -230,11 +234,40 @@ internal sealed class RenameWorkspace
                 TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = edited.Document.Id.Uri, Version = edited.Document.Version },
                 Edits = new TextEditContainer(plan.Edits
                     .Where(edit => edit.Module.AbsoluteUri == edited.Module.AbsoluteUri)
-                    .Select(edit => new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
+                    .Select(edit => edit.IsInString
+                        ? new AnnotatedTextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText, AnnotationId = InString }
+                        : new TextEdit { Range = edited.ToTextRange(edit.Range), NewText = edit.NewText })),
             }));
 
-        return new(new WorkspaceEdit { DocumentChanges = new Container<WorkspaceEditDocumentChange>(changes) }, null);
+        var workspaceEdit = new WorkspaceEdit { DocumentChanges = new Container<WorkspaceEditDocumentChange>(changes) };
+        var inStrings = plan.Edits.Where(edit => edit.IsInString).ToList();
+        if (inStrings.Count == 0)
+        {
+            return new(workspaceEdit, null);
+        }
+
+        // the user confirms what a string says: a client that takes change annotations asks them; one that does not is asked for, before it is sent the edit.
+        workspaceEdit = workspaceEdit with
+        {
+            ChangeAnnotations = new Dictionary<ChangeAnnotationIdentifier, ChangeAnnotation>
+            {
+                [InString] = new ChangeAnnotation
+                {
+                    Label = RefactoringTitles.RenameInStringLabel(),
+                    Description = RefactoringTitles.RenameInStringDescription(target.Name),
+                    NeedsConfirmation = true,
+                },
+            },
+        };
+        var first = inStrings[0];
+        var question = RefactoringTitles.RenameInStringQuestion(target.Name, inStrings.Count, Locator(part)(first.Module, first.Range.Start));
+        return new(workspaceEdit, null, question);
     }
+
+    /// <summary>
+    /// The change annotation of a rename's edits of the strings a library calls the symbol by (<see cref="RenameEdit.IsInString"/>), which the user confirms.
+    /// </summary>
+    internal static readonly ChangeAnnotationIdentifier InString = "rdcore.rename.inString";
 
     /// <summary>
     /// What can be renamed in a range of a document (<see cref="SymbolRename.TargetsIn"/>): each name, and where it begins in the text of the document.
