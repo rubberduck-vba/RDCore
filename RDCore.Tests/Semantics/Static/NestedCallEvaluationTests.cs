@@ -49,10 +49,6 @@ public sealed class NestedCallEvaluationTests
         public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name) => resolver.ResolveProjectType(project, name);
         public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle) => resolver.ResolveConditionalConstant(name, scope, handle);
         public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle) => resolver.ResolveMember(owner, name, handle);
-        public IBindingHandle GetValue(Symbol symbol) => resolver.GetValue(symbol);
-        public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value) => resolver.TryRead(address, out value);
-        public bool TryGetAddress(Symbol symbol, out MemoryAddress address) => resolver.TryGetAddress(symbol, out address);
-        public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address) => resolver.TryAllocate(symbol, value, out address);
     }
 
     // a node of its own identity: the n-th made for one tree.

@@ -1,8 +1,10 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 /// <summary>
 /// A member of a module that a client shows the references of above its declaration (<strong>LSP 3.17</strong> §Code Lens Request).

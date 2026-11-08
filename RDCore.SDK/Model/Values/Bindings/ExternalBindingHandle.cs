@@ -49,7 +49,7 @@ public record class ExternalBindingHandle(
     /// </summary>
     /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="args">The arguments of the call, without the receiver, which the handle passes itself.</param>
-    public RuntimeSemanticsEvaluationResult Call(ISymbolResolver resolver, IRuntimeValue[] args)
+    public RuntimeSemanticsEvaluationResult Call(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
         => Dispatcher.Invoke(
             new ExternalCallRequest(Member, Receiver is null ? args : [Receiver, .. args], CallSite), resolver);
 
@@ -58,7 +58,7 @@ public record class ExternalBindingHandle(
     /// The member raised a run-time error and nothing handled it. A caller that handles the errors of the
     /// program, or wants the typed value, uses <see cref="Call"/>, which returns them instead.
     /// </exception>
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args)
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
     {
         var result = Call(resolver, args);
         if (result.ErrorInfo is { } error)
@@ -72,12 +72,12 @@ public record class ExternalBindingHandle(
 
     /// <inheritdoc/>
     /// <exception cref="NotSupportedException">Always: an external member is reached by invoking it.</exception>
-    public IRuntimeValue GetValue(ISymbolResolver resolver)
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver)
         => throw new NotSupportedException($"'{Member.Name}' is an external member: it is read by invoking it.");
 
     /// <inheritdoc/>
     /// <exception cref="NotSupportedException">Always: an external member is reached by invoking it.</exception>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value)
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value)
         => throw new NotSupportedException($"'{Member.Name}' is an external member: it is written by invoking its accessor.");
 
     /// <inheritdoc/>

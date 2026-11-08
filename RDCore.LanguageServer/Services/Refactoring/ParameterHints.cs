@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
@@ -6,8 +7,9 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 /// <summary>
 /// The name of the parameter an argument is given to, shown before the argument (<strong>LSP 3.17</strong> §Inlay Hint Request).

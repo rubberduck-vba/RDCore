@@ -14,8 +14,10 @@ using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
+using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Semantics;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.Runtime.LanguageCore.Refactoring;
 
 /// <summary>How a name is written where it occurs.</summary>
 internal enum OccurrenceKind

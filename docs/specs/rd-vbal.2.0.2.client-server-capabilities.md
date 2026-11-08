@@ -290,12 +290,12 @@ A request a server refuses is answered `RequestFailed` (-32803), with a message 
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
 the name of the parameter it is given to: `MsgBox Prompt: "Hello", Buttons: vbOKOnly`
-([`ParameterHints`](../api/RDCore.SDK.Semantics.Refactoring.ParameterHints.html)). A call is an argument list after a name the static pass binds to a
+(`ParameterHints`). A call is an argument list after a name the static pass binds to a
 procedure, a function or a property, of the workspace or of a library it references. The subscripts of an array have no hint. A named argument, and every
 argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
 of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
 
-After the name of each variable or parameter that is declared without a type, and is a `Variant` (**MS-VBAL §5.2.3.1.5**), the answer has a hint `As Variant` of kind `Type`, padded on its left: `Dim x` is shown `Dim x As Variant` ([`ImplicitTypeHints`](../api/RDCore.SDK.Semantics.Refactoring.ImplicitTypeHints.html)). A declaration with an `As` clause or a type-declaration character has none; nor has a name that a `Def<Type>` directive of the module covers, a constant, or a parameter that is an array. The hint is after the array bounds of a variable (`Dim a(10)` is shown `Dim a(10) As Variant`).
+After the name of each variable or parameter that is declared without a type, and is a `Variant` (**MS-VBAL §5.2.3.1.5**), the answer has a hint `As Variant` of kind `Type`, padded on its left: `Dim x` is shown `Dim x As Variant` (`ImplicitTypeHints`). A declaration with an `As` clause or a type-declaration character has none; nor has a name that a `Def<Type>` directive of the module covers, a constant, or a parameter that is an array. The hint is after the array bounds of a variable (`Dim a(10)` is shown `Dim a(10) As Variant`).
 
 The interactive shell asks for the hints of its program once for the whole listing, and shows them in `LIST`, faint, when `INLAYS ON` has been said (`INLAYS OFF` stops; they are off until then).
 
@@ -386,7 +386,7 @@ The interactive shell asks it once for the conditions of all the breakpoints `BR
 
 ### `textDocument/rename` and `textDocument/prepareRename`
 
-The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed, except a string a library calls the symbol by ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
+The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed, except a string a library calls the symbol by (`SymbolRename`).
 
 `textDocument/prepareRename` answers the range of the name at the position and the name the symbol is declared with (`placeholder`). `textDocument/rename` answers a `WorkspaceEdit` of `documentChanges`, one `TextDocumentEdit` per document whose text changes, at the version the server holds, to a client that says it takes them (`workspace.workspaceEdit.documentChanges`); any other client is answered the same edits as `changes`, by document, which name no version (**LSP 3.17** §WorkspaceEdit). An edit whose change annotation asks the user to confirm it is sent only to a client that takes change annotations (`changeAnnotationSupport`); an edit the client could not apply at all is refused, with why. An edit replaces a name only: a type-declaration character after it stays (`s$`).
 
@@ -436,7 +436,7 @@ A position is said the way the document says it: its file and line, and for a pr
 ### `textDocument/hover`
 
 The language server answers `textDocument/hover` (**LSP 3.17** §Hover Request) for the documents it holds, over the name at the position, bound the way a
-rename binds it ([`SymbolHover`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHover.html)). A symbol of a library the workspace references is hovered as one
+rename binds it (`SymbolHover`). A symbol of a library the workspace references is hovered as one
 of the workspace is.
 
 |Hovered|Declaration|Member of|
@@ -456,7 +456,7 @@ not known (a member accessed late-bound), has no hover.
 
 The language server answers `textDocument/definition` (**LSP 3.17** §Goto Definition Request) for the documents it holds, a `.rdc` program included. The name at
 the position is bound the way a rename binds it (table above), so a navigation leads to what a rename of the name would rename
-([`SymbolNavigation`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)).
+(`SymbolNavigation`).
 
 |Named|Defined by|
 |---|---|
@@ -473,7 +473,7 @@ declares. Ranges are in the text of the document: for a program of the BASIC, it
 ### `textDocument/references` and `textDocument/documentHighlight`
 
 The language server answers `textDocument/references` (**LSP 3.17** §Find References Request) with each name, in every document it holds, that refers to the
-symbol named at the position ([`SymbolNavigation.ReferencesAt`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)): the names a rename of the
+symbol named at the position (`SymbolNavigation.ReferencesAt`): the names a rename of the
 symbol would rename (table above), and, for a class, a module, a `Type` or an `Enum`, the names of the type in `As` clauses and after `New`. The names its
 declarations declare are references when the client asks for them (`context.includeDeclaration`), and so are the attributes of a member
 (`Attribute Foo.VB_Description`). A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to it, and is not a reference.
@@ -508,7 +508,7 @@ module declares, and the members of its `Enum`s and `Type`s under them. Each sym
 declares. A procedure's locals are not in the outline. For a `.rdc` program, ranges are in its lines.
 
 It answers `workspace/symbol` (**LSP 3.17** §Workspace Symbols Request) with the symbols of the outline of every document it holds whose name matches the
-query ([`SymbolSearch`](../api/RDCore.SDK.Semantics.Refactoring.SymbolSearch.html)), regardless of case. Each is named with what it is declared in
+query (`SymbolSearch`), regardless of case. Each is named with what it is declared in
 (`containerName`: the module, or the module and its `Enum` or `Type`) and located at the name it declares.
 
 |The name|Comes|
@@ -581,7 +581,7 @@ It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project'
 
 ### `textDocument/codeLens` and `codeLens/resolve`
 
-The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares ([`SymbolLenses`](../api/RDCore.SDK.Semantics.Refactoring.SymbolLenses.html)): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
+The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares (`SymbolLenses`): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
 
 A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name, its declarations not included: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it. A property that nothing assigns shows `0 references` above its `Property Let`. The result a function or a `Property Get` assigns or reads in its own body is no reference; a recursive call is.
 
@@ -771,7 +771,7 @@ The work the server begins of its own is not drawn among a command's output.
 ### Call hierarchy and type hierarchy
 
 The language server answers `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls` and `callHierarchy/outgoingCalls` (**LSP 3.17** §Call
-Hierarchy) ([`SymbolHierarchy`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHierarchy.html)):
+Hierarchy) (`SymbolHierarchy`):
 
 - An item is a procedure, a function, or a procedure of a property, that the workspace declares; a member of a library is none. Its `data` is the identity of
   its symbol, which is all the server needs to find it again when the client sends it back.

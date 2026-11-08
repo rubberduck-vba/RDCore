@@ -14,7 +14,7 @@ namespace RDCore.Tests.Model.Values.Bindings;
 [TestCategory("RD-VBAL value model — IBindingHandle implementations")]
 public sealed class BindingHandleTests
 {
-    private static readonly ISymbolResolver Resolver = Substitute.For<ISymbolResolver>();
+    private static readonly IRuntimeSymbolResolver Resolver = Substitute.For<IRuntimeSymbolResolver>();
 
     [TestMethod]
     public void ValueBindingHandle_RoundTripsThroughValueProperty()
@@ -78,8 +78,8 @@ public sealed class BindingHandleTests
     {
         var address = new MemoryAddress(42);
         var target = Substitute.For<IBindingHandle>();
-        target.GetValue(Arg.Any<ISymbolResolver>()).Returns(new VBRuntimeValue<int>(9));
-        var resolver = Substitute.For<ISymbolResolver>();
+        target.GetValue(Arg.Any<IRuntimeSymbolResolver>()).Returns(new VBRuntimeValue<int>(9));
+        var resolver = Substitute.For<IRuntimeSymbolResolver>();
         resolver.TryRead(address, out Arg.Any<IBindingHandle?>()).Returns(call =>
         {
             call[1] = target;
@@ -104,7 +104,7 @@ public sealed class BindingHandleTests
     {
         var address = new MemoryAddress(1);
         var sut = new ReferenceBindingHandle(new VBRuntimeReference(address));
-        var resolver = Substitute.For<ISymbolResolver>();
+        var resolver = Substitute.For<IRuntimeSymbolResolver>();
         resolver.TryRead(address, out Arg.Any<IBindingHandle?>()).Returns(call =>
         {
             call[1] = sut;
@@ -124,7 +124,7 @@ public sealed class BindingHandleTests
         var addressB = new MemoryAddress(2);
         var a = new ReferenceBindingHandle(new VBRuntimeReference(addressB));
         var b = new ReferenceBindingHandle(new VBRuntimeReference(addressA));
-        var resolver = Substitute.For<ISymbolResolver>();
+        var resolver = Substitute.For<IRuntimeSymbolResolver>();
         resolver.TryRead(addressA, out Arg.Any<IBindingHandle?>()).Returns(call => { call[1] = a; return true; });
         resolver.TryRead(addressB, out Arg.Any<IBindingHandle?>()).Returns(call => { call[1] = b; return true; });
 
@@ -140,9 +140,9 @@ public sealed class BindingHandleTests
         var addressA = new MemoryAddress(1);
         var addressB = new MemoryAddress(2);
         var final = Substitute.For<IBindingHandle>();
-        final.GetValue(Arg.Any<ISymbolResolver>()).Returns(new VBRuntimeValue<int>(9));
+        final.GetValue(Arg.Any<IRuntimeSymbolResolver>()).Returns(new VBRuntimeValue<int>(9));
         var a = new ReferenceBindingHandle(new VBRuntimeReference(addressB));
-        var resolver = Substitute.For<ISymbolResolver>();
+        var resolver = Substitute.For<IRuntimeSymbolResolver>();
         resolver.TryRead(addressA, out Arg.Any<IBindingHandle?>()).Returns(call => { call[1] = a; return true; });
         resolver.TryRead(addressB, out Arg.Any<IBindingHandle?>()).Returns(call => { call[1] = final; return true; });
 

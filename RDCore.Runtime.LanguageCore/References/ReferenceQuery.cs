@@ -12,8 +12,10 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
+using RDCore.SDK.Semantics.References;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
-namespace RDCore.SDK.Semantics.References;
+namespace RDCore.Runtime.LanguageCore.References;
 
 /// <summary>
 /// Finds where the modules of a workspace name a symbol, and how each names it (<see cref="SymbolReference"/>): what a refactoring that rewrites the references
@@ -21,7 +23,7 @@ namespace RDCore.SDK.Semantics.References;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A name is bound the way a rename binds it (<see cref="SymbolRename"/>), by the static semantics, so that what is found is what a rename of the symbol renames:
+/// A name is bound the way a rename binds it (<c>SymbolRename</c>), by the static semantics, so that what is found is what a rename of the symbol renames:
 /// a name that refers to another symbol of the same name is no reference of it. A property is one symbol with each of its procedures, its <c>Property Get</c>,
 /// <c>Let</c> and <c>Set</c> (<see cref="SymbolReferences.Symbols"/>); each reference says which procedure it calls (<see cref="SymbolReference.Symbol"/>,
 /// <see cref="SymbolReference.Use"/>).
@@ -46,7 +48,7 @@ public static class ReferenceQuery
     /// The references of the symbol; <see langword="null"/> where no name is written, or where what the name refers to is not known.
     /// </returns>
     public static SymbolReferences? At(RenameContext context, Uri module, SourcePosition position)
-        => SymbolNavigation.SymbolAt(context, module, position) is { } named ? Of(context, named.Symbol) : null;
+        => RenameBinding.SymbolAt(context, module, position) is { } named ? Of(context, named.Symbol) : null;
 
     /// <summary>
     /// The references of <paramref name="symbol"/>, in every module of the workspace.
@@ -61,7 +63,7 @@ public static class ReferenceQuery
             return LargeStackThread.Run(() => Of(context, symbol));
         }
 
-        var together = SymbolNavigation.DefinedTogether(context, symbol).ToList();
+        var together = RenameBinding.DefinedTogether(context, symbol).ToList();
         var symbols = together.Select(defined => defined.SemanticId).ToHashSet();
         var isType = symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
         var found = NameOccurrences.Find(context, symbol.Name, context.Modules);
@@ -83,7 +85,7 @@ public static class ReferenceQuery
         foreach (var occurrence in found.Occurrences)
         {
             // a member of an Object or a Variant is bound when the code runs: what it refers to is not known.
-            if (SymbolRename.IsLateBound(occurrence))
+            if (RenameBinding.IsLateBound(occurrence))
             {
                 lateBound.Add(occurrence);
                 continue;
@@ -92,7 +94,7 @@ public static class ReferenceQuery
             // a name that means no value where it is written is the type it names: a class that is created with New.
             var refers = occurrence.Binding is { } binding
                 ? symbols.Contains(binding)
-                : isType && occurrence.Scope is { } scope && SymbolNavigation.IsTheType(context, symbol, scope.Uri);
+                : isType && occurrence.Scope is { } scope && RenameBinding.IsTheType(context, symbol, scope.Uri);
             if (refers)
             {
                 references.Add(ReferenceOf(context, IndexOf(occurrence.Module), occurrence) with { Symbol = occurrence.Binding ?? symbol.SemanticId });
@@ -106,7 +108,7 @@ public static class ReferenceQuery
                 foreach (var (name, range) in NameOccurrences.TypeNamesIn(source))
                 {
                     if (string.Equals(name, symbol.Name, StringComparison.OrdinalIgnoreCase)
-                        && SymbolNavigation.IsTheType(context, symbol, NameOccurrences.ScopeOf(context, source, range.Start).Uri))
+                        && RenameBinding.IsTheType(context, symbol, NameOccurrences.ScopeOf(context, source, range.Start).Uri))
                     {
                         references.Add(new SymbolReference(source.Module, range, ReferenceForm.TypeName, ReferenceUse.None) { Symbol = symbol.SemanticId });
                     }
@@ -117,9 +119,9 @@ public static class ReferenceQuery
         // a name written as the symbol's whose meaning is not known, where the symbol could be what it means, as a rename refuses it.
         var unknown = found.Unknown
             .Where(occurrence => occurrence.Kind == OccurrenceKind.String
-                ? SymbolRename.IsCalledBy(context, together, occurrence)
-                : occurrence.Kind == OccurrenceKind.Member || together.Any(defined => SymbolRename.ChainIndex(occurrence.Scope, defined) < int.MaxValue))
-            .Concat(lateBound.Where(occurrence => SymbolRename.MayBeCalledLateBound(context, together, occurrence)))
+                ? RenameBinding.IsCalledBy(context, together, occurrence)
+                : occurrence.Kind == OccurrenceKind.Member || together.Any(defined => RenameBinding.ChainIndex(occurrence.Scope, defined) < int.MaxValue))
+            .Concat(lateBound.Where(occurrence => RenameBinding.MayBeCalledLateBound(context, together, occurrence)))
             .Select(occurrence => ReferenceOf(context, IndexOf(occurrence.Module), occurrence));
         return new SymbolReferences(symbol, [.. symbols], Ordered(references), Ordered(unknown));
     }

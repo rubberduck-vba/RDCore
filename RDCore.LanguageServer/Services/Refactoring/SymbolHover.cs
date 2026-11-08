@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -8,8 +9,9 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
 using System.Resources;
+using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 /// <summary>
 /// What a hover over a name says of its symbol (<strong>LSP 3.17</strong> §Hover Request): its declaration as code would write it, what declares it, and what
@@ -21,7 +23,7 @@ namespace RDCore.SDK.Semantics.Refactoring;
 /// <param name="Documentation">What the symbol is or does, in a sentence: its doc string; <see langword="null"/> when it has none.</param>
 public sealed record class SymbolHover(string Declaration, string? Container, string? Documentation)
 {
-    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(SymbolHover).Assembly);
+    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
 
     /// <summary>
     /// What a hover says of a symbol.
@@ -83,8 +85,8 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
     }
 
     // a class of a type library by its library's name and its own, as a declaration names it: VB.CommandButton.
-    private static string ClassNameOf(Model.Types.Abstract.VBType type)
-        => type is Model.Types.Complex.VBClassType { Symbol: var symbol } && symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library
+    private static string ClassNameOf(RDCore.SDK.Model.Types.Abstract.VBType type)
+        => type is RDCore.SDK.Model.Types.Complex.VBClassType { Symbol: var symbol } && symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library
             ? $"{library}.{type.Name}"
             : type.Name;
 

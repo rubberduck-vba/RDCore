@@ -1,9 +1,6 @@
 ﻿using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Model.Symbols;
 
@@ -14,7 +11,7 @@ namespace RDCore.SDK.Model.Symbols;
 /// fallback). The result is unbound only when every resolver is unbound.
 /// </summary>
 /// <remarks>
-/// A compile-time composite: the value-binding members throw. Used to layer a workspace's
+/// A compile-time composite: it binds names, and holds no storage. Used to layer a workspace's
 /// <see cref="ScopeTreeSymbolResolver"/> over an intrinsic type-name resolver, most specific first.
 /// </remarks>
 /// <param name="resolvers">The resolvers to try, in priority order.</param>
@@ -56,30 +53,5 @@ public sealed class CompositeSymbolResolver(params ISymbolResolver[] resolvers) 
         }
 
         return SymbolResolutionResult.Unbound;
-    }
-
-    /// <inheritdoc/>
-    public IBindingHandle GetValue(Symbol symbol)
-        => throw new NotSupportedException("The composite symbol resolver binds names only; it holds no run-time bindings.");
-
-    /// <inheritdoc/>
-    public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
-    {
-        value = null;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
-    {
-        address = default;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
-    {
-        address = default;
-        return false;
     }
 }

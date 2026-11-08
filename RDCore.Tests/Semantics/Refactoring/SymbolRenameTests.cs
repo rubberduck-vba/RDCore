@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
@@ -11,6 +12,7 @@ using RDCore.SDK.Semantics.Static;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
 using System.Globalization;
+using RDCore.Runtime.LanguageCore.Refactoring;
 using MemberKind = RDCore.SDK.Runtime.Libraries.MemberKind;
 
 namespace RDCore.Tests.Semantics.Refactoring;

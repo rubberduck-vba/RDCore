@@ -40,7 +40,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         LogicalOperatorSemanticFlags semanticFlags) => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
@@ -65,7 +65,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
     }
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder, 
         ExpressionNode expression, 

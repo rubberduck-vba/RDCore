@@ -52,7 +52,7 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="args">The arguments of the call, without the <c>Me</c> of a member of a class, which the handle passes itself.</param>
     /// <returns>The result of the call: the value the procedure returns (the <c>Void</c> value for a <c>Sub</c>), or the run-time error it raised.</returns>
-    public RuntimeSemanticsEvaluationResult Call(ISymbolResolver resolver, IRuntimeValue[] args)
+    public RuntimeSemanticsEvaluationResult Call(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
         => Invoker.Invoke(Procedure, resolver, Receiver is null ? args : [Receiver, .. args]);
 
     /// <summary>
@@ -66,7 +66,7 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// </remarks>
     /// <exception cref="VBRuntimeErrorException">A run-time error was raised in the procedure and nothing handled it.</exception>
     /// <exception cref="InvalidOperationException">The invoker could not run the procedure, and has no error to say why.</exception>
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args)
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
     {
         var result = Call(resolver, args);
         if (result.ErrorInfo is { } error)
@@ -82,14 +82,14 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// Not supported: a procedure, including a property accessor, is never read as a value - see <see cref="Invoke"/>.
     /// </summary>
     /// <exception cref="NotSupportedException">Always.</exception>
-    public IRuntimeValue GetValue(ISymbolResolver resolver)
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver)
         => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it has no value to read.");
 
     /// <summary>
     /// Not supported: a procedure, including a property accessor, is never assigned as a value - see <see cref="Invoke"/>.
     /// </summary>
     /// <exception cref="NotSupportedException">Always.</exception>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value)
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value)
         => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it cannot be assigned.");
 
     /// <summary>

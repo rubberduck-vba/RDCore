@@ -60,7 +60,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
     public bool CanDispatch(ExternalCallRequest request) => request.IsLibraryImport;
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         var member = request.Member;
         var entryPoint = member switch
@@ -136,7 +136,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
 
     // how an argument is handed to the function, and what takes back into the variable it names, if it names one, what the function left in it.
     private static bool TryDescribe(
-        VBParameterSymbol parameter, IRuntimeValue argument, ISymbolResolver resolver, int pointerWidth, out NativeArgument described, out Action<ExternalValue>? takeBack)
+        VBParameterSymbol parameter, IRuntimeValue argument, IRuntimeSymbolResolver resolver, int pointerWidth, out NativeArgument described, out Action<ExternalValue>? takeBack)
     {
         described = new NativeArgument();
         takeBack = null;
@@ -256,7 +256,7 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
     }
 
     // what the function left in an element is the element's: assigned to its cell, as an assignment to the element is.
-    private static void WriteElement(ISymbolResolver resolver, VBArrayValue array, int[] subscripts, VBTypedValue value)
+    private static void WriteElement(IRuntimeSymbolResolver resolver, VBArrayValue array, int[] subscripts, VBTypedValue value)
     {
         if (array.GetElementHandle(subscripts) is { } cell && cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {

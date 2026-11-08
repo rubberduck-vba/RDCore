@@ -77,7 +77,7 @@ public static class ObjectValueStaticSemantics
             return StaticSemanticsEvaluationResult.Success(declaredType);
         }
 
-        var classType = CurrentTypes.Of(context, declaredClass);
+        var classType = CurrentTypes.Of(context.Resolver, declaredClass);
         if (classType.DefaultMember is not { } defaultMember)
         {
             // MS-VBAL 5.5.1.1 makes it statically invalid; MS-VBA compiles it, and raises 438 when it runs - 91 when the object is Nothing (RD-VBAL 5.5.1.1).
@@ -276,7 +276,7 @@ public static class ObjectValueStaticSemantics
             return refused.ErrorInfo as VBCompileErrorInfo;
         }
 
-        if (type is VBClassType declaredClass && CurrentTypes.Of(context, declaredClass) is { DefaultMember: { } defaultMember } classType)
+        if (type is VBClassType declaredClass && CurrentTypes.Of(context.Resolver, declaredClass) is { DefaultMember: { } defaultMember } classType)
         {
             return IsReadAsAString(defaultMember.ResolvedType) && defaultMember.ResolvedType is not (VBClassType or VBObjectType)
                 ? null
@@ -306,7 +306,7 @@ public static class ObjectValueStaticSemantics
         MemberAccessExpressionNode { Owner: { } owner } access => ExpressionStaticSemanticsEvaluator.Evaluate(Unrecorded(context), owner) switch
         {
             { IsSuccess: true, Result: VBUserDefinedType } => true,
-            { IsSuccess: true, Result: VBClassType declared } => CurrentTypes.Of(context, declared).Members.FirstOrDefault(member
+            { IsSuccess: true, Result: VBClassType declared } => CurrentTypes.Of(context.Resolver, declared).Members.FirstOrDefault(member
                 => member.Name.Equals(access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)) is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field },
             _ => false,
         },

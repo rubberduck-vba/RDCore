@@ -28,7 +28,7 @@ public sealed class OutsideWorldCallProvider : IExternalCallProvider
     public bool CanDispatch(ExternalCallRequest request) => true;
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         foreach (var argument in request.Arguments)
         {
@@ -41,7 +41,7 @@ public sealed class OutsideWorldCallProvider : IExternalCallProvider
     }
 
     // an argument passed by reference is the address of the variable it names, which the callee may write to - through any chain of references.
-    private static void Forget(IRuntimeValue argument, ISymbolResolver resolver)
+    private static void Forget(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
     {
         var visited = new HashSet<MemoryAddress>();
         while (argument is VBRuntimeReference reference && visited.Add(reference.Value) && resolver.TryRead(reference.Value, out var cell))

@@ -201,14 +201,14 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     /// is the planner's, and is not consulted again for every evaluation.
     /// </remarks>
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context, 
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
         => EffectiveTypeOf(OperationPlanner.ForValues(Operator, frame[InputIndex.BinaryLeftOperand].TypeInfo, frame[InputIndex.BinaryRightOperand].TypeInfo), expression);
 
     // MS-VBAL 5.6.9.3: "If the value type of any operand is an array, UDT or Error, runtime error 13 (Type mismatch) is raised."
-    protected override LetCoercionResult ValidateOperand(ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex index)
+    protected override LetCoercionResult ValidateOperand(IRuntimeSymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex index)
         => frame[index] is VBErrorValue
             ? LetCoercionResult.Error(OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression,
                 Exceptions.VBRuntimeTypeMismatch_OperationEffectiveType_Verbose.Replace("{$OPERANDS}", string.Join(", ", frame.Operands.Select(operand => operand.TypeInfo.Name)))))
@@ -297,7 +297,7 @@ public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
         => RuntimeSemanticsEvaluationResult.Error(OnRuntimeError(VBRuntimeErrorId.Overflow, expression, verbose));
 
     protected override ISemanticContextContributor<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> builder,
         ExpressionNode expression,

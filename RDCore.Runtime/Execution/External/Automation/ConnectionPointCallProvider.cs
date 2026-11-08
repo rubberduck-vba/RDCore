@@ -57,7 +57,7 @@ public sealed class ConnectionPointCallProvider(IRuntimeSession session, IAutoma
             && (string.Equals(entry, EntryPoint, StringComparison.OrdinalIgnoreCase) || entry == Ordinal);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         if (request.Arguments.Length < 5)
         {
@@ -127,7 +127,7 @@ public sealed class ConnectionPointCallProvider(IRuntimeSession session, IAutoma
     };
 
     // the value an argument is, through the references a ByRef argument is; the variable it names, which what the function writes is written to.
-    private static IRuntimeValue Dereference(IRuntimeValue argument, ISymbolResolver resolver, out IBindingHandle? variable)
+    private static IRuntimeValue Dereference(IRuntimeValue argument, IRuntimeSymbolResolver resolver, out IBindingHandle? variable)
     {
         variable = null;
         while (argument is VBRuntimeReference reference && resolver.TryRead(reference.Value, out var cell))
@@ -139,7 +139,7 @@ public sealed class ConnectionPointCallProvider(IRuntimeSession session, IAutoma
         return argument;
     }
 
-    private static VBRuntimeObjectId? ObjectOf(IRuntimeValue argument, ISymbolResolver resolver)
+    private static VBRuntimeObjectId? ObjectOf(IRuntimeValue argument, IRuntimeSymbolResolver resolver)
         => VBObjectType.TypeInfo.CreateValue(new ValueBindingHandle(Dereference(argument, resolver, out _))) is VBObjectValue { } value && !value.IsNothing()
             ? value.Value
             : null;

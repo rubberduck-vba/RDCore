@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model;
@@ -21,6 +22,7 @@ using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Model.Symbols;
 

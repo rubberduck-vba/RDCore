@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -69,7 +70,7 @@ public sealed record class DictionaryAccessExpressionStaticSemantics : IStaticSe
         }
 
         // the default member of the class as the composition has it now (CurrentTypes).
-        var classType = CurrentTypes.Of(context, declaredClass);
+        var classType = CurrentTypes.Of(context.Resolver, declaredClass);
         return classType.DefaultMember is { } defaultMember
             ? StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType)
             : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));

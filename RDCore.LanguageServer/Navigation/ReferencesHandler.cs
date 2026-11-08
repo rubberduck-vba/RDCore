@@ -4,7 +4,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.LanguageServer.Refactoring;
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.LanguageServer.Navigation;
 

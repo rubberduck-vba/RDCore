@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
@@ -6,6 +7,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
 using RDCore.Tests.Parser;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -55,7 +57,7 @@ public sealed class DeepExpressionRefactoringTests
         var context = Workspace();
 
         string? named = null;
-        var thrown = SmallStack.Run(() => named = SymbolNavigation.SymbolAt(context, Main, AssignedY)?.Symbol.Name);
+        var thrown = SmallStack.Run(() => named = RenameBinding.SymbolAt(context, Main, AssignedY)?.Symbol.Name);
 
         Assert.IsNull(thrown, thrown?.ToString());
         Assert.AreEqual("y", named);

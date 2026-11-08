@@ -193,13 +193,13 @@ public static class SymbolProperties
     public static readonly SymbolProperty<bool> PassedByAddress = new(nameof(PassedByAddress));
     /// <summary>
     /// What a parameter declared <c>Variant</c> expects of an object given to it, when it reads the value of its argument as MS-VBA compiles it: <c>CInt</c>'s
-    /// does, <c>Round</c>'s does not (<see cref="Semantics.Static.ObjectValueStaticSemantics"/>).
+    /// does, <c>Round</c>'s does not (<see cref="Model.Symbols.ValueDestination"/>).
     /// </summary>
     /// <remarks>
     /// Set by the standard library's reader, off <see cref="Runtime.Abstract.StdLib.StdLibValueAttribute"/>. Absent on every other parameter: one declared
     /// with a value type expects a value of that type, which its declared type says, and a <c>Variant</c> one a workspace declares takes an object as it is.
     /// </remarks>
-    public static readonly SymbolProperty<Semantics.Static.ValueDestination> ValueDestination = new(nameof(ValueDestination));
+    public static readonly SymbolProperty<Model.Symbols.ValueDestination> ValueDestination = new(nameof(ValueDestination));
     /// <summary>
     /// The value of a member of an enumeration that something other than the workspace's source declares: the library that stated it, or the standard library.
     /// </summary>

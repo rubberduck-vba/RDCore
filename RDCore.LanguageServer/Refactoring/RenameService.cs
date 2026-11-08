@@ -4,6 +4,7 @@ using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
@@ -18,6 +19,7 @@ using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Model.Symbols;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Refactoring;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.LanguageServer.Refactoring;
@@ -336,7 +338,7 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="SDK.Semantics.Refactoring.ParameterHints"/>),
+    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="global::RDCore.Runtime.LanguageCore.Refactoring.ParameterHints"/>),
     /// each where its argument begins in the text of the document.
     /// </summary>
     public IReadOnlyList<(string Name, Position Position)> ParameterHints(Uri documentUri, LspRange range)
@@ -348,7 +350,7 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. SDK.Semantics.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
+        return [.. global::RDCore.LanguageServer.Services.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
             .Select(hint => (hint.Name, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
     }
 
@@ -366,7 +368,7 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. SDK.Semantics.Refactoring.ImplicitTypeHints.In(source.Syntax, new SourceRange(start, end))
+        return [.. global::RDCore.LanguageServer.Services.Refactoring.ImplicitTypeHints.In(source.Syntax, new SourceRange(start, end))
             .Select(hint => (hint.TypeName, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
     }
 
@@ -522,7 +524,7 @@ internal sealed class RenameWorkspace
     /// </summary>
     /// <returns>The hover; <see langword="null"/> where no name is written, or where what the name refers to is not known.</returns>
     public (SymbolHover Hover, LspRange Range)? Hover(Uri documentUri, Position position)
-        => ModuleOf(documentUri) is { } module && SymbolNavigation.SymbolAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is { } named
+        => ModuleOf(documentUri) is { } module && RenameBinding.SymbolAt(PartOf(module).Context, module.Module, module.ToModulePosition(position)) is { } named
             ? (SymbolHover.Of(named.Symbol), module.ToTextRange(named.Origin))
             : null;
 

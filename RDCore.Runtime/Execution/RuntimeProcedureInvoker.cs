@@ -49,7 +49,7 @@ namespace RDCore.Runtime.Execution;
 public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDictionary<SemanticId, InstructionList> Bodies, ProcedureExecutor Executor) : IProcedureInvoker
 {
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, ISymbolResolver resolver, IRuntimeValue[] arguments)
+    public RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments)
         => Activate(procedure, arguments, [], sweep: false);
 
     /// <summary>

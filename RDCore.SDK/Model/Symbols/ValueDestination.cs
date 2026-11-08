@@ -1,7 +1,7 @@
-namespace RDCore.SDK.Semantics.Static;
+namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
-/// What a place that expects a value expects of an object, at compile time: what <see cref="ObjectValueStaticSemantics"/> checks the object it is given
+/// What a place that expects a value expects of an object, at compile time: what the static semantics of an object value check the object it is given
 /// against (<strong>MS-VBAL §5.5.1.1</strong>, as MS-VBA compiles it).
 /// </summary>
 /// <remarks>
