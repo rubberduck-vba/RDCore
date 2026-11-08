@@ -1122,7 +1122,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             // MS-VBAL §5.4.2.3: a GoTo landed directly on this Next without its own ForOpener ever
             // running this activation - error 92, "For loop not initialized".
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ForLoopNotInitialized,
-                instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
+                instruction.Location ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
         }
 
         // a counter that holds a payload is stepped on payloads (IR lowering S1.2); a step that would raise an error is the boxed path's to raise.
@@ -1146,25 +1146,25 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var counterResult = forLoop.EvaluateOperand(session, state.ControlExpression, context);
         if (!counterResult.IsSuccess)
         {
-            return ToFailureOutcome(counterResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(counterResult));
         }
 
         var sumResult = forLoop.Increment(session, state, counterResult.Result!);
         if (!sumResult.IsSuccess)
         {
-            return ToFailureOutcome(sumResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(sumResult));
         }
 
         var assignResult = forLoop.AssignCounter(session, state, state.ControlExpression, sumResult.Result!, context);
         if (!assignResult.IsSuccess)
         {
-            return ToFailureOutcome(assignResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(assignResult));
         }
 
         var rangeResult = forLoop.IsOutOfRange(session, state, assignResult.Result!);
         if (!rangeResult.IsSuccess)
         {
-            return ToFailureOutcome(rangeResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(rangeResult));
         }
 
         if (rangeResult.Result is not VBBooleanValue isOutOfRange)
@@ -1187,6 +1187,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
         return null;
     }
+
+    // MS-VBAL §5.4.2.3: what a Next does - read the counter, add the step to it, assign it the sum, test it with the end - it does at the counter's expression,
+    // the For's, as it has none of its own; an error one of them raises there is the Next's, and is located at it (Instruction.Location), where MS-VBA locates
+    // it. An error raised elsewhere - in a member the counter's value calls - keeps its own location.
+    private static RuntimeExecutionOutcome AtTheNext(Instruction instruction, ForLoopState state, RuntimeExecutionOutcome failure)
+        => failure is { Kind: RuntimeExecutionOutcomeKind.Error, ErrorInfo: { } error } && error.Location == state.ControlExpression.Location
+            && instruction.Location is { } next
+            ? RuntimeExecutionOutcome.Error((IVBRaisableError)(error.AsErrorInfo with { Location = next }))
+            : failure;
 
     // Returns null when the collection was evaluated and stashed successfully and the loop should keep
     // running (activation.Pc set to the body's first instruction, or skipped straight past the whole
@@ -1582,12 +1591,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         // an error carries the location of what raised it, and a library member cannot know where it was called from: until its call
         // site is given to it, its error says nowhere. The statement that faulted is where it was raised, as far as anything here knows,
-        // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and the For
-        // it closes is the nearest. The error that propagates is that one: a caller it unwinds into finds it located and leaves it be,
-        // and a debugger that waited at it does not wait at it again.
+        // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and is where
+        // its closing line is (Instruction.Location). The error that propagates is that one: a caller it unwinds into finds it located
+        // and leaves it be, and a debugger that waited at it does not wait at it again.
         var faulting = list.Items[faultOffset];
-        var node = faulting.Node ?? (faulting.Matching is { } opener ? list.Items.ElementAtOrDefault(opener)?.Node : null);
-        if (outcome.ErrorInfo!.Location is { Uri: null } && node?.SourceLocation is { Uri: not null } statement)
+        var location = faulting.Location ?? (faulting.Matching is { } opener ? list.Items.ElementAtOrDefault(opener)?.Node?.SourceLocation : null);
+        if (outcome.ErrorInfo!.Location is { Uri: null } && location is { Uri: not null } statement)
         {
             outcome = RuntimeExecutionOutcome.Error((IVBRaisableError)(outcome.ErrorInfo.AsErrorInfo with { Location = statement }));
         }

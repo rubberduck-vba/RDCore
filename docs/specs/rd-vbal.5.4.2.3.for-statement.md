@@ -67,9 +67,12 @@ does, as observed in Excel (64-bit, en-US), counting up or down:
 - Under `On Error Resume Next`, or a handler's `Resume Next`, execution goes on after the loop.
 - With `Erl` counting line-number labels (`ErlLineNumbering` set to `LineLabel`), `Erl` is the `Next`'s line number.
 
-**RD-VBA differs from MS-VBA:** every error a `Next` raises is located at the counter of the `For` it closes, because a
-`Next` has no statement of its own. So the position an error reports, and `Erl` when it counts document lines, are the
-`For` line's. MS-VBA reports the `Next` line.
+Every error a `Next` raises is located at the `Next`, as MS-VBA locates it. That covers this 94, an overflow when it
+steps the counter (6), and a counter that holds no number (13). An overflow leaves the counter as it was, and a `Next`
+that closes two loops (`Next j, i`) raises the outer loop's overflow there too. The position the error reports, the line
+a program waits at when it waits at the error, and `Erl` are all the `Next`'s, whether `Erl` counts document lines or
+line-number labels. Error 92, of a `Next` whose loop was never opened, is located at the `Next` too. An error of the
+`start-value`, the `end-value` or the `step-increment` is the `For` statement's, and is located there.
 
 ### The type a loop counts in
 
