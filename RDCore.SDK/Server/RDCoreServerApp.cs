@@ -465,7 +465,13 @@ public abstract class RDCoreServerApp(
         // application brings up in its own handler - the children a language server starts are told the same locale.
         ApplyInitializationOptions(request);
         var locale = ClientLocale.Of(ClientLocale.Said(server, request), ReadInitializationOptions(request.InitializationOptions));
-        if (ClientLocale.Apply(locale) is { } culture)
+        // the platform's own setting is the language of every component, whatever the client shows: a client that is not the platform's (an IDE) says its own.
+        if (UserInterfaceLanguage.Resolve(options.Value.Environment.Regional.Language) is { Overrides: true } setting)
+        {
+            _ = ClientLocale.Apply(setting.Culture.Name);
+            LogIfEnabled(LogLevel.Information, $"🌐 The user interface is in '{setting.Culture.Name}' (Environment.Regional.Language), whatever the client's locale ('{locale}').");
+        }
+        else if (ClientLocale.Apply(locale) is { } culture)
         {
             LogIfEnabled(LogLevel.Information, $"🌐 The client's user interface is in '{culture.Name}'.");
         }

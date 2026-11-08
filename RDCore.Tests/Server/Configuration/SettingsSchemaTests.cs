@@ -22,6 +22,7 @@ public sealed class SettingsSchemaTests
     [DataRow("Server.Verbose", SettingValueKind.Boolean, SettingReach.Live, false, DisplayName = "unmarked: live")]
     [DataRow("Server.ConnectTimeoutSeconds", SettingValueKind.Integer, SettingReach.NextStart, false, DisplayName = "marked")]
     [DataRow("Environment.Regional.TwoDigitYearMax", SettingValueKind.Integer, SettingReach.NextStart, false, DisplayName = "of a marked section")]
+    [DataRow("Environment.Regional.Language", SettingValueKind.Text, SettingReach.NextStart, false, DisplayName = "the language of the user interface")]
     [DataRow("Environment.AllowDllImports", SettingValueKind.Boolean, SettingReach.NextStart, true, DisplayName = "trust-sensitive")]
     [DataRow("Platform.Extensions.Allowed", SettingValueKind.TextList, SettingReach.NextStart, true, DisplayName = "of a trust-sensitive section")]
     [DataRow("Platform.Transport.Type", SettingValueKind.Choice, SettingReach.Deployment, false, DisplayName = "of a deployment section")]

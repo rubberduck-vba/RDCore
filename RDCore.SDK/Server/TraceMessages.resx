@@ -165,4 +165,13 @@
   <data name="ValidExtensionFound" xml:space="preserve">
     <value>🧩 Extension discovery: '{$NAME}' is valid.</value>
   </data>
+  <data name="UserInterfaceLanguage_Applied" xml:space="preserve">
+    <value>🌐 The user interface is in '{0}' (Environment.Regional.Language).</value>
+  </data>
+  <data name="UserInterfaceLanguage_Unknown" xml:space="preserve">
+    <value>'{0}' is not a culture the platform knows (Environment.Regional.Language): the user interface stays in the machine's language, '{1}'.</value>
+  </data>
+  <data name="UserInterfaceLanguage_NotTranslated" xml:space="preserve">
+    <value>The platform has no translation in '{0}' (Environment.Regional.Language): its user interface is in English ('{1}').</value>
+  </data>
 </root>

@@ -196,6 +196,33 @@ internal class TraceMessages {
     }
     
     /// <summary>
+    ///   Looks up a localized string similar to 🌐 The user interface is in &apos;{0}&apos; (Environment.Regional.Language)..
+    /// </summary>
+    internal static string UserInterfaceLanguage_Applied {
+        get {
+            return ResourceManager.GetString("UserInterfaceLanguage_Applied", resourceCulture);
+        }
+    }
+
+    /// <summary>
+    ///   Looks up a localized string similar to The platform has no translation in &apos;{0}&apos; (Environment.Regional.Language): its user interface is in English (&apos;{1}&apos;)..
+    /// </summary>
+    internal static string UserInterfaceLanguage_NotTranslated {
+        get {
+            return ResourceManager.GetString("UserInterfaceLanguage_NotTranslated", resourceCulture);
+        }
+    }
+
+    /// <summary>
+    ///   Looks up a localized string similar to &apos;{0}&apos; is not a culture the platform knows (Environment.Regional.Language): the user interface stays in the machine&apos;s language, &apos;{1}&apos;..
+    /// </summary>
+    internal static string UserInterfaceLanguage_Unknown {
+        get {
+            return ResourceManager.GetString("UserInterfaceLanguage_Unknown", resourceCulture);
+        }
+    }
+
+    /// <summary>
     ///   Looks up a localized string similar to 🧩 Extension discovery: &apos;{$NAME}&apos; is valid..
     /// </summary>
     internal static string ValidExtensionFound {

@@ -82,6 +82,7 @@ The shell is fun, but the real work happens in the language server behind it, an
   - a `Declare` statement's library must be a 64-bit DLL;
   - Office automation (`CreateObject("Excel.Application")`) needs the Office application installed.
 - **Your settings** are kept in `%APPDATA%\RDCore`, and the **logs** in `%LOCALAPPDATA%\RDCore\Logs`. Nothing is written into the folder you extracted, so updating means replacing that folder.
+- **RDCore speaks English and French**, and follows your machine's display language. `CONFIG Environment.Regional.Language fr` (or `en`) picks one the next time RDCore starts. It changes no number or date formatting.
 - **Your projects are yours**: the GPLv3 covers RDCore itself, not the code you write or what RDCore builds from it (see [NOTICE.md](https://github.com/rubberduck-vba/RDCore/blob/main/NOTICE.md)).
 - **Want to contribute, or build on the platform?** See [Building on RDCore](building-on-rdcore.md).
 
