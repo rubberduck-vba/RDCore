@@ -17,7 +17,7 @@ namespace RDCore.Runtime.Compiled;
 /// </summary>
 /// <remarks>
 /// Each procedure is compiled as its first call would compile it, into a type of its own. The assembly says, of each, the procedure it is the code of, a
-/// fingerprint of what it was compiled from - its body, and what the analysis made of it - and the procedures its code calls directly; and the build of the
+/// fingerprint of what it was compiled from (its body, and what the analysis made of it), and the procedures its code calls directly; and the build of the
 /// runtime that compiled it. A session that runs the assembly runs the code of a procedure compiled from the same, calling the same procedures the same way,
 /// under the same runtime, and compiles the others at their first call as any session does.
 /// <para>

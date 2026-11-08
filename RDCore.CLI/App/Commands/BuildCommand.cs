@@ -34,8 +34,8 @@ internal sealed class BuildCommandOptions
 }
 
 /// <summary>
-/// <c>rdc build [path]</c>: builds a workspace into a program - its procedures compiled into an assembly, the assembly's executable, and the runtime it runs
-/// on - that runs where .NET is installed, without rdc.
+/// <c>rdc build [path]</c>: builds a workspace into a program that runs where .NET is installed, without rdc: its procedures compiled into an
+/// assembly, the assembly's executable, and the runtime it runs on.
 /// </summary>
 /// <remarks>
 /// The workspace is loaded as <c>rdc bench</c> loads it, and each procedure compiled as its first call would compile it. The program's assembly holds the

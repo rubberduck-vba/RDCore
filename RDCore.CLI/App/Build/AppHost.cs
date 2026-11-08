@@ -9,7 +9,7 @@ namespace RDCore.CLI.App.Build;
 /// <remarks>
 /// The host is the one the .NET SDK makes an executable of an application with, from its packs
 /// (<c>packs/Microsoft.NETCore.App.Host.&lt;rid&gt;/&lt;version&gt;/runtimes/&lt;rid&gt;/native/</c>). It holds a slot of 1024 bytes that begins with a
-/// placeholder - the SHA-256 of <c>foobar</c>, in hexadecimal - where the path of the application's assembly, relative to the executable, is written
+/// placeholder (the SHA-256 of <c>foobar</c>, in hexadecimal) where the path of the application's assembly, relative to the executable, is written
 /// over it in UTF-8 and the rest of the placeholder set to zeros.
 /// </remarks>
 internal static class AppHost

@@ -624,16 +624,16 @@
     <value>Indique, pour chaque procédure d'un workspace ou du corpus intégré, si elle s'exécute compilée, et ce qui la garde dans l'interpréteur.</value>
   </data>
   <data name="Build_Summary" xml:space="preserve">
-    <value>Construit un programme à partir d'un workspace : son assembly, son exécutable et le runtime sur lequel il s'exécute.</value>
+    <value>Construit un programme à partir d'un espace de travail : son assembly, son exécutable et le runtime sur lequel il s'exécute.</value>
   </data>
   <data name="Build_NoEntryPoint" xml:space="preserve">
-    <value>Aucun module standard ne déclare de Public Sub Main() ni de Sub Main(ParamArray Args()) : le programme n'a pas de point de départ.</value>
+    <value>Aucun module standard ne déclare ni Public Sub Main() ni Sub Main(ParamArray Args()) : le programme n'a pas de point de départ.</value>
   </data>
   <data name="Build_AmbiguousEntryPoint" xml:space="preserve">
     <value>Plus d'un module déclare un Sub Main, et le programme a donc plus d'un point de départ : {0}.</value>
   </data>
   <data name="Build_NameTaken" xml:space="preserve">
-    <value>Un programme ne peut pas s'appeler {0} : le runtime sur lequel il s'exécute a une assembly de ce nom. Nommez-le avec --name.</value>
+    <value>Un programme ne peut pas s'appeler {0} : le runtime sur lequel il s'exécute a un assembly de ce nom. Nommez-le avec --name.</value>
   </data>
   <data name="Build_NoAppHost" xml:space="preserve">
     <value>Aucun hôte d'application .NET n'est installé pour {0}, et aucun exécutable n'a donc été écrit : exécutez le programme avec dotnet {1}.</value>
@@ -642,7 +642,7 @@
     <value>{0} construit dans {1}.</value>
   </data>
   <data name="Run_Summary" xml:space="preserve">
-    <value>Exécute le programme d'un workspace et se termine avec son code de sortie : 0 quand il se termine, 1 sur une erreur d'exécution, 2 quand il ne peut pas démarrer.</value>
+    <value>Exécute le programme d'un espace de travail et se termine avec son code de sortie : 0 quand il se termine, 1 en cas d'erreur d'exécution, 2 quand il ne peut pas démarrer.</value>
   </data>
   <data name="Compilation_Compiled" xml:space="preserve">
     <value>compilée</value>

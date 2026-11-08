@@ -18,8 +18,8 @@ using System.Text;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <c>rdc build</c>: a workspace built into a program - its assembly, its debugging information, its runtime configuration, its executable and the runtime it
-/// runs on - and the program run from its assembly as the interpreter runs the workspace.
+/// <c>rdc build</c>: a workspace built into a program (its assembly, its debugging information, its runtime configuration, its executable and the runtime it
+/// runs on), and the program run from its assembly as the interpreter runs the workspace.
 /// </summary>
 [TestClass]
 public sealed class BuildCommandTests

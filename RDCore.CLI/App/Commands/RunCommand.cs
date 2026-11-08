@@ -22,7 +22,7 @@ internal sealed class RunCommandOptions
 }
 
 /// <summary>
-/// <c>rdc run [path] [-- args…]</c>: runs the program of a workspace - its entry point, in a session of its own, in-process - and exits as the program
+/// <c>rdc run [path] [-- args…]</c>: runs the program of a workspace (its entry point, in a session of its own, in-process) and exits as the program
 /// ends: 0 when it ran to its end, 1 when a run-time error stopped it, 2 when it could not be started. Nothing is written.
 /// </summary>
 /// <remarks>

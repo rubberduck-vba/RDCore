@@ -13,8 +13,8 @@ using System.Text.Json;
 namespace RDCore.CLI.App.Build;
 
 /// <summary>
-/// What a project's <c>.rdproj</c> says of the program it is, in its <c>build</c> section: until the project file has a typed one, the members it does not
-/// know, as they were read.
+/// What a project's <c>.rdproj</c> says of the program it is, in its <c>build</c> section, which the project file reads as
+/// members it does not know, kept as they were read.
 /// </summary>
 /// <param name="EntryPoint">The entry point it names, <c>Module.Procedure</c> or <c>Procedure</c>; <see langword="null"/> for the implicit <c>Sub Main</c>.</param>
 /// <param name="IsLibrary">Whether the project is a library, which has no entry point.</param>

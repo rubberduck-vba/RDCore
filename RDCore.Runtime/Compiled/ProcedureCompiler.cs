@@ -258,8 +258,8 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         return bound;
     }
 
-    // what the code of a procedure is compiled from: its body (ProgramImage.ProcedureFingerprints), and what the analysis made of it for the session's scopes -
-    // the kinds of its slots and its result, its steps, its frame, the procedures it calls - which a library that resolves otherwise, or a #If whose branch
+    // what the code of a procedure is compiled from: its body (ProgramImage.ProcedureFingerprints), and what the analysis made of it for the session's scopes
+    // (the kinds of its slots and its result, its steps, its frame, the procedures it calls), which a library that resolves otherwise, or a #If whose branch
     // differs, changes when the body does not.
     private static string FingerprintOf(string body, ProcedureAnalysis analysis)
     {
