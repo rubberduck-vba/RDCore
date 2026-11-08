@@ -901,7 +901,11 @@ public sealed partial class CompiledActivation : ILightActivation
 
         var list = Body;
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
-        HandKnowns(frame, list, pc, inside: _failed is null);
+        if (!HandKnowns(frame, list, pc, inside: _failed is null))
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
         if (_failed is not { } outcome)
         {
             frame.Pc = pc;
@@ -1267,7 +1271,11 @@ public sealed partial class CompiledActivation : ILightActivation
         _ = frame.ApplyPendingRebase(atTheCall: inside);
         var list = Body;
         pc = frame.Pc;
-        HandKnowns(frame, list, pc, inside);
+        if (!HandKnowns(frame, list, pc, inside))
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
         return _executor.Run(_session, frame, list, _context);
     }
@@ -1302,7 +1310,12 @@ public sealed partial class CompiledActivation : ILightActivation
         var failed = _failed;
         _failed = null;
         var list = Body;
-        HandKnowns(frame, list, pc, inside: failed is null);
+        if (!HandKnowns(frame, list, pc, inside: failed is null))
+        {
+            _recovered = RuntimeExecutionOutcome.InternalError;
+            return -1;
+        }
+
         var suspensions = Suspensions;
         var outcome = _executor.Step(_session, frame, list, _context, failed);
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)

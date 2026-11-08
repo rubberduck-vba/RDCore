@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Semantics.Instructions;
 
@@ -19,20 +20,35 @@ public sealed partial class CompiledActivation
         => (_knowns ??= []).Add((syntax, new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating)));
 
     // the frame given what compiled code evaluated of the instruction at pc, which the interpreter runs from the middle (inside); nothing, when it runs the
-    // instruction from its start - with the error of a call, which the activation's handler is given.
-    private void HandKnowns(CallStackFrame frame, InstructionList list, int pc, bool inside)
+    // instruction from its start - with the error of a call, which the activation's handler is given. False when what was evaluated names nothing of the
+    // instruction: the interpreter would evaluate it again, and make its calls a second time.
+    private bool HandKnowns(CallStackFrame frame, InstructionList list, int pc, bool inside)
     {
         if (_knowns is not { Count: > 0 } known)
         {
-            return;
+            return true;
         }
 
-        if (inside && pc < list.Items.Length && list.Items[pc].Node is { } statement && KnownOperands.Of(statement, known) is { } operands)
+        try
         {
-            frame.Know(operands);
-        }
+            if (!inside)
+            {
+                return true;
+            }
 
-        known.Clear();
+            if (pc < list.Items.Length && list.Items[pc].Node is { } statement && KnownOperands.Of(statement, known) is { } operands)
+            {
+                frame.Know(operands);
+                return true;
+            }
+
+            Debug.Fail($"what compiled code evaluated of the instruction at {pc} names nothing of it");
+            return false;
+        }
+        finally
+        {
+            known.Clear();
+        }
     }
 
     private bool HasKnowns => _knowns is { Count: > 0 };
