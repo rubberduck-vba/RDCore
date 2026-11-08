@@ -76,7 +76,7 @@ public sealed class ReturnValueAnalysisTests
     [DataRow("If n > 1 Then\nDo While c\nF = 1\nLoop\nElse\nF = 2\nEnd If", DisplayName = "a nested path")]
     // under Resume Next, an assignment whose expression fails does not complete, and the function returns what it had.
     [DataRow("On Error Resume Next\nF = G()", DisplayName = "an assignment that may fail under Resume Next")]
-    // the re-review's case: the graph has no edge for the Resume Next, and said Never.
+    // the graph has no edge for the Resume Next, and said Never.
     [DataRow("On Error GoTo H\nError 5\nF = 1\nExit Function\nH:\nIf n = 0 Then Resume Next", DisplayName = "an assignment reached by a Resume Next on some paths")]
     public async Task ReturnValueNotAssignedOnAPath_IsSometimes(string body)
         => await AssertAsync(body, ReturnValueAssignment.Sometimes);

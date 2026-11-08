@@ -9,7 +9,7 @@ namespace RDCore.SDK.Semantics.Flow;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The states are propagated from the start of the activation (<see cref="ErrorHandlingState.Initial"/>), as MS-VBA runs the statements (Excel-verified, oracle\s53):
+/// The states are propagated from the start of the activation (<see cref="ErrorHandlingState.Initial"/>), as MS-VBA runs the statements (Excel-verified):
 /// </para>
 /// <list type="bullet">
 /// <item><description>an <c>On Error</c> statement sets the policy (<strong>MS-VBAL §5.4.4.1</strong>); inside a handler, before it resumes, it sets the policy for after the
@@ -35,10 +35,14 @@ public sealed class ErrorHandlingStates
         Edges = FlowEdges.Of(graph, states, faults);
     }
 
-    /// <summary>The graph the states were propagated over.</summary>
+    /// <summary>
+    /// The graph the states were propagated over.
+    /// </summary>
     public ControlFlowGraph Graph { get; }
 
-    /// <summary>The edges a data-flow analysis walks: the graph's normal edges, and those errors and resumptions make, as the states say.</summary>
+    /// <summary>
+    /// The edges a data-flow analysis walks: the graph's normal edges, and those errors and resumptions make, as the states say.
+    /// </summary>
     internal FlowEdges Edges { get; }
 
     /// <summary>
@@ -137,12 +141,12 @@ public sealed class ErrorHandlingStates
     // what running the instruction to completion leaves.
     private static ErrorHandlingState After(Instruction instruction, ErrorHandlingState before) => instruction.Kind switch
     {
-        // inside a handler, the policy set is for after the handler ends: the error stays active (MS-VBA, oracle\s53 C01-C03).
+        // inside a handler, the policy set is for after the handler ends: the error stays active (MS-VBA, Excel-verified).
         InstructionKind.OnErrorGoTo => new ErrorHandlingState(ErrorHandlingPolicy.GoTo, instruction.Target, before.IsHandling),
         InstructionKind.OnErrorResumeNext => new ErrorHandlingState(ErrorHandlingPolicy.ResumeNext, null, before.IsHandling),
         InstructionKind.OnErrorDisable => new ErrorHandlingState(ErrorHandlingPolicy.Default, null, before.IsHandling),
 
-        // On Error GoTo -1 ends the active error and keeps the policy (MS-VBA, oracle\s53 A05, C04).
+        // On Error GoTo -1 ends the active error and keeps the policy (MS-VBA, Excel-verified).
         InstructionKind.OnErrorReset => before with { IsHandling = false },
         InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel => before with { IsHandling = false },
         _ => before,

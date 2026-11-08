@@ -358,6 +358,7 @@ public sealed class ControlFlowGraph
     /// Whether an instruction of this kind can raise an error: it evaluates something, or is <c>Error n</c>, or is a <c>Return</c> (error 3, with no <c>GoSub</c>) or
     /// a <c>Resume</c> (error 20, with no active error).
     /// </summary>
+    /// <param name="kind">The kind of the instruction.</param>
     internal static bool CanRaiseError(InstructionKind kind) => kind is
         InstructionKind.Simple or InstructionKind.ConditionalBranch or InstructionKind.LoopBack or InstructionKind.ForOpener or InstructionKind.ForNext
         or InstructionKind.ForEachOpener or InstructionKind.ForEachNext or InstructionKind.With or InstructionKind.Select or InstructionKind.JumpTable
@@ -369,13 +370,14 @@ public sealed class ControlFlowGraph
     /// <c>Select Case</c>, with no <c>Case</c> run.
     /// </summary>
     /// <remarks>
-    /// Measured in MS-VBA (oracle s54): an error in the expression of a <c>Select Case</c> goes on after <c>End Select</c>, the <c>Case Else</c> included; one in a
+    /// Measured in MS-VBA (Excel-verified): an error in the expression of a <c>Select Case</c> goes on after <c>End Select</c>, the <c>Case Else</c> included; one in a
     /// <c>Case</c> expression runs that <c>Case</c>'s body, one in an <c>If</c> or <c>ElseIf</c> condition runs that branch, one in a <c>Do While</c>, <c>Do Until</c> or
     /// <c>While</c> condition runs the body, and one in a <c>Loop Until</c> or <c>Loop While</c> condition leaves the loop - which is the next instruction for each of
     /// them as they are lowered. An error in the start, the end or the step of a <c>For</c> goes on at the first statement of the body, with no test of the bounds and
-    /// the counter not assigned (oracle s54 F01-F07): the next instruction too, along whose error edge the counter keeps the value it had. An error in the collection
-    /// of a <c>For Each</c> or in the object of a <c>With</c> is still to be measured, and goes on at the next instruction meanwhile: the first statement of the body.
+    /// the counter not assigned: the next instruction too, along whose error edge the counter keeps the value it had. An error in the collection of a
+    /// <c>For Each</c> or in the object of a <c>With</c> is still to be measured, and goes on at the next instruction meanwhile: the first statement of the body.
     /// </remarks>
+    /// <param name="instruction">The instruction that raised the error.</param>
     internal static int NextAfterAnError(Instruction instruction)
         => instruction is { Kind: InstructionKind.Select, End: { } after } ? after : instruction.Offset + 1;
 }

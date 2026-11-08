@@ -32,7 +32,9 @@ public sealed class ReachingDefinitions
         _reaching = reaching;
     }
 
-    /// <summary>The graph the analysis is of.</summary>
+    /// <summary>
+    /// The graph the analysis is of.
+    /// </summary>
     public ControlFlowGraph Graph { get; }
 
     /// <summary>
