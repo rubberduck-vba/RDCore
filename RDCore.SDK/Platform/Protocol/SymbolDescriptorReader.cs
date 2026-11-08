@@ -108,7 +108,9 @@ public static class SymbolDescriptorReader
                     workspaceRoot, parentUri, node.Scope, node.Name, node.Range, node.SelectionRange, node.AccessModifier);
                 Symbol property = symbol with
                 {
-                    ResolvedType = Declared(node.DeclaredTypeName),
+                    ResolvedType = node.IsDesignerControlArray
+                        ? Workspace.Forms.FormControlArray.TypeOf(Declared(node.DeclaredTypeName), workspaceRoot)
+                        : Declared(node.DeclaredTypeName),
                     Parameters = Parameters(symbol.Uri),
                     Locals = Locals(symbol.Uri),
                 };

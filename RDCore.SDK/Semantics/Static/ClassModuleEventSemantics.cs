@@ -88,15 +88,17 @@ public static class ClassModuleEventSemantics
     private static VBClassModuleSymbol? CheckWithEventsType(
         VBClassModuleSymbol module, VBTypeMemberSymbol variable, ISymbolResolver? resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {
-        if (variable.ResolvedType is VBUnknownType)
+        // a form's control array raises the events of its controls' class
+        var type = Workspace.Forms.FormControlArray.ElementOf(variable.ResolvedType) ?? variable.ResolvedType;
+        if (type is VBUnknownType)
         {
             return null;
         }
 
-        if (variable.ResolvedType is not VBClassType declared)
+        if (type is not VBClassType declared)
         {
             errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidWithEventsType, LocationOf(variable),
-                $"'{variable.Name}' is declared As {variable.ResolvedType.Name}, which is not a specific class (MS-VBAL §5.2.3.1.2)."));
+                $"'{variable.Name}' is declared As {type.Name}, which is not a specific class (MS-VBAL §5.2.3.1.2)."));
             return null;
         }
 

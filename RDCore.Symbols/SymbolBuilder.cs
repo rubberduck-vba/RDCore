@@ -189,7 +189,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// </summary>
     /// <remarks>
     /// The designer declares it, so no text of the module does: it has no range of its own. A control whose class the designer names by its CLSID only (an
-    /// ActiveX control that is not one of the referenced libraries') has a type that is not resolved, as an unknown <c>As</c> type is.
+    /// ActiveX control that is not one of the referenced libraries') has a type that is not resolved, as an unknown <c>As</c> type is. The controls of a Visual
+    /// Basic 6.0 control array share one, of the array's type (<see cref="FormControlArray"/>).
     /// </remarks>
     /// <param name="control">The control, as the form's designer describes it.</param>
     /// <param name="form">The name of the form, which names what hosts it (<see cref="FormObject.TargetOf"/>).</param>
@@ -198,6 +199,11 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
         var type = control.Class.Name is { } className
             ? ResolveTypeName(className, moduleUri, control.Class.Library)
             : new VBUnresolvedType(control.Class.ToString());
+        if (control.Index is not null)
+        {
+            type = FormControlArray.TypeOf(type, workspaceRoot);
+        }
+
         var property = new VBPropertyGetMemberSymbol(workspaceRoot, moduleUri, memberScope, control.Name, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);
 
         // the implicit parameter 0 a library's instance member has: the form the control is reached through, which is what the call is dispatched on.

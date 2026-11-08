@@ -58,11 +58,11 @@ public static class MemberRoles
 
         // a UserForm's control raises the events of the extender it is wrapped in too (Enter, Exit, BeforeUpdate, AfterUpdate)
         var extender = designer is null ? null : FormClasses.ExtenderOf(designer, resolver, module.Uri);
-        var controlArrays = (designer?.AllControls() ?? []).Where(control => control.Index is not null)
-            .Select(control => control.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var variable in module.WithEventsVariables)
         {
-            if (variable.ResolvedType is not VBClassType declared)
+            // the events of a control array are those of its controls' class
+            var array = FormControlArray.ElementOf(variable.ResolvedType);
+            if ((array ?? variable.ResolvedType) is not VBClassType declared)
             {
                 continue;
             }
@@ -79,7 +79,7 @@ public static class MemberRoles
                 // the handler of an event of a form's control that does not match the event is never called by it: MS-VBA compiles it (oracle\s30 C06)
                 if (isControl)
                 {
-                    var required = controlArrays.Contains(variable.Name) ? WithIndex(handled) : handled.Parameters;
+                    var required = array is not null ? WithIndex(handled) : handled.Parameters;
                     MarkHandlers(ClassModuleEventSemantics.HandlersOf(module, variable, handled), required, roles);
                     continue;
                 }
