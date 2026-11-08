@@ -123,13 +123,18 @@ public sealed class CaseMatchEvaluator(
             {
                 return result;
             }
-            if (((VBBooleanValue)result.Result!).Value.StoredValue != 0)
+            if (IsTrue(result.Result!))
             {
-                return result;
+                return RuntimeSemanticsEvaluationResult.Success(VBBooleanValue.True);
             }
         }
         return RuntimeSemanticsEvaluationResult.Success(VBBooleanValue.False);
     }
+
+    // a comparison of a Variant selector, or of a Variant value, is declared Variant and holds the Boolean it evaluates to (MS-VBAL 5.6.9.5): the clause
+    // matches when that is True.
+    private static bool IsTrue(VBTypedValue value)
+        => (value is VBVariantValue { TypedValue: var held } ? held : value) is VBBooleanValue { Value.StoredValue: not 0 };
 
     private RuntimeSemanticsEvaluationResult EvaluateClause(IRuntimeSession session, CaseRangeClauseNode clause, VBTypedValue selector, RuntimeEvaluationContext context) => clause switch
     {

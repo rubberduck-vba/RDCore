@@ -237,7 +237,14 @@ public sealed class ForLoopEvaluator(
     /// one completes when the counter falls below it.
     /// </summary>
     public RuntimeSemanticsEvaluationResult IsOutOfRange(IRuntimeSession session, ForLoopState state, VBTypedValue counter)
-        => operators.EvaluateBinaryOperator(session,
+    {
+        var compared = operators.EvaluateBinaryOperator(session,
             state.CountsDown ? Tokens.CompareLessThanOp : Tokens.CompareGreaterThanOp,
             state.ControlExpression, counter, state.End, ConversionSite.LoopBound);
+
+        // the comparison of a Variant counter is declared Variant (MS-VBAL 5.6.9.5), and holds the Boolean the loop is decided by.
+        return compared is { IsSuccess: true, Result: VBVariantValue { TypedValue: VBBooleanValue held } }
+            ? RuntimeSemanticsEvaluationResult.Success(held)
+            : compared;
+    }
 }

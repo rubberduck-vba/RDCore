@@ -267,11 +267,15 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         return isDeclaredVariant ? AsVariant(result) : result;
     }
 
-    // MS-VBAL 5.6.9.3-4: an arithmetic operator, and &, with an operand declared Variant is declared Variant, and what it evaluates to is held in one: compared
-    // with a String, `v + 1` is compared as text as v is, and `v & ""` as a Variant String (MS-VBA, recorded in Excel: oracle\s56 R08-R14, G02, G09, G10).
-    // TODO measure in MS-VBA the logical operators and the comparisons, also declared Variant by a Variant operand (MS-VBAL 5.6.9.5, 5.6.9.8).
+    // MS-VBAL 5.6.9.3-6, 5.6.9.8: an arithmetic operator, &, a relational operator, Like and a logical operator with an operand declared Variant are declared
+    // Variant, and what they evaluate to is held in one: compared with a String, `v + 1` is compared as text as v is, and `v & ""` as a Variant String
+    // (MS-VBA, recorded in Excel: oracle\s56 R08-R14, G02, G09, G10); compared with a Variant String, `v Or 255` and `v < 255` are ranked below it as a
+    // Variant number is, whatever their value (oracle\s81 x03, x06, x09, x12). Is is declared Boolean (MS-VBAL 5.6.9.7).
     private static bool IsDeclaredVariantBy(string token) => token is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.DivisionOp
-        or Tokens.IntegerDivisionOp or Tokens.ModuloOp or Tokens.PowerOp or Tokens.ConcatOp or Tokens.NegationOp;
+        or Tokens.IntegerDivisionOp or Tokens.ModuloOp or Tokens.PowerOp or Tokens.ConcatOp or Tokens.NegationOp
+        or Tokens.CompareEqualOp or Tokens.CompareNotEqualOp or Tokens.CompareLessThanOp or Tokens.CompareLessThanOrEqualOp or Tokens.CompareGreaterThanOp
+        or Tokens.CompareGreaterThanOrEqualOp or Tokens.CompareLikeOp
+        or Tokens.LogicalAndOp or Tokens.LogicalOrOp or Tokens.LogicalXOrOp or Tokens.LogicalEqvOp or Tokens.LogicalImpOp or Tokens.LogicalNotOp;
 
     private static RuntimeSemanticsEvaluationResult AsVariant(RuntimeSemanticsEvaluationResult result)
         => result is { IsSuccess: true, Result: { } value } && value is not VBVariantValue
