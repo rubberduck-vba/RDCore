@@ -479,6 +479,20 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // the result of a function of the Variant type, assigned where its frame holds it: one the interpreter's assignment would let go of an object
+            // to, the interpreter runs alone, and compiled code goes on after it.
+            case VariantResultLetStep resultLet:
+            {
+                var failure = RecoverAt(resultLet.Offset);
+                var value = _il.DeclareLocal(typeof(VariantPayload));
+                EmitVariantInto(resultLet.Value, value, failure);
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldloc, value);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultVariant))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+
             case VariantForNextStep variantNext:
                 EmitVariantForNext(variantNext);
                 break;
@@ -1898,6 +1912,13 @@ internal sealed partial class ProcedureEmitter
 
             case VariantFieldNode field:
                 EmitVariantField(field, result, failure);
+                break;
+
+            case VariantResultNode:
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldloca, result);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReadResultVariant))!);
+                _il.Emit(OpCodes.Brfalse, failure);
                 break;
 
             case VariantOfNode of:
