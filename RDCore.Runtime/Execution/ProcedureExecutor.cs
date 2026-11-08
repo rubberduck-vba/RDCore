@@ -1391,11 +1391,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         if (instruction.Matching is not { } openerOffset || !activation.TryGetForEachState(openerOffset, out var state))
         {
             // MS-VBAL §5.4.2.4: a GoTo landed directly on this Next without its own ForEachOpener ever running this activation, or the opener raised an
-            // error that was resumed past - error 92, "For loop not initialized". MS-VBA empties the control variable first, unless the collection is
-            // declared as an array (RD-VBAL §5.4.2.4).
+            // error that was resumed past - error 92, "For loop not initialized". MS-VBA empties a Variant control variable first, unless the collection
+            // is declared as an array (RD-VBAL §5.4.2.4).
             if (instruction.Matching is { } matching && activation.Body?.Items[matching].Node is ForEachStatementNode { ControlExpression: SimpleNameExpressionNode simpleName } opener
-                && !forEach.IsDeclaredArray(session, opener.CollectionExpression, context)
                 && session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol is ITypedSymbol unopened
+                && !forEach.KeepsControlWithNoLoopRunning(session, unopened, opener.CollectionExpression, context)
                 && EmptyControl(session, unopened, simpleName) is { } notEmptied)
             {
                 return notEmptied;
