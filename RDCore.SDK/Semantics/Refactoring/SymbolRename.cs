@@ -130,7 +130,8 @@ public sealed record class RenameTarget(string Name, Uri Module, SourceRange Ran
 /// <param name="NewText">The new name.</param>
 /// <param name="IsInString">
 /// Whether the name is written in a string that a member of a library calls the symbol by: the procedure name of <c>CallByName</c>
-/// (<strong>MS-VBAL §6.1.2.8.1.1</strong>), a host's macro (<c>Application.Run "Module1.Foo"</c>), or the <c>OnAction</c> of a control. What a string names is
+/// (<strong>MS-VBAL §6.1.2.8.1.1</strong>), a host's macro (<c>Application.Run "Module1.Foo"</c>), a procedure a host calls later (<c>Application.OnTime</c>, <c>OnKey</c>), or the
+/// <c>OnAction</c> of a control. What a string names is
 /// only known when the code runs, so the user is asked to confirm the edit. A string left as it is names nothing the call can find.
 /// </param>
 public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false);
@@ -171,8 +172,8 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 /// A member that code accesses late-bound - on an <c>Object</c> or a <c>Variant</c> - is not known to refer to the symbol, and is not renamed.
 /// </para>
 /// <para>
-/// A string is renamed where a member of a library calls a member of a module by its name in it - <c>CallByName</c>, a host's macro, a control's
-/// <c>OnAction</c> - and its edit says so (<see cref="RenameEdit.IsInString"/>), for the user to confirm: what a string names is only known when the code runs.
+/// A string is renamed where a member of a library calls a member of a module by its name in it (<c>CallByName</c>, a host's macro, a control's
+/// <c>OnAction</c>), and its edit says so (<see cref="RenameEdit.IsInString"/>), for the user to confirm: what a string names is only known when the code runs.
 /// </para>
 /// </remarks>
 public static class SymbolRename

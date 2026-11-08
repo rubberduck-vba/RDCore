@@ -19,7 +19,7 @@ namespace RDCore.LanguageServer.Refactoring;
 /// </para>
 /// <para>
 /// The edits of the strings a library calls the symbol by are the user's to confirm (<see cref="RenameWorkspace.InString"/>): a client that takes change
-/// annotations asks them itself; any other is asked for them (<c>window/showMessageRequest</c>) before it is answered - with the strings renamed, the strings
+/// annotations asks them itself; any other is asked for them (<c>window/showMessageRequest</c>) before it is answered: with the strings renamed, the strings
 /// left, or nothing at all when the user does not choose.
 /// </para>
 /// </remarks>

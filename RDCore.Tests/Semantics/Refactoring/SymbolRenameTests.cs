@@ -554,7 +554,7 @@ public sealed class SymbolRenameTests
     {
         Assert.AreEqual("'Foo' is called by its name in 2 strings, the first at Main 5:17. Rename it there too?",
             RefactoringTitles.RenameInStringQuestion("Foo", 2, "Main 5:17", CultureInfo.InvariantCulture));
-        Assert.AreEqual("« Foo » est appelé par son nom dans une chaîne, à Main 5:17. Le renommer là aussi ?",
+        Assert.AreEqual("« Foo » est appelé par son nom dans une chaîne, à Main 5:17. Le renommer là aussi?",
             RefactoringTitles.RenameInStringQuestion("Foo", 1, "Main 5:17", new CultureInfo("fr-CA")));
     }
 }

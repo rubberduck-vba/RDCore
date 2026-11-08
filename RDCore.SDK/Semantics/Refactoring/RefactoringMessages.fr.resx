@@ -61,13 +61,13 @@
     <value>Appelé par son nom dans une chaîne</value>
   </data>
   <data name="Rename_InString_Description" xml:space="preserve">
-    <value>Ce que dit une chaîne n'est connu qu'à l'exécution. Laissée telle quelle, l'appel ne trouverait plus « {0} ».</value>
+    <value>Ce que dit une chaîne n'est connu qu'à l'exécution. Si la chaîne reste telle quelle, l'appel ne trouvera plus « {0} ».</value>
   </data>
   <data name="Rename_InString_Question_One" xml:space="preserve">
-    <value>« {0} » est appelé par son nom dans une chaîne, à {2}. Le renommer là aussi ?</value>
+    <value>« {0} » est appelé par son nom dans une chaîne, à {2}. Le renommer là aussi?</value>
   </data>
   <data name="Rename_InString_Question_Many" xml:space="preserve">
-    <value>« {0} » est appelé par son nom dans {1} chaînes, la première à {2}. Le renommer là aussi ?</value>
+    <value>« {0} » est appelé par son nom dans {1} chaînes, la première à {2}. Le renommer là aussi?</value>
   </data>
   <data name="Rename_InString_Rename" xml:space="preserve">
     <value>Le renommer là aussi</value>

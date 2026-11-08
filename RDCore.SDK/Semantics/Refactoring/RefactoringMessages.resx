@@ -61,7 +61,7 @@
     <value>Called by its name in a string</value>
   </data>
   <data name="Rename_InString_Description" xml:space="preserve">
-    <value>What a string says is only known when the code runs. Left as it is, the call would no longer find '{0}'.</value>
+    <value>What a string says is only known when the code runs. If the string is left as it is, the call will no longer find '{0}'.</value>
   </data>
   <data name="Rename_InString_Question_One" xml:space="preserve">
     <value>'{0}' is called by its name in a string, at {2}. Rename it there too?</value>

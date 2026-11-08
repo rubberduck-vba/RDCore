@@ -399,7 +399,7 @@ What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.
 |A member's attribute (`Attribute Value.VB_UserMemId`)|The member.|
 |The key of a dictionary access (`c!key`)|Nothing: it is a string.|
 
-The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to the symbol, and is not renamed.
+The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) that has the symbol's name is not known to refer to it, so the rename is refused (see the table below).
 
 A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A client that takes change annotations is sent them annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: it is sent the edits with the strings, the edits without them, or nothing when the user chooses neither. A string left as it is names nothing the call can find, and the call fails only when the code runs.
 
