@@ -1,16 +1,5 @@
-using RDCore.LanguageServer.Symbols;
-using RDCore.Parsing;
-using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
-using RDCore.SDK.Workspace;
-using RDCore.Symbols;
 
 namespace RDCore.Tests.Semantics.Flow;
 
@@ -22,66 +11,8 @@ namespace RDCore.Tests.Semantics.Flow;
 [TestCategory("RD-VBAL 5.0.3 Semantic Analysis")]
 public sealed class DataFlowTests
 {
-    private static readonly Uri Root = new("file://rdcore-test");
-
-    private static Uri ModuleUri(string name) => new UriBuilder(Root) { Fragment = name }.Uri;
-
-    private const string Others = """
-        Private Type Point
-            X As Long
-            Y As Long
-        End Type
-
-        Private field As Long
-
-        Private Sub Bump(ByRef v As Long)
-            v = v + 1
-        End Sub
-
-        Private Function G() As Long
-            G = 1
-        End Function
-        """;
-
-    private sealed record class Analyzed(InstructionList Instructions, ProcedureSemanticModel Model, DefinitionsAndUses Accesses, ControlFlowGraph Graph, int FirstBodyLine)
-    {
-        public LiveVariables Live => LiveVariables.Of(Graph, Accesses);
-
-        public ReachingDefinitions Reaching => ReachingDefinitions.Of(Graph, Accesses);
-
-        public SemanticId Variable(string name)
-            => Accesses.Variables.Single(variable => variable.Uri.Fragment.EndsWith($".{name}", StringComparison.OrdinalIgnoreCase));
-
-        // the instructions of the lines of the body from `first` to `last` (zero-based, the first line of the body is 0).
-        public IReadOnlySet<int> Lines(int first, int last)
-            => Instructions.Items
-                .Where(instruction => instruction.Location is { } location
-                    && location.Range.Start.Line - FirstBodyLine >= first && location.Range.Start.Line - FirstBodyLine <= last)
-                .Select(instruction => instruction.Offset)
-                .ToHashSet();
-
-        public int Line(int line) => Lines(line, line).Min();
-    }
-
-    private static Analyzed Analyze(string body, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true)
-    {
-        var moduleLevel = Others.ReplaceLineEndings("\r\n");
-        var prefix = $"Attribute VB_Name = \"Main\"\r\n{(optionExplicit ? "Option Explicit" : "' no Option Explicit")}\r\n{moduleLevel}\r\n{header}\r\n";
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), $"{prefix}{body.ReplaceLineEndings("\r\n")}\r\n{end}\r\n");
-        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
-
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(ModuleUri("Main"), ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
-        Assert.IsTrue(composition.ScopeTree.TryGetScope(ModuleUri("Main.Run"), out var scope));
-        var run = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single(member => member.Name == "Run");
-        var block = new StatementBlock([.. run.Children]);
-        var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(ModuleUri("Main.Run")), block, kind: run.MemberKind,
-            context: new StaticEvaluationContext(composition.Resolver, scope));
-        Assert.IsTrue(model.IsFullyAnalyzed, string.Join("; ", model.CompileErrors.Select(error => error.ToString())));
-
-        var instructions = InstructionListLowering.Lower(block, default, run.MemberKind).InstructionList;
-        var graph = ControlFlowGraph.Of(instructions, model);
-        return new Analyzed(instructions, model, DefinitionsAndUses.Of(instructions, model, composition.ScopeTree), graph, prefix.Split("\r\n").Length - 1);
-    }
+    private static FlowFixture.Analyzed Analyze(string body, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true)
+        => FlowFixture.Analyze(body, header, end, optionExplicit);
 
     // legacy Rubberduck passed x ByVal here: nothing reads it after the selection on the page, and the loop read it at the top on the next iteration. The write was lost,
     // and the loop never ended.

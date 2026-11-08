@@ -394,9 +394,6 @@ public sealed class DefinitionsAndUses
             };
         }
 
-        private Symbol? SymbolOf(SemanticId id)
-            => scopes.TryGetScope(id.Uri, out var scope)
-                ? scope.SelfAndAncestors().SelectMany(outer => outer.Declarations).FirstOrDefault(symbol => symbol.SemanticId == id)
-                : null;
+        private Symbol? SymbolOf(SemanticId id) => FlowSymbols.SymbolOf(scopes, id);
     }
 }

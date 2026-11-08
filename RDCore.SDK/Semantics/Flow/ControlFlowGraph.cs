@@ -65,8 +65,12 @@ public sealed class ControlFlowGraph
     /// What the static pass found out about the body, which tells of the assignments that cannot raise an error (a literal let-coerced without one); without it,
     /// every instruction of a kind that can raise one is taken to.
     /// </param>
-    public static ControlFlowGraph Of(InstructionList instructions, ProcedureSemanticModel? model = null)
-        => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model)).Build();
+    /// <param name="foldConstants">
+    /// Whether a condition that is a literal (<c>If False</c>, <c>Do While True</c>, <c>For i = 3 To 1</c>) goes only the way it says (<see cref="ConstantFlow"/>), which is
+    /// what runs; otherwise both ways, which is what is written: the code a refactoring moves, and that a later edit of the literal may run.
+    /// </param>
+    public static ControlFlowGraph Of(InstructionList instructions, ProcedureSemanticModel? model = null, bool foldConstants = true)
+        => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model), foldConstants).Build();
 
     /// <summary>
     /// Whether the instruction at <paramref name="node"/> can raise an error: one of a kind that can (<see cref="CanRaiseError"/>), and not an assignment the
@@ -131,8 +135,12 @@ public sealed class ControlFlowGraph
         return false;
     }
 
-    private sealed class Builder(InstructionList instructions, IReadOnlySet<int> raiseFree)
+    private sealed class Builder(InstructionList instructions, IReadOnlySet<int> raiseFree, bool foldConstants)
     {
+        private bool? OutcomeOf(Instruction instruction) => foldConstants ? ConstantFlow.OutcomeOf(instruction) : null;
+
+        private bool? RunsAtLeastOnce(Instruction instruction) => foldConstants ? ConstantFlow.RunsAtLeastOnce(instruction) : null;
+
         private readonly ImmutableArray<Instruction> _items = instructions.Items;
         private readonly List<ControlFlowEdge>[] _edges = [.. Enumerable.Range(0, instructions.Items.Length + 1).Select(_ => new List<ControlFlowEdge>())];
         private ControlFlowImprecision _imprecision;
@@ -222,7 +230,7 @@ public sealed class ControlFlowGraph
                     break;
 
                 case InstructionKind.LoopBack:
-                    switch (ConstantFlow.OutcomeOf(instruction))
+                    switch (OutcomeOf(instruction))
                     {
                         case true:
                             Branch(instruction, instruction.Target);
@@ -247,7 +255,7 @@ public sealed class ControlFlowGraph
                 case InstructionKind.ForOpener:
                 case InstructionKind.ForEachOpener:
                     // a loop that has nothing to run over is skipped.
-                    var runs = instruction.Kind is InstructionKind.ForOpener ? ConstantFlow.RunsAtLeastOnce(instruction) : null;
+                    var runs = instruction.Kind is InstructionKind.ForOpener ? RunsAtLeastOnce(instruction) : null;
                     if (runs is not false)
                     {
                         Fallthrough(instruction);
@@ -277,7 +285,7 @@ public sealed class ControlFlowGraph
 
         private void AddConditionalEdges(Instruction instruction)
         {
-            var outcome = ConstantFlow.OutcomeOf(instruction);
+            var outcome = OutcomeOf(instruction);
             if (outcome is not false)
             {
                 Fallthrough(instruction);
