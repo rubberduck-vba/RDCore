@@ -292,10 +292,9 @@ public sealed class ErrObjectTests
     }
 
     [TestMethod]
-    public void StackTrace_LocatesTheFaultingStatement_AndOnlyThat()
+    public void StackTrace_LocatesTheFaultingStatement_AndNoCallerWithoutABody()
     {
-        // a caller's activation record does not say where in itself it is suspended, so only the frame
-        // the error was raised in can carry a location.
+        // a caller is located by the statement its body is at: one pushed with no body is at none.
         var err = new ErrObject(Run(["Main", "Inner"], "10 Error 11"));
 
         var lines = StringOf(err.StackTrace()).Split("\r\n");

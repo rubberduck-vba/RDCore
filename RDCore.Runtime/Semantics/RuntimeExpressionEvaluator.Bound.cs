@@ -246,7 +246,7 @@ public sealed partial class RuntimeExpressionEvaluator
     {
         BoundLiteral literal => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), literal.Literal),
         BoundVariable variable => ReadBoundVariable(session, variable),
-        BoundName name => ReadSymbol(session, context, name.Symbol, nameOfEnclosingFunctionIsItsResult: true),
+        BoundName name => ReadSymbol(session, context, name.Symbol, nameOfEnclosingFunctionIsItsResult: true, call: name.Name),
         BoundBinary binary => EvaluateBoundBinary(session, binary, context),
         BoundUnary unary => EvaluateBoundUnary(session, unary, context),
         BoundCall call => EvaluateBoundCall(session, call, context),
@@ -259,7 +259,7 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundArrayBound arrayBound => EvaluateBoundArrayBound(session, arrayBound, context),
         BoundArray array => EvaluateBoundArray(session, array, context),
         BoundDictionaryAccess dictionary => EvaluateBoundDictionaryAccess(session, dictionary, context),
-        BoundQualifiedName qualified => ReadSymbol(session, context, qualified.Member, nameOfEnclosingFunctionIsItsResult: false),
+        BoundQualifiedName qualified => ReadSymbol(session, context, qualified.Member, nameOfEnclosingFunctionIsItsResult: false, call: qualified.Access),
         BoundPrecompilerName precompilerName => EvaluatePrecompilerConstant(session, context, precompilerName.Name),
         // a compile error evaluates to its run-time counterpart: the expression, late-bound.
         BoundError error => EvaluateBoundNode(session, error.Late, context),
@@ -364,7 +364,7 @@ public sealed partial class RuntimeExpressionEvaluator
             {
                 // the arguments are bound for the member of the class the object is declared as: the member implementing it has parameters of its own.
                 result = InvokeProcedure(session, context, member, bound.Arguments?.Arguments ?? [], objectValue.RuntimeValue,
-                    ReferenceEquals(member, bound.Member) ? bound.BoundArguments : null);
+                    ReferenceEquals(member, bound.Member) ? bound.BoundArguments : null, call: (SyntaxNode?)bound.Arguments ?? bound.Access);
             }
         }
         else if (bound.Arguments is { } call)
@@ -470,7 +470,7 @@ public sealed partial class RuntimeExpressionEvaluator
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
             : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
                 ? OfResultType(call, AbsOfTheLeast(session, call, context,
-                    InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)))
+                    InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments, call: call.Call)))
                 : EvaluateLate(session, call.Expression, context);
 
     // the absolute value of the least value of a type is no value of it, which the standard library's Abs raises as an overflow: as MS-VBA does for a

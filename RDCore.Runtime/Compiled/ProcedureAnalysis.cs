@@ -770,7 +770,7 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null, assigns);
+        return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null, assigns, call.Call.SourceLocation);
     }
 
     // a call of a function of the Variant type, or of a scalar type, whose result the statement assigns to a Variant - a variable of the activation, or the
@@ -819,11 +819,13 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return CallWith(call.Member, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver, assigns);
+        return CallWith(call.Member, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver, assigns,
+            ((SyntaxNode?)call.Arguments ?? call.Access).SourceLocation);
     }
 
+    // at: where the call expression is, which the activation is located at while the callee runs (CompiledCallee.CallLocation).
     private CallStep? CallWith(VBTypeMemberSymbol procedure, ReadOnlySpan<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments, int result, int offset,
-        ScalarKind? resultKind, BoundMember? site, int? receiver, bool assigns)
+        ScalarKind? resultKind, BoundMember? site, int? receiver, bool assigns, SourceLocation at)
     {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar or a Variant: what the Variant holds is let go of when the statement is over, as the interpreter
@@ -875,6 +877,7 @@ internal sealed partial class ProcedureAnalysis
         Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference)
         {
             Site = site,
+            CallLocation = at,
             AssignsResult = assigns,
             HoldsWhatItReturns = assigns || resultKind is null && procedure is VBFunctionMemberSymbol { ResolvedType: VBVariantType },
         });

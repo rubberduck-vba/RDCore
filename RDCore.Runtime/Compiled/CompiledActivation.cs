@@ -49,11 +49,12 @@ public sealed partial class CompiledActivation : ILightActivation
     // (RuntimeCallStack.MaterializeLights), and the activation is held in it from then on.
     private CallStackFrame? _frame;
 
-    // what an activation without a frame holds in place of one: the procedure it is of, the stack it is on, the instruction of the call it is making, and its
-    // function result variable.
+    // what an activation without a frame holds in place of one: the procedure it is of, the stack it is on, the instruction of the call it is making and the
+    // number of that call among the body's callees (-1 when it is making none), and its function result variable.
     private readonly VBTypeMemberSymbol? _procedure;
     private readonly RuntimeCallStack? _stack;
     private int _pc;
+    private int _call = -1;
     private ScalarPayload _result;
     private bool _hasResult;
 
@@ -86,7 +87,7 @@ public sealed partial class CompiledActivation : ILightActivation
         Array.Clear(_cells);
         (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
-        (_pc, _hasResult, _failed, _unspilled) = (0, false, null, false);
+        (_pc, _call, _hasResult, _failed, _unspilled) = (0, -1, false, null, false);
         _untilPoll = PollInterval;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
@@ -111,6 +112,11 @@ public sealed partial class CompiledActivation : ILightActivation
             ? _invoker.CreateMemberFrame(member, _list, _instance!.ObjectId, me)
             : _invoker.CreateCompiledFrame(_procedure!, _list);
         (frame.Pc, frame.RunsCompiled) = (_pc, true);
+        if (_call >= 0)
+        {
+            _ = frame.EnterCall(_body.Callees[_call].CallLocation);
+        }
+
         if (_hasResult)
         {
             frame.AssignResult(_result);
@@ -262,7 +268,24 @@ public sealed partial class CompiledActivation : ILightActivation
         }
         else
         {
-            _pc = pc;
+            (_pc, _call) = (pc, -1);
+        }
+    }
+
+    // the call numbered callee the activation makes at the instruction at pc, which its frame locates it at while the callee runs (CallStackFrame.EnterCall),
+    // as the interpreter's does: a frame is told it now, one the activation is given later is told it then (MakeFrame). The call is not taken back when it
+    // returns: the frame says the activation is at another instruction before anything can be called on top of it again (SetPc, Return, LeaveBlocks, a
+    // hand-over to the interpreter), and a call is the frame's only at the instruction that made it.
+    private void SetCall(int pc, int callee)
+    {
+        if (_frame is { } frame)
+        {
+            frame.Pc = pc;
+            _ = frame.EnterCall(_body.Callees[callee].CallLocation);
+        }
+        else
+        {
+            (_pc, _call) = (pc, callee);
         }
     }
 
@@ -405,7 +428,7 @@ public sealed partial class CompiledActivation : ILightActivation
     public bool Call(int pc, int callee, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
@@ -497,7 +520,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>Whether the call returned, as <see cref="Call"/> says.</returns>
     public bool CallMember(int pc, int callee, out long integral, out double floating)
     {
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
@@ -604,7 +627,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
 
         // under a debugger, which may look at the stack while the program waits in it, the callee's frame is made as it is called; any other is on the stack
@@ -675,7 +698,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
         CompiledActivation activation;
         if (entry.Body.EntersWithoutFrame && _halt.Gate is null && _stack is not null && UnboxedEvaluation.IsEnabled)
@@ -1340,8 +1363,10 @@ public sealed partial class CompiledActivation : ILightActivation
             return;
         }
 
+        // the frame says the activation is at pc, as the interpreter's does when it lets go of them: a Class_Terminate that runs of one sees it there.
         foreach (var holder in frame.TakeBlockHoldersOutside(pc))
         {
+            frame.Pc = pc;
             ObjectReferences.Release(_session, holder);
         }
     }
@@ -1461,9 +1486,14 @@ public sealed partial class CompiledActivation : ILightActivation
     // offsets as the one compiled code was compiled from (CallStackFrame.TryRebase).
     private InstructionList Body => _frame?.Body ?? _list;
 
-    /// <summary>What an activation that reached its end, or an <c>Exit</c>, returns.</summary>
-    public RuntimeExecutionOutcome Return()
+    /// <summary>
+    /// What an activation that reached its end, or an <c>Exit</c>, returns. The frame says the activation is at <paramref name="pc"/>, the <c>Exit</c> or the
+    /// end of the body, as the frame of an activation the interpreter runs says when it returns: what lets go of its locals then, and a <c>Class_Terminate</c>
+    /// that runs of it, sees it there, and not at the last call it made.
+    /// </summary>
+    public RuntimeExecutionOutcome Return(int pc)
     {
+        SetPc(pc);
         if (_frame is { } frame)
         {
             frame.RunsCompiled = false;
