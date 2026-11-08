@@ -58,9 +58,9 @@ component ([`UserInterfaceLanguage`](../api/RDCore.SDK.Server.UserInterfaceLangu
 |A culture of another language (`de`)|English, by .NET's resource fallback.|At `Information`, naming the culture and English.|
 |A name that is no culture (`xx-YY`)|The machine's display language.|A warning.|
 
-Each component applies it as it starts, before it writes anything. A server that has it keeps it over the `locale` its client says in `initialize`. A server that
-does not speaks its client's `locale`, and tells the components it starts the same. The shell says its own language as its `locale`, so a value in its
-`appsettings.json` reaches the servers it starts. A value the user sets (`CONFIG Environment.Regional.Language fr`) reaches every component, whichever client
+Each component applies it as it starts, before it writes anything. A server that has it keeps it over the `locale` its client sends in `initialize`. A server
+without it speaks its client's `locale`, and sends the same `locale` to the components it starts. The shell sends its own language as its `locale`, so a value
+in its `appsettings.json` reaches the servers it starts. A value the user sets (`CONFIG Environment.Regional.Language fr`) reaches every component, whichever client
 started the platform.
 
 It sets the language only. How a number or a date is written and read stays with the other `Environment.Regional` settings

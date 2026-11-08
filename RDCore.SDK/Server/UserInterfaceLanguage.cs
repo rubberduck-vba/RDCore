@@ -38,7 +38,7 @@ public static class UserInterfaceLanguage
         typeof(UserInterfaceLanguage).Assembly.GetCustomAttribute<NeutralResourcesLanguageAttribute>()?.CultureName is { Length: > 0 } name ? name : "en");
 
     /// <summary>
-    /// What the setting comes to, in the language of the user interface as it is: nothing is applied.
+    /// What the setting comes to, without applying it. The message is in the current language of the user interface.
     /// </summary>
     /// <param name="setting">The value of the setting: a culture name, or nothing for the machine's language.</param>
     public static UserInterfaceLanguageSetting Resolve(string? setting)
