@@ -17,7 +17,7 @@ namespace RDCore.SDK.Platform.Components;
 /// defines it in the session symbol table.
 /// </summary>
 /// <remarks>
-/// Module symbols are <em>not</em> carried here — the host already has them from the <c>.rdproj</c>.
+/// Module symbols are <em>not</em> carried here: the host already has them from the <c>.rdproj</c>.
 /// The descriptors are the transport form of what the language server's <c>SyntaxTreeSymbolProvider</c>
 /// produces. A name declared in several conditional-compilation branches arrives as one descriptor
 /// carrying every branch in <see cref="SymbolDescriptor.Definitions"/>; the host defines the single
@@ -36,7 +36,7 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     public Uri? WorkspaceRoot { get; init; }
 
     /// <summary>
-    /// The <c>Uri</c> of the module these symbols belong to. Informational — the host re-derives the
+    /// The <c>Uri</c> of the module these symbols belong to. Informational: the host re-derives the
     /// parent module symbol from <see cref="WorkspaceRoot"/> and <see cref="ModuleName"/>.
     /// </summary>
     public Uri? ModuleUri { get; init; }
@@ -146,7 +146,7 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
     /// The one-shot workspace sync defines each module once, and first-definition-wins is what
     /// collapses a name declared in several conditional-compilation branches. A module the user is
     /// editing is the other case: it is defined again every time it is run, and the newest definition
-    /// is the one that is true — skipping it would leave the session running yesterday's symbols, with
+    /// is the one that is true: skipping it would leave the session running yesterday's symbols, with
     /// whatever locals and declared types they had.
     /// </remarks>
     public bool Replace { get; init; }
@@ -222,7 +222,7 @@ public record class DefineSymbolsResult
 
     /// <summary>
     /// The number of duplicate descriptors that were collapsed into an already-reconstructed symbol
-    /// rather than defined separately — a member declared in more than one conditional-compilation
+    /// rather than defined separately: a member declared in more than one conditional-compilation
     /// branch reaches the session as one symbol with multiple <see cref="SymbolDescriptor.Definitions"/>.
     /// </summary>
     public int MergedDefinitions { get; init; }

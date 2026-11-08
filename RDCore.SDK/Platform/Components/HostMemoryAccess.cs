@@ -15,7 +15,9 @@ namespace RDCore.SDK.Platform.Components;
 [Method(RDCoreComponentProtocol.HostPeek, Direction.ClientToServer)]
 public record class HostPeekParams : IRequest, IRequest<PeekResult>
 {
-    /// <summary>The address to read.</summary>
+    /// <summary>
+    /// The address to read.
+    /// </summary>
     public int Address { get; init; }
 }
 
@@ -29,9 +31,13 @@ public record class HostPeekParams : IRequest, IRequest<PeekResult>
 [Method(RDCoreComponentProtocol.HostPoke, Direction.ClientToServer)]
 public record class HostPokeParams : IRequest, IRequest<PokeResult>
 {
-    /// <summary>The address to write.</summary>
+    /// <summary>
+    /// The address to write.
+    /// </summary>
     public int Address { get; init; }
 
-    /// <summary>The byte to write there.</summary>
+    /// <summary>
+    /// The byte to write there.
+    /// </summary>
     public byte Value { get; init; }
 }
