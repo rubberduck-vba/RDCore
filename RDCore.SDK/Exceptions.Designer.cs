@@ -22,7 +22,7 @@ namespace RDCore.SDK {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    public class Exceptions {
+    internal class Exceptions {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,7 +36,7 @@ namespace RDCore.SDK {
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        public static global::System.Resources.ResourceManager ResourceManager {
+        internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("RDCore.SDK.Exceptions", typeof(Exceptions).Assembly);
@@ -51,7 +51,7 @@ namespace RDCore.SDK {
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        public static global::System.Globalization.CultureInfo Culture {
+        internal static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +63,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Extension &apos;{$NAME}&apos; was not registered..
         /// </summary>
-        public static string InvalidExtension_Message {
+        internal static string InvalidExtension_Message {
             get {
                 return ResourceManager.GetString("InvalidExtension_Message", resourceCulture);
             }
@@ -72,7 +72,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Validation failed with the following flags: .
         /// </summary>
-        public static string InvalidExtension_Verbose {
+        internal static string InvalidExtension_Verbose {
             get {
                 return ResourceManager.GetString("InvalidExtension_Verbose", resourceCulture);
             }
@@ -81,7 +81,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The language server is already running..
         /// </summary>
-        public static string LanguageServerAlreadyRunningException_Message {
+        internal static string LanguageServerAlreadyRunningException_Message {
             get {
                 return ResourceManager.GetString("LanguageServerAlreadyRunningException_Message", resourceCulture);
             }
@@ -90,7 +90,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Verity the state of process ID {$PID}..
         /// </summary>
-        public static string LanguageServerAlreadyRunningException_Verbose {
+        internal static string LanguageServerAlreadyRunningException_Verbose {
             get {
                 return ResourceManager.GetString("LanguageServerAlreadyRunningException_Verbose", resourceCulture);
             }
@@ -99,7 +99,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The server (LSP) could not be located at the configured location..
         /// </summary>
-        public static string LanguageServerNotFoundException_Message {
+        internal static string LanguageServerNotFoundException_Message {
             get {
                 return ResourceManager.GetString("LanguageServerNotFoundException_Message", resourceCulture);
             }
@@ -108,7 +108,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to File &apos;{$LSP_SVR_NAME}&apos; was not found under the configured path: &apos;{$PATH}&apos;..
         /// </summary>
-        public static string LanguageServerNotFoundException_Verbose {
+        internal static string LanguageServerNotFoundException_Verbose {
             get {
                 return ResourceManager.GetString("LanguageServerNotFoundException_Verbose", resourceCulture);
             }
@@ -117,7 +117,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Language client was not initialized..
         /// </summary>
-        public static string LanguageServerProtocolSdkException_ClientNotInitialized {
+        internal static string LanguageServerProtocolSdkException_ClientNotInitialized {
             get {
                 return ResourceManager.GetString("LanguageServerProtocolSdkException_ClientNotInitialized", resourceCulture);
             }
@@ -126,115 +126,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Language server was not initialized..
         /// </summary>
-        public static string LanguageServerProtocolSdkException_ServerNotInitialized {
+        internal static string LanguageServerProtocolSdkException_ServerNotInitialized {
             get {
                 return ResourceManager.GetString("LanguageServerProtocolSdkException_ServerNotInitialized", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Destination data type could only be Null, Variant, or a fixed-sized array..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionInvalidUseOfNull_Verbose {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionInvalidUseOfNull_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The destination data type being an object or class type, the data type of the source value cannot be let-coerced, because an object is required for the source value..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionObjectRequired {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionObjectRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Source value &apos;Nothing&apos; cannot be let-coerced to an object reference. This error usually denotes a missing &apos;Set&apos; keyword, required for a reference assignment..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionObjectVariableNotSet {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionObjectVariableNotSet", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Source value is outside the standard error code range (0 and 65535, inclusive) representable by the let-coercion destination data type..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Source value is an object with no public default Property Get or Function callable with no arguments, so it has no simple data value that can be let-coerced to the destination declared type..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The source object's class does not match, and is not implemented by, the destination's declared class..
-        /// </summary>
-        public static string SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose {
-            get {
-                return ResourceManager.GetString("SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The source value is not an object reference, and an object is required for Set-coercion to this destination..
-        /// </summary>
-        public static string SetCoercionRuntimeErrorExceptionObjectRequired_Verbose {
-            get {
-                return ResourceManager.GetString("SetCoercionRuntimeErrorExceptionObjectRequired_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This let-coercion operation is deterministically recursive. See evaluation stack details for more information..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Source value is outside the range of the determined let-coercion destination data type and cannot be represented..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionOverflow_Verbose {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionOverflow_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Source value data type could not be let-coerced to the destination declared type during the evaluation of a let-coercion expression..
-        /// </summary>
-        public static string LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose {
-            get {
-                return ResourceManager.GetString("LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The pattern string does not form a valid, complete like-pattern-element..
-        /// </summary>
-        public static string LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose {
-            get {
-                return ResourceManager.GetString("LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to The &apos;Title&apos; specified in the extension manifest is currently explicitly blocked by configuration..
         /// </summary>
-        public static string ValidationFlags_Blocked {
+        internal static string ValidationFlags_Blocked {
             get {
                 return ResourceManager.GetString("ValidationFlags_Blocked", resourceCulture);
             }
@@ -243,7 +144,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;Name&apos; specified in the extension manifest does not point to an existing file. The server executable may have been moved, renamed, or deleted..
         /// </summary>
-        public static string ValidationFlags_FileNotFound {
+        internal static string ValidationFlags_FileNotFound {
             get {
                 return ResourceManager.GetString("ValidationFlags_FileNotFound", resourceCulture);
             }
@@ -252,7 +153,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The certificate associated with this extension is invalid or expired..
         /// </summary>
-        public static string ValidationFlags_InvalidCertificate {
+        internal static string ValidationFlags_InvalidCertificate {
             get {
                 return ResourceManager.GetString("ValidationFlags_InvalidCertificate", resourceCulture);
             }
@@ -261,7 +162,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;Title&apos; specified in the extension manifest mismatches its folder location..
         /// </summary>
-        public static string ValidationFlags_LocationMismatch {
+        internal static string ValidationFlags_LocationMismatch {
             get {
                 return ResourceManager.GetString("ValidationFlags_LocationMismatch", resourceCulture);
             }
@@ -270,7 +171,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;Title&apos; specified in the extension manifest is currently not explicitly configured as an &apos;Allowed&apos; extension..
         /// </summary>
-        public static string ValidationFlags_NotAllowed {
+        internal static string ValidationFlags_NotAllowed {
             get {
                 return ResourceManager.GetString("ValidationFlags_NotAllowed", resourceCulture);
             }
@@ -279,7 +180,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;Signature&apos; specified in the extension manifest does not match the signature (file hash) of the server executable. The executable file may have been tampered with..
         /// </summary>
-        public static string ValidationFlags_SignatureMismatch {
+        internal static string ValidationFlags_SignatureMismatch {
             get {
                 return ResourceManager.GetString("ValidationFlags_SignatureMismatch", resourceCulture);
             }
@@ -288,7 +189,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Duplicate declaration in current scope.
         /// </summary>
-        public static string VBCompilationError_DuplicateDeclaration {
+        internal static string VBCompilationError_DuplicateDeclaration {
             get {
                 return ResourceManager.GetString("VBCompilationError_DuplicateDeclaration", resourceCulture);
             }
@@ -297,7 +198,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Compile error:.
         /// </summary>
-        public static string VBCompileError {
+        internal static string VBCompileError {
             get {
                 return ResourceManager.GetString("VBCompileError", resourceCulture);
             }
@@ -306,7 +207,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Ambiguous name detected:.
         /// </summary>
-        public static string VBCompileError_AmbiguousName {
+        internal static string VBCompileError_AmbiguousName {
             get {
                 return ResourceManager.GetString("VBCompileError_AmbiguousName", resourceCulture);
             }
@@ -315,7 +216,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Exit Do not within Do...Loop.
         /// </summary>
-        public static string VBCompileError_ExitDoNotWithinDoLoop {
+        internal static string VBCompileError_ExitDoNotWithinDoLoop {
             get {
                 return ResourceManager.GetString("VBCompileError_ExitDoNotWithinDoLoop", resourceCulture);
             }
@@ -324,7 +225,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Exit For not within For...Next.
         /// </summary>
-        public static string VBCompileError_ExitForNotWithinForNext {
+        internal static string VBCompileError_ExitForNotWithinForNext {
             get {
                 return ResourceManager.GetString("VBCompileError_ExitForNotWithinForNext", resourceCulture);
             }
@@ -333,7 +234,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Exit Function not allowed in Sub or Property (Let/Set).
         /// </summary>
-        public static string VBCompileError_ExitFunctionNotAllowedInSubOrProperty {
+        internal static string VBCompileError_ExitFunctionNotAllowedInSubOrProperty {
             get {
                 return ResourceManager.GetString("VBCompileError_ExitFunctionNotAllowedInSubOrProperty", resourceCulture);
             }
@@ -342,7 +243,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Exit Property not allowed in Sub or Function.
         /// </summary>
-        public static string VBCompileError_ExitPropertyNotAllowedInSubOrFunction {
+        internal static string VBCompileError_ExitPropertyNotAllowedInSubOrFunction {
             get {
                 return ResourceManager.GetString("VBCompileError_ExitPropertyNotAllowedInSubOrFunction", resourceCulture);
             }
@@ -351,7 +252,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected array.
         /// </summary>
-        public static string VBCompileError_ExpectedArray {
+        internal static string VBCompileError_ExpectedArray {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedArray", resourceCulture);
             }
@@ -360,7 +261,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected identifier.
         /// </summary>
-        public static string VBCompileError_ExpectedIdentifier {
+        internal static string VBCompileError_ExpectedIdentifier {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedIdentifier", resourceCulture);
             }
@@ -369,7 +270,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid ParamArray use.
         /// </summary>
-        public static string VBCompileError_InvalidParamArrayUse {
+        internal static string VBCompileError_InvalidParamArrayUse {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidParamArrayUse", resourceCulture);
             }
@@ -378,7 +279,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid ReDim.
         /// </summary>
-        public static string VBCompileError_InvalidReDim {
+        internal static string VBCompileError_InvalidReDim {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidReDim", resourceCulture);
             }
@@ -387,7 +288,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid use of object.
         /// </summary>
-        public static string VBCompileError_InvalidUseOfObject {
+        internal static string VBCompileError_InvalidUseOfObject {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfObject", resourceCulture);
             }
@@ -396,7 +297,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Label not defined.
         /// </summary>
-        public static string VBCompileError_LabelNotDefined {
+        internal static string VBCompileError_LabelNotDefined {
             get {
                 return ResourceManager.GetString("VBCompileError_LabelNotDefined", resourceCulture);
             }
@@ -405,7 +306,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to An array is printed: Debug.Print writes values, and an array is none - print its elements, one at a time..
         /// </summary>
-        public static string VBCompileError_ArrayPrinted_Verbose {
+        internal static string VBCompileError_ArrayPrinted_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ArrayPrinted_Verbose", resourceCulture);
             }
@@ -414,7 +315,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Implicit let-coercion is statically invalid for the specified inputs of this expression..
         /// </summary>
-        public static string VBCompileError_LetCoercionTypeMismatch_Verbose {
+        internal static string VBCompileError_LetCoercionTypeMismatch_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_LetCoercionTypeMismatch_Verbose", resourceCulture);
             }
@@ -423,7 +324,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Set-coercion is statically invalid for the specified inputs of this expression..
         /// </summary>
-        public static string VBCompileError_SetCoercionTypeMismatch_Verbose {
+        internal static string VBCompileError_SetCoercionTypeMismatch_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_SetCoercionTypeMismatch_Verbose", resourceCulture);
             }
@@ -432,7 +333,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Method or data member not found.
         /// </summary>
-        public static string VBCompileError_MethodOrDataMemberNotFound {
+        internal static string VBCompileError_MethodOrDataMemberNotFound {
             get {
                 return ResourceManager.GetString("VBCompileError_MethodOrDataMemberNotFound", resourceCulture);
             }
@@ -441,7 +342,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Type mismatch.
         /// </summary>
-        public static string VBCompileError_TypeMismatch {
+        internal static string VBCompileError_TypeMismatch {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeMismatch", resourceCulture);
             }
@@ -450,7 +351,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Implicit With-reference outside a With block.
         /// </summary>
-        public static string VBCompileError_WithExpressionOutsideWithBlock {
+        internal static string VBCompileError_WithExpressionOutsideWithBlock {
             get {
                 return ResourceManager.GetString("VBCompileError_WithExpressionOutsideWithBlock", resourceCulture);
             }
@@ -459,7 +360,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Label already defined in this procedure.
         /// </summary>
-        public static string VBCompileError_DuplicateLabelDefinition {
+        internal static string VBCompileError_DuplicateLabelDefinition {
             get {
                 return ResourceManager.GetString("VBCompileError_DuplicateLabelDefinition", resourceCulture);
             }
@@ -468,7 +369,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Definitions of property procedures for the same property are inconsistent, or property procedure has an optional parameter, a ParamArray, or an invalid Set final parameter.
         /// </summary>
-        public static string VBCompileError_InconsistentPropertyAccessors {
+        internal static string VBCompileError_InconsistentPropertyAccessors {
             get {
                 return ResourceManager.GetString("VBCompileError_InconsistentPropertyAccessors", resourceCulture);
             }
@@ -477,7 +378,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Argument required for Property Let or Property Set.
         /// </summary>
-        public static string VBCompileError_ArgumentRequiredForPropertyLetOrSet {
+        internal static string VBCompileError_ArgumentRequiredForPropertyLetOrSet {
             get {
                 return ResourceManager.GetString("VBCompileError_ArgumentRequiredForPropertyLetOrSet", resourceCulture);
             }
@@ -486,7 +387,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Event not defined.
         /// </summary>
-        public static string VBCompileError_EventNotDefined {
+        internal static string VBCompileError_EventNotDefined {
             get {
                 return ResourceManager.GetString("VBCompileError_EventNotDefined", resourceCulture);
             }
@@ -495,7 +396,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Wrong number of arguments or invalid argument for event.
         /// </summary>
-        public static string VBCompileError_EventArgumentsIncompatible {
+        internal static string VBCompileError_EventArgumentsIncompatible {
             get {
                 return ResourceManager.GetString("VBCompileError_EventArgumentsIncompatible", resourceCulture);
             }
@@ -504,7 +405,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid type for WithEvents variable.
         /// </summary>
-        public static string VBCompileError_InvalidWithEventsType {
+        internal static string VBCompileError_InvalidWithEventsType {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidWithEventsType", resourceCulture);
             }
@@ -513,7 +414,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid event name.
         /// </summary>
-        public static string VBCompileError_InvalidEventName {
+        internal static string VBCompileError_InvalidEventName {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidEventName", resourceCulture);
             }
@@ -522,7 +423,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid event handler.
         /// </summary>
-        public static string VBCompileError_InvalidEventHandler {
+        internal static string VBCompileError_InvalidEventHandler {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidEventHandler", resourceCulture);
             }
@@ -531,7 +432,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to ByVal argument not allowed here.
         /// </summary>
-        public static string VBCompileError_ByValArgumentNotAllowed {
+        internal static string VBCompileError_ByValArgumentNotAllowed {
             get {
                 return ResourceManager.GetString("VBCompileError_ByValArgumentNotAllowed", resourceCulture);
             }
@@ -540,7 +441,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid Implements directive.
         /// </summary>
-        public static string VBCompileError_InvalidImplementsDirective {
+        internal static string VBCompileError_InvalidImplementsDirective {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidImplementsDirective", resourceCulture);
             }
@@ -549,7 +450,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Object module needs to implement all members of its interface.
         /// </summary>
-        public static string VBCompileError_InterfaceMemberNotImplemented {
+        internal static string VBCompileError_InterfaceMemberNotImplemented {
             get {
                 return ResourceManager.GetString("VBCompileError_InterfaceMemberNotImplemented", resourceCulture);
             }
@@ -558,7 +459,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid implemented member.
         /// </summary>
-        public static string VBCompileError_InvalidImplementedMember {
+        internal static string VBCompileError_InvalidImplementedMember {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidImplementedMember", resourceCulture);
             }
@@ -567,7 +468,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Sub or Function not defined.
         /// </summary>
-        public static string VBCompileError_SubOrFunctionNotDefined {
+        internal static string VBCompileError_SubOrFunctionNotDefined {
             get {
                 return ResourceManager.GetString("VBCompileError_SubOrFunctionNotDefined", resourceCulture);
             }
@@ -576,7 +477,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Exit Sub not allowed in Function or Property.
         /// </summary>
-        public static string VBCompileError_ExitSubNotAllowedInFunctionOrProperty {
+        internal static string VBCompileError_ExitSubNotAllowedInFunctionOrProperty {
             get {
                 return ResourceManager.GetString("VBCompileError_ExitSubNotAllowedInFunctionOrProperty", resourceCulture);
             }
@@ -585,7 +486,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Variable required - can't assign to this expression.
         /// </summary>
-        public static string VBCompileError_VariableRequired {
+        internal static string VBCompileError_VariableRequired {
             get {
                 return ResourceManager.GetString("VBCompileError_VariableRequired", resourceCulture);
             }
@@ -594,7 +495,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Access not valid for the file mode.
         /// </summary>
-        public static string VBCompileError_FileAccessNotValidForMode {
+        internal static string VBCompileError_FileAccessNotValidForMode {
             get {
                 return ResourceManager.GetString("VBCompileError_FileAccessNotValidForMode", resourceCulture);
             }
@@ -603,7 +504,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Type-declaration character does not match declared data type.
         /// </summary>
-        public static string VBCompileError_TypeDeclarationCharacterDoesNotMatch {
+        internal static string VBCompileError_TypeDeclarationCharacterDoesNotMatch {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeDeclarationCharacterDoesNotMatch", resourceCulture);
             }
@@ -612,7 +513,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Private Enum and user defined types cannot be used as parameters or return types for public procedures, public data members, or fields of public user defined types.
         /// </summary>
-        public static string VBCompileError_PrivateTypeInPublicMember {
+        internal static string VBCompileError_PrivateTypeInPublicMember {
             get {
                 return ResourceManager.GetString("VBCompileError_PrivateTypeInPublicMember", resourceCulture);
             }
@@ -621,7 +522,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules.
         /// </summary>
-        public static string VBCompileError_NotAllowedAsPublicMemberOfObjectModule {
+        internal static string VBCompileError_NotAllowedAsPublicMemberOfObjectModule {
             get {
                 return ResourceManager.GetString("VBCompileError_NotAllowedAsPublicMemberOfObjectModule", resourceCulture);
             }
@@ -630,7 +531,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Cannot define a Public user-defined type within an object module.
         /// </summary>
-        public static string VBCompileError_PublicUserDefinedTypeInObjectModule {
+        internal static string VBCompileError_PublicUserDefinedTypeInObjectModule {
             get {
                 return ResourceManager.GetString("VBCompileError_PublicUserDefinedTypeInObjectModule", resourceCulture);
             }
@@ -639,7 +540,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a member of an object, which a ReDim does not re-dimension: re-dimension the array in its class, or a variable of the code&apos;s own..
         /// </summary>
-        public static string VBCompileError_ReDimOfAMemberOfAnObject_Verbose {
+        internal static string VBCompileError_ReDimOfAMemberOfAnObject_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ReDimOfAMemberOfAnObject_Verbose", resourceCulture);
             }
@@ -648,7 +549,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is public, and is declared with &apos;{1}&apos;, which is private to its module..
         /// </summary>
-        public static string VBCompileError_PrivateTypeInPublicMember_Verbose {
+        internal static string VBCompileError_PrivateTypeInPublicMember_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_PrivateTypeInPublicMember_Verbose", resourceCulture);
             }
@@ -657,7 +558,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; cannot be a public member of a class module; declare it Private..
         /// </summary>
-        public static string VBCompileError_NotAllowedAsPublicMemberOfObjectModule_Verbose {
+        internal static string VBCompileError_NotAllowedAsPublicMemberOfObjectModule_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NotAllowedAsPublicMemberOfObjectModule_Verbose", resourceCulture);
             }
@@ -666,7 +567,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to User-defined type &apos;{0}&apos; is public, which a type of a class module cannot be; declare it Private..
         /// </summary>
-        public static string VBCompileError_PublicUserDefinedTypeInObjectModule_Verbose {
+        internal static string VBCompileError_PublicUserDefinedTypeInObjectModule_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_PublicUserDefinedTypeInObjectModule_Verbose", resourceCulture);
             }
@@ -675,7 +576,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected Function or variable.
         /// </summary>
-        public static string VBCompileError_ExpectedFunctionOrVariable {
+        internal static string VBCompileError_ExpectedFunctionOrVariable {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedFunctionOrVariable", resourceCulture);
             }
@@ -684,7 +585,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Can&apos;t assign to read-only property.
         /// </summary>
-        public static string VBCompileError_CantAssignToReadOnlyProperty {
+        internal static string VBCompileError_CantAssignToReadOnlyProperty {
             get {
                 return ResourceManager.GetString("VBCompileError_CantAssignToReadOnlyProperty", resourceCulture);
             }
@@ -693,7 +594,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Wrong number of arguments or invalid property assignment.
         /// </summary>
-        public static string VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment {
+        internal static string VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment {
             get {
                 return ResourceManager.GetString("VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment", resourceCulture);
             }
@@ -702,7 +603,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to LSet allowed only on strings and user-defined types.
         /// </summary>
-        public static string VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes {
+        internal static string VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes {
             get {
                 return ResourceManager.GetString("VBCompileError_LSetAllowedOnlyOnStringsAndUserDefinedTypes", resourceCulture);
             }
@@ -711,7 +612,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to RSet allowed only on strings.
         /// </summary>
-        public static string VBCompileError_RSetAllowedOnlyOnStrings {
+        internal static string VBCompileError_RSetAllowedOnlyOnStrings {
             get {
                 return ResourceManager.GetString("VBCompileError_RSetAllowedOnlyOnStrings", resourceCulture);
             }
@@ -720,7 +621,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid use of property.
         /// </summary>
-        public static string VBCompileError_InvalidUseOfProperty {
+        internal static string VBCompileError_InvalidUseOfProperty {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfProperty", resourceCulture);
             }
@@ -729,7 +630,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Assignment to constant not permitted.
         /// </summary>
-        public static string VBCompileError_AssignmentToConstantNotPermitted {
+        internal static string VBCompileError_AssignmentToConstantNotPermitted {
             get {
                 return ResourceManager.GetString("VBCompileError_AssignmentToConstantNotPermitted", resourceCulture);
             }
@@ -738,7 +639,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Object required.
         /// </summary>
-        public static string VBCompileError_ObjectRequired {
+        internal static string VBCompileError_ObjectRequired {
             get {
                 return ResourceManager.GetString("VBCompileError_ObjectRequired", resourceCulture);
             }
@@ -747,7 +648,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Named argument already specified.
         /// </summary>
-        public static string VBCompileError_NamedArgumentAlreadySpecified {
+        internal static string VBCompileError_NamedArgumentAlreadySpecified {
             get {
                 return ResourceManager.GetString("VBCompileError_NamedArgumentAlreadySpecified", resourceCulture);
             }
@@ -756,7 +657,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Named argument not found.
         /// </summary>
-        public static string VBCompileError_NamedArgumentNotFound {
+        internal static string VBCompileError_NamedArgumentNotFound {
             get {
                 return ResourceManager.GetString("VBCompileError_NamedArgumentNotFound", resourceCulture);
             }
@@ -765,7 +666,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Constant expression required.
         /// </summary>
-        public static string VBCompileError_ConstantExpressionRequired {
+        internal static string VBCompileError_ConstantExpressionRequired {
             get {
                 return ResourceManager.GetString("VBCompileError_ConstantExpressionRequired", resourceCulture);
             }
@@ -774,7 +675,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid data type for constant.
         /// </summary>
-        public static string VBCompileError_InvalidDataTypeForConstant {
+        internal static string VBCompileError_InvalidDataTypeForConstant {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidDataTypeForConstant", resourceCulture);
             }
@@ -783,7 +684,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Overflow.
         /// </summary>
-        public static string VBCompileError_Overflow {
+        internal static string VBCompileError_Overflow {
             get {
                 return ResourceManager.GetString("VBCompileError_Overflow", resourceCulture);
             }
@@ -792,7 +693,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Division by zero.
         /// </summary>
-        public static string VBCompileError_DivisionByZero {
+        internal static string VBCompileError_DivisionByZero {
             get {
                 return ResourceManager.GetString("VBCompileError_DivisionByZero", resourceCulture);
             }
@@ -801,7 +702,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid qualifier.
         /// </summary>
-        public static string VBCompileError_InvalidQualifier {
+        internal static string VBCompileError_InvalidQualifier {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidQualifier", resourceCulture);
             }
@@ -810,7 +711,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Function call on left-hand side of assignment must return Variant or Object.
         /// </summary>
-        public static string VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject {
+        internal static string VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject {
             get {
                 return ResourceManager.GetString("VBCompileError_FunctionCallOnLeftHandSideMustReturnVariantOrObject", resourceCulture);
             }
@@ -819,7 +720,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Wrong number of dimensions.
         /// </summary>
-        public static string VBCompileError_WrongNumberOfDimensions {
+        internal static string VBCompileError_WrongNumberOfDimensions {
             get {
                 return ResourceManager.GetString("VBCompileError_WrongNumberOfDimensions", resourceCulture);
             }
@@ -828,7 +729,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Array already dimensioned.
         /// </summary>
-        public static string VBCompileError_ArrayAlreadyDimensioned {
+        internal static string VBCompileError_ArrayAlreadyDimensioned {
             get {
                 return ResourceManager.GetString("VBCompileError_ArrayAlreadyDimensioned", resourceCulture);
             }
@@ -837,7 +738,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to For control variable already in use.
         /// </summary>
-        public static string VBCompileError_ForControlVariableAlreadyInUse {
+        internal static string VBCompileError_ForControlVariableAlreadyInUse {
             get {
                 return ResourceManager.GetString("VBCompileError_ForControlVariableAlreadyInUse", resourceCulture);
             }
@@ -846,7 +747,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid Next control variable reference.
         /// </summary>
-        public static string VBCompileError_InvalidNextControlVariableReference {
+        internal static string VBCompileError_InvalidNextControlVariableReference {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidNextControlVariableReference", resourceCulture);
             }
@@ -855,7 +756,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Can&apos;t assign to array.
         /// </summary>
-        public static string VBCompileError_CantAssignToArray {
+        internal static string VBCompileError_CantAssignToArray {
             get {
                 return ResourceManager.GetString("VBCompileError_CantAssignToArray", resourceCulture);
             }
@@ -864,7 +765,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to ByRef argument type mismatch.
         /// </summary>
-        public static string VBCompileError_ByRefArgumentTypeMismatch {
+        internal static string VBCompileError_ByRefArgumentTypeMismatch {
             get {
                 return ResourceManager.GetString("VBCompileError_ByRefArgumentTypeMismatch", resourceCulture);
             }
@@ -873,7 +774,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Type mismatch: array or user-defined type expected.
         /// </summary>
-        public static string VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected {
+        internal static string VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeMismatchArrayOrUserDefinedTypeExpected", resourceCulture);
             }
@@ -882,7 +783,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Next without For.
         /// </summary>
-        public static string VBCompileError_NextWithoutFor {
+        internal static string VBCompileError_NextWithoutFor {
             get {
                 return ResourceManager.GetString("VBCompileError_NextWithoutFor", resourceCulture);
             }
@@ -891,7 +792,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to For without Next.
         /// </summary>
-        public static string VBCompileError_ForWithoutNext {
+        internal static string VBCompileError_ForWithoutNext {
             get {
                 return ResourceManager.GetString("VBCompileError_ForWithoutNext", resourceCulture);
             }
@@ -900,7 +801,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Loop without Do.
         /// </summary>
-        public static string VBCompileError_LoopWithoutDo {
+        internal static string VBCompileError_LoopWithoutDo {
             get {
                 return ResourceManager.GetString("VBCompileError_LoopWithoutDo", resourceCulture);
             }
@@ -909,7 +810,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Do without Loop.
         /// </summary>
-        public static string VBCompileError_DoWithoutLoop {
+        internal static string VBCompileError_DoWithoutLoop {
             get {
                 return ResourceManager.GetString("VBCompileError_DoWithoutLoop", resourceCulture);
             }
@@ -918,7 +819,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to End If without block If.
         /// </summary>
-        public static string VBCompileError_EndIfWithoutBlockIf {
+        internal static string VBCompileError_EndIfWithoutBlockIf {
             get {
                 return ResourceManager.GetString("VBCompileError_EndIfWithoutBlockIf", resourceCulture);
             }
@@ -927,7 +828,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Block If without End If.
         /// </summary>
-        public static string VBCompileError_BlockIfWithoutEndIf {
+        internal static string VBCompileError_BlockIfWithoutEndIf {
             get {
                 return ResourceManager.GetString("VBCompileError_BlockIfWithoutEndIf", resourceCulture);
             }
@@ -936,7 +837,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Else without If.
         /// </summary>
-        public static string VBCompileError_ElseWithoutIf {
+        internal static string VBCompileError_ElseWithoutIf {
             get {
                 return ResourceManager.GetString("VBCompileError_ElseWithoutIf", resourceCulture);
             }
@@ -945,7 +846,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Case without Select Case.
         /// </summary>
-        public static string VBCompileError_CaseWithoutSelectCase {
+        internal static string VBCompileError_CaseWithoutSelectCase {
             get {
                 return ResourceManager.GetString("VBCompileError_CaseWithoutSelectCase", resourceCulture);
             }
@@ -954,7 +855,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Select Case without End Select.
         /// </summary>
-        public static string VBCompileError_SelectCaseWithoutEndSelect {
+        internal static string VBCompileError_SelectCaseWithoutEndSelect {
             get {
                 return ResourceManager.GetString("VBCompileError_SelectCaseWithoutEndSelect", resourceCulture);
             }
@@ -963,7 +864,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to End With without With.
         /// </summary>
-        public static string VBCompileError_EndWithWithoutWith {
+        internal static string VBCompileError_EndWithWithoutWith {
             get {
                 return ResourceManager.GetString("VBCompileError_EndWithWithoutWith", resourceCulture);
             }
@@ -972,7 +873,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid outside procedure.
         /// </summary>
-        public static string VBCompileError_InvalidOutsideProcedure {
+        internal static string VBCompileError_InvalidOutsideProcedure {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidOutsideProcedure", resourceCulture);
             }
@@ -981,163 +882,58 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Only comments may appear after End Sub, End Function, or End Property.
         /// </summary>
-        public static string VBCompileError_OnlyCommentsAfterEndProcedure {
+        internal static string VBCompileError_OnlyCommentsAfterEndProcedure {
             get {
                 return ResourceManager.GetString("VBCompileError_OnlyCommentsAfterEndProcedure", resourceCulture);
             }
         }
 
         /// <summary>Looks up a localized string similar to An #ElseIf, #Else, or #EndIf must be preceded by an #If clause.</summary>
-        public static string VBCompileError_DirectiveWithoutIf {
+        internal static string VBCompileError_DirectiveWithoutIf {
             get {
                 return ResourceManager.GetString("VBCompileError_DirectiveWithoutIf", resourceCulture);
             }
         }
 
-        /// <summary>Looks up a localized string similar to This #End If ends no #If block: there is none before it, or the #If before it is not a directive.</summary>
-        public static string VBCompileError_DirectiveWithoutIf_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_DirectiveWithoutIf_Verbose", resourceCulture);
-            }
-        }
-
         /// <summary>Looks up a localized string similar to An #Else clause must be preceded by an #If.</summary>
-        public static string VBCompileError_HashElseWithoutIf {
+        internal static string VBCompileError_HashElseWithoutIf {
             get {
                 return ResourceManager.GetString("VBCompileError_HashElseWithoutIf", resourceCulture);
             }
         }
 
-        /// <summary>Looks up a localized string similar to This #Else belongs to no #If block, or is the second #Else of its block.</summary>
-        public static string VBCompileError_HashElseWithoutIf_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_HashElseWithoutIf_Verbose", resourceCulture);
-            }
-        }
-
         /// <summary>Looks up a localized string similar to An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf.</summary>
-        public static string VBCompileError_ElseIfWithoutIf {
+        internal static string VBCompileError_ElseIfWithoutIf {
             get {
                 return ResourceManager.GetString("VBCompileError_ElseIfWithoutIf", resourceCulture);
             }
         }
 
-        /// <summary>Looks up a localized string similar to This #ElseIf belongs to no #If block, or comes after the #Else of its block.</summary>
-        public static string VBCompileError_ElseIfWithoutIf_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ElseIfWithoutIf_Verbose", resourceCulture);
-            }
-        }
-
         /// <summary>Looks up a localized string similar to You must terminate the #If block with an #EndIf.</summary>
-        public static string VBCompileError_HashIfWithoutEndIf {
+        internal static string VBCompileError_HashIfWithoutEndIf {
             get {
                 return ResourceManager.GetString("VBCompileError_HashIfWithoutEndIf", resourceCulture);
             }
         }
 
-        /// <summary>Looks up a localized string similar to This #If block is not ended: the module ends before its #End If.</summary>
-        public static string VBCompileError_HashIfWithoutEndIf_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_HashIfWithoutEndIf_Verbose", resourceCulture);
-            }
-        }
-
         /// <summary>Looks up a localized string similar to Expression nested too deeply.</summary>
-        public static string VBCompileError_ExpressionNestedTooDeeply {
+        internal static string VBCompileError_ExpressionNestedTooDeeply {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpressionNestedTooDeeply", resourceCulture);
             }
         }
 
-        /// <summary>Looks up a localized string similar to This expression is nested in more than 2,500 others. Write part of it to a variable first.</summary>
-        public static string VBCompileError_ExpressionNestedTooDeeply_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ExpressionNestedTooDeeply_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to This module is nested too deeply to be read: an expression or a block in it is nested in many thousands of others. Split its deepest part into smaller ones..</summary>
-        public static string VBCompileError_ModuleNestedTooDeeplyToRead_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ModuleNestedTooDeeplyToRead_Verbose", resourceCulture);
-            }
-        }
-
         /// <summary>Looks up a localized string similar to Output items not separated.</summary>
-        public static string VBCompileError_OutputItemsNotSeparated {
+        internal static string VBCompileError_OutputItemsNotSeparated {
             get {
                 return ResourceManager.GetString("VBCompileError_OutputItemsNotSeparated", resourceCulture);
             }
         }
 
-        /// <summary>Looks up a localized string similar to This output item is written right after another, with nothing between them. The VBE would write a ; between them, which prints them the same way.</summary>
-        public static string VBCompileError_OutputItemsNotSeparated_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_OutputItemsNotSeparated_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: Then. An #If or #ElseIf directive is written #If expression Then.</summary>
-        public static string VBCompileError_DirectiveExpectedThen_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_DirectiveExpectedThen_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: expression. The condition of an #If or #ElseIf directive is a constant expression.</summary>
-        public static string VBCompileError_DirectiveExpectedExpression_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_DirectiveExpectedExpression_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: end of statement. Nothing but a comment may follow a directive on its line.</summary>
-        public static string VBCompileError_DirectiveExpectedEndOfStatement_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_DirectiveExpectedEndOfStatement_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: If or Else or ElseIf or End or EndIf or Const. A line that starts with # is a directive.</summary>
-        public static string VBCompileError_DirectiveExpectedKeyword_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_DirectiveExpectedKeyword_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: =. A #Const directive is written #Const name = expression.</summary>
-        public static string VBCompileError_ConstDirectiveExpectedEquals_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ConstDirectiveExpectedEquals_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: identifier. A #Const directive is written #Const name = expression.</summary>
-        public static string VBCompileError_ConstDirectiveExpectedName_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ConstDirectiveExpectedName_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: expression. The value of a #Const directive is a constant expression of literals, conditional-compilation constants and operators.</summary>
-        public static string VBCompileError_ConstDirectiveExpression_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ConstDirectiveExpression_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>Looks up a localized string similar to Expected: identifier. &apos;{0}&apos; is a reserved word and cannot name a parameter.</summary>
-        public static string VBCompileError_ReservedParameterName_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_ReservedParameterName_Verbose", resourceCulture);
-            }
-        }
-        
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses..
         /// </summary>
-        public static string VBCompileError_ReservedNameArguments_Verbose {
+        internal static string VBCompileError_ReservedNameArguments_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ReservedNameArguments_Verbose", resourceCulture);
             }
@@ -1146,7 +942,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid use of AddressOf operator.
         /// </summary>
-        public static string VBCompileError_InvalidUseOfAddressOf {
+        internal static string VBCompileError_InvalidUseOfAddressOf {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfAddressOf", resourceCulture);
             }
@@ -1155,7 +951,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid use of New keyword.
         /// </summary>
-        public static string VBCompileError_InvalidUseOfNewKeyword {
+        internal static string VBCompileError_InvalidUseOfNewKeyword {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword", resourceCulture);
             }
@@ -1164,7 +960,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New {1}, which is no class: New creates an object of a class..
         /// </summary>
-        public static string VBCompileError_InvalidUseOfNewKeyword_NotAClass_Verbose {
+        internal static string VBCompileError_InvalidUseOfNewKeyword_NotAClass_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_NotAClass_Verbose", resourceCulture);
             }
@@ -1173,7 +969,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is declared WithEvents: it is assigned the object whose events it handles, and creates none of its own..
         /// </summary>
-        public static string VBCompileError_InvalidUseOfNewKeyword_WithEvents_Verbose {
+        internal static string VBCompileError_InvalidUseOfNewKeyword_WithEvents_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_WithEvents_Verbose", resourceCulture);
             }
@@ -1182,7 +978,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is declared As New {1}, which the {2} library does not say can be created: an interface, or a class the library makes itself..
         /// </summary>
-        public static string VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose {
+        internal static string VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_NotCreatable_Verbose", resourceCulture);
             }
@@ -1191,7 +987,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to New {0}: the {1} library does not say {0} can be created: an interface, or a class the library makes itself..
         /// </summary>
-        public static string VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose {
+        internal static string VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_NewNotCreatable_Verbose", resourceCulture);
             }
@@ -1200,7 +996,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is the code of a host&apos;s document, which only its host makes: no program creates one. RD-VBA hosts no document; code that works with one holds it in a variable of the host&apos;s class, from an application the program automates..
         /// </summary>
-        public static string VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose {
+        internal static string VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfNewKeyword_DocumentModule_Verbose", resourceCulture);
             }
@@ -1209,7 +1005,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Can&apos;t change data types of array elements.
         /// </summary>
-        public static string VBCompileError_CantChangeDataTypesOfArrayElements {
+        internal static string VBCompileError_CantChangeDataTypesOfArrayElements {
             get {
                 return ResourceManager.GetString("VBCompileError_CantChangeDataTypesOfArrayElements", resourceCulture);
             }
@@ -1218,7 +1014,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is an array of {1}: a ReDim can&apos;t make its elements {2}..
         /// </summary>
-        public static string VBCompileError_CantChangeDataTypesOfArrayElements_Verbose {
+        internal static string VBCompileError_CantChangeDataTypesOfArrayElements_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_CantChangeDataTypesOfArrayElements_Verbose", resourceCulture);
             }
@@ -1227,7 +1023,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected procedure, not variable.
         /// </summary>
-        public static string VBCompileError_ExpectedProcedureNotVariable {
+        internal static string VBCompileError_ExpectedProcedureNotVariable {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedProcedureNotVariable", resourceCulture);
             }
@@ -1236,7 +1032,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Array argument must be ByRef.
         /// </summary>
-        public static string VBCompileError_ArrayArgumentMustBeByRef {
+        internal static string VBCompileError_ArrayArgumentMustBeByRef {
             get {
                 return ResourceManager.GetString("VBCompileError_ArrayArgumentMustBeByRef", resourceCulture);
             }
@@ -1245,7 +1041,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is declared ByVal and an array: an array parameter is always ByRef..
         /// </summary>
-        public static string VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose {
+        internal static string VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ArrayArgumentMustBeByRef_Declaration_Verbose", resourceCulture);
             }
@@ -1254,7 +1050,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Automation type not supported in Visual Basic.
         /// </summary>
-        public static string VBCompileError_AutomationTypeNotSupported {
+        internal static string VBCompileError_AutomationTypeNotSupported {
             get {
                 return ResourceManager.GetString("VBCompileError_AutomationTypeNotSupported", resourceCulture);
             }
@@ -1263,7 +1059,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected user-defined type, not project.
         /// </summary>
-        public static string VBCompileError_ExpectedUserDefinedTypeNotProject {
+        internal static string VBCompileError_ExpectedUserDefinedTypeNotProject {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedUserDefinedTypeNotProject", resourceCulture);
             }
@@ -1272,7 +1068,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a procedural module of a library, not a type..
         /// </summary>
-        public static string VBCompileError_DeclaredTypeIsALibraryModule_Verbose {
+        internal static string VBCompileError_DeclaredTypeIsALibraryModule_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_DeclaredTypeIsALibraryModule_Verbose", resourceCulture);
             }
@@ -1281,7 +1077,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project, not a type: a type of the project is written after its name and a dot..
         /// </summary>
-        public static string VBCompileError_DeclaredTypeIsAProject_Verbose {
+        internal static string VBCompileError_DeclaredTypeIsAProject_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_DeclaredTypeIsAProject_Verbose", resourceCulture);
             }
@@ -1290,7 +1086,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a type, not a value..
         /// </summary>
-        public static string VBCompileError_BuiltInTypeIsNoValue_Verbose {
+        internal static string VBCompileError_BuiltInTypeIsNoValue_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_BuiltInTypeIsNoValue_Verbose", resourceCulture);
             }
@@ -1299,7 +1095,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is an intrinsic type, which no object is: TypeOf ... Is tests an object against a class, an interface or Object..
         /// </summary>
-        public static string VBCompileError_TypeOfIntrinsicType_Verbose {
+        internal static string VBCompileError_TypeOfIntrinsicType_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeOfIntrinsicType_Verbose", resourceCulture);
             }
@@ -1308,7 +1104,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to TypeOf ... Is is followed by the name of a type: a class, an interface or Object..
         /// </summary>
-        public static string VBCompileError_TypeOfNotATypeName_Verbose {
+        internal static string VBCompileError_TypeOfNotATypeName_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeOfNotATypeName_Verbose", resourceCulture);
             }
@@ -1317,7 +1113,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is not the name of a type this project can see..
         /// </summary>
-        public static string VBCompileError_TypeOfTypeNotResolved_Verbose {
+        internal static string VBCompileError_TypeOfTypeNotResolved_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeOfTypeNotResolved_Verbose", resourceCulture);
             }
@@ -1326,43 +1122,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid length for fixed-length string.
         /// </summary>
-        public static string VBCompileError_InvalidLengthForFixedLengthString {
+        internal static string VBCompileError_InvalidLengthForFixedLengthString {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidLengthForFixedLengthString", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to A fixed-length string is 1 to 65526 characters long: &apos;String * {0}&apos; is not..
-        /// </summary>
-        public static string VBCompileError_InvalidLengthForFixedLengthString_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_InvalidLengthForFixedLengthString_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; is no length of a fixed-length string: a length is a whole number up to 65535, or the name of a constant..
-        /// </summary>
-        public static string VBCompileError_FixedLengthNotALength_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_FixedLengthNotALength_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The length of a fixed-length string is known when the code is compiled: &apos;{0}&apos; is not a constant..
-        /// </summary>
-        public static string VBCompileError_FixedLengthNotAConstant_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_FixedLengthNotAConstant_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to A bound of the array &apos;{0}&apos; is past the range of a Long, which every bound is..
         /// </summary>
-        public static string VBCompileError_ArrayBoundOverflow_Verbose {
+        internal static string VBCompileError_ArrayBoundOverflow_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ArrayBoundOverflow_Verbose", resourceCulture);
             }
@@ -1371,7 +1140,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is no variable whose size can be measured: {1}.
         /// </summary>
-        public static string VBCompileError_NameIsNoVariable_Verbose {
+        internal static string VBCompileError_NameIsNoVariable_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NameIsNoVariable_Verbose", resourceCulture);
             }
@@ -1380,7 +1149,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a constant, which is the name this ReDim re-dimensions, and no array. Declare an array of another name..
         /// </summary>
-        public static string VBCompileError_RedimOfAConstant_Verbose {
+        internal static string VBCompileError_RedimOfAConstant_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_RedimOfAConstant_Verbose", resourceCulture);
             }
@@ -1389,7 +1158,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected variable or procedure, not project.
         /// </summary>
-        public static string VBCompileError_ExpectedVariableOrProcedureNotProject {
+        internal static string VBCompileError_ExpectedVariableOrProcedureNotProject {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedVariableOrProcedureNotProject", resourceCulture);
             }
@@ -1398,7 +1167,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected variable or procedure, not enum type.
         /// </summary>
-        public static string VBCompileError_ExpectedVariableOrProcedureNotEnumType {
+        internal static string VBCompileError_ExpectedVariableOrProcedureNotEnumType {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedVariableOrProcedureNotEnumType", resourceCulture);
             }
@@ -1407,7 +1176,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to With object must be user-defined type, Object, or Variant.
         /// </summary>
-        public static string VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant {
+        internal static string VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant {
             get {
                 return ResourceManager.GetString("VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant", resourceCulture);
             }
@@ -1416,7 +1185,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to For Each may only iterate over a collection object or an array.
         /// </summary>
-        public static string VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray {
+        internal static string VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray {
             get {
                 return ResourceManager.GetString("VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray", resourceCulture);
             }
@@ -1425,7 +1194,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Out of memory.
         /// </summary>
-        public static string VBCompileError_OutOfMemory {
+        internal static string VBCompileError_OutOfMemory {
             get {
                 return ResourceManager.GetString("VBCompileError_OutOfMemory", resourceCulture);
             }
@@ -1434,7 +1203,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The module declares more than {0:N0} names at module level: variables, constants, procedures, properties, Declare statements, enumerations and types, all together. Move some of them to another module..
         /// </summary>
-        public static string VBCompileError_OutOfMemory_ModuleNames_Verbose {
+        internal static string VBCompileError_OutOfMemory_ModuleNames_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_OutOfMemory_ModuleNames_Verbose", resourceCulture);
             }
@@ -1443,7 +1212,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The array &apos;{0}&apos; is declared with more than {1:N0} elements, the most an array holds in RD-VBA..
         /// </summary>
-        public static string VBCompileError_OutOfMemory_ArrayElements_Verbose {
+        internal static string VBCompileError_OutOfMemory_ArrayElements_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_OutOfMemory_ArrayElements_Verbose", resourceCulture);
             }
@@ -1452,7 +1221,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to User-defined type may not be passed ByVal.
         /// </summary>
-        public static string VBCompileError_UserDefinedTypeMayNotBePassedByVal {
+        internal static string VBCompileError_UserDefinedTypeMayNotBePassedByVal {
             get {
                 return ResourceManager.GetString("VBCompileError_UserDefinedTypeMayNotBePassedByVal", resourceCulture);
             }
@@ -1461,7 +1230,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The parameter &apos;{0}&apos; is a record of the type &apos;{1}&apos;, which is passed by reference: declare it ByRef, or without ByVal..
         /// </summary>
-        public static string VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose {
+        internal static string VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_UserDefinedTypeMayNotBePassedByVal_Verbose", resourceCulture);
             }
@@ -1470,7 +1239,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions.
         /// </summary>
-        public static string VBCompileError_UserDefinedTypeNotCoercibleToVariant {
+        internal static string VBCompileError_UserDefinedTypeNotCoercibleToVariant {
             get {
                 return ResourceManager.GetString("VBCompileError_UserDefinedTypeNotCoercibleToVariant", resourceCulture);
             }
@@ -1479,7 +1248,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A record of the type &apos;{0}&apos; is given to a Variant, which can&apos;t hold it: give it to a variable or a parameter of the type &apos;{0}&apos;, or copy its fields..
         /// </summary>
-        public static string VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose {
+        internal static string VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose", resourceCulture);
             }
@@ -1488,7 +1257,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a project: it qualifies the names of what it declares, as in &apos;{0}.Len&apos;, and is no value of its own..
         /// </summary>
-        public static string VBCompileError_NameIsAProject_Verbose {
+        internal static string VBCompileError_NameIsAProject_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NameIsAProject_Verbose", resourceCulture);
             }
@@ -1497,7 +1266,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a module of the {1} library: it qualifies the names of its members, and is no value of its own..
         /// </summary>
-        public static string VBCompileError_NameIsALibraryModule_Verbose {
+        internal static string VBCompileError_NameIsALibraryModule_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NameIsALibraryModule_Verbose", resourceCulture);
             }
@@ -1506,7 +1275,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a module of this project: it qualifies the names of its members, and is no value of its own..
         /// </summary>
-        public static string VBCompileError_NameIsAModule_Verbose {
+        internal static string VBCompileError_NameIsAModule_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NameIsAModule_Verbose", resourceCulture);
             }
@@ -1515,7 +1284,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is an enumeration: each of its members is a value, written after its name and a dot, and it is none..
         /// </summary>
-        public static string VBCompileError_NameIsAnEnumType_Verbose {
+        internal static string VBCompileError_NameIsAnEnumType_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NameIsAnEnumType_Verbose", resourceCulture);
             }
@@ -1524,7 +1293,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is no value an operator can work on: {1}.
         /// </summary>
-        public static string VBCompileError_NameIsNoOperand_Verbose {
+        internal static string VBCompileError_NameIsNoOperand_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NameIsNoOperand_Verbose", resourceCulture);
             }
@@ -1533,7 +1302,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is no object a Set statement can assign: {1}.
         /// </summary>
-        public static string VBCompileError_NameIsNoObject_Verbose {
+        internal static string VBCompileError_NameIsNoObject_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NameIsNoObject_Verbose", resourceCulture);
             }
@@ -1542,7 +1311,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A With block refers to the members of an object, a record or a Variant; &apos;{0}&apos; is of type {1}..
         /// </summary>
-        public static string VBCompileError_WithObject_Verbose {
+        internal static string VBCompileError_WithObject_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_WithObject_Verbose", resourceCulture);
             }
@@ -1551,7 +1320,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A With block refers to the members of an object, a record or a Variant: {0}.
         /// </summary>
-        public static string VBCompileError_WithName_Verbose {
+        internal static string VBCompileError_WithName_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_WithName_Verbose", resourceCulture);
             }
@@ -1560,7 +1329,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to For Each iterates the elements of an array or the items of a collection object; &apos;{0}&apos; is of type {1}..
         /// </summary>
-        public static string VBCompileError_ForEachSource_Verbose {
+        internal static string VBCompileError_ForEachSource_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ForEachSource_Verbose", resourceCulture);
             }
@@ -1569,7 +1338,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to For Each iterates the elements of an array or the items of a collection object: {0}.
         /// </summary>
-        public static string VBCompileError_ForEachName_Verbose {
+        internal static string VBCompileError_ForEachName_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ForEachName_Verbose", resourceCulture);
             }
@@ -1578,7 +1347,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;As {0}()&apos; is what a Function, a Property Get or a Declare returns: an array is declared with () after its name, as in &apos;Dim a() As {0}&apos;..
         /// </summary>
-        public static string VBCompileError_ArrayTypeOnlyReturned_Verbose {
+        internal static string VBCompileError_ArrayTypeOnlyReturned_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ArrayTypeOnlyReturned_Verbose", resourceCulture);
             }
@@ -1587,7 +1356,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a ParamArray, which is written with neither ByVal nor ByRef..
         /// </summary>
-        public static string VBCompileError_ParamArrayPassingMode_Verbose {
+        internal static string VBCompileError_ParamArrayPassingMode_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ParamArrayPassingMode_Verbose", resourceCulture);
             }
@@ -1596,43 +1365,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to An argument list does not end with an omitted argument: remove the last comma..
         /// </summary>
-        public static string VBCompileError_TrailingOmittedArgument_Verbose {
+        internal static string VBCompileError_TrailingOmittedArgument_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TrailingOmittedArgument_Verbose", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Too many line continuations: a logical line joins at most 25 physical lines, with 24 line-continuations..
-        /// </summary>
-        public static string VBCompileError_TooManyLineContinuations_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_TooManyLineContinuations_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to A block opened in a #If branch is not closed in it..
-        /// </summary>
-        public static string VBCompileError_BlockNotClosedInItsBranch_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_BlockNotClosedInItsBranch_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Every header of this procedure is in a #If branch that is not compiled, so this statement is outside any procedure..
-        /// </summary>
-        public static string VBCompileError_HeaderInDeadBranchesOnly_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_HeaderInDeadBranchesOnly_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to What {0} tests is an object, written without parentheses: in parentheses, it would be its default member&apos;s value..
         /// </summary>
-        public static string VBCompileError_TypeOfParenthesizedOperand_Verbose {
+        internal static string VBCompileError_TypeOfParenthesizedOperand_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeOfParenthesizedOperand_Verbose", resourceCulture);
             }
@@ -1641,7 +1383,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected End With.
         /// </summary>
-        public static string VBCompileError_ExpectedEndWith {
+        internal static string VBCompileError_ExpectedEndWith {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedEndWith", resourceCulture);
             }
@@ -1650,7 +1392,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected variable or procedure, not module.
         /// </summary>
-        public static string VBCompileError_ExpectedVariableOrProcedureNotModule {
+        internal static string VBCompileError_ExpectedVariableOrProcedureNotModule {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedVariableOrProcedureNotModule", resourceCulture);
             }
@@ -1659,7 +1401,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Expected Sub, Function, or Property.
         /// </summary>
-        public static string VBCompileError_ExpectedSubFunctionOrProperty {
+        internal static string VBCompileError_ExpectedSubFunctionOrProperty {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedSubFunctionOrProperty", resourceCulture);
             }
@@ -1668,7 +1410,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Range has no values.
         /// </summary>
-        public static string VBCompileError_RangeHasNoValues {
+        internal static string VBCompileError_RangeHasNoValues {
             get {
                 return ResourceManager.GetString("VBCompileError_RangeHasNoValues", resourceCulture);
             }
@@ -1677,7 +1419,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A module is not a valid type.
         /// </summary>
-        public static string VBCompileError_ModuleIsNotAValidType {
+        internal static string VBCompileError_ModuleIsNotAValidType {
             get {
                 return ResourceManager.GetString("VBCompileError_ModuleIsNotAValidType", resourceCulture);
             }
@@ -1686,7 +1428,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Argument not optional.
         /// </summary>
-        public static string VBCompileError_ArgumentNotOptional {
+        internal static string VBCompileError_ArgumentNotOptional {
             get {
                 return ResourceManager.GetString("VBCompileError_ArgumentNotOptional", resourceCulture);
             }
@@ -1695,7 +1437,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A value of {0} is what its default member &apos;{1}&apos; returns, which takes an argument that a value read from the object does not give it..
         /// </summary>
-        public static string VBCompileError_DefaultMemberTakesArguments_Verbose {
+        internal static string VBCompileError_DefaultMemberTakesArguments_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_DefaultMemberTakesArguments_Verbose", resourceCulture);
             }
@@ -1704,7 +1446,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A value of {0} is what its default member &apos;{1}&apos; returns, which is an object and not a value of a declared type..
         /// </summary>
-        public static string VBCompileError_DefaultMemberReturnsAnObject_Verbose {
+        internal static string VBCompileError_DefaultMemberReturnsAnObject_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_DefaultMemberReturnsAnObject_Verbose", resourceCulture);
             }
@@ -1713,7 +1455,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Len and LenB take a String expression or the name of a variable (MS-VBAL §6.1.2.11.1.22): this is a value of type {0}, which is neither. Assign it to a variable of that type to measure the variable, or convert it to a String to count its characters..
         /// </summary>
-        public static string VBCompileError_LenOfAValue_Verbose {
+        internal static string VBCompileError_LenOfAValue_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_LenOfAValue_Verbose", resourceCulture);
             }
@@ -1722,7 +1464,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Len and LenB take a String expression or the name of a variable (MS-VBAL §6.1.2.11.1.22): an object of {0} stands for what its default member {1} returns, a value of type {2}, which is neither..
         /// </summary>
-        public static string VBCompileError_LenOfADefaultMemberValue_Verbose {
+        internal static string VBCompileError_LenOfADefaultMemberValue_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_LenOfADefaultMemberValue_Verbose", resourceCulture);
             }
@@ -1730,7 +1472,7 @@ namespace RDCore.SDK {
         
         ///   Looks up a localized string similar to ParamArray {0} is passed to ByRef parameter {1}: a ParamArray is an array of the values the call collected, not a variable a reference parameter can be a second name for (MS-VBAL §5.3.1.11). Pass it ByVal, or pass an element of it..
         /// </summary>
-        public static string VBCompileError_InvalidParamArrayUse_ByRef_Verbose {
+        internal static string VBCompileError_InvalidParamArrayUse_ByRef_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidParamArrayUse_ByRef_Verbose", resourceCulture);
             }
@@ -1739,7 +1481,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Nothing is no object, and so has no value: a value is expected here..
         /// </summary>
-        public static string VBCompileError_NothingIsNotAValue_Verbose {
+        internal static string VBCompileError_NothingIsNotAValue_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_NothingIsNotAValue_Verbose", resourceCulture);
             }
@@ -1748,25 +1490,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Numeric literal overflow.
         /// </summary>
-        public static string VBCompileError_NumericLiteralOverflow {
+        internal static string VBCompileError_NumericLiteralOverflow {
             get {
                 return ResourceManager.GetString("VBCompileError_NumericLiteralOverflow", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to The numeric literal's value is outside the range of its type.
-        /// </summary>
-        public static string VBCompileError_NumericLiteralOverflow_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_NumericLiteralOverflow_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to The declared type '{0}' is a procedural module, not a type.
         /// </summary>
-        public static string VBCompileError_DeclaredTypeIsAProceduralModule_Verbose {
+        internal static string VBCompileError_DeclaredTypeIsAProceduralModule_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_DeclaredTypeIsAProceduralModule_Verbose", resourceCulture);
             }
@@ -1775,7 +1508,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The declared type '{0}' could not be resolved.
         /// </summary>
-        public static string VBCompileError_DeclaredTypeNotResolved_Verbose {
+        internal static string VBCompileError_DeclaredTypeNotResolved_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_DeclaredTypeNotResolved_Verbose", resourceCulture);
             }
@@ -1784,34 +1517,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The declared type '{0}' could not be resolved: '{1}' is not a project or a module that this project can see.
         /// </summary>
-        public static string VBCompileError_DeclaredTypeQualifierNotResolved_Verbose {
+        internal static string VBCompileError_DeclaredTypeQualifierNotResolved_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_DeclaredTypeQualifierNotResolved_Verbose", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).
-        /// </summary>
-        public static string VBCompileError_RaiseEventByVal_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_RaiseEventByVal_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to A call that is not written with the Call keyword does not have an argument list in parentheses, not even an empty one. Drop the parentheses (Foo 1, 2 or Foo), or write the Call keyword (Call Foo(1, 2) or Call Foo()).
-        /// </summary>
-        public static string VBCompileError_CallArgumentsNeedCall_Verbose {
-            get {
-                return ResourceManager.GetString("VBCompileError_CallArgumentsNeedCall_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to None of the static semantic applicable rules for this operation matched the data type(s) of the provided input(s): {$INPUTS}.
         /// </summary>
-        public static string VBCompileError_TypeMismatch_Verbose {
+        internal static string VBCompileError_TypeMismatch_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_TypeMismatch_Verbose", resourceCulture);
             }
@@ -1820,7 +1535,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Unspecified error.
         /// </summary>
-        public static string VBCompileError_UnspecifiedError {
+        internal static string VBCompileError_UnspecifiedError {
             get {
                 return ResourceManager.GetString("VBCompileError_UnspecifiedError", resourceCulture);
             }
@@ -1829,7 +1544,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to User-defined type (UDT) not defined.
         /// </summary>
-        public static string VBCompileError_UserDefinedTypeNotDefined {
+        internal static string VBCompileError_UserDefinedTypeNotDefined {
             get {
                 return ResourceManager.GetString("VBCompileError_UserDefinedTypeNotDefined", resourceCulture);
             }
@@ -1838,232 +1553,43 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Variable not defined.
         /// </summary>
-        public static string VBCompileError_VariableNotDefined {
+        internal static string VBCompileError_VariableNotDefined {
             get {
                 return ResourceManager.GetString("VBCompileError_VariableNotDefined", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to This operation is dividing by zero. Consider adding a conditional check to avoid this..
-        /// </summary>
-        public static string VBDivisionOp_DivisionByZero {
-            get {
-                return ResourceManager.GetString("VBDivisionOp_DivisionByZero", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The result of a negative exponent value cannot be represented with base 0..
-        /// </summary>
-        public static string VBExponentOp_InvalidProcedureCallOrArgument_Verbose {
-            get {
-                return ResourceManager.GetString("VBExponentOp_InvalidProcedureCallOrArgument_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to A subscript of an array is a Long: a LongLong is not let-coerced to one..
         /// </summary>
-        public static string VBIndex_LongLongSubscript_Verbose {
+        internal static string VBIndex_LongLongSubscript_Verbose {
             get {
                 return ResourceManager.GetString("VBIndex_LongLongSubscript_Verbose", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to A negative number raised to a fractional power has no real result..
-        /// </summary>
-        public static string VBExponentOp_NoRealPower_Verbose {
-            get {
-                return ResourceManager.GetString("VBExponentOp_NoRealPower_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to A value that is no number (NaN) has no sign..
-        /// </summary>
-        public static string VBSgn_NaN_Verbose {
-            get {
-                return ResourceManager.GetString("VBSgn_NaN_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to This operation results in a division by zero, possibly due to Banker&apos;s Rounding losing enough precision to bring the operand value to integer value 0..
         /// </summary>
-        public static string VBIntegerDivisionOp_DivisionByZero {
+        internal static string VBIntegerDivisionOp_DivisionByZero {
             get {
                 return ResourceManager.GetString("VBIntegerDivisionOp_DivisionByZero", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Relational operator &apos;Is&apos; requires an object in this context..
-        /// </summary>
-        public static string VBIsOp_ObjectRequired {
-            get {
-                return ResourceManager.GetString("VBIsOp_ObjectRequired", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This For loop&apos;s Next statement ran without its own For header ever running in this call - a GoTo jumped directly into the loop body, so the start, end, and step values were never evaluated..
-        /// </summary>
-        public static string VBForLoopNotInitialized_Verbose {
-            get {
-                return ResourceManager.GetString("VBForLoopNotInitialized_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The start, the end and the step of a For loop are numbers: this one cannot be read as a number (MS-VBAL 5.4.2.3)..
-        /// </summary>
-        public static string VBForLoopOperandIsNotANumber_Verbose {
-            get {
-                return ResourceManager.GetString("VBForLoopOperandIsNotANumber_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to {0} in a program run unattended (--unattended): nobody is there to answer it, and the run fails..
-        /// </summary>
-        public static string VBRuntimeError_NobodyToAnswer_Verbose {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_NobodyToAnswer_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to {1}, which shows the program's dialogs, declined to answer its {0}: nobody else will, and the run fails..
-        /// </summary>
-        public static string VBRuntimeError_NobodyToAnswer_Declined {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_NobodyToAnswer_Declined", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to {0} answered the program's MsgBox ({1}) with {2}, which is none of its buttons: the program cannot go on with that answer, and the run fails..
-        /// </summary>
-        public static string VBRuntimeError_UnusableDialogAnswer_NoSuchButton {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_UnusableDialogAnswer_NoSuchButton", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The program's {0} could not be relayed to the client that shows its dialogs ({1}): the run fails, rather than wait on a dialog nobody sees..
-        /// </summary>
-        public static string VBRuntimeError_UnusableDialogAnswer_NotRelayed {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_UnusableDialogAnswer_NotRelayed", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The client.
-        /// </summary>
-        public static string UnnamedClient {
-            get {
-                return ResourceManager.GetString("UnnamedClient", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This For loop counts in {0}, and its start, end or step is not a value of that type..
-        /// </summary>
-        public static string VBForLoopOperandNotOfLoopType_Verbose {
-            get {
-                return ResourceManager.GetString("VBForLoopOperandNotOfLoopType_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This For Each loop&apos;s collection expression is Nothing. Enumerating it requires invoking its _NewEnum member, which cannot be done on an object reference that isn&apos;t set..
-        /// </summary>
-        public static string VBForEach_ObjectVariableNotSet_Verbose {
-            get {
-                return ResourceManager.GetString("VBForEach_ObjectVariableNotSet_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The object has no public variable, and no Property Let or Property Set, of this name for the assignment to write to..
-        /// </summary>
-        public static string VBMemberAssignment_NotAssignable_Verbose {
-            get {
-                return ResourceManager.GetString("VBMemberAssignment_NotAssignable_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The object this member is accessed on is Nothing: an object variable that was never set, or that was set to Nothing, has no object to hold the member..
-        /// </summary>
-        public static string VBMemberAccess_ObjectVariableNotSet_Verbose {
-            get {
-                return ResourceManager.GetString("VBMemberAccess_ObjectVariableNotSet_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to LSet reads an object field from bytes that are not an object&apos;s address: the number there is not what ObjPtr returned for an object that still exists, and is not 0 for Nothing. Nothing was copied..
-        /// </summary>
-        public static string VBLSet_NoObjectAtAddress_Verbose {
-            get {
-                return ResourceManager.GetString("VBLSet_NoObjectAtAddress_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to LSet gives an object field the object of another class: a field declared as a class holds only an object of that class, or of a class that implements it, as Set would require. Nothing was copied..
-        /// </summary>
-        public static string VBLSet_ObjectOfAnotherClass_Verbose {
-            get {
-                return ResourceManager.GetString("VBLSet_ObjectOfAnotherClass_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to What TypeOf tests is Nothing: an object variable that was never set, or that was set to Nothing, has no object whose type could be tested. Test it with &apos;Is Nothing&apos; first..
-        /// </summary>
-        public static string VBTypeOf_ObjectVariableNotSet_Verbose {
-            get {
-                return ResourceManager.GetString("VBTypeOf_ObjectVariableNotSet_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The array is given a second empty argument list, f()(): the first is the array itself, and the second selects no element of it..
-        /// </summary>
-        public static string VBIndex_SecondEmptyArgumentList_Verbose {
-            get {
-                return ResourceManager.GetString("VBIndex_SecondEmptyArgumentList_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to A {0} is neither an array nor an object: there is nothing to index..
         /// </summary>
-        public static string VBIndex_NothingToIndex_Verbose {
+        internal static string VBIndex_NothingToIndex_Verbose {
             get {
                 return ResourceManager.GetString("VBIndex_NothingToIndex_Verbose", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The object&apos;s {0} property has a Property Get and no Property Let, and what it returns is no object whose default member could be assigned instead..
-        /// </summary>
-        public static string VBMemberAssignment_ReadOnlyProperty_Verbose {
-            get {
-                return ResourceManager.GetString("VBMemberAssignment_ReadOnlyProperty_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The bounds of an array are asked of an expression declared as a {0}, which never holds one..
         /// </summary>
-        public static string VBCompileError_ExpectedArray_Verbose {
+        internal static string VBCompileError_ExpectedArray_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_ExpectedArray_Verbose", resourceCulture);
             }
@@ -2072,106 +1598,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Invalid use of Me keyword.
         /// </summary>
-        public static string VBCompileError_InvalidUseOfMe {
+        internal static string VBCompileError_InvalidUseOfMe {
             get {
                 return ResourceManager.GetString("VBCompileError_InvalidUseOfMe", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The object has no member named {0}..
-        /// </summary>
-        public static string VBMemberAccess_NoSuchMember_Verbose {
-            get {
-                return ResourceManager.GetString("VBMemberAccess_NoSuchMember_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The Variant this member is accessed on holds a {0}, which has no members: only an object, or a record, has..
-        /// </summary>
-        public static string VBMemberAccess_ObjectRequired_Verbose {
-            get {
-                return ResourceManager.GetString("VBMemberAccess_ObjectRequired_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This For Each loop&apos;s collection expression must be an array, or an object exposing an enumeration member (VB_UserMemId = -4, commonly named _NewEnum)..
-        /// </summary>
-        public static string VBForEach_RequiresEnumerableCollection_Verbose {
-            get {
-                return ResourceManager.GetString("VBForEach_RequiresEnumerableCollection_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This For Each loop&apos;s collection expression is an array with no dimensions - it was never initialized by a Dim with bounds or a ReDim, so there is nothing to enumerate..
-        /// </summary>
-        public static string VBForEach_ArrayNotInitialized_Verbose {
-            get {
-                return ResourceManager.GetString("VBForEach_ArrayNotInitialized_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This Return statement ran with an empty GoSub Resumption List - no GoSub or On...GoSub call in this activation is still awaiting it..
-        /// </summary>
-        public static string VBReturn_WithoutGoSub_Verbose {
-            get {
-                return ResourceManager.GetString("VBReturn_WithoutGoSub_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to An On...GoTo or On...GoSub selector, once Let-coerced to Integer, must be zero or a positive value no greater than 255..
-        /// </summary>
-        public static string VBOnGoToGoSub_SelectorOutOfRange_Verbose {
-            get {
-                return ResourceManager.GetString("VBOnGoToGoSub_SelectorOutOfRange_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This Resume statement ran with no active error - there is nothing for it to resume from..
-        /// </summary>
-        public static string VBResume_WithoutError_Verbose {
-            get {
-                return ResourceManager.GetString("VBResume_WithoutError_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Raised explicitly by an Error statement..
-        /// </summary>
-        public static string VBErrorStatement_Raised_Verbose {
-            get {
-                return ResourceManager.GetString("VBErrorStatement_Raised_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This call would push the session&apos;s call stack past its own maximum depth - most likely unbounded recursion..
-        /// </summary>
-        public static string VBProcedureCall_OutOfStackSpace_Verbose {
-            get {
-                return ResourceManager.GetString("VBProcedureCall_OutOfStackSpace_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The session&apos;s memory has no room left for the temporary this argument is passed in..
-        /// </summary>
-        public static string VBProcedureCall_OutOfMemory_Temporary_Verbose {
-            get {
-                return ResourceManager.GetString("VBProcedureCall_OutOfMemory_Temporary_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is an array, which an As Any parameter does not take: it takes a variable of any other type, or an element of the array..
         /// </summary>
-        public static string VBArgument_ArrayToAsAny_Verbose {
+        internal static string VBArgument_ArrayToAsAny_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ArrayToAsAny_Verbose", resourceCulture);
             }
@@ -2180,7 +1616,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is ByRef: ByVal is written only before an argument of a ByVal parameter, of an As Any one, or of a Declare&apos;s..
         /// </summary>
-        public static string VBArgument_ByValByRefParameter_Verbose {
+        internal static string VBArgument_ByValByRefParameter_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ByValByRefParameter_Verbose", resourceCulture);
             }
@@ -2189,7 +1625,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is an array parameter, which is ByRef: an array is never passed ByVal..
         /// </summary>
-        public static string VBArgument_ByValArrayParameter_Verbose {
+        internal static string VBArgument_ByValArrayParameter_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ByValArrayParameter_Verbose", resourceCulture);
             }
@@ -2198,7 +1634,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a ParamArray, which takes no argument written ByVal..
         /// </summary>
-        public static string VBArgument_ByValParamArray_Verbose {
+        internal static string VBArgument_ByValParamArray_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ByValParamArray_Verbose", resourceCulture);
             }
@@ -2207,25 +1643,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The member is called late-bound: its parameters are not known, and are taken to be ByRef, which takes no argument written ByVal..
         /// </summary>
-        public static string VBArgument_ByValLateBound_Verbose {
+        internal static string VBArgument_ByValLateBound_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ByValLateBound_Verbose", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to The object is called late-bound, through its IDispatch, which converts each argument to the type of its parameter: Null converts to no type but Variant..
-        /// </summary>
-        public static string VBArgument_NullThroughDispatch_Verbose {
-            get {
-                return ResourceManager.GetString("VBArgument_NullThroughDispatch_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to An index of an array is never written ByVal..
         /// </summary>
-        public static string VBArgument_ByValIndex_Verbose {
+        internal static string VBArgument_ByValIndex_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ByValIndex_Verbose", resourceCulture);
             }
@@ -2234,7 +1661,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to {0} is compiled inline, and takes no argument written ByVal..
         /// </summary>
-        public static string VBArgument_ByValInlineFunction_Verbose {
+        internal static string VBArgument_ByValInlineFunction_Verbose {
             get {
                 return ResourceManager.GetString("VBArgument_ByValInlineFunction_Verbose", resourceCulture);
             }
@@ -2243,117 +1670,43 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Run-time error : #.
         /// </summary>
-        public static string VBRuntimeError {
+        internal static string VBRuntimeError {
             get {
                 return ResourceManager.GetString("VBRuntimeError", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to This operation results in a value that the determined effective type cannot legally represent..
-        /// </summary>
-        public static string VBRuntimeError_ArithmeticOverflow {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_ArithmeticOverflow", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to A bound symbol was required to throw a let-coercion type mismatch, but the operand unexpectedly links an unbound &apos;{$SYMBOLTYPE}&apos; symbol..
         /// </summary>
-        public static string VBRuntimeInternalError_WorkspaceSymbolExpected_Verbose {
+        internal static string VBRuntimeInternalError_WorkspaceSymbolExpected_Verbose {
             get {
                 return ResourceManager.GetString("VBRuntimeInternalError_BoundSymbolExpected_Verbose", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The evaluation of this expression unexpectedly yields a semantically invalid, unrepresentable result..
-        /// </summary>
-        public static string VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose {
-            get {
-                return ResourceManager.GetString("VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbo" +
-                        "se", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The let-coercion runtime semantic selectors are overlapping and more than a single rule matched..
         /// </summary>
-        public static string VBRuntimeInternalError_LetCoercionRuntimeSemanticRulesOverlap {
+        internal static string VBRuntimeInternalError_LetCoercionRuntimeSemanticRulesOverlap {
             get {
                 return ResourceManager.GetString("VBRuntimeInternalError_LetCoercionRuntimeSemanticRulesOverlap", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The internal let-coercion stack has reached an unexpected desynchronized state. Stack: {$FRAMES}, HashSet: {$HASH}..
-        /// </summary>
-        public static string VBRuntimeInternalError_LetCoercionStackCorruption {
-            get {
-                return ResourceManager.GetString("VBRuntimeInternalError_LetCoercionStackCorruption", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Let-coercion evaluation strategy unexpectedly returned a &apos;NotApplicable&apos; result..
-        /// </summary>
-        public static string VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable {
-            get {
-                return ResourceManager.GetString("VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Operator expression runtime semantics did not receive the expected number of operands for operator &apos;{$OP}&apos;: VBTypedValue[{$LENGTH}]..
         /// </summary>
-        public static string VBRuntimeInternalError_WrongNumberOfOperands {
+        internal static string VBRuntimeInternalError_WrongNumberOfOperands {
             get {
                 return ResourceManager.GetString("VBRuntimeInternalError_WrongNumberOfOperands", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to No semantics defined an effective type for the specified operator data types ({$OPERANDS})..
-        /// </summary>
-        public static string VBRuntimeTypeMismatch_OperationEffectiveType_Verbose {
-            get {
-                return ResourceManager.GetString("VBRuntimeTypeMismatch_OperationEffectiveType_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to &apos;{$TYPENAME}&apos; does not reference an instantiable class and cannot be used with New..
-        /// </summary>
-        public static string VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Class not registered
-        ///.
-        /// </summary>
-        public static string VBRuntimeError_ClassNotRegistered_Description {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_ClassNotRegistered_Description", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to An object of {0}, a class of the {1} library, is never created: the library says the class can be created, and nothing creates one..
-        /// </summary>
-        public static string VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose {
-            get {
-                return ResourceManager.GetString("VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Syntax error (grammar):.
         /// </summary>
-        public static string VBSyntaxError_CustomMessage {
+        internal static string VBSyntaxError_CustomMessage {
             get {
                 return ResourceManager.GetString("VBSyntaxError_CustomMessage", resourceCulture);
             }
@@ -2362,7 +1715,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Syntax error.
         /// </summary>
-        public static string VBSyntaxError_DefaultMessage {
+        internal static string VBSyntaxError_DefaultMessage {
             get {
                 return ResourceManager.GetString("VBSyntaxError_DefaultMessage", resourceCulture);
             }
@@ -2371,7 +1724,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Frame details:.
         /// </summary>
-        public static string Verbose_FrameDetails {
+        internal static string Verbose_FrameDetails {
             get {
                 return ResourceManager.GetString("Verbose_FrameDetails", resourceCulture);
             }
@@ -2380,52 +1733,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Evaluation stack:.
         /// </summary>
-        public static string Verbose_LetCoercionStackTrace {
+        internal static string Verbose_LetCoercionStackTrace {
             get {
                 return ResourceManager.GetString("Verbose_LetCoercionStackTrace", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to This named argument does not match any parameter of the called procedure, or a positional or named argument earlier in the same call already mapped to that parameter..
-        /// </summary>
-        public static string VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose {
-            get {
-                return ResourceManager.GetString("VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This positional argument&apos;s value was omitted, and the parameter it maps to is not declared Optional..
-        /// </summary>
-        public static string VBNamedArgumentNotFound_MissingRequiredPositional_Verbose {
-            get {
-                return ResourceManager.GetString("VBNamedArgumentNotFound_MissingRequiredPositional_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to A parameter of the called procedure that is not declared Optional has no argument mapped to it..
-        /// </summary>
-        public static string VBArgumentNotOptional_Verbose {
-            get {
-                return ResourceManager.GetString("VBArgumentNotOptional_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to This call supplies more positional arguments than the called procedure declares parameters for..
-        /// </summary>
-        public static string VBWrongNumberOfArguments_Verbose {
-            get {
-                return ResourceManager.GetString("VBWrongNumberOfArguments_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Syntax error.
         /// </summary>
-        public static string ErrorTitle_Syntax {
+        internal static string ErrorTitle_Syntax {
             get {
                 return ResourceManager.GetString("ErrorTitle_Syntax", resourceCulture);
             }
@@ -2434,7 +1751,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Compile error.
         /// </summary>
-        public static string ErrorTitle_Compile {
+        internal static string ErrorTitle_Compile {
             get {
                 return ResourceManager.GetString("ErrorTitle_Compile", resourceCulture);
             }
@@ -2443,7 +1760,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Run-time error.
         /// </summary>
-        public static string ErrorTitle_Runtime {
+        internal static string ErrorTitle_Runtime {
             get {
                 return ResourceManager.GetString("ErrorTitle_Runtime", resourceCulture);
             }
@@ -2452,7 +1769,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Application error.
         /// </summary>
-        public static string ErrorTitle_Application {
+        internal static string ErrorTitle_Application {
             get {
                 return ResourceManager.GetString("ErrorTitle_Application", resourceCulture);
             }
@@ -2461,7 +1778,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The channel to the other process is closed..
         /// </summary>
-        public static string CallChannel_Closed {
+        internal static string CallChannel_Closed {
             get {
                 return ResourceManager.GetString("CallChannel_Closed", resourceCulture);
             }
@@ -2470,52 +1787,16 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The other process has no method &apos;{0}&apos;..
         /// </summary>
-        public static string CallChannel_NoSuchMethod {
+        internal static string CallChannel_NoSuchMethod {
             get {
                 return ResourceManager.GetString("CallChannel_NoSuchMethod", resourceCulture);
             }
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to {0} could not be called: the library &apos;{1}&apos; was not found..
-        /// </summary>
-        public static string VBDeclare_LibraryNotFound_Verbose {
-            get {
-                return ResourceManager.GetString("VBDeclare_LibraryNotFound_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to {0} could not be called: the library &apos;{1}&apos; has no entry point &apos;{2}&apos;..
-        /// </summary>
-        public static string VBDeclare_EntryPointNotFound_Verbose {
-            get {
-                return ResourceManager.GetString("VBDeclare_EntryPointNotFound_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to {0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed..
-        /// </summary>
-        public static string VBDeclare_HostStopped_Verbose {
-            get {
-                return ResourceManager.GetString("VBDeclare_HostStopped_Verbose", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to An object cannot be passed to or from a function of a native library yet..
-        /// </summary>
-        public static string VBDeclare_ObjectNotPassed_Verbose {
-            get {
-                return ResourceManager.GetString("VBDeclare_ObjectNotPassed_Verbose", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The designer block of the form module (Begin … End) has no matching End..
         /// </summary>
-        public static string FormDesigner_UnterminatedBlock {
+        internal static string FormDesigner_UnterminatedBlock {
             get {
                 return ResourceManager.GetString("FormDesigner_UnterminatedBlock", resourceCulture);
             }
@@ -2524,7 +1805,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The form keeps its controls in its .frx file, which was not supplied..
         /// </summary>
-        public static string FormDesigner_MissingCompanion {
+        internal static string FormDesigner_MissingCompanion {
             get {
                 return ResourceManager.GetString("FormDesigner_MissingCompanion", resourceCulture);
             }
@@ -2533,7 +1814,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The form&apos;s designer data is not where its module says it is in its .frx file..
         /// </summary>
-        public static string FormDesigner_BlobOutOfRange {
+        internal static string FormDesigner_BlobOutOfRange {
             get {
                 return ResourceManager.GetString("FormDesigner_BlobOutOfRange", resourceCulture);
             }
@@ -2542,7 +1823,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The form&apos;s designer data is not a compound file (an OLE storage)..
         /// </summary>
-        public static string FormDesigner_NotACompoundFile {
+        internal static string FormDesigner_NotACompoundFile {
             get {
                 return ResourceManager.GetString("FormDesigner_NotACompoundFile", resourceCulture);
             }
@@ -2551,7 +1832,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The form&apos;s designer data is a damaged compound file..
         /// </summary>
-        public static string FormDesigner_CorruptCompoundFile {
+        internal static string FormDesigner_CorruptCompoundFile {
             get {
                 return ResourceManager.GetString("FormDesigner_CorruptCompoundFile", resourceCulture);
             }
@@ -2560,7 +1841,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The form&apos;s designer data has no form stream (f)..
         /// </summary>
-        public static string FormDesigner_MissingFormStream {
+        internal static string FormDesigner_MissingFormStream {
             get {
                 return ResourceManager.GetString("FormDesigner_MissingFormStream", resourceCulture);
             }
@@ -2569,7 +1850,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The form&apos;s designer data was written by a version of Microsoft Forms that is not supported..
         /// </summary>
-        public static string FormDesigner_UnsupportedVersion {
+        internal static string FormDesigner_UnsupportedVersion {
             get {
                 return ResourceManager.GetString("FormDesigner_UnsupportedVersion", resourceCulture);
             }
@@ -2578,7 +1859,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The form&apos;s designer data ends before the description of its controls does..
         /// </summary>
-        public static string FormDesigner_Truncated {
+        internal static string FormDesigner_Truncated {
             get {
                 return ResourceManager.GetString("FormDesigner_Truncated", resourceCulture);
             }
@@ -2587,7 +1868,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to A control of the form names no class the form describes..
         /// </summary>
-        public static string FormDesigner_InvalidControl {
+        internal static string FormDesigner_InvalidControl {
             get {
                 return ResourceManager.GetString("FormDesigner_InvalidControl", resourceCulture);
             }
@@ -2596,7 +1877,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to Member already exists in an object module from which this object module derives.
         /// </summary>
-        public static string VBCompileError_MemberAlreadyExistsInDesigner {
+        internal static string VBCompileError_MemberAlreadyExistsInDesigner {
             get {
                 return ResourceManager.GetString("VBCompileError_MemberAlreadyExistsInDesigner", resourceCulture);
             }
@@ -2605,7 +1886,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is the name of a control of the form, which is already a member of the form&apos;s class..
         /// </summary>
-        public static string VBCompileError_MemberAlreadyExistsInDesigner_Verbose {
+        internal static string VBCompileError_MemberAlreadyExistsInDesigner_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_MemberAlreadyExistsInDesigner_Verbose", resourceCulture);
             }
@@ -2614,7 +1895,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The project file &apos;{0}&apos; is not valid JSON, at line {1}, position {2}: {3}.
         /// </summary>
-        public static string ProjectFile_InvalidJson {
+        internal static string ProjectFile_InvalidJson {
             get {
                 return ResourceManager.GetString("ProjectFile_InvalidJson", resourceCulture);
             }
@@ -2623,7 +1904,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The editor can&apos;t apply this change: it creates, renames or deletes a file, which the editor did not say it can do..
         /// </summary>
-        public static string WorkspaceEdit_FileOperationNotSupported {
+        internal static string WorkspaceEdit_FileOperationNotSupported {
             get {
                 return ResourceManager.GetString("WorkspaceEdit_FileOperationNotSupported", resourceCulture);
             }
@@ -2632,7 +1913,7 @@ namespace RDCore.SDK {
         /// <summary>
         ///   Looks up a localized string similar to The editor can&apos;t apply this change: it edits {0} in more than one step, which the editor did not say it can apply..
         /// </summary>
-        public static string WorkspaceEdit_DocumentEditedTwice {
+        internal static string WorkspaceEdit_DocumentEditedTwice {
             get {
                 return ResourceManager.GetString("WorkspaceEdit_DocumentEditedTwice", resourceCulture);
             }

@@ -52,7 +52,7 @@
       <LastGenOutput>ServerOptionsHelpText.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <EmbeddedResource Update="Exceptions.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
+      <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Exceptions.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <EmbeddedResource Update="Server\TraceMessages.resx">
