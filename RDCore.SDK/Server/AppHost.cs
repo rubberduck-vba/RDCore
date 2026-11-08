@@ -235,8 +235,9 @@ public abstract class AppHost<TApp>() : IDisposable
         try
         {
             // the builder reads appsettings.json, then the environment and the command line; what the user set goes between the first and the others. The
-            // deployed file is not added again: added after them, it used to say what a Configuration__ environment variable was meant to override.
-            var builder = Host.CreateApplicationBuilder();
+            // deployed file is not added again: added after them, it used to say what a Configuration__ environment variable was meant to override. The deployed
+            // file is the one in the application's own folder, wherever the process was started from: the generic host's default is the working directory.
+            var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { ContentRootPath = AppContext.BaseDirectory });
             var configuration = builder.Configuration;
             configuration.AddUserSettings(UserSettingsStore.PathIn(PlatformEnvironment.Default), Settings);
             Configure(configuration, builder.Services, args);
