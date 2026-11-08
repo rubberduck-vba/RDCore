@@ -119,8 +119,10 @@ out ([**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-
 
 MS-VBA also refuses a control variable of any type other than `Variant` and `Object`: `For Each s In c`, with `s` a
 `String` and `c` a `Collection`, is the compile error _For Each control variable must be Variant or Object_. MS-VBAL asks
-for a `Variant` only when the collection is declared as an array. RD-VBA does not refuse such a variable yet, and empties
-it with a Let-assignment of `Empty`.
+for a `Variant` only when the collection is declared as an array.
+
+> [!NOTE]
+> **Not implemented.** RD-VBA accepts a control variable of another type, and empties it with a Let-assignment of `Empty`.
 
 ### Errors
 

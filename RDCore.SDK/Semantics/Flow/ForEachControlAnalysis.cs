@@ -33,8 +33,8 @@ public sealed record class EmptiedControlReadFact(string Name, SourceLocation Lo
 /// <para>
 /// A read is stated only when it sees an emptied variable on every code path that reaches it: each one leaves a loop over the variable by its <c>Next</c> running
 /// out of elements, or by its opener finding none, and assigns nothing to the variable after that. A loop left by <c>Exit For</c>, a jump or an error keeps the
-/// element it was at, so a read that one of those reaches is not stated: the usual search, which leaves the loop by <c>Exit For</c> when it finds the element and
-/// tests the variable after, is not.
+/// element it was at, so a read that one of those can reach is not stated. The usual search, which leaves the loop by <c>Exit For</c> when it finds the element
+/// and then tests the variable, is therefore not stated.
 /// </para>
 /// <para>
 /// Only an automatic local variable of the procedure is followed, a <c>Dim</c> of a procedure that is not <c>Static</c>: nothing but the procedure's own code
