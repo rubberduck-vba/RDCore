@@ -39,13 +39,11 @@ public interface ISymbolStorage
     bool TryGetAddress(Symbol symbol, out MemoryAddress address);
 
     /// <summary>
-    /// Reserves storage sized for <paramref name="value"/> and binds it to <paramref name="symbol"/>:
-    /// a <c>Static</c> local's own first-call allocation (<strong>MS-VBAL §5.4.3.1</strong>: module
-    /// extent, so it must persist past its own frame popping) chiefly. This is a storage-only
-    /// operation: it never affects name resolution, so it is never how a symbol's name itself becomes
-    /// resolvable; that rides on its own declaring symbol instead (a procedure's own
-    /// <c>Locals</c>/<c>Parameters</c>), the same way calling this twice for an already-allocated
-    /// symbol is safe (a fresh allocation, the previous one freed first) but never necessary.
+    /// Reserves storage sized for <paramref name="value"/> and binds it to <paramref name="symbol"/>, chiefly for
+    /// a <c>Static</c> local's first-call allocation (<strong>MS-VBAL §5.4.3.1</strong>: module extent, so the
+    /// storage outlives the local's frame). It does not affect name resolution: a symbol's name resolves through
+    /// its declaring symbol (a procedure's <c>Locals</c> and <c>Parameters</c>). Calling it for a symbol that is
+    /// already allocated frees the previous allocation and makes a new one.
     /// </summary>
     /// <param name="symbol">The symbol to reserve storage for.</param>
     /// <param name="value">The value to seed the new storage with.</param>

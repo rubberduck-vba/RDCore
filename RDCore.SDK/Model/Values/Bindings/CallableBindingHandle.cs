@@ -49,7 +49,7 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// Invokes the procedure and returns the outcome of the call as a result, the way the semantics of the language do:
     /// an error raised in the procedure, that nothing handled, is in the result rather than thrown.
     /// </summary>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     /// <param name="args">The arguments of the call, without the <c>Me</c> of a member of a class, which the handle passes itself.</param>
     /// <returns>The result of the call: the value the procedure returns (the <c>Void</c> value for a <c>Sub</c>), or the run-time error it raised.</returns>
     public RuntimeSemanticsEvaluationResult Call(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
@@ -58,7 +58,7 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// <summary>
     /// Invokes the procedure and returns the runtime value it returns - the <c>HRESULT</c> <c>S_OK</c>, for a <c>Sub</c>.
     /// </summary>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     /// <param name="args">The arguments of the call, without the <c>Me</c> of a member of a class, which the handle passes itself.</param>
     /// <remarks>
     /// 👉 A caller that handles the errors of the program, or needs the <em>typed</em> value of the call, uses <see cref="Call"/>, which

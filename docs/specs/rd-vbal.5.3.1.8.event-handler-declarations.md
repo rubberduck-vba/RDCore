@@ -10,7 +10,7 @@ A procedure of a class module handles an event when its name is `VariableName_Ev
 
 A handler is invalid when it is not a subroutine, or when its parameter list is not compatible with the event's:
 the same number of parameters, each of the same type and parameter mechanism. The parameters may differ in name, and in
-whether the mechanism is written out. [ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html)
+whether the mechanism is written out. `ClassModuleEventSemantics`
 reports it as [VBC09326](../diagnostics/vbc09326.md). It decides by the name alone: a procedure that only begins with a
 `WithEvents` variable's name and an underscore is no handler, and neither is one named for a variable that is not
 `WithEvents`; neither is checked.
