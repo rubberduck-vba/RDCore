@@ -41,7 +41,17 @@ public sealed class ConfigCommandTests
 
     // the manifest of the diagnostics extension, as describe-ext writes it.
     private static ExtensionInfo Manifest()
-        => new ExtensionInfo("RDCore.Diagnostics.exe", "RDCore.Diagnostics", new Version(1, 0), "", "", "", "", []).WithSettingsOf(typeof(DiagnosticsOptions).Assembly);
+        => new ExtensionInfo
+        {
+            Name = "RDCore.Diagnostics.exe",
+            Title = "RDCore.Diagnostics",
+            Version = new Version(1, 0),
+            Publisher = "",
+            PublisherWebUrl = "",
+            Description = "",
+            FileHash = "",
+            Capabilities = [],
+        }.WithSettingsOf(typeof(DiagnosticsOptions).Assembly);
 
     private ConfigCommand Sut => new(_settings);
 

@@ -8,24 +8,69 @@ namespace RDCore.SDK.Extensibility;
 /// <remarks>
 /// 🧩 This is how RDCore recognizes an extension as such. This file should be marked as <strong>read-only</strong> at the OS level.
 /// </remarks>
-/// <param name="Name">The name of the extension executable (.exe).</param>
-/// <param name="Title">The <em>friendly name</em> / title of the extension. This should also be the name of the folder.</param>
-/// <param name="Version">The version of the extension.</param>
-/// <param name="Publisher">The name of the publisher.</param>
-/// <param name="PublisherWebUrl">The publisher's web URL.</param>
-/// <param name="Description">A short description of the extension.</param>
-/// <param name="Signature">The <em>binary signature</em> of the extension executable.</param>
-/// <param name="Capabilities">The <em>advertised capabilities</em> of the extension.</param>
-public record class ExtensionInfo(
-    string Name,
-    string Title,
-    Version Version,
-    string Publisher,
-    string PublisherWebUrl,
-    string Description,
-    string Signature,
-    PlatformExtensionServerCapability[] Capabilities)
+public record class ExtensionInfo
 {
+    private readonly string? _id;
+
+    /// <summary>
+    /// The name of the extension executable (.exe).
+    /// </summary>
+    public required string Name { get; init; }
+
+    /// <summary>
+    /// The <em>friendly name</em> / title of the extension. This should also be the name of the folder.
+    /// </summary>
+    public required string Title { get; init; }
+
+    /// <summary>
+    /// The stable identifier of the extension; its <see cref="Title"/> when the manifest declares none.
+    /// </summary>
+    public string Id
+    {
+        get => _id ?? Title;
+        init => _id = value;
+    }
+
+    /// <summary>
+    /// The version of the extension.
+    /// </summary>
+    public required Version Version { get; init; }
+
+    /// <summary>
+    /// The name of the publisher.
+    /// </summary>
+    public required string Publisher { get; init; }
+
+    /// <summary>
+    /// The publisher's web URL.
+    /// </summary>
+    public required string PublisherWebUrl { get; init; }
+
+    /// <summary>
+    /// A short description of the extension.
+    /// </summary>
+    public required string Description { get; init; }
+
+    /// <summary>
+    /// The <em>file hash</em> of the extension executable: its base64-encoded SHA-512 hash.
+    /// </summary>
+    public required string FileHash { get; init; }
+
+    /// <summary>
+    /// The <em>advertised capabilities</em> of the extension.
+    /// </summary>
+    public required PlatformExtensionServerCapability[] Capabilities { get; init; }
+
+    /// <summary>
+    /// The three-letter prefix of the diagnostic codes the extension's publisher issues; <c>null</c> for none.
+    /// </summary>
+    public string? DiagnosticPrefix { get; init; }
+
+    /// <summary>
+    /// The version of <c>RDCore.SDK</c> the extension was built against, as its assembly references it; <c>null</c> when the manifest does not say.
+    /// </summary>
+    public Version? SdkVersion { get; init; }
+
     /// <summary>
     /// The settings the extension is configured with (<see cref="ExtensionSettingsAttribute"/>), without their descriptions, which are in
     /// <see cref="SettingDescriptions"/>; none for an extension that has none.

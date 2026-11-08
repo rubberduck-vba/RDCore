@@ -178,11 +178,11 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The &apos;Signature&apos; specified in the extension manifest does not match the signature (file hash) of the server executable. The executable file may have been tampered with..
+        ///   Looks up a localized string similar to The &apos;FileHash&apos; specified in the extension manifest does not match the file hash (SHA-512) of the server executable. The executable file may have been tampered with..
         /// </summary>
-        internal static string ValidationFlags_SignatureMismatch {
+        internal static string ValidationFlags_FileHashMismatch {
             get {
-                return ResourceManager.GetString("ValidationFlags_SignatureMismatch", resourceCulture);
+                return ResourceManager.GetString("ValidationFlags_FileHashMismatch", resourceCulture);
             }
         }
         

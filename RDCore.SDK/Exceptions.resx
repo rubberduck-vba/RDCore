@@ -222,8 +222,8 @@
   <data name="ValidationFlags_FileNotFound" xml:space="preserve">
     <value>The 'Name' specified in the extension manifest does not point to an existing file. The server executable may have been moved, renamed, or deleted.</value>
   </data>
-  <data name="ValidationFlags_SignatureMismatch" xml:space="preserve">
-    <value>The 'Signature' specified in the extension manifest does not match the signature (file hash) of the server executable. The executable file may have been tampered with.</value>
+  <data name="ValidationFlags_FileHashMismatch" xml:space="preserve">
+    <value>The 'FileHash' specified in the extension manifest does not match the file hash (SHA-512) of the server executable. The executable file may have been tampered with.</value>
   </data>
   <data name="ValidationFlags_InvalidCertificate" xml:space="preserve">
     <value>The certificate associated with this extension is invalid or expired.</value>

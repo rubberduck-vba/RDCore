@@ -18,7 +18,17 @@ public sealed class CliCommandProviderTests
     }
 
     private static ExtensionInfo Extension(params PlatformExtensionServerCapability[] capabilities)
-        => new("Ext.exe", "Ext", new Version(1, 0), "pub", "", "desc", "sig", capabilities);
+        => new()
+        {
+            Name = "Ext.exe",
+            Title = "Ext",
+            Version = new Version(1, 0),
+            Publisher = "pub",
+            PublisherWebUrl = "",
+            Description = "desc",
+            FileHash = "hash",
+            Capabilities = capabilities,
+        };
 
     [TestMethod]
     public void Native_ReturnsInjectedCommands()
