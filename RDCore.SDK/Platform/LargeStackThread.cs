@@ -19,7 +19,7 @@ namespace RDCore.SDK.Platform;
 /// </para>
 /// <para>
 /// The work runs in the caller's culture and UI culture, which say what its messages are written in. Work that is already running on such a thread and waited for
-/// (<see cref="Run{T}"/>) runs where it is, so that a parse made by a load takes no second thread. Work that is not waited for (<see cref="Start(Action, CancellationToken)"/>) runs on
+/// (<see cref="Run{T}"/>) runs where it is, so that a parse made by a load takes no second thread. Work that is not waited for (<see cref="Start"/>) runs on
 /// at most <see cref="StartedAtOnce"/> threads at a time, and the rest of it waits for one of them to be done.
 /// </para>
 /// </remarks>
@@ -31,7 +31,7 @@ public static class LargeStackThread
     public const int StackSize = 256 * 1024 * 1024;
 
     /// <summary>
-    /// How many threads run the work <see cref="Start(Action, CancellationToken)"/> is given at the same time: as many as there are processors, and at least 2.
+    /// How many threads run the work <see cref="Start"/> is given at the same time: as many as there are processors, and at least 2.
     /// </summary>
     public static int StartedAtOnce { get; } = Math.Max(2, Environment.ProcessorCount);
 
@@ -41,7 +41,7 @@ public static class LargeStackThread
     private static bool _isLargeStack;
 
     /// <summary>
-    /// Whether the current thread is one of <see cref="StackSize"/>: one <see cref="Run{T}"/> or either <c>Start</c> made, or a program's thread
+    /// Whether the current thread is one of <see cref="StackSize"/>: one <see cref="Run{T}"/> or <see cref="Start"/> made, or a program's thread
     /// (<see cref="NewThread"/>).
     /// </summary>
     /// <remarks>
@@ -61,7 +61,7 @@ public static class LargeStackThread
     /// <remarks>
     /// <para>An exception <paramref name="work"/> throws is rethrown with the stack trace it was thrown with.</para>
     /// <para>
-    /// The thread is the work's own, made for it, and counted by nothing: it takes no thread of those <see cref="Start(Action, CancellationToken)"/> runs work on, and does not wait for one
+    /// The thread is the work's own, made for it, and counted by nothing: it takes no thread of those <see cref="Start"/> runs work on, and does not wait for one
     /// of them to be free. A request a client waits for is never queued behind work in the background. On a thread that is already one of
     /// <see cref="StackSize"/> (<see cref="IsCurrent"/>), the work runs where it is, and makes no thread.
     /// </para>
@@ -110,34 +110,10 @@ public static class LargeStackThread
     /// </remarks>
     public static Task Start(Action work, CancellationToken token = default) => Start(work, _started, token);
 
-    /// <summary>
-    /// Starts <paramref name="work"/> on a thread of <see cref="StackSize"/> once <paramref name="threads"/> has one free, and does not wait for it.
-    /// </summary>
-    /// <param name="work">The work.</param>
-    /// <param name="threads">
-    /// Counts the threads that this work, and the other work started with the same semaphore, runs on: the work waits for it, and releases it once it is
-    /// done. Its count is how many of them run at the same time.
-    /// </param>
-    /// <param name="token">Cancels the work while it waits for a thread: it is then never run. Once it runs, stopping it is the work's own business.</param>
-    /// <returns>
-    /// A task that completes when the work does: faulted with what it throws, and cancelled when what it throws is an <see cref="OperationCanceledException"/>,
-    /// or when <paramref name="token"/> cancels it before it runs.
-    /// </returns>
-    /// <exception cref="ArgumentNullException"><paramref name="work"/> or <paramref name="threads"/> is <see langword="null"/>.</exception>
-    /// <remarks>
-    /// <para>
-    /// Work of one kind, bounded by a count of its own, neither waits for the threads <see cref="Start(Action, CancellationToken)"/> runs work on nor holds
-    /// any of them: it waits only for the work started with the same <paramref name="threads"/>. The work runs in the caller's culture and UI culture.
-    /// </para>
-    /// <para>
-    /// A thread freed while <paramref name="token"/> cancels the wait is not given to the cancelled work, whichever comes first. Work started with
-    /// <paramref name="threads"/> must never wait for other work started with it: if every thread it counts did, none would be left to run it.
-    /// </para>
-    /// </remarks>
-    public static Task Start(Action work, SemaphoreSlim threads, CancellationToken token = default)
+    // the work runs once one of the threads counted by the semaphore is free.
+    internal static Task Start(Action work, SemaphoreSlim threads, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(work);
-        ArgumentNullException.ThrowIfNull(threads);
         var (culture, uiCulture) = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
         return StartWhenAThreadIsFree(work, threads, culture, uiCulture, token);
     }
@@ -191,7 +167,7 @@ public static class LargeStackThread
     /// <exception cref="ArgumentNullException"><paramref name="work"/> is <see langword="null"/>.</exception>
     /// <remarks>
     /// The thread starts in the culture every thread starts in, and not the caller's: what runs on it for as long as a program pleases sets its own. It is not
-    /// counted among the threads of <see cref="Start(Action, CancellationToken)"/>.
+    /// counted among the threads of <see cref="Start"/>.
     /// </remarks>
     public static Thread NewThread(Action work, string name)
     {
