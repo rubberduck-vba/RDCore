@@ -8,8 +8,12 @@ namespace RDCore.SDK.Extensibility;
 /// </summary>
 /// <remarks>
 /// What this says is written into the extension's manifest when it is described (<see cref="IExtensionsProvider.Describe"/>), as
-/// <see cref="ExtensionInfo.DiagnosticPrefix"/>. The language server starts one extension of a prefix: one that declares a prefix another extension of the
-/// platform already declares, or one of the language's own (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>), is not started.
+/// <see cref="ExtensionInfo.DiagnosticPrefix"/>. The language server starts an extension only when its prefix is its own (<see cref="IExtensionsProvider.Discover"/>):
+/// the first-party prefixes (<c>RDC</c>, <c>RDX</c>) are the core extension's, the language's (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>) are no extension's, and two
+/// extensions that declare the same prefix are neither started.
+/// <para>
+/// A finding the extension reports under another prefix is dropped, and one under its own prefix is reported under the extension's name.
+/// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
 public sealed class DiagnosticPrefixAttribute : Attribute

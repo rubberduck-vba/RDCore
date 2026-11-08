@@ -144,9 +144,15 @@ public class ExtensionsClient(
     /// Returns all discovered <strong>valid</strong> extensions.
     /// </returns>
     /// <remarks>
-    /// The folders are read in the order of their names. One extension is found of a diagnostic prefix (<see cref="ExtensionInfo.DiagnosticPrefix"/>): one that
-    /// declares a prefix an extension found before it declares, one of the language's own (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>), or a prefix that is not three
-    /// letters <c>A</c> to <c>Z</c>, is not.
+    /// An extension is found when it is the only one of its diagnostic prefix (<see cref="ExtensionInfo.DiagnosticPrefix"/>), whatever the order of the folders:
+    /// <list type="bullet">
+    /// <item>the prefixes of the platform's first-party extensions (<c>RDC</c>, <c>RDX</c>) are the core extension's, the one the platform manifest bundles
+    /// (<see cref="PlatformManifest.CoreExtension"/>): another extension that declares one is not found;</item>
+    /// <item>the language's own prefixes (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>) are the platform's: an extension that declares one is not found;</item>
+    /// <item>two extensions that declare the same other prefix are neither found;</item>
+    /// <item>an extension that declares a prefix that is not three letters <c>A</c> to <c>Z</c> is not found.</item>
+    /// </list>
+    /// Each extension that is not found for its prefix is logged.
     /// </remarks>
     public IEnumerable<ExtensionInfo> Discover()
     {
@@ -158,15 +164,7 @@ public class ExtensionsClient(
             yield break;
         }
 
-        // the language's own codes are the platform's, and no extension reports under them.
-        var prefixes = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            [RDCoreDiagnosticCode.CompilePrefix] = nameof(RDCore),
-            [RDCoreDiagnosticCode.RuntimePrefix] = nameof(RDCore),
-            [RDCoreDiagnosticCode.ApplicationPrefix] = nameof(RDCore),
-        };
-
-        // the order of the folders decides which of two extensions of a prefix is found: it is the same on every file system.
+        var valid = new List<(string Title, ExtensionInfo Extension)>();
         foreach (var folder in ExtensionsFolder.EnumerateDirectories().OrderBy(folder => folder.Name, StringComparer.OrdinalIgnoreCase))
         {
             var title = folder.Name;
@@ -174,20 +172,9 @@ public class ExtensionsClient(
             if (manifest is not null && ReadManifest(manifest, title) is ExtensionInfo extensionInfo)
             {
                 var validation = _validation.Validate(extensionInfo);
-                if (validation == ExtensionValidationFlags.NoFlags && !ClaimPrefix(prefixes, extensionInfo))
-                {
-                    continue;
-                }
-
                 if (validation == ExtensionValidationFlags.NoFlags)
                 {
-                    _extensions[title] = extensionInfo;
-                    yield return extensionInfo;
-                    if (logger.IsEnabled(LogLevel.Information))
-                    {
-                        var message = TraceMessages.ValidExtensionFound.Replace("{$NAME}", extensionInfo.Name);
-                        logger.LogInformation("{message}", message);
-                    }
+                    valid.Add((title, extensionInfo));
                 }
                 else if(logger.IsEnabled(LogLevel.Warning))
                 {
@@ -205,36 +192,89 @@ public class ExtensionsClient(
                 logger.LogWarning("No manifest was found for extension '{title}'.", title);
             }
         }
+
+        var coreExtension = CoreExtension();
+        var refused = RefusedForTheirPrefix(valid, coreExtension);
+        foreach (var (title, found) in valid.Where(found => !refused.Contains(found.Title)))
+        {
+            var extensionInfo = found with { IsCoreExtension = string.Equals(title, coreExtension, StringComparison.OrdinalIgnoreCase) };
+            _extensions[title] = extensionInfo;
+            yield return extensionInfo;
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                var message = TraceMessages.ValidExtensionFound.Replace("{$NAME}", extensionInfo.Name);
+                logger.LogInformation("{message}", message);
+            }
+        }
     }
 
-    // whether the extension's diagnostic prefix is its own: none, or one no extension found before it declares.
-    private bool ClaimPrefix(Dictionary<string, string> prefixes, ExtensionInfo extension)
+    // the extensions whose diagnostic prefix is not theirs alone, by title: what is decided does not depend on the order they are found in.
+    private HashSet<string> RefusedForTheirPrefix(IReadOnlyList<(string Title, ExtensionInfo Extension)> found, string coreExtension)
     {
-        if (extension.DiagnosticPrefix is not { } prefix)
+        var refused = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var vendors = new List<(string Title, string Prefix)>();
+        foreach (var (title, extension) in found)
         {
-            return true;
-        }
-
-        if (!RDCoreDiagnosticCode.IsPrefix(prefix))
-        {
-            if (logger.IsEnabled(LogLevel.Warning))
+            if (extension.DiagnosticPrefix is not { } prefix)
             {
-                logger.LogWarning("🚫 Extension '{title}' declares the diagnostic prefix '{prefix}', which is not three letters A to Z: it is not started.", extension.Title, prefix);
+                continue;
             }
-            return false;
-        }
 
-        if (prefixes.TryGetValue(prefix, out var owner))
-        {
-            if (logger.IsEnabled(LogLevel.Warning))
+            var reason = !RDCoreDiagnosticCode.IsPrefix(prefix) ? "which is not three letters A to Z"
+                : prefix is RDCoreDiagnosticCode.CompilePrefix or RDCoreDiagnosticCode.RuntimePrefix or RDCoreDiagnosticCode.ApplicationPrefix ? "which is the language's own"
+                : prefix is RDCoreDiagnosticCode.CorePrefix or RDCoreDiagnosticCode.ExtensionPrefix && !string.Equals(title, coreExtension, StringComparison.OrdinalIgnoreCase)
+                    ? $"which is the platform's core extension's ('{coreExtension}')"
+                : null;
+            if (reason is not null)
             {
-                logger.LogWarning("🚫 Extension '{title}' declares the diagnostic prefix '{prefix}', which '{owner}' already declares: it is not started.", extension.Title, prefix, owner);
+                refused.Add(title);
+                LogRefused(title, prefix, reason);
             }
-            return false;
+            else if (!RDCoreDiagnosticCode.IsFirstPartyPrefix(prefix))
+            {
+                vendors.Add((title, prefix));
+            }
         }
 
-        prefixes[prefix] = extension.Title;
-        return true;
+        foreach (var shared in vendors.GroupBy(vendor => vendor.Prefix, StringComparer.Ordinal).Where(group => group.Count() > 1))
+        {
+            foreach (var (title, prefix) in shared)
+            {
+                refused.Add(title);
+                var others = string.Join("', '", shared.Select(vendor => vendor.Title).Where(other => other != title));
+                LogRefused(title, prefix, $"which '{others}' also declares");
+            }
+        }
+
+        return refused;
+    }
+
+    private void LogRefused(string title, string prefix, string reason)
+    {
+        if (logger.IsEnabled(LogLevel.Warning))
+        {
+            logger.LogWarning("🚫 Extension '{title}' declares the diagnostic prefix '{prefix}', {reason}: it is not started.", title, prefix, reason);
+        }
+    }
+
+    // the extension the platform bundles, as its manifest names it; the one it has always bundled when there is no manifest to say, or it does not.
+    private string CoreExtension()
+    {
+        var path = environment.ManifestPath;
+        if (string.IsNullOrEmpty(path) || !fileSystem.File.Exists(path))
+        {
+            return PlatformManifest.DefaultCoreExtension;
+        }
+
+        try
+        {
+            var manifest = JsonSerializer.Deserialize<PlatformManifest>(fileSystem.File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return string.IsNullOrEmpty(manifest?.CoreExtension) ? PlatformManifest.DefaultCoreExtension : manifest.CoreExtension;
+        }
+        catch (JsonException)
+        {
+            return PlatformManifest.DefaultCoreExtension;
+        }
     }
 
     // dispose the read stream: a leaked handle blocks a later rewrite (e.g. describe-ext --overwrite).

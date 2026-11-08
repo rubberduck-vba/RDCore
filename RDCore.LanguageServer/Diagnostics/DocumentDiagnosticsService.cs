@@ -325,7 +325,7 @@ internal sealed class DocumentDiagnosticsService(
             var response = await provider.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(
                 new DiagnoseDocumentParams { Json = payloadJson }, token);
 
-            return response?.Diagnostics is { } diagnostics ? [.. diagnostics] : [];
+            return response?.Diagnostics is { } diagnostics ? ExtensionFindings.Admit(provider.ExtensionInfo, [.. diagnostics], logger) : [];
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

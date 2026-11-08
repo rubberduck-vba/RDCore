@@ -76,7 +76,8 @@ public sealed class DocumentDiagnosticsServiceTests
             Range = new Range(new Position(line, 0), new Position(line, 4)),
         };
 
-    private static ExtensionInfo Manifest(string title, string capability) => new()
+    // the platform bundles RDCore.Diagnostics: its findings are the platform's own.
+    private static ExtensionInfo Manifest(string title, string capability, string? prefix = null) => new()
     {
         Name = $"{title}.exe",
         Title = title,
@@ -86,12 +87,17 @@ public sealed class DocumentDiagnosticsServiceTests
         Description = "desc",
         FileHash = "hash",
         Capabilities = [new PlatformExtensionServerCapability(capability)],
+        DiagnosticPrefix = prefix ?? (title == "RDCore.Diagnostics" ? "RDC" : null),
+        IsCoreExtension = title == "RDCore.Diagnostics",
     };
 
     private IRDCoreClientApp Provider(string title, int sourceVersion, params Diagnostic[] diagnostics)
+        => Provider(Manifest(title, nameof(DiagnoseDocument)), sourceVersion, diagnostics);
+
+    private IRDCoreClientApp Provider(ExtensionInfo manifest, int sourceVersion, params Diagnostic[] diagnostics)
     {
         var app = Substitute.For<IRDCoreClientApp>();
-        app.ExtensionInfo.Returns(Manifest(title, nameof(DiagnoseDocument)));
+        app.ExtensionInfo.Returns(manifest);
         app.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         app.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
             .Returns(new DiagnoseDocumentResult { Diagnostics = diagnostics, SourceVersion = sourceVersion });
@@ -375,6 +381,22 @@ public sealed class DocumentDiagnosticsServiceTests
         var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
 
         Assert.AreEqual(2, result.Diagnostics.Count, "the diagnostic reported by both providers is collapsed");
+    }
+
+    [TestMethod]
+    public async Task AnotherExtensionsFindings_AreItsOwn_OfThePrefixItDeclares_AndNoOtherReachesThePull()
+    {
+        var document = Document();
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(
+            Provider("RDCore.Diagnostics", 1, Diag(1)),
+            Provider(Manifest("Vendor", nameof(DiagnoseDocument), prefix: "XYZ"), 1, Diag(2, code: "XYZ00042", source: "RDCore"), Diag(3, code: "RDC00101")));
+
+        var result = await Sut().GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        CollectionAssert.AreEquivalent(new[] { ("VBC01027", "RDCore"), ("XYZ00042", "Vendor") },
+            result.Diagnostics.Select(diagnostic => (diagnostic.Code!.Value.String, diagnostic.Source)).ToArray());
     }
 
     // a report of the text there was would carry an id the client sends again, and be answered unchanged for findings it never had.
