@@ -353,12 +353,13 @@ public sealed class FlowSoundnessTests
         Assert.DoesNotContain(analyzed.Variable("n"), analyzed.Accesses.OutliveTheActivation, "a ByVal parameter is not one of them");
     }
 
-    // a function that returns an array and has no parameters is called with none, and what is written after its name indexes the result.
+    // what a function that returns an array returns is indexed after its own argument list, `Rows()(i)`: the index is no argument the function may write to.
+    // `Rows(i)` is a call with an argument, which a function that has no parameters is not compiled with.
     [TestMethod]
     public void S26_AnIndexOfWhatAParameterlessArrayFunctionReturns_IsNoDefinition()
     {
         const string rows = Others + "\n\nPrivate Function Rows() As Long()\nEnd Function";
-        var analyzed = Analyze("Dim x As Long\nDim i As Long\nx = Rows(i)\nDebug.Print i", others: rows);
+        var analyzed = Analyze("Dim x As Long\nDim i As Long\nx = Rows()(i)\nDebug.Print i", others: rows);
         Assert.IsFalse(analyzed.Defines(2, analyzed.Variable("i")));
     }
 

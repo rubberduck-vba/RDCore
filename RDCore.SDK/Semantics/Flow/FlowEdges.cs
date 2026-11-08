@@ -22,7 +22,7 @@ namespace RDCore.SDK.Semantics.Flow;
 /// is known only at run time.
 /// </para>
 /// </remarks>
-internal sealed class FlowEdges
+public sealed class FlowEdges
 {
     private readonly ImmutableArray<ControlFlowEdge>[] _successors;
     private readonly ImmutableArray<ControlFlowEdge>[] _predecessors;
@@ -44,11 +44,19 @@ internal sealed class FlowEdges
     /// </summary>
     public int Count => _successors.Length;
 
+    /// <summary>
+    /// The edges that leave a node: where control goes after it, normally or by an error.
+    /// </summary>
+    /// <param name="node">The offset of an instruction, or <see cref="ControlFlowGraph.Exit"/>, which has none.</param>
     public ImmutableArray<ControlFlowEdge> SuccessorsOf(int node) => _successors[node];
 
+    /// <summary>
+    /// The edges that reach a node: where control can come to it from, normally or by an error.
+    /// </summary>
+    /// <param name="node">The offset of an instruction, or <see cref="ControlFlowGraph.Exit"/>.</param>
     public ImmutableArray<ControlFlowEdge> PredecessorsOf(int node) => _predecessors[node];
 
-    public static FlowEdges Of(ControlFlowGraph graph, ImmutableHashSet<ErrorHandlingState>[] states, IReadOnlySet<int> faults)
+    internal static FlowEdges Of(ControlFlowGraph graph, ImmutableHashSet<ErrorHandlingState>[] states, IReadOnlySet<int> faults)
     {
         var items = graph.Instructions.Items;
         var successors = Enumerable.Range(0, items.Length + 1).Select(_ => new List<ControlFlowEdge>()).ToArray();
