@@ -16,7 +16,7 @@ namespace RDCore.SDK.Server;
 /// and initializes, which it tells the same <c>locale</c> - speaks it too.
 /// </para>
 /// </remarks>
-public static class ClientLocale
+internal static class ClientLocale
 {
     /// <summary>
     /// The language tag a client says the language of its user interface by (<c>fr-CA</c>); <see langword="null"/> for the invariant culture, which has none.

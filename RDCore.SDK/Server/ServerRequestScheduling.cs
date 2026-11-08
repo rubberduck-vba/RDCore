@@ -5,7 +5,7 @@ namespace RDCore.SDK.Server;
 /// <summary>
 /// How an RDCore server schedules the requests and notifications it receives.
 /// </summary>
-public static class ServerRequestScheduling
+internal static class ServerRequestScheduling
 {
     /// <summary>
     /// Has the server answer every request it receives, whatever notifications arrive while the request runs.

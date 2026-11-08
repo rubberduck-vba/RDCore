@@ -25,7 +25,7 @@ namespace RDCore.SDK.Server;
 /// </para>
 /// </remarks>
 /// <param name="inner">The writer of the stream the server's messages are written to.</param>
-public sealed class ServerOutput(PipeWriter inner) : PipeWriter
+internal sealed class ServerOutput(PipeWriter inner) : PipeWriter
 {
     private static readonly FlushResult Ended = new(isCanceled: false, isCompleted: true);
 

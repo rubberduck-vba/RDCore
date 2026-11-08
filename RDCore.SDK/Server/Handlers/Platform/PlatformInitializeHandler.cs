@@ -20,7 +20,7 @@ public sealed record class PlatformComponentContext(CoreServerComponent Componen
 /// and records what the caller said it expects of this server.
 /// </summary>
 [Method(RDCorePlatformProtocol.PlatformInitialize, Direction.ClientToServer)]
-public class PlatformInitializeHandler(
+internal class PlatformInitializeHandler(
     ILogger<IJsonRpcHandler> logger,
     PlatformComponentContext context,
     IPlatformClientCapabilitiesService clientCapabilities)

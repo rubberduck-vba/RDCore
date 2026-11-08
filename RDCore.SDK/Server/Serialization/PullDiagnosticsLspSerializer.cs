@@ -45,7 +45,7 @@ namespace RDCore.SDK.Server.Serialization;
 /// threads that find it reset wrap it once.
 /// </para>
 /// </remarks>
-public sealed class PullDiagnosticsLspSerializer
+internal sealed class PullDiagnosticsLspSerializer
     : LspSerializer, OmniSharp.Extensions.JsonRpc.ISerializer
 {
     private readonly object _repairing = new();

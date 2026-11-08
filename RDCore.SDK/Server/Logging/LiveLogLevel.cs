@@ -11,7 +11,7 @@ namespace RDCore.SDK.Server.Logging;
 /// a level of its own is added with <see cref="LogLevel.Trace"/>, and this decides.
 /// </remarks>
 /// <param name="minimum">The level the component starts with.</param>
-public sealed class LiveLogLevel(LogLevel minimum)
+internal sealed class LiveLogLevel(LogLevel minimum)
 {
     private volatile int _minimum = (int)minimum;
 
