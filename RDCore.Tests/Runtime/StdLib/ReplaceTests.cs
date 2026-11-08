@@ -5,6 +5,7 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.StdLib;
 

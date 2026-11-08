@@ -16,6 +16,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.Diagnostics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Diagnostics;
 
@@ -113,8 +114,8 @@ public sealed class DiagnoseDocumentHandlerTests
     public async Task WhatTheHostFoundWrongWithTheCode_IsReportedAsCompileErrors()
     {
         var semantics = Semantics(
-            declarationErrors: [new CompileErrorDto(VBCompileErrorId.DuplicateDeclaration, Somewhere, "Total")],
-            procedures: [Procedure([new CompileErrorDto(VBCompileErrorId.ExitDoNotWithinDoLoop, Somewhere, "Exit Do")])]);
+            declarationErrors: [CompileErrorDto.From(VBCompileErrorInfo.For(VBCompileErrorId.DuplicateDeclaration, Somewhere, "Total"))],
+            procedures: [Procedure([CompileErrorDto.From(VBCompileErrorInfo.For(VBCompileErrorId.ExitDoNotWithinDoLoop, Somewhere, "Exit Do"))])]);
 
         var result = await HandleAsync(RequestFor(CleanModule, out _, semantics: semantics));
 

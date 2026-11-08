@@ -12,6 +12,7 @@ using RDCore.SDK.Runtime.StdLib;
 using System.Diagnostics.CodeAnalysis;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Services;
 
@@ -20,8 +21,8 @@ namespace RDCore.Runtime.LanguageCore.Services;
 /// <see cref="ScopeTree"/> from the scope a lookup originates in — the first tier that declares the
 /// name binds it (<strong>MS-VBAL §5.6.10</strong>, <strong>RD-VBAL §2.3.1.2</strong>). A name declared
 /// more than once in a single module or procedure scope resolves as
-/// <see cref="SymbolResolutionResult.Duplicate"/>; more than once at the project or global tier
-/// resolves as <see cref="SymbolResolutionResult.Ambiguous"/>.
+/// <see cref="VBCompileErrorId.DuplicateDeclaration"/>; more than once at the project or global tier
+/// resolves as <see cref="VBCompileErrorId.AmbiguousName"/>.
 /// </summary>
 /// <remarks>
 /// <see cref="ResolveValue"/> and <see cref="ResolveType(string, ScopeKind, Uri)"/> walk the same tree under the two binding
@@ -38,7 +39,7 @@ namespace RDCore.Runtime.LanguageCore.Services;
 /// shadows every referenced library, and a library shadows one the project references after it: the earlier
 /// reference has the higher reference precedence (<strong>MS-VBAL §4.1</strong>,
 /// <see cref="SymbolProperties.LibraryPriority"/>); candidates still tied after that, of the one project with the highest reference precedence, are an ambiguous name, a result that carries
-/// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> and the candidates rather than an unbound one.
+/// <see cref="VBCompileErrorId.AmbiguousName"/> and the candidates rather than an unbound one.
 /// </para>
 /// </remarks>
 /// <param name="scopeTree">The tree to resolve against.</param>

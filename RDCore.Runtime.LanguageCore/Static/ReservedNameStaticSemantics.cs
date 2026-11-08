@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
 using System.Collections.Immutable;
 using RDCore.SDK;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 

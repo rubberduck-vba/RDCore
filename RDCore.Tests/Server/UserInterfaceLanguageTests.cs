@@ -8,6 +8,7 @@ using RDCore.SDK.Server;
 using System.Globalization;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Server;
 

@@ -49,21 +49,4 @@ public record class VBApplicationErrorInfo(int CustomErrorCode, SourceLocation L
     /// which every other error has, one an <c>Error</c> statement raises among them (recorded in Excel: oracle\s61 H07-H10).
     /// </summary>
     public string? Source { get; init; }
-
-    /// <summary>
-    /// Creates the error an <c>Error</c> statement or an <c>Err.Raise</c> generates.
-    /// </summary>
-    /// <remarks>
-    /// The description is the raiser's own when it supplied one. Unspecified, <strong>MS-VBAL
-    /// §6.1.3.2.1.2</strong> says to use "the String that would be returned by the Error function" for
-    /// <paramref name="errorNumber"/>, or "Application-defined or object-defined error" when it
-    /// corresponds to no VBA error, which is what <see cref="VBRuntimeErrorInfo.GetErrorString"/> falls
-    /// back to.
-    /// </remarks>
-    /// <param name="errorNumber">The error code the workspace raised.</param>
-    /// <param name="location">The document location of the <c>Error</c> statement or <c>Err.Raise</c> invocation.</param>
-    /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
-    /// <param name="description">The description the raiser supplied, or <c>null</c> to derive one from <paramref name="errorNumber"/>.</param>
-    public static VBApplicationErrorInfo Raised(int errorNumber, SourceLocation location, string verbose, string? description = null)
-        => new(errorNumber, location, description ?? VBRuntimeErrorInfo.GetErrorString((VBRuntimeErrorId)errorNumber), verbose);
 }

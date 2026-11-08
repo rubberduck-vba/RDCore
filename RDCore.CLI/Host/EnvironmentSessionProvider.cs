@@ -3,6 +3,7 @@ using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
 using RDCore.External;
 using RDCore.External.Settings;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -10,6 +11,7 @@ using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.CLI.Host;
 
@@ -263,7 +265,7 @@ public sealed class EnvironmentSessionProvider(
 
         // a root that is no full path on this platform (file:///C:/... on Linux) is no folder here: resolving it would read the current directory, which may be gone.
         var root = workspaceRoot.LocalPath;
-        VBRuntimeErrorId? error = VBRuntimeErrorId.PathNotFound;
+        RDCoreDiagnosticCode? error = VBRuntimeErrorId.PathNotFound.ToCode();
         if (Path.IsPathFullyQualified(root))
         {
             // a client's file: URI may spell the drive in lower case (file:///c:/...), which CurDir would give back as it was set: a drive is its upper-case letter.
@@ -302,14 +304,14 @@ public sealed class EnvironmentSessionProvider(
             return;
         }
 
-        VBRuntimeErrorId? error;
+        RDCoreDiagnosticCode? error;
         try
         {
             error = _session.Files.TryChangeDirectory(before);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            error = VBRuntimeErrorId.PathNotFound;
+            error = VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
         if (error is not null && logger.IsEnabled(LogLevel.Warning))

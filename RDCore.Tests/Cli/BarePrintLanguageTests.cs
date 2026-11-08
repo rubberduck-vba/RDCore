@@ -3,6 +3,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Workspace;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 

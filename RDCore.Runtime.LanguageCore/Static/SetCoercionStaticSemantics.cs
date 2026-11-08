@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 

@@ -1,6 +1,7 @@
-﻿using RDCore.SDK.Model.Values.Intrinsic;
+﻿using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Semantics.Flags;
-namespace RDCore.SDK.Model.Errors;
+namespace RDCore.Runtime.LanguageCore.Errors;
 
 /// <summary>
 /// Formally encodes a range of integer values for all <see cref="VBSyntaxErrorInfo"/> and <see cref="VBCompileErrorInfo"/> errors.
@@ -655,7 +656,7 @@ public enum VBCompileErrorId
     ForEachMayOnlyIterateOverACollectionObjectOrAnArray = 9379,
     /// <summary>
     /// A module declares more than 10,000 names at module level: RD-VBA's cap, below the count MS-VBA compiles, with MS-VBA's message. Or a fixed-size array is
-    /// declared with more elements than an array holds in RD-VBA (<see cref="Values.Intrinsic.VBArrayValue.MaximumLength"/>), which MS-VBA allocates.<br/>
+    /// declared with more elements than an array holds in RD-VBA (<see cref="VBArrayValue.MaximumLength"/>), which MS-VBA allocates.<br/>
     /// <strong>MS-VBAL §5.2</strong> Module Declarations, which sets no limit.
     /// </summary>
     OutOfMemory = 9380,

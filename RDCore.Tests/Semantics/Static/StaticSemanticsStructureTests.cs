@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Workspace;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Static;
 

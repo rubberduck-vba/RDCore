@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Errors;
 using System.IO.Abstractions.TestingHelpers;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Files;
 

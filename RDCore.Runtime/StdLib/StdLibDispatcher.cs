@@ -16,6 +16,7 @@ using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Reflection;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
 

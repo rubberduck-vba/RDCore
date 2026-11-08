@@ -17,6 +17,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 

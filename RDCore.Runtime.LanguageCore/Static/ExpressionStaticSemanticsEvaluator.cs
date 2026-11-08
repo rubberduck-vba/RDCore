@@ -19,6 +19,7 @@ using RDCore.Runtime.LanguageCore.Services;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 

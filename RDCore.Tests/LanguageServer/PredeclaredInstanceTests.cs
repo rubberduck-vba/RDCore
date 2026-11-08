@@ -10,6 +10,7 @@ using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.LanguageServer;
 

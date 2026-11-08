@@ -25,7 +25,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <c>GoTo</c>/<c>On…GoTo</c>, a <see cref="InstructionKind.GoSub"/> lowered from <c>GoSub</c>, or an
 /// <see cref="InstructionKind.OnErrorGoTo"/>/<see cref="InstructionKind.ResumeLabel"/>, whose operand did
 /// not resolve to a label the procedure defines (lowering already reported the
-/// <see cref="RDCore.SDK.Model.Errors.VBCompileErrorId.LabelNotDefined"/> diagnostic for it), or for an
+/// <em>Label not defined</em> (<c>VBC09309</c>) diagnostic for it), or for an
 /// <see cref="InstructionKind.ExitLoop"/> lowering found no matching enclosing loop for. Unused
 /// otherwise.
 /// </param>

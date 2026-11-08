@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Model;
 

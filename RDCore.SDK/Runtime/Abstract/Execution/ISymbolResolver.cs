@@ -29,8 +29,8 @@ public interface ISymbolResolver
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
     /// <returns>
     /// A <see cref="SymbolResolutionResult"/>: the bound <see cref="Symbol"/>, an unbound result, or
-    /// a <see cref="Model.Errors.VBCompileErrorId.DuplicateDeclaration"/> /
-    /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
+    /// a <em>Duplicate declaration in current scope</em> (<c>VBC09303</c>) /
+    /// <em>Ambiguous name detected</em> (<c>VBC09301</c>) error with the colliding candidates.
     /// </returns>
     SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle);
 
@@ -49,8 +49,8 @@ public interface ISymbolResolver
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
     /// <returns>
     /// A <see cref="SymbolResolutionResult"/>: the bound <see cref="Symbol"/>, an unbound result, or
-    /// a <see cref="Model.Errors.VBCompileErrorId.DuplicateDeclaration"/> /
-    /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
+    /// a <em>Duplicate declaration in current scope</em> (<c>VBC09303</c>) /
+    /// <em>Ambiguous name detected</em> (<c>VBC09301</c>) error with the colliding candidates.
     /// </returns>
     SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle);
 
@@ -72,7 +72,7 @@ public interface ISymbolResolver
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from.</param>
     /// <returns>
     /// A <see cref="SymbolResolutionResult"/>: the bound <see cref="Symbol"/>, an unbound result, or
-    /// an <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
+    /// an <em>Ambiguous name detected</em> (<c>VBC09301</c>) error with the colliding candidates.
     /// </returns>
     SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle);
 
@@ -152,7 +152,7 @@ public interface ISymbolResolver
     /// <param name="handle">The <see cref="Uri"/> of the symbol the lookup originates from, which decides what is accessible.</param>
     /// <returns>
     /// A <see cref="SymbolResolutionResult"/> carrying the member, an unbound result when there is none, or an
-    /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> error with the colliding candidates.
+    /// <em>Ambiguous name detected</em> (<c>VBC09301</c>) error with the colliding candidates.
     /// </returns>
     SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle);
 }

@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 

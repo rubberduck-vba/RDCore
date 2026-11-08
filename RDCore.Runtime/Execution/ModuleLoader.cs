@@ -24,6 +24,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 

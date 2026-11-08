@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform.Protocol;
 using static RDCore.Tests.Cli.ModuleWorkspace;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 

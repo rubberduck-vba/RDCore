@@ -6,6 +6,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Platform.Components;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.CLI.Host;
 
@@ -140,7 +141,7 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             _logger.LogError(exception, "💬 The program's {Dialog} could not be relayed to the language server's client.", dialog);
-            throw new DialogNotAnsweredException(VBRuntimeErrorId.UnusableDialogAnswer,
+            throw new DialogNotAnsweredException(VBRuntimeErrorId.UnusableDialogAnswer.ToCode(),
                 string.Format(Resources.VBRuntimeError_UnusableDialogAnswer_NotRelayed, dialog, exception.Message));
         }
     }
@@ -148,6 +149,6 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
     private DialogNotAnsweredException Unanswered(VBRuntimeErrorId error, string message)
     {
         _logger.LogWarning("💬 {Message}", message);
-        return new DialogNotAnsweredException(error, message);
+        return new DialogNotAnsweredException(error.ToCode(), message);
     }
 }

@@ -15,6 +15,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.Runtime.LanguageCore.Static.Expressions;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Static.Expressions;
 

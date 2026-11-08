@@ -2,6 +2,7 @@ using NSubstitute;
 using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.StdLib;
 

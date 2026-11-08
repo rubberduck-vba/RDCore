@@ -11,6 +11,7 @@ using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
 using System.IO.Abstractions;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Diagnostics;
 

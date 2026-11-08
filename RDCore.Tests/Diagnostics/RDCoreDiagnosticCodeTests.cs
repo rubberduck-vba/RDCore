@@ -3,6 +3,7 @@ using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
@@ -49,6 +50,21 @@ public sealed class RDCoreDiagnosticCodeTests
     [DataRow("XYZ-0042")]
     public void TextThatIsNotACode_IsNotRead(string? text)
         => Assert.IsFalse(RDCoreDiagnosticCode.TryParse(text, out _));
+
+    [TestMethod]
+    public void ACode_TravelsAsItIsWritten()
+    {
+        var code = new RDCoreDiagnosticCode(RDCoreDiagnosticCode.CompilePrefix, 9303);
+
+        var json = PlatformJson.Serialize(code);
+
+        Assert.AreEqual("\"VBC09303\"", json);
+        Assert.AreEqual(code, PlatformJson.Deserialize<RDCoreDiagnosticCode>(json));
+    }
+
+    [TestMethod]
+    public void TextThatIsNotACode_DoesNotDeserializeToOne()
+        => Assert.ThrowsExactly<System.Text.Json.JsonException>(() => PlatformJson.Deserialize<RDCoreDiagnosticCode>("\"VBC9303\""));
 
     [TestMethod]
     public void ACoreDiagnostic_IsAnRdcCode_OfItsNumber()

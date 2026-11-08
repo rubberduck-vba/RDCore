@@ -18,6 +18,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing.AST;
 

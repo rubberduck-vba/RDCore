@@ -25,6 +25,7 @@ using RDCore.SDK.Semantics.Flags;
 using RDCore.Runtime.LanguageCore.Plans;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Operators;
 

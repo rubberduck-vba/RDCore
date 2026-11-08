@@ -2,6 +2,7 @@
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static.Abstract;
 

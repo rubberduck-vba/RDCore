@@ -1,4 +1,5 @@
 using static RDCore.Tests.Cli.ModuleWorkspace;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 
@@ -244,7 +245,7 @@ public sealed class MsVbaErrorParityTests
 
         var facts = model.Procedures.Single().Runtime;
         Assert.IsNotNull(facts, "the module was loaded, so its code was evaluated");
-        Assert.AreEqual((int)RDCore.SDK.Model.Errors.VBRuntimeErrorId.SubscriptOutOfRange, facts.Errors.Single().ErrorId);
+        Assert.AreEqual((int)RDCore.Runtime.LanguageCore.Errors.VBRuntimeErrorId.SubscriptOutOfRange, facts.Errors.Single().ErrorId);
     }
 
     // the bounds are certain, what the array holds is not: an error that hangs on an element's value is not stated, whatever the sweep read it as.

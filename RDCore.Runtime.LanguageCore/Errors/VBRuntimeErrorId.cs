@@ -1,4 +1,4 @@
-﻿namespace RDCore.SDK.Model.Errors;
+﻿namespace RDCore.Runtime.LanguageCore.Errors;
 
 public enum VBRuntimeErrorId
 {

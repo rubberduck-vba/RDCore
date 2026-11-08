@@ -19,6 +19,7 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing;
 

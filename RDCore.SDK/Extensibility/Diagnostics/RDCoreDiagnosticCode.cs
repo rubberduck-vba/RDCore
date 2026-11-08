@@ -10,7 +10,11 @@ namespace RDCore.SDK.Extensibility.Diagnostics;
 /// The platform issues the <c>VBC</c>, <c>VBR</c> and <c>VBA</c> codes, and its core extension the <c>RDC</c> and <c>RDX</c> codes. An extension of another
 /// publisher reports its own diagnostics under the prefix its manifest declares (<see cref="ExtensionInfo.DiagnosticPrefix"/>), which no other extension of
 /// the platform declares.
+/// <para>
+/// A code is serialized as it is written (<see cref="ToString"/>), and read back with <see cref="TryParse"/>.
+/// </para>
 /// </remarks>
+[System.Text.Json.Serialization.JsonConverter(typeof(RDCoreDiagnosticCodeJsonConverter))]
 public readonly record struct RDCoreDiagnosticCode
 {
     /// <summary>
