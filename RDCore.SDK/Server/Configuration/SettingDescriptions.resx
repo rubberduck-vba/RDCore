@@ -86,7 +86,7 @@
     <value>Whether SaveSetting, GetSetting, GetAllSettings and DeleteSetting use the Windows Registry, as MS-VBA does, instead of the workspace's settings.</value>
   </data>
   <data name="Environment_ExecutionEngine" xml:space="preserve">
-    <value>What runs a program: the interpreter (Interpreter), or code compiled where every statement of a procedure can be (Compiled).</value>
+    <value>What runs a program: compiled code where it can run a procedure, and the interpreter elsewhere (Compiled), or the interpreter alone (Interpreter).</value>
   </data>
   <data name="Environment_Configuration" xml:space="preserve">
     <value>Whether a program is built to be debugged (Debug) or to be run (Release). In a release build a Stop ends the program as End does, and DEBUG is False.</value>

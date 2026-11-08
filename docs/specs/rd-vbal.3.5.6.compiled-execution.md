@@ -3,8 +3,9 @@
 A procedure can run as IL instead of in the interpreter ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)). The setting
 `Environment.ExecutionEngine` decides it ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md#build-configuration)):
 
-- `Interpreter`, the default, runs every procedure in the interpreter.
-- `Compiled` compiles a procedure the first time it is called, when compiled code can do enough of it. Any other procedure runs in the interpreter.
+- `Compiled`, the default, compiles a procedure the first time it is called, when compiled code can do enough of it. Any other procedure runs in the
+  interpreter.
+- `Interpreter` runs every procedure in the interpreter.
 
 A program does the same thing in either engine: what it prints, the errors it raises, and where it raises them.
 
