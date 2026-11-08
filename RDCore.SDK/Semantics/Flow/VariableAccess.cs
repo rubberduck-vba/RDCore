@@ -52,13 +52,13 @@ public enum VariableDefinitionKind
 /// <para>
 /// Every variable the procedure defines or uses has one <see cref="VariableDefinitionKind.Entry"/> definition, the value it has when the activation starts, and one
 /// definition for each place an instruction may write it: an instruction may have several of the same variable (<c>x = F(x)</c> assigns <c>x</c> and passes it
-/// by reference; <c>Input #1, a(1), a(2)</c> writes two parts of <c>a</c>). A write to a part of it - <c>a(1) = 5</c>, <c>t.X = 1</c>, <c>a(1).X = 1</c>,
-/// <c>.X = 1</c> in a <c>With</c> block on a <c>Type</c> variable, <c>Mid(s, 1) = "x"</c> - is a definition of the variable the target is rooted at, of the kind
+/// by reference; <c>Input #1, a(1), a(2)</c> writes two parts of <c>a</c>). A write to a part of it (<c>a(1) = 5</c>, <c>t.X = 1</c>, <c>a(1).X = 1</c>,
+/// <c>.X = 1</c> in a <c>With</c> block on a <c>Type</c> variable, <c>Mid(s, 1) = "x"</c>) is a definition of the variable the target is rooted at, of the kind
 /// <see cref="VariableDefinitionKind.PartialWrite"/> whatever the statement is.
 /// </para>
 /// <para>
 /// A definition replaces the value before it only when its instruction <em>completes</em>. An instruction that raises an error does not complete, and may have
-/// written some of what it writes all the same - a procedure it called may have written an argument before it failed: along its error edge (<see cref="FlowEdges"/>),
+/// written some of what it writes all the same (a procedure it called may have written an argument before it failed). Along its error edge (<see cref="FlowEdges"/>),
 /// what reached it and what it defines both reach the handler, the next statement, or the caller.
 /// </para>
 /// <para>
@@ -68,7 +68,7 @@ public enum VariableDefinitionKind
 /// </remarks>
 /// <param name="Variable">The variable.</param>
 /// <param name="Offset">The offset of the instruction that defines it; <c>-1</c> for <see cref="VariableDefinitionKind.Entry"/>.</param>
-/// <param name="Kind">How.</param>
+/// <param name="Kind">How the instruction gives the variable a value.</param>
 /// <param name="IsComplete">
 /// Whether the whole value is replaced, every time the instruction completes: what ends the life of the value before. A write to a part, and an argument that may or may
 /// not be written, is not; neither is a <c>For Each</c> loop's assignment of its control variable, which an empty collection never makes.

@@ -370,12 +370,12 @@ public sealed class ControlFlowGraph
     /// <c>Select Case</c>, with no <c>Case</c> run.
     /// </summary>
     /// <remarks>
-    /// Measured in MS-VBA (Excel-verified): an error in the expression of a <c>Select Case</c> goes on after <c>End Select</c>, the <c>Case Else</c> included; one in a
+    /// As observed in Excel: an error in the expression of a <c>Select Case</c> goes on after <c>End Select</c>, the <c>Case Else</c> included; one in a
     /// <c>Case</c> expression runs that <c>Case</c>'s body, one in an <c>If</c> or <c>ElseIf</c> condition runs that branch, one in a <c>Do While</c>, <c>Do Until</c> or
-    /// <c>While</c> condition runs the body, and one in a <c>Loop Until</c> or <c>Loop While</c> condition leaves the loop - which is the next instruction for each of
+    /// <c>While</c> condition runs the body, and one in a <c>Loop Until</c> or <c>Loop While</c> condition leaves the loop. Each is the next instruction for each of
     /// them as they are lowered. An error in the start, the end or the step of a <c>For</c> goes on at the first statement of the body, with no test of the bounds and
     /// the counter not assigned: the next instruction too, along whose error edge the counter keeps the value it had. An error in the collection of a
-    /// <c>For Each</c> or in the object of a <c>With</c> is still to be measured, and goes on at the next instruction meanwhile: the first statement of the body.
+    /// <c>For Each</c> or in the object of a <c>With</c> goes on at the next instruction, the first statement of the body; MS-VBA's behaviour there is unverified.
     /// </remarks>
     /// <param name="instruction">The instruction that raised the error.</param>
     internal static int NextAfterAnError(Instruction instruction)

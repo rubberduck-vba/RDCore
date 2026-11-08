@@ -9,7 +9,7 @@ namespace RDCore.SDK.Semantics.Flow;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The states are propagated from the start of the activation (<see cref="ErrorHandlingState.Initial"/>), as MS-VBA runs the statements (Excel-verified):
+/// The states are propagated from the start of the activation (<see cref="ErrorHandlingState.Initial"/>), as MS-VBA runs the statements (observed in Excel):
 /// </para>
 /// <list type="bullet">
 /// <item><description>an <c>On Error</c> statement sets the policy (<strong>MS-VBAL §5.4.4.1</strong>); inside a handler, before it resumes, it sets the policy for after the

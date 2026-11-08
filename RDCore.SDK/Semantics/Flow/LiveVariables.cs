@@ -24,8 +24,8 @@ namespace RDCore.SDK.Semantics.Flow;
 /// </list>
 /// <para>
 /// Where <c>On Error Resume Next</c> goes on after an error in a condition or in the header of a <c>For</c> is as MS-VBA has it
-/// (<see cref="ControlFlowGraph.NextAfterAnError"/>, Excel-verified), but for the collection of a <c>For Each</c> and the object of a <c>With</c>, which are still to be
-/// measured and go on at the next instruction meanwhile: until they are, "not live" holds on the paths of every other statement.
+/// (<see cref="ControlFlowGraph.NextAfterAnError"/>, observed in Excel). An error in the collection of a <c>For Each</c> or the object of a <c>With</c> is taken to
+/// go on at the next instruction, which is unverified in MS-VBA: "not live" holds on the paths of every other statement.
 /// </para>
 /// </remarks>
 public sealed class LiveVariables
@@ -60,8 +60,8 @@ public sealed class LiveVariables
         => [.. _edges.SuccessorsOf(node).Where(edge => edge.Kind is not ControlFlowEdgeKind.Error).SelectMany(edge => _liveBefore[edge.To])];
 
     /// <summary>
-    /// The variables live as control leaves a region of instructions, by any edge: falling out of it, jumping out of it, or an error leaving it - into a handler
-    /// outside it, or to the caller.
+    /// The variables live as control leaves a region of instructions, by any edge: falling out of it, jumping out of it, or an error leaving it (into a handler
+    /// outside it, or to the caller).
     /// </summary>
     /// <param name="region">The offsets of the instructions of the region.</param>
     /// <remarks>What code moved to another procedure must give back to its caller is what is written in it and live here.</remarks>
