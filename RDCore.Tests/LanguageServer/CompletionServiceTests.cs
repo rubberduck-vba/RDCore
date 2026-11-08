@@ -971,6 +971,8 @@ public sealed class CompletionServiceTests
     {
         var deep = $"w.Grow({Parser.ExpressionNestingTests.Chain(terms)})";
         string[] labels = [];
+        // the request is answered on the small stack, as the server answers it on a thread of its own: that thread waits for the answer.
+#pragma warning disable VSTHRD002
         var thrown = SmallStack.Run(() => labels = LabelsAsync($"""
             Attribute VB_Name = "Main"
             Public Sub Run()
@@ -980,6 +982,7 @@ public sealed class CompletionServiceTests
                 End With
             End Sub
             """).GetAwaiter().GetResult());
+#pragma warning restore VSTHRD002
 
         Assert.IsNull(thrown, thrown?.ToString());
         CollectionAssert.AreEquivalent(new[] { "Name", "Grow", "Parts" }, labels);

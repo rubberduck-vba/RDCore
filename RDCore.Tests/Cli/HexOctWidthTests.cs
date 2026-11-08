@@ -10,7 +10,7 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class HexOctWidthTests
 {
-    private static string Run(string body)
+    private static async Task<string> Run(string body)
     {
         string[] lines =
         [
@@ -24,7 +24,7 @@ public sealed class HexOctWidthTests
             "    Debug.Print acc",
             "End Sub",
         ];
-        return string.Join("/", RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], string.Join("\r\n", lines) + "\r\n"));
     }
 
     [TestMethod]
@@ -44,6 +44,6 @@ public sealed class HexOctWidthTests
     [DataRow("P Hex$(CLngLng(-7)) ;; P Oct$(CLngLng(-7)) ;; P Hex$(Empty) ;; P Hex(Null) ;; P Hex$(Null) ;; P Err.Number", "FFFFFFFFFFFFFFF9|1777777777777777777771|0|94|", DisplayName = "X14")]
     [DataRow("Dim l As Long ;; l = -7 ;; P Oct$(l) ;; l = -70000 ;; P Oct$(l) ;; Dim i As Integer ;; i = -7 ;; P Oct$(i) ;; Dim d As Double ;; d = -70000 ;; P Oct$(d)", "37777777771|37777567220|177771|1777777777777777567220|", DisplayName = "X15")]
     [DataRow("P Hex(CInt(-7)) ;; P TypeName(Hex(CLng(-7))) ;; P Hex(CLng(-7)) ;; P Hex(-1) ;; P Hex(-1&)", "FFF9|String|FFFFFFF9|FFFF|FFFFFFFF|", DisplayName = "X16")]
-    public void HexAndOct_WriteANegativeNumberInTheWidthOfItsType(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task HexAndOct_WriteANegativeNumberInTheWidthOfItsType(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 }

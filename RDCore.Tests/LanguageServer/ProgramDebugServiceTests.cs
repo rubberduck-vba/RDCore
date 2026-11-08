@@ -85,8 +85,11 @@ public sealed class ProgramDebugServiceTests
         var condition = new string('(', ModuleParser.MaxExpressionNesting) + "1" + new string(')', ModuleParser.MaxExpressionNesting);
 
         DebugBreakpointsResult? result = null;
+        // the request is answered on the small stack, as the server answers it on a thread of its own: that thread waits for the answer.
+#pragma warning disable VSTHRD002
         var thrown = SmallStack.Run(() => result = _service.SetBreakpointsAsync("Prog", [new SessionBreakpointLine { Line = 4, Condition = condition }],
             CancellationToken.None).GetAwaiter().GetResult());
+#pragma warning restore VSTHRD002
 
         Assert.IsNull(thrown, thrown?.ToString());
         Assert.IsNull(result!.Breakpoints.Single().ConditionError);

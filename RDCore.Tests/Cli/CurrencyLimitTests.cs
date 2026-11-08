@@ -12,7 +12,7 @@ namespace RDCore.Tests.Cli;
 public sealed class CurrencyLimitTests
 {
     // the program of a case: P writes what it is given, as a Variant, and what was written is printed at the end.
-    private static string Run(string body)
+    private static async Task<string> Run(string body)
     {
         string[] lines =
         [
@@ -26,7 +26,7 @@ public sealed class CurrencyLimitTests
             "    Debug.Print acc",
             "End Sub",
         ];
-        return string.Join("/", RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], string.Join("\r\n", lines) + "\r\n"));
     }
 
     [TestMethod]
@@ -49,8 +49,8 @@ public sealed class CurrencyLimitTests
         DisplayName = "the largest, in a Variant")]
     [DataRow("Dim s As String ;; s = CStr(CCur(\"922337203685477.5807\")) ;; P s ;; s = CStr(CCur(\"-922337203685477.5808\")) ;; P s",
         "922337203685477.5807|-922337203685477.5808|", DisplayName = "the limits, as text")]
-    public void ACurrencyAtItsLimit_IsOne_AndOneTenThousandthPast_IsAnOverflow(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task ACurrencyAtItsLimit_IsOne_AndOneTenThousandthPast_IsAnOverflow(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     [DataRow("Dim c As Currency, d As Double ;; d = 123456789012.3456 ;; c = d ;; P Err.Number ;; P c", "0|123456789012.3456|", DisplayName = "more digits than 15")]
@@ -68,8 +68,8 @@ public sealed class CurrencyLimitTests
     [DataRow("Dim c As Currency, d As Double ;; d = 1.03125 ;; c = d ;; P c ;; d = 2.15625 ;; c = d ;; P c ;; d = -1.03125 ;; c = d ;; P c ;; d = 1.09375 ;; c = d ;; P c ;; P CCur(1.03125)",
         "1.0312|2.1562|-1.0312|1.0938|1.0312|", DisplayName = "an exact tie, to the even one")]
     [DataRow("Dim c As Currency, s As Single ;; s = 1.03125 ;; c = s ;; P c ;; s = 2.15625 ;; c = s ;; P c", "1.0312|2.1562|", DisplayName = "an exact tie of a Single, to the even one")]
-    public void ACurrencyMadeOfAFloatingPointNumber_IsItsExactValue_RoundedToFourDecimals(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task ACurrencyMadeOfAFloatingPointNumber_IsItsExactValue_RoundedToFourDecimals(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     public void TheTypesLimits_AreExact()

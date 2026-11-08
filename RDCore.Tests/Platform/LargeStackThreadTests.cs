@@ -171,7 +171,7 @@ public sealed class LargeStackThreadTests
         using var cancellation = new CancellationTokenSource();
         var ran = false;
         var waiting = LargeStackThread.Start(() => ran = true, threads, cancellation.Token);
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         release.Set();
 
         await busy;

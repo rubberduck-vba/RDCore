@@ -46,8 +46,8 @@ public sealed class ReplClearProgramTests
 
         Received.InOrder(() =>
         {
-            _platform.DiscardAsync(ReplProgram.ModuleName, Arg.Any<CancellationToken>());
-            _platform.ExecuteAsync(Arg.Any<string>(), ReplProgram.ModuleName, ReplProgram.EntryPointName, Arg.Any<CancellationToken>());
+            _ = _platform.DiscardAsync(ReplProgram.ModuleName, Arg.Any<CancellationToken>());
+            _ = _platform.ExecuteAsync(Arg.Any<string>(), ReplProgram.ModuleName, ReplProgram.EntryPointName, Arg.Any<CancellationToken>());
         });
     }
 

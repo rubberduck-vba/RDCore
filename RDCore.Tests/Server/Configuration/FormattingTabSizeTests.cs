@@ -397,7 +397,10 @@ public sealed class FormattingTabSizeTests
                 .WithClientConfiguration(LiveSettingsProtocol.Section)
                 .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
                 {
+                    // Follow starts following the client's configuration; FollowAsync is what a follower does once it changes, and not Follow made async.
+#pragma warning disable VSTHRD103
                     Follower = ClientConfigurationFollower.Follow(services, started, () =>
+#pragma warning restore VSTHRD103
                     {
                         Followed();
                         return Task.CompletedTask;
@@ -664,7 +667,10 @@ public sealed class FormattingTabSizeTests
                 .WithClientConfiguration(LiveSettingsProtocol.Section)
                 .OnStarted((ILanguageServer started, CancellationToken _) =>
                 {
+                    // Follow starts following the client's configuration; FollowAsync is what a follower does once it changes, and not Follow made async.
+#pragma warning disable VSTHRD103
                     _follower = ClientConfigurationFollower.Follow(services, started, () =>
+#pragma warning restore VSTHRD103
                     {
                         _followed.Release();
                         return Task.CompletedTask;

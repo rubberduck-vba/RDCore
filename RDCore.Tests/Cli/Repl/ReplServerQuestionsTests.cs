@@ -260,7 +260,7 @@ public sealed class ReplServerQuestionsTests
 
         // the server cancels its request ($/cancelRequest) while the question waits for its key.
         await asking.Task.WaitAsync(Token);
-        withdrawal.Cancel();
+        await withdrawal.CancelAsync();
         await Assert.ThrowsAsync<OperationCanceledException>(() => answer);
 
         // the prompt's first read stopped for the question, which read the second: the third is the line's again.
@@ -286,7 +286,7 @@ public sealed class ReplServerQuestionsTests
             return 0;
         }, withdrawal.Token);
 
-        withdrawal.Cancel();
+        await withdrawal.CancelAsync();
         await Assert.ThrowsAsync<OperationCanceledException>(() => answer);
 
         keys.Send(Key(ConsoleKey.Enter));

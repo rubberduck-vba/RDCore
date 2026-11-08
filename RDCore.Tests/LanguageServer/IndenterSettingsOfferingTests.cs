@@ -283,7 +283,10 @@ public sealed class IndenterSettingsOfferingTests
             .WithConfigurationSection(LiveSettingsProtocol.Section)
             .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
             {
+                // Follow starts following the client's configuration; FollowAsync is what a follower does once it changes, and not Follow made async.
+#pragma warning disable VSTHRD103
                 ClientConfigurationFollower.Follow(services, started, () => Task.CompletedTask, _ => { });
+#pragma warning restore VSTHRD103
                 offering.SetResult(new IndenterSettingsOffering(
                     started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { },
                     new ManualClock()));

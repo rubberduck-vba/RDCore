@@ -904,11 +904,11 @@ public sealed class ProgramExecutionTests
 
     [TestMethod]
     public async Task ABreakpoint_IsNotWaitedAtByAProgramNotUnderADebugger()
-        => await ModuleWorkspace.InspectAsync(NoClasses, Program("Public Total As Long", "Public Sub Main()", "    Total = 1", "End Sub"), (provider, result, runAgain) =>
+        => await ModuleWorkspace.InspectAsync(NoClasses, Program("Public Total As Long", "Public Sub Main()", "    Total = 1", "End Sub"), async (provider, result, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome);
             provider.Session.Halt.Breakpoints.Set(provider.Session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module) ? module!.Uri.AbsoluteUri : string.Empty, [new RuntimeBreakpoint(2)]);
-            return runAgain().ContinueWith(task => Assert.AreEqual(ExecutionOutcome.Completed, task.Result.Outcome));
+            Assert.AreEqual(ExecutionOutcome.Completed, (await runAgain()).Outcome);
         });
 
     // ---- a statement run while the program waits ----

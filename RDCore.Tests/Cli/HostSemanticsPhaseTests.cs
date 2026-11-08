@@ -79,7 +79,7 @@ public sealed class HostSemanticsPhaseTests
                 // cancelled while it waits for the evaluation, which is held until it is released below.
                 using var cancellation = new CancellationTokenSource();
                 var waiting = new HostSemanticsHandler(provider).Handle(new HostSemanticsParams { ModuleName = "Slow" }, cancellation.Token);
-                cancellation.Cancel();
+                await cancellation.CancelAsync();
                 await Assert.ThrowsAsync<OperationCanceledException>(() => waiting.WaitAsync(Patience));
             }
             finally

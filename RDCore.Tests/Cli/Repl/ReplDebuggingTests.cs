@@ -224,8 +224,8 @@ public sealed class ReplDebuggingTests
 
         Received.InOrder(() =>
         {
-            _platform.GotoAsync("30", Arg.Any<CancellationToken>());
-            _platform.ResumeAsync(null, Arg.Any<CancellationToken>());
+            _ = _platform.GotoAsync("30", Arg.Any<CancellationToken>());
+            _ = _platform.ResumeAsync(null, Arg.Any<CancellationToken>());
         });
     }
 
