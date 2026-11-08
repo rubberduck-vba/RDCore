@@ -368,6 +368,7 @@ public sealed class CompiledNestedCallTests
         var (observed, outer) = await WaitedInAsync(program, edited, statements, VBExecutionEngine.Compiled);
         Assert.AreEqual(interpreted.Observed, observed);
         Assert.IsNotNull(outer, "Outer runs compiled");
+        Assert.IsGreaterThan(0L, outer.DirectCalls, "Outer called Inner in compiled code");
         return observed;
     }
 
