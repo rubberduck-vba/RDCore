@@ -81,13 +81,13 @@ internal sealed partial class ProcedureAnalysis
         _ => Calls(node),
     };
 
-    // whether evaluating node calls a procedure: a function, called with arguments or by its bare name, or a member of an object.
+    // whether evaluating node calls a procedure: a function, called with arguments or by its bare name, or a function or Property Get member of an object.
     private bool Calls(BoundNode? node) => node switch
     {
         null => false,
         BoundCall => true,
         BoundName { Symbol: VBFunctionMemberSymbol function } => !IsOwnFunction(function),
-        BoundMember { Member: VBFunctionMemberSymbol } => true,
+        BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
         BoundMember member => Calls(member.Owner) || member.BoundArguments is { } arguments && arguments.Any(argument => Calls(argument.Value)),
         BoundBinary binary => Calls(binary.Left) || Calls(binary.Right),
         BoundUnary unary => Calls(unary.Operand),
@@ -97,7 +97,8 @@ internal sealed partial class ProcedureAnalysis
     };
 
     // a function of the workspace called inside an expression, as CallOf and MemberCallOf call one, by where it is in its statement: a function of a
-    // standard module called with its arguments, or by its bare name when it takes none, or a function member of an object variable of the activation.
+    // standard module called with its arguments, or by its bare name when it takes none, or a function or Property Get member of an object variable of the
+    // activation.
     private PayloadNode? NestedCall(BoundNode node, VBTypeMemberSymbol function)
     {
         var syntax = KnownOperands.IndexOf(_nesting!, node.Expression);
