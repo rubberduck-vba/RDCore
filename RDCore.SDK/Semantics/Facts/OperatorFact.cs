@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types.Abstract;
@@ -17,7 +18,7 @@ namespace RDCore.SDK.Semantics.Facts;
 /// <see cref="ConversionSite.OperatorOperand"/>. A fact is only stated when it is true of the code: see <see cref="ConversionFact"/>.
 /// </remarks>
 /// <param name="Node">The <c>Identity</c> of the syntax node the operation is evaluated for.</param>
-/// <param name="Location">Where in the document the operation is.</param>
+/// <param name="Location">Where in the document the operation is: the whole expression, operands included, where a run-time error of the operation is located.</param>
 /// <param name="Operator">The operator: one of the <c>Tokens</c> operators.</param>
 /// <param name="EffectiveType">The <em>effective type</em> of the operation, if it has one.</param>
 /// <param name="IsValueKnown">Whether every operand of the operation is known, as opposed to a value its type merely allows.</param>
@@ -28,7 +29,18 @@ public abstract record class OperatorFact(
     string Operator,
     VBType? EffectiveType,
     bool IsValueKnown,
-    VBErrorInfo? Error);
+    VBErrorInfo? Error)
+{
+    /// <summary>
+    /// Where in the document the operator token is: the <c>+</c> of <c>a + b</c>. A diagnostic about the operator is located here, so that each operator
+    /// of a chain (<c>a + b + c</c>, whose two operations begin at the same position) has a location of its own.
+    /// </summary>
+    /// <remarks>
+    /// <see langword="null"/> when the syntax node has no operator token of its own (<see cref="VBBinaryOperatorExpressionNode.OperatorLocation"/>,
+    /// <see cref="VBUnaryOperatorExpressionNode.OperatorLocation"/>): parentheses, a member access, an operation a statement makes of its own operands.
+    /// </remarks>
+    public SourceLocation? OperatorLocation { get; init; }
+}
 
 /// <summary>An operation of an arithmetic operator (<strong>MS-VBAL 5.6.9.3</strong>).</summary>
 /// <param name="Flags">What is known of the operation.</param>

@@ -23,7 +23,7 @@ internal sealed class AmbiguousConcatenationAnalyzer : IModuleAnalyzer
             .Where(op => op.Operator == Tokens.AdditionOp && (op.ArithmeticOpSemanticFlags?.HasFlag(ArithmeticOperatorSemanticFlags.VBStringEffectiveType) ?? false))
             .Select(op => new AnalyzerFinding(
                 RDCoreDiagnosticId.AmbiguousConcatenation,
-                op.Location.Range,
+                (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(
                     RDCoreDiagnosticsResources.AmbiguousConcatenation_Message,

@@ -4,6 +4,8 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols.Operators;
+using System.Text.Json;
 
 namespace RDCore.Tests.Parser;
 
@@ -253,6 +255,46 @@ public sealed class NodeRangeTests
                 Assert.IsTrue(inner.Start >= outer.Start && inner.End <= outer.End, $"{child.GetType().Name} {inner} is not within {parent.GetType().Name} {outer}");
             }
         }
+    }
+
+    // a diagnostic about an operator is located at its token, and a run-time error of the operation at the whole operation.
+    [TestMethod]
+    [DataRow("x = a + b", "+", DisplayName = "an addition")]
+    [DataRow("x = a Mod b", "Mod", DisplayName = "a keyword operator")]
+    [DataRow("x = a <> b", "<>", DisplayName = "a relational operator of two characters")]
+    [DataRow("x = (a) & b", "&", DisplayName = "an operand in parentheses")]
+    [DataRow("x = a _\r\n    And b", "And", DisplayName = "on a continued line")]
+    [DataRow("x = -a", "-", DisplayName = "a negation")]
+    [DataRow("x = Not a", "Not", DisplayName = "a unary keyword operator")]
+    public void AnOperator_IsLocatedAtItsToken_AndItsOperationAtTheWholeExpression(string body, string token)
+    {
+        var (source, tree) = Parse(body);
+        var (operatorLocation, location) = Descendants(tree)
+            .Select(node => node switch
+            {
+                VBBinaryOperatorExpressionNode binary => (binary.OperatorLocation, binary.Location),
+                VBUnaryOperatorExpressionNode { Token: not OperatorSymbolNames.UnaryArithmeticPrecedenceOp } unary => (unary.OperatorLocation, unary.Location),
+                _ => ((SourceLocation?, SourceLocation)?)null,
+            })
+            .OfType<(SourceLocation?, SourceLocation)>()
+            .Single();
+
+        Assert.IsNotNull(operatorLocation);
+        Assert.AreEqual(token, TextOf(source, operatorLocation.Value.Range));
+        Assert.AreEqual(body[4..], TextOf(source, location.Range).Replace("\n", "\r\n"));
+    }
+
+    [TestMethod]
+    public void AnOperatorLocation_TravelsWithTheTree()
+    {
+        var (_, tree) = Parse("x = a + b * c");
+
+        var read = JsonSerializer.Deserialize<ModuleNode>(JsonSerializer.Serialize(tree, SyntaxNodeJson.Options), SyntaxNodeJson.Options)!;
+
+        var written = Descendants(tree).OfType<VBBinaryOperatorExpressionNode>().Select(node => node.OperatorLocation).ToArray();
+        Assert.HasCount(2, written);
+        Assert.IsTrue(written.All(location => location is not null));
+        CollectionAssert.AreEqual(written, Descendants(read).OfType<VBBinaryOperatorExpressionNode>().Select(node => node.OperatorLocation).ToArray());
     }
 
     // a binary operator at the end of its statement is held by the operation it is kept as, and what ends with the operation - the statement, the item of a

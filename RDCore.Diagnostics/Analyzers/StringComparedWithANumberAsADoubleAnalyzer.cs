@@ -26,7 +26,7 @@ internal sealed class StringComparedWithANumberAsADoubleAnalyzer : IModuleAnalyz
             .Where(op => op.ComparisonOpSemanticFlags?.HasFlag(ComparisonOperatorSemanticFlags.IsStringComparedAsADouble) ?? false)
             .Select(op => new AnalyzerFinding(
                 RDCoreDiagnosticId.StringComparedWithANumberAsADouble,
-                op.Location.Range,
+                (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(
                     RDCoreDiagnosticsResources.StringComparedWithANumberAsADouble_Message,

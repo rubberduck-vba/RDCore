@@ -26,7 +26,7 @@ internal sealed class VariantNumberStringComparisonAnalyzer : IModuleAnalyzer
             .Where(op => op.ComparisonOpSemanticFlags?.HasFlag(ComparisonOperatorSemanticFlags.IsVariantStringNumericException) ?? false)
             .Select(op => new AnalyzerFinding(
                 RDCoreDiagnosticId.VariantNumberStringComparison,
-                op.Location.Range,
+                (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(
                     RDCoreDiagnosticsResources.VariantNumberStringComparison_Message,
