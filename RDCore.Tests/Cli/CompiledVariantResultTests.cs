@@ -17,7 +17,7 @@ public sealed class CompiledVariantResultTests
     [
         ("Noisy", ModuleWorkspace.ClassModule("Noisy", "Public Id As Long", "Private Sub Class_Terminate()", "    Log = Log & \"gone \" & Id & \";\"", "End Sub")),
         ("Holder", ModuleWorkspace.ClassModule("Holder",
-            "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "    Value = 42", "End Property",
+            "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "    Log = Log & \"value;\"", "    Value = 42", "End Property",
             "Private Sub Class_Terminate()", "    Log = Log & \"holder gone;\"", "End Sub")),
         ("Doubler", ModuleWorkspace.ClassModule("Doubler", "Public Function Twice(ByVal X As Long) As Variant", "    Twice = X * 2", "End Function")),
     ];
@@ -156,8 +156,8 @@ public sealed class CompiledVariantResultTests
             "1:0:True:False;2:1:False:True;3:8:False:False;4:10:False:False;5:8204:False:False;held 1 copy 9", ("Relayed", 0, 0));
 
     // a Variant function's result that holds an object: called as a statement, what it returned is let go of when the statement is over, which destroys the
-    // object; assigned to a Variant, the object's default member is what is assigned, and the object is destroyed at the end of that statement, before the
-    // next one runs. Each recovery is a String joined to Log.
+    // object; assigned to a Variant, the object's default member is read and its value assigned, and the object is destroyed after that, at the end of the
+    // statement, before the next one runs. Each recovery is a String joined to Log.
     [TestMethod]
     public async Task AnObjectAVariantResultHolds_IsLetGoOfWhenItsStatementIsOver()
         => await AssertRunAsync(Program(
@@ -187,7 +187,34 @@ public sealed class CompiledVariantResultTests
             "End Function",
             "Private Function Valued() As Variant",
             "    Set Valued = New Holder",
-            "End Function"), "a;gone 1;after made;b;holder gone;read;42;c;", ("Discarded", 1, 0), ("Read", 1, 0));
+            "End Function"), "a;gone 1;after made;b;value;holder gone;read;42;c;", ("Discarded", 1, 0), ("Read", 1, 0));
+
+    // two calls in one statement, each returning a Variant that holds an object only it holds: both objects live until the statement is over, after its
+    // assignment, and are let go of then, the last made first - none before the other call is made. Compiled code gives that statement to the interpreter
+    // today; whichever engine runs it, the order is the same.
+    [TestMethod]
+    public async Task ObjectsTwoVariantResultsOfAStatementHold_AreLetGoOfWhenTheStatementIsOver()
+        => await AssertRunAsync(Program(
+            "Public Log As String",
+            "Public Sub Main()",
+            "    Both",
+            "    Debug.Print Log",
+            "End Sub",
+            "Private Sub Both()",
+            "    Dim S As String",
+            "    Log = \"a;\"",
+            "    S = IdOf(Made(1)) & IdOf(Made(2))",
+            "    Log = Log & S & \";b;\"",
+            "End Sub",
+            "Private Function IdOf(ByVal V As Variant) As Long",
+            "    IdOf = V.Id",
+            "End Function",
+            "Private Function Made(ByVal Id As Long) As Variant",
+            "    Dim N As Noisy",
+            "    Set N = New Noisy",
+            "    N.Id = Id",
+            "    Set Made = N",
+            "End Function"), "a;gone 2;gone 1;12;b;");
 
     // a member of an object that returns a Variant, called by compiled code and assigned to a Variant, which compiled code then adds. The recovery is the
     // Set of the object.
