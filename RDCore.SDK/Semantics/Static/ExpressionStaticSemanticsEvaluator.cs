@@ -305,12 +305,8 @@ public static class ExpressionStaticSemanticsEvaluator
             }
         }
 
-        // an index of an array is no argument: any other callee may take what is written in its argument list by reference, a function that returns an array and
-        // has parameters included. One that has none is called with none, and what is written after its name indexes what it returns: the implicit Me of a
-        // procedure is no parameter an argument is written for.
-        if (calleeResult.Result is not VBArrayType
-            || (ProcedureNamedBy(context, indexExpression.Callee) is { } arrayFunction
-                && arrayFunction.Parameters.Any(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef))))
+        // an index of an array is no argument: any other callee may take what is written in its argument list by reference.
+        if (!indexesAnArray)
         {
             MarkPassedAsArguments(context, indexExpression.Arguments);
             ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, indexExpression.Callee, indexExpression.Arguments);
