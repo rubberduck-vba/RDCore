@@ -79,9 +79,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// the body, and for an activation that has none.
     /// </summary>
     /// <remarks>
-    /// A call is the activation's only for as long as it stands at the instruction that made it, and only if the call is in that instruction's statement:
-    /// what it is at otherwise - an instruction it went on to, a body an edit moved it into, a statement typed where the program waited - is located by
-    /// the statement.
+    /// The call counts only while the activation stands at the instruction that made it, and only if the call lies in that instruction's statement.
+    /// Anywhere else (an instruction it went on to, a body an edit moved it into, a statement typed while the program waited), the activation is located
+    /// at the statement.
     /// </remarks>
     public SourceLocation? CurrentLocation
     {
