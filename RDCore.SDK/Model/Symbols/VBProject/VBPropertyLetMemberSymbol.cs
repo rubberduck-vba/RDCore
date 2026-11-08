@@ -12,6 +12,7 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="Scope">The allocation scope of the symbol.</param>
 /// <param name="Kind">Describes the kind (category) of symbol for the LSP client.</param>
+/// <param name="ResolvedType">The resolved <c>VBType</c> of this member. <c>VBUnknownType</c> when the type is not resolved.</param>
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <c>AccessModifier.Implicit</c> if none is specified.</param>
@@ -34,6 +35,7 @@ public sealed record class VBPropertyLetMemberSymbol(Uri WorkspaceRoot, Uri Pare
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="Scope">The allocation scope of the symbol.</param>
 /// <param name="Kind">Describes the kind (category) of symbol for the LSP client.</param>
+/// <param name="ResolvedType">The resolved <c>VBType</c> of this member. <c>VBUnknownType</c> when the type is not resolved.</param>
 public sealed record class UnboundVBPropertyLetMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType)
     : UnboundVBProcedureMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType), IVBPropertyMemberSymbol
 { }

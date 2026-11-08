@@ -32,6 +32,7 @@ public readonly record struct LetCoercionResult(
     /// Creates a new (successful) <c>LetCoercionResult</c> with the specified <c>result</c> value.
     /// </summary>
     /// <param name="result">The successfully let-coerced result value.</param>
+    /// <param name="frames">The <em>let-coercion evaluation frames</em> of the result, top-most first.</param>
     public static LetCoercionResult Success(VBTypedValue result, params LetCoercionStackFrame[] frames) => new(true, result, null, [.. frames]);
     /// <summary>
     /// Creates a new (failed) <c>LetCoercionResult</c> with the specified <c>IVBRaisableError</c> error information metadata.

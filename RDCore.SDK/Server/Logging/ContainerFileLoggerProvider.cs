@@ -18,7 +18,7 @@ namespace RDCore.SDK.Server.Logging;
 /// </para>
 /// </remarks>
 /// <param name="appLogger">The application's logger, which writes to its file.</param>
-public sealed class ContainerFileLoggerProvider(ILogger appLogger) : ILoggerProvider
+internal sealed class ContainerFileLoggerProvider(ILogger appLogger) : ILoggerProvider
 {
     /// <summary>
     /// The event of a record of the container, written with the application's logger.

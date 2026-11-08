@@ -10,7 +10,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Model.Values.Numerics;
+using RDCore.Runtime.Numerics;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;

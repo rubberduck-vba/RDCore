@@ -375,7 +375,7 @@ internal sealed partial class SessionStorage(ISessionMemoryAllocator allocator, 
         if (RecordOf(handle) is { } record)
         {
             var start = block;
-            image = SDK.Model.Types.VBUserDefinedTypeImage.Of(record, pointerSize, at => HostBytesAt(new MemoryAddress(start.Value + at)));
+            image = VBUserDefinedTypeImage.Of(record, pointerSize, at => HostBytesAt(new MemoryAddress(start.Value + at)));
             return true;
         }
 

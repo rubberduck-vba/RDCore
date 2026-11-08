@@ -306,7 +306,8 @@ public abstract class AppHost<TApp>() : IDisposable
     /// <summary>
     /// Override to supply application-specific <c>IConfiguration</c> configuration.
     /// </summary>
-    /// <param name="builder">An <see cref="IConfigurationBuilder"/> to configure application settings.</param>
+    /// <param name="configuration">An <see cref="IConfigurationBuilder"/> to configure application settings.</param>
+    /// <param name="services">The services of the application host being built, to register the application's own services in.</param>
     /// <param name="args">Any command-line arguments that were supplied to the application, parsed into <see cref="SdkAppOptions"/>.</param>
     /// <remarks>
     /// 🧩 The base implementation binds and configures <c>appsettings.json</c> options, with command-line arguments as overrides.

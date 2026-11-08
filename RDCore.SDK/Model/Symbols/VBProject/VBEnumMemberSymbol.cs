@@ -11,10 +11,11 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="Kind">Describes the kind (category) of symbol for the LSP client.</param>
-/// 
+/// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
 /// <param name="Range">A <c>Range</c> pointing to the document location that belongs to this symbol.</param>
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
+/// <param name="AccessModifier">The access modifier specified for this symbol.</param>
 public sealed record class VBEnumMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier) 
     : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier)
 {
@@ -33,6 +34,7 @@ public sealed record class VBEnumMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, 
 /// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>
 /// <param name="Name">The identifier name of the symbol.</param>
 /// <param name="Kind">Describes the kind (category) of symbol for the LSP client.</param>
+/// <param name="ResolvedType">The resolved <c>VBType</c> of the symbol, if available. <c>VBUnknownType</c> unless specified otherwise.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
 public sealed record class UnboundVBEnumMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType)
     : UnboundVBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType)

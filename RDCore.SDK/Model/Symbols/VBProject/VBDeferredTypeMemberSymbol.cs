@@ -7,7 +7,7 @@ using System.Collections.Immutable;
 
 namespace RDCore.SDK.Model.Symbols.VBProject;
 
-public record class VBDeferredTypeMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SymbolKindExt Kind) 
+internal record class VBDeferredTypeMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SymbolKindExt Kind) 
     : UnboundTypedSymbol(WorkspaceRoot, ParentUri, Name, ScopeKind.Module, Kind, VBUnknownType.TypeInfo), IVBDeferrableTypeMember
 {
     public ImmutableHashSet<VBType> CandidateTypes { get; init; } = [];

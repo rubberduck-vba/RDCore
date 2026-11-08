@@ -110,7 +110,7 @@ A live setting is set on the object the component reads its settings off, in pla
 
 |Setting|Takes effect|
 |---|---|
-|`Server.TraceLevel`|For the next message each component's logs write ([`LiveLogLevel`](../api/RDCore.SDK.Server.Logging.LiveLogLevel.html)).|
+|`Server.TraceLevel`|For the next message each component's logs write (`LiveLogLevel`).|
 |`Server.Verbose`|For the next message the console writes.|
 |`Server.WireErrorDetail`|For the next record forwarded to the client.|
 |`Diagnostics.*`|For the next module the diagnostics extension analyzes. A client that pulls its diagnostics is asked to pull them again (`workspace/diagnostic/refresh`).|

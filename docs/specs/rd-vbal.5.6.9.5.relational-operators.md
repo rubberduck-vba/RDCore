@@ -208,7 +208,7 @@ then compared by its serial: `"1/2/1900"` compared with a `Date` of `5` compares
 ### String comparison
 
 Each of the six operators compares two `String` operands as
-[StringComparisonRules](../api/RDCore.SDK.Runtime.StringComparisonRules.html)`.Compare` orders them, against `0`.
+`StringComparisonRulesExtensions.Compare` orders them, against `0`.
 `Compare` is the one place a `String` order is defined, and `Select Case` compares through the same operators. It
 compares in the comparison mode of the module ([**RD-VBAL §5.2.1.1** Option Compare Directive](rd-vbal.5.2.1.option-directives.md#5211-option-compare-directive)),
 and sees every byte of a string's data, a trailing byte included

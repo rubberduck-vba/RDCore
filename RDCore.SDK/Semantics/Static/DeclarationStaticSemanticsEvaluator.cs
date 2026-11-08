@@ -96,7 +96,7 @@ public static class DeclarationStaticSemanticsEvaluator
     /// same error, which is the error it should have been all along (the author's ruling).
     /// </remarks>
     /// <param name="module">The parsed module.</param>
-    /// <param name="designer">What the module's designer declares (<see cref="ModuleParseResult.Designer"/>), or <c>null</c> when it is no form.</param>
+    /// <param name="designer">What the module's designer declares (<see cref="RDCore.SDK.Model.AST.ModuleParseResult.Designer"/>), or <c>null</c> when it is no form.</param>
     /// <returns>One error for each declaration of a control's name, at the declaration; empty when there is none, or no designer.</returns>
     public static ImmutableArray<VBCompileErrorInfo> CheckDesigner(ModuleNode module, FormDescriptor? designer)
     {

@@ -17,9 +17,8 @@ This section corresponds to [**MS-VBAL §5.6.16.1** Constant Expressions](https:
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.6.16.2** Conditional Compilation Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/efd3d84d-0d78-4456-882e-8422cf2938a5).
 
-Precompiler constants are interpreted as `Integer` values. A precompiler constant value is a
-[PrecompilerConstantValue](../api/RDCore.SDK.Model.Values.PrecompilerConstantValue.html), an additional numeric data
-value. See [**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md).
+Precompiler constants are interpreted as `Integer` values. See
+[**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md).
 
 
 ## 5.6.16.3 Boolean Expressions

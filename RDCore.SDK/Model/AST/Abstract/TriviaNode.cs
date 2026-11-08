@@ -54,10 +54,10 @@ public sealed record class ErasedPlusTriviaNode(SyntaxNodeId Identity, SourceLoc
 /// the exact original text, which lets a consumer that needs to reconstruct the source (e.g. a formatter) do so verbatim, while a consumer that only cares
 /// about semantics can tell at a glance that this position wasn't modeled.
 /// <para>
-/// For an alternative that has no node, <see cref="Inputs"/> keeps whatever the grammar's own sub-expression already built, so that nothing the walk already
+/// For an alternative that has no node, <see cref="ExpressionNode.Inputs"/> keeps whatever the grammar's own sub-expression already built, so that nothing the walk already
 /// parsed is thrown away. An expression nested in more than 2,500 others (<c>VBC00060</c>) is the other way around: what it holds is thrown away on purpose
-/// and <see cref="Inputs"/> is empty, so that no stage after the parser is handed a tree deeper than the limit. A name written in its text is not analyzed -
-/// it is neither bound nor counted as a use - and a rename of what it could refer to is refused
+/// and <see cref="ExpressionNode.Inputs"/> is empty, so that no stage after the parser is handed a tree deeper than the limit. A name written in its text is not analyzed
+/// (it is neither bound nor counted as a use), and a rename of what it could refer to is refused
 /// (<see cref="Semantics.Refactoring.RenameRefusalKind.Unresolved"/>). Where each such name is written is in <see cref="Names"/>.
 /// </para>
 /// </remarks>
@@ -71,7 +71,7 @@ public sealed record class UnbuiltExpressionTriviaNode(SyntaxNodeId Identity, So
     : ExpressionNode(Identity, Location, Inputs)
 {
     /// <summary>
-    /// The names written in <see cref="Source"/> that no node of <see cref="Inputs"/> stands for, in the order they are written, as the VBA lexer reads them.
+    /// The names written in <see cref="Source"/> that no node of <see cref="ExpressionNode.Inputs"/> stands for, in the order they are written, as the VBA lexer reads them.
     /// </summary>
     /// <remarks>
     /// A name is a token of its own: never a part of a string, date or numeric literal (<c>1#</c> is the number <c>1</c>, <c>&amp;HFF</c> a number too), nor

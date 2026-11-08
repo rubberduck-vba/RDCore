@@ -7,7 +7,7 @@ using RDCore.SDK.Server.Services.States;
 
 namespace RDCore.SDK.Server.Handlers.Lifecycle;
 
-public class ExitHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : ExitHandlerBase
+internal class ExitHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : ExitHandlerBase
 {
     /* LSP 3.17 Exit Notification
      * A notification to ask the server to exit its process. 

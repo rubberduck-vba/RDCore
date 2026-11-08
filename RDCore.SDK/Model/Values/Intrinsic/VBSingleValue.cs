@@ -8,7 +8,6 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// <summary>
 /// Represents a <c>Single</c> numeric value.
 /// </summary>
-/// <param name="Symbol">The symbol associated with this value.</param>
 public sealed record class VBSingleValue : VBNumericTypedValue,
     IVBTypedValue<VBSingleValue, float>,
     INumericValue<VBSingleValue>

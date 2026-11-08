@@ -19,7 +19,7 @@ namespace RDCore.SDK.Server;
 /// A server whose configuration sets the language of the user interface (<see cref="UserInterfaceLanguage"/>) keeps that one, and does not apply the client's.
 /// </para>
 /// </remarks>
-public static class ClientLocale
+internal static class ClientLocale
 {
     /// <summary>
     /// The language tag a client says the language of its user interface by (<c>fr-CA</c>); <see langword="null"/> for the invariant culture, which has none.

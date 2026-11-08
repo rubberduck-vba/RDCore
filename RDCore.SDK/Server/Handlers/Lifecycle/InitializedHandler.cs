@@ -7,7 +7,7 @@ using RDCore.SDK.Server.Services.States;
 
 namespace RDCore.SDK.Server.Handlers.Lifecycle;
 
-public class InitializedHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : LanguageProtocolInitializedHandlerBase
+internal class InitializedHandler(ILogger<IJsonRpcHandler> logger, IServerStateProvider server) : LanguageProtocolInitializedHandlerBase
 {
     public async override Task<Unit> Handle(InitializedParams request, CancellationToken cancellationToken)
     {

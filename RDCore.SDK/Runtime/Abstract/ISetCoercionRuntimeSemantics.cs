@@ -19,7 +19,7 @@ public interface ISetCoercionRuntimeSemantics
     /// Coerces <paramref name="source"/> to an object reference of <paramref name="destinationType"/>.
     /// </summary>
     /// <param name="session">
-    /// The active run-time session: needed to resolve a live object's actual class (<see cref="IRuntimeSession.TryGetInstance"/>),
+    /// The active run-time session: needed to resolve a live object's actual class (<see cref="ISessionSymbols.TryGetInstance"/>),
     /// since a <see cref="RDCore.SDK.Model.Values.Intrinsic.VBObjectValue"/>'s own <c>TypeInfo</c> is
     /// always the generic <c>Object</c> type, never a specific class.
     /// </param>

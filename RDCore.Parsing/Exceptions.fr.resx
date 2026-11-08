@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="VBCompileError_DirectiveWithoutIf_Verbose" xml:space="preserve">
+    <value>Ce #End If ne termine aucun bloc #If : il n&apos;y en a aucun avant lui, ou le #If qui le précède n&apos;est pas une directive (il lui faut une expression et Then, et rien d&apos;autre qu&apos;un commentaire après Then).</value>
+  </data>
+  <data name="VBCompileError_HashElseWithoutIf_Verbose" xml:space="preserve">
+    <value>Ce #Else n&apos;appartient à aucun bloc #If, ou il est le second #Else de son bloc.</value>
+  </data>
+  <data name="VBCompileError_ElseIfWithoutIf_Verbose" xml:space="preserve">
+    <value>Ce #ElseIf n&apos;appartient à aucun bloc #If, ou il vient après le #Else de son bloc.</value>
+  </data>
+  <data name="VBCompileError_HashIfWithoutEndIf_Verbose" xml:space="preserve">
+    <value>Ce bloc #If n&apos;est pas terminé : le module se termine avant son #End If.</value>
+  </data>
+  <data name="VBCompileError_ExpressionNestedTooDeeply_Verbose" xml:space="preserve">
+    <value>Cette expression est imbriquée dans plus de 2&#160;500 autres. Affectez-en d&apos;abord une partie à une variable.</value>
+  </data>
+  <data name="VBCompileError_ModuleNestedTooDeeplyToRead_Verbose" xml:space="preserve">
+    <value>Ce module est imbriqué trop profondément pour être lu&#160;: une expression ou un bloc y est imbriqué dans des milliers d&apos;autres. Scindez-en la partie la plus profonde en parties plus petites.</value>
+  </data>
+  <data name="VBCompileError_OutputItemsNotSeparated_Verbose" xml:space="preserve">
+    <value>Cet élément de sortie est écrit juste après un autre, sans rien entre les deux. L&apos;éditeur VBE écrirait un ; entre eux, qui les imprime de la même façon.</value>
+  </data>
+  <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
+    <value>Attendu : Then. Une directive #If ou #ElseIf s&apos;écrit #If expression Then.</value>
+  </data>
+  <data name="VBCompileError_DirectiveExpectedExpression_Verbose" xml:space="preserve">
+    <value>Attendu : expression. La condition d&apos;une directive #If ou #ElseIf est une expression constante de littéraux, de constantes de compilation conditionnelle et d&apos;opérateurs.</value>
+  </data>
+  <data name="VBCompileError_DirectiveExpectedEndOfStatement_Verbose" xml:space="preserve">
+    <value>Attendu : fin d&apos;instruction. Seul un commentaire peut suivre une directive sur sa ligne.</value>
+  </data>
+  <data name="VBCompileError_DirectiveExpectedKeyword_Verbose" xml:space="preserve">
+    <value>Attendu : If ou Else ou ElseIf ou End ou EndIf ou Const. Une ligne qui commence par # est une directive.</value>
+  </data>
+  <data name="VBCompileError_ConstDirectiveExpectedEquals_Verbose" xml:space="preserve">
+    <value>Attendu : =. Une directive #Const s&apos;écrit #Const nom = expression.</value>
+  </data>
+  <data name="VBCompileError_ConstDirectiveExpectedName_Verbose" xml:space="preserve">
+    <value>Attendu : identificateur. Une directive #Const s&apos;écrit #Const nom = expression.</value>
+  </data>
+  <data name="VBCompileError_ConstDirectiveExpression_Verbose" xml:space="preserve">
+    <value>Attendu : expression. La valeur d&apos;une directive #Const est une expression constante de littéraux, de constantes de compilation conditionnelle et d&apos;opérateurs.</value>
+  </data>
+  <data name="VBCompileError_ReservedParameterName_Verbose" xml:space="preserve">
+    <value>Attendu : identificateur. &apos;{0}&apos; est un mot réservé et ne peut pas nommer un paramètre.</value>
+  </data>
+  <data name="VBCompileError_TooManyLineContinuations_Verbose" xml:space="preserve">
+    <value>Trop de continuations de ligne : une ligne logique joint au plus 25 lignes physiques, avec 24 continuations de ligne.</value>
+  </data>
+  <data name="VBCompileError_NumericLiteralOverflow_Verbose" xml:space="preserve">
+    <value>La valeur du littéral numérique est hors des limites de son type.</value>
+  </data>
+  <data name="VBCompileError_RaiseEventByVal_Verbose" xml:space="preserve">
+    <value>Un argument de RaiseEvent ne peut pas être écrit avec ByVal : le mot clé n'est valide que dans la liste d'arguments de l'appel d'une procédure externe (MS-VBAL §5.6.13.1).</value>
+  </data>
+  <data name="VBCompileError_CallArgumentsNeedCall_Verbose" xml:space="preserve">
+    <value>Un appel écrit sans le mot clé Call n'a pas de liste d'arguments entre parenthèses, pas même vide. Supprimez les parenthèses (Foo 1, 2 ou Foo), ou écrivez le mot clé Call (Call Foo(1, 2) ou Call Foo()). Les parenthèses d'un seul argument ne sont pas une liste d'arguments mais le regroupement de cet argument, qui est passé par valeur (MS-VBAL §5.4.2.1).</value>
+  </data>
+</root>

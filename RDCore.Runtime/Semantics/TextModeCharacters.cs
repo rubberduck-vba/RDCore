@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Text;
 
-namespace RDCore.SDK.Runtime;
+namespace RDCore.Runtime.Semantics;
 
 /// <summary>
 /// The characters of a text as MS-VBA's text mode matches them, in <c>Like</c> (<strong>MS-VBAL §5.6.9.6</strong>) and in a search - <c>InStr</c>,
 /// <c>InStrRev</c>, <c>Replace</c>, <c>Split</c>, <c>Filter</c>: folded to one case, and four characters as the two letters they expand to.
 /// </summary>
 /// <remarks>
-/// This is not how the relational operators compare in text mode (<see cref="StringComparisonRules.Compare(ReadOnlySpan{char}, ReadOnlySpan{char})"/>):
+/// This is not how the relational operators compare in text mode (<see cref="StringComparisonRulesExtensions"/>):
 /// MS-VBA's <c>=</c> compares by the regional collation, which ignores width and kana and expands more, where its <c>Like</c> and its searches fold case and
 /// expand <c>æ</c>, <c>œ</c>, <c>ß</c> and <c>þ</c>, and nothing else (recorded in Excel: oracle\like-collation, oracle\instr-text). A soft hyphen, a full-width
 /// letter, katakana, an accented letter and the Kelvin sign are characters of their own; <c>ĳ</c>, the ligatures <c>ﬀ</c> to <c>ﬆ</c>, <c>ǆ</c> and <c>ẞ</c>

@@ -20,7 +20,7 @@ namespace RDCore.SDK.Server.Configuration;
 /// whose editor has no tab size.
 /// </para>
 /// </remarks>
-public sealed class ClientConfigurationFollower : IDisposable
+internal sealed class ClientConfigurationFollower : IDisposable
 {
     private readonly ILanguageServer _server;
     private readonly ILiveSettings _liveSettings;

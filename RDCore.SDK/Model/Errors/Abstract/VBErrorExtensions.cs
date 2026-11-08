@@ -51,7 +51,6 @@ public static class VBErrorExtensions
         /// <summary>
         /// Gets a formalized <strong><c>VBC00000</c></strong> diagnostics code for a <em>compile-time exception</em>.
         /// </summary>
-        /// <param name="id">The <c>VBCompileErrorId</c> value to codify.</param>
         /// <remarks>
         /// A <c>VBCompileErrorException</c> would be thrown in the <em>static semantics</em> layer by the language core.
         /// </remarks>
@@ -63,7 +62,6 @@ public static class VBErrorExtensions
         /// <summary>
         /// Gets a formalized <strong><c>VBC00000</c></strong> diagnostics code for a <em>compile-time exception</em>.
         /// </summary>
-        /// <param name="id">The <c>VBCompileErrorId</c> value to codify.</param>
         /// <remarks>
         /// A <c>VBCompileErrorException</c> would be thrown in the <em>static semantics</em> layer by the language core.
         /// </remarks>

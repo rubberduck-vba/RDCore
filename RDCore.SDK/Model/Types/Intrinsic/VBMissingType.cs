@@ -7,7 +7,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// A <see cref="VBIntrinsicType{int}"/> representing the <c>Variant</c> subtype given to an <strong>optional <c>Variant</c> parameter</strong> that was not supplied.
+/// A <see cref="VBIntrinsicType{T}"/> representing the <c>Variant</c> subtype given to an <strong>optional <c>Variant</c> parameter</strong> that was not supplied.
 /// </summary>
 /// <remarks>
 /// The <em>managed type</em> of a value of this data type is <c>int</c>.<br/>

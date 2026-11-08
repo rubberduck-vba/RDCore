@@ -15,8 +15,18 @@ public sealed class DescribeExtensionCommandTests
     private const string Manifest = "extension.manifest.json";
 
     private static ExtensionInfo SampleInfo()
-        => new("RDCore.Diagnostics.exe", "RDCore.Diagnostics", new Version(1, 0), "pub", "", "desc", "sig",
-            [new PlatformExtensionServerCapability(nameof(CliCommand))]);
+        => new()
+        {
+            Name = "RDCore.Diagnostics.exe",
+            Title = "RDCore.Diagnostics",
+            Version = new Version(1, 0),
+            Publisher = "pub",
+            PublisherWebUrl = "",
+            Description = "desc",
+            FileHash = "hash",
+            Capabilities = [new PlatformExtensionServerCapability(nameof(CliCommand))],
+            SdkVersion = new Version(0, 1, 2, 3),
+        };
 
     private static (DescribeExtensionCommand Sut, MockFileSystem Fs, IExtensionsProvider Provider) NewSut(bool unsafeDevMode = false)
     {
@@ -51,6 +61,21 @@ public sealed class DescribeExtensionCommandTests
         Assert.AreEqual(0, exit);
         Assert.IsTrue(fs.File.Exists(Manifest));
         StringAssert.Contains(fs.File.ReadAllText(Manifest), nameof(CliCommand));
+    }
+
+    [TestMethod]
+    public async Task TheManifest_ReadsBack_WithItsId_FileHash_AndSdkVersion()
+    {
+        var (sut, fs, provider) = NewSut(unsafeDevMode: true);
+        provider.Describe("RDCore.Diagnostics.exe", Arg.Any<string>()).Returns(SampleInfo());
+
+        await sut.ExecuteAsync(["RDCore.Diagnostics.exe"], CancellationToken.None);
+
+        var written = System.Text.Json.JsonSerializer.Deserialize<ExtensionInfo>(fs.File.ReadAllText(Manifest))!;
+        Assert.AreEqual("RDCore.Diagnostics", written.Id, "an extension that declares no id is known by its title");
+        Assert.AreEqual("hash", written.FileHash);
+        Assert.AreEqual(new Version(0, 1, 2, 3), written.SdkVersion);
+        Assert.IsNull(written.DiagnosticPrefix);
     }
 
     [TestMethod]

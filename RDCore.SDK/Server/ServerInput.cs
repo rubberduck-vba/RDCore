@@ -23,7 +23,7 @@ namespace RDCore.SDK.Server;
 /// A read that the loop cancels, as OmniSharp stops the loop when the server is disposed, is answered with the end of the input as well.
 /// </para>
 /// </remarks>
-public sealed class ServerInput : PipeReader
+internal sealed class ServerInput : PipeReader
 {
     private static readonly ReadResult End = new(ReadOnlySequence<byte>.Empty, isCanceled: false, isCompleted: true);
 

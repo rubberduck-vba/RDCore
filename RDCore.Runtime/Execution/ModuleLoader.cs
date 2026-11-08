@@ -193,7 +193,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var errors = moduleModel.CompileErrors.Select(error => (error.Description, error.Verbose))
             .Concat(parseResult.SyntaxErrors.Where(error => !IsDead(error.Location.Range.Start, deadRanges))
                 .Select(error => error.StatementStart is { } statement && IsDead(statement, deadRanges)
-                    ? (error.Description, Verbose: SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose)
+                    ? (error.Description, Verbose: Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose)
                     : (error.Description, error.Verbose)))
             .Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
                 ? error.Description
@@ -309,7 +309,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
             .FirstOrDefault(child => !IsDead(child.SourceLocation.Range.Start, deadRanges))?.SourceLocation
             ?? (IsDead(end, deadRanges) ? null : written.SourceLocation with { Range = new SDK.Model.Source.SourceRange(end, end) });
         return location is { } at
-            ? VBCompileErrorInfo.For(VBCompileErrorId.InvalidOutsideProcedure, at, SDK.Exceptions.VBCompileError_HeaderInDeadBranchesOnly_Verbose)
+            ? VBCompileErrorInfo.For(VBCompileErrorId.InvalidOutsideProcedure, at, Exceptions.VBCompileError_HeaderInDeadBranchesOnly_Verbose)
             : null;
     }
 

@@ -29,6 +29,7 @@ public record class ElseBlockStatementNode(SyntaxNodeId Identity, SourceLocation
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
+/// <param name="Children">The child syntax nodes of the branch.</param>
 public record class PrecompilerElseIfBlockStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children)
     : StatementNode(Identity, SourceLocation, Children);
 
@@ -37,5 +38,6 @@ public record class PrecompilerElseIfBlockStatementNode(SyntaxNodeId Identity, S
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
+/// <param name="Children">The child syntax nodes of the branch.</param>
 public record class PrecompilerElseBlockStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children)
     : StatementNode(Identity, SourceLocation, Children);

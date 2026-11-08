@@ -10,7 +10,7 @@ namespace RDCore.SDK.Server;
 /// <summary>
 /// What an RDCore server answers a request whose handler fails unexpectedly.
 /// </summary>
-public static class ServerErrorAnswers
+internal static class ServerErrorAnswers
 {
     /// <summary>
     /// Has the server answer a request whose handler throws with <c>InternalError</c> (-32603) and the exception's message on one line, and write the whole

@@ -115,7 +115,7 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     public IVBMemberOwnerType WithMembers(IEnumerable<VBTypeMemberSymbol> members) => this with { Members = [.. members] };
 }
 
-public record class VBDeferredClassType(string Name, Uri Uri): VBDeferredType(Name, Uri)
+internal record class VBDeferredClassType(string Name, Uri Uri): VBDeferredType(Name, Uri)
 {
     private static readonly Lazy<VBObjectValue> _defaultValue = new(() => VBNothingValue.Nothing, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;

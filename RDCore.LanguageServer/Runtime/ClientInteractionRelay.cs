@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using RDCore.SDK;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Server.Services;
@@ -88,7 +87,7 @@ internal sealed class ClientInteractionRelay(OpenDialogs dialogs, ILogger<Client
             return answer;
         }
 
-        var failure = string.Format(Exceptions.VBRuntimeError_UnusableDialogAnswer_NoSuchButton, NameOf(client), VBMsgBoxButtons.NameOf(style), answer.Result);
+        var failure = string.Format(RuntimeMessages.VBRuntimeError_UnusableDialogAnswer_NoSuchButton, NameOf(client), VBMsgBoxButtons.NameOf(style), answer.Result);
         _logger.LogWarning("⚠️ {Failure}", failure);
         return answer with { Failure = failure };
     }
@@ -114,7 +113,7 @@ internal sealed class ClientInteractionRelay(OpenDialogs dialogs, ILogger<Client
         return answer with { Declined = true };
     }
 
-    private static string NameOf(IInteractionClient client) => client.Name is { Length: > 0 } name ? name : Exceptions.UnnamedClient;
+    private static string NameOf(IInteractionClient client) => client.Name is { Length: > 0 } name ? name : RuntimeMessages.UnnamedClient;
 }
 
 /// <summary>

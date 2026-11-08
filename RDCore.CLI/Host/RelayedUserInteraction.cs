@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.External.Interaction;
-using RDCore.SDK;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -71,7 +70,7 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
 
         if (answer.Declined)
         {
-            throw Unanswered(VBRuntimeErrorId.NobodyToAnswer, string.Format(Exceptions.VBRuntimeError_NobodyToAnswer_Declined, "MsgBox", Exceptions.UnnamedClient));
+            throw Unanswered(VBRuntimeErrorId.NobodyToAnswer, string.Format(Resources.VBRuntimeError_NobodyToAnswer_Declined, "MsgBox", Resources.UnnamedClient));
         }
 
         if (!answer.Handled)
@@ -82,7 +81,7 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
         if (!request.Choices.Contains((VBMsgBoxResult)answer.Result))
         {
             throw Unanswered(VBRuntimeErrorId.UnusableDialogAnswer, string.Format(
-                Exceptions.VBRuntimeError_UnusableDialogAnswer_NoSuchButton, Exceptions.UnnamedClient, VBMsgBoxButtons.NameOf(request.Style), answer.Result));
+                Resources.VBRuntimeError_UnusableDialogAnswer_NoSuchButton, Resources.UnnamedClient, VBMsgBoxButtons.NameOf(request.Style), answer.Result));
         }
 
         buffer?.ForgetCompleted(output.Count);
@@ -106,7 +105,7 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
 
         if (answer.Declined)
         {
-            throw Unanswered(VBRuntimeErrorId.NobodyToAnswer, string.Format(Exceptions.VBRuntimeError_NobodyToAnswer_Declined, "InputBox", Exceptions.UnnamedClient));
+            throw Unanswered(VBRuntimeErrorId.NobodyToAnswer, string.Format(Resources.VBRuntimeError_NobodyToAnswer_Declined, "InputBox", Resources.UnnamedClient));
         }
 
         if (!answer.Handled)
@@ -141,7 +140,7 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
         {
             _logger.LogError(exception, "💬 The program's {Dialog} could not be relayed to the language server's client.", dialog);
             throw new DialogNotAnsweredException(VBRuntimeErrorId.UnusableDialogAnswer,
-                string.Format(Exceptions.VBRuntimeError_UnusableDialogAnswer_NotRelayed, dialog, exception.Message));
+                string.Format(Resources.VBRuntimeError_UnusableDialogAnswer_NotRelayed, dialog, exception.Message));
         }
     }
 

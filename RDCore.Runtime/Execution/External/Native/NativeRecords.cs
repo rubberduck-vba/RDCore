@@ -278,7 +278,7 @@ internal static class NativeRecords
     private static ExternalValue Wire(object? value) => ExternalValues.ToWire(value, NoHandle);
 
     // a record passes values, never objects: there is no handle for one, either way.
-    private static long NoHandle(object value) => throw new AutomationException(unchecked((int)0x80020005), SDK.Exceptions.VBDeclare_ObjectNotPassed_Verbose);
+    private static long NoHandle(object value) => throw new AutomationException(unchecked((int)0x80020005), Exceptions.VBDeclare_ObjectNotPassed_Verbose);
 
-    private static object NoObject(long handle) => throw new AutomationException(unchecked((int)0x80020005), SDK.Exceptions.VBDeclare_ObjectNotPassed_Verbose);
+    private static object NoObject(long handle) => throw new AutomationException(unchecked((int)0x80020005), Exceptions.VBDeclare_ObjectNotPassed_Verbose);
 }

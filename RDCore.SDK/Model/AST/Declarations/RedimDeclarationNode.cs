@@ -67,7 +67,7 @@ public record class RedimDeclarationNode(SyntaxNodeId Identity, SourceLocation L
     /// The dimensions this statement gives the array, or <c>null</c> when it declared none.
     /// </summary>
     /// <remarks>
-    /// A computed view over <see cref="Children"/>, ignored on the wire so that the spine stays the one
+    /// A computed view over <see cref="SyntaxNode.Children"/>, ignored on the wire so that the spine stays the one
     /// property carrying the data: <c>Children</c> is this node's own constructor parameter, so a
     /// serializer that dropped it as reconstructable from here would have nothing to rebuild it from.
     /// </remarks>

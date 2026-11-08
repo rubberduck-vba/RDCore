@@ -20,7 +20,7 @@ A deferred type may statically be one of the following data types:
 
 The static-semantics layer consumes `ModuleDirectives` to decide whether an _unresolved_ simple name is a deferred `VBUnknownType` or a **VBC09302** _Variable not defined_ compile-time error; see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 
-RD-VBA defers the actual type guess for an unresolved name to a later type-inference pass ([IVBInferableType](../api/RDCore.SDK.Model.Types.Complex.IVBInferableType.html)), rather than deciding it in the simple-name-expression rule; see [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
+RD-VBA defers the actual type guess for an unresolved name to a later type-inference pass (`IVBInferableType`), rather than deciding it in the simple-name-expression rule; see [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
 
 ## Deferred Names
 
@@ -50,7 +50,7 @@ Deferred types implement `IVBInferableType` instead of `IVBMemberOwnerType`. `IV
 
 ## 2.4.4.1 VBDeferredModuleType
 
-[VBDeferredModuleType](../api/RDCore.SDK.Model.Types.Complex.VBDeferredModuleType.html) represents a deferred [VBStdModuleType](../api/RDCore.SDK.Model.Types.Complex.VBStdModuleType.html).
+`VBDeferredModuleType` represents a deferred [VBStdModuleType](../api/RDCore.SDK.Model.Types.Complex.VBStdModuleType.html).
 
 A deferred member is presumed to belong to a deferred module, unless the deferred member is qualified:
 
@@ -64,7 +64,7 @@ Only one unnamed deferred module may be _semantically_ (but not _statically_) de
 
 ## 2.4.4.2 VBDeferredClassType
 
-[VBDeferredClassType](../api/RDCore.SDK.Model.Types.Complex.VBDeferredClassType.html) represents a deferred [VBClassType](../api/RDCore.SDK.Model.Types.Complex.VBClassType.html).
+`VBDeferredClassType` represents a deferred [VBClassType](../api/RDCore.SDK.Model.Types.Complex.VBClassType.html).
 
 Deferred class types cannot be presumed to have a _default instance_. A default instance is set by a `VB_PredeclaredId` module attribute with the value `True`; see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) and [**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md).
 
@@ -77,9 +77,9 @@ The default name of a deferred class is the word `Class` followed by a number, t
 
 ## 2.4.4.3 VBDeferredTypeDesc
 
-`VBDeferredTypeDesc` represents (describes) a [VBDeferredType](../api/RDCore.SDK.Model.Types.Complex.VBDeferredType.html) within the type system.
+`VBDeferredTypeDesc` represents (describes) a `VBDeferredType` within the type system.
 
-A value of the `VBDeferredTypeDesc` meta type, a [VBDeferredTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBDeferredTypeDescValue.html), is used in the implementation of the `Is` relational operator; see [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md). The `Is` operator uses a deferred type descriptor value because its semantics demand knowledge of a _data type_ where a _value_ is normally required.
+A value of the `VBDeferredTypeDesc` meta type, a `VBDeferredTypeDescValue`, is used in the implementation of the `Is` relational operator; see [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md). The `Is` operator uses a deferred type descriptor value because its semantics demand knowledge of a _data type_ where a _value_ is normally required.
 
 > [!NOTE]
 > **Not implemented.** None of the other deferred descriptor types are in use.
@@ -88,7 +88,7 @@ All deferred descriptor types inherit the corresponding non-deferred descriptor 
 
 ## 2.4.4.4 VBDeferredMemberDesc
 
-[VBDeferredMemberDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredMemberDesc.html) is a descriptor that represents (describes) any [VBDeferredTypeMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBDeferredTypeMemberSymbol.html).
+`VBDeferredMemberDesc` is a descriptor that represents (describes) any `VBDeferredTypeMemberSymbol`.
 
 RD-VBAL groups the following descriptors under `VBDeferredMemberDesc`:
 
@@ -98,32 +98,26 @@ RD-VBAL groups the following descriptors under `VBDeferredMemberDesc`:
 |[§2.4.4.4.2](#24442-vbdeferredpropertyletproceduredesc)|`VBDeferredPropertyLetProcedureDesc`|
 |[§2.4.4.4.3](#24443-vbdeferredpropertysetproceduredesc)|`VBDeferredPropertySetProcedureDesc`|
 |[§2.4.4.4.4](#24444-vbdeferredfunctionproceduredesc)|`VBDeferredFunctionProcedureDesc`|
-|[§2.4.4.4.5](#24445-vbdeferredpropertygetproceduredesc)|`VBDeferredPropertyGetProcedureDesc`|
-|[§2.4.4.4.6](#24446-vbdeferredparameterdesc)|`VBDeferredParameterDesc`|
 
 ### 2.4.4.4.1 VBDeferredProcedureMemberDesc
 
-[VBDeferredProcedureMemberDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredProcedureMemberDesc.html) is a descriptor that represents (describes) a _non-returning_ deferred procedure member symbol (a `VBDeferredTypeMemberSymbol`).
+`VBDeferredProcedureMemberDesc` is a descriptor that represents (describes) a _non-returning_ deferred procedure member symbol (a `VBDeferredTypeMemberSymbol`).
 
 ### 2.4.4.4.2 VBDeferredPropertyLetProcedureDesc
 
-[VBDeferredPropertyLetProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredPropertyLetProcedureDesc.html) is a descriptor that represents (describes) a deferred `Property Let` member.
+`VBDeferredPropertyLetProcedureDesc` is a descriptor that represents (describes) a deferred `Property Let` member.
 
 ### 2.4.4.4.3 VBDeferredPropertySetProcedureDesc
 
-[VBDeferredPropertySetProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredPropertySetProcedureDesc.html) is a descriptor that represents (describes) a deferred `Property Set` member.
+`VBDeferredPropertySetProcedureDesc` is a descriptor that represents (describes) a deferred `Property Set` member.
 
 ### 2.4.4.4.4 VBDeferredFunctionProcedureDesc
 
-[VBDeferredFunctionProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredFunctionProcedureDesc.html) is a descriptor that represents (describes) a deferred `Function` member.
+`VBDeferredFunctionProcedureDesc` is a descriptor that represents (describes) a deferred `Function` member.
 
-### 2.4.4.4.5 VBDeferredPropertyGetProcedureDesc
+### Deferred Parameters
 
-[VBDeferredPropertyGetProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredPropertyGetProcedureDesc.html) is a descriptor that represents (describes) a deferred `Property Get` member.
-
-### 2.4.4.4.6 VBDeferredParameterDesc
-
-[VBDeferredParameterDesc](../api/RDCore.SDK.Model.Types.Meta.VBDeferredParameterDesc.html) is a descriptor that represents (describes) a single _parameter_ of a deferred member.
+The parameters of a deferred member are [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)s, as the parameters of any member are; see [**RD-VBAL §2.4.3.2** VBMemberDesc](rd-vbal.2.4.3.meta-and-advanced-types.md#2432-vbmemberdesc).
 
 Deferred parameters are inferred from the arguments provided at the call sites of deferred members.
 

@@ -38,8 +38,6 @@ The `SignificantIntegerDigits` constant is declared on the `VBType`: `VBSingleTy
 
 ## Precompiler Constants
 
-Precompiler constants are interpreted as `Integer` values. A precompiler constant value is an additional numeric data value:
-
-- [PrecompilerConstantValue](../api/RDCore.SDK.Model.Values.PrecompilerConstantValue.html)
+Precompiler constants are interpreted as `Integer` values.
 
 Conditional compilation expressions are described in [**RD-VBAL §5.6.16** Constrained Expressions](rd-vbal.5.6.16.constrained-expressions.md).

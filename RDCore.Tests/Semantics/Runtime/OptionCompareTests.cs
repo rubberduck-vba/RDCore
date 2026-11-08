@@ -1,5 +1,6 @@
 ﻿using NSubstitute;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Diagnostics;
@@ -25,7 +26,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// which the session says; <c>Option Compare Database</c> is what the platform says.
 /// </summary>
 /// <remarks>
-/// 👉 Binary mode's other reading, the byte image, is behind <see cref="StringComparisonRules.BinaryModeComparesByteImages"/>: it
+/// 👉 Binary mode's other reading, the byte image, is behind <see cref="StringComparisonRulesExtensions.BinaryModeComparesByteImages"/>: it
 /// orders every string here the same way, these being ASCII or differing only in a trailing byte.
 /// </remarks>
 [TestClass]
@@ -75,8 +76,7 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
 
     private static ComparisonOperatorSemanticFlags Analyze(IRuntimeSession session, string left, string right)
     {
-        var builder = new SemanticContextBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(
-            Substitute.For<ICoreDiagnosticsFactory>());
+        var builder = new SemanticContextFlagsBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>();
         Eq().Analyze(session, new ConversionOperationSemanticContext(), builder, ThrowawayExpression, new VBStringValue(left), new VBStringValue(right));
         return builder.Build().Flags;
     }
@@ -263,8 +263,7 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
     [TestMethod]
     public void AComparisonOfNumbers_HasNoStringComparisonMode()
     {
-        var builder = new SemanticContextBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(
-            Substitute.For<ICoreDiagnosticsFactory>());
+        var builder = new SemanticContextFlagsBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>();
         Eq().Analyze(SessionIn(OptionCompare.Text), new ConversionOperationSemanticContext(), builder, ThrowawayExpression, new VBLongValue(1), new VBLongValue(2));
 
         Assert.AreEqual((ComparisonOperatorSemanticFlags)0, builder.Build().Flags & (ComparisonOperatorSemanticFlags.StringComparisonBinary | ComparisonOperatorSemanticFlags.StringComparisonText));

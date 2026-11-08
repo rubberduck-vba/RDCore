@@ -22,5 +22,5 @@ public interface IVBMemberOwnerType
     /// <summary>
     /// Gets the <em>deferred members</em> of this type, if any.
     /// </summary>
-    ImmutableArray<VBDeferredTypeMemberSymbol> DeferredMembers { get; init; }
+    internal ImmutableArray<VBDeferredTypeMemberSymbol> DeferredMembers { get; init; }
 }

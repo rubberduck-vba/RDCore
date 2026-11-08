@@ -5,7 +5,7 @@
 /// </summary>
 /// <remarks>
 /// 👉 That <c>Empty</c> behaves as <c>0</c> where a number is expected and as a zero-length string where a string is expected is a
-/// let-coercion rule of the semantic layer (<see cref="VBEmptyValue"/>); the runtime does not turn it into either.
+/// let-coercion rule of the semantic layer (<see cref="Intrinsic.VBEmptyValue"/>); the runtime does not turn it into either.
 /// </remarks>
 public readonly struct VBRuntimeEmptyValue : IRuntimeValue, IEquatable<VBRuntimeEmptyValue>
 {

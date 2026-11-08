@@ -7,12 +7,13 @@ namespace RDCore.SDK.Model.Values.Runtime;
 /// (its element cells included) round-trips through <c>ISessionStorage</c> like any other value.
 /// </summary>
 /// <remarks>
-/// 👉 Deliberately a plain reference type, not a <c>record</c>: <see cref="VBTypedValue.Equals"/>
+/// 👉 Deliberately a plain reference type, not a <c>record</c>: <see cref="Abstract.VBTypedValue.Equals(Abstract.VBTypedValue?)"/>
 /// compares <c>Handle.Value.BoxedValue</c>, so boxing the array through a structurally-equatable
 /// wrapper would compare two arrays by calling back into <see cref="VBArrayValue"/>'s own (inherited,
 /// structural) equality — which itself reads through this same boxed value — recursing forever. A
 /// plain class's default (reference) equality breaks that cycle.
 /// </remarks>
+/// <param name="array">The wrapped array.</param>
 public sealed class VBRuntimeArrayValue(VBArrayValue array)
 {
     /// <summary>

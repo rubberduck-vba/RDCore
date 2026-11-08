@@ -15,6 +15,7 @@ public interface IRDCoreApp : IDisposable
     /// Bootstraps and starts the application.
     /// </summary>
     /// <param name="provider">An <see cref="IServiceProvider"/> to configure the application.</param>
+    /// <param name="args">The command-line arguments the application was started with.</param>
     Task RunAsync(IServiceProvider provider, string[] args);
     /// <summary>
     /// Logs the specified message at the specified level, if logging is enabled at that level.

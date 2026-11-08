@@ -11,7 +11,6 @@ namespace RDCore.SDK.Model.Values.Meta;
 /// Describes a specified <see cref="VBType"/> for a specified symbol.
 /// </summary>
 /// <param name="Target">The described type.</param>
-/// <param name="Symbol">The symbol associated with this value.</param>
 public record class VBTypeDescValue(VBType Target) : VBTypedValue(VBTypeDesc.TypeInfo)
 {
     private static readonly Lazy<VBTypeDescValue> _defaultValue = new(() => new(VBVoidType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);
@@ -26,7 +25,7 @@ public record class VBTypeDescValue(VBType Target) : VBTypedValue(VBTypeDesc.Typ
 /// <summary>
 /// Creates a new <c>VBTypeDescValue</c> describing the specified <em>deferred type</em> at the specified symbol.
 /// </summary>
-/// <param name="deferredTypeInfo">The described <em>deferred type</em>.</param>
-public record class VBDeferredTypeDescValue(VBDeferredType DeferredTarget) : VBTypeDescValue(DeferredTarget) 
+/// <param name="DeferredTarget">The described <em>deferred type</em>.</param>
+internal record class VBDeferredTypeDescValue(VBDeferredType DeferredTarget) : VBTypeDescValue(DeferredTarget) 
 {
 }

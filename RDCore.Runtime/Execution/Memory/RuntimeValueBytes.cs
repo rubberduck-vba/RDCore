@@ -27,7 +27,7 @@ internal static class RuntimeValueBytes
     public static byte[]? Of(IRuntimeValue value, int pointerWidth = sizeof(long)) => value switch
     {
         // a record is its fields at their offsets (MS-VBA's layout), each as it is in memory: what LSet copies, and what is at the address of the record.
-        VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: var record } => SDK.Model.Types.VBUserDefinedTypeImage.Of(record, pointerWidth),
+        VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: var record } => VBUserDefinedTypeImage.Of(record, pointerWidth),
         // a Boolean boxes as an Int32 but occupies two bytes (MS-VBAL §2.1), so it is matched on its
         // own runtime type rather than on what it boxes to.
         VBRuntimeBooleanValue boolean => BitConverter.GetBytes(boolean.StoredValue),
@@ -94,7 +94,7 @@ internal static class RuntimeValueBytes
 
     private static IRuntimeValue WrittenInto(SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue record, byte[] bytes, int pointerWidth, IRuntimeValue value)
     {
-        SDK.Model.Types.VBUserDefinedTypeImage.WriteInto(record, bytes, pointerWidth);
+        VBUserDefinedTypeImage.WriteInto(record, bytes, pointerWidth);
         return value;
     }
 

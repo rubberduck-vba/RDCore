@@ -31,7 +31,7 @@ public sealed record class FormDesignerReference(string FileName, long Offset);
 /// declarations do not need.</item>
 /// </list>
 /// The reader takes the companion file's content from its caller, which owns the file system:
-/// <see cref="CompanionOf"/> says which file and where.
+/// <see cref="CompanionOf(string)"/> says which file and where.
 /// </remarks>
 public static partial class FormDesigner
 {
@@ -68,7 +68,7 @@ public static partial class FormDesigner
     /// designer block).
     /// </summary>
     /// <param name="source">The form module's source.</param>
-    /// <param name="companion">The content of the module's companion file (<see cref="CompanionOf"/>), when the module
+    /// <param name="companion">The content of the module's companion file (<see cref="CompanionOf(string)"/>), when the module
     /// keeps designer data there; ignored when it does not.</param>
     /// <exception cref="FormDesignerFormatException">The designer block is not terminated, the module keeps designer data in
     /// a companion file and <paramref name="companion"/> is empty, or that designer data cannot be read.</exception>
@@ -100,7 +100,7 @@ public static partial class FormDesigner
     /// The state is opaque here: <see cref="Read"/> reads what a form declares from it, and the form host hands it, as it is, to the library that hosts the form.
     /// </remarks>
     /// <param name="source">The form module's source.</param>
-    /// <param name="companion">The content of the module's companion file (<see cref="CompanionOf"/>).</param>
+    /// <param name="companion">The content of the module's companion file (<see cref="CompanionOf(string)"/>).</param>
     /// <exception cref="FormDesignerFormatException">The designer block is not terminated, the module keeps designer data in a companion file and
     /// <paramref name="companion"/> is empty, or the designer data is not where it says.</exception>
     public static ReadOnlyMemory<byte> StateOf(string? source, ReadOnlyMemory<byte> companion)
