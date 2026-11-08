@@ -147,8 +147,8 @@ public sealed record class RenameTarget(string Name, Uri Module, SourceRange Ran
 /// </param>
 /// <param name="IsLateBound">
 /// Whether the name is that of a member accessed late-bound (on an <c>Object</c> or a <c>Variant</c>) that may be the renamed member: which member it is, is
-/// only known when the code runs (<strong>MS-VBAL §5.6.12</strong>), so the user is asked to confirm the edit. An access left as it is no longer finds the
-/// member when the object is of the renamed member's class.
+/// only known when the code runs (<strong>MS-VBAL §5.6.12</strong>), so the user is asked to confirm the edit. An access left as it is does not find the
+/// renamed member when the object is of its class.
 /// </param>
 /// <param name="IsBacked">
 /// For a late-bound edit (<paramref name="IsLateBound"/>), whether what is known of the object says it may hold an object of the renamed member's class
