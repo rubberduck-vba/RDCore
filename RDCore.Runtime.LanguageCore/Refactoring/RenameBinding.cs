@@ -28,7 +28,7 @@ public static class RenameBinding
 {
     /// <summary>
     /// The symbol named at <paramref name="position"/> of <paramref name="module"/>, bound as a rename binds it: a value, or the type a name that means no
-    /// value names - a class that is created, a <c>Type</c> a variable is declared as.
+    /// value names (a class that is created, a <c>Type</c> a variable is declared as).
     /// </summary>
     /// <param name="context">The workspace.</param>
     /// <param name="module">The module.</param>

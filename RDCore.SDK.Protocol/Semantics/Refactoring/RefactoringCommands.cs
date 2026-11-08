@@ -15,7 +15,7 @@ public static class RefactoringCommands
     /// <summary>
     /// Shows its user where a symbol is referred to: the command of a code lens that counts the references of a member (<strong>LSP 3.17</strong>
     /// <c>CodeLens.command</c>). Its arguments are the URI of the document, the position of the member's name (<strong>LSP 3.17</strong> <c>Position</c>), and the
-    /// references (<strong>LSP 3.17</strong> <c>Location[]</c>) - the arguments of VS Code's <c>editor.action.showReferences</c>.
+    /// references (<strong>LSP 3.17</strong> <c>Location[]</c>): the arguments of VS Code's <c>editor.action.showReferences</c>.
     /// </summary>
     public const string ShowReferences = "rdcore.showReferences";
 }
