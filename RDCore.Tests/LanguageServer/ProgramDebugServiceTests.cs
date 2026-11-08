@@ -32,11 +32,11 @@ public sealed class ProgramDebugServiceTests
         parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(new ModuleParser().Parse(call.Arg<Uri>(), call.Arg<string>())));
 
-        _environment.SendRequestAsync<HostDebugBreakpointsParams, HostDebugBreakpointsResult>(Arg.Any<HostDebugBreakpointsParams>(), Arg.Any<CancellationToken>())
+        _environment.SendRequestAsync<HostDebugBreakpointsParams, DebugBreakpointsResult>(Arg.Any<HostDebugBreakpointsParams>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 _sent = call.Arg<HostDebugBreakpointsParams>();
-                return Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [.. _sent.Breakpoints.Select(line => new HostBreakpoint(line.Line, true))], Judged = true });
+                return Task.FromResult(new DebugBreakpointsResult { Breakpoints = [.. _sent.Breakpoints.Select(line => new DebugBreakpoint(line.Line, true))], Judged = true });
             });
 
         _service = new ProgramDebugService(orchestration, parsing, Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = "file:///c:/ws/" } }));
@@ -75,6 +75,22 @@ public sealed class ProgramDebugServiceTests
         var result = await _service.SetBreakpointsAsync("Prog", [new SessionBreakpointLine { Line = 4, Condition = "i > 5\r\nEnd Sub" }], CancellationToken.None);
 
         Assert.AreEqual(DebuggerMessages.ExpressionIsOneLine, result.Breakpoints.Single().ConditionError);
+    }
+
+    // the parse of a condition as deep as RD-VBA reads (RD-VBAL 2.6.1) is walked with a stack of the walk's own, on a thread no larger than one a request is
+    // answered on.
+    [TestMethod]
+    public void ACondition_NestedAsDeepAsRDVBAReads_ReachesTheHost_OnASmallStack()
+    {
+        var condition = new string('(', ModuleParser.MaxExpressionNesting) + "1" + new string(')', ModuleParser.MaxExpressionNesting);
+
+        DebugBreakpointsResult? result = null;
+        var thrown = SmallStack.Run(() => result = _service.SetBreakpointsAsync("Prog", [new SessionBreakpointLine { Line = 4, Condition = condition }],
+            CancellationToken.None).GetAwaiter().GetResult());
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.IsNull(result!.Breakpoints.Single().ConditionError);
+        Assert.IsNotNull(_sent!.Breakpoints.Single().ConditionJson);
     }
 
     [TestMethod]

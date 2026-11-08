@@ -1,7 +1,9 @@
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using SimpleNameExpressionNode = RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -205,4 +207,27 @@ public sealed class ExpressionFactTests
 
         Assert.IsEmpty(model.Expressions);
     }
+
+    // the names of the body's variables that are flagged as written to, in the order they are written.
+    private static string[] Written(params string[] body)
+    {
+        var (model, run, _) = Analyze([], body);
+        var names = run.Descendants().OfType<SimpleNameExpressionNode>().ToDictionary(name => name.Identity);
+        return [.. model.Expressions.Values
+            .Where(fact => names.ContainsKey(fact.Node) && fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget))
+            .OrderBy(fact => fact.Location.Range.Start)
+            .Select(fact => names[fact.Node].IdentifierName)];
+    }
+
+    // what a statement writes to is a fact of it, whichever statement it is: the target of an assignment, and of every statement that gives a variable a value.
+    [TestMethod]
+    [DataRow(new[] { "Dim s As String", "s = \"abc\"" }, new[] { "s" }, DisplayName = "an assignment")]
+    [DataRow(new[] { "Dim s As String", "Dim n As Long", "Mid(s, n, 1) = \"x\"" }, new[] { "s" }, DisplayName = "the string a Mid statement replaces a part of, and not its start")]
+    [DataRow(new[] { "Dim s As String", "Dim t As String", "Input #1, s, t" }, new[] { "s", "t" }, DisplayName = "the variables of an Input # statement")]
+    [DataRow(new[] { "Dim s As String", "Line Input #1, s" }, new[] { "s" }, DisplayName = "the variable of a Line Input # statement")]
+    [DataRow(new[] { "Dim s As String", "Dim r As Long", "Get #1, r, s" }, new[] { "s" }, DisplayName = "the variable of a Get # statement, and not its record number")]
+    [DataRow(new[] { "Dim s As String", "Get #1, , s" }, new[] { "s" }, DisplayName = "the variable of a Get # statement with no record number")]
+    [DataRow(new[] { "Dim a() As Long", "Dim b() As Long", "Erase a, b" }, new[] { "a", "b" }, DisplayName = "the arrays of an Erase statement")]
+    public void WhatAStatementWritesTo_IsFlaggedAsAnAssignmentTarget(string[] body, string[] expected)
+        => CollectionAssert.AreEqual(expected, Written(body));
 }

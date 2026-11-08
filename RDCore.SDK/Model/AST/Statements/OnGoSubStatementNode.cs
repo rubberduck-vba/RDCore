@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 namespace RDCore.SDK.Model.AST.Statements;
 
 /// <summary>
-/// <strong>MS-VBAL §5.4.2.16</strong> On...GoSub Statement — evaluates <see cref="Selector"/>,
+/// <strong>MS-VBAL §5.4.2.16</strong> On...GoSub Statement: evaluates <see cref="Selector"/>,
 /// Let-coerces it to <c>Integer</c>, and branches to the corresponding label in <see cref="Labels"/>
 /// (1-based; out of range completes the statement without branching), same as
 /// <see cref="OnGoToStatementNode"/> except the target is reached via a <c>GoSub</c> call frame rather

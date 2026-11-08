@@ -1,6 +1,8 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.LanguageServer.Refactoring;
 using RDCore.SDK.Semantics.Refactoring;
 
@@ -12,14 +14,26 @@ namespace RDCore.LanguageServer.Navigation;
 /// </summary>
 /// <remarks>
 /// The names its declarations declare are references when the client asks for them (<c>context.includeDeclaration</c>). No name, or a name whose meaning is
-/// not known, has no reference.
+/// not known, has no reference. Where a name whose meaning is not known could refer to the symbol - in an expression nested too deeply to be analyzed, a
+/// member accessed late-bound - the user is told that the references may be incomplete (<c>window/showMessage</c>), as a rename of it is refused.
 /// </remarks>
-internal sealed class ReferencesHandler(IRenameService workspace) : ReferencesHandlerBase
+internal sealed class ReferencesHandler(IRenameService workspace, ILanguageServerFacade server) : ReferencesHandlerBase
 {
     public override async Task<LocationContainer?> Handle(ReferenceParams request, CancellationToken cancellationToken)
-        => await workspace.ComposeAsync(cancellationToken) is { } composed
-            ? new LocationContainer(composed.References(request.TextDocument.Uri.ToUri(), request.Position, request.Context?.IncludeDeclaration ?? true))
-            : new LocationContainer();
+    {
+        if (await workspace.ComposeAsync(cancellationToken) is not { } composed)
+        {
+            return new LocationContainer();
+        }
+
+        var (locations, incomplete) = composed.References(request.TextDocument.Uri.ToUri(), request.Position, request.Context?.IncludeDeclaration ?? true);
+        if (incomplete is not null)
+        {
+            server.Window.ShowMessage(new ShowMessageParams { Type = MessageType.Info, Message = incomplete });
+        }
+
+        return new LocationContainer(locations);
+    }
 
     protected override ReferenceRegistrationOptions CreateRegistrationOptions(ReferenceCapability capability, ClientCapabilities clientCapabilities) => new();
 }

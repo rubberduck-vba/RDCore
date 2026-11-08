@@ -67,12 +67,28 @@ public sealed class DirectivePassTests
     [DataRow("#If Mac Then", 101, DisplayName = "an #If that is never ended before them, which holds them all")]
     public void DirectivesThatDoNotFit_AreParsedAsFast_AndTheBlocksAfterThemAreEachTheirOwn(string first, int blocks)
     {
-        var watch = System.Diagnostics.Stopwatch.StartNew();
+        _ = Parse(Enumerable.Range(0, 100).SelectMany(Declare));
+        var wellFormed = ModuleParser.DirectiveLooksOfLastParse;
         var result = Parse(Enumerable.Range(0, 100).SelectMany(Declare).Prepend(first));
-        watch.Stop();
+        var looks = ModuleParser.DirectiveLooksOfLastParse;
 
+        // the work of the pass, counted where a clock would time it: the bail, then the recovery, each a pass over the module as SLL makes it. LL, which took
+        // 46 s here, reads on to the end of the module at each block. A cold DFA cache only adds looks, once for each decision it predicts in full, which the
+        // factor of 4 absorbs: the count is not the input's alone.
         Assert.HasCount(blocks, Blocks(result));
-        Assert.IsLessThan(10.0, watch.Elapsed.TotalSeconds, "a parse in well under a second, that took 46 s in LL");
+        Assert.IsGreaterThan(0L, wellFormed, "the well-formed module's directive pass is counted");
+        Assert.IsLessThanOrEqualTo(4 * wellFormed, looks, $"{looks:n0} looks at the tokens, where the module without the stray directive takes {wellFormed:n0}");
+    }
+
+    // a module with no directive has no directive pass, and its parse counts none: not the looks of the module parsed before it.
+    [TestMethod]
+    public void TheLooksOfAParse_AreItsOwn_NoneForAModuleWithNoDirective()
+    {
+        _ = Parse(Enumerable.Range(0, 3).SelectMany(Declare));
+        Assert.IsGreaterThan(0L, ModuleParser.DirectiveLooksOfLastParse);
+
+        _ = Parse(["Private Sub P()", "End Sub"]);
+        Assert.AreEqual(0L, ModuleParser.DirectiveLooksOfLastParse);
     }
 
     // the blocks, branches and bodies of a module's trivia, with where each is: what says which lines each branch holds.

@@ -20,12 +20,12 @@ internal sealed class SessionDiscardHandler(
     ISymbolSyncService symbols,
     IPlatformClientCapabilitiesService clientCapabilities,
     IEditStatusMonitor? editStatus = null)
-    : RDCoreRequestHandler<DiscardSessionParams, DiscardSessionResult>
+    : RDCoreRequestHandler<SessionDiscardRequest, DiscardResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
     private const int InvalidRequestCode = -32600;
 
-    protected override async Task<DiscardSessionResult> HandleAsync(DiscardSessionParams request, CancellationToken token)
+    protected override async Task<DiscardResult> HandleAsync(SessionDiscardRequest request, CancellationToken token)
     {
         if (!clientCapabilities.Expects(capabilities => capabilities.SessionDiscard))
         {

@@ -58,7 +58,7 @@ public sealed class HostExecuteHandlerTests
     /// Runs <paramref name="entryPoint"/> of <paramref name="source"/> the way the platform does: the
     /// language server parses and projects the symbols, the host defines them and runs.
     /// </summary>
-    private static async Task<ExecuteSessionResult> ExecuteAsync(string source, string entryPoint = "Main", CancellationToken token = default)
+    private static async Task<ExecuteResult> ExecuteAsync(string source, string entryPoint = "Main", CancellationToken token = default)
     {
         var composed = Compose(source);
         return await ExecuteAsync(composed, source, entryPoint, token);
@@ -68,15 +68,16 @@ public sealed class HostExecuteHandlerTests
     /// Runs one module against an already-composed session, so a test can run more than once against
     /// the same one — which is what a live client does, and the only way a redefinition is exercised.
     /// </summary>
-    private static async Task<ExecuteSessionResult> ExecuteAsync(
+    private static async Task<ExecuteResult> ExecuteAsync(
         (HostExecuteHandler Handler, EnvironmentSessionProvider Session, Uri WorkspaceRoot, Uri ModuleUri) composed,
         string source, string entryPoint = "Main", CancellationToken token = default,
-        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure)
+        ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure, bool debug = false, bool syntaxErrors = false)
     {
         var (handler, sessionProvider, workspaceRoot, moduleUri) = composed;
 
+        // a module with a syntax error is sent to the host as well, as session/execute sends it: the host refuses to run it.
         var parse = new ModuleParser().Parse(new Uri(Path.Combine(Root, $"{ModuleName}.bas")), source);
-        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+        Assert.IsTrue(syntaxErrors || parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
         // the same resolver the language server composes, so the test sees what the platform sees -
         // including the standard library and the environment's own globals.
@@ -104,6 +105,7 @@ public sealed class HostExecuteHandlerTests
             Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
             ModuleName = ModuleName,
             EntryPoint = entryPoint,
+            Debug = debug,
         }, token);
     }
 
@@ -112,6 +114,20 @@ public sealed class HostExecuteHandlerTests
 
     private static string ModuleWithDeclarations(string declarations, params string[] body)
         => $"Attribute VB_Name = \"{ModuleName}\"\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
+
+    // an entry point that takes what the program is given as a ParamArray (ProgramEntryPoint) is run as one: given nothing, it has an empty array, under a
+    // debugger or not.
+    [TestMethod]
+    [DataRow(false, DisplayName = "run")]
+    [DataRow(true, DisplayName = "under a debugger")]
+    public async Task AnEntryPointThatTakesAParamArray_IsRunWithNoArgument(bool debug)
+    {
+        var source = $"Attribute VB_Name = \"{ModuleName}\"\r\nPublic Sub Main(ParamArray Args())\r\nDebug.Print LBound(Args)\r\nDebug.Print UBound(Args)\r\nDebug.Print IsMissing(Args)\r\nEnd Sub\r\n";
+        var result = await ExecuteAsync(Compose(source), source, debug: debug);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{result.ErrorNumber} {result.ErrorMessage}");
+        CollectionAssert.AreEqual(new[] { "0", "-1", "True" }, result.Output.Select(line => line.Trim()).ToArray());
+    }
 
     #region Arrays, declared in source and carried to the host
 
@@ -326,6 +342,28 @@ public sealed class HostExecuteHandlerTests
 
         var assigned = await ExecuteAsync(composed, Immediate("A = 42"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
         Assert.AreEqual(ExecutionOutcome.Completed, assigned.Outcome, assigned.ErrorMessage);
+
+        var printed = await ExecuteAsync(composed, Immediate("Debug.Print A"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, printed.Outcome, printed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { " 42 " }, printed.Output.ToArray());
+    }
+
+    // a line with a syntax error at the shell's prompt is sent to the host, which defines the module from what the parser made of it and refuses to run it:
+    // the variables the lines before it made keep their values for the line after it.
+    [TestMethod]
+    [DataRow("Debug.Print 1 +", DisplayName = "an operator with no operand")]
+    [DataRow("A = = 1", DisplayName = "an operator where an expression is, in an assignment of the variable")]
+    [DataRow("A = (1", DisplayName = "a parenthesis not closed, in an assignment of the variable")]
+    public async Task AtModuleScope_ALineWithASyntaxError_IsRefused_AndTheVariablesKeepTheirValues(string typo)
+    {
+        var composed = Compose(Prelude);
+        var assigned = await ExecuteAsync(composed, Immediate("A = 42"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
+        Assert.AreEqual(ExecutionOutcome.Completed, assigned.Outcome, assigned.ErrorMessage);
+
+        var refused = await ExecuteAsync(composed, Immediate(typo), "Immediate", implicitScope: ImplicitDeclarationScope.Module, syntaxErrors: true);
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, refused.Outcome, refused.ErrorMessage);
+        Assert.IsEmpty(refused.Output);
 
         var printed = await ExecuteAsync(composed, Immediate("Debug.Print A"), "Immediate", implicitScope: ImplicitDeclarationScope.Module);
 
@@ -665,10 +703,24 @@ public sealed class HostExecuteHandlerTests
     public async Task AnEndlessLoop_StopsWhenTheRunIsCancelled()
     {
         // the interpreter checks the token between instructions, so a program whose own control flow
-        // never terminates still does. Cancelled on a timer, from outside, while it spins.
-        using var cancelled = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        // never terminates still does. Cancelled from outside once the program is seen in Main, where it
+        // spins for as long as it is let: never before it runs, whatever the machine's speed.
+        var source = Module("10 GoTo 10");
+        var composed = Compose(source);
+        using var cancelled = new CancellationTokenSource();
+        var running = Task.Run(() => ExecuteAsync(composed, source, token: cancelled.Token));
 
-        var result = await ExecuteAsync(Module("10 GoTo 10"), token: cancelled.Token);
+        // only a hang guard: the program is in Main until it is cancelled.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (composed.Session.Session.CallStack.Depth < 1)
+        {
+            Assert.IsFalse(running.IsCompleted, "the endless loop ended on its own");
+            Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen in Main");
+            await Task.Delay(5);
+        }
+
+        await cancelled.CancelAsync();
+        var result = await running.WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result.Outcome);
     }

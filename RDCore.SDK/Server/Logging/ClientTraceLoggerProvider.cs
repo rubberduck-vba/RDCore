@@ -3,8 +3,8 @@
 namespace RDCore.SDK.Server.Logging;
 
 /// <summary>
-/// Forwards the outer host's <see cref="ILogger"/> records — the language server's bring-up and
-/// workspace narration — to the connected LSP client via
+/// Forwards the outer host's <see cref="ILogger"/> records (the language server's bring-up and
+/// workspace narration) to the connected LSP client via
 /// <see cref="RDCoreServerApp.SendClientTrace"/>. The component's own file-sink copy is unaffected.
 /// This runs on the outer host; the OmniSharp-internal container's records are forwarded by
 /// <see cref="ScrubbingLanguageServerLoggerProvider"/>.
@@ -39,7 +39,8 @@ internal sealed class ClientTraceLogger(Func<RDCoreServerApp> app, string catego
     /// <inheritdoc/>
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
-        if (logLevel == LogLevel.None)
+        // a record of the OmniSharp container was sent to the client by the container's own provider.
+        if (logLevel == LogLevel.None || eventId == ContainerFileLoggerProvider.ContainerRecord)
         {
             return;
         }

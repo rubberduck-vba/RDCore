@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
@@ -58,7 +59,14 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
     /// The descriptions of the errors lowering found. A module that has any is not loaded at all, and what was loaded
     /// for it before stays: there is no telling which of its procedures the program would have run.
     /// </returns>
+    /// <remarks>
+    /// The module is loaded on a thread whose stack has room for the deepest expression RD-VBA reads (<see cref="LargeStackThread"/>): its static semantics
+    /// and its lowering recurse once or more for each level of an expression.
+    /// </remarks>
     public ImmutableArray<string> Load(Symbol module, ModuleParseResult parseResult)
+        => LargeStackThread.Run(() => LoadCore(module, parseResult));
+
+    private ImmutableArray<string> LoadCore(Symbol module, ModuleParseResult parseResult)
     {
         if (parseResult.SyntaxTree is not { } syntaxTree)
         {
@@ -165,10 +173,22 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, messages);
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
 
-        // what the error is, and the detail that says which of the module's statements it is about.
-        var errors = moduleModel.CompileErrors.Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
-            ? error.Description
-            : $"{error.Description}: {error.Verbose}").ToImmutableArray();
+        // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a
+        // run of it is refused before any of it runs (RD-VBAL 2.6.1): what the parser could not read is no code - a statement it read up to the error, an
+        // expression kept as text - and the statements around it would run without it. The syntax errors are the parser's, which the module's model does not
+        // repeat. One in a branch of a #If that is excluded is in no code of the module: the branch is not compiled, and is no part of the run.
+        //
+        // A block that a dead branch opens and does not close is reported where its end was expected, which can be live (the End Sub after the #End If). The
+        // parser reads every branch, and the live statements after the branch are in that block: the tree is not the code MS-VBA compiles, which runs them.
+        // RD-VBA refuses the run, and says why (RD-VBAL 2.6.1).
+        var errors = moduleModel.CompileErrors.Select(error => (error.Description, error.Verbose))
+            .Concat(parseResult.SyntaxErrors.Where(error => !IsDead(error.Location.Range.Start, deadRanges))
+                .Select(error => error.StatementStart is { } statement && IsDead(statement, deadRanges)
+                    ? (error.Description, Verbose: SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose)
+                    : (error.Description, error.Verbose)))
+            .Select(error => string.IsNullOrEmpty(error.Verbose) || error.Verbose == error.Description
+                ? error.Description
+                : $"{error.Description}: {error.Verbose}").ToImmutableArray();
 
         if (errors.IsEmpty)
         {

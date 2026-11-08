@@ -11,6 +11,18 @@
 
 See [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
 
+**MS-VBAL §3.3** makes the blanks before a token part of it, so blanks between an expression and its argument list leave it its argument list:
+`x = F (2)` calls `F` with `2`, and `F (1) = 2` assigns to `F(1)`. So it is in a list to print, where the blanks separate no output items: MS-VBA
+reads `Debug.Print F (2)` as a call of `F` (recorded in Excel). See [**RD-VBAL §5.4.5.8.1** Output Lists](rd-vbal.5.4.5.8.print-statement.md#54581-output-lists).
+
+Right after what a call statement without `Call` calls, they are read otherwise: `F (2)` is `F` called with the parenthesized argument `(2)`
+([**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md)). They are read the same way after the object of a `Line` statement, which is no expression
+of its own: `Line (0, 0) - (1, 1)` begins with its first point.
+
+> [!NOTE]
+> **Not implemented.** A call statement whose callee goes on past an argument list written after blanks (`Foo (1).Bar`, `Foo (1) (2)`) is a syntax
+> error in RD-VBA.
+
 ## Runtime Semantics
 
 `RuntimeExpressionEvaluator.EvaluateIndex` evaluates an index expression.
@@ -31,6 +43,25 @@ with zero arguments by `SimpleName`'s own dispatch, before the index expression 
 An index expression with a procedure `Callee` is the only expression form that recurses (e.g. `Foo(n - 1)`, even
 from within `Foo`'s own body). A bare `Foo`, from within `Foo`'s own body, reads the function result variable instead
 ([**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)).
+
+### A Function That Returns an Array
+
+The argument list written after a function that returns an array is the call's, and an argument list after that one indexes what it returns
+(recorded in Excel, oracle\s55):
+
+|Code|Of|Is|
+|---|---|---|
+|`x = F()(1)`|`Function F() As Long()`|The element `1` of what `F` returns.|
+|`x = G(1)(0)`|`Function G(n As Long) As Long()`|The element `0` of what `G(1)` returns.|
+|`x = UBound(F)`|`Function F() As Long()`|The upper bound of what `F` returns.|
+|`x = F(1)`|`Function F() As Long()`|[VBC09342](../diagnostics/vbc09342.md) _Wrong number of arguments or invalid property assignment_.|
+|`x = G(1, 0)`|`Function G(n As Long) As Long()`|`VBC09342`, not a type mismatch of the array assigned to `x`.|
+
+> [!IMPORTANT]
+> **MS-VBAL §5.6.13** lets the arguments of a function "with a parameter list that cannot accept any parameters" index what it returns, when its
+> declared type is an array and they are as many as its rank: `F(1)` would be an element. **MS-VBA** gives them to the function, and refuses the
+> call at compile time (oracle\s55 A01). **RD-VBA** follows MS-VBA. A function that takes no parameters and returns a `Variant` or an object is
+> not given them: they index what it returns, as the spec says.
 
 ### Variant Holding an Array
 
@@ -56,10 +87,33 @@ dimension"; MS-VBA coerces it as any value is coerced to a `Long`
 
 |Condition|Run-time error|
 |---|---|
-|A subscript past the range of a `Long`.|6 — Overflow|
-|A subscript of text that is no number.|13 — Type mismatch|
-|A `Null` subscript.|94 — Invalid use of Null|
-|A subscript outside its dimension, or a number of subscripts other than the array's rank.|9 — Subscript out of range|
+|A subscript past the range of a `Long`.|6 (Overflow)|
+|A subscript of text that is no number.|13 (Type mismatch)|
+|A `Null` subscript.|94 (Invalid use of Null)|
+|A subscript outside its dimension, or a number of subscripts other than the array's rank.|9 (Subscript out of range)|
+
+### Empty Argument List
+
+An array written with an empty argument list is the array itself (**MS-VBAL §5.6.13**), with the classification and the declared type of the array:
+`f()` is `f`, wherever it is written. MS-VBA agrees (recorded in Excel, oracle\s53), for a fixed-size array and a dynamic one alike:
+
+|Code|Is|
+|---|---|
+|`UBound(f())`, `LBound(f(), 1)`|The bounds of `f`.|
+|`v = f()`|A copy of `f`, as `v = f` is.|
+|`Fill f()`, to `ByRef a() As Long`|`f` itself, passed by reference: what `Fill` assigns, `f` holds.|
+|`Erase f()`|`Erase f`.|
+|`Debug.Print f()`, as `Debug.Print f`|[VBC09310](../diagnostics/vbc09310.md) _Type mismatch_, when it compiles: an array is no value `Debug.Print` writes.|
+
+The parser reads `f()` as one missing argument;
+[IndexExpressionNode.IsEmptyArgumentList](../api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html) says whether an argument list is empty,
+written either way.
+
+> [!IMPORTANT]
+> **MS-VBAL §5.6.13** makes an array given a second empty argument list, `f()()`, invalid: the rule takes an empty argument list only of an array that
+> "an empty argument list has not already been specified for". **MS-VBA** compiles it as the array (`UBound(f()())` compiles), and raises run-time error 9
+> (Subscript out of range) whenever it runs (oracle\s53 E07, E08, F07, F08). **RD-VBA** follows MS-VBA, and warns:
+> [RDC11025](../diagnostics/rdc11025.md).
 
 ### Object Callee
 
@@ -120,6 +174,3 @@ This section corresponds to [**MS-VBAL §5.6.13.2** Argument List Queues](https:
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.12** Member Access Expressions](rd-vbal.5.6.12.member-access-expressions.md) | ⏭️ [**RD-VBAL §5.6.14** Dictionary Access Expressions](rd-vbal.5.6.14.dictionary-access-expressions.md)

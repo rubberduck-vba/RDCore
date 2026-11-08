@@ -887,19 +887,19 @@ public sealed class ScopeTreeSymbolResolverTests
     [TestMethod]
     public void ResolveValue_ALibrarysModule_BeatsAnotherLibrarysMemberOfTheSameName()
         // MS-VBAL 5.6.10: a referenced project's procedural module (tier 5) comes before the members of a referenced project's
-        // modules (tier 6), whatever the priority of the libraries - Excel's Enum Constants does not hide VBA's module Constants,
-        // although Excel is referenced later. The project tier holds both the workspace's members and the libraries', so the
-        // libraries' modules rank between the two.
+        // modules (tier 6), whatever the reference precedence of the libraries - Excel's Enum Constants does not hide VBA's module
+        // Constants, nor a module of a library referenced after Excel. The project tier holds both the workspace's members and the
+        // libraries', so the libraries' modules rank between the two.
     {
         var constants = LibraryModule("Constants", "VBA", priority: 0);
         var excel = LibraryModule("_Excel", "Excel", priority: 2);
         var enumeration = (VBEnumMemberSymbol)EnumType(excel.Uri, "Constants").With(SymbolProperties.Library, "Excel").With(SymbolProperties.LibraryPriority, 2);
+        var widgets = LibraryModule("Constants", "Widgets", priority: 3);
         var caller = Module("Caller");
         var run = Procedure(caller.Uri, "Run");
 
-        var result = Resolver(constants, excel, enumeration, caller, run).ResolveValue("Constants", ScopeKind.Unallocated, run.Uri);
-
-        Assert.AreSame(constants, result.Symbol);
+        Assert.AreSame(constants, Resolver(constants, excel, enumeration, caller, run).ResolveValue("Constants", ScopeKind.Unallocated, run.Uri).Symbol);
+        Assert.AreSame(widgets, Resolver(widgets, excel, enumeration, caller, run).ResolveValue("Constants", ScopeKind.Unallocated, run.Uri).Symbol);
     }
 
     [TestMethod]
@@ -916,6 +916,33 @@ public sealed class ScopeTreeSymbolResolverTests
 
         Assert.AreSame(variable, Resolver(strings, left, other, variable, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
         Assert.AreSame(left, Resolver(strings, left, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
+    }
+
+    // a public function Left of a module of a library: the standard library's, a library's of a reference precedence, or a library's that carries none.
+    private static VBFunctionMemberSymbol LibraryLeft(VBStandardModuleSymbol module, string library, int? priority)
+    {
+        var left = new VBFunctionMemberSymbol(Root, module.Uri, "Left", ScopeKind.Module, SymbolKindExt.Function, VBVariantType.TypeInfo, R, R, AccessModifier.Public)
+            .With(SymbolProperties.Library, library);
+        return (VBFunctionMemberSymbol)(priority is { } rank ? left.With(SymbolProperties.LibraryPriority, rank) : left);
+    }
+
+    [TestMethod]
+    public void ResolveValue_ALibrarysMemberThatCarriesNoPrecedence_LosesToTheStandardLibrarys_AndToAReferencedLibrarys()
+        // the standard library carries no precedence and comes before every reference (MS-VBAL §4.1); a symbol of another library that carries none is not
+        // taken for one of the standard library's, and comes after every library that has one.
+    {
+        var strings = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "Strings").With(SymbolProperties.Library, "VBA");
+        var left = LibraryLeft(strings, "VBA", priority: null);
+        var unranked = (VBStandardModuleSymbol)new VBStandardModuleSymbol(Root, Root, "_Unranked").With(SymbolProperties.Library, "Unranked");
+        var unrankedLeft = LibraryLeft(unranked, "Unranked", priority: null);
+        var widgets = LibraryModule("_Widgets", "Widgets", priority: 1);
+        var widgetsLeft = LibraryLeft(widgets, "Widgets", priority: 1);
+        var caller = Module("Caller");
+        var run = Procedure(caller.Uri, "Run");
+
+        Assert.AreSame(left, Resolver(strings, left, unranked, unrankedLeft, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
+        Assert.AreSame(widgetsLeft, Resolver(unranked, unrankedLeft, widgets, widgetsLeft, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
+        Assert.AreSame(left, Resolver(strings, left, widgets, widgetsLeft, caller, run).ResolveValue("Left", ScopeKind.Unallocated, run.Uri).Symbol);
     }
 
     [TestMethod]
@@ -957,15 +984,18 @@ public sealed class ScopeTreeSymbolResolverTests
     [TestMethod]
     public void ResolveType_ALibrarysModule_BeatsAnotherLibrarysTypeOfTheSameName()
         // MS-VBAL 5.6.10: a referenced project's procedural module (the type binding context's fourth tier) comes before the types of a
-        // referenced project's modules (its fifth), whatever the priority of the libraries - with Excel referenced, `As Constants` names
-        // VBA's module Constants, not Excel's Enum Constants, although Excel is referenced later.
+        // referenced project's modules (its fifth), whatever the reference precedence of the libraries - with Excel referenced,
+        // `As Constants` names VBA's module Constants, not Excel's Enum Constants, and so does a module of a library referenced after
+        // Excel.
     {
         var constants = LibraryModule("Constants", "VBA", priority: 0);
         var excel = LibraryModule("_Excel", "Excel", priority: 2);
         var enumeration = (VBEnumMemberSymbol)EnumType(excel.Uri, "Constants").With(SymbolProperties.Library, "Excel").With(SymbolProperties.LibraryPriority, 2);
+        var widgets = LibraryModule("Constants", "Widgets", priority: 3);
         var caller = Module("Caller");
 
         Assert.AreSame(constants, Resolver(constants, excel, enumeration, caller).ResolveType("Constants", ScopeKind.Unallocated, caller.Uri).Symbol);
+        Assert.AreSame(widgets, Resolver(widgets, excel, enumeration, caller).ResolveType("Constants", ScopeKind.Unallocated, caller.Uri).Symbol);
     }
 
     [TestMethod]
@@ -1051,5 +1081,33 @@ public sealed class ScopeTreeSymbolResolverTests
     {
         Assert.IsFalse(Resolver(Module("Mod1")).TryRead(new MemoryAddress(0), out var value));
         Assert.IsNull(value);
+    }
+
+    // MS-VBAL §5.3.1: a Function declares a local of its own name, its result variable; a Property Get returns its value the same way.
+    [TestMethod]
+    [DataRow(false, DisplayName = "a Function")]
+    [DataRow(true, DisplayName = "a Property Get")]
+    public void AFunctionsOwnName_InItsBody_IsItsResultVariable_BeforeAnEnumOfTheName(bool isPropertyGet)
+    {
+        var module = Module("Mod1");
+        Symbol function = isPropertyGet
+            ? PropertyGet(module.Uri, "PT")
+            : new VBFunctionMemberSymbol(Root, module.Uri, "PT", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+
+        var result = Resolver(module, EnumType(module.Uri, "PT"), function).ResolveValue("pt", ScopeKind.Unallocated, function.Uri);
+
+        Assert.IsTrue(result.IsResolved, result.ErrorId?.ToString());
+        Assert.AreSame(function, result.Symbol);
+    }
+
+    [TestMethod]
+    public void AFunctionsLocalOfItsOwnName_IsTheLocal()
+    {
+        // a Dim of the function's name is a duplicate declaration the static pass reports; the resolver still finds what the procedure declares first.
+        var module = Module("Mod1");
+        var function = new VBFunctionMemberSymbol(Root, module.Uri, "PT", ScopeKind.Module, SymbolKindExt.Function, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
+        var local = Local(function.Uri, "PT");
+
+        Assert.AreSame(local, Resolver(module, function, local).ResolveValue("PT", ScopeKind.Unallocated, function.Uri).Symbol);
     }
 }

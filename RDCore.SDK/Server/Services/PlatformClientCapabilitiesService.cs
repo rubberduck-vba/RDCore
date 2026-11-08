@@ -1,5 +1,6 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.SDK.Client;
-
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.SDK.Server.Services;
@@ -9,8 +10,8 @@ namespace RDCore.SDK.Server.Services;
 /// <c>rdcore/platform/initialize</c> handshake, so handlers can act on it.
 /// </summary>
 /// <remarks>
-/// The handshake has always been two-way on the wire — the caller sends
-/// <see cref="PlatformInitializeParams.Expected"/>, the callee answers with what it provides — but
+/// The handshake has always been two-way on the wire (the caller sends
+/// <see cref="PlatformInitializeParams.Expected"/>, the callee answers with what it provides), but
 /// only the answer was ever used. A server that serves optional, client-driven request families
 /// (an interactive shell's, say) needs the question too: a request for something the client never
 /// advertised is a client bug, and refusing it is how the client finds out. Every RDCore server gets
@@ -53,8 +54,13 @@ public interface IPlatformClientCapabilitiesService
 }
 
 /// <inheritdoc cref="IPlatformClientCapabilitiesService"/>
-public sealed class PlatformClientCapabilitiesService : IPlatformClientCapabilitiesService
+/// <param name="logger">
+/// Logs what each handshake expects. It is the server app's own logger, which writes to its file: the loggers of OmniSharp's container write to the client
+/// (<c>window/logMessage</c>), and what a client claimed is what to look for in the file when it is not served as it expects.
+/// </param>
+public sealed class PlatformClientCapabilitiesService(ILogger? logger = null) : IPlatformClientCapabilitiesService
 {
+    private readonly ILogger _logger = logger ?? NullLogger.Instance;
     private PlatformInitializeParams? _handshake;
 
     /// <inheritdoc/>
@@ -71,5 +77,28 @@ public sealed class PlatformClientCapabilitiesService : IPlatformClientCapabilit
         => Expected.LanguageServer is { } group && capability(group).IsSupported;
 
     /// <inheritdoc/>
-    public void Record(PlatformInitializeParams request) => _handshake = request;
+    public void Record(PlatformInitializeParams request)
+    {
+        _handshake = request;
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            _logger.LogInformation("🤝 The client expects {Component} to provide {Expected}", request.ExpectedComponent, ClaimsOf(request.Expected));
+        }
+    }
+
+    // the capabilities a handshake says are expected, by group: "LanguageServer: SessionExecute, SessionInteraction".
+    private static string ClaimsOf(CorePlatformClientCapabilities expected)
+    {
+        var groups = new (string Name, object? Group)[] { ("Parsing", expected.Parsing), ("EnvironmentHost", expected.EnvironmentHost), ("LanguageServer", expected.LanguageServer) }
+            .Where(group => group.Group is not null)
+            .Select(group => $"{group.Name}: {string.Join(", ", ExpectedIn(group.Group!).DefaultIfEmpty("nothing"))}")
+            .ToArray();
+
+        return groups.Length == 0 ? "nothing" : string.Join("; ", groups);
+    }
+
+    private static IEnumerable<string> ExpectedIn(object group)
+        => group.GetType().GetProperties()
+            .Where(property => property.GetValue(group) is CorePlatformClientCapability { IsSupported: true })
+            .Select(property => property.Name);
 }

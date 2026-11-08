@@ -199,6 +199,8 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProjectFileWriter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IProjectFileLoader>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<RDCore.SDK.Runtime.Libraries.ILibrarySource>());
+        // the one gate both the relay and the diagnostics pulls see: the pulls are declined while a dialog the relay asked is open.
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<Runtime.OpenDialogs>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<System.IO.Abstractions.IFileSystem>());
 
         // the commands a client asks the server to run (workspace/executeCommand).
@@ -219,7 +221,7 @@ internal sealed class CoreLanguageServerApp(
         refresh.Attach(server);
         // what the client sends once it is answered - a program it runs, a document it opens - is given the host once the workspace's modules are.
         _workspaceExpected = symbolSync.ExpectWorkspace();
-        await LoadWorkspaceAsync(server, request);
+        await LoadWorkspaceAsync(server, request, cancellationToken);
         await base.OnLanguageServerInitializeAsync(server, request, cancellationToken);
     }
 
@@ -229,7 +231,7 @@ internal sealed class CoreLanguageServerApp(
     /// failure is not fatal: the server still completes the LSP handshake, and tells the client why
     /// (<c>window/showMessage</c>, which LSP allows before <c>initialize</c> is answered).
     /// </summary>
-    private async Task LoadWorkspaceAsync(ILanguageServer server, InitializeParams request)
+    private async Task LoadWorkspaceAsync(ILanguageServer server, InitializeParams request, CancellationToken cancellationToken)
     {
         // the folders a client gives (LSP 3.17 workspaceFolders); the server is started on the first, or on rootUri when it gives none.
         var folders = (request.WorkspaceFolders ?? []).Select(folder => folder.Uri.GetFileSystemPath()).ToList();
@@ -242,7 +244,7 @@ internal sealed class CoreLanguageServerApp(
 
         try
         {
-            await workspace.LoadAsync(root, folders);
+            await workspace.LoadAsync(root, folders, RegenerateQuestionOf(server, request), cancellationToken);
             LogIfEnabled(LogLevel.Information, "✅ Workspace loaded");
         }
         catch (Exception exception)
@@ -268,6 +270,18 @@ internal sealed class CoreLanguageServerApp(
             });
         }
     }
+
+    // a project file that can't be read is offered to be regenerated: asked with window/showMessageRequest, which LSP allows before initialize is answered, and
+    // only of a client that says it answers then. One that can't, or has no handler for the request, would leave initialize unanswered for good; one that runs
+    // unattended has nobody to answer (the platform handshake that says it too comes after).
+    internal static Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? RegenerateQuestionOf(ILanguageServer server, InitializeParams request)
+        => !ClientAnswersDuringInitialize(request) ? null : async (message, choices, token) =>
+            (await server.Window.ShowMessageRequest(new ShowMessageRequestParams
+            {
+                Type = MessageType.Warning,
+                Message = message,
+                Actions = new Container<MessageActionItem>(choices.Select(choice => new MessageActionItem { Title = choice })),
+            }, token))?.Title;
 
     protected async override Task OnLanguageServerInitializedAsync(ILanguageServer server, InitializeParams request, InitializeResult response, CancellationToken cancellationToken)
     {

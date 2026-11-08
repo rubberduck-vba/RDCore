@@ -24,6 +24,47 @@ public sealed class SymbolUriTests
     public void AModule_IsWhatItsSymbolSaysItIs()
         => Assert.AreEqual(new VBStandardModuleSymbol(Root, Root, "GameBoard").Uri, SymbolUri.Module(Root, "GameBoard"));
 
+    // the fragment of an address is escaped: Modèle is Mod%C3%A8le there.
+    [TestMethod]
+    [DataRow("GameBoard", DisplayName = "an ASCII name")]
+    [DataRow("Modèle", DisplayName = "a name with an accented letter")]
+    [DataRow("Feuille 1", DisplayName = "a name with a space")]
+    public void TheNameOfAModule_IsTheNameItIsAddressedBy(string name)
+        => Assert.AreEqual(name, SymbolUri.ModuleNameOf(SymbolUri.Module(Root, name)));
+
+    [TestMethod]
+    public void ThePathOfAMember_AndTheNameOfItsModule_AreAsTheyAreWritten()
+    {
+        var member = SymbolUri.Member(SymbolUri.Member(SymbolUri.Module(Root, "Modèle"), "Durée"), "Prénom");
+
+        Assert.AreEqual("Modèle.Durée.Prénom", SymbolUri.PathOf(member));
+        Assert.AreEqual("Modèle", SymbolUri.ModuleNameOf(member));
+    }
+
+    // a member's address, built under an address that escapes its module's name, is the one built under the name.
+    [TestMethod]
+    public void AMember_IsTheSameAddress_WhetherItsParentWasBuiltFromAnEscapedNameOrNot()
+        => Assert.AreEqual(
+            SymbolUri.Member(SymbolUri.Module(Root, "Modèle"), "Durée"),
+            new UriBuilder(Root) { Fragment = "Mod%C3%A8le.Dur%C3%A9e" }.Uri);
+
+    [TestMethod]
+    public void TheRootOfAProject_HasNoPath_AndNoModule()
+    {
+        Assert.AreEqual(string.Empty, SymbolUri.PathOf(Root));
+        Assert.AreEqual(string.Empty, SymbolUri.ModuleNameOf(Root));
+    }
+
+    // every symbol is addressed under an absolute root: a relative URI is a mistake of what made it, said as one, not an empty name.
+    [TestMethod]
+    public void ARelativeUri_AddressesNoSymbol_AndIsRefusedSaying()
+    {
+        var relative = new Uri("Module1#Modèle", UriKind.Relative);
+
+        StringAssert.Contains(Assert.Throws<ArgumentException>(() => SymbolUri.ModuleNameOf(relative)).Message, "Module1#Modèle");
+        Assert.Throws<ArgumentException>(() => SymbolUri.PathOf(relative));
+    }
+
     [TestMethod]
     public void TheRootAsAPath_AndAsAUri_AddressTheSameModule()
         => Assert.AreEqual(SymbolUri.Module(Root, "GameBoard"), SymbolUri.Module(Root.LocalPath, "GameBoard"));
@@ -54,6 +95,17 @@ public sealed class SymbolUriTests
         Assert.AreNotEqual(root.AbsoluteUri, new Uri(escaped).AbsoluteUri, "a Uri keeps what it is written with");
 
         Assert.AreEqual(SymbolUri.Module(root.LocalPath, "GameBoard").AbsoluteUri, SymbolUri.Module(escaped, "GameBoard").AbsoluteUri);
+    }
+
+    // a root travels between the components as the text it is written with: the text of a path (/tmp/...) is read back as a relative URI.
+    [TestMethod]
+    [DataRow(false, DisplayName = "given as a path")]
+    [DataRow(true, DisplayName = "given as a file URI")]
+    public void ARoot_IsWrittenAsTheFileUriItIs(bool asUri)
+    {
+        var root = SymbolUri.Root(asUri ? Root.AbsoluteUri : Root.LocalPath);
+
+        Assert.AreEqual(Root.AbsoluteUri, root.OriginalString);
     }
 
     [TestMethod]

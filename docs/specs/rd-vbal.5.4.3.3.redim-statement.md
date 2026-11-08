@@ -8,7 +8,7 @@
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
 |[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|`Simple`|One node per comma-separated `ReDim` target. The node is a declaration and a statement at once: it declares the name it may introduce, and it executes where it appears. Its `Target` is an expression: a `SimpleNameExpressionNode` (`a`), or a `MemberAccessExpressionNode` (`obj.Buffer`, `Me.Buffer`, `.Buffer`) with the owner as the expression it is.|
-|[RedimBoundsNode](../api/RDCore.SDK.Model.AST.Declarations.RedimBoundsNode.html)|—|The dimension clause of one target, holding one [RedimDimensionNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDimensionNode.html) per dimension.|
+|[RedimBoundsNode](../api/RDCore.SDK.Model.AST.Declarations.RedimBoundsNode.html)|None|The dimension clause of one target, holding one [RedimDimensionNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDimensionNode.html) per dimension.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
@@ -35,7 +35,7 @@ The last two rows are told apart by the text of the procedure, not by what runs,
 used anywhere before the first `ReDim` of it is a variable declared implicitly there; a name used only after it is the
 array the `ReDim` declared (recorded in Excel, `oracle\findings-labels` R01-R10).
 
-👉 **MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
+**MS-VBA** then refuses the `ReDim` of the implicit variable at compile time, _Invalid ReDim_. **MS-VBAL** makes that
 variable a `Variant`, which a `ReDim` re-dimensions, and vb6.exe runs it so. RD-VBA does what the specification says,
 and warns that MS-VBA refuses it ([RDC11022](../diagnostics/rdc11022.md)). Under `Option Explicit` no use declares anything: the
 `ReDim` declares the array from where it is, and a use of the name before it is [VBC09302](../diagnostics/vbc09302.md) _Variable not defined_, in
@@ -90,7 +90,10 @@ dial rather than something the statement wrote.
 
 ## Runtime Semantics
 
-`ReDim` evaluates each bound where the statement stands, then re-allocates the array.
+`ReDim` evaluates each bound where the statement stands, then re-allocates the array. Every bound is evaluated before
+an upper bound below its lower raises its error, in whichever dimension it is: a function called for a later bound is
+called, and a later bound that is no number raises `13`, or `6` when it overflows, as **MS-VBA** has it (recorded in
+Excel, `oracle\s58` R01-R05).
 
 |Target|Effect|
 |---|---|
@@ -103,10 +106,18 @@ dial rather than something the statement wrote.
 reads the sentence as **MS-VBA** does (recorded in Excel): as a `ReDim Preserve`'s, the one that has the elements of an array to keep. A `ReDim` without
 `Preserve` keeps nothing of what the `Variant` held, and makes it an array whatever that was.
 
-Each bound is Let-coerced to `Long`, as any other subscript is ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md#subscripts)). An upper bound below its
-lower bound is runtime error 9, `Subscript out of range`, for a variable declared as an array. A `Variant` given such bounds raises runtime error 7,
-`Out of memory`, whatever it held, and is left `Empty`; with `Preserve`, a `Variant` that holds no array raises 13 first (recorded in Excel, as vb6.exe
-does too).
+Each bound is Let-coerced to `Long`, as any other subscript is ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md#subscripts)). What an upper bound
+below its lower bound does depends on what is re-dimensioned and by how much (recorded in Excel, `oracle\s56` R03-R07, F01-F13, I05, I06, and `oracle\s68`):
+
+|Re-dimensioned|Upper bound|Error|The variable|
+|---|---|---|---|
+|A variable declared as an array, without `Preserve`, a parameter declared as one (`v() As Long`) too|below the lower, in any dimension|9, `Subscript out of range`|Loses its dimensions, as `Erase` leaves it.|
+|A variable declared as an array, with `Preserve`|below the lower|9|Keeps its bounds and its elements.|
+|A `Variant`, a `Variant` reference parameter given a variable declared as an array too|one below the lower (`5 To 4`), in any dimension, whatever the others are|9|Keeps what it held: an array, a number, `Empty`.|
+|A `Variant`|further below (`5 To 3`), in one dimension or several, none of which is one below|7, `Out of memory`|Is left `Empty`, whatever it held (vb6.exe does the same for one dimension).|
+|A `Variant` reference parameter given a variable declared as an array (`G a`, of `Sub G(v)`)|further below, none one below|7|The caller's array loses its dimensions, as `Erase` leaves it: it is still declared an array (`oracle\s68` V07-V09, VV17-VV19).|
+|A `Variant` that holds an array, with `Preserve`|below the lower|9|Keeps the array.|
+|A `Variant` that holds no array, with `Preserve`|below the lower|13, `Type mismatch`|Keeps what it held.|
 
 Without `Preserve`, every element of the re-dimensioned array is its element type's default value.
 
@@ -141,6 +152,35 @@ a `ReDim` of that parameter, with `Preserve` or without, is runtime error 10, an
 > name for the variable, a `ReDim` of either is a `ReDim` of both, and each sees the dimensions the other gives it. RD-VBA does what MS-VBA does. The new array is
 > written where the variable is, which is what keeps the parameter's name for it.
 
+A `Variant` reference parameter - `a As Variant`, or `a` with no type - given an array variable is that variable too
+([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)): a `ReDim` of the parameter re-dimensions the caller's array, which keeps
+the element type it is declared with (`TypeName` is still `Long()`), and a `ReDim Preserve` keeps its elements. A fixed-size array given to one is runtime
+error 10, and keeps its bounds, as **MS-VBA** has it (recorded in Excel, `oracle\s56` I03-I06).
+
+What the variable is declared as is what the `ReDim` can't change. A variable that is no array - a `Long`, a `String`, an `Object` - given to such a parameter is
+runtime error 13 _Type mismatch_, with `Preserve` or without, and keeps what it held; so is an array of `Long` re-dimensioned `ReDim a(5) As String` through
+it (`oracle\s56` D01-D04, D11).
+
+### The most elements an array holds
+
+RD-VBA holds each element of an array in a cell of its own, and an array holds at most 16,777,216 (2<sup>24</sup>) elements, in every dimension together
+([VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html)`.MaximumLength`). A `ReDim` of more, with `Preserve` or without, is runtime error 7,
+`Out of memory`, before any element is made. A fixed-size array declared with more is the compile error [VBC09380](../diagnostics/vbc09380.md) _Out of memory_.
+
+A `ReDim` without `Preserve` that is out of memory has let go of what the variable held: a variable declared as an array loses its dimensions, a local or a
+module's, directly or through a reference parameter, through two calls too; a `Variant` is left `Empty`, a `ByVal` parameter's copy too, and the caller's array
+is untouched. A `ReDim Preserve` that is out of memory keeps what the variable held, a `Variant`'s copy too, through a parameter or not.
+
+> [!NOTE]
+> MS-VBA (64-bit) allocates an array as long as the memory for its data is there: `ReDim b(2147483647) As Byte`, a billion `Long`s, `Dim b(100000000) As Byte`
+> (recorded in Excel, `oracle\s56` I07-I09, B09, C12). The limit is RD-VBA's own, and the error is the one MS-VBA raises for memory it doesn't have. What a
+> `ReDim` that is out of memory leaves is MS-VBA's for an array it can't allocate - 2,147,483,648 `Long`s, 65535³ `Integer`s - with `Preserve` or without
+> (recorded in Excel, `oracle\s68` V10, LA40, BV30, W60, and `oracle\s68b`); for a smaller array that RD-VBA can't hold, it is RD-VBA's choice.
+>
+> RD-VBA deliberately diverges from MS-VBA for `ReDim x(-2147483648 To 2147483647)` of `Variant`s, the 2<sup>32</sup> elements of every `Long` subscript.
+> MS-VBA accepts the bounds and holds no elements, as its count of them wraps to 0: the bounds read as they are declared, and `x(1)` of a copy of it is an
+> error (`oracle\s68b` T02). RD-VBA raises error 7, as for any other array it can't hold.
+
 A target that is a member access - the field of a record (`r.Buffer`, `.Buffer` in a `With r` block), a variable of a module named through it
 (`Module1.Buffer`) - is an expression: the array is read from it, and the new array is written back through it, as an assignment to it is. The element type
 of an array that has no dimensions yet is the one the member is declared with.
@@ -151,8 +191,8 @@ ReDim_, in a `With` block too. A member of a `Variant` compiles; the member is r
 member is as it was afterwards - a `Variant` that holds no object is error 424.
 
 > [!NOTE]
-> 🧩 Nothing in the runtime prevents re-dimensioning an object's array through the object, by writing it back through the member. RD-VBA does what MS-VBA
-> does, so that a compile error is where it is expected; a language-level extension could allow it in the future.
+> **Extension point:** nothing in the runtime prevents re-dimensioning an object's array through the object, by writing it back through the member.
+> RD-VBA does what MS-VBA does, so that a compile error is where it is expected; a language-level extension can allow it.
 
 ## Implementation
 
@@ -163,6 +203,3 @@ member is as it was afterwards - a `Variant` that holds no object is error 424.
 |[VBLocalVariableSymbol](../api/RDCore.SDK.Model.Symbols.VBLocalVariableSymbol.html)`.DeclaredBy`|[LocalDeclarationKind](../api/RDCore.SDK.Model.Symbols.LocalDeclarationKind.html)`.ReDim` marks a local introduced by an implicit `ReDim` declaration.|
 |[ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.Base`|The module's `Option Base`, which an omitted lower bound takes (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.ArrayStatementRuntimeSemantics`|Evaluates the bounds and re-allocates the array; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.2** Local Constant Declarations](rd-vbal.5.4.3.2.local-constant-declarations.md) | ⏭️ [**RD-VBAL §5.4.3.4** Erase Statement](rd-vbal.5.4.3.4.erase-statement.md)

@@ -175,6 +175,12 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
             return RuntimeSemanticsEvaluationResult.InternalError();
         }
 
+        // a record let to a variable that holds one is written where the variable's record is: a field given by reference is the field.
+        if (SymbolAddressTable.TryLetRecordInPlace(handle, value))
+        {
+            return RuntimeSemanticsEvaluationResult.Success(value);
+        }
+
         // an array or a record is identified by where it is, not by a value its own binding could hold: what a variable holds of one
         // is the value boxed, as it is wherever else one is stored (SymbolAddressTable.FreshBinding). A coerced array - a fixed-size
         // array let-coerced to a resizable one - and a copied record have no binding of their own to read them from.

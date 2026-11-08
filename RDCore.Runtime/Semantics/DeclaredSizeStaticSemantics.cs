@@ -64,6 +64,12 @@ public static class DeclaredSizeStaticSemantics
         foreach (var array in ArraysOf(members))
         {
             errors.AddRange(BoundErrors(session, bounds, array));
+            // MS-VBA bounds a field's arrays from 0, whatever the module's Option Base (RD-VBAL §5.2.1.2).
+            var optionBase = array is VBUserDefinedTypeFieldSymbol ? 0 : module is VBModuleSymbol { Directives.Base: var moduleBase } ? moduleBase : 0;
+            if (SizeError(session, bounds, array, optionBase) is { } size)
+            {
+                errors.Add(size);
+            }
         }
 
         return errors.ToImmutable();
@@ -152,7 +158,7 @@ public static class DeclaredSizeStaticSemantics
         foreach (var bound in declared)
         {
             ExpressionNode[] expressions = [.. new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>()];
-            if (expressions.All(IsLiteral) || expressions.Any(expression => ConstantExpressionStaticSemantics.ValueError(resolver, array.ParentUri, expression) is not null))
+            if (expressions.All(IsLiteral) || !expressions.All(expression => IsReducible(resolver, array, expression)))
             {
                 continue;
             }
@@ -192,6 +198,45 @@ public static class DeclaredSizeStaticSemantics
             }
         }
     }
+
+    // an array of more elements than RD-VBA holds (VBArrayValue.MaximumLength) is out of memory, its bounds reduced: one whose bounds are all literals is
+    // ConstantExpressionStaticSemantics's to report. A dimension with no lower bound starts at the Option Base, as the array the runtime makes of it does.
+    private static VBCompileErrorInfo? SizeError(IRuntimeSession session, ArrayBoundEvaluator bounds, Symbol array, int optionBase)
+    {
+        if (!array.TryGetProperty(SymbolProperties.ArrayBounds, out var declared) || declared.IsDefaultOrEmpty
+            || declared.All(bound => new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>().All(IsLiteral))
+            || !declared.SelectMany(bound => new[] { bound.LowerExpression, bound.UpperExpression }.OfType<ExpressionNode>())
+                .All(expression => IsReducible(session.Symbols.Resolver, array, expression))
+            || declared[^1].UpperExpression is not { } last)
+        {
+            return null;
+        }
+
+        var context = new RuntimeEvaluationContext(array.ParentUri);
+        var dimensions = new List<(int, int)>();
+        foreach (var bound in declared)
+        {
+            var lower = optionBase;
+            if (bound.LowerExpression is { } lowerExpression && !bounds.TryEvaluate(session, context, lowerExpression, out lower, out _)
+                || bound.UpperExpression is not { } upperExpression || !bounds.TryEvaluate(session, context, upperExpression, out var upper, out _))
+            {
+                return null;
+            }
+
+            dimensions.Add((lower, upper));
+        }
+
+        return VBArrayValue.LengthOf(dimensions) > VBArrayValue.MaximumLength
+            ? VBCompileErrorInfo.For(VBCompileErrorId.OutOfMemory, last.Location,
+                string.Format(Exceptions.VBCompileError_OutOfMemory_ArrayElements_Verbose, array.Name, VBArrayValue.MaximumLength))
+            : null;
+    }
+
+    // whether a bound of an array is one this check reduces: a constant expression. One that is not is "Constant expression required"
+    // (ConstantExpressionStaticSemantics), and has no value until the code runs; one kept as text (VBC00060, RD-VBAL 2.6.1) is not analyzed.
+    private static bool IsReducible(ISymbolResolver resolver, Symbol array, ExpressionNode expression)
+        => expression is not UnbuiltExpressionTriviaNode && !expression.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any()
+            && ConstantExpressionStaticSemantics.ValueError(resolver, array.ParentUri, expression) is null;
 
     private static bool IsLiteral(ExpressionNode expression) => expression is LiteralExpressionNode
         or VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp, Operand: LiteralExpressionNode };

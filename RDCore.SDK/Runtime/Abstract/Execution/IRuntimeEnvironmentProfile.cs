@@ -82,6 +82,12 @@ public interface IRuntimeEnvironmentProfile
     VBErlLineNumbering ErlLineNumbering { get; }
 
     /// <summary>
+    /// What <c>Err.Clear</c> does to the line <c>Erl</c> reports: <see cref="VBErlAfterErrClear.Reset"/> unless a workspace asks for
+    /// MS-VBA's behaviour.
+    /// </summary>
+    VBErlAfterErrClear ErlAfterErrClear { get; }
+
+    /// <summary>
     /// The language the code is written in: what the environment is a dialect of, and so which symbols and statements exist at all.
     /// </summary>
     /// <remarks>
@@ -106,8 +112,8 @@ public interface IRuntimeEnvironmentProfile
     bool AllowAutomation { get; }
 
     /// <summary>
-    /// 🎯 What runs the code of a program: the interpreter, or IL compiled from it where every instruction can be. <see cref="VBExecutionEngine.Interpreter"/>
-    /// unless said otherwise.
+    /// 🎯 What runs the code of a program: the interpreter, or IL compiled from it where every instruction can be.
+    /// <see cref="Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine"/> unless said otherwise.
     /// </summary>
     VBExecutionEngine ExecutionEngine { get; }
 

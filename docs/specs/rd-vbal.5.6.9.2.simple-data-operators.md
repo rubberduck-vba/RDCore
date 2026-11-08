@@ -71,6 +71,3 @@ let-coercion ([**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-
 
 See [**RD-VBAL §5.4.2.10** Select Case Statement](rd-vbal.5.4.2.10.select-case-statement.md) for a caller that
 invokes the operator strategies directly, with its own expression node.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.1** Operator Precedence and Associativity](rd-vbal.5.6.9.1.operator-precedence-and-associativity.md) | ⏭️ [**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md)

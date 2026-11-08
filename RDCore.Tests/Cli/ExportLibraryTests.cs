@@ -1,5 +1,9 @@
-﻿using RDCore.CLI.Libraries;
+﻿using NSubstitute;
+using RDCore.CLI.App.Commands;
+using RDCore.CLI.Libraries;
+using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Runtime.Libraries;
+using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Cli;
 
@@ -31,6 +35,21 @@ public sealed class ExportLibraryTests
         Assert.IsEmpty(description.DependsOn);
     }
 
+    // a file can hold more than one library, each a resource of its own number, and a reference names the one it means after the file: the VB6 runtime's
+    // MSVBVM60.DLL\3 is VBRUN, as a .vbp references it, where MSVBVM60.DLL alone is its first, VBA.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ALibraryThatIsNotTheFirstOfItsFile_IsFoundByTheNumberOfItsResource()
+    {
+        var runtime = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "MSVBVM60.DLL");
+
+        var description = Export(runtime + @"\3");
+
+        Assert.AreEqual("VBRUN", description.Name);
+        Assert.AreEqual(@"MSVBVM60.DLL\3", description.Origin?.File, "the file and the number of its resource, and not the folder it is in on this machine");
+        Assert.AreEqual("VBA", TypeLibraryLocator.Load(runtime)?.Name, "the file alone is its first library");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ALibraryIsFoundByItsName_AsWellAsByItsFile()
@@ -41,10 +60,40 @@ public sealed class ExportLibraryTests
         Assert.AreEqual("Scripting", byName.Name);
     }
 
+    // a library is registered under the locale it is for, and the VB6 runtime's VBRUN is registered for English (9) only, with no neutral (0) registration.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow("{EA544A21-C82D-11D1-A3E4-00A0C90AEA82}", DisplayName = "by its identifier")]
+    [DataRow("VBRUN", DisplayName = "by its name")]
+    public void ALibraryRegisteredForALocale_IsFound_WithItsFile(string reference)
+    {
+        var loaded = TypeLibraryLocator.Load(reference);
+
+        Assert.IsNotNull(loaded, "the machine registers VBRUN for one locale");
+        Assert.AreEqual("VBRUN", loaded.Name);
+        Assert.AreEqual(@"MSVBVM60.DLL\3", loaded.File is null ? null : TypeLibraryLocator.FileNameOf(loaded.File), ignoreCase: true, "the file it is registered in");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ALibraryThatTheMachineDoesNotHave_IsNotFound()
         => Assert.IsNull(TypeLibraryLocator.Load("NoSuchLibraryOnAnyMachine"));
+
+    // Data\Widgets.tlb declares a class Widget whose default interface has a property Thing, and whose events interface an event Changed(Value), both of the
+    // type IThing of a library (Missing, {0D7C2B6E-5E39-4C47-9D0B-1A6F0E5C3A01}) that no machine has; Count and Ready are of no other library.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void WhatIsDeclaredInTermsOfALibraryTheMachineDoesNotHave_IsLeftOut_AndTheRestDescribed()
+    {
+        var export = new TypeLibraryExporter().Export(
+            TypeLibraryLocator.Load(Path.Combine(AppContext.BaseDirectory, "Cli", "Data", "Widgets.tlb")) ?? throw new AssertFailedException("the fixture loads"), "tests");
+
+        var widget = export.Description.Classes.Single(declared => declared.Name == "Widget");
+        CollectionAssert.AreEqual(new[] { "Count" }, widget.Members.Select(member => member.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "Ready" }, widget.Events.Select(declared => declared.Name).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "member _Widget.Thing", "event _WidgetEvents.Changed" }, export.Skipped.ToArray());
+        Assert.IsEmpty(export.Description.DependsOn, "a library the machine does not have is not one it can be described with");
+    }
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
@@ -123,5 +172,73 @@ public sealed class ExportLibraryTests
 
         Assert.AreEqual(first, second, "nothing in a description depends on when it was made");
         Assert.AreEqual("Scripting", LibraryJson.Read(first).Name);
+    }
+
+    // the type library a library is linked with, which is the one it was built against: a machine can have several of a name.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ADependency_IsDescribedAsTheTypeLibraryTheLibraryIsLinkedWith()
+    {
+        var runtime = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "MSVBVM60.DLL");
+
+        var description = Export(runtime + @"\3");
+
+        CollectionAssert.Contains(description.DependsOn.ToArray(), new LibraryIdentity("stdole", new Guid("00020430-0000-0000-C000-000000000046"), 2, 0));
+    }
+
+    private static readonly LibraryDescription OtherScripting = new()
+    {
+        Name = "Scripting",
+        Origin = new LibraryOrigin { Guid = "{0D7C2B6E-5E39-4C47-9D0B-1A6F0E5C3AFF}", Version = "1.0" },
+        Classes = [new ClassDescription { Name = "Other" }],
+    };
+
+    // the files of the folder before the export, each "<file>=<what it describes>": "other" is another type library of the name, "own" the one exported.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [DataRow("", @"c:\out\Scripting.json", DisplayName = "the folder has none of the name")]
+    [DataRow("Scripting.json=other", @"c:\out\Scripting.scrrun.json", DisplayName = "the folder has another library of the name")]
+    [DataRow("Scripting.json=other;Scripting.scrrun.json=other", @"c:\out\Scripting.scrrun.v1_0.json", DisplayName = "and another of its file's name")]
+    [DataRow("Scripting.json=other;Scripting.scrrun.json=other;Scripting.scrrun.v1_0.json=other", @"c:\out\Scripting.scrrun.v1_0.2.json", DisplayName = "and another of its version")]
+    [DataRow("Scripting.json=other;Scripting.scrrun.json=own", @"c:\out\Scripting.scrrun.json", DisplayName = "and its own, which is written again")]
+    public void ALibrary_IsWrittenAsTheLibraryOfItsName_UnlessTheFolderHasAnotherOfTheName_AndNeverOverAnother(string before, string expected)
+    {
+        var files = new MockFileSystem();
+        files.AddDirectory(@"c:\out");
+        var others = new List<string>();
+        foreach (var (file, what) in before.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(entry => entry.Split('=')).Select(parts => (parts[0], parts[1])))
+        {
+            var path = Path.Combine(@"c:\out", file);
+            files.AddFile(path, new MockFileData(LibraryJson.Write(what == "own" ? Export() : OtherScripting)));
+            if (what == "other")
+            {
+                others.Add(path);
+            }
+        }
+
+        var exit = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files).ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Result;
+
+        Assert.AreEqual(0, exit);
+        Assert.AreEqual("{420B2830-E718-11CF-893D-00A0C9054228}", LibraryJson.Read(files.File.ReadAllText(expected)).Origin?.Guid);
+        foreach (var other in others)
+        {
+            Assert.AreEqual(OtherScripting.Origin?.Guid, LibraryJson.Read(files.File.ReadAllText(other)).Origin?.Guid, $"{other} is left as it is");
+        }
+
+        Assert.HasCount(others.Count + 1, files.Directory.GetFiles(@"c:\out"), "one file of the library exported");
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ALibraryExportedAgain_IsWrittenOverItsOwnDescription()
+    {
+        var files = new MockFileSystem();
+        files.AddDirectory(@"c:\out");
+        var command = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files);
+
+        command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Wait();
+        command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Wait();
+
+        CollectionAssert.AreEqual(new[] { @"c:\out\Scripting.json" }, files.Directory.GetFiles(@"c:\out"));
     }
 }

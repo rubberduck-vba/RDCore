@@ -14,7 +14,7 @@ See also [**RD-VBAL §5.6.4** Expression Binding Contexts](rd-vbal.5.6.4.express
 
 ## RDCore Model
 
-🎯 In **RDCore**, _name lookups_ are an _explicit evaluation step_ involving specific AST nodes, such as
+In **RDCore**, _name lookups_ are an _explicit evaluation step_ involving specific AST nodes, such as
 [SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)
 ([**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)).
 
@@ -31,7 +31,7 @@ The [ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolv
 `ResolveType` and `ResolveQualifier` are described in
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 
-🎯 Evaluation returns an _evaluation result record_,
+Evaluation returns an _evaluation result record_,
 [RuntimeSemanticsEvaluationResult](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html). The
 record describes and encapsulates either the evaluation result or runtime error metadata
 ([**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md)).
@@ -92,6 +92,3 @@ rule, and is not verified against a compiler.
 
 Whether a class named by `New` is _creatable_ is not a name-lookup concern. See
 [**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md).
-
----
-> ⏮️ [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md) | ⏭️ [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md)

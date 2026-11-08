@@ -194,25 +194,31 @@ public sealed class EnvironmentSessionProvider(
 
         // and the libraries the project references, by name: the same symbols the language server bound the workspace's names to.
         var source = librarySource ?? new DirectoryLibrarySource(fileSystem, string.Empty);
-        var referenced = LibrarySymbolProvider.Load(source, project.References);
+        var referenced = LibrarySymbolProvider.Load(source, project.References, environment.Language);
         foreach (var problem in referenced.Problems)
         {
             logger.LogWarning("📚 The library '{library}' could not be loaded ({kind}{related}); a type of it is not a type of the project.",
-                problem.Name, problem.Kind, problem.Related.IsEmpty ? string.Empty : ": " + string.Join(" → ", problem.Related));
+                problem.Name, problem.Kind, problem.Related.IsEmpty ? string.Empty : ": " + string.Join(problem.Kind == LibraryProblemKind.Cyclic ? " → " : ", ", problem.Related));
         }
 
         var libraries = new LibrarySymbolProvider(workspaceRoot, referenced, environment.Is64Bit);
 
         _world = ComposeWorld(project, workspaceRoot);
         // the descriptions of the libraries it does not reference are there for what tooling knows of an object created by name, and for nothing else.
-        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References), [configuration, stdLib, libraries, modules], Output, libraries: source);
+        _session = RuntimeSessionComposer.Compose(environment, MapReferences(project.References, environment.Language), [configuration, stdLib, libraries, modules], Output, libraries: source);
         // an event that something outside the workspace raises while no program runs prints where this host says: said as it is printed, and kept.
         _session.Turn.EventScope = BeginEvent;
         Image = new ProgramImage();
         Image.CompilationRefused += (procedure, exception)
             => logger.LogWarning(exception, "⚙️ {procedure} was not compiled: the compiler failed, and it runs in the interpreter.", procedure.Name);
-        Execution = new ProgramExecution(this);
+        Execution = new ProgramExecution(this, logger);
         ProjectName = project.Name;
+        // an error raised with no source is the project's (Err.Source).
+        if (project.Name is { Length: > 0 } name)
+        {
+            _session.Errors.ProjectName = name;
+        }
+
         ModuleCount = project.Modules.Length;
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
@@ -225,8 +231,8 @@ public sealed class EnvironmentSessionProvider(
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
-                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included).",
-                project.Modules.Length, _session.References.Count, configuration.ProvideSymbols().Count());
+                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
+                project.Modules.Length, _session.References.Count, configuration.ProvideSymbols().Count(), environment.ExecutionEngine, environment.Configuration);
         }
 
         return _session;
@@ -239,16 +245,19 @@ public sealed class EnvironmentSessionProvider(
         var settings = new JsonWorkspaceSettings(fileSystem, workspaceRoot.IsFile ? workspaceRoot.LocalPath : workspaceRoot.OriginalString);
         return host with
         {
-            Interaction = new RelayedUserInteraction(this, host.Interaction),
+            Interaction = new RelayedUserInteraction(this, host.Interaction, logger),
             DialogTitle = project.Name is { Length: > 0 } name ? name : host.DialogTitle,
             WorkspaceSettings = settings,
             ProgramSettings = MachinePlatform.ProgramSettings(environment, settings),
         };
     }
 
-    // the .rdproj declares references in precedence order (RD-VBAL §2.3.1.2); the list index is the rank. The standard library, which every project has and no
-    // .rdproj lists, is the first of them, as it was when every .rdproj listed it first.
-    private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references)
+    // the .rdproj declares references in precedence order, the earliest highest (RD-VBAL §2.3.1.3, MS-VBAL §4.1); the list index is the rank. The standard
+    // library, which every project has and no .rdproj lists, is the first of them, and the language's implicit references come next, as LibrarySymbolProvider.Load
+    // ranks them; a second reference to a library already there is left out, as Load leaves it out.
+    private static IReadOnlyList<ReferencePriorityInfo> MapReferences(RDCoreReference[] references, SupportedLanguage language)
         => [new ReferencePriorityInfo(StdLibSymbolProvider.LibraryName, 0),
-            .. references.Where(reference => !reference.IsStandardLibrary).Select((reference, rank) => new ReferencePriorityInfo(reference.Name, rank + 1))];
+            .. language.ImplicitReferences.Concat(references.Where(reference => !reference.IsStandardLibrary).Select(reference => reference.Name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select((name, rank) => new ReferencePriorityInfo(name, rank + 1))];
 }

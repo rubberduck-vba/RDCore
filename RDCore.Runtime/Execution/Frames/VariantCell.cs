@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -15,7 +16,7 @@ namespace RDCore.Runtime.Execution.Frames;
 /// It is a cell like any other to whatever reads it as one: <see cref="Value"/> is the <see cref="VBRuntimeVariantValue"/> of the payload, made once for
 /// each payload written, and a value stored as a runtime value is read back as that very value.
 /// </remarks>
-internal sealed class VariantCell : IKnowledgeBinding
+internal sealed class VariantCell : ICopyableBinding
 {
     private IRuntimeValue? _boxed;
     private ScalarPayload _payload;
@@ -53,6 +54,34 @@ internal sealed class VariantCell : IKnowledgeBinding
         var cell = new VariantCell();
         cell.Write(payload);
         return cell;
+    }
+
+    /// <summary>
+    /// A Variant cell holding <paramref name="value"/>, known: what an element of a <c>Variant</c> array starts as, holding <c>Empty</c>.
+    /// </summary>
+    public static VariantCell Of(VBRuntimeVariantValue value)
+    {
+        var cell = new VariantCell();
+        cell.Store(value, isKnown: true);
+        return cell;
+    }
+
+    // a copy of an element of an array that is assigned is a Variant's cell too, holding a copy of what this one holds: an array or a
+    // record it holds is copied with it, as DataValues.CopyCell copies any cell's value; a payload as it is.
+    public IBindingHandle Copy()
+    {
+        var copy = new VariantCell();
+        if (_hasPayload)
+        {
+            copy.Write(_payload);
+            copy.IsKnown = IsKnown;
+        }
+        else
+        {
+            copy.Store(DataValues.CopyRuntimeValue(Value), IsKnown);
+        }
+
+        return copy;
     }
 
     /// <inheritdoc/>

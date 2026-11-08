@@ -15,6 +15,12 @@
   <data name="NoRuntimeEnvironment" xml:space="preserve">
     <value>aucun composant d'environnement d'exécution n'est enregistré</value>
   </data>
+  <data name="NoWorkspaceToRunIn" xml:space="preserve">
+    <value>aucun dossier n'est ouvert : il n'y a pas d'espace de travail où exécuter</value>
+  </data>
+  <data name="SessionModuleNameIsTaken" xml:space="preserve">
+    <value>un module propre au client ne peut pas s'appeler « {0} » : c'est le nom du projet, ou d'une bibliothèque qu'il référence</value>
+  </data>
   <data name="ExpressionIsOneLine" xml:space="preserve">
     <value>une expression tient sur une ligne</value>
   </data>
@@ -42,8 +48,11 @@
   <data name="ComponentLost" xml:space="preserve">
     <value>le composant « {0} » a été perdu : le programme ne peut pas continuer.</value>
   </data>
-  <data name="LaunchNeedsModule" xml:space="preserve">
-    <value>Une configuration de lancement nomme le module qui contient le point d'entrée : "module".</value>
+  <data name="NoModuleDeclaresTheEntryPoint" xml:space="preserve">
+    <value>Aucun module standard du programme ne déclare de Public Sub {0}() ni de Public Sub {0}(ParamArray Args()) par lequel commencer. Déclarez-en un, ou nommez dans la configuration de lancement le module qui contient le point d'entrée : "module".</value>
+  </data>
+  <data name="ModulesDeclaringTheEntryPoint" xml:space="preserve">
+    <value>Plus d'un module standard déclare un Sub {0} par lequel le programme pourrait commencer : {1}. Nommez dans la configuration de lancement celui à exécuter : "module".</value>
   </data>
   <data name="NoProgramToStart" xml:space="preserve">
     <value>Il n'y a aucun programme à démarrer : lancez d'abord.</value>
@@ -65,6 +74,9 @@
   </data>
   <data name="StopPaused" xml:space="preserve">
     <value>Interrompu</value>
+  </data>
+  <data name="StillStopping" xml:space="preserve">
+    <value>Le programme est encore en train de s'arrêter : il attend le retour d'un appel externe, et prendra fin à ce retour.</value>
   </data>
   <data name="StopAtBreakpoint" xml:space="preserve">
     <value>Interrompu sur un point d'arrêt</value>

@@ -13,7 +13,7 @@ namespace RDCore.SDK.Semantics.Static.Expressions;
 /// MS-VBAL 5.6.13 Index Expressions (static semantics). <c>callee(arguments)</c> is either an array
 /// element access, a call to a specific class's default member, or a call to whatever
 /// <see cref="IndexExpressionNode.Callee"/> itself already resolves to (a function or property-get
-/// reference, whose declared type already <em>is</em> its return type — see
+/// reference, whose declared type already <em>is</em> its return type: see
 /// <see cref="SimpleNameExpressionStaticSemantics"/> and <see cref="MemberAccessExpressionStaticSemantics"/>).
 /// </summary>
 public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
@@ -21,9 +21,17 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
     private static readonly Lazy<IndexExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
-    /// The shared instance — this rule has no state of its own.
+    /// The shared instance: this rule has no state of its own.
     /// </summary>
     public static IndexExpressionStaticSemantics Instance => _instance.Value;
+
+    /// <summary>
+    /// Whether <paramref name="index"/> is an empty argument list given to what was already given one, <c>f()()</c>: of an array, <strong>MS-VBAL 5.6.13.1</strong>
+    /// makes it invalid, and <strong>MS-VBA</strong> compiles it.
+    /// </summary>
+    /// <param name="index">The index expression.</param>
+    public static bool IsASecondEmptyArgumentList(IndexExpressionNode index)
+        => IndexExpressionNode.IsEmptyArgumentList(index.Arguments) && index.Callee is IndexExpressionNode given && IndexExpressionNode.IsEmptyArgumentList(given.Arguments);
 
     /// <summary>
     /// Determines the declared type of an <see cref="IndexExpressionNode"/> from its
@@ -37,7 +45,7 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
     /// <param name="operandDeclaredTypes">
     /// <see cref="IndexExpressionNode.Callee"/>'s already-determined declared type, at
     /// <see cref="InputIndex.IndexExpressionCallee"/>. <see cref="IndexExpressionNode.Arguments"/>
-    /// carry no independent declared type this rule needs — MS-VBAL 5.6.13's argument-count/rank and
+    /// carry no independent declared type this rule needs: MS-VBAL 5.6.13's argument-count/rank and
     /// parameter-list compatibility checks are not modeled: <see cref="VBArrayType"/> doesn't carry a
     /// rank, and no parameter-list representation exists for a resolved function/property-get type.
     /// </param>
@@ -66,8 +74,17 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
 
         if (callee is VBArrayType array)
         {
+            // MS-VBAL 5.6.13.1: an empty argument list, of an array that was not already given one, is the array itself - `f()` is `f`, as `UBound(f())` and
+            // `Erase f()` read it. A second one, `f()()`, the specification makes invalid; MS-VBA compiles it as the array (`UBound(f()())` compiles), and
+            // raises 9 when it runs (Excel-verified, oracle\s53 E07, E08, F07, F08). RD-VBA does too, and warns (RDC11025,
+            // ValueExpressionSemanticFlags.ArrayGivenASecondEmptyArgumentList).
+            if (IndexExpressionNode.IsEmptyArgumentList(index.Arguments))
+            {
+                return StaticSemanticsEvaluationResult.Success(array);
+            }
+
             // classified as a variable with the array's element type. MS-VBAL 5.6.13 also requires the
-            // argument count to match the array's rank (or be empty) — VBArrayType carries no rank.
+            // argument count to match the array's rank — VBArrayType carries no rank.
             return StaticSemanticsEvaluationResult.Success(array.ItemType);
         }
 

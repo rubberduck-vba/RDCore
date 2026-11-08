@@ -5,9 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 ${Authors}</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore External for Windows</AssemblyTitle>
+    <Description>The Windows implementation of RDCore External: COM automation, native libraries, user dialogs, forms, the desktop and settings saved in the registry.</Description>
   </PropertyGroup>
 
   <ItemGroup>

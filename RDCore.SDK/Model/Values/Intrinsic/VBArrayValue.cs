@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
@@ -87,6 +88,128 @@ public abstract record class VBArrayValue : VBTypedValue
         return copy;
     }
 
+    /// <summary>
+    /// Let-assigns the elements of <paramref name="source"/> to the elements of this array, in place (MS-VBAL §5.4.3.8). A fixed-size array
+    /// field of a record is let this way when the record is let, since the record holds the array's elements itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Each element is written in its own cell, which a <c>ByRef</c> parameter given the element is bound to (MS-VBAL §5.3.1.11), so the parameter reads
+    /// what the element holds after the assignment: an element of an object type or a <c>Variant</c> as much as one of a scalar type. An element that is
+    /// a record is let in place in its turn (<see cref="VBUserDefinedTypeValue.TryLetFrom"/>).
+    /// </para>
+    /// <para>
+    /// An element whose cell cannot be written, one never assigned, is given the cell of <paramref name="source"/>'s element instead: no <c>ByRef</c>
+    /// parameter is bound to it, since passing the element gives it a cell that can be written first. <paramref name="source"/> is the copy the
+    /// assignment made (<see cref="DataCopy"/>), which shares no cell with anything else.
+    /// </para>
+    /// </remarks>
+    /// <param name="source">The array assigned, of this array's element type and bounds.</param>
+    /// <returns><see langword="false"/> when <paramref name="source"/> has another element type or other bounds, and nothing is written.</returns>
+    public bool TryLetFrom(VBArrayValue source)
+    {
+        if (!Equals(ItemType, source.ItemType) || !Dimensions.SequenceEqual(source.Dimensions) || _cells.Length != source._cells.Length)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < _cells.Length; index++)
+        {
+            var (to, from) = (_cells[index], source._cells[index]);
+            if (ItemType is VBUserDefinedType ? !IsRecordLetInPlace(to, from) : !IsWrittenInItsCell(to, from))
+            {
+                _cells[index] = from;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Gives each element of this array the default value of its element type, in place: the array keeps its bounds, and a <c>ByRef</c> parameter given
+    /// an element (MS-VBAL §5.3.1.11) reads the default.
+    /// </summary>
+    /// <remarks>
+    /// An element that is a record has each of its fields reset in its turn (<see cref="VBUserDefinedTypeValue.TryResetFieldAt"/>). An element never
+    /// assigned is left as it is, since it already holds the default.
+    /// </remarks>
+    public void ResetElements()
+    {
+        for (var index = 0; index < _cells.Length; index++)
+        {
+            var to = _cells[index];
+            if (ItemType is VBUserDefinedType)
+            {
+                if (to.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { } record })
+                {
+                    for (var field = 0; field < record.FieldCount; field++)
+                    {
+                        _ = record.TryResetFieldAt(field);
+                    }
+                }
+
+                continue;
+            }
+
+            _ = IsWrittenInItsCell(to, InvalidBindingHandle.Default);
+        }
+    }
+
+    /// <summary>
+    /// Let-assigns <paramref name="value"/> to the element at a flat index, in the order <see cref="ElementAt"/> reads them, in its own cell: a
+    /// <c>ByRef</c> parameter given the element (MS-VBAL §5.3.1.11) reads the value assigned, as it does after <see cref="TryLetFrom"/>.
+    /// </summary>
+    /// <remarks>
+    /// An element whose cell cannot be written, one never assigned, is given the cell of <paramref name="value"/> instead, which must share no cell with
+    /// anything else.
+    /// </remarks>
+    /// <param name="flatIndex">From 0 to <see cref="Length"/> - 1.</param>
+    /// <param name="value">The value to assign, of the array's element type.</param>
+    /// <returns><see langword="false"/> when there is no element at the index.</returns>
+    public bool TryLetElementAt(int flatIndex, VBTypedValue value)
+    {
+        if (flatIndex < 0 || flatIndex >= _cells.Length)
+        {
+            return false;
+        }
+
+        if (!IsWrittenInItsCell(_cells[flatIndex], value.Handle))
+        {
+            _cells[flatIndex] = value.Handle;
+        }
+
+        return true;
+    }
+
+    // an element given a cell that can be written holds what the other element holds in that cell, the one a ByRef parameter given it is bound to: an object
+    // or a Variant as much as a number, since a Let counts the objects a cell holds before it writes the cell and after. An element never assigned has an
+    // inert cell (CreateDefaultCell), which stands for the element type's default.
+    private bool IsWrittenInItsCell(IBindingHandle to, IBindingHandle from)
+    {
+        if (to is not IKnowledgeBinding cell || !to.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+        {
+            return false;
+        }
+
+        switch (from)
+        {
+            case IKnowledgeBinding { IsKnown: var isKnown } when from.BindingCapabilities.HasFlag(BindingCapabilities.GetValue):
+                cell.Store(from.Value, isKnown);
+                return true;
+            case { BindingCapabilities: var capabilities } when !capabilities.HasFlag(BindingCapabilities.GetValue):
+                cell.Store(ItemType.DefaultValue.RuntimeValue, isKnown: true);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    // an element that holds a record, let the record another element holds: written into the record it holds.
+    private static bool IsRecordLetInPlace(IBindingHandle to, IBindingHandle from)
+        => to.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { IsIndeterminate: false } held }
+            && from.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { IsIndeterminate: false } record }
+            && held.TryLetFrom(record);
+
     public VBType ItemType { get; init; }
 
     /// <summary>
@@ -108,6 +231,43 @@ public abstract record class VBArrayValue : VBTypedValue
     /// The total number of elements across every dimension.
     /// </summary>
     public int Length => _cells.Length;
+
+    /// <summary>
+    /// The most elements an array holds in RD-VBA: 16,777,216 (2<sup>24</sup>), in every dimension together.
+    /// </summary>
+    /// <remarks>
+    /// Each element of an array is a cell of its own (<see cref="IBindingHandle"/>), where an element of an MS-VBA array is the bytes of its data type in one
+    /// block of memory: MS-VBA (64-bit) allocates <c>ReDim b(2147483647) As Byte</c> as long as the memory is there, and RD-VBA refuses an array that size
+    /// before making a cell of it. A <c>ReDim</c> of more elements is run-time error 7, <em>Out of memory</em>
+    /// (<strong>RD-VBAL §5.4.3.3</strong>).
+    /// </remarks>
+    public const long MaximumLength = 1 << 24;
+
+    /// <summary>
+    /// The number of elements an array of the given bounds has, which may be more than an <see cref="int"/> holds: <c>(0, 2147483647)</c> is
+    /// 2,147,483,648 of them.
+    /// </summary>
+    /// <param name="bounds">The lower and upper bound of each dimension.</param>
+    /// <returns>
+    /// The product of the lengths of the dimensions, or <see cref="MaximumLength"/> + 1 for any product greater than that (which three dimensions of
+    /// 2<sup>31</sup> elements would overflow); <c>0</c> when a dimension has an upper bound below its lower bound.
+    /// </returns>
+    public static long LengthOf(IEnumerable<(int LBound, int UBound)> bounds)
+    {
+        var lengths = bounds.Select(dimension => Math.Max(0L, (long)dimension.UBound - dimension.LBound + 1)).ToArray();
+        if (lengths.Contains(0L))
+        {
+            return 0;
+        }
+
+        var total = 1L;
+        foreach (var length in lengths)
+        {
+            total = Math.Min(total * length, MaximumLength + 1);
+        }
+
+        return total;
+    }
 
     /// <inheritdoc/>
     public override int Size => _cells.Length == 0 ? 0 : ItemType.DefaultValue.Size * _cells.Length;

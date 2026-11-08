@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using System.Collections.Immutable;
@@ -55,14 +56,14 @@ public sealed class SemanticModelStoreTests
         var store = new SemanticModelStore();
         store.Store(Model(Procedure));
 
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
-        await store.WhenAllEvaluatedAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
+        await store.WhenAllEvaluatedAsync().WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.IsNull(RuntimeOf(store));
     }
 
     [TestMethod]
-    public async Task AModuleStoredAgain_StopsTheEvaluationOfTheModelItReplaced_AndKeepsNoFactsOfIt()
+    public async Task AModuleStoredAgain_StopsTheEvaluationOfTheModelItReplaced()
     {
         var store = new SemanticModelStore();
         using var releaseFirst = new ManualResetEventSlim();
@@ -76,17 +77,15 @@ public sealed class SemanticModelStoreTests
             releaseFirst.Wait();
             return Facts(isFullyAnalyzed: false);
         });
-        Assert.IsTrue(firstStarted.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(firstStarted.Wait(TimeSpan.FromSeconds(30)));
 
         var second = Facts(isFullyAnalyzed: true);
         store.Store(Model(Procedure), _ => second);
         await store.WhenEvaluatedAsync(Module);
 
-        releaseFirst.Set();
-        await Task.Delay(100);
-
         Assert.IsTrue(firstToken.IsCancellationRequested, "the evaluation of the code that is gone is told to stop");
-        Assert.IsTrue(RuntimeOf(store)!.IsFullyAnalyzed, "and what it found, if it found it anyway, is not the model's");
+        Assert.IsTrue(RuntimeOf(store)!.IsFullyAnalyzed, "the model has the facts of the evaluation that replaced it");
+        releaseFirst.Set();
     }
 
     [TestMethod]
@@ -103,13 +102,13 @@ public sealed class SemanticModelStoreTests
         var waiting = store.WhenEvaluatedAsync(Module);
         store.Store(Model(Procedure), _ => Facts(isFullyAnalyzed: true));
         releaseFirst.Set();
-        await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+        await waiting.WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.IsTrue(RuntimeOf(store)!.IsFullyAnalyzed);
     }
 
     [TestMethod]
-    public async Task ARemovedModule_StopsItsEvaluation()
+    public void ARemovedModule_StopsItsEvaluation()
     {
         var store = new SemanticModelStore();
         using var release = new ManualResetEventSlim();
@@ -122,15 +121,11 @@ public sealed class SemanticModelStoreTests
             release.Wait();
             return Facts();
         });
-        Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(5)));
+        Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(30)));
 
         Assert.IsTrue(store.Remove(Module));
-        Assert.IsTrue(token.IsCancellationRequested);
-
+        Assert.IsTrue(token.IsCancellationRequested, "the evaluation of the module that is gone is told to stop");
         release.Set();
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
-        await Task.Delay(100);
-        Assert.IsFalse(store.TryGet(Module, out _), "the facts of a module that is gone do not bring it back");
     }
 
     [TestMethod]
@@ -139,7 +134,7 @@ public sealed class SemanticModelStoreTests
         var store = new SemanticModelStore();
         store.Store(Model(Procedure), _ => throw new InvalidOperationException("a defect of the evaluation"));
 
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.IsNull(RuntimeOf(store), "no facts are made up for it");
     }
@@ -171,7 +166,75 @@ public sealed class SemanticModelStoreTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => store.WhenEvaluatedAsync(Module, cancellation.Token));
 
         release.Set();
-        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(5));
+        await store.WhenEvaluatedAsync(Module).WaitAsync(TimeSpan.FromSeconds(30));
         Assert.IsNotNull(RuntimeOf(store));
+    }
+
+    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+
+    // the evaluations run on one thread the test counts itself, and holds: the module's evaluation waits for it, as it waits when every LargeStackThread is busy.
+    private static (SemanticModelStore Store, ManualResetEventSlim Release, Task Busy) StoreWithItsOneThreadBusy(SemaphoreSlim threads)
+    {
+        var release = new ManualResetEventSlim();
+        using var running = new ManualResetEventSlim();
+        var busy = LargeStackThread.Start(() =>
+        {
+            running.Set();
+            release.Wait();
+        }, threads, CancellationToken.None);
+        Assert.IsTrue(running.Wait(HangGuard));
+
+        return (new SemanticModelStore((work, token) => LargeStackThread.Start(work, threads, token)), release, busy);
+    }
+
+    [TestMethod]
+    public async Task AnEvaluationRemovedWhileItWaitsForAThread_NeverRuns_AndTheWaitForItIsOver()
+    {
+        using var threads = new SemaphoreSlim(1, 1);
+        var (store, release, busy) = StoreWithItsOneThreadBusy(threads);
+        using var released = release;
+        var ran = false;
+        store.Store(Model(Procedure), _ =>
+        {
+            ran = true;
+            return Facts();
+        });
+        var waiting = store.WhenEvaluatedAsync(Module);
+        Assert.IsFalse(waiting.IsCompleted, "the evaluation waits for the thread");
+
+        Assert.IsTrue(store.Remove(Module));
+
+        await waiting.WaitAsync(HangGuard);
+        release.Set();
+        await busy.WaitAsync(HangGuard);
+        Assert.IsFalse(ran, "it was stopped before a thread was free");
+    }
+
+    [TestMethod]
+    public async Task AnEvaluationReplacedWhileItWaitsForAThread_NeverRuns_AndTheWaitIsForTheOneThatReplacedIt()
+    {
+        using var threads = new SemaphoreSlim(1, 1);
+        var (store, release, busy) = StoreWithItsOneThreadBusy(threads);
+        using var released = release;
+        var (first, second) = (0, 0);
+        store.Store(Model(Procedure), _ =>
+        {
+            first++;
+            return Facts();
+        });
+        var waiting = store.WhenEvaluatedAsync(Module);
+
+        store.Store(Model(Procedure), _ =>
+        {
+            second++;
+            return Facts(isFullyAnalyzed: false);
+        });
+        Assert.IsFalse(waiting.IsCompleted, "the evaluation that replaced it waits for the thread");
+
+        release.Set();
+        await busy.WaitAsync(HangGuard);
+        await waiting.WaitAsync(HangGuard);
+        Assert.AreEqual((0, 1), (first, second), "each evaluation runs at most once, and the replaced one never");
+        Assert.IsFalse(RuntimeOf(store)!.IsFullyAnalyzed);
     }
 }

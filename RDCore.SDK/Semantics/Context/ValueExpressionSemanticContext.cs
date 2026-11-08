@@ -2,7 +2,7 @@
 using RDCore.SDK.Semantics.Flags;
 using System.Collections.Immutable;
 
-namespace RDCore.Runtime.Semantics.Literals;
+namespace RDCore.SDK.Semantics.Context;
 
 public record class ValueExpressionSemanticContext : SemanticContext<ValueExpressionSemanticFlags>
 {

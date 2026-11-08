@@ -37,7 +37,7 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
     /// <summary>
     /// The activations of the program, innermost first.
     /// </summary>
-    public HostDebugStackResult Stack()
+    public DebugStackResult Stack()
         => new()
         {
             Frames =
@@ -45,7 +45,7 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
                 .. provider.Session.CallStack.Frames.OfType<CallStackFrame>().Select((frame, index) =>
                 {
                     var location = frame.Body is { } body && frame.Pc >= 0 && frame.Pc < body.Items.Length ? body.Items[frame.Pc].Location : null;
-                    return new HostStackFrame(
+                    return new DebugStackFrame(
                         index,
                         frame.Procedure?.Name ?? frame.StaticSymbol.Name,
                         ModuleNameOf(frame),
@@ -70,32 +70,32 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
     /// <param name="frameId">The activation, by its place on the stack.</param>
     /// <param name="scope">Which of its variables.</param>
     /// <param name="reference">The reference of a variable that has parts, or <c>0</c>.</param>
-    public HostDebugVariablesResult Variables(int frameId, HostVariableScope scope, int reference)
+    public DebugVariablesResult Variables(int frameId, DebugVariableScope scope, int reference)
     {
         if (reference > 0)
         {
             return _parts.TryGetValue(reference, out var parts)
-                ? new HostDebugVariablesResult
+                ? new DebugVariablesResult
                 {
                     Variables = [.. parts.Select(part => Describe(part.Name, part.Value))],
                     NotListed = 0,
                 }
-                : new HostDebugVariablesResult();
+                : new DebugVariablesResult();
         }
 
         var frames = provider.Session.CallStack.Frames.OfType<CallStackFrame>().ToArray();
         if (frameId < 0 || frameId >= frames.Length)
         {
-            return new HostDebugVariablesResult();
+            return new DebugVariablesResult();
         }
 
         var frame = frames[frameId];
-        return new HostDebugVariablesResult { Variables = [.. (scope is HostVariableScope.Locals ? Locals(frame) : Module(frame))] };
+        return new DebugVariablesResult { Variables = [.. (scope is DebugVariableScope.Locals ? Locals(frame) : Module(frame))] };
     }
 
     // the parameters, then the variables the procedure declares - an implicit one is declared by the first use - and the value it returns, which is a variable
     // of its own named like the procedure (MS-VBAL 5.3.1).
-    private IEnumerable<HostVariable> Locals(CallStackFrame frame)
+    private IEnumerable<DebugVariable> Locals(CallStackFrame frame)
     {
         var (parameters, locals) = frame.Procedure switch
         {
@@ -121,7 +121,7 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
         }
     }
 
-    private IEnumerable<HostVariable> Module(CallStackFrame frame)
+    private IEnumerable<DebugVariable> Module(CallStackFrame frame)
     {
         if (frame.Procedure is not { } procedure)
         {
@@ -169,25 +169,25 @@ internal sealed class ProgramInspector(IEnvironmentSessionProvider provider)
         }
     }
 
-    internal HostVariable Describe(string name, VBTypedValue? value)
+    internal DebugVariable Describe(string name, VBTypedValue? value)
     {
         if (value is null)
         {
-            return new HostVariable(name, Resources.Host_ValueUnavailable, string.Empty);
+            return new DebugVariable(name, Resources.Host_ValueUnavailable, string.Empty);
         }
 
         var view = DebugValueFormatter.Describe(value);
         if (view.Parts is not { Count: > 0 } parts)
         {
-            return new HostVariable(name, view.Display, view.Type);
+            return new DebugVariable(name, view.Display, view.Type);
         }
 
         var reference = ++_next;
         _parts[reference] = parts;
-        return new HostVariable(name, view.Display, view.Type, reference);
+        return new DebugVariable(name, view.Display, view.Type, reference);
     }
 
     // the module is the fragment of the procedure's parent: "Program" for Program.Main.
-    private static string ModuleNameOf(CallStackFrame frame)
-        => frame.Procedure?.ParentUri.Fragment.TrimStart('#') is { Length: > 0 } module ? module : string.Empty;
+    internal static string ModuleNameOf(CallStackFrame frame)
+        => frame.Procedure is { } procedure ? SymbolUri.ModuleNameOf(procedure.ParentUri) : string.Empty;
 }

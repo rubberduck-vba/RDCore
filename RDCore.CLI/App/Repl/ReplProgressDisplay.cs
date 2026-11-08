@@ -28,6 +28,7 @@ internal sealed class ReplProgressDisplay : IDisposable
     private readonly Func<int> _width;
     private readonly ConsolePromptEditor? _editor;
     private readonly bool _unicode;
+    private readonly PromptAwareMessageWriter? _messages;
     private readonly object _sync;
     private readonly Dictionary<ProgressToken, int> _frames = [];
     private bool _drawnInline;
@@ -40,9 +41,14 @@ internal sealed class ReplProgressDisplay : IDisposable
     /// <param name="width">The cells of a line of the console.</param>
     /// <param name="editor">The editor of the prompt's line, which the work is drawn under while a line is being edited.</param>
     /// <param name="unicode">Whether the bar is drawn in block characters.</param>
-    public ReplProgressDisplay(WorkProgressTracker tracker, TextWriter output, Func<int> width, ConsolePromptEditor? editor, bool unicode = true)
+    /// <param name="messages">
+    /// The shell's messages: the work done for a command is drawn when a message would be written, and not while a question is asked
+    /// (<see cref="PromptAwareMessageWriter.WhileAsking"/>), where clearing its line would erase the question's.
+    /// </param>
+    public ReplProgressDisplay(WorkProgressTracker tracker, TextWriter output, Func<int> width, ConsolePromptEditor? editor, bool unicode = true,
+        PromptAwareMessageWriter? messages = null)
     {
-        (_tracker, _output, _width, _editor, _unicode) = (tracker, output, width, editor, unicode);
+        (_tracker, _output, _width, _editor, _unicode, _messages) = (tracker, output, width, editor, unicode, messages);
         _sync = editor?.Sync ?? new object();
         if (editor is not null)
         {
@@ -81,6 +87,27 @@ internal sealed class ReplProgressDisplay : IDisposable
             _editor.Invalidate();
         }
         else if (state.Origin == WorkProgressOrigin.Request)
+        {
+            if (_messages is { } messages)
+            {
+                // held while a question is asked: drawn after it, as the work is by then.
+                messages.Write(Redraw);
+            }
+            else
+            {
+                DrawInline();
+            }
+        }
+    }
+
+    // the work as it is now, where it is drawn now: a question answered at a prompt where nothing was typed is followed by the line, which the work is drawn under.
+    private void Redraw()
+    {
+        if (_editor?.IsEditing == true)
+        {
+            _editor.Invalidate();
+        }
+        else
         {
             DrawInline();
         }

@@ -119,6 +119,23 @@ public sealed class PullDiagnosticsLspSerializerTests
     }
 
     [TestMethod]
+    public void ACall_NeverChangesTheConvertersTheOtherThreadReads()
+    {
+        // the serializer is used from a connection's input and output threads at once: a list of converters changed by a call, while another thread looks
+        // through it, throws there, and a throw in the output loop ends all output for the life of the process. A race cannot be made to happen on demand,
+        // so what is pinned is what makes it impossible: after a reset, as before it, a call changes no converter.
+        var sut = new PullDiagnosticsLspSerializer();
+        var serializer = (ISerializer)sut;
+        sut.SetClientCapabilities(new ClientCapabilities());
+        var converters = sut.Settings.Converters.ToArray();
+
+        serializer.SerializeObject(new RelatedFullDocumentDiagnosticReport { ResultId = "v1", Items = new Container<Diagnostic>() });
+        serializer.DeserializeObject("{}", typeof(ClientCapabilities));
+
+        CollectionAssert.AreEqual(converters, sut.Settings.Converters.ToArray());
+    }
+
+    [TestMethod]
     public void OrdinaryPayloads_StillRoundTripThroughThisSerializer()
     {
         // The repair replaces the contract resolver for every type, not only the report records, so this

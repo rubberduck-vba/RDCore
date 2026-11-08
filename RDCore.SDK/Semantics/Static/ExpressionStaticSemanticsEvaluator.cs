@@ -47,6 +47,18 @@ public static class ExpressionStaticSemanticsEvaluator
     /// </returns>
     public static StaticSemanticsEvaluationResult Evaluate(StaticEvaluationContext context, ExpressionNode expression)
     {
+        // the evaluation of a tree keeps what each of its expressions evaluated to, so that a check that looks at an operand again does not evaluate it again.
+        var evaluations = context.Evaluations;
+        if (evaluations is null)
+        {
+            evaluations = new ExpressionEvaluations();
+            context = context with { Evaluations = evaluations };
+        }
+        else if (evaluations.TryGet(context, expression, out var evaluated))
+        {
+            return evaluated;
+        }
+
         var result = EvaluateCore(context, expression);
         if (context.Facts is { } facts)
         {
@@ -58,6 +70,7 @@ public static class ExpressionStaticSemanticsEvaluator
         // so are its bindings, so that the plan of an operation is made for the declared types of its operands.
         context.Bindings?.Record(context, expression, result);
 
+        evaluations.Add(context, expression, result);
         return result;
     }
 
@@ -92,6 +105,8 @@ public static class ExpressionStaticSemanticsEvaluator
             VBUnaryOperatorExpressionNode unaryOperator => EvaluateUnaryOperator(context, expression, unaryOperator),
             // ByVal flags how an argument is passed; the argument is the expression it is written before.
             ByValArgumentExpressionNode byVal => Evaluate(context, byVal.Operand),
+            // a name says which parameter an argument is for; the argument is the expression it names, a call statement's as an index expression's.
+            NamedArgumentNode named => Evaluate(context, named.Value),
             AddressOfExpressionNode addressOf => EvaluateAddressOf(context, addressOf),
             // what is printed is an expression like any other, which can be wrong in its own right; an item of an output list has no type of its own.
             PrintOutputItemNode item => EvaluatePrintItem(context, item),
@@ -148,6 +163,11 @@ public static class ExpressionStaticSemanticsEvaluator
         VBType ownerType;
         if (memberAccess.Owner is { } enumeration && NameClassificationStaticSemantics.EnumerationOf(context, enumeration) is { } enumerationType)
         {
+            if (IsTakenByAProcedureOfItsClass(context, enumerationType))
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName));
+            }
+
             // an enumeration qualifies the names of its members (`Color.Red`, `Globals.Color.Red`): as the owner of one it is the type, which by itself
             // it is no value of.
             ownerType = enumerationType;
@@ -160,6 +180,13 @@ public static class ExpressionStaticSemanticsEvaluator
                 return ownerResult;
             }
             ownerType = ownerResult.Result!;
+
+            // a value of an enumeration is a number, which has no members: only the enumeration's name qualifies them. In `Property Get PlayerType() As
+            // PlayerType`, `PlayerType.ComputerControlled` is the Get's result, or the Get, and is an invalid qualifier (Excel-verified, oracle\s64 E02, E04).
+            if (ownerType is VBEnumType)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName));
+            }
         }
         else if (context.EnclosingWithTargetType is { } withTargetType)
         {
@@ -247,6 +274,10 @@ public static class ExpressionStaticSemanticsEvaluator
             return StaticSemanticsEvaluationResult.Error(reservedNameError);
         }
 
+        // the subscripts of an element of an array - a variable's, a field's: a call of a function that returns one is given arguments (MS-VBA, oracle\s55 A04).
+        var indexesAnArray = calleeResult.Result is VBArrayType
+            && ProcedureNamedBy(context, indexExpression.Callee) is not (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
+
         // an argument written ByVal is valid where MS-VBA compiles it, and not only before an argument of an external procedure as MS-VBAL §5.6.13.1 says
         // (RD-VBAL §5.6.13.1): only the parameter it is written for says which.
         if (ByValArgumentStaticSemantics.Error(context, indexExpression, calleeResult.Result) is { } byValError)
@@ -267,7 +298,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
             // a subscript of an element is let-coerced to a Long (RD-VBAL §5.6.13), which MS-VBA refuses a LongLong to at compile time, whatever its value
             // (Excel-verified): not for a call, whose parameters say what they take.
-            if (argumentResult is { Result: VBLongLongType } && calleeResult.Result is VBArrayType && ProcedureNamedBy(context, indexExpression.Callee) is null)
+            if (argumentResult is { Result: VBLongLongType } && indexesAnArray)
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, argument.Location,
                     Exceptions.VBIndex_LongLongSubscript_Verbose));
@@ -279,13 +310,14 @@ public static class ExpressionStaticSemanticsEvaluator
         if (calleeResult.Result is not VBArrayType || ProcedureNamedBy(context, indexExpression.Callee) is { Parameters.IsEmpty: false })
         {
             MarkPassedAsArguments(context, indexExpression.Arguments);
+            ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, indexExpression.Callee, indexExpression.Arguments);
         }
 
         ByValArgumentStaticSemantics.MarkRedundant(context, indexExpression, calleeResult.Result);
 
         // a ParamArray is no variable a ByRef parameter can be bound to (MS-VBAL §5.3.1.11), and an object given to a parameter that expects a value of it
         // must have one (MS-VBAL §5.5.1.1).
-        if (calleeResult.Result is not VBArrayType && ObjectValueStaticSemantics.MemberOfCallee(context, indexExpression.Callee) is { } calledMember
+        if (!indexesAnArray && ObjectValueStaticSemantics.MemberOfCallee(context, indexExpression.Callee) is { } calledMember
             && ObjectValueStaticSemantics.ParametersOfCallee(context, indexExpression.Callee) is { } parameters
             && (ArgumentListStaticSemantics.Error(context, indexExpression, calledMember, parameters, indexExpression.Arguments)
                 ?? ParamArrayStaticSemantics.ArgumentsError(context, calledMember, parameters, indexExpression.Arguments)
@@ -296,7 +328,7 @@ public static class ExpressionStaticSemanticsEvaluator
 
         // MS-VBAL §5.6.13: the arguments are those of a call when the callee is a procedure, and the result of the call has the type the procedure
         // returns - however that type is shaped: `Whole()` of a function that returns Long() is no element of an array. A procedure that declares no
-        // parameters is not given the arguments written after it: it is called, and they index what it returns.
+        // parameters, and returns a Variant or an object, is not given the arguments written after it: it is called, and they index what it returns.
         if (ProcedureNamedBy(context, indexExpression.Callee) is { } procedure)
         {
             // Abs, Int and Fix of a number are of its declared type, as MS-VBA types them (ArgumentTypedFunctions).
@@ -432,6 +464,15 @@ public static class ExpressionStaticSemanticsEvaluator
             _ => Evaluate(context, target),
         };
     }
+
+    // an Enum of a class module that declares a procedure of the Enum's name qualifies no member of it, from any module: the procedure takes the name in a
+    // value, and `PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier in another module as in the class
+    // (Excel-verified, oracle\s64 E15; E18 the same without the Get). The Enum is still the type of `Dim t As PlayerType`.
+    private static bool IsTakenByAProcedureOfItsClass(StaticEvaluationContext context, VBEnumType enumeration)
+        => enumeration.Symbol.GetProperty(SymbolProperties.Library) is null
+            && context.Resolver.ResolveQualifier(SymbolUri.ModuleNameOf(enumeration.Symbol.Uri), ScopeKind.Global, context.Scope.Uri).Symbol is VBClassModuleSymbol module
+            && module.Uri.AbsoluteUri == enumeration.Symbol.ParentUri.AbsoluteUri
+            && module.Members.Any(member => ScopeTreeSymbolResolver.IsProcedure(member) && string.Equals(member.Name, enumeration.Symbol.Name, StringComparison.OrdinalIgnoreCase));
 
     private static StaticSemanticsEvaluationResult EvaluateDictionaryAccess(
         StaticEvaluationContext context, ExpressionNode expression, DictionaryAccessExpressionNode dictionaryAccess)
@@ -577,8 +618,8 @@ public static class ExpressionStaticSemanticsEvaluator
             return NoOperand(binaryOperator.Right, rightResult);
         }
 
-        // an operand whose type is not known - a member of a library's class that names a class not read yet, a member an extensible class has without declaring
-        // it - is not an operand the operator is wrong for: it is late-bound, and the operator is applied to what it turns out to be.
+        // an operand whose type is not known - a member of a library's class whose type names a class no library declares, a member an extensible class has
+        // without declaring it - is not an operand the operator is wrong for: it is late-bound, and the operator is applied to what it turns out to be.
         if (leftResult.Result is VBUnknownType || rightResult.Result is VBUnknownType)
         {
             return StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);

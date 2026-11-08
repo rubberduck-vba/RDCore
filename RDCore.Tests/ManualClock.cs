@@ -4,11 +4,34 @@ namespace RDCore.Tests;
 /// A clock that moves only when a test moves it (<see cref="Advance"/>): a timer it makes fires once the clock is moved to its time, on the thread that moves
 /// it, and never on its own. What is timed by it is as fast as the test says, whatever the machine.
 /// </summary>
-/// <remarks>A timer fires once: a period is not kept.</remarks>
+/// <remarks>
+/// A timer fires once: a period is not kept. The time it tells - what a deadline is taken from - moves with it too, from <see cref="Start"/>.
+/// </remarks>
 internal sealed class ManualClock : TimeProvider
 {
+    /// <summary>The time the clock tells before it is moved.</summary>
+    public static readonly DateTimeOffset Start = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     private readonly List<ManualTimer> _timers = [];
     private TimeSpan _elapsed;
+
+    public override DateTimeOffset GetUtcNow()
+    {
+        lock (_timers)
+        {
+            return Start + _elapsed;
+        }
+    }
+
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+    public override long GetTimestamp()
+    {
+        lock (_timers)
+        {
+            return _elapsed.Ticks;
+        }
+    }
 
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {

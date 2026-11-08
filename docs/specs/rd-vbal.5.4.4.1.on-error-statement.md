@@ -8,7 +8,8 @@
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
 |[OnErrorGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html)|`OnErrorGoTo`|`On Error GoTo <label>`. `Target`: the label's offset.|
-|`OnErrorGoToStatementNode`|`OnErrorDisable`|`On Error GoTo 0`, and the undocumented VBA6/VBA7 form `On Error GoTo -1`.|
+|`OnErrorGoToStatementNode`|`OnErrorDisable`|`On Error GoTo 0`.|
+|`OnErrorGoToStatementNode`|`OnErrorReset`|`On Error GoTo -1`, which MS-VBAL does not document and MS-VBA compiles.|
 |[OnErrorResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html)|`OnErrorResumeNext`|`On Error Resume Next`.|
 
 - `On Error Resume Next` and `On Error GoTo` are parsed by the same grammar rule, disambiguated by the keyword that
@@ -24,7 +25,7 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) 
 
 |Condition|Compile error|
 |---|---|
-|`On Error GoTo` names a handler label that is not defined, e.g. `On Error GoTo Handler` with no `Handler:`.|[VBC09309](../diagnostics/vbc09309.md) — Label not defined|
+|`On Error GoTo` names a handler label that is not defined, e.g. `On Error GoTo Handler` with no `Handler:`.|[VBC09309](../diagnostics/vbc09309.md): Label not defined|
 
 `On Error GoTo 0` and `On Error GoTo -1` do not refer to a label. The `0` of `On Error GoTo 0` and the `-1` of
 `On Error GoTo -1` are never looked up as labels: `VBC09309` is not raised for them, whether or not the procedure
@@ -37,9 +38,9 @@ An `On Error` statement sets the error-handling policy of the current activation
 
 |Policy (`ErrorHandlingMode`)|Set by|When an error is raised|
 |---|---|---|
-|`Disabled` (the policy [**MS-VBAL §5.4.4** Error Handling Statements](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/47b18690-3175-44d9-9de1-31629f0aacc7) calls *Default*)|`On Error GoTo 0`, `On Error GoTo -1`; an error caught under `GoTo`|The error is not caught: it propagates out of the activation (see [Propagation](#propagation)).|
+|`Disabled` (the policy [**MS-VBAL §5.4.4** Error Handling Statements](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/47b18690-3175-44d9-9de1-31629f0aacc7) calls *Default*)|`On Error GoTo 0`; an error caught under `GoTo`|The error is not caught: it propagates out of the activation (see [Propagation](#propagation)).|
 |`ResumeNext`|`On Error Resume Next`|The error is caught silently. Execution continues at the statement that follows the one that raised the error. The policy is not reset: every later error in the same activation is caught the same way.|
-|`GoTo`|`On Error GoTo <label>`; a `Resume` that ends the handler|The error branches to the label. The policy is reset to disabled while the handler runs: a second, unhandled error inside the handler body propagates rather than re-entering the handler. A `Resume` ends the handler and sets the policy back to `GoTo` the same label: the next error goes to it again.|
+|`GoTo`|`On Error GoTo <label>`; a `Resume` that ends the handler|The error branches to the label. The policy is reset to disabled while the handler runs: a second, unhandled error inside the handler body propagates rather than re-entering the handler. A `Resume`, or an `On Error GoTo -1`, ends the handler and sets the policy it is to have after it: `GoTo` the same label, unless an `On Error` statement in the handler said otherwise ([In an active handler](#in-an-active-handler)).|
 
 The asymmetry between `On Error Resume Next` (policy kept) and `On Error GoTo <label>` (policy reset to disabled
 while the handler runs) follows MS-VBAL: the policy is still to go to the label, and an error inside the handler is
@@ -49,10 +50,32 @@ A `Select Case` is one statement, up to its `End Select`: an error in its select
 `End Select`, and no `Case` runs, `Case Else` included (MS-VBA). The same holds for `Resume Next`
 ([**RD-VBAL §5.4.4.2**](rd-vbal.5.4.4.2.resume-statement.md)).
 
-In MS-VBA, `On Error GoTo 0` turns error handling off, and `On Error GoTo -1` clears the active error. RD-VBA treats
-the two identically: both lower as `OnErrorDisable`, which turns the activation's error handling off and clears any
-active error. MS-VBAL does not document `On Error GoTo -1`, so treating it as `On Error GoTo 0` does not diverge from
-the specification.
+A `For` is not: an error in its start, its end or its step goes on at the first statement of its body, and the loop
+keeps nothing the header evaluated ([**RD-VBAL §5.4.2.3**](rd-vbal.5.4.2.3.for-statement.md#an-error-in-the-header-under-on-error-resume-next)).
+
+### In an active handler
+
+A handler is active from the moment an `On Error GoTo` catches an error until a `Resume`, an `On Error GoTo -1`, an `Exit` or the end of the procedure.
+An `On Error` statement the handler runs sets the policy for **after** the handler, and nothing more. The error is still the one being handled, which a
+`Resume` still resumes, and a second error raised in the handler still propagates to the caller. Each table row is what MS-VBA did, recorded in Excel
+(oracle\s53):
+
+|In the handler|A second error in the handler|After `Resume Next`, the next error|
+|---|---|---|
+|nothing|goes to the caller (A01)|goes to the handler's label again (C05)|
+|`On Error GoTo Other`|goes to the caller (A02)|goes to `Other` (C01)|
+|`On Error Resume Next`|goes to the caller (A03)|is gone past (C02)|
+|`On Error GoTo 0`|goes to the caller (A04)|goes to the caller (C03)|
+|`Err.Clear`, then `On Error GoTo Other`|goes to the caller (A07)|not recorded|
+|`On Error GoTo -1`|goes to the handler's label again (A05)|`Resume` has nothing to resume: error 20 (C04)|
+|`On Error GoTo -1`, then `On Error GoTo Other`|goes to `Other` (A06)|not recorded|
+|`On Error GoTo -1`, then `On Error Resume Next`|is gone past (A10)|not recorded|
+
+What follows a second error in the handler doesn't run (D02).
+
+`On Error GoTo -1` ends the error being handled and keeps the policy. In a handler, that policy is the one the handler is to have after it: its own label,
+unless an `On Error` in the handler said otherwise. Outside a handler, RD-VBA's `-1` clears the error `On Error Resume Next` went past and keeps the
+policy, as it does in one; that case is not recorded in Excel yet. MS-VBAL documents neither `-1` nor what an `On Error` statement does in a handler. Every `On Error` statement clears `Err`, in a handler too (B01-B05).
 
 ### Error interception
 
@@ -92,10 +115,7 @@ scoped to one block.
 |Type or member|Role|
 |---|---|
 |`RDCore.Runtime.Execution.ProcedureExecutor.InterceptError`|The one point every run-time error passes through; applies the activation's error-handling policy.|
-|`ErrorHandlerState`|The activation's error-handling mode, handler target, active error and fault-statement offset (**RDCore.SDK**).|
+|`ErrorHandlerState`|The activation's error-handling mode, handler target, active error and fault-statement offset; while a handler runs (`IsHandling`), the policy after it (`AfterHandling`, `HandlingOver`) (**RDCore.SDK**).|
 |`ErrorHandlingMode`|`Disabled`, `ResumeNext`, `GoTo` (**RDCore.SDK**).|
 |[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ErrorHandler`|Reads the activation's `ErrorHandlerState`; read-only on the SDK interface, and written only by the executor through `CallStackFrame.ErrorHandler`. See [**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md).|
-|[InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html)|Lowers `On Error GoTo 0` and `On Error GoTo -1` as `OnErrorDisable`, and `On Error GoTo <label>` as `OnErrorGoTo` (**RDCore.SDK**).|
-
----
-> ⏮️ [**RD-VBAL §5.4.4** Error Handling Statements](rd-vbal.5.4.4.error-handling-statements.md) | ⏭️ [**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)
+|[InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html)|Lowers `On Error GoTo 0` as `OnErrorDisable`, `On Error GoTo -1` as `OnErrorReset`, and `On Error GoTo <label>` as `OnErrorGoTo` (**RDCore.SDK**).|

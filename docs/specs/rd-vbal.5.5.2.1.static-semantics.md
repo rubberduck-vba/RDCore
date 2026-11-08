@@ -4,6 +4,3 @@ This section corresponds to [**MS-VBAL §5.5.2.1** Static semantics](https://lea
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.5.2** Set-coercion](rd-vbal.5.5.2.set-coercion.md) | ⏭️ [**RD-VBAL §5.5.2.2** Runtime semantics](rd-vbal.5.5.2.2.runtime-semantics.md)

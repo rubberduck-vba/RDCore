@@ -34,7 +34,7 @@ public delegate Task<SignatureHelp?> ConsoleSignatureSource(string line, int cur
 /// entered before; <kbd>Esc</kbd> clears the line; <kbd>Enter</kbd> enters it.
 /// </para>
 /// <para>
-/// The list opens on its own after a <c>.</c> or a <c>!</c>, and when a word starts to be typed; <kbd>Ctrl</kbd>+<kbd>Space</kbd> or <kbd>Ctrl</kbd>+<kbd>J</kbd>
+/// The list opens on its own after a <c>.</c>, and when a word starts to be typed, except the name after a <c>!</c>; <kbd>Ctrl</kbd>+<kbd>Space</kbd> or <kbd>Ctrl</kbd>+<kbd>J</kbd>
 /// opens it where the cursor is (the VBE's <em>Complete Word</em> and <em>List Members</em>). Asking for it never holds up what is typed: the keys go on being read
 /// while the list is on its way, and the list that comes is narrowed to the word as it is by then. While it is open, <kbd>Up</kbd>, <kbd>Down</kbd>,
 /// <kbd>PgUp</kbd> and <kbd>PgDn</kbd> move its selection, <kbd>Tab</kbd> puts the selected name in place of the word, and so does <kbd>Enter</kbd> - which enters
@@ -130,6 +130,17 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
     /// up what is typed. <kbd>Esc</kbd> closes it, and so does entering the line.
     /// </remarks>
     public ConsoleSignatureSource? Signature { get; init; }
+
+    /// <summary>
+    /// What waits to be asked at the console while a line is read, which the keys of the line must not answer: a question the language server asks the shell's
+    /// user. None is asked without it.
+    /// </summary>
+    /// <remarks>
+    /// While nothing is typed on the line, and no list is open, what waits is asked at once: the line stops reading its key, the line and what is under it are
+    /// erased, the question is asked with the keys typed from then on, and the line is drawn again. A key that came before the line stopped reading is the line's,
+    /// as it would have been without the question: once it types something, the question waits for the line to be entered.
+    /// </remarks>
+    public IConsoleInterjections? Interjections { get; init; }
 
     /// <summary>
     /// What the drawing of the console is serialized on: the editor draws the line holding it, and whatever else draws at the console while a line is not being
@@ -237,6 +248,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         private int _anchor;
         private Task<IReadOnlyList<CompletionItem>>? _asked;
         private int _askedAnchor;
+        private bool _askedOfFirstCharacter;
+        private bool _listOfFirstCharacter;
         private CancellationTokenSource? _asking;
         private SignatureHelp? _signature;
         private Task<SignatureHelp?>? _signing;
@@ -263,6 +276,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             Task<ConsoleKeyInfo>? key = null;
             var invalidated = editor.Invalidation;
 
+            // a key is read with a token of the line's own, which a question asked at the line stops the read with (Interject).
+            var reading = CancellationTokenSource.CreateLinkedTokenSource(token);
+
             // a line erased to write above it after the last one was entered was not this one: this one has nothing drawn yet.
             Volatile.Write(ref editor._erased, 0);
             Draw();
@@ -270,7 +286,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 while (true)
                 {
-                    key ??= Task.Run(() => editor._keys.ReadKey(token), CancellationToken.None);
+                    var readingToken = reading.Token;
+                    key ??= Task.Run(() => editor._keys.ReadKey(readingToken), CancellationToken.None);
 
                     // a list or a signature that is there is shown before the next key is taken - Task.WhenAny answers the first of those that are done, in
                     // the order they are given - and what is drawn under the line is drawn again when it changes.
@@ -285,8 +302,23 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                         waiting.Add(signing);
                     }
 
+                    // a question that waits is asked at a line where nothing is typed - after a key that is pressed already, which may type something - and
+                    // on any other line, waits for it to be entered.
                     waiting.AddRange([key, invalidated]);
+                    var interjection = IsIdle ? editor.Interjections?.Waiting : null;
+                    if (interjection is not null)
+                    {
+                        waiting.Add(interjection);
+                    }
+
                     var done = await Task.WhenAny(waiting);
+                    if (done == interjection)
+                    {
+                        (key, reading) = await InterjectAsync(key, reading, token);
+                        Draw();
+                        continue;
+                    }
+
                     if (done == _asked)
                     {
                         Arrived(await _asked!);
@@ -329,6 +361,56 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 _asking?.Cancel();
                 _signingCancellation?.Cancel();
+
+                // a key the line was still waiting for is not read for a line that is no more; its token is let go of once the read stops.
+                reading.Cancel();
+                if (key is { IsCompleted: false } pending)
+                {
+                    var stopped = reading;
+                    _ = pending.ContinueWith(_ => stopped.Dispose(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                }
+                else
+                {
+                    reading.Dispose();
+                }
+            }
+        }
+
+        // nothing is typed on the line, and nothing is open under it.
+        private bool IsIdle => _text.Length == 0 && _list is null && _snippet is null;
+
+        // what waits is asked where the line was, once the line stops reading its key: a key that came before it stopped is the line's, which presses it before
+        // anything is asked - a question asked at a line where nothing is typed, so that it waits once the key types something. Otherwise the question reads the
+        // keys typed from now on, and the line is drawn again after it, from the line down. The key the line has, if it came, and the token it reads the next with.
+        private async Task<(Task<ConsoleKeyInfo>? Key, CancellationTokenSource Reading)> InterjectAsync(
+            Task<ConsoleKeyInfo> key, CancellationTokenSource reading, CancellationToken token)
+        {
+            reading.Cancel();
+            try
+            {
+                await key;
+                return (key, Renewed());
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+            }
+
+            var renewed = Renewed();
+            lock (editor.Sync)
+            {
+                Output.Write("\r\u001b[J");
+                Output.Flush();
+                Volatile.Write(ref editor._erased, 1);
+            }
+
+            editor.Interjections!.AskWaiting(editor._keys);
+            return (null, renewed);
+
+            // the read stopped: what the line reads from now on is read with a token of its own again.
+            CancellationTokenSource Renewed()
+            {
+                reading.Dispose();
+                return CancellationTokenSource.CreateLinkedTokenSource(token);
             }
         }
 
@@ -512,7 +594,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 }
 
                 // a word starts with a letter, or with a digit - the line number an argument can be - and the list is asked for once, as it starts.
-                var startsWord = char.IsLetterOrDigit(typed) && (_cursor == character.Length || !IsNameCharacter(_text[_cursor - character.Length - 1]));
+                // The name after a bang is a dictionary access's, which nothing declares: no list is asked for it.
+                var startsWord = char.IsLetterOrDigit(typed)
+                    && (_cursor == character.Length || _text[_cursor - character.Length - 1] is var before && !IsNameCharacter(before) && before != '!');
 
                 // an argument list opens, an argument starts, or one closes: what the call takes is asked for again.
                 if (typed is '(' or ',' or ' ' or ')')
@@ -520,7 +604,8 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     AskSignature();
                 }
 
-                if (typed is '.' or '!')
+                // the members after a dot; the name after a bang is a dictionary access's, which nothing declares.
+                if (typed == '.')
                 {
                     Ask(_cursor);
                 }
@@ -666,7 +751,11 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             Close();
             _asking = new CancellationTokenSource();
             _askedAnchor = anchor;
-            _asked = AskAsync(complete, Text, _cursor, _asking.Token);
+
+            // the list of the word's first character, wherever the cursor is in the word: it holds what every longer word matches, and what the word matches
+            // once it is shorter again, down to that character.
+            _askedOfFirstCharacter = _cursor > anchor;
+            _asked = AskAsync(complete, Text, Math.Min(_cursor, anchor + 1), _asking.Token);
         }
 
         private static async Task<IReadOnlyList<CompletionItem>> AskAsync(ConsoleCompletionSource complete, string text, int cursor, CancellationToken token)
@@ -691,6 +780,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             }
 
             _anchor = _askedAnchor;
+            _listOfFirstCharacter = _askedOfFirstCharacter;
             _list = new ConsoleCompletionList(items, editor.ListHeight);
             _list.Filter(Word());
         }
@@ -722,6 +812,13 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 Close();
             }
 
+            // a list of the word's first character on its way is no list of the empty word either: the cursor back at the word's start, it is asked for.
+            if (_asked is not null && _askedOfFirstCharacter && _cursor == _askedAnchor)
+            {
+                Ask(_askedAnchor);
+                return;
+            }
+
             if (_list is null)
             {
                 return;
@@ -730,6 +827,13 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             if (!IsWordAt(_anchor))
             {
                 Close();
+                return;
+            }
+
+            // the list of the word's first character holds nothing the empty word alone matches: the list of the empty word is asked for.
+            if (_cursor == _anchor && _listOfFirstCharacter)
+            {
+                Ask(_anchor);
                 return;
             }
 

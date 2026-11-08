@@ -1,6 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -25,7 +26,7 @@ internal sealed class IgnoredTypeCharacterAnalyzer : IModuleAnalyzer
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.IgnoredTypeCharacter_Message, NameOf(fact), fact.DeclaredType ?? string.Empty))));
 
-    // the name of the function: the last part of the address of the symbol the name is bound to (Module.Name).
+    // the name of the function, as the address of the symbol the name is bound to has it (Module.Name).
     private static string NameOf(SDK.Platform.Protocol.ExpressionFactDto fact)
-        => fact.Binding?.Fragment.TrimStart('#') is { Length: > 0 } address ? address[(address.LastIndexOf('.') + 1)..] : string.Empty;
+        => fact.Binding is { } binding ? SymbolUri.NameOf(binding) : string.Empty;
 }

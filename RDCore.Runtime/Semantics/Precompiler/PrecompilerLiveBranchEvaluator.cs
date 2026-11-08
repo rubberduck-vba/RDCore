@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
 
@@ -67,8 +68,17 @@ public static class PrecompilerLiveBranchEvaluator
     /// <param name="evaluator">Evaluates a condition's expression tree.</param>
     /// <param name="context">The scope a condition's constants resolve from.</param>
     /// <param name="precompilerTrivia">A module's <c>ModuleParseResult.PrecompilerTrivia</c>.</param>
+    /// <remarks>
+    /// A condition is evaluated a call for each level of its expression: the module's conditions are evaluated on a large-stack thread, one for the module
+    /// (<see cref="LargeStackThread"/>).
+    /// </remarks>
     public static PrecompilerEvaluation Evaluate(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context, ImmutableArray<SyntaxNode> precompilerTrivia)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => Evaluate(session, evaluator, context, precompilerTrivia));
+        }
+
         var state = new Evaluation(session, evaluator, context);
         if (precompilerTrivia.IsDefaultOrEmpty)
         {
@@ -192,6 +202,7 @@ public static class PrecompilerLiveBranchEvaluator
         private readonly Dictionary<string, ExpressionNode> _declared = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, VBTypedValue> _values = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _evaluating = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _analyzing = new(StringComparer.OrdinalIgnoreCase);
 
         public Evaluation(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, RuntimeEvaluationContext context)
         {
@@ -254,7 +265,7 @@ public static class PrecompilerLiveBranchEvaluator
         public bool TryEvaluateCondition(ExpressionNode condition, out bool isTrue)
         {
             isTrue = false;
-            if (!TryEvaluate(condition, out var value))
+            if (!IsAnalyzed(condition) || !TryEvaluate(condition, out var value))
             {
                 return false;
             }
@@ -266,6 +277,36 @@ public static class PrecompilerLiveBranchEvaluator
 
             Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, condition.Location, "A conditional-compilation condition is a number or a Boolean."));
             return false;
+        }
+
+        // whether an expression has a value to evaluate: not if it, or a #Const it names, holds an expression kept as text (VBC00060, RD-VBAL 2.6.1), which
+        // is not analyzed. Its value is not known, so neither is any branch it decides, and it is no error of the program's but the one the parser reported.
+        private bool IsAnalyzed(ExpressionNode expression)
+        {
+            foreach (var node in expression.Descendants().Prepend(expression))
+            {
+                if (node is UnbuiltExpressionTriviaNode)
+                {
+                    return false;
+                }
+
+                if (node is PrecompilerNameExpressionNode name && _declared.TryGetValue(name.Name, out var value) && _analyzing.Add(name.Name))
+                {
+                    try
+                    {
+                        if (!IsAnalyzed(value))
+                        {
+                            return false;
+                        }
+                    }
+                    finally
+                    {
+                        _analyzing.Remove(name.Name);
+                    }
+                }
+            }
+
+            return true;
         }
 
         // The value of a cc-expression; or why it has none, as a compile error. An expression the interpreter cannot answer is not an error of the

@@ -204,7 +204,7 @@ public sealed class ReplInteractionTests
         var (interaction, _) = Shell(new ScriptedKeys().Press(Char('n')));
 
         var answer = await new ReplMessageBoxHandler(interaction, console).Handle(
-            new SessionMessageBoxParams { Prompt = "Sure?", Title = "t", Style = (int)VBMsgBoxStyle.VBYesNo, Output = ["one", "two"] }, CancellationToken.None);
+            new SessionMessageBoxRequest { Prompt = "Sure?", Title = "t", Style = (int)VBMsgBoxStyle.VBYesNo, Output = ["one", "two"] }, CancellationToken.None);
 
         Assert.AreEqual(new MessageBoxResult { Handled = true, Result = (int)VBMsgBoxResult.VBNo }, answer);
         Received.InOrder(() =>
@@ -219,13 +219,69 @@ public sealed class ReplInteractionTests
     {
         var console = Substitute.For<IReplConsole>();
         var cancelled = await new ReplInputBoxHandler(Shell(new ScriptedKeys().Press(Key(ConsoleKey.Escape))).Interaction, console)
-            .Handle(new SessionInputBoxParams { Prompt = "x", Default = "d" }, CancellationToken.None);
+            .Handle(new SessionInputBoxRequest { Prompt = "x", Default = "d" }, CancellationToken.None);
         var typed = await new ReplInputBoxHandler(Shell(new ScriptedKeys().Type("hi").Press(Key(ConsoleKey.Enter))).Interaction, console)
-            .Handle(new SessionInputBoxParams { Prompt = "x" }, CancellationToken.None);
+            .Handle(new SessionInputBoxRequest { Prompt = "x" }, CancellationToken.None);
 
         Assert.AreEqual(new InputBoxResult { Handled = true, Cancelled = true }, cancelled);
         Assert.AreEqual(new InputBoxResult { Handled = true, Value = "hi" }, typed);
     }
+
+    // the language server asks the shell's user to choose (window/showMessageRequest), as it does whether to regenerate a project file it can't read: the
+    // button that changes nothing, which the server puts last, is the one Enter chooses at first, and a closed question is no answer.
+    [TestMethod]
+    [DataRow('r', "Regenerate", DisplayName = "a button's key chooses it")]
+    [DataRow('\r', "Not now", DisplayName = "Enter chooses the last button at first")]
+    [DataRow('\u001b', null, DisplayName = "Escape closes the question")]
+    public async Task TheShowMessageRequestHandler_AsksAtTheConsole_AndAnswersTheChosenAction(char pressed, string? chosen)
+    {
+        var key = pressed switch { '\r' => Key(ConsoleKey.Enter), '\u001b' => Key(ConsoleKey.Escape), _ => Char(pressed) };
+        var keys = new ScriptedKeys().Press(key);
+        var (interaction, output) = Shell(keys);
+
+        var answer = await new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(false)).Handle(Regenerate(), CancellationToken.None);
+
+        Assert.AreEqual(chosen, answer?.Title);
+        StringAssert.Contains(output.ToString(), "Regenerate it?");
+    }
+
+    // rdc --unattended has nobody at its console: a question the server asks anyway is answered that nobody answers - not with no choice, which is a user
+    // who closed it - and no key is read for it.
+    [TestMethod]
+    public async Task TheShowMessageRequestHandler_OfAShellThatRunsUnattended_SaysNobodyAnswers_AndReadsNoKey()
+    {
+        var keys = new ScriptedKeys().Press(Char('r'));
+        var (interaction, output) = Shell(keys);
+        var handler = new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(true));
+
+        await Assert.ThrowsExactlyAsync<ReplNobodyAnswersException>(() => handler.Handle(Regenerate(), CancellationToken.None));
+
+        Assert.AreEqual(string.Empty, output.ToString());
+        Assert.AreEqual('r', keys.ReadKey(CancellationToken.None).KeyChar, "the key is still there");
+    }
+
+    // a server's question comes when the server asks it, not where the script is: a script piped to the shell is not asked, nobody answers, and the script
+    // keeps every line.
+    [TestMethod]
+    public async Task TheShowMessageRequestHandler_OfAShellWhoseInputIsAScript_SaysNobodyAnswers_AndTheScriptKeepsItsLines()
+    {
+        var keys = new ScriptedKeys(interactive: false).Lines("Regenerate", "", "Debug.Print 1");
+        var (interaction, output) = Shell(keys);
+        var handler = new ReplShowMessageRequestHandler(interaction, new ReplServerQuestions(keys), new ReplUnattended(false));
+
+        await Assert.ThrowsExactlyAsync<ReplNobodyAnswersException>(() => handler.Handle(Regenerate(), CancellationToken.None));
+
+        Assert.AreEqual(string.Empty, output.ToString());
+        Assert.AreEqual("Regenerate", keys.ReadLine(CancellationToken.None));
+        Assert.AreEqual(string.Empty, keys.ReadLine(CancellationToken.None));
+        Assert.AreEqual("Debug.Print 1", keys.ReadLine(CancellationToken.None));
+    }
+
+    private static OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageRequestParams Regenerate() => new()
+    {
+        Message = "The project file can't be read. Regenerate it?",
+        Actions = new([new() { Title = "Regenerate" }, new() { Title = "Not now" }]),
+    };
 
     // ---- THEME LIST ----
 
@@ -284,5 +340,22 @@ public sealed class ReplInteractionTests
         var (command, themes, context, _, _) = Themes(new ScriptedKeys());
         await command.ExecuteAsync(context, "AAA-FIRST", CancellationToken.None);
         themes.Received().SetTheme("aaa-first");
+    }
+
+    // what the language server tells the shell's user (window/showMessage) is one of the shell's messages, of the kind its type says.
+    [TestMethod]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error, RDCore.SDK.ConsoleIO.Model.MessageKind.Error)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Warning, RDCore.SDK.ConsoleIO.Model.MessageKind.Warning)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Info, RDCore.SDK.ConsoleIO.Model.MessageKind.Information)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Log, RDCore.SDK.ConsoleIO.Model.MessageKind.Trace)]
+    public async Task WhatTheServerTellsTheUser_IsWrittenAsAMessageOfItsKind(
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType type, RDCore.SDK.ConsoleIO.Model.MessageKind kind)
+    {
+        var console = Substitute.For<IReplConsole>();
+
+        await new ReplShowMessageHandler(console).Handle(
+            new OmniSharp.Extensions.LanguageServer.Protocol.Models.ShowMessageParams { Type = type, Message = "The workspace could not be loaded." }, CancellationToken.None);
+
+        console.Received(1).WriteMessage(kind, "The workspace could not be loaded.", Arg.Any<string?>());
     }
 }

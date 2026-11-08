@@ -20,8 +20,12 @@ public static class LiveSettingsProtocol
 
     /// <summary>
     /// What a client says when the live settings changed (<c>workspace/didChangeConfiguration</c>): settings that are <c>null</c>, so that the server asks for
-    /// the section - settings that are anything else, an empty object included, are what the server takes them to be, and it asks nothing.
+    /// the section.
     /// </summary>
+    /// <remarks>
+    /// A client that answers <c>workspace/configuration</c> (<c>workspace.configuration</c>) is asked whatever settings it says: an empty object, or settings of
+    /// its own, are no answer for the section. The settings of a client that is not asked are what the server takes them to be.
+    /// </remarks>
     public static DidChangeConfigurationParams Changed => new() { Settings = JValue.CreateNull() };
 
     /// <summary>

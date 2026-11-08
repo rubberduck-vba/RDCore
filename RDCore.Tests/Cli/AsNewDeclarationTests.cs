@@ -78,18 +78,13 @@ public sealed class AsNewDeclarationTests
         StringAssert.Contains(errors[0], "Invalid use of New keyword");
     }
 
-    // MS-VBAL §5.2.3.1.4: a class of another project that cannot be created. MS-VBA compiles it and raises "Class not registered" when the variable is
-    // first referred to (N26-N27); the specification makes it invalid, and so does RD-VBA, before the code runs.
+    // MS-VBAL §5.2.3.1.4: VBA's type library says ErrObject can be created, and MS-VBA compiles the declaration; it raises "Class not registered" when the
+    // variable is first referred to (N26-N27, oracle\s62 X07), which NewOfAClassNotCreatedTests runs.
     [TestMethod]
-    public async Task AVariableDeclaredAsNewOfAClassOfAnotherProjectThatCannotBeCreated_IsAnInvalidUseOfNew()
-    {
-        var errors = await ErrorsOf("Dim x As New ErrObject");
+    public async Task AVariableDeclaredAsNewOfErrObject_IsValid()
+        => Assert.IsEmpty(await ErrorsOf("Dim x As New ErrObject"));
 
-        Assert.HasCount(1, errors, string.Join(" / ", errors));
-        StringAssert.Contains(errors[0], "Invalid use of New keyword");
-        StringAssert.Contains(errors[0], "Class not registered");
-    }
-
+    // MS-VBAL §5.2.3.1.4: a class of another project that cannot be created - its type library does not say it can (oracle\s62 X10, s63 Y02, Y08).
     [TestMethod]
     public async Task AVariableDeclaredAsNewOfALibrarysClass_IsValidWhenTheClassCanBeCreated()
     {

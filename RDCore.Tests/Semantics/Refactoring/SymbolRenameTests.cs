@@ -3,6 +3,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
 using System.Globalization;
@@ -57,7 +58,7 @@ public sealed class SymbolRenameTests
     // the position of the first `text` on the line that has `line`, in the module.
     private static SourcePosition At(RenameContext context, string module, string line, string text)
     {
-        var lines = context.Modules.Single(candidate => candidate.Module.Fragment == "#" + module).Source.Split("\r\n");
+        var lines = context.Modules.Single(candidate => SymbolUri.ModuleNameOf(candidate.Module) == module).Source.Split("\r\n");
         var index = Array.FindIndex(lines, candidate => candidate.Contains(line, StringComparison.Ordinal));
         Assert.IsTrue(index >= 0, $"no line has '{line}'");
         return new SourcePosition(index, lines[index].IndexOf(text, StringComparison.Ordinal) + 1);
@@ -74,8 +75,8 @@ public sealed class SymbolRenameTests
     private static string Renamed(RenameContext context, RenamePlan plan, string module)
     {
         Assert.IsTrue(plan.IsValid, plan.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
-        var lines = context.Modules.Single(candidate => candidate.Module.Fragment == "#" + module).Source.Split("\r\n");
-        foreach (var edit in plan.Edits.Where(edit => edit.Module.Fragment == "#" + module).OrderByDescending(edit => edit.Range.Start))
+        var lines = context.Modules.Single(candidate => SymbolUri.ModuleNameOf(candidate.Module) == module).Source.Split("\r\n");
+        foreach (var edit in plan.Edits.Where(edit => SymbolUri.ModuleNameOf(edit.Module) == module).OrderByDescending(edit => edit.Range.Start))
         {
             var line = lines[edit.Range.Start.Line];
             lines[edit.Range.Start.Line] = line[..edit.Range.Start.Character] + edit.NewText + line[edit.Range.End.Character..];
@@ -357,6 +358,52 @@ public sealed class SymbolRenameTests
         var preparation = SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "Debug.Print", "42"));
 
         Assert.AreEqual(RenameRefusalKind.NoName, preparation.Refusal?.Kind);
+    }
+
+    // a French project's names: what a refusal says names the module, the symbol and the place as the code is written, not as an address escapes them.
+    [TestMethod]
+    public void AConflictInAModuleNamedWithAnAccent_NamesWhatItIsAndWhere_AsTheCodeDoes()
+    {
+        var context = Compose(("Modèle", Module("Modèle", "Public Sub Calculer()", "    Dim a As Long", "    Dim Durée As Long", "    a = Durée", "End Sub")));
+
+        var plan = Rename(context, "Modèle", "Dim a", "a", "durée");
+
+        Assert.AreEqual(RenameRefusalKind.Conflict, plan.Refusal?.Kind);
+        var message = plan.Refusal!.ToMessage(culture: CultureInfo.InvariantCulture);
+        StringAssert.Contains(message, "Modèle.Calculer.Durée");
+        Assert.IsFalse(message.Contains('%', StringComparison.Ordinal), message);
+    }
+
+    [TestMethod]
+    public void TheMemberOfAClassThatAClassNamedWithAnAccentImplements_IsRefused_NamingTheImplementerAsItsCodeDoes()
+    {
+        var context = Compose(
+            ("IForme", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"IForme\"", "Public Sub Dessiner()", "End Sub")),
+            ("Carré", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Carré\"", "Implements IForme", "Private Sub IForme_Dessiner()", "End Sub")));
+
+        var refusal = SymbolRename.Prepare(context, ModuleUri("IForme"), At(context, "IForme", "Public Sub Dessiner", "Dessiner")).Refusal;
+
+        Assert.AreEqual(RenameRefusalKind.InterfaceMember, refusal?.Kind);
+        StringAssert.Contains(refusal!.ToMessage(culture: CultureInfo.InvariantCulture), "IForme, Carré");
+    }
+
+    [TestMethod]
+    public void AFieldOfATypeNamedWithAnAccent_IsRenamedWhereItIsUsed()
+    {
+        var context = Compose(("Modèle", Module("Modèle",
+            "Private Type Personne",
+            "    Prénom As String",
+            "End Type",
+            "Public Sub Saluer()",
+            "    Dim p As Personne",
+            "    p.Prénom = \"Éloïse\"",
+            "End Sub")));
+
+        var plan = Rename(context, "Modèle", "p.Prénom", "Prénom", "Nom");
+
+        Assert.AreEqual(Module("Modèle",
+            "Private Type Personne", "    Nom As String", "End Type",
+            "Public Sub Saluer()", "    Dim p As Personne", "    p.Nom = \"Éloïse\"", "End Sub"), Renamed(context, plan, "Modèle"));
     }
 
     [TestMethod]

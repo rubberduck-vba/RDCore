@@ -132,6 +132,13 @@ public sealed record class DeclarationFact(
     /// a name is first matched in the procedure). <see langword="null"/> when the name means nothing else there, and for any other declaration.
     /// </summary>
     public HiddenDeclaration? Hides { get; init; }
+
+    /// <summary>
+    /// Whether it is a variable declared <c>As New</c> of a class whose objects are never created (<c>Dim e As New ErrObject</c>): <strong>MS-VBA</strong>
+    /// compiles the declaration, and every reference to the variable that creates its object raises run-time error -2147221164 <em>Class not
+    /// registered</em> (recorded in Excel: <c>oracle\s62</c> X06, X07, X09). Assigning it <c>Nothing</c> creates nothing.
+    /// </summary>
+    public bool AutoInstantiationAlwaysFails { get; init; }
 }
 
 /// <summary>

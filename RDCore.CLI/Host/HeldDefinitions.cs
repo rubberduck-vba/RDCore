@@ -1,41 +1,61 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using RDCore.Runtime.Execution;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.CLI.Host;
 
 /// <summary>
-/// The definitions a program in progress holds (<see cref="ISessionSymbols.HoldsStoredValues"/>), and the code lowered against them: applied, and lowered
-/// again, when the program is over.
+/// The definitions a program in progress holds (<see cref="ISessionSymbols.HoldsStoredValues"/>), and what was defined and lowered against them: applied, and
+/// defined and lowered again, when the program is over.
 /// </summary>
 /// <remarks>
-/// A variable redeclared as another type while a program runs or waits stays as it was, with its value, so that the edit can be taken back without the
-/// value being gone. Code the analysis pass loaded meanwhile was lowered against the variable as it was; once the held definitions are applied, it is
-/// lowered again from the parse it was loaded with, against the variable as it is declared.
+/// A variable redeclared as another type, or a Type given other fields, while a program runs or waits stays as it was - the variable with its value, the
+/// Type with the fields the program's values of it are laid out by - so that the edit can be taken back with nothing lost. What the analysis pass sent
+/// meanwhile was defined and lowered against them as they were; once the held definitions are applied, each of those requests is made again, in the order
+/// it came in, against them as they are declared: a variable of the Type is given the Type as edited, and the code is checked and lowered against it.
+/// <para>
+/// A Type given other fields is applied with a reset of the project, as MS-VBA resets it for this edit (at the edit; here, once the program is over): every
+/// value and object of the session goes, as an <c>End</c> lets go of them (<see cref="SessionWipe.End"/>), rather than a value of the Type anywhere in
+/// storage - a Static, an object's field, an array, another Type - being laid out again.
+/// </para>
+/// <para>
+/// A module whose code no longer compiles once it is made again keeps the code it had, as a module that fails to load does; the next run is refused with
+/// what is wrong with it (<see cref="FailedToLoad"/>), rather than running that code.
+/// </para>
 /// </remarks>
 internal static class HeldDefinitions
 {
-    // the modules loaded while a definition was held, by name, each with what lowers it again.
-    private static readonly ConditionalWeakTable<IRuntimeSession, Loads> LoadsBySession = new();
+    // the requests received while a definition was held, the latest of each module and phase, in the order they came in, each with what makes it again.
+    private static readonly ConditionalWeakTable<IRuntimeSession, Requests> ReceivedBySession = new();
 
-    private sealed class Loads
+    // LoadsCode: the request loads the module's code, and what it says is wrong with it is what the module fails to load with.
+    private sealed record class Request(string Key, string Module, bool LoadsCode, Func<ImmutableArray<string>> Again);
+
+    private sealed class Requests
     {
         private readonly Lock _sync = new();
-        private ImmutableDictionary<string, Func<ImmutableArray<string>>> _modules = ImmutableDictionary.Create<string, Func<ImmutableArray<string>>>(StringComparer.OrdinalIgnoreCase);
+        private ImmutableList<Request> _requests = [];
+        private ImmutableDictionary<string, ImmutableArray<string>> _failed = ImmutableDictionary.Create<string, ImmutableArray<string>>(StringComparer.OrdinalIgnoreCase);
 
-        public void Add(string module, Func<ImmutableArray<string>> lower)
+        // taken by a request for as long as it defines and loads, and by a release for as long as it applies and makes the requests again: neither is made in
+        // the middle of the other.
+        public Lock Defining { get; } = new();
+
+        public void Add(Request request)
         {
             lock (_sync)
             {
-                _modules = _modules.SetItem(module, lower);
+                _requests = _requests.RemoveAll(older => older.Key == request.Key).Add(request);
             }
         }
 
-        public void Remove(string module)
+        public void Remove(string key)
         {
             lock (_sync)
             {
-                _modules = _modules.Remove(module);
+                _requests = _requests.RemoveAll(request => request.Key == key);
             }
         }
 
@@ -43,72 +63,168 @@ internal static class HeldDefinitions
         {
             lock (_sync)
             {
-                return _modules.ContainsKey(module);
+                return _requests.Any(request => string.Equals(request.Module, module, StringComparison.OrdinalIgnoreCase));
             }
         }
 
-        public ImmutableDictionary<string, Func<ImmutableArray<string>>> Take()
+        public ImmutableList<Request> Take()
         {
             lock (_sync)
             {
-                var taken = _modules;
-                _modules = _modules.Clear();
+                var taken = _requests;
+                _requests = [];
                 return taken;
+            }
+        }
+
+        public ImmutableDictionary<string, ImmutableArray<string>> Failed
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _failed;
+                }
+            }
+        }
+
+        public void Loaded(string module, ImmutableArray<string> errors)
+        {
+            lock (_sync)
+            {
+                _failed = errors.IsDefaultOrEmpty ? _failed.Remove(module) : _failed.SetItem(module, errors);
             }
         }
     }
 
-    /// <summary>A program starts: from now until it is over, a definition that would let go of a value is held.</summary>
+    /// <summary>A program starts: from now until it is over, a definition that would let go of a value, or change a Type, is held.</summary>
     public static void Hold(IRuntimeSession session) => session.Symbols.HoldsStoredValues = true;
 
     /// <summary>
-    /// A module was loaded: when a definition is held, what loaded it is kept, to lower it again once the held definitions are applied. Loaded when nothing
-    /// is held, it is lowered against the variables as they are declared, and needs no lowering again.
+    /// Defines a module's symbols, or loads its code, for a request - never while what was held is applied and made again (<see cref="Release"/>), which the
+    /// request comes after - and, when a definition is held, keeps what makes the request, to make it again once the held definitions are applied. Made when
+    /// nothing is held, it was made against the declarations as they are, and needs making again no more than the older request of the same module and phase it
+    /// replaces.
     /// </summary>
-    /// <param name="session">The session it was loaded in.</param>
+    /// <typeparam name="TResult">What the request is answered with.</typeparam>
+    /// <param name="session">The session it is made in.</param>
+    /// <param name="key">The module and the phase of the definition it makes: a later request with the same key replaces it.</param>
     /// <param name="module">The module's name.</param>
-    /// <param name="lower">What lowers it again, from the parse it was loaded with, and says what is wrong with it the way a load does.</param>
-    public static void Loaded(IRuntimeSession session, string module, Func<ImmutableArray<string>> lower)
+    /// <param name="codeErrors">
+    /// What is wrong with the module's code, as the request that loads it says; <see langword="null"/> for a request that loads no code. A module whose code
+    /// failed to load refuses every run until a request loads it (<see cref="FailedToLoad"/>).
+    /// </param>
+    /// <param name="define">What makes it.</param>
+    /// <param name="again">What makes it again, and says what is wrong with the module's code the way the request did.</param>
+    public static TResult Define<TResult>(IRuntimeSession session, string key, string module, Func<TResult, ImmutableArray<string>>? codeErrors, Func<TResult> define,
+        Func<ImmutableArray<string>> again)
     {
-        var loads = LoadsBySession.GetOrCreateValue(session);
-        if (session.Symbols.HeldDefinitions.Count > 0)
+        var received = ReceivedBySession.GetOrCreateValue(session);
+        lock (received.Defining)
         {
-            loads.Add(module, lower);
-        }
-        else
-        {
-            loads.Remove(module);
+            var result = define();
+            if (session.Symbols.HeldDefinitions.Count > 0)
+            {
+                received.Add(new Request(key, module, codeErrors is not null, again));
+            }
+            else
+            {
+                received.Remove(key);
+                if (codeErrors is not null)
+                {
+                    // what is wrong with the module's code is the request's to say now: nothing of the project runs while it does not load.
+                    received.Loaded(module, codeErrors(result));
+                }
+            }
+
+            return result;
         }
     }
 
     /// <summary>
-    /// Whether <paramref name="module"/> was last loaded while a definition is held: its code was checked against the variable as it was, not as edited.
+    /// Whether <paramref name="module"/> was defined or loaded while a definition is held: it was checked against the declarations as they were, not as
+    /// edited.
     /// </summary>
     public static bool LoweredUnderAHold(IRuntimeSession session, string module)
-        => session.Symbols.HeldDefinitions.Count > 0 && LoadsBySession.TryGetValue(session, out var loads) && loads.Contains(module);
+        => session.Symbols.HeldDefinitions.Count > 0 && ReceivedBySession.TryGetValue(session, out var received) && received.Contains(module);
 
     /// <summary>
-    /// The program is over: nothing is held from now on, what was held is applied, and the code lowered against it is lowered again - each module by what
-    /// loaded it, which says what is wrong with it as its load would have.
+    /// What is wrong with the code of each module that failed to load (at a request, or once it was made again by <see cref="Release"/>) and that no request
+    /// has loaded since: a run is refused with it, rather than running the code the module had, or none of it.
+    /// </summary>
+    /// <param name="session">The session.</param>
+    /// <param name="except">A module the run loads itself, which says what is wrong with it; <see langword="null"/> for none.</param>
+    /// <returns>Each error, after the name of its module, the modules in the order of their names, and each module's errors in the order it said them.</returns>
+    public static IReadOnlyList<string> FailedToLoad(IRuntimeSession session, string? except = null)
+        => [.. ModulesThatFailedToLoad(session)
+            .Where(failed => !string.Equals(failed.Module, except, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(failed => failed.Errors.Select(error => $"{failed.Module}: {error}"))];
+
+    /// <summary>
+    /// Each module that failed to load and that no request has loaded since (<see cref="FailedToLoad"/>), in the order of their names, with what is wrong with
+    /// its code.
+    /// </summary>
+    public static IReadOnlyList<(string Module, ImmutableArray<string> Errors)> ModulesThatFailedToLoad(IRuntimeSession session)
+        => ReceivedBySession.TryGetValue(session, out var received)
+            ? [.. received.Failed.OrderBy(failed => failed.Key, StringComparer.OrdinalIgnoreCase).Select(failed => (failed.Key, failed.Value))]
+            : [];
+
+    /// <summary>
+    /// A module was taken out of the session: it is no module of the project, and nothing it failed to load with refuses a run.
+    /// </summary>
+    public static void Discarded(IRuntimeSession session, string module) => Loaded(session, module);
+
+    /// <summary>
+    /// A module was loaded by a run: what is wrong with its code, if anything, is the run's to say from now on.
+    /// </summary>
+    public static void Loaded(IRuntimeSession session, string module)
+    {
+        if (ReceivedBySession.TryGetValue(session, out var received))
+        {
+            received.Loaded(module, []);
+        }
+    }
+
+    /// <summary>
+    /// The program is over: nothing is held from now on, what was held is applied, and every request made against it is made again, in the order it came in
+    /// - each says what is wrong with its module's code as it did, which the next run is refused with (<see cref="FailedToLoad"/>). A Type given other fields
+    /// resets the project then (see the remarks of <see cref="HeldDefinitions"/>).
     /// </summary>
     /// <param name="session">The session the program was in.</param>
-    /// <returns>The names of the modules lowered again; none when nothing was held.</returns>
+    /// <returns>The names of the modules defined and lowered again; none when nothing was held.</returns>
     public static IReadOnlyCollection<string> Release(IRuntimeSession session)
     {
-        // stopping to hold and taking what is held are one step (ISessionSymbols.ApplyHeldDefinitions): a definition that arrives meanwhile is held before
-        // it, or applied as it arrives.
-        var applied = session.Symbols.ApplyHeldDefinitions();
-        var loads = LoadsBySession.GetOrCreateValue(session).Take();
-        if (applied.Count == 0)
+        var received = ReceivedBySession.GetOrCreateValue(session);
+        lock (received.Defining)
         {
-            return [];
-        }
+            // stopping to hold and taking what is held are one step (ISessionSymbols.ApplyHeldDefinitions): a definition that arrives meanwhile is held before
+            // it, or waits for the requests made again here, which it is newer than.
+            var applied = session.Symbols.ApplyHeldDefinitions();
+            var requests = received.Take();
+            if (applied.Count == 0)
+            {
+                return [];
+            }
 
-        foreach (var (_, lower) in loads)
-        {
-            _ = lower();
-        }
+            var modules = requests.Select(request => request.Module).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var errors = modules.ToDictionary(module => module, _ => new List<string>(), StringComparer.OrdinalIgnoreCase);
+            foreach (var request in requests)
+            {
+                errors[request.Module].AddRange(request.Again());
+            }
 
-        return [.. loads.Keys];
+            // a module whose code no request loaded is as it was: a request of its symbols alone says nothing of its code.
+            foreach (var module in modules.Where(module => requests.Any(request => request.LoadsCode && string.Equals(request.Module, module, StringComparison.OrdinalIgnoreCase))))
+            {
+                received.Loaded(module, [.. errors[module]]);
+            }
+
+            if (applied.Any(symbol => symbol is VBUserDefinedTypeMemberSymbol or VBUserDefinedTypeFieldSymbol))
+            {
+                SessionWipe.End(session);
+            }
+
+            return modules;
+        }
     }
 }

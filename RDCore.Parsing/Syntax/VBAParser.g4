@@ -273,13 +273,20 @@ printStmt : printMethod whiteSpace markedFileNumber whiteSpace? COMMA (whiteSpac
 unqualifiedObjectPrintStmt : printMethod (whiteSpace outputList)?;
 
 // 5.4.5.8.1 Output Lists
-outputList : outputItem (whiteSpace? outputItem)*;
-outputItem :
-    outputClause
-    | charPosition
-    | outputClause whiteSpace? charPosition
+// MS-VBAL lets an output item follow another with nothing between them (output-list = *output-item); RD-VBA requires a space, a `;` or a `,` between two
+// output clauses (RD-VBAL 5.4.5.8.1), as the VBE writes them: it writes `1(2)` as `1; (2)`. A segment is what the list holds between two spaces, in which a
+// clause is never right after another. With an item allowed right after an expression, the `(` that follows a name could begin either the name's argument
+// list or an item, and SLL read to the end of a nested call to tell them apart, once for each call it is nested in. A clause written right after another is
+// OutputItemsNotSeparated (ModuleParser.ReportOutputItemsNotSeparated).
+// An item is a value and a position a separator: MS-VBAL's output-item, a clause and a position together, is either of them, or both one after the other.
+outputList : outputSegment (whiteSpace outputSegment)*;
+outputSegment :
+    outputPosition* outputItem (outputPosition+ outputItem)* outputPosition*
+    | outputPosition+
 ;
-outputClause : spcClause | tabClause | outputExpression;
+outputItem : outputClause;
+outputPosition : charPosition;
+outputClause : spcClause | tabClause | {!IsSpcOrTabClauseAhead()}? outputExpression;
 charPosition : SEMICOLON | COMMA;
 outputExpression : expression;
 spcClause : SPC whiteSpace? LPAREN whiteSpace? spcNumber whiteSpace? RPAREN;
@@ -317,6 +324,9 @@ declareStmt : (visibility whiteSpace)? DECLARE whiteSpace (PTRSAFE whiteSpace)? 
 
 argList : LPAREN (whiteSpace? arg (whiteSpace? COMMA whiteSpace? arg)*)? whiteSpace? RPAREN;
 
+// MS-VBAL 5.3.1.5: a parameter's name is a name (IDENTIFIER, TYPED-NAME), as a variable's is, and no reserved identifier: `ByVal Mod As Long` names nothing.
+// The rule reads a reserved identifier there all the same, and the parse reports it as a syntax error at the name (ModuleParser.ReportReservedParameterNames):
+// read as no name, it leaves the words before it (ByVal) to be read as the name, and the procedure's header ends there.
 arg : (OPTIONAL whiteSpace)? ((BYVAL | BYREF) whiteSpace)? (PARAMARRAY whiteSpace)? unrestrictedIdentifier (whiteSpace? LPAREN whiteSpace? RPAREN)? (whiteSpace? asTypeClause)? (whiteSpace? argDefaultValue)?;
 
 argDefaultValue : EQ whiteSpace? expression;
@@ -344,18 +354,16 @@ universalLetterRange : {EqualsString(TextOf(TokenAtRelativePosition(1)),"A") && 
 letterRange : singleLetter MINUS singleLetter;
 
 
+// a Do with no condition and a Do with its condition after Loop are one alternative: as two, they would be told apart only past the body, after Loop, and a
+// syntax error in the body would leave the parse no alternative to read the Do with.
 doLoopStmt :
-    DO endOfStatement 
+    DO endOfStatement
     block
-    statementLabelDefinition? whiteSpace? LOOP
+    statementLabelDefinition? whiteSpace? LOOP (whiteSpace (WHILE | UNTIL) whiteSpace expression)?
     |
     DO whiteSpace (WHILE | UNTIL) whiteSpace expression endOfStatement
     block
     statementLabelDefinition? whiteSpace? LOOP
-    | 
-    DO endOfStatement
-    block
-    statementLabelDefinition? whiteSpace? LOOP whiteSpace (WHILE | UNTIL) whiteSpace expression
 ;
 
 enumerationStmt: 
@@ -502,8 +510,8 @@ redimVariableDeclaration : expression (whiteSpace asTypeClause)?;
 
 // 5.4.3.5 Mid/MidB/Mid$/MidB$ Statement
 // This needs to be explicitly defined to distinguish between Mid as a function and Mid as a keyword.
-midStatement : modeSpecifier 
-    LPAREN whiteSpace? 
+midStatement : modeSpecifier whiteSpace?
+    LPAREN whiteSpace?
     lExpression whiteSpace? COMMA whiteSpace? expression whiteSpace? (COMMA whiteSpace? expression whiteSpace?)? 
     RPAREN 
     whiteSpace? EQ whiteSpace? 
@@ -596,7 +604,9 @@ withStmt :
 
 // Special forms with special syntax, only available in VBA reports or VB6 forms and pictureboxes.
 // lineSpecialFormOption is required if expression is missing
-lineSpecialForm : expression whiteSpace ((STEP whiteSpace?)? tuple)?
+// the object and the word together are one l-expression (`Line`, `Form1.Line`, `.Line`), entered as a callee: VBABaseParser leaves the blanks before an
+// argument list out of it, so `Line (0, 0) - (1, 1)` begins with its first point, and not with an index of Line.
+lineSpecialForm : lExpression whiteSpace ((STEP whiteSpace?)? tuple)?
     whiteSpace? MINUS whiteSpace?
 	(STEP whiteSpace?)? tuple whiteSpace?
 	(COMMA whiteSpace? expression? whiteSpace?)?
@@ -609,7 +619,10 @@ pSetSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? PSET (whiteSpace 
 tuple : LPAREN whiteSpace? expression whiteSpace? COMMA whiteSpace? expression whiteSpace? RPAREN;
 lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition(1)),"b","bf")}? unrestrictedIdentifier;
 
-unrestrictedIdentifier : identifier | statementKeyword | markerKeyword;
+unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier;
+// MS-VBAL 3.3.5.2: an operator-identifier is a reserved-identifier, which is no name: it names a member (`x.And`, `d!Mod`), as any keyword does, and
+// nothing else. `Debug.Print 1 Mod` is the operator with no right operand, and not two items, the second a variable named Mod.
+operatorIdentifier : ADDRESSOF | AND | EQV | IMP | IS | LIKE | MOD | NEW | NOT | OR | TYPEOF | XOR;
 legalLabelIdentifier : { !IsTokenType(TokenTypeAtRelativePosition(1),DOEVENTS,END,CLOSE,ELSE,LOOP,NEXT,RANDOMIZE,REM,RESUME,RETURN,STOP,WEND)}? identifier | markerKeyword;
 //The predicate in the following rule has been introduced to lessen the problem that VBA uses the same characters used as type hints in other syntactical constructs, 
 //e.g. in the bang notation (see withDictionaryAccessExpr). Generally, it is not legal to have an identifier or opening bracket follow immediately after a type hint.
@@ -675,6 +688,7 @@ expression :
     | TYPEOF whiteSpace expression                                                                  # typeofexpr // To make the grammar SLL, the type-of-is-expression is actually the child of an IS relational op.
     | HASH expression                                                                               # markedFileNumberExpr // Added to support special forms such as Input(file1, #file1)
     | NEW whiteSpace expression                                                                     # newExpr
+    | PLUS whiteSpace? expression                                                                   # unaryPlusOp // no operator, and the module's trivia: it binds tightest, so the tree is the one of the code the VBE keeps without it
     | expression whiteSpace? POW whiteSpace? expression                                             # powOp
     | MINUS whiteSpace? expression                                                                  # unaryMinusOp
     | expression whiteSpace? (MULT | DIV) whiteSpace? expression                                    # multOp
@@ -719,6 +733,9 @@ lExpression :
     | DOT mandatoryLineContinuation? unrestrictedIdentifier                                                         # withMemberAccessExpr
     | dictionaryAccess mandatoryLineContinuation? unrestrictedIdentifier                                            # withDictionaryAccessExpr
     | lExpression mandatoryLineContinuation whiteSpace? LPAREN whiteSpace? argumentList? whiteSpace? RPAREN         # whitespaceIndexExpr
+    // blanks before the argument list (MS-VBAL 3.3: a token takes the white space before it), so `x = F (2)` calls F with 2. The last alternative, of
+    // the lowest precedence: VBABaseParser enters lExpression above it as the callee of a call statement, where `F (2)` is F called with (2). Keep it last.
+    | lExpression whiteSpace LPAREN whiteSpace? argumentList? whiteSpace? RPAREN                                     # whitespaceIndexExpr
 ;
 
 //This is a hack to allow attaching identifier references for default members to the exclaramtion mark.
@@ -748,13 +765,14 @@ namedArgument : unrestrictedIdentifier whiteSpace? ASSIGN whiteSpace? argumentEx
 missingArgument : ;
 
 argumentExpression :
-    (BYVAL whiteSpace)? expression
+    BYVAL whiteSpace expression
     | addressOfExpression
-    // Special case for redim statements. The resolver doesn't have to deal with this because it is "picked apart" in the redim statement.
-    | lowerBoundArgumentExpression whiteSpace TO whiteSpace upperBoundArgumentExpression
+    // Special case for redim statements: `x(lower To upper)`. The resolver doesn't have to deal with this because it is "picked apart" in the redim statement.
+    // The bounds are the plain expression's alternative, To and the upper bound following it or not: as alternatives of their own, both begin with an
+    // expression, and telling them apart reads to the end of it - an argument nested in n calls was read again for each of them.
+    | expression (whiteSpace TO whiteSpace upperBoundArgumentExpression)?
 ;
 
-lowerBoundArgumentExpression : expression;
 upperBoundArgumentExpression : expression;
 
 // 5.6.16.8   AddressOf Expressions 
@@ -762,9 +780,7 @@ addressOfExpression : ADDRESSOF whiteSpace expression;
 
 keyword : 
       ABS
-    | ADDRESSOF
     | ALIAS
-    | AND
     | ANY
     | ARRAY
     | ATTRIBUTE
@@ -797,35 +813,27 @@ keyword :
     | DOUBLE
     | END
     | ENDPROPERTY
-    | EQV
     | FALSE
     | FIX
-    | IMP
     | IN
     | INPUTB
     | INT
     | INTEGER
-    | IS
     | LBOUND
     | LEN
     | LEN
     | LENB
     | LIB
-    | LIKE
     | LONG
     | LONGLONG
     | LONGPTR
     | ME
     | MID
     | MIDB
-    | MOD
-    | NEW
-    | NOT
     | NOTHING
     | NULL
     | OBJECT
     | OPTIONAL
-    | OR
     | PARAMARRAY
     | PRESERVE
     | PSET
@@ -839,13 +847,11 @@ keyword :
     | THEN
     | TO
     | TRUE
-    | TYPEOF
     | UBOUND
     | UNTIL
     | VARIANT
     | VERSION
     | WITHEVENTS
-    | XOR
     | STEP
     | ON_ERROR
     | ERROR
@@ -989,5 +995,5 @@ annotationArgList :
 ;
 annotationArg : expression;
 
-mandatoryLineContinuation : LINE_CONTINUATION WS*;
+mandatoryLineContinuation : WS* LINE_CONTINUATION WS*;
 whiteSpace : (WS | LINE_CONTINUATION)+;

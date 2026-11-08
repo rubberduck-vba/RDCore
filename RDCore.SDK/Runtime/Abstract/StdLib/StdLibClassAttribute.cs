@@ -30,12 +30,24 @@ public sealed class StdLibClassAttribute(string? name = null) : Attribute
     /// Whether VBA source can create an instance of this class with <c>New</c>.
     /// </summary>
     /// <remarks>
-    /// <c>true</c> by default - <c>New Collection</c> and <c>New RegExp</c> are both valid. A class
-    /// whose instances only ever come from the environment, the way an <c>ErrObject</c> comes from the
-    /// <c>Err</c> function, sets this to <c>false</c> so that <c>New</c> on it is reported rather than
-    /// resolved.
+    /// <c>true</c> by default - <c>New Collection</c> and <c>New RegExp</c> are both valid. It is what the
+    /// library's type library says of the class (<c>TYPEFLAG_FCANCREATE</c>): a class it does not say
+    /// it of, the way <c>Match</c> is the object a <c>RegExp</c> finds, sets this to <c>false</c>, and
+    /// <c>New</c> of it is a compile error (<strong>MS-VBAL §5.2.3.1.4</strong>).
     /// </remarks>
     public bool IsCreatable { get; init; } = true;
+
+    /// <summary>
+    /// Whether creating an object of this class always fails, though <see cref="IsCreatable"/> says
+    /// <c>New</c> of it is valid.
+    /// </summary>
+    /// <remarks>
+    /// MS-VBA's type library says the <c>ErrObject</c> class can be created, so <c>New ErrObject</c>
+    /// compiles; no server creates one, and the program raises run-time error -2147221164 <em>Class not
+    /// registered</em> where it is created (recorded in Excel: <c>oracle\s62</c> X04, X06-X09). The one
+    /// object of the class is the one the <c>Err</c> function returns.
+    /// </remarks>
+    public bool CreationAlwaysFails { get; init; }
 
     /// <summary>
     /// The programmatic identifier the class answers to in <c>CreateObject</c> (<c>VBScript.RegExp</c>), if it has one: the name of a COM class the platform

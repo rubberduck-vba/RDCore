@@ -4,7 +4,9 @@ using RDCore.Runtime.Semantics.Literals;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Meta;
@@ -58,6 +60,11 @@ public sealed record class NewExpressionRuntimeSemantics : RuntimeSemantics<Valu
                 Exceptions.VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose.Replace("{$TYPENAME}", typeName)));
         }
 
+        if (CreationFailure(classModule, node.SourceLocation) is { } refused)
+        {
+            return refused;
+        }
+
         var objectId = session.Objects.CreateObject();
         session.Symbols.CreateInstance(objectId, classModule);
         if (ExternalObjectCreation.Create(session, classModule, objectId, node.SourceLocation) is { } failed)
@@ -67,4 +74,20 @@ public sealed record class NewExpressionRuntimeSemantics : RuntimeSemantics<Valu
 
         return RuntimeSemanticsEvaluationResult.Success(new VBObjectValue(objectId));
     }
+
+    // REGDB_E_CLASSNOTREG, which MS-VBA reports by its HRESULT.
+    private const int ClassNotRegistered = unchecked((int)0x80040154);
+
+    /// <summary>
+    /// The error of creating an object of <paramref name="classModule"/>, when its objects are never created (<see cref="SymbolProperties.CreationAlwaysFails"/>):
+    /// run-time error -2147221164 <em>Class not registered</em>, as MS-VBA raises it for <c>New ErrObject</c> and for a reference to a variable declared
+    /// <c>As New ErrObject</c> (recorded in Excel: <c>oracle\s62</c> X04, X06-X09). <see langword="null"/> for any other class.
+    /// </summary>
+    internal static RuntimeSemanticsEvaluationResult? CreationFailure(VBClassModuleSymbol classModule, SourceLocation site)
+        => classModule.GetProperty(SymbolProperties.CreationAlwaysFails)
+            ? RuntimeSemanticsEvaluationResult.Error(VBApplicationErrorInfo.Raised(ClassNotRegistered, site,
+                string.Format(Exceptions.VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose, classModule.Name,
+                    classModule.GetProperty(SymbolProperties.Library)),
+                Exceptions.VBRuntimeError_ClassNotRegistered_Description))
+            : null;
 }

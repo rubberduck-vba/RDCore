@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace RDCore.SDK.Workspace;
 
 /// <summary>
-/// Writes a workspace's <c>.rdproj</c> <see cref="ProjectFile"/> to disk — the write counterpart of
+/// Writes a workspace's <c>.rdproj</c> <see cref="ProjectFile"/> to disk: the write counterpart of
 /// <see cref="IProjectFileLoader"/>. Used to scaffold a new workspace and (eventually) to persist
 /// edits a client makes to the project structure.
 /// </summary>
@@ -13,7 +13,7 @@ public interface IProjectFileWriter
     /// <summary>
     /// Serializes <paramref name="project"/> to <c>&lt;project.Uri&gt;/.rdproj</c>, overwriting any
     /// existing file. The parent directory must exist. <see cref="ProjectFile.IsDirty"/> is not
-    /// consulted — the caller decides whether a write is warranted.
+    /// consulted: the caller decides whether a write is warranted.
     /// </summary>
     /// <param name="project">The project to write; its <see cref="ProjectFile.Uri"/> is the workspace root.</param>
     /// <param name="token">A token that cancels the write.</param>
@@ -33,7 +33,7 @@ public sealed class ProjectFileWriter(IFileSystem fileSystem) : IProjectFileWrit
 
         var path = fileSystem.Path.Combine(project.Uri, ProjectFile.FileName);
         await using var stream = fileSystem.File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        // a project file is stamped with the version of the platform that writes it.
-        await JsonSerializer.SerializeAsync(stream, project.WithCurrentVersion(), SerializerOptions, token);
+        // a project file is stamped with the version of the format it is written in.
+        await JsonSerializer.SerializeAsync(stream, project.WithSchemaVersion(), SerializerOptions, token);
     }
 }

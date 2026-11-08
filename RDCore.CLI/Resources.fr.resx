@@ -219,7 +219,7 @@
     <value>Les bibliothèques de types sont lues dans le registre et les fichiers d'une machine Windows : cette commande ne s'exécute que sous Windows.</value>
   </data>
   <data name="ExportLibrary_NotFound" xml:space="preserve">
-    <value>Cette machine n'a aucune bibliothèque de types '{0}'. Une bibliothèque se donne par un fichier, par l'identifiant que la machine lui a donné, ou par son nom.</value>
+    <value>Cette machine n'a aucune bibliothèque de types '{0}'. Une bibliothèque se donne par un fichier, par l'identifiant que la machine lui a donné, ou par son nom. Un fichier qui contient plus d'une bibliothèque se donne avec le numéro de la ressource de la bibliothèque, comme un .vbp la référence (MSVBVM60.DLL\3).</value>
   </data>
   <data name="ExportLibrary_Written" xml:space="preserve">
     <value>Bibliothèque '{0}' décrite : {1}</value>
@@ -283,6 +283,9 @@
   </data>
   <data name="Repl_Memory" xml:space="preserve">
     <value>{0} OCTETS RÉSERVÉS  {1} DISPONIBLES  {2} ALLOUÉS  {3} LIBRES</value>
+  </data>
+  <data name="Repl_NobodyAnswers" xml:space="preserve">
+    <value>Personne n'est à la console de l'interpréteur pour répondre à la question.</value>
   </data>
   <data name="Repl_NoSession" xml:space="preserve">
     <value>AUCUNE SESSION D'EXÉCUTION</value>
@@ -503,12 +506,6 @@
   <data name="Host_Edit_HandlerOfAnActiveProcedure" xml:space="preserve">
     <value>le gestionnaire d'erreurs d'une procédure où se trouve le programme, ou l'instruction où son erreur a été levée</value>
   </data>
-  <data name="Host_Edit_LocalsOfAnActiveProcedure" xml:space="preserve">
-    <value>une variable locale ajoutée à une procédure où se trouve le programme, ou retirée, ce qui n'est pas encore appliqué à un programme en attente</value>
-  </data>
-  <data name="Host_Edit_FieldOfAClass" xml:space="preserve">
-    <value>un champ ajouté à une classe dont le programme peut détenir des objets, ce qui n'est pas encore appliqué à un programme en attente</value>
-  </data>
   <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
     <value>la signature d'une procédure où se trouve le programme</value>
   </data>
@@ -516,7 +513,7 @@
     <value>une procédure où se trouve le programme, retirée</value>
   </data>
   <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
-    <value>une variable locale d'une procédure où se trouve le programme, dont le type a changé</value>
+    <value>une variable locale d'une procédure où se trouve le programme, dont le type a changé ou qui est devenue Static</value>
   </data>
   <data name="Host_Edit_StoredValue" xml:space="preserve">
     <value>une variable ou un champ qui détient une valeur, dont le type a changé ou qui a été retiré</value>
@@ -533,8 +530,8 @@
   <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
     <value>une option du module où se trouve le programme, ce qui n'est pas encore appliqué à un programme en attente</value>
   </data>
-  <data name="Host_Edit_FieldOfAType" xml:space="preserve">
-    <value>un champ ajouté à un Type dont le programme peut détenir des valeurs, ce qui n'est pas encore appliqué à un programme en attente</value>
+  <data name="Host_Edit_TypeHeldUntilRun" xml:space="preserve">
+    <value>un Type dont le programme peut détenir des valeurs, dont les champs ont changé : ses valeurs gardent leurs champs tant que le programme est en cours, et la modification s'applique une fois le programme terminé, et les valeurs du projet sont alors réinitialisées, comme MS-VBA réinitialise le projet pour cette modification - annulez la modification pour poursuivre</value>
   </data>
   <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
     <value>une constante qui dimensionne ce que détient une variable, dont la valeur a changé</value>
@@ -550,6 +547,12 @@
   </data>
   <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
     <value>aucune instruction de la procédure ne commence à cette ligne ni après</value>
+  </data>
+  <data name="Host_GotoOutsideTheProcedure" xml:space="preserve">
+    <value>la ligne n'est pas dans {0}, la procédure où le programme attend</value>
+  </data>
+  <data name="Host_GotoInAnotherModule" xml:space="preserve">
+    <value>la ligne est dans {0}, et le programme attend dans {1}</value>
   </data>
   <data name="Host_NoSuchActivation" xml:space="preserve">
     <value>cette activation n'existe pas</value>
@@ -632,11 +635,14 @@
   <data name="Compilation_Line" xml:space="preserve">
     <value>ligne {0}</value>
   </data>
+  <data name="Compilation_Stepped" xml:space="preserve">
+    <value>exécuté par l'interpréteur : {0}</value>
+  </data>
   <data name="Compilation_Reason_MemberOfAClass" xml:space="preserve">
     <value>un membre d'une classe</value>
   </data>
   <data name="Compilation_Reason_ParameterByReference" xml:space="preserve">
-    <value>un paramètre passé par référence : {0}</value>
+    <value>un paramètre ParamArray : {0}</value>
   </data>
   <data name="Compilation_Reason_NotAScalar" xml:space="preserve">
     <value>ni un nombre, ni un Boolean, ni une Date : {0}</value>
@@ -654,7 +660,7 @@
     <value>une affectation de ce qui n'est pas une variable de la procédure : {0}</value>
   </data>
   <data name="Compilation_Reason_ForCounter" xml:space="preserve">
-    <value>une boucle For dont le compteur n'est pas une variable numérique de la procédure : {0}</value>
+    <value>une boucle For dont le compteur n'est pas une variable numérique de la procédure, ou est passé par référence : {0}</value>
   </data>
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>un appel : {0}</value>
@@ -667,6 +673,9 @@
   </data>
   <data name="Compilation_Reason_LateBound" xml:space="preserve">
     <value>un nom résolu au moment de son évaluation : {0}</value>
+  </data>
+  <data name="Compilation_Reason_New" xml:space="preserve">
+    <value>un objet créé avec New : {0}</value>
   </data>
   <data name="Compilation_Reason_VariantOperand" xml:space="preserve">
     <value>un opérande Variant ou objet : {0}</value>
@@ -718,6 +727,9 @@
   </data>
   <data name="CLI_Theme" xml:space="preserve">
     <value>Le thème avec lequel la console démarre. THEME ne change que le thème de cette session.</value>
+  </data>
+  <data name="CLI_Unattended" xml:space="preserve">
+    <value>Si la console exécute les programmes sans surveillance (--unattended) : personne n'est là pour répondre à une boîte de dialogue, et un programme qui en ouvre une - MsgBox, InputBox, un formulaire affiché - échoue avec VBR50001.</value>
   </data>
   <data name="Config_Summary" xml:space="preserve">
     <value>Affiche les paramètres de la plateforme, et les règle pour vous</value>

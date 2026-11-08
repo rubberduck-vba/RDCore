@@ -27,4 +27,7 @@
   <data name="SyncCancelled" xml:space="preserve">
     <value>il n'a pas été chargé avant que le chargement soit interrompu</value>
   </data>
+  <data name="PullDeclinedWhileADialogIsOpen" xml:space="preserve">
+    <value>Le programme attend qu'on réponde à une boîte de dialogue : ses diagnostics sont donnés une fois la boîte fermée.</value>
+  </data>
 </root>

@@ -19,7 +19,7 @@ public sealed class CompiledExecutionTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private sealed record class Run(ExecuteSessionResult Result, IReadOnlyDictionary<string, CompilationResult> Compiled);
+    private sealed record class Run(ExecuteResult Result, IReadOnlyDictionary<string, CompilationResult> Compiled);
 
     // compiled code works on payloads, which the suite is also run without: what it does is not to be seen then, as every procedure is refused.
     internal static void RequirePayloads()
@@ -28,6 +28,20 @@ public sealed class CompiledExecutionTests
         {
             Assert.Inconclusive("compiled code needs unboxed values (RDCORE_UNBOXED=0 refuses every procedure)");
         }
+    }
+
+    // what was compiled, by the name of each procedure: a Property Let or Set by its kind and its name, as its Property Get has the same name. A name two
+    // modules' procedures have - each class implementing one interface has an ICounter_Value - is followed by the module's.
+    internal static IReadOnlyDictionary<string, CompilationResult> ByName(EnvironmentSessionProvider provider)
+    {
+        var named = provider.Image.Compiler.Results.Select(entry => (Name: entry.Procedure switch
+        {
+            RDCore.SDK.Model.Symbols.VBProject.VBPropertyLetMemberSymbol let => $"Let {let.Name}",
+            RDCore.SDK.Model.Symbols.VBProject.VBPropertySetMemberSymbol set => $"Set {set.Name}",
+            var procedure => procedure.Name,
+        }, entry.Procedure, entry.Result)).ToList();
+        var shared = named.GroupBy(entry => entry.Name).Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet();
+        return named.ToDictionary(entry => shared.Contains(entry.Name) ? $"{entry.Name} @{entry.Procedure.Uri}" : entry.Name, entry => entry.Result);
     }
 
     // what compiled code does without payloads is to be seen only where the suite is run without them.
@@ -42,7 +56,7 @@ public sealed class CompiledExecutionTests
     private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         (string Name, string Source)[]? classes = null)
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
 
         // whatever engine the suite runs every session with (RDCORE_ENGINE): the comparison is of the two.
@@ -50,7 +64,7 @@ public sealed class CompiledExecutionTests
         await ModuleWorkspace.InspectAsync(classes ?? NoClasses, program, (provider, run, _) =>
         {
             result = run;
-            compiled = provider.Image.Compiler.Results.ToDictionary(entry => entry.Procedure.Name, entry => entry.Result);
+            compiled = ByName(provider);
             return Task.CompletedTask;
         }, cancelWhen, engine: engine);
 
@@ -58,7 +72,7 @@ public sealed class CompiledExecutionTests
     }
 
     // what a run of a program is to the person who runs it, which is the same whatever engine runs it.
-    private static string Observed(ExecuteSessionResult result)
+    private static string Observed(ExecuteResult result)
         => $"{result.Outcome} | {string.Join(" ; ", result.Output.Select(line => line.Trim()))} | {result.ErrorNumber} {result.ErrorCode} {result.ErrorMessage} "
             + $"@{result.ErrorLine}:{result.ErrorCharacter} Erl {result.ErrorLineNumber} | {string.Join(" < ", result.StackTrace.Select(frame => $"{frame.Procedure}@{frame.Line}:{frame.Character}"))}";
 
@@ -84,7 +98,7 @@ public sealed class CompiledExecutionTests
                 Assert.IsGreaterThan(0L, result.Body.WalkBacks, $"{name} ran to its end in compiled code");
             }
             // under the random walk-back every activation may be handed to the interpreter, which is what that run is for.
-            else if (!CompiledExecution.WalksBackAtRandom)
+            else if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.AreEqual(0L, result.Body.WalkBacks, $"{name} was handed to the interpreter");
             }
@@ -312,9 +326,9 @@ public sealed class CompiledExecutionTests
             "End Sub"), "Outer", "Twice", "Touch");
 
     // a function returning an object, called as a statement: what it returns is let go of when the statement is over, which compiled code holds nothing
-    // of - the caller is not compiled, and says why.
+    // of - the interpreter runs the statement alone, in the compiled caller, and the caller says so.
     [TestMethod]
-    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsNotCalledFromCompiledCode()
+    public async Task AFunctionReturningAnObject_CalledAsAStatement_IsCalledByTheInterpreter()
     {
         RequirePayloads();
         var program = Program(
@@ -344,8 +358,9 @@ public sealed class CompiledExecutionTests
 
         Assert.AreEqual(Observed(interpreted.Result), Observed(run.Result));
         CollectionAssert.AreEqual(new[] { "terminate 1", "report 1", "terminate 2", "report 2", "after outer" }, run.Result.Output.Select(line => line.Trim()).ToArray());
-        var reason = Assert.ContainsSingle(run.Compiled["Outer"].Reasons);
-        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (reason.Kind, reason.Detail));
+        Assert.IsNotNull(run.Compiled["Outer"].Body, string.Join("; ", run.Compiled["Outer"].Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        var stepped = Assert.ContainsSingle(run.Compiled["Outer"].Stepped);
+        Assert.AreEqual((IneligibilityKind.Call, "MakeOne"), (stepped.Kind, stepped.Detail));
     }
 
     // an error raised in the callee reaches the compiled caller at its call, and the interpreter gives it the handler a caller of it has: the same error,
@@ -426,7 +441,7 @@ public sealed class CompiledExecutionTests
         Assert.AreEqual(6, run.Result.ErrorNumber);
 
         // under the random walk-back the activation may be handed over before it gets to the store, and the interpreter raises the error all the same.
-        if (!CompiledExecution.WalksBackAtRandom)
+        if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(1L, run.Compiled["Stored"].Body!.WalkBacks);
             Assert.AreEqual(Array.IndexOf(lines, "    L = D * 1"), run.Compiled["Stored"].Body!.LastWalkedBackAt?.Range.Start.Line, "handed over at the store, not before it");
@@ -510,18 +525,16 @@ public sealed class CompiledExecutionTests
     {
         var run = await AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Guarded(0)",
+            "    Guarded",
             "End Sub",
-            "Private Function Guarded(ByVal N As Long) As Long",
-            "    On Error Resume Next",
-            "    Guarded = 10 \\ N",
-            "    Guarded = Guarded + 1",
-            "End Function"));
+            "Private Sub Guarded()",
+            "    Debug.Print \"guarded\"",
+            "End Sub"));
 
         var guarded = run.Compiled["Guarded"];
         Assert.IsNull(guarded.Body);
-        Assert.AreEqual(IneligibilityKind.Instruction, guarded.Reasons.Single().Kind);
-        Assert.AreEqual(nameof(SDK.Semantics.Instructions.InstructionKind.OnErrorResumeNext), guarded.Reasons.Single().Detail);
+        var reason = Assert.ContainsSingle(guarded.Reasons);
+        Assert.AreEqual((IneligibilityKind.Statement, 4), (reason.Kind, reason.Location!.Value.Range.Start.Line), $"{reason.Kind} {reason.Detail}");
     }
 
     [TestMethod]
@@ -552,6 +565,38 @@ public sealed class CompiledExecutionTests
         Assert.IsTrue(run.Compiled.ContainsKey("Total"), "Total was not called");
     }
 
+    // what is made of a procedure is told to the Compiled handlers whether or not it is compiled - a boxed one's too, which a handler that waits for a body
+    // learns it will not get - and once for its body: a second call finds it made.
+    [TestMethod]
+    public async Task WhereValuesAreHeldBoxed_TheCompiledHandlersAreToldOfEachProcedure_OnceForItsBody()
+    {
+        RequireBoxedValues();
+        var program = Program(
+            "Public Sub Main()",
+            "    Stop",
+            "    Debug.Print Total()",
+            "    Debug.Print Total()",
+            "End Sub",
+            "Private Function Total() As Long",
+            "    Total = 3",
+            "End Function");
+
+        using var running = CompiledExecution.Running(VBExecutionEngine.Compiled);
+        await ModuleWorkspace.InspectAsync(NoClasses, program, async (provider, first, _) =>
+        {
+            // Main waits at its Stop, compiled - or found not to be - already; Total is called after it.
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            var told = new List<(string Procedure, IneligibilityKind Reason)>();
+            provider.Image.Compiler.Compiled += (procedure, result) => told.Add((procedure.Name, Assert.ContainsSingle(result.Reasons).Kind));
+
+            var ended = await new CLI.Host.Handlers.HostDebugResumeHandler(provider, Microsoft.Extensions.Logging.Abstractions.NullLogger<CLI.Host.Handlers.HostDebugResumeHandler>.Instance)
+                .Handle(new HostDebugResumeParams(), CancellationToken.None);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, ended.Outcome, ended.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { ("Total", IneligibilityKind.BoxedEvaluation) }, told);
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
     [TestMethod]
     public async Task WhereValuesAreHeldBoxed_TheStrictModeFailsTheCall()
     {
@@ -575,11 +620,11 @@ public sealed class CompiledExecutionTests
         using var strictly = CompiledExecution.Strictly();
         var run = await RunAsync(Program(
             "Public Sub Main()",
-            "    On Error Resume Next",
+            "    Debug.Print \"x\"",
             "End Sub"), VBExecutionEngine.Compiled);
 
         Assert.AreEqual(ExecutionOutcome.NotImplemented, run.Result.Outcome, Observed(run.Result));
-        Assert.AreEqual(IneligibilityKind.Instruction, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
+        Assert.AreEqual(IneligibilityKind.Statement, Assert.ContainsSingle(run.Compiled["Main"].Reasons).Kind);
     }
 
     [TestMethod]
@@ -604,12 +649,17 @@ public sealed class CompiledExecutionTests
             "    Everything = S + C - (L \\ 2) + (L Mod 2)",
             "End Function"), VBExecutionEngine.Compiled);
 
-        var method = run.Compiled["Everything"].Body!.Run.Method;
-        var references = MemberReferencesOf(method).ToList();
-        Assert.IsNotEmpty(references);
-        foreach (var member in references)
+        // Run reads the parameters and calls the typed entry (Body), which is the procedure's code: what either names is the support namespace's, or the
+        // compiled code's own - a procedure it calls through its typed entry.
+        var body = run.Compiled["Everything"].Body!;
+        foreach (var method in new[] { body.Run.Method, body.Entry! })
         {
-            Assert.AreEqual(typeof(CompiledActivation).Namespace, member.DeclaringType?.Namespace, member.ToString());
+            var references = MemberReferencesOf(method).ToList();
+            Assert.IsNotEmpty(references);
+            foreach (var member in references)
+            {
+                Assert.IsTrue(member.DeclaringType?.Namespace == typeof(CompiledActivation).Namespace || member.Module == method.Module, member.ToString());
+            }
         }
     }
 

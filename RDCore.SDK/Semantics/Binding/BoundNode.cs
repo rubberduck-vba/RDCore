@@ -87,7 +87,13 @@ public sealed record class BoundBinary(VBBinaryOperatorExpressionNode Operation,
 /// <param name="Plan">The plan of the operation, for the declared type of its operand; <see langword="null"/> for parentheses, which are a conversion and
 /// have no table of effective types.</param>
 /// <param name="Operand">The operand.</param>
-public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, OperationPlan? Plan, BoundNode Operand) : BoundNode(Operation);
+/// <param name="NegatesAConstantExpression">
+/// Whether the operation is a negation (<strong>MS-VBAL §5.6.9.3.1</strong>) of a constant expression (<strong>§5.6.16.1</strong>), which MS-VBA evaluates
+/// when it compiles the code: the least <c>Long</c> it evaluates to is negated as the <c>Long</c> it is, -2147483648, where the negation of any other is an
+/// overflow (recorded in Excel: oracle\s58 N07, N08, N10, N12).
+/// </param>
+public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, OperationPlan? Plan, BoundNode Operand, bool NegatesAConstantExpression = false)
+    : BoundNode(Operation);
 
 /// <summary>
 /// A call of a procedure the name before its argument list resolves to (<strong>MS-VBAL §5.6.13</strong>): a <c>Sub</c>, a <c>Function</c> or a
@@ -111,6 +117,13 @@ public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure,
     /// one. <see langword="null"/> for a call of the type its procedure declares.
     /// </summary>
     public VBType? ResultType { get; init; }
+
+    /// <summary>
+    /// Whether the call is a constant expression (<strong>MS-VBAL §5.6.16.1</strong>): a call of <c>Int</c>, <c>Fix</c>, <c>Abs</c>, <c>Sgn</c>,
+    /// <c>Len</c>, <c>LenB</c> or a conversion function of a constant expression, which MS-VBA evaluates when it compiles the code. <c>Abs</c> of the least
+    /// <c>Long</c> in one is that <c>Long</c>, where <c>Abs</c> of a variable that holds it is an overflow (recorded in Excel: oracle\s60 A01-A03).
+    /// </summary>
+    public bool IsAConstantExpression { get; init; }
 }
 
 /// <summary>

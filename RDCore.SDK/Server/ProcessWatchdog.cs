@@ -2,7 +2,7 @@ namespace RDCore.SDK.Server;
 
 /// <summary>
 /// A last-resort guard that hard-terminates the current process if a clean shutdown does not finish
-/// unwinding in time — for example, a non-cooperative background thread or finalizer from a
+/// unwinding in time: for example, a non-cooperative background thread or finalizer from a
 /// third-party library keeping the process alive after <c>Main</c> has returned.
 /// </summary>
 public static class ProcessWatchdog
@@ -15,13 +15,15 @@ public static class ProcessWatchdog
     /// </summary>
     /// <param name="exitCode">The exit code to terminate with if the watchdog fires.</param>
     /// <param name="graceSeconds">Seconds to wait for a clean exit before terminating (minimum 1).</param>
-    public static void Arm(int exitCode, int graceSeconds = 10) => Arm(exitCode, graceSeconds, Environment.Exit);
+    public static void Arm(int exitCode, int graceSeconds = 10) => Arm(exitCode, graceSeconds, Environment.Exit, Thread.Sleep);
 
-    internal static void Arm(int exitCode, int graceSeconds, Action<int> terminate)
+    // wait waits out the grace period on the watchdog's own thread, not on a timer of the thread pool: a process wedged badly enough to need the watchdog
+    // may have no pool thread left to run a timer's callback.
+    internal static void Arm(int exitCode, int graceSeconds, Action<int> terminate, Action<TimeSpan> wait)
     {
         var watchdog = new Thread(() =>
         {
-            Thread.Sleep(TimeSpan.FromSeconds(Math.Max(1, graceSeconds)));
+            wait(TimeSpan.FromSeconds(Math.Max(1, graceSeconds)));
             terminate(exitCode);
         })
         {

@@ -1,7 +1,7 @@
-using Newtonsoft.Json.Linq;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using System.Globalization;
+using System.Text.Json;
 
 namespace RDCore.SDK.Formatting;
 
@@ -103,7 +103,7 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
         return new IndenterSettingsApplied(applied, refused);
     }
 
-    private static Dictionary<string, string> FromConfig(JObject read)
+    private static Dictionary<string, string> FromConfig(IReadOnlyDictionary<string, JsonElement> read)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, token) in read)
@@ -117,14 +117,14 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
         return values;
     }
 
-    private static Dictionary<string, string> FromSmartIndenter(JObject read, int? tabWidth)
+    private static Dictionary<string, string> FromSmartIndenter(IReadOnlyDictionary<string, JsonElement> read, int? tabWidth)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         void Flag(string name, params string[] settings)
         {
             // an empty value keeps the setting as it is; anything but "Y" is no.
-            if (read.TryGetValue(name, StringComparison.OrdinalIgnoreCase, out var token) && token is { Type: JTokenType.String } && token.Value<string>() is { Length: > 0 } text)
+            if (TryFind(read, name, out var token) && token.ValueKind == JsonValueKind.String && token.GetString() is { Length: > 0 } text)
             {
                 foreach (var setting in settings)
                 {
@@ -136,7 +136,7 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
         void Number(string name, string setting)
         {
             // the registry holds what SaveSetting wrote, which is text; a number is read as Rubberduck reads it (Convert.ToInt32), and a negative one says nothing.
-            if (read.TryGetValue(name, StringComparison.OrdinalIgnoreCase, out var token) && NumberOf(token) is { } number and >= 0 && Schema.TryFind(KeyOf(setting), out var descriptor))
+            if (TryFind(read, name, out var token) && NumberOf(token) is { } number and >= 0 && Schema.TryFind(KeyOf(setting), out var descriptor))
             {
                 values[descriptor.Key] = Math.Min(number, descriptor.Maximum!.Value).ToString(CultureInfo.InvariantCulture);
             }
@@ -157,9 +157,9 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
         Number("AlignDimCol", nameof(CodeFormattingOptions.AlignDimColumn));
         Number("EOLAlignCol", nameof(CodeFormattingOptions.EndOfLineCommentColumnSpaceAlignment));
 
-        if (read.TryGetValue("EOLComments", StringComparison.OrdinalIgnoreCase, out var style) && style is { Type: JTokenType.String })
+        if (TryFind(read, "EOLComments", out var style) && style.ValueKind == JsonValueKind.String)
         {
-            var mapped = style.Value<string>() switch
+            var mapped = style.GetString() switch
             {
                 "Absolute" => nameof(EndOfLineCommentStyle.Absolute),
                 "SameGap" => nameof(EndOfLineCommentStyle.SameGap),
@@ -182,14 +182,41 @@ public sealed record class IndenterSettingsImport(RubberduckIndenterSettingsSour
         return values;
     }
 
-    private static long? NumberOf(JToken token) => token.Type switch
+    // the names are Rubberduck's, and the registry's are not case-sensitive.
+    private static bool TryFind(IReadOnlyDictionary<string, JsonElement> read, string name, out JsonElement value)
     {
-        JTokenType.Integer => token.Value<long>(),
-        JTokenType.String when long.TryParse(token.Value<string>()?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) => number,
+        if (read.TryGetValue(name, out value))
+        {
+            return true;
+        }
+
+        foreach (var (key, element) in read)
+        {
+            if (key.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = element;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static long? NumberOf(JsonElement token) => token.ValueKind switch
+    {
+        JsonValueKind.Number when token.TryGetInt64(out var number) => number,
+        JsonValueKind.String when long.TryParse(token.GetString()?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) => number,
         _ => null,
     };
 
-    private static string? TextOf(JToken token) => token.Type is JTokenType.String or JTokenType.Integer or JTokenType.Boolean ? Convert.ToString(((JValue)token).Value, CultureInfo.InvariantCulture) : null;
+    private static string? TextOf(JsonElement token) => token.ValueKind switch
+    {
+        JsonValueKind.String => token.GetString(),
+        JsonValueKind.Number when token.TryGetInt64(out var number) => number.ToString(CultureInfo.InvariantCulture),
+        JsonValueKind.True => bool.TrueString,
+        JsonValueKind.False => bool.FalseString,
+        _ => null,
+    };
 
     // a value as the setting is written: a number kept to its limits as Rubberduck keeps it; nothing for a value the setting cannot be.
     private static string? Coerced(SettingDescriptor setting, string text)

@@ -162,7 +162,7 @@ public sealed class CaseMatchEvaluator(
             return operandResult;
         }
 
-        var converted = ConvertToSelectorType(session, clause, comparisonOperator, selector, operand, operandResult.Result!);
+        var converted = ConvertToSelectorType(session, clause, selector, operand, operandResult.Result!);
         if (!converted.IsSuccess)
         {
             return converted;
@@ -192,7 +192,7 @@ public sealed class CaseMatchEvaluator(
     // as an expression of the two, of the effective type of their types (RD-VBAL 5.4.2.10; Excel, oracle s46 F15a-e, s48 G01-G20): with n a Long of 2,
     // Case 1.7 matches, and Case "abc" raises 13. A selector declared Variant is compared with the value as it is (s48 G04, G14).
     private RuntimeSemanticsEvaluationResult ConvertToSelectorType(
-        IRuntimeSession session, CaseRangeClauseNode clause, string comparisonOperator, VBTypedValue selector, ExpressionNode operand, VBTypedValue value)
+        IRuntimeSession session, CaseRangeClauseNode clause, VBTypedValue selector, ExpressionNode operand, VBTypedValue value)
     {
         if (DestinationOf(selector, value) is not { } destination)
         {
@@ -201,7 +201,7 @@ public sealed class CaseMatchEvaluator(
 
         if (observation is { IsSuspended: false })
         {
-            Observe(observation, clause, comparisonOperator, destination, selector, value);
+            Observe(observation, clause, destination, selector, value);
         }
 
         if (expressionEvaluator.TryConvertUnobserved(value, destination, out var planned))
@@ -238,10 +238,11 @@ public sealed class CaseMatchEvaluator(
 
     private static VBTypedValue HeldValueOf(VBTypedValue value) => value is VBVariantValue { TypedValue: var held } ? HeldValueOf(held) : value;
 
-    // a clause is stated when its value is compared in the selector's type where the expression MS-VBAL states would compare the two in another.
-    private static void Observe(AnalysisObservation into, CaseRangeClauseNode clause, string comparisonOperator, VBType destination, VBTypedValue selector, VBTypedValue value)
+    // a clause is stated when its value is compared in the selector's type where the expression MS-VBAL states would compare the two in another: its table's
+    // type, not the one MS-VBA compares the expression in (an Integer selector and Case Is < "5" are compared as Integers, as MS-VBAL's i < "5" is).
+    private static void Observe(AnalysisObservation into, CaseRangeClauseNode clause, VBType destination, VBTypedValue selector, VBTypedValue value)
     {
-        if (OperationPlanner.ForValues(comparisonOperator, destination, value.TypeInfo).EffectiveType is { } effective && effective.Equals(destination))
+        if (OperationPlanner.SpecifiedRelationalEffectiveType(destination, value.TypeInfo) is { } effective && effective.Equals(destination))
         {
             return;
         }

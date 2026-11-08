@@ -12,14 +12,14 @@ Ultimately, the RDCore deliverables are the following six components:
 
 |Deliverable|Kind|Description|
 |---|---|---|
-|🎯 `rdc.exe`|LSP client CLI application|A configurable and extensible RD-VBA *environment host*.|
-|🎯 `RDCore.LanguageServer.exe`|LSP server application|The platform's *orchestrator* language server.|
-|🎯 `RDCore.ParseServer.exe`|Satellite LSP server application|The platform's parser. It is owned and coordinated by the main language server, `RDCore.LanguageServer.exe`.|
-|🎯 `RDCore.Diagnostics.exe`|Core platform extension|Issues *diagnostics* asynchronously to the main language server. See [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).|
-|👉 `RDCore.Runtime.dll`|Library|An implementation of all the RD-VBA runtime semantics and mechanics, including an implementation of the VBA Standard Library.|
-|🧩 `RDCore.SDK.dll`|Library|Exposes the RDCore abstractions, and encapsulates the base RD-VBA *language core* implementation.|
+|`rdc.exe`|LSP client CLI application|A configurable and extensible RD-VBA *environment host*.|
+|`RDCore.LanguageServer.exe`|LSP server application|The platform's *orchestrator* language server.|
+|`RDCore.ParseServer.exe`|Satellite LSP server application|The platform's parser. It is owned and coordinated by the main language server, `RDCore.LanguageServer.exe`.|
+|`RDCore.Diagnostics.exe`|Core platform extension|Issues *diagnostics* asynchronously to the main language server. See [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).|
+|`RDCore.Runtime.dll`|Library|An implementation of all the RD-VBA runtime semantics and mechanics, including an implementation of the VBA Standard Library.|
+|`RDCore.SDK.dll`|Library|Exposes the RDCore abstractions, and encapsulates the base RD-VBA *language core* implementation.|
 
-🎯 The RDCore platform shall provide, with the `rdc.exe` CLI client, the ability to *compose, host, analyze, run, and debug* any RD-VBA application. See [**RD-VBAL §2.0** RD-VBA Computational Environment](rd-vbal.2.0.computational-environment.md) and [**RD-VBAL §2.3** Application Host](rd-vbal.2.3.application-host.md).
+The RDCore platform shall provide, with the `rdc.exe` CLI client, the ability to *compose, host, analyze, run, and debug* any RD-VBA application. See [**RD-VBAL §2.0** RD-VBA Computational Environment](rd-vbal.2.0.computational-environment.md) and [**RD-VBAL §2.3** Application Host](rd-vbal.2.3.application-host.md).
 
 A fully realized RDCore platform could run RD-VBA CI/CD pipelines, and integrate with enterprise software development lifecycles. See [**RD-VBAL §4.0** Program Structure and Organization](rd-vbal.4.0.program-structure.md).
 
@@ -27,11 +27,8 @@ A fully realized RDCore platform could run RD-VBA CI/CD pipelines, and integrate
 
 The implementation of the platform's *language core*, RD-VBA, is a work in progress. Ultimately, RD-VBA:
 
-- 🎯 **aims for strict compliance with the MS-VBAL specifications.** Strict compliance is intended to ensure behavioural compatibility with existing VBA semantics.
-- 🧩 **elevates VBA into a modern, extensible, and fully open-sourced language platform.** RD-VBA separates the VBA language definition from its original 1993 implementation.
+- **aims for strict compliance with the MS-VBAL specifications.** Strict compliance is intended to ensure behavioural compatibility with existing VBA semantics.
+- **elevates VBA into a modern, extensible, and fully open-sourced language platform.** RD-VBA separates the VBA language definition from its original 1993 implementation.
 - **makes implicit language behaviour explicit.** RD-VBA exposes semantic rules, evaluation steps, call stacks, and error conditions as *observable facts*.
 
 The principles that govern these objectives are described in [**RD-VBAL §1.1** Design and Extension Philosophy](rd-vbal.1.1.philosophy.md).
-
----
-> ⏮️ [**RD-VBAL** Table of Contents](rd-vbal.md) | ⏭️ [**RD-VBAL §1.1** Design and Extension Philosophy](rd-vbal.1.1.philosophy.md)

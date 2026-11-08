@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
@@ -97,12 +98,12 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
             _ => false,
         };
 
-        var prefix = classUri.Fragment.TrimStart('#') + ".";
+        var prefix = SymbolUri.PathOf(classUri) + ".";
         foreach (var fact in semantics.Procedures.SelectMany(procedure => procedure.Expressions).Where(IsTheHosts))
         {
             if (fact.Binding is { } binding
                 && binding.GetLeftPart(UriPartial.Path) == classUri.GetLeftPart(UriPartial.Path)
-                && binding.Fragment.TrimStart('#') is var address && address.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && SymbolUri.QualifiedNameOf(binding) is var address && address.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
                 && !address[prefix.Length..].Contains('.'))
             {
                 yield return new RelatedFinding(documentUri, fact.Location.Range,
@@ -162,7 +163,7 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
             ? new SourceRange(first.Start, first.Start.Line == first.End.Line ? first.End : first.Start)
             : SourceRange.Empty;
 
-    private static string NameOf(Uri module) => module.Fragment.TrimStart('#');
+    private static string NameOf(Uri module) => SymbolUri.ModuleNameOf(module);
 
     // the name as it is written: the reference is to nothing, and no symbol has the name.
     private static string NameAt(ModuleAnalysisContext context, ExpressionFactDto fact)

@@ -26,7 +26,7 @@ internal sealed class HostSessionStatusHandler(IEnvironmentSessionProvider sessi
             ProjectName = sessionProvider.ProjectName,
             ModuleCount = sessionProvider.ModuleCount,
             ReferenceCount = session.References.Count,
-            Memory = SessionMemoryStatus.From(session.Memory.Info),
+            Memory = session.Memory.Info.ToStatus(),
         });
     }
 }

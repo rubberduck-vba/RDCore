@@ -6,15 +6,15 @@ using RDCore.SDK.Server.Configuration;
 namespace RDCore.CLI.App.Configuration;
 
 /// <summary>
-/// Handles <c>rdcore/rubberduck-indenter-settings</c>: the language server asks what the user had of Rubberduck's indenter settings, and the shell reads them where
+/// Handles <c>rdcore/formatting/indenterSettings</c>: the language server asks what the user had of Rubberduck's indenter settings, and the shell reads them where
 /// Rubberduck keeps them (<see cref="RubberduckIndenterSettingsReader"/>) and says them as they are - on Windows; elsewhere it found none.
 /// </summary>
 /// <param name="reader">Reads Rubberduck's settings.</param>
-internal sealed class RubberduckIndenterSettingsHandler(RubberduckIndenterSettingsReader reader) : IJsonRpcRequestHandler<RubberduckIndenterSettingsParams, RubberduckIndenterSettingsResult>
+internal sealed class RubberduckIndenterSettingsHandler(RubberduckIndenterSettingsReader reader) : IJsonRpcRequestHandler<RubberduckIndenterSettingsRequest, RubberduckIndenterSettingsReply>
 {
     /// <inheritdoc/>
-    public Task<RubberduckIndenterSettingsResult> Handle(RubberduckIndenterSettingsParams request, CancellationToken cancellationToken)
-        => Task.FromResult(reader.Read());
+    public Task<RubberduckIndenterSettingsReply> Handle(RubberduckIndenterSettingsRequest request, CancellationToken cancellationToken)
+        => Task.FromResult(new RubberduckIndenterSettingsReply(reader.Read()));
 }
 
 /// <summary>
@@ -24,17 +24,17 @@ internal sealed class RubberduckIndenterSettingsHandler(RubberduckIndenterSettin
 internal sealed record class LiveSettingsNotifier(Func<CancellationToken, Task> Notify);
 
 /// <summary>
-/// Handles <c>rdcore/rubberduck-indenter-settings/apply</c>: the language server mapped the indenter settings the shell read to <c>Formatting</c> settings, and asks the shell
+/// Handles <c>rdcore/formatting/indenterSettings/apply</c>: the language server mapped the indenter settings the shell read to <c>Formatting</c> settings, and asks the shell
 /// to take them as its own - the shell's settings are the user's: it sets them as <c>CONFIG</c> does, and says its settings changed.
 /// </summary>
 /// <param name="settings">The settings the user can set.</param>
 /// <param name="liveSettings">The shell's own live settings.</param>
 /// <param name="notifier">Tells the language server the live settings changed.</param>
 internal sealed class RubberduckIndenterSettingsApplyHandler(IPlatformSettings settings, ILiveSettings liveSettings, LiveSettingsNotifier notifier)
-    : IJsonRpcRequestHandler<RubberduckIndenterSettingsApplyParams, RubberduckIndenterSettingsApplyResult>
+    : IJsonRpcRequestHandler<RubberduckIndenterSettingsApplyRequest, RubberduckIndenterSettingsApplyResult>
 {
     /// <inheritdoc/>
-    public async Task<RubberduckIndenterSettingsApplyResult> Handle(RubberduckIndenterSettingsApplyParams request, CancellationToken cancellationToken)
+    public async Task<RubberduckIndenterSettingsApplyResult> Handle(RubberduckIndenterSettingsApplyRequest request, CancellationToken cancellationToken)
     {
         // the server asks for the settings of an import and for no others: a client owns its configuration, and this is no channel to write any of it.
         var result = IndenterSettingsImport.ApplyTo(settings.Store, request.Settings);

@@ -175,9 +175,14 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
             // MS-VBAL 5.6.6: a pair of parentheses around an expression is an operator - the precedence one around an operand of an operator, the
             // let-coercion one anywhere else (RD-VBAL §5.6.6) - and either evaluates to the simple data value of what it encloses: an object's default
             // member, read once (`(o) Is Nothing` tests what it returns, `Set x = (o)` is set to it; MS-VBA, Excel-verified), and a value's conversion.
-            OperatorSymbolNames.UnaryLetCoerceOp or OperatorSymbolNames.UnaryArithmeticPrecedenceOp => operand is VBObjectValue enclosed
-                ? Execution.ObjectDefaultMember.EnclosedValueOf(session, enclosed)
-                : _letCoerce.Evaluate(session, new(), expression, operand),
+            // "the declared type of a parenthesized expression is that of the enclosed expression": a Variant's value is still a Variant's, which `(v + 1)`
+            // compared with a String is (MS-VBA, recorded in Excel: oracle\s56 G02, G09).
+            OperatorSymbolNames.UnaryLetCoerceOp or OperatorSymbolNames.UnaryArithmeticPrecedenceOp => operand switch
+            {
+                VBObjectValue enclosed => Execution.ObjectDefaultMember.EnclosedValueOf(session, enclosed),
+                VBVariantValue => AsVariant(_letCoerce.Evaluate(session, new(), expression, operand)),
+                _ => _letCoerce.Evaluate(session, new(), expression, operand),
+            },
             _ => RuntimeSemanticsEvaluationResult.InternalError(),
         };
 
@@ -228,6 +233,9 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         where TContext : SemanticContext<TFlags>, new()
         where TFlags : struct, Enum
     {
+        // a Variant operand is one before its simple data value is read: the operation is declared Variant whatever the object's default member returns.
+        var isDeclaredVariant = IsDeclaredVariantBy(token) && operands.Any(operand => operand is VBVariantValue);
+
         // MS-VBAL 5.6.9.2: a simple data operator - every operator but Is, which compares references - "first evaluates its operands as simple data
         // values": an object is what its default member returns (MS-VBAL 5.6.2.2), before the operation is planned on what its operands are. An operand
         // that has no value is the operation's error, which is stated as the operation's like any other.
@@ -237,7 +245,7 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
         // always goes through the pipeline, which is what describes the conversions of its operands.
         if (unreadable is null && !IsObserved && PlanExecutor.TryEvaluate(semantics, session, Empty<TContext>.Context, token, expression, site, operands) is { } planned)
         {
-            return planned;
+            return isDeclaredVariant ? AsVariant(planned) : planned;
         }
 
         var result = unreadable ?? semantics.EvaluateAtSite(session, Empty<TContext>.Context, expression, site, operands);
@@ -256,6 +264,17 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
             }
         }
 
-        return result;
+        return isDeclaredVariant ? AsVariant(result) : result;
     }
+
+    // MS-VBAL 5.6.9.3-4: an arithmetic operator, and &, with an operand declared Variant is declared Variant, and what it evaluates to is held in one: compared
+    // with a String, `v + 1` is compared as text as v is, and `v & ""` as a Variant String (MS-VBA, recorded in Excel: oracle\s56 R08-R14, G02, G09, G10).
+    // TODO measure in MS-VBA the logical operators and the comparisons, also declared Variant by a Variant operand (MS-VBAL 5.6.9.5, 5.6.9.8).
+    private static bool IsDeclaredVariantBy(string token) => token is Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp or Tokens.DivisionOp
+        or Tokens.IntegerDivisionOp or Tokens.ModuloOp or Tokens.PowerOp or Tokens.ConcatOp or Tokens.NegationOp;
+
+    private static RuntimeSemanticsEvaluationResult AsVariant(RuntimeSemanticsEvaluationResult result)
+        => result is { IsSuccess: true, Result: { } value } && value is not VBVariantValue
+            ? RuntimeSemanticsEvaluationResult.Success(value.IsIndeterminate ? new VBVariantValue(value).AsIndeterminate() : new VBVariantValue(value))
+            : result;
 }

@@ -45,6 +45,14 @@ public sealed class BenchCommandTests
         "Public Function BenchFunctionIsNoCase() As Long",
         "End Function",
         "Public Sub NotNamedForACase()",
+        "End Sub",
+        "Public Sub CallsLateBoundInALoop()",
+        "    Dim I As Long, T As Long, O As Object",
+        "    Set O = New Tally",
+        "    For I = 1 To 3",
+        "        O.Add",
+        "        T = T + I",
+        "    Next",
         "End Sub");
 
     private static readonly string Tally = ClassModule("Tally",
@@ -184,14 +192,30 @@ public sealed class BenchCommandTests
         StringAssert.Contains(failed.Error, "5");
     }
 
+    // nothing of the project runs while a module of it does not load: a case of another module is refused with the problem, and not run.
     [TestMethod]
-    public async Task AModuleThatDoesNotParse_IsAProblem_AndTheOthersRunAllTheSame()
+    public async Task AModuleThatDoesNotParse_IsAProblem_AndTheCasesOfTheOthersAreRefused()
     {
         var fileSystem = Files(("Broken.bas", Module("Broken", "Public Sub BenchBroken(", "End Sub")), ("Cases.bas", Cases), ("Tally.cls", Tally));
         var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count"));
 
         StringAssert.StartsWith(report.Problems.Single(), "Broken:");
-        Assert.AreEqual("Cases.BenchCount", report.Cases.Single().Name);
+        var refused = report.Cases.Single();
+        Assert.AreEqual("Cases.BenchCount", refused.Name);
+        Assert.IsEmpty(refused.Runs);
+        StringAssert.Contains(refused.Error, "Broken:");
+    }
+
+    // a syntax error in a branch of a #If that is excluded is in no code of the module, which loads: the cases run.
+    [TestMethod]
+    public async Task ASyntaxErrorInAnExcludedBranch_IsNoProblem_AndTheCasesRun()
+    {
+        var dead = Module("Dead", "Public Sub Helper()", "#If False Then", "Debug.Print 1 +", "#End If", "End Sub");
+        var fileSystem = Files(("Dead.bas", dead), ("Cases.bas", Cases), ("Tally.cls", Tally));
+        var report = await Runner(fileSystem).RunAsync(await Load(fileSystem), new BenchOptions(Runs: 1, Filter: "count"));
+
+        Assert.IsEmpty(report.Problems, string.Join("; ", report.Problems));
+        Assert.IsNull(report.Cases.Single().Error, report.Cases.Single().Error);
     }
 
     [TestMethod]
@@ -293,7 +317,8 @@ public sealed class BenchCommandTests
             "Strings.BenchStringAssignment", "Strings.BenchStringConcatenation", "Arrays.BenchArrayFillAndSum",
             "Calls.BenchProcedureCalls", "Calls.BenchClassMemberCalls", "Calls.BenchStandardLibraryCalls",
             "Calls.BenchFactoryCalls", "Calls.BenchDefaultInstanceCalls", "Calls.BenchSiblingCalls",
-            "Calls.BenchRecursion", "Strings.BenchStringBuilding", "Statements.BenchOnErrorResumeNext", "Numeric.BenchVariantTypedMix",
+            "Calls.BenchRecursion", "Strings.BenchStringBuilding", "Strings.BenchStringArguments", "Statements.BenchOnErrorResumeNext",
+            "Numeric.BenchVariantTypedMix",
         })
         {
             StringAssert.Contains(text, expected);
@@ -314,12 +339,69 @@ public sealed class BenchCommandTests
 
         var lines = output.ToString().Split(Environment.NewLine);
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchCount ", StringComparison.Ordinal)), "compiled");
+        var interpreted = lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal));
+        StringAssert.StartsWith(interpreted, "interpreted");
+        StringAssert.Contains(interpreted, "Raise (line ");
+
+        // a member of an object is called by compiled code: the Set that gives the variable its object is the interpreter's, which makes it with New.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
-        StringAssert.StartsWith(objectCall, "interpreted");
-        StringAssert.Contains(objectCall, "line ");
-        StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "interpreted");
-        StringAssert.Contains(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "a member of a class");
+        StringAssert.StartsWith(objectCall, "compiled");
+        StringAssert.Contains(objectCall, "an object made with New: Tally (line ");
+
+        // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
+        StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
+
+        // a compiled procedure says what of it the interpreter runs, and where: the call of a member of an Object, bound late, which compiled code does not
+        // make (rd-vbal.3.5.6), counted from 1 in the file.
+        var stepping = lines.Single(line => line.Contains("Cases.CallsLateBoundInALoop ", StringComparison.Ordinal));
+        StringAssert.StartsWith(stepping, "compiled");
+        StringAssert.Contains(stepping, "run by the interpreter: ");
+        var called = Array.IndexOf(Cases.Split("\r\n"), "        O.Add") + 1;
+        StringAssert.Contains(stepping, $"(line {called})",
+            $"the late-bound call at line {called} is no longer stepped: the case needs a statement compiled code does not do; give it another.");
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
+    }
+
+    // an Enum, a Type, a Const and a field are members of a module that are no procedure: the report says nothing of them - of an Enum a Property Get is
+    // named as either, as an interface's PlayerType is. A Property Get and its Let are two.
+    [TestMethod]
+    public async Task TheCompilationReport_IsOfTheSubFunctionAndPropertyProcedures_Only()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Player.cls", ClassModule("Player",
+            "Attribute VB_Exposed = True",
+            "Option Explicit",
+            "Public Enum PlayerType",
+            "    HumanControlled",
+            "    ComputerControlled",
+            "End Enum",
+            "Private Type State",
+            "    Kind As PlayerType",
+            "End Type",
+            "Private Const Limit As Long = 3",
+            "Private this As State",
+            "Private mCount As Long",
+            "Public Property Get PlayerType() As PlayerType",
+            "End Property",
+            "Public Property Get Count() As Long",
+            "    Count = mCount",
+            "End Property",
+            "Public Property Let Count(ByVal Value As Long)",
+            "    mCount = Value",
+            "End Property",
+            "Public Function Twice(ByVal N As Long) As Long",
+            "    Twice = N * Limit",
+            "End Function")));
+        var output = new StringWriter();
+        var command = new CompilationCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem), Runner(fileSystem), output);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root], CancellationToken.None), output.ToString());
+
+        var listed = output.ToString().Split(Environment.NewLine).Where(line => line.Contains("Player.", StringComparison.Ordinal)).ToArray();
+        Assert.HasCount(4, listed, output.ToString());
+        Assert.HasCount(1, listed.Where(line => line.Contains("Player.PlayerType ", StringComparison.Ordinal)), output.ToString());
+        Assert.HasCount(2, listed.Where(line => line.Contains("Player.Count ", StringComparison.Ordinal)), output.ToString());
+        Assert.HasCount(1, listed.Where(line => line.Contains("Player.Twice ", StringComparison.Ordinal)), output.ToString());
+        StringAssert.Contains(output.ToString(), " of 4 procedures compiled.");
     }
 
     [TestMethod]

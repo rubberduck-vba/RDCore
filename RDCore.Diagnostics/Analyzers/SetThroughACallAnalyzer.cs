@@ -1,6 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
 
@@ -35,7 +36,7 @@ internal sealed class SetThroughACallAnalyzer : IModuleAnalyzer
                 DiagnosticSeverity.Error,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.SetThroughACallFails_NoDefaultMemberToSet_Message, NameOf(fact)))));
 
-    // the name of what is called: the last part of the address of the symbol the callee is bound to (Module.Name)
+    // the name of what is called, as the address of the symbol the callee is bound to has it (Module.Name)
     private static string NameOf(ExpressionFactDto fact)
-        => fact.Binding?.Fragment.TrimStart('#') is { Length: > 0 } address ? address[(address.LastIndexOf('.') + 1)..] : string.Empty;
+        => fact.Binding is { } binding ? SymbolUri.NameOf(binding) : string.Empty;
 }

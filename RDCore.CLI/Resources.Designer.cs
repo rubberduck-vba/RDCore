@@ -133,6 +133,15 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to run by the interpreter: {0}.
+        /// </summary>
+        public static string Compilation_Stepped {
+            get {
+                return ResourceManager.GetString("Compilation_Stepped", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Times the interpreter on a workspace, or on the built-in corpus: parse, load, sweep, then each Bench* case..
         /// </summary>
         public static string Bench_Summary {
@@ -295,7 +304,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to This machine has no type library &apos;{0}&apos;. A library is given as a file, as the identifier the machine gave it, or by its name..
+        ///   Looks up a localized string similar to This machine has no type library &apos;{0}&apos;. A library is given as a file, as the identifier the machine gave it, or by its name. A file that holds more than one library is given with the number of the library&apos;s resource, as a .vbp references it (MSVBVM60.DLL\3)..
         /// </summary>
         public static string ExportLibrary_NotFound {
             get {
@@ -435,16 +444,6 @@ namespace RDCore.CLI {
         public static string Host_Edit_HandlerOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_HandlerOfAnActiveProcedure", resourceCulture)!;
 
         /// <summary>
-        ///   Looks up a localized string similar to a local added to or removed from a procedure the program is in, which is not applied to a program that waits yet.
-        /// </summary>
-        public static string Host_Edit_LocalsOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_LocalsOfAnActiveProcedure", resourceCulture)!;
-
-        /// <summary>
-        ///   Looks up a localized string similar to a field added to a class whose objects the program may hold, which is not applied to a program that waits yet.
-        /// </summary>
-        public static string Host_Edit_FieldOfAClass => ResourceManager.GetString("Host_Edit_FieldOfAClass", resourceCulture)!;
-
-        /// <summary>
         ///   Looks up a localized string similar to the signature of a procedure the program is in.
         /// </summary>
         public static string Host_Edit_SignatureOfAnActiveProcedure => ResourceManager.GetString("Host_Edit_SignatureOfAnActiveProcedure", resourceCulture)!;
@@ -485,9 +484,9 @@ namespace RDCore.CLI {
         public static string Host_Edit_OptionOfAnActiveModule => ResourceManager.GetString("Host_Edit_OptionOfAnActiveModule", resourceCulture)!;
 
         /// <summary>
-        ///   Looks up a localized string similar to a field added to a Type whose values the program may hold, which is not applied to a program that waits yet.
+        ///   Looks up a localized string similar to a Type whose values the program may hold, given other fields: its values keep the fields they have while the program is in progress, and the edit applies once the program is over - take the edit back to go on.
         /// </summary>
-        public static string Host_Edit_FieldOfAType => ResourceManager.GetString("Host_Edit_FieldOfAType", resourceCulture)!;
+        public static string Host_Edit_TypeHeldUntilRun => ResourceManager.GetString("Host_Edit_TypeHeldUntilRun", resourceCulture)!;
 
         /// <summary>
         ///   Looks up a localized string similar to a constant that sizes what a variable holds, given another value.
@@ -579,7 +578,25 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Host_NoStatementAtOrAfterLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to the line is not in {0}, the procedure the program waits in.
+        /// </summary>
+        public static string Host_GotoOutsideTheProcedure {
+            get {
+                return ResourceManager.GetString("Host_GotoOutsideTheProcedure", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to the line is in {0}, and the program waits in {1}.
+        /// </summary>
+        public static string Host_GotoInAnotherModule {
+            get {
+                return ResourceManager.GetString("Host_GotoInAnotherModule", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to there is no such activation.
         /// </summary>
@@ -1265,6 +1282,15 @@ namespace RDCore.CLI {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Nobody is at the shell&apos;s console to answer the question..
+        /// </summary>
+        public static string Repl_NobodyAnswers {
+            get {
+                return ResourceManager.GetString("Repl_NobodyAnswers", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to NO RUNTIME SESSION.
         /// </summary>

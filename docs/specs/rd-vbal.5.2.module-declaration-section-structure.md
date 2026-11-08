@@ -16,6 +16,3 @@ See [**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directi
 |5.2.2|[Implicit Definition Directives](rd-vbal.5.2.2.implicit-definition-directives.md)|[§5.2.2](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/8865edf3-62ab-4eb7-aa13-c628aef9ccc2)|
 |5.2.3|[Module Declarations](rd-vbal.5.2.3.module-declarations.md)|[§5.2.3](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b40b8d00-3348-43c1-9cfb-c0eadef565ee)|
 |5.2.4|[Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md)|[§5.2.4](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/6b025f78-471c-43bc-9d77-79dac281a6f3)|
-
----
-> ⏮️ [**RD-VBAL §5.1** Module Body Structure](rd-vbal.5.1.module-body-structure.md) | ⏭️ [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md)

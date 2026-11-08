@@ -20,7 +20,7 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 A program written against MS-VBA that uses `LSet` over a record holding a variable-length `String` member relies
 on what MS-VBA does with it (see [UDT form](#udt-form)). The statement says so with a semantic flag, and not with an error: it is not wrong.
 
-[FixedAssignmentRuntimeSemantics](../api/RDCore.Runtime.Semantics.Statements.FixedAssignmentRuntimeSemantics.html)`.Analyze` sets the
+`FixedAssignmentRuntimeSemantics``.Analyze` sets the
 [FixedAssignmentSemanticFlags](../api/RDCore.SDK.Semantics.Flags.FixedAssignmentSemanticFlags.html) of the statement, the way an operator's `Analyze` sets its own:
 
 |Flag|Set when|
@@ -65,12 +65,18 @@ Both count characters: a trailing byte of the value is not one, and is not part 
 between two UDTs is how VBA emulates a union.
 
 1. The source record is laid out through its own layout
-   ([VBUserDefinedTypeLayout](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html)).
+   ([VBUserDefinedTypeLayout](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html)), for the environment's
+   pointer width ([**RD-VBAL §2.5.2.1.3**](rd-vbal.2.5.2.1.3.udt-values.md#pointer-width)).
 2. Only the bytes both types have are copied.
-3. The copied bytes are read back through the destination's layout. For example, a `Long` is reinterpreted as two
-   `Integer`s.
-4. A destination field that the source's image does not reach is set to its declared type's default value, rather
-   than being filled with half a value.
+3. The copied bytes are read back through the destination's layout, place by place: each field, each field of a
+   nested record and each element of a fixed-size array field, at its offset from the start of the record. For
+   example, a `Long` is read back as two `Integer`s, and a `Currency` of 1 as a `Byte` array whose first two
+   elements are 16 and 39.
+4. A place of the destination that the source's image does not reach is set to its declared type's default value, so
+   that no place holds half a value.
+
+Each place is written where it is, so a `ByRef` parameter given a field or an element of the destination reads what
+`LSet` wrote.
 
 A field of an `Enum` is stored in the image as the `Long` it holds, four bytes, and is read back as one
 ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)): a field of an `Enum` and a
@@ -88,7 +94,26 @@ A variable-length `String` member is not part of the byte image:
 - In RD-VBA, a variable-length `String` member of a UDT has no byte image.
 - The value of a variable-length `String` member is carried across only when the destination has a field of the
   same type at the same offset.
-- `LSet`'s UDT form never reinterprets a reference as a different kind of reference.
+
+#### Objects
+
+An object field is laid out as the address `ObjPtr` returns for its object
+([**RD-VBAL §6.1.2.13**](rd-vbal.6.1.2.13.hidden-module.md#objptr)).
+
+|Source bytes|Destination place|Result|
+|---|---|---|
+|An object|An object|The object, counted, as `Set B.O = A.O` would give it. The destination's old object is released, and the two records share no cell.|
+|An object|A `LongPtr` or a `Long`|The object's `ObjPtr` address.|
+|A number|An object|The object at that address, counted; `Nothing` for 0. Any other number raises error 424 (Object required), and nothing of the record is written.|
+|A `Variant` that holds an object or an array|A `Variant`|The object, counted, or a copy of the array.|
+
+A place declared as a class takes only an object `Set` would give it: an object of that class, or of a class that
+implements it. An object of another class raises error 13 (Type mismatch), and nothing of the record is written. This
+holds for an object from the source record and for one found by its address.
+
+**RD-VBA differs from MS-VBA:** `LSet` of an `ObjPtr` address into an object field counts the reference, and
+MS-VBA does not. Code that uses this to hold a weak reference (a child that refers back to its parent) keeps both
+objects alive in RD-VBA: a parent and a child that refer to each other this way never run `Class_Terminate`.
 
 The layout and the field store of a UDT value are described in
 [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md).
@@ -98,8 +123,6 @@ The layout and the field store of a UDT value are described in
 |Type or member|Role|
 |---|---|
 |[VBUserDefinedTypeImage](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeImage.html)|The byte copy of `LSet`'s UDT form (**RDCore.SDK**).|
+|[VBRecordCopyOutcome](../api/RDCore.SDK.Model.Types.VBRecordCopyOutcome.html)|What the copy did: copied, or the error that stopped it (**RDCore.SDK**).|
 |`VBUserDefinedTypeLayout`|The layout a record is laid out through, and read back through (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider`|Dispatches an `AssignmentStatementNode` whose `Kind` is `LSet` or `RSet`; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
-
----
-> ⏮️ [**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md) | ⏭️ [**RD-VBAL §5.4.3.7** RSet Statement](rd-vbal.5.4.3.7.rset-statement.md)

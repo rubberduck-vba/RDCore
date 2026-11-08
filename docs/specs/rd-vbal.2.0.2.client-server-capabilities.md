@@ -1,6 +1,6 @@
 # 2.0.2 Client/Server Capabilities
 
-🧩 RDCore operates on a **capability-driven host model**. The capabilities of platform extensions are negotiated with the RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
+RDCore operates on a **capability-driven host model**. The capabilities of platform extensions are negotiated with the RD-VBA _environment host_ (see [**RD-VBAL §1.1.1** Platform Extensions](rd-vbal.1.1.1.platform-extensions.md)).
 
 The RDCore platform is a set of cooperating processes:
 
@@ -45,7 +45,7 @@ The handshake is _informational_:
 - `PlatformInitializeResult.Provides<T>()` lets a caller test for a capability.
 
 > [!NOTE]
-> **Not implemented.** The platform does not refuse a connection whose peer reports the wrong component, or a missing required capability, in the `rdcore/platform/initialize` response.
+> The platform does not refuse a connection whose peer reports the wrong component, or a missing required capability, in the `rdcore/platform/initialize` response.
 
 ## 2.0.2.1.1 The language
 
@@ -54,7 +54,7 @@ default), VB6 (`vb6`) and the platform's BASIC (`basic`, which an interactive sh
 ([**MS-VBAL §5.6.10**](rd-vbal.5.6.10.simple-name-expressions.md)), and which statements exist at all ([**RD-VBAL §5.4.5.8**](rd-vbal.5.4.5.8.print-statement.md)).
 The standard library is not part of the table: it is `VBA` whatever the language ([**RD-VBAL §6.0**](rd-vbal.6.0.standard-library.md)).
 
-A client says which one it is in the `initializationOptions` of its LSP `initialize` request - the part of the protocol that exists for a setting no standard
+A client says which one it is in the `initializationOptions` of its LSP `initialize` request, the part of the protocol that exists for a setting no standard
 capability describes ([RDCoreInitializationOptions](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)):
 
 ```json
@@ -65,19 +65,38 @@ The server applies it before it builds anything from the request, and what the c
 setting (`--language` on its command line, which is how a server that a client spawns is told, and how the language server tells the servers it starts).
 A language the platform does not serve is logged and ignored.
 
-> [!NOTE]
-> The language was once two settings: BASIC's one difference, the scope of an implicit declaration, was a setting of its own, made when BASIC was not a dialect the
-> platform defined. It is now the language's, and the setting is gone.
-
 ## 2.0.2.1.2 The language of the user interface
 
-What a server says - the messages of its diagnostics, why a rename is refused, the titles of its code actions, its hovers - is said in the language the
+What a server says (the messages of its diagnostics, why a rename is refused, the titles of its code actions, its hovers) is said in the language the
 client's user interface is in: the `locale` of the `initialize` request (**LSP 3.17**), such as `fr-CA` or `en`
 ([`ClientLocale`](../api/RDCore.SDK.Server.ClientLocale.html)). Every server of the platform applies it before it builds anything from the request,
 and a language server tells the servers it starts the same `locale`, so that the diagnostics an extension finds are in the client's language too. A culture
-reads its own language's messages, or its parent's: `fr-FR` and `fr-CA` read the French ones, and every other culture - `en-GB`, the invariant culture -
+reads its own language's messages, or its parent's: `fr-FR` and `fr-CA` read the French ones, and every other culture (`en-GB`, the invariant culture) reads
 the English ones. Only the language of the user interface is the client's: how numbers and dates are written and read does not depend on it. A `locale`
 the platform does not know is logged and ignored; a client that sends none is answered in the language the server's process starts in.
+
+## 2.0.2.1.3 What the server asks before it answers initialize
+
+The language server loads its workspace while it answers `initialize`, and what it finds there can need the user's answer: a project file it cannot read is
+offered to be regenerated ([**RD-VBAL §2.2.3**](rd-vbal.2.2.3.projectfile.md)). LSP allows a server to ask with `window/showMessageRequest` before it
+answers `initialize`, and the server waits for the answer, so a client that cannot answer then would wait forever for the answer to `initialize`.
+
+The `rdc` shell is such a client: OmniSharp's language client (0.19.9) sends nothing before it is initialized except its `initialize` request, its
+`initialized` notification, and responses that carry a result; every other message waits until it is initialized. Error responses are held as well,
+including the answer of a handler that fails, of a client whose user cannot be asked, and of a client that has no handler for the request.
+
+So before it answers `initialize`, the server asks only a client whose `initializationOptions` say both of these:
+
+- `answersDuringInitialize` is `true` ([`AnswersDuringInitialize`](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)): the client
+  answers with a choice or with none, and never with an error;
+- the client is not `unattended`.
+
+```json
+{ "language": "basic", "answersDuringInitialize": true }
+```
+
+A client that does not say so is not asked: the server does without the answer, as it does when a user closes the question, and says why the project did
+not open (`window/showMessage`). The `rdc` shell says so when someone is typing at it, and not when its input is a script or it runs `--unattended`.
 
 ## 2.0.2.2 Platform components
 
@@ -95,19 +114,28 @@ The **RDCore.Diagnostics** extension is always brought up during platform assemb
 
 ## 2.0.2.3 Defined capabilities
 
-This catalogue is intended to document every platform capability the SDK defines. Each capability is a [`CorePlatformClientCapability`](../api/RDCore.SDK.Client.CorePlatformClientCapability.html) record. Where a capability implies an out-of-band request, it also has a non-LSP method.
+This catalogue lists the platform capabilities the SDK defines. Each capability is a [`CorePlatformClientCapability`](../api/RDCore.SDK.Client.CorePlatformClientCapability.html) record. Where a capability implies an out-of-band request, it also has a non-LSP method.
 
 |Capability|Method|Provided by|Description|
 |---|---|---|---|
 |[`ParseFullDocument`](../api/RDCore.SDK.Client.ParseFullDocument.html)|`rdcore/parser/document`|`ParsingServer`|Lets the language server request a parse result for a source fragment it supplies directly. The parser never reads source from the filesystem. A request may optionally be anchored at a position within a larger document, so that the locations reported for a sub-range fragment are in that document's coordinates.|
+|[`ParseTokens`](../api/RDCore.SDK.Client.ParseTokens.html)|`rdcore/parser/tokens`|`ParsingServer`|Lets the language server request the lexical tokens of a text, which is what a document is highlighted by.|
 |[`DefineSymbols`](../api/RDCore.SDK.Client.DefineSymbols.html)|`rdcore/host/symbols/define`|`EnvironmentHost`|Lets the language server send a module's member symbol descriptors to the environment host for definition in its runtime session (see [below](#rdcorehostsymbolsdefine)).|
 |[`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)|`rdcore/host/project/reload`|`EnvironmentHost`|Lets the language server ask the environment host to compose its runtime session again from the project file as it is now, once a client said the `.rdproj` changed (see [below](#workspacedidchangewatchedfiles)).|
+|[`SemanticAnalysis`](../api/RDCore.SDK.Client.SemanticAnalysis.html)|`rdcore/host/semantics`|`EnvironmentHost`|Runs the semantic analysis pass over the code the environment host holds, and answers with its model, which is what a diagnostics extension analyzes.|
+|[`SessionStatus`](../api/RDCore.SDK.Client.SessionStatus.html)|`rdcore/session/status`, `rdcore/host/session/status`|`LanguageServer`, `EnvironmentHost`|Reports the state of the runtime session, including how much of its memory is reserved, allocated and free. The language server answers its client, and asks the environment host that owns the session.|
+|[`SessionExecute`](../api/RDCore.SDK.Client.SessionExecute.html)|`rdcore/session/execute`, `rdcore/host/execute`|`LanguageServer`, `EnvironmentHost`|Runs a procedure of a module the client supplies, and reports what it printed (see [below](#rdcoresessionexecute)).|
+|[`SessionDiscard`](../api/RDCore.SDK.Client.SessionDiscard.html)|`rdcore/session/discard`, `rdcore/host/discard`|`LanguageServer`, `EnvironmentHost`|Takes a module out of the runtime session: what it declared and what it held go, as a program's variables do when the program is cleared.|
+|[`ProgramDebugging`](../api/RDCore.SDK.Client.ProgramDebugging.html)|`rdcore/session/debug/*`, `rdcore/host/debug/*`|`LanguageServer`, `EnvironmentHost`|Runs a program under a debugger: it waits where a `Stop` or a break puts it (**MS-VBAL §5.4.2.11**), and is resumed, stepped, paused or ended.|
+|[`SessionMemoryAccess`](../api/RDCore.SDK.Client.SessionMemoryAccess.html)|`rdcore/session/memory/peek`, `.../poke`, `rdcore/host/memory/peek`, `.../poke`|`LanguageServer`, `EnvironmentHost`|Reads and writes single bytes of the runtime session's memory (`PEEK` and `POKE`), unchecked.|
+|[`SessionAnalyze`](../api/RDCore.SDK.Client.SessionAnalyze.html)|`rdcore/session/analyze`|`LanguageServer`|Analyzes a module the client supplies, and reports the diagnostics its providers found: the counterpart to the LSP diagnostics pull for a client with no editor.|
 |[`CliCommand`](../api/RDCore.SDK.Client.CliCommand.html)|_(none: in-process CLI dispatch)_|`ClientApp`, `Extension`|Advertises that the declaring component contributes `rdc.exe` command-mode verbs. The CLI (`rdc.exe`) declares it for its native verbs. An extension declares it so that `rdc.exe describe-ext` records the capability in the extension's manifest (see [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)).|
 |[`DiagnoseDocument`](../api/RDCore.SDK.Client.DiagnoseDocument.html)|`rdcore/diagnostics/document`|`Extension`|Advertised by a _diagnostics provider_: a platform extension whose manifest advertises this capability. A provider declares it with `[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]` (see [below](#rdcorediagnosticsdocument)).|
 |[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
+|[`Unattended`](../api/RDCore.SDK.Client.Unattended.html)|_(none: expected by the client)_|`LanguageServer`|Says that nobody is there to answer a dialog: a client that expects it runs programs unattended (a CI run, `rdc --unattended`). A dialog a program opens (`MsgBox`, `InputBox`, a form shown) then fails the run with `VBR50001`, which no `On Error` of the program catches. It wins over `SessionInteraction`.|
 |[`SessionCompletion`](../api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
 |[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
-|[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/rubberduck-indenter-settings`, `rdcore/rubberduck-indenter-settings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcorerubberduck-indenter-settings)).|
+|[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/formatting/indenterSettings`, `rdcore/formatting/indenterSettings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcoreformattingindentersettings)).|
 |[`SessionSemanticTokens`](../api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
 
 > [!NOTE]
@@ -121,7 +149,7 @@ Capability providers for extensions distributed through the RDCore Platform Clou
 
 The project scope is an ancestor of a module's own scope and of nothing else (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
 
-👉 In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](../api/RDCore.SDK.Model.Types.VBUnknownType.html).
+In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](../api/RDCore.SDK.Model.Types.VBUnknownType.html).
 
 ### `rdcore/diagnostics/document`
 
@@ -131,7 +159,7 @@ The request carries the parse result as a [`PlatformJson`](../api/RDCore.SDK.Pla
 
 ### `PlatformJson` payloads
 
-A payload the platform's components exchange as a `PlatformJson` string - a parse result, a semantic model, symbols - is the model it carries, written so that
+A payload the platform's components exchange as a `PlatformJson` string (a parse result, a semantic model, symbols) is the model it carries, written so that
 what every node repeats is written once. The model each end has is the same: a reader gets every location and identity back with its document.
 
 |What|How it is written|
@@ -141,15 +169,28 @@ what every node repeats is written once. The model each end has is the same: a r
 |A node's identity|`{"DocumentUri": …, "Lineage": […]}`, where the `DocumentUri` is written only when it is not the one written last in the payload, the same way.|
 |A node's `SourceLocation`|Not written where it is the node's own `Location`, which it is read back from.|
 |A `null`|Not written: a property that is not there reads back as `null`, or as its declared default.|
+|A syntax tree|`{"$nodes": [...], "$root": n}`: an array of every node of the tree, and the index of its root in the array.|
+|A node a node holds|Its index in the array of its tree, a bare number. A sequence of nodes is an array of indexes.|
+
+A syntax tree is written flat, so a payload's depth does not grow with the depth of the code: a chain of thousands of additions, or hundreds of nested
+parentheses, is written and read with the same stack as one addition.
+
+- The outermost node of a tree that a payload holds, a module's node in a parse result, is written as a tree: `$nodes` holds every node of it, and `$root`
+  is the index of the node itself.
+- Each node in `$nodes` is an object with the properties it always has, its `$type` among them. A property that holds a node is written as that node's
+  index in `$nodes`, and a property that holds a sequence of nodes as an array of indexes.
+- Every node comes after the nodes it holds, so an index names a node already read: a reader can construct each node in one pass, start to end. An index
+  that names no node read before it is an error in the payload.
+- A node that two properties hold is written once, and both properties hold its index: it is read back as one node, not two copies of it.
 
 A payload is written and read start to end in one call, so the document a location or an identity is read with is the one written before it. The payload of
-one module writes its path once or twice, rather than three times a node: for a module of 2,400 lines, the parse result is 1.4 MB of JSON rather than 5 MB,
-and its semantic model 1.5 MB rather than 3.6 MB. Anything serialized with the same options outside a payload
-([`SyntaxNodeJson.Options`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.html), directly) writes every document.
+one module writes its path once or twice, rather than three times a node: for a module of 2,150 lines, the parse result is about 1.3 MB of JSON. Anything
+serialized with the same options outside a payload ([`SyntaxNodeJson.Options`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.html), directly)
+writes every document.
 
 ### `rdcore/session/execute`
 
-The `rdcore/session/execute` result ([`ExecuteSessionResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteSessionResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
+The `rdcore/session/execute` result ([`ExecuteResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
 
 The interactive shell renders a run-time error from this result, as:
 
@@ -158,6 +199,19 @@ The interactive shell renders a run-time error from this result, as:
 - the diagnostic code and description (see [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md));
 - `Err.Source`;
 - the stack trace.
+
+The module a client runs is a module of the runtime session. A client can also run a module of its own, which the project does not list, by saying so with
+`sessionModule` ([`SessionExecuteParams.SessionModule`](../api/RDCore.SDK.Platform.Protocol.SessionExecuteParams.html)).
+The interactive shell does this for its program. When the session has no module of that name, the module is defined as a standard module of the runtime session at
+the workspace root, as the code of an Immediate window is, and the project file is not changed. From then on the session has it: a later run finds it, with or
+without `sessionModule`, until the project is reloaded and the session composed again. Without `sessionModule`, a module the session does not have is not found.
+
+A module of the client's own cannot be named after the project or a library it references. The project, the libraries it references and its procedural modules are
+matched in one tier (**MS-VBAL §5.6.10**), so the name would match twice, and a name qualified by it, such as `VBA.Len`, would be invalid. Such a run is not found,
+and the result says why.
+
+A workspace whose project file cannot be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules. A client
+that opens no folder has no workspace, and what it runs is not found.
 
 ### Documents and their addresses
 
@@ -184,7 +238,7 @@ A request that is made of what a document was would make a keystroke wait for it
   - A change to another document changes nothing for it.
 - **A request the client cancels ends at once,** answered `RequestCancelled` (-32800), whatever the work under it is still doing.
 
-👉 HexIDE's client sent a keystroke and a completion while the diagnostics and the semantic tokens of a 2,100-line module were being found. The completion waited for both, about five seconds; with the request giving way, it waits for neither.
+In HexIDE, a completion sent right after a keystroke, while the diagnostics and the semantic tokens of a 2,100-line module are being found, waits for neither.
 
 ### `workspace/diagnostic`
 
@@ -192,7 +246,7 @@ The language server answers `workspace/diagnostic` (**LSP 3.17** §Workspace Dia
 
 |Each module's report|Is|
 |---|---|
-|`kind`|`full`, with every finding there is for the module - what `textDocument/diagnostic` answers for it - or `unchanged`, when the client sends the module's result id (`previousResultIds`) and the module has not changed since.|
+|`kind`|`full`, with every finding there is for the module (what `textDocument/diagnostic` answers for it), or `unchanged`, when the client sends the module's result id (`previousResultIds`) and the module has not changed since.|
 |`resultId`|The module's, as `textDocument/diagnostic` gives it ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)): a client can mix the two pulls.|
 |`uri`|The module's document.|
 |`version`|The version the client gave the module, for a module it has open; `null` for one it has not.|
@@ -202,10 +256,11 @@ A pull analyzes every module, so:
 - **A client that gives a `partialResultToken` is sent each module's report as it is made,** as a partial result (`$/progress`), and an empty answer. A client that does not is answered every report at once.
 - **The work is reported to the `workDoneToken`,** module by module.
 - **A change to any document gives the pull up,** answered `ContentModified` (-32801) as the change arrives: the keystroke, and the client's next request, don't wait for the whole workspace ([`IncomingDocumentChanges.WhileWorkspaceCurrentAsync`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)). The client pulls again, sending the result ids it has, and is answered `unchanged` for every module that did not change.
+- **A dialog of a program that is open declines the pull,** as it does `textDocument/diagnostic`'s ([below](#rdcoresessioninteraction)).
 
 ### Refreshing what the client shows
 
-What a client shows of a module - its diagnostics, its semantic tokens, its inlay hints, its code lenses - is of the module, and of what the other modules declare and how they use it. A procedure that another module calls, removed, makes the call an error there; a call added to it is one more reference in its code lens. A client pulls these for a document it changes; for the others, the server asks it to pull them again:
+What a client shows of a module (its diagnostics, its semantic tokens, its inlay hints, its code lenses) is of the module, and of what the other modules declare and how they use it. A procedure that another module calls, removed, makes the call an error there; a call added to it is one more reference in its code lens. A client pulls these for a document it changes; for the others, the server asks it to pull them again:
 
 |Message|Direction|Does|
 |---|---|---|
@@ -216,25 +271,26 @@ What a client shows of a module - its diagnostics, its semantic tokens, its inla
 
 Each is a request, which the client answers; a client that sent none of a capability is not asked. The server asks after:
 
-- **A change of a module that the others can tell,** once the environment host has it: the module's options and attributes, its module-level declarations, the signature of a procedure, a value written in any of them, and the names a procedure's body uses and what it declares ([`ModuleSurface`](../api/RDCore.SDK.Model.AST.ModuleSurface.html)). The workspace is defined again in its three phases first, so that what the host has of the other modules - what their declarations are bound to, what their code calls - is of what the module declares now. A change that no other module can tell - a literal, an operator or a comment in a procedure's body, a statement that uses the same names, whitespace - asks nothing.
+- **A change of a module that the others can tell,** once the environment host has it: the module's options and attributes, its module-level declarations, the signature of a procedure, a value written in any of them, and the names a procedure's body uses and what it declares ([`ModuleSurface`](../api/RDCore.SDK.Model.AST.ModuleSurface.html)). The workspace is defined again in its three phases first, so that what the host has of the other modules (what their declarations are bound to, what their code calls) is of what the module declares now. A change that no other module can tell asks nothing: a literal, an operator or a comment in a procedure's body, a statement that uses the same names, whitespace.
 - **A module that is gone,** closed with no file under it.
 - **A reload of the project** that changed the workspace ([`workspace/didChangeWatchedFiles`](#workspacedidchangewatchedfiles), [file operations](#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles), `rdcore.importProject`).
 - **A change of the live settings** ([`workspace/configuration`](#workspaceconfiguration-and-workspacedidchangeconfiguration)).
+- **A pull declined while a dialog of a program was open,** once the last dialog is closed: `workspace/diagnostic/refresh` alone, and the result ids are what they were ([`rdcore/session/interaction`](#rdcoresessioninteraction)).
 
-The client is asked once for a burst of changes - each keystroke of a name is one - when the burst is over (300 ms). A pull that comes before the request is not answered `unchanged` for a document whose findings may have changed: a diagnostic report's result id is of the workspace too ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)).
+The client is asked once for a burst of changes (each keystroke of a name is one), when the burst is over (300 ms). A pull that comes before the request is not answered `unchanged` for a document whose findings may have changed: a diagnostic report's result id is of the workspace too ([**RD-VBAL §2.6.5**](rd-vbal.2.6.5.diagnostics-pipeline.md#result-identity-and-staleness)).
 
-👉 OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
+OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendInlayHintRefresh` and `SendCodeLensRefresh` write each refresh as a notification, with no `id`, which a client that keeps to the protocol does not take for the request: the server sends each as the request it is.
 
 ### Requests that fail
 
-A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line - never its stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log ([`ServerErrorAnswers.WithOneLineErrors`](../api/RDCore.SDK.Server.ServerErrorAnswers.html)).
+A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line. It never carries the stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log ([`ServerErrorAnswers.WithOneLineErrors`](../api/RDCore.SDK.Server.ServerErrorAnswers.html)).
 
 ### `textDocument/inlayHint`
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
 the name of the parameter it is given to: `MsgBox Prompt: "Hello", Buttons: vbOKOnly`
 ([`ParameterHints`](../api/RDCore.SDK.Semantics.Refactoring.ParameterHints.html)). A call is an argument list after a name the static pass binds to a
-procedure, a function or a property - of the workspace or of a library it references; the subscripts of an array have no hint. A named argument, and every
+procedure, a function or a property, of the workspace or of a library it references. The subscripts of an array have no hint. A named argument, and every
 argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
 of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
 
@@ -244,9 +300,9 @@ The interactive shell asks for the hints of its program once for the whole listi
 
 ### `textDocument/completion` and `rdcore/session/completion`
 
-The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`, and `(`, `,` and a space, which ask for the list of an argument as a value of it starts: that list is answered only for an argument whose parameter is an `Enum`, and only where a value starts - after the `(`, a comma, a `:=` or the name of a call statement, or after an operator that combines flags (`+`, `Or`, `And`, `Xor`, `Not`: `MsgBox "a", vbYesNo + `). Nothing is answered anywhere else, a space after an operand included, so that a client is not given a whole list at every comma, and the workspace is not composed for nothing. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
+The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`, and `(`, `,` and a space, which ask for the list of an argument as a value of it starts: that list is answered only for an argument whose parameter is an `Enum`, and only where a value starts, which is after the `(`, a comma, a `:=` or the name of a call statement, or after an operator that combines flags (`+`, `Or`, `And`, `Xor`, `Not`: `MsgBox "a", vbYesNo + `). Nothing is answered anywhere else, a space after an operand included, so that a client is not given a whole list at every comma, and the workspace is not composed for nothing. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
 
-What is typed of the name when the list is asked for narrows it already: an item is in the list when its label has the letters typed, in their order, in any case ([`CompletionCandidates.Matching`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.html)) - `gtc` keeps `GetCount`. Whatever a client narrows by as more is typed - the start of a label, a part of it, letters apart - an item it could show is in the list, so the list stays complete. A list asked for where nothing is typed yet (`Ctrl+Space` after a space) has every name. An item has no `insertText` and no `filterText`: both are its label, which is what a client takes without them.
+What is typed of the name when the list is asked for narrows it already: an item is in the list when its label has the letters typed, in their order, in any case ([`CompletionCandidates.Matching`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.html)): `gtc` keeps `GetCount`. Whatever a client narrows by as more is typed (the start of a label, a part of it, letters apart), an item it could show is in the list, so the list stays complete. A list asked for where nothing is typed yet (`Ctrl+Space` after a space) has every name. An item has no `insertText` and no `filterText`: both are its label, which is what a client takes without them.
 
 In the interactive shell's prompt, an item that is a snippet of one line (`insertTextFormat` `Snippet`) is put in place with its tab stops: the first is selected, and what is typed replaces it in each of its places at once. <kbd>Tab</kbd> goes to the next tab stop and <kbd>Shift</kbd>+<kbd>Tab</kbd> back to the one before, unless a completion list is open, as one opens on a word typed in a tab stop: then <kbd>Tab</kbd> puts the selected name in place, and the next <kbd>Tab</kbd> goes on, as an editor has it. The snippet is done at its last tab stop, at <kbd>Esc</kbd>, at <kbd>Enter</kbd>, or once the cursor leaves the tab stop. A snippet of more lines than one, or one larger than a snippet to insert once written, is put in place as its name.
 
@@ -284,11 +340,11 @@ A verb is registered once. It is registered again only when its descriptor chang
 - a keyword or a choice with its values;
 - a line number with the numbered lines of the module, each shown with its statement;
 - an expression where it is evaluated: before the line its form names (`EvaluatedAt`), in that line's procedure and blocks, which is where a breakpoint's program waits. An expression that names no line, or a line the module does not have, is completed at module level: the module's names and the project's, and no procedure's locals;
-- a setting a part at a time, as a member is: the sections of the settings the argument carries (`Settings`), then what is in the section written before the last `.` - a section of it, or a setting with its description. The client asks again after each `.`;
+- a setting a part at a time, as a member is: the sections of the settings the argument carries (`Settings`), then what is in the section written before the last `.`: a section of it, or a setting with its description. The client asks again after each `.`;
 - the value of a setting with the values of the setting its form names (`ValueOf`), as it is written before it: `True` and `False`, or the names of a choice. Other values are offered nothing;
 - a path or text with nothing.
 
-A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line), `FOLD` (`<line>`, completed with the lines a block of more than one line starts at: a line argument can say so, `VerbArgument.LineFilter`), `THEME` (`LIST`, `<theme>`) and `CONFIG` (`RESET [setting]`, `<setting> [value]`; [**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)) the first time one is completed. A command it does not describe is offered nothing after its verb. The list of what can be written after a described verb opens as the space after the verb is typed - and after each space in its arguments - before the first letter of an argument is, and narrows as the argument is typed; no <kbd>Ctrl</kbd>+<kbd>Space</kbd> is needed.
+A verb the client did not register is offered nothing. The interactive shell registers `BREAK` (`CLEAR`, `TOGGLE <line>`, `<line> [condition]`, its condition evaluated at its line), `FOLD` (`<line>`, completed with the lines a block of more than one line starts at: a line argument can say so, `VerbArgument.LineFilter`), `THEME` (`LIST`, `<theme>`) and `CONFIG` (`RESET [setting]`, `<setting> [value]`; [**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)) the first time one is completed. A command it does not describe is offered nothing after its verb. The list of what can be written after a described verb opens as the space after the verb is typed (and after each space in its arguments), before the first letter of an argument is, and narrows as the argument is typed; no <kbd>Ctrl</kbd>+<kbd>Space</kbd> is needed.
 
 ### `textDocument/signatureHelp` and `rdcore/session/signatureHelp`
 
@@ -298,7 +354,7 @@ The call is read off the line before the cursor ([`SignatureSite`](../api/RDCore
 
 |Written|The call|
 |---|---|
-|An argument list that is open after a name: `Left(s, `, `o.Item(`, `.Add(`|The innermost one. An argument list after no name - the parentheses of an expression - is no call, and the one around it is the call.|
+|An argument list that is open after a name: `Left(s, `, `o.Item(`, `.Add(`|The innermost one. An argument list after no name (the parentheses of an expression) is no call, and the one around it is the call.|
 |A name, a space, and arguments, at the start of a statement: `MsgBox "a", `|The call statement's own (**MS-VBAL §5.4.2.1**). An assignment is not one.|
 |In a string literal or a comment|None.|
 
@@ -315,13 +371,13 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/R
 |Of the standard library|An entry of the platform's resources, in the language of the user interface, for the member and for each parameter. A `$` function has the doc strings of the one it is the `String` version of.|
 
 > [!NOTE]
-> **Not implemented.** The standard library's doc strings cover the `Strings`, `Interaction`, `Conversion`, `Math`, `Information` and `DateTime` modules, and the parameters of the members of `Strings`, `Interaction` and `DateTime` that take several, and of `Round` and `RGB`. The other modules' members have a signature and no doc string; a parameter with none shows none.
+> The standard library's doc strings cover the `Strings`, `Interaction`, `Conversion`, `Math`, `Information` and `DateTime` modules, and the parameters of the members of `Strings`, `Interaction` and `DateTime` that take several, and of `Round` and `RGB`. The other modules' members have a signature and no doc string; a parameter with none shows none.
 
 `rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](../api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
 
 ### `textDocument/semanticTokens/full` and `rdcore/session/semanticTokens`
 
-The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](../api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the module declares - a constant is `readonly`, the name of an enumeration, a user-defined type or a class module of the workspace is a `class` - unless it follows a `.` or a `!`, which makes it a member of something.
+The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](../api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the module declares (a constant is `readonly`, the name of an enumeration, a user-defined type or a class module of the workspace is a `class`), unless it follows a `.` or a `!`, which makes it a member of something.
 
 `rdcore/session/semanticTokens` ([`SessionSemanticTokensParams`](../api/RDCore.SDK.Platform.Protocol.SessionSemanticTokensParams.html)) answers the same for code fragments the client supplies, which are in no document: the condition of a breakpoint, say. The request has the complete source of a module and its name, which the names of the fragments are resolved against, and the fragments. The answer has the tokens of each fragment, in the order they were asked, encoded as `textDocument/semanticTokens/full` encodes them, with the first line of a fragment as line 0. Many fragments are asked in one request, so that coloring a list of them costs one round trip, not one each.
 
@@ -329,7 +385,7 @@ The interactive shell asks it once for the conditions of all the breakpoints `BR
 
 ### `textDocument/rename` and `textDocument/prepareRename`
 
-The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name - a text that is the same in a comment, a string, or another procedure's local is not renamed ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
+The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
 
 `textDocument/prepareRename` answers the range of the name at the position and the name the symbol is declared with (`placeholder`). `textDocument/rename` answers a `WorkspaceEdit` of `documentChanges`, one `TextDocumentEdit` per document whose text changes, at the version the server holds, to a client that says it takes them (`workspace.workspaceEdit.documentChanges`); any other client is answered the same edits as `changes`, by document, which name no version (**LSP 3.17** §WorkspaceEdit). An edit whose change annotation asks the user to confirm it is sent only to a client that takes change annotations (`changeAnnotationSupport`); an edit the client could not apply at all is refused, with why. An edit replaces a name only: a type-declaration character after it stays (`s$`).
 
@@ -343,7 +399,7 @@ What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.
 |A member's attribute (`Attribute Value.VB_UserMemId`)|The member.|
 |The key of a dictionary access (`c!key`)|Nothing: it is a string.|
 
-The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound - on an `Object` or a `Variant` - is not known to refer to the symbol, and is not renamed.
+The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to the symbol, and is not renamed.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 
@@ -354,8 +410,8 @@ A rename that is refused is answered with an error (`RequestFailed`) whose messa
 |The new name means something nearer, or as near, where the code refers to the symbol|The code would refer to that instead.|
 |The symbol would be nearer, or as near, than what the new name means where the code writes it already|The code would refer to the symbol instead.|
 |What a name written as the symbol's refers to is not known|The rename could miss it.|
-|The symbol is a module, a class, a `Type` or an `Enum`|A type is not renamed yet.|
-|The symbol is an event, a `WithEvents` variable, a form's control, or a member of a class another implements|What is named after it is not renamed yet.|
+|The symbol is a module, a class, a `Type` or an `Enum`|A type is not renamed.|
+|The symbol is an event, a `WithEvents` variable, a form's control, or a member of a class another implements|What is named after it would not be renamed with it.|
 |The symbol is a procedure of a class module with an underscore in its name|It is named after the event it handles or the member it implements.|
 |The symbol is an external procedure (`Declare`), or the workspace does not declare it|It is named by its library.|
 
@@ -376,7 +432,7 @@ of the workspace is.
 |A member of an `Enum`, a field of a `Type`|`Red`, `X As Long`|Its `Enum` or `Type`: `Helpers.Colour`|
 |A class or a module|`Class Class1`, `Module Helpers`|Nothing|
 
-The hover is Markdown - the declaration in a block of VBA, then what declares it and the symbol's doc string - for a client that reads Markdown
+The hover is Markdown (the declaration in a block of VBA, then what declares it and the symbol's doc string) for a client that reads Markdown
 (`hover.contentFormat`), and plain text for one that does not. "Member of" is said in the language of the user interface. No name, or a name whose meaning is
 not known (a member accessed late-bound), has no hover.
 
@@ -392,7 +448,7 @@ the position is bound the way a rename binds it (table above), so a navigation l
 |A property|Each of its procedures: its `Property Get`, `Let` and `Set`.|
 |A class or a module, after `As` or `New`|Its document, at its start.|
 |A name declared in each branch of an `#If`|Each declaration in a branch that is compiled, or each declaration when none is known to be (**MS-VBAL §3.4**).|
-|A member of a library, or a member accessed late-bound - on an `Object` or a `Variant`|Nothing: the answer is empty.|
+|A member of a library, or a member accessed late-bound (on an `Object` or a `Variant`)|Nothing: the answer is empty.|
 
 A client that reads links (`definition.linkSupport`) is answered `LocationLink`s: the name the navigation starts from (`originSelectionRange`), the whole
 declaration (`targetRange`), and the name it declares (`targetSelectionRange`). Any other client is answered a `Location` per definition, at the name it
@@ -404,7 +460,7 @@ The language server answers `textDocument/references` (**LSP 3.17** §Find Refer
 symbol named at the position ([`SymbolNavigation.ReferencesAt`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)): the names a rename of the
 symbol would rename (table above), and, for a class, a module, a `Type` or an `Enum`, the names of the type in `As` clauses and after `New`. The names its
 declarations declare are references when the client asks for them (`context.includeDeclaration`), and so are the attributes of a member
-(`Attribute Foo.VB_Description`). A member accessed late-bound - on an `Object` or a `Variant` - is not known to refer to it, and is not a reference.
+(`Attribute Foo.VB_Description`). A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to it, and is not a reference.
 
 Each procedure of a property is referred to by the names that call it (**MS-VBAL §5.3.1.7**), although a rename renames all of them:
 
@@ -420,7 +476,7 @@ assigns, or reads as a simple name (`Value = mValue` in `Property Get Value`, `C
 statement, or after a `.` calls it again, and is a reference.
 
 `textDocument/documentHighlight` (**LSP 3.17** §Document Highlights Request) answers every name in the document that a rename of the symbol would rename
-there, its declaration and every procedure of a property included, each of kind `Text`: which reads the symbol and which assigns it is not told apart yet.
+there, its declaration and every procedure of a property included, each of kind `Text`: a name that reads the symbol and one that assigns it are not told apart.
 
 ### `textDocument/declaration`
 
@@ -466,10 +522,10 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 
 |Diagnostic|Fixed by|
 |---|---|
-|[RDC01001](../diagnostics/rdc01001.md) - a name that does not say what it is|A rename to a name the user chooses.|
-|[RDC01002](../diagnostics/rdc01002.md) - Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
+|[RDC01001](../diagnostics/rdc01001.md): a name that does not say what it is|A rename to a name the user chooses.|
+|[RDC01002](../diagnostics/rdc01002.md): Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
 
-The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document - in a shell attached to a workspace, a program that was neither loaded nor saved - is to be saved first, which `DUCKY` says.
+The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document (in a shell attached to a workspace, a program that was neither loaded nor saved) is to be saved first, which `DUCKY` says.
 
 ### `workspace/executeCommand`
 
@@ -479,9 +535,9 @@ The language server runs the commands it advertises (`executeCommandProvider.com
 |---|---|---|
 |`rdcore.importProject`|None, a URI, or `{ "uri", "text", "overwrite" }`|Imports a VB6 project ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)).|
 
-`rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it (`window/showMessageRequest`), and is refused unless the user chooses to; `overwrite: true` replaces it without asking anything - what a client that imports its `.vbp` again after each change sends. Either way, what the `.vbp` does not describe is kept ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)). The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it: when that changes the workspace, the client is asked to refresh what it shows of every document, as for any change of the project ([Refreshing what the client shows](#refreshing-what-the-client-shows)). A project of another folder is written there, and the workspace is left as it is.
+`rdcore.importProject` imports the `.vbp` its URI names. A URI of a folder, or none, is that folder, or the workspace's: a folder with one `.vbp` imports it, a folder with several asks the user which one, and a folder with none is refused. `text` is the `.vbp` as the client holds it, which the server reads instead of the file. A folder that has a `.rdproj` already asks the user to replace it (`window/showMessageRequest`), and is refused unless the user chooses to; `overwrite: true` replaces it without asking anything, which is what a client that imports its `.vbp` again after each change sends. Either way, what the `.vbp` does not describe is kept ([**RD-VBAL §2.2.3.5**](rd-vbal.2.2.3.projectfile.md#2235-importing-a-vb6-project)). The project of the workspace's folder is written by the server, the only writer of its project file, and the workspace is reloaded with it: when that changes the workspace, the client is asked to refresh what it shows of every document, as for any change of the project ([Refreshing what the client shows](#refreshing-what-the-client-shows)). A project of another folder is written there, and the workspace is left as it is.
 
-What the file system refuses is a refusal (`RequestFailed`): a `.vbp` that cannot be read, or a `.rdproj` that cannot be written - read-only, or in a folder that cannot be written to - is said on one line ("Couldn't write '…\.rdproj': access to the file is denied."), and the project is left as it was.
+What the file system refuses is a refusal (`RequestFailed`): a `.vbp` that cannot be read, or a `.rdproj` that cannot be written (read-only, or in a folder that cannot be written to), is said on one line ("Couldn't write '…\.rdproj': access to the file is denied."), and the project is left as it was.
 
 It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project's `name`, its number of `modules`, and what was skipped (`notes`), each with its `kind`, its `subject` as the `.vbp` writes it, and a `message`.
 
@@ -489,7 +545,7 @@ It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project'
 
 The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares ([`SymbolLenses`](../api/RDCore.SDK.Semantics.Refactoring.SymbolLenses.html)): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
 
-A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name, its declarations not included: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it - a property that nothing assigns shows `0 references` above its `Property Let`. The result a function or a `Property Get` assigns or reads in its own body is no reference; a recursive call is.
+A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name, its declarations not included: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it. A property that nothing assigns shows `0 references` above its `Property Let`. The result a function or a `Property Get` assigns or reads in its own body is no reference; a recursive call is.
 
 |Resolved lens|Is|
 |---|---|
@@ -497,18 +553,15 @@ A lens is answered without its command (`resolveProvider = true`), since its ref
 |`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](../api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
 |`command.arguments`|The URI of the document, the position of the name, and the references (`Location[]`): the arguments of VS Code's `editor.action.showReferences`.|
 
-> [!NOTE]
-> **Not implemented.** A lens that runs a `Sub Main` (`rdcore/session/execute`).
-
 ### `textDocument/typeDefinition` and `textDocument/implementation`
 
 The language server answers `textDocument/typeDefinition` (**LSP 3.17** §Goto Type Definition Request) with where the type of the symbol named at the
-position is defined: the class, `Type` or `Enum` a variable, a constant, a parameter or a function is declared as - of an array, its items' type. A name that
+position is defined: the class, `Type` or `Enum` a variable, a constant, a parameter or a function is declared as (for an array, its items' type). A name that
 names a type leads to the type. An intrinsic type, or a type of a library, has no place in the workspace, and the answer is empty.
 
 It answers `textDocument/implementation` (§Goto Implementation Request) with what implements the symbol (**MS-VBAL §5.2.4.2**): for a class, each class of
-the workspace that implements it, at its `Implements` directive; for a member of a class, the procedure of each of those classes that implements it -
-`IShape_Area` for `Area` of `IShape`, each accessor of a property. A class that no class implements, or a symbol that is neither a class nor a member of one,
+the workspace that implements it, at its `Implements` directive; for a member of a class, the procedure of each of those classes that implements it
+(`IShape_Area` for `Area` of `IShape`, each accessor of a property). A class that no class implements, or a symbol that is neither a class nor a member of one,
 has no implementation. Both are answered as `textDocument/definition` is: links, or locations for a client that does not read them.
 
 ### `workspace/configuration` and `workspace/didChangeConfiguration`
@@ -541,7 +594,7 @@ The language server answers `textDocument/formatting` (**LSP 3.17** §Document F
 of whole lines, does not take in that line, and a range that starts or ends inside a continued statement takes in all of its lines. Only whitespace changes
 ([`ModuleIndenter`](../api/RDCore.SDK.Formatting.ModuleIndenter.html)). A line ends with a carriage return, a line feed, or both, as the protocol counts them.
 
-A line is indented a level - `Formatting.IndentSpaces` spaces - for each body that encloses it in the syntax tree, whatever the range:
+A line is indented a level (`Formatting.IndentSpaces` spaces) for each body that encloses it in the syntax tree, whatever the range:
 
 |Body|Indented|
 |---|---|
@@ -554,22 +607,23 @@ A line is indented a level - `Formatting.IndentSpaces` spaces - for each body th
 - **A line the syntax tree has no statement of**, code the parser could not build as it is typed, is indented by its keywords, from the level of where it is: a block's opener indents the lines after it, and its closer ends that. A block or an `#If` the closer of which is not written yet is open to the last line. A module is never refused.
 - **A procedure whose header is written in each branch of an `#If`** (`#If VBA7 Then` / a header / `#Else` / a header / `#End If`, then one body) has the `#If` block as its header: its lines are at the procedure's level, and the body after the `#End If` is indented once.
 - **A line number** stays at the start of its line, and so does a line label, as the VBE has it: the code after either is where the line's level has it, a space after the number or the label at least, and nothing after one that has no code.
-- **A line continued from the one before** (`_`) lines up with the lines of its statement before it, when `Formatting.AlignContinuations` is on: with the argument it continues (the one after a comma, a named argument's value after its `:=`), the innermost argument list that is open, the value of an assignment, or what follows the name the statement starts with - a level further in than the statement when there is none of them. Parentheses, commas and `=` in a string literal are not counted. A line that starts with `+` or `&` has the operator before that column, so that the operands line up, when `Formatting.IgnoreOperatorsInContinuations` is on. The lines of a declaration, of a member of an `Enum` or a `Type`, and of a comment are where their statement starts; what continues an end-of-line comment, or a comment on a line of its own inside a statement, is where that comment is. With `AlignContinuations` off, every line of a statement is where it starts.
+- **A line continued from the one before** (`_`) lines up with the lines of its statement before it, when `Formatting.AlignContinuations` is on: with the argument it continues (the one after a comma, a named argument's value after its `:=`), the innermost argument list that is open, the value of an assignment, or what follows the name the statement starts with. When there is none of them, it is a level further in than the statement. Parentheses, commas and `=` in a string literal are not counted. A line that starts with `+` or `&` has the operator before that column, so that the operands line up, when `Formatting.IgnoreOperatorsInContinuations` is on. The lines of a declaration, of a member of an `Enum` or a `Type`, and of a comment are where their statement starts; what continues an end-of-line comment, or a comment on a line of its own inside a statement, is where that comment is. With `AlignContinuations` off, every line of a statement is where it starts.
 - **A comment alone on its line** is at the level of the code around it, or where it is written when `Formatting.AlignCommentsWithCode` is off.
 - **An empty line** is left as it is, emptied of its whitespace, or indented to its level, as `Formatting.EmptyLineHandlingMethod` says (`Ignore`, `Remove`, `Indent`).
-- **In column 1**, whatever its level: an `#If`, `#Else` or `#Const` line (`Formatting.ForceCompilerDirectivesInColumn1`); a line that starts with `Debug.Print` (`Formatting.ForceDebugPrintInColumn1`), `Debug.Assert` (`ForceDebugAssertInColumn1`) or a `Stop` (`ForceStopInColumn1`) - or any of the three, `ForceDebugStatementsInColumn1`.
-- **The first blocks of a procedure** - the comments and the declarations (`Dim`, `Const`, `Static`, `Public`, `Private`) right after its header, in any order, up to its first other line or its first empty line - are in column 1 when `Formatting.IndentFirstCommentBlock` or `IndentFirstDeclarationBlock` is off. An empty line does not end them when `IgnoreEmptyLinesInFirstBlocks` is on. With `IndentEnumTypeAsProcedure` on, the first comments of an `Enum` or a `Type` are in column 1 when `IndentFirstCommentBlock` is off.
+- **In column 1**, whatever its level: an `#If`, `#Else` or `#Const` line (`Formatting.ForceCompilerDirectivesInColumn1`); a line that starts with `Debug.Print` (`Formatting.ForceDebugPrintInColumn1`), `Debug.Assert` (`ForceDebugAssertInColumn1`) or a `Stop` (`ForceStopInColumn1`), or any of the three (`ForceDebugStatementsInColumn1`).
+- **The first blocks of a procedure**, the comments and the declarations (`Dim`, `Const`, `Static`, `Public`, `Private`) right after its header, in any order, up to its first other line or its first empty line, are in column 1 when `Formatting.IndentFirstCommentBlock` or `IndentFirstDeclarationBlock` is off. An empty line does not end them when `IgnoreEmptyLinesInFirstBlocks` is on. With `IndentEnumTypeAsProcedure` on, the first comments of an `Enum` or a `Type` are in column 1 when `IndentFirstCommentBlock` is off.
 - **A declaration's `As`**, the first of a `Dim`, `Const`, `Static`, `Public` or `Private` line and of each line it is continued on, starts in column `Formatting.AlignDimColumn` when `Formatting.AlignDims` is on; a space before it at least.
 - **An end-of-line comment** is where `Formatting.EndOfLineCommentStyle` has it: at the column it was written at (`Absolute`), after the gap it had (`SameGap`), twice `IndentSpaces` after the code (`StandardGap`), or in column `Formatting.EndOfLineCommentColumnSpaceAlignment` (`AlignInColumn`); a space after the code at least. An apostrophe in a string literal or in a bracketed name starts no comment.
 - **The header of a class or a form module** (`VERSION`, `BEGIN` ... `END`) and its `Attribute` lines are left as they are written.
-- **Between procedures** - a `Sub`, a `Function`, a `Property`, an `Enum` or a `Type`, with the comments right above it - there are `Formatting.LinesBetweenProcedures` empty lines when `Formatting.VerticallySpaceProcedures` is on, and so many after what is above the first procedure: its declarations, its `Option` statements, a `#Const`. With `Formatting.GroupRelatedProperties` on, the accessors of a property that follow one another have none between them. Nothing is spaced inside a procedure, an `Enum` or a `Type`, nor after an `#If`, `#ElseIf` or `#Else` line, the module's header or its attributes. An empty line the spacing writes is as `Formatting.EmptyLineHandlingMethod` has an empty line: indented to its level when it says `Indent`, empty otherwise. A range spaces only a gap it takes in whole, from the line above it to the first line of the procedure after it, so that it changes no line outside of it.
+- **Between procedures** (a `Sub`, a `Function`, a `Property`, an `Enum` or a `Type`, with the comments right above it), there are `Formatting.LinesBetweenProcedures` empty lines when `Formatting.VerticallySpaceProcedures` is on, and so many after what is above the first procedure: its declarations, its `Option` statements, a `#Const`. With `Formatting.GroupRelatedProperties` on, the accessors of a property that follow one another have none between them. Nothing is spaced inside a procedure, an `Enum` or a `Type`, nor after an `#If`, `#ElseIf` or `#Else` line, the module's header or its attributes. An empty line the spacing writes is as `Formatting.EmptyLineHandlingMethod` has an empty line: indented to its level when it says `Indent`, empty otherwise. A range spaces only a gap it takes in whole, from the line above it to the first line of the procedure after it, so that it changes no line outside of it.
 
-Only whitespace changes: an edit is a run of it that is not what it is to be - the indentation of a line, the gap before an `As` or a comment - or the empty lines between two procedures, from the end of the line before them, written with that line's line end.
+Only whitespace changes: an edit is a run of it that is not what it is to be (the indentation of a line, the gap before an `As` or a comment), or the empty lines between two procedures, from the end of the line before them, written with that line's line end.
 
 The settings are the server's (`Formatting`, [**RD-VBAL §2.3.3**](rd-vbal.2.3.3.configuration.md#formatting)), read as they are when the request is made. Of the request's options (`FormattingOptions`), none is honoured: the `tabSize` is the editor's, which reaches the server through the configuration it owns, as `Formatting.IndentSpaces` when the user never set it; `insertSpaces: false` is not, since the code of a VBA module is indented with spaces as the VBE writes it; and `trimTrailingWhitespace`, `trimFinalNewlines` and `insertFinalNewline` are not either, since only the whitespace before the code of a line and between its parts is the indenter's. A change to the document that arrives meanwhile ends the request, answered `ContentModified` (-32801). A `.rdc` program is given no edit: the shell indents its lines itself, the same way (`ProgramIndenter`). It stores each statement indented by the blocks it is in, after the line's number. An edit marks the program to be indented again, and it is indented once, before anything reads it as a whole: `LIST`, `SAVE`, `RUN`, the document the language server holds. Lines pasted at the prompt are indented once, and are not told to the server one by one. A change of the shell's `Formatting` settings indents it again too. `SAVE` writes the program indented, so a `.rdc` file formatted by hand takes the shell's indentation once it is loaded and saved again. A program the indenter cannot read is kept as it was typed. The statements in no block are at the left whatever `Formatting.IndentEntireProcedureBody` says, since the procedure a program is the body of is one its text does not write.
 
 > [!NOTE]
-> **Not implemented.** A line number on a line of its own inside a continued statement; listing a line from its compiled form. Rubberduck's indenter tests are the expectations they are checked against.
+> Two of Rubberduck's indenter cases are not met: a line number on a line of its own inside a continued statement is not placed, and a hexadecimal line number
+> is not listed in decimal, as the VBE lists a line from its compiled form.
 
 ### `textDocument/foldingRange`
 
@@ -608,7 +662,7 @@ On the notification, the language server (`WorkspaceReloadService`):
 1. reads the project file again; one that cannot be read leaves the workspace as it was, and one that lists what the workspace is changes nothing;
 2. loads and parses each file it lists that was not loaded, and takes out each one it no longer lists (a document the client has open stays: its text is the client's);
 3. asks the environment host to compose its session again;
-4. defines the whole workspace again in its three phases - its types declared, its declarations bound, its code loaded - each module replacing what the host held of it. When the host kept its session, a module the project lost is discarded from it (`rdcore/host/discard`) first;
+4. defines the whole workspace again in its three phases (its types declared, its declarations bound, its code loaded), each module replacing what the host held of it. When the host kept its session, a module the project lost is discarded from it (`rdcore/host/discard`) first;
 5. asks the client to refresh what it shows of every document.
 
 #### A file changed outside the editor
@@ -620,8 +674,8 @@ loaded changes nothing, as when the server wrote it. The client is then asked to
 
 #### The server's own watch
 
-The client owns the file system. Only for a client that does not say it watches files - no `workspace.didChangeWatchedFiles` capability at all, with or without
-dynamic registration - does the language server watch the workspace's files itself (`WorkspaceFileSystemWatcher`): its `.rdproj`, and the source files under its
+The client owns the file system. Only for a client that does not say it watches files (no `workspace.didChangeWatchedFiles` capability at all, with or without
+dynamic registration) does the language server watch the workspace's files itself (`WorkspaceFileSystemWatcher`): its `.rdproj`, and the source files under its
 root, except what a folder whose name starts with a dot holds (`.git`, `.github`). What it sees is served as if the client had said it. The events of a moment (a
 save is several, a `git checkout` many) are gathered and served together, once none came for 300 ms.
 
@@ -702,16 +756,18 @@ A program runs in the environment host; the person it asks is at a client. A `Ms
 
 The request carries the lines the program completed before it opened the dialog (`Output`), so that the client shows them first; they are not repeated in the answer to `rdcore/session/execute`. An `InputBox` that was cancelled answers `Cancelled = true`, which the program is told with `vbNullString`.
 
+While a dialog is open, the program waits for the client, and what the server finds of the documents waits for the program. So a diagnostics pull from the client (`textDocument/diagnostic` or `workspace/diagnostic`) is not left waiting: one that comes while a dialog is open, or is still running when one opens, is answered at once with `ServerCancelled` (-32802) and `DiagnosticServerCancellationData { retriggerRequest: false }` (**LSP 3.17** §Document Diagnostics). A client must not retrigger it: it would only ask again, and be declined again, while the dialog is open. Once the last open dialog is closed (answered, or not answered because the client failed to answer it), and only if a pull was declined while it was open, the server asks the client to refresh its diagnostics and nothing else (`workspace/diagnostic/refresh`). It asks once the burst of refreshes is over ([above](#refreshing-what-the-client-shows)), and the client pulls again. A client that takes no refresh is declined all the same: the first pull it makes once no dialog is open is answered. Nothing else the client asks is declined while a dialog is open.
+
 The interactive shell draws a dialog as a box with a border, centred on the console, with its title in the top edge and its message wrapped inside. A `MsgBox` ends with a row of buttons, chosen with the arrow keys, <kbd>Tab</kbd>, <kbd>Enter</kbd>, or a button's key. Its icon has a column of its own, and the lines of the message hang under it. An `InputBox` ends with a line to type on, which starts with the default text selected and scrolls inside the box. <kbd>Esc</kbd> closes either at window level.
 
-### `rdcore/rubberduck-indenter-settings`
+### `rdcore/formatting/indenterSettings`
 
 A user who had Rubberduck has indenter settings (**RD-VBAL §2.3.3**, the `Formatting` settings). Rubberduck keeps them on the user's machine, in its own configuration and in the
 registry, and a client owns its configuration: the language server does not read the machine of the user, and writes none of the client's settings. A client that expects
 [`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html) reads them for it, and takes the mapped settings as its own. Two requests, both sent by the
 language server to the client:
 
-**`rdcore/rubberduck-indenter-settings`** (params `{}`) asks what the client found. The client answers what it read, _as it is_, and maps nothing:
+**`rdcore/formatting/indenterSettings`** (params `{}`) asks what the client found. The client answers what it read, _as it is_, and maps nothing:
 
 ```json
 { "source": "RubberduckConfig", "values": { "IndentCase": "true", "IndentSpaces": "2" }, "tabWidth": null }
@@ -740,23 +796,24 @@ Rubberduck's own configuration is read when it has indenter settings, and the re
 A flag is `Y` or it is not (an empty one says nothing); a number is kept to the limits of its setting, and a negative one says nothing; a setting the source says nothing of keeps
 its default.
 
-**`rdcore/rubberduck-indenter-settings/apply`** asks the client to take what was mapped as its own:
+**`rdcore/formatting/indenterSettings/apply`** asks the client to take what was mapped as its own:
 
 ```json
 { "source": "RubberduckConfig", "settings": { "Formatting.IndentCase": "True", "Formatting.IndentSpaces": "2" } }
 ```
 
-The answer is `{ "applied": 2, "refused": ["Server.Verbose"] }`: the number of settings the client set (`0` when it declines), and the keys of the ones it did not take. A client that answers `applied` only is told to have left some out by their number, and a client that took them all, or declined, is told nothing more. The client sets them in its own configuration, as a change of its own - the interactive
-shell writes them to the user's settings - and says so as it says any change (`workspace/didChangeConfiguration`); the language server sees them in the section it pulls. There is
+The answer is `{ "applied": 2, "refused": ["Server.Verbose"] }`: the number of settings the client set (`0` when it declines), and the keys of the ones it did not take. A client that answers `applied` only is told to have left some out by their number, and a client that took them all, or declined, is told nothing more. The client sets them in its own configuration, as a change of its own (the interactive
+shell writes them to the user's settings), and says so as it says any change (`workspace/didChangeConfiguration`); the language server sees them in the section it pulls. There is
 no other way for the language server to write a setting of a client, and the client takes only the `Formatting` settings of the names Rubberduck has (the table above), refusing any other key.
 
 The language server sends the requests only to a client that expects the capability:
 
-- **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer.
+- **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer:
+  - a user who closes the question has answered it;
+  - a client with nobody there to answer answers the request with an error instead, as the `rdc` shell does when its input is a script or it has ended, and the server asks again at the next start;
+  - a client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is not asked at all that start, and is asked at a start where it does not expect it;
+  - when the user chooses _Import_ and the client cannot apply the settings, the server asks again at the next start.
 - **On request.** The command `rdcore.importIndenterSettings` ([`workspace/executeCommand`](#workspaceexecutecommand)) runs the two requests against the client that sent it, and answers `{ "source", "found", "applied", "message" }`. A client that does not expect the capability is refused with a message. That nothing was found is an answer, not a refusal.
 
 The interactive shell expects the capability. It reads Rubberduck on Windows, and answers `None` elsewhere. `CONFIG IMPORT RUBBERDUCK` in the shell, and `rdc config import rubberduck` in command mode, do the same
 without the language server: they read, map and set the settings for the user.
-
----
-> ⏮️ [**RD-VBAL §2.0.1** Supported Languages](rd-vbal.2.0.1.supported-languages.md) | ⏭️ [**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)

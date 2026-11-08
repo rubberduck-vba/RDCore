@@ -18,7 +18,7 @@ using System.Reflection;
 namespace RDCore.SDK.Runtime.StdLib;
 
 /// <summary>
-/// Reads the standard library's symbols off the SDK declarations that define it — the interfaces and
+/// Reads the standard library's symbols off the SDK declarations that define it: the interfaces and
 /// enumerations in <see cref="RDCore.SDK.Runtime.Abstract.StdLib"/> marked with
 /// <see cref="StdLibModuleAttribute"/>, <see cref="StdLibClassAttribute"/> and
 /// <see cref="StdLibEnumAttribute"/>.
@@ -27,7 +27,7 @@ namespace RDCore.SDK.Runtime.StdLib;
 /// The declarations are the single source of truth: a module's members, their names, their parameters
 /// and their return types are all read back off the signature an implementation has to satisfy, so the
 /// symbol a workspace resolves and the method the runtime invokes cannot drift apart. What a signature
-/// cannot express — an accessor kind, a <c>$</c>-suffixed name, a class or enumeration return type — is
+/// cannot express (an accessor kind, a <c>$</c>-suffixed name, a class or enumeration return type) is
 /// stated by <see cref="StdLibMemberAttribute"/>; and a parameter's default value, unless it is an enumeration
 /// constant, by <see cref="StdLibDefaultAttribute"/>.
 /// <para>
@@ -64,14 +64,14 @@ public sealed class StdLibSymbolReader
     /// MS-VBAL's own description, but a declaration has to be <em>somewhere</em> for both halves of it to
     /// resolve: a standard module's public members reach the project scope, which is the tier a type
     /// reference and an unqualified enum constant are both looked up in. Defaults to
-    /// <paramref name="workspaceRoot"/>, which leaves them in the global scope — where the constants
+    /// <paramref name="workspaceRoot"/>, which leaves them in the global scope, where the constants
     /// still resolve, but the enum's own name is not a type reference.
     /// </param>
     /// <param name="is64Bit">
     /// The pointer width of the environment the symbols are for, which is the one thing a declaration
     /// cannot state: <c>LongPtr</c> is a different type in each (<strong>MS-VBAL §3.3.2</strong>), so
     /// <c>Conversion.CLngPtr</c>'s return type is not knowable from its signature alone. Defaults to
-    /// <c>true</c>, matching <c>SdkEnvironmentOptions.Is64Bit</c>'s own default — the one configured
+    /// <c>true</c>, matching <c>SdkEnvironmentOptions.Is64Bit</c>'s own default: the one configured
     /// value both the language server and the environment host derive their profile from, so this is
     /// that setting rather than a second opinion about it.
     /// </param>
@@ -120,7 +120,7 @@ public sealed class StdLibSymbolReader
     /// whole assembly's types.
     /// </param>
     /// <exception cref="InvalidOperationException">
-    /// A marked declaration is not expressible as a VBA symbol — a parameter or return type that is
+    /// A marked declaration is not expressible as a VBA symbol: a parameter or return type that is
     /// neither an intrinsic value nor a marked enumeration or class, an element type stated for a
     /// parameter that is not a required ByVal array, a default stated for a parameter that cannot take it, or a
     /// module's public static field that is not a <c>static readonly</c> intrinsic value. That is a mistake in the declaration rather than a
@@ -239,6 +239,7 @@ public sealed class StdLibSymbolReader
 
         var symbol = (VBClassModuleSymbol)new VBClassModuleSymbol(_workspaceRoot, _workspaceRoot, name)
             .With(SymbolProperties.Creatable, attribute.IsCreatable)
+            .With(SymbolProperties.CreationAlwaysFails, attribute.CreationAlwaysFails)
             // a library's class, as any library's is: MS-VBA compiles a member its declaration does not have (`Err.Nope`, `c.Nope` of a Collection) and
             // raises 438 at run time (Excel-verified).
             .With(SymbolProperties.Extensible, true);

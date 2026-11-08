@@ -31,6 +31,3 @@ resolves the target before it reads the target's field. For its target, `Input #
 |---|---|
 |[IFileChannelInput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelInput.html)|The character input surface of a channel, shared with `Line Input #` ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).|
 |`LetAssignmentEvaluator.TryResolveTarget`|Resolves the target: the same target resolution `Line Input #`, `Get` and the Let assignment statement use.|
-
----
-> ⏮️ [**RD-VBAL §5.4.5.9** Write Statement](rd-vbal.5.4.5.9.write-statement.md) | ⏭️ [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md)

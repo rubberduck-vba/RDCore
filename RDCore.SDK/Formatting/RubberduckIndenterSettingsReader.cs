@@ -1,7 +1,8 @@
 using Microsoft.Win32;
-using Newtonsoft.Json.Linq;
+using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using System.IO.Abstractions;
+using System.Text.Json;
 using System.Xml.Linq;
 
 namespace RDCore.SDK.Formatting;
@@ -95,7 +96,7 @@ public sealed class WindowsLegacyIndenterRegistry : ILegacyIndenterRegistry
 }
 
 /// <summary>
-/// Reads the indenter settings of Rubberduck where they are, as they are: what a client answers <c>rdcore/rubberduck-indenter-settings</c> with
+/// Reads the indenter settings of Rubberduck where they are, as they are: what a client answers <c>rdcore/formatting/indenterSettings</c> with
 /// (<see cref="RubberduckIndenterSettingsParams"/>).
 /// </summary>
 /// <remarks>
@@ -147,10 +148,10 @@ public sealed class RubberduckIndenterSettingsReader(IFileSystem fileSystem, str
             return null;
         }
 
-        var values = new JObject();
+        var values = new Dictionary<string, JsonElement>();
         foreach (var element in settings?.Elements().Where(element => !element.HasElements) ?? [])
         {
-            values[element.Name.LocalName] = element.Value;
+            values[element.Name.LocalName] = JsonSerializer.SerializeToElement(element.Value, RDCorePlatformJson.Options);
         }
 
         return values.Count == 0 ? null : new RubberduckIndenterSettingsResult { Source = RubberduckIndenterSettingsSource.RubberduckConfig, Values = values };
@@ -165,7 +166,7 @@ public sealed class RubberduckIndenterSettingsReader(IFileSystem fileSystem, str
         => new()
         {
             Source = RubberduckIndenterSettingsSource.SmartIndenterRegistry,
-            Values = new JObject(smartIndenter.Select(value => new JProperty(value.Key, JToken.FromObject(value.Value)))),
+            Values = smartIndenter.ToDictionary(value => value.Key, value => JsonSerializer.SerializeToElement(value.Value, value.Value.GetType(), RDCorePlatformJson.Options)),
             TabWidth = tabWidth,
         };
 

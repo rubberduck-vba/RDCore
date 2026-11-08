@@ -51,17 +51,17 @@ public sealed class FrameStatementTests
         return parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<StatementNode>().Single();
     }
 
-    private static Task<HostDebugEvaluateResult> Execute(EnvironmentSessionProvider provider, int frame, string statement)
+    private static Task<DebugEvaluateResult> Execute(EnvironmentSessionProvider provider, int frame, string statement)
         => new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
             .Handle(new HostDebugExecuteParams { FrameId = frame, Json = PlatformJson.Serialize(Statement(statement)) }, CancellationToken.None).WaitAsync(Patience);
 
     private static async Task<string> ValueOf(EnvironmentSessionProvider provider, int frame, string name)
     {
-        var variables = provider.Execution.Variables(frame, HostVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name);
+        var variables = provider.Execution.Variables(frame, DebugVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name);
         return variables[name].Value;
     }
 
-    private static async Task<ExecuteSessionResult> ResumeAsync(EnvironmentSessionProvider provider)
+    private static async Task<ExecuteResult> ResumeAsync(EnvironmentSessionProvider provider)
         => await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
 
@@ -192,6 +192,44 @@ public sealed class FrameStatementTests
             Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
         }, debug: true);
 
+    // MS-VBAL 5.4.3.3: a ReDim of a name the procedure does not see declares a dynamic array local to it, typed at a stop as in the procedure's code - one the
+    // next statement reads, and the program goes on with.
+    [TestMethod]
+    [DataRow("ReDim fresh(2)", "2", DisplayName = "ReDim")]
+    [DataRow("ReDim Preserve fresh(3)", "3", DisplayName = "ReDim Preserve")]
+    public async Task AReDim_OfANameTheProcedureDoesNotSee_DeclaresADynamicArray_ThatTheNextStatementSees(string redim, string upper)
+        => await DebugAsync(async provider =>
+        {
+            var declared = await Execute(provider, 0, redim);
+            var read = await Execute(provider, 0, "Debug.Print UBound(fresh)");
+
+            Assert.IsTrue(declared.Success, declared.Error);
+            Assert.IsTrue(read.Success, read.Error);
+            CollectionAssert.AreEqual(new[] { upper }, read.Output.Select(line => line.Trim()).ToArray());
+            Assert.AreEqual(ExecutionOutcome.Completed, (await ResumeAsync(provider)).Outcome, "the program goes on with a local it did not declare");
+        });
+
+    private static readonly string Arrays = Program(
+        "Public Sub Main()",
+        "    Dim f(2) As Long, a() As Long",
+        "    Stop",
+        "End Sub");
+
+    // MS-VBAL 5.6.13.1: `f()` typed at a stop is the array itself, as in the procedure's code.
+    [TestMethod]
+    [DataRow("Debug.Print UBound(f())", true, "2", DisplayName = "its bounds")]
+    [DataRow("Debug.Print f()", false, "Type mismatch", DisplayName = "printed, a fixed-size array")]
+    [DataRow("Debug.Print a()", false, "Type mismatch", DisplayName = "printed, a dynamic array")]
+    public async Task AnArrayWithAnEmptyArgumentList_TypedAtAStop_IsTheArray(string statement, bool succeeds, string said)
+        => await ModuleWorkspace.InspectAsync([], Arrays, async (provider, _, _) =>
+        {
+            var done = await Execute(provider, 0, statement);
+
+            Assert.AreEqual(succeeds, done.Success, done.Error);
+            StringAssert.Contains(succeeds ? string.Join("|", done.Output) : done.Error, said);
+            Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
+        }, debug: true);
+
     [TestMethod]
     public async Task InBasic_AStatement_WithANameTheProcedureDoesNotSee_DeclaresAVariableOfTheModule()
         => await ModuleWorkspace.InspectAsync([], Source, async (provider, _, _) =>
@@ -200,8 +238,8 @@ public sealed class FrameStatementTests
             var done = await Execute(provider, 0, "kept = 7");
 
             Assert.IsTrue(done.Success, done.Error);
-            Assert.IsFalse(provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables.Any(variable => variable.Name == "kept"), "not a local of the activation");
-            Assert.IsTrue(provider.Execution.Variables(0, HostVariableScope.Module, 0).Variables.Any(variable => variable.Name == "kept"), "a variable of the module");
+            Assert.IsFalse(provider.Execution.Variables(0, DebugVariableScope.Locals, 0).Variables.Any(variable => variable.Name == "kept"), "not a local of the activation");
+            Assert.IsTrue(provider.Execution.Variables(0, DebugVariableScope.Module, 0).Variables.Any(variable => variable.Name == "kept"), "a variable of the module");
             var read = await Execute(provider, 1, "Debug.Print KEPT");
             CollectionAssert.AreEqual(new[] { "7" }, read.Output.Select(line => line.Trim()).ToArray(), "the caller's activation sees it too: it is the module's");
         }, debug: true, language: SupportedLanguages.BASIC);

@@ -15,11 +15,14 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// <see cref="ISessionMemoryAllocator"/> deliberately does not cover this: it only accounts for
 /// allocation size and fragmentation, never values. An <see cref="ISessionStorage"/> depends on one
 /// to reserve address space, then binds the caller's value at the resulting address.
-/// </remarks>
-/// <remarks>
+/// <para>
+/// The storage gives the session's objects their addresses (<see cref="IObjectPointers"/>).
+/// </para>
+/// <para>
 /// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
+/// </para>
 /// </remarks>
-public interface ISessionStorage
+public interface ISessionStorage : IObjectPointers
 {
     /// <summary>
     /// Reserves <paramref name="size"/> bytes through the underlying <see cref="ISessionMemoryAllocator"/>
@@ -71,7 +74,7 @@ public interface ISessionStorage
     bool TryWriteBytes(MemoryAddress address, ReadOnlySpan<byte> bytes);
 
     /// <summary>
-    /// Reads the single byte at <paramref name="address"/>, wherever it falls inside an allocation —
+    /// Reads the single byte at <paramref name="address"/>, wherever it falls inside an allocation:
     /// a raw byte buffer, or the byte image of a bound value.
     /// </summary>
     /// <remarks>

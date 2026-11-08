@@ -71,7 +71,10 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
             .FirstOrDefault(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit
                 && member.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) && userMemId == WellKnownDispIds.Value);
 
-        return new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend)])
+        // MS-VBAL §2.5: the public interface of a class is its public procedures and variables (and the events an object raises). An Enum or a Type the
+        // class declares is a type of the project, not a member of an object: `obj.PlayerType` is the Property Get, whatever Enum takes its name.
+        return new(classModule, [.. classModule.Members.Where(member => member.AccessModifier is AccessModifier.Public or AccessModifier.Implicit or AccessModifier.Friend
+            && member is not (VBEnumMemberSymbol or VBUserDefinedTypeMemberSymbol))])
         {
             Supertypes = supertypes,
             DefaultMember = defaultMember,
@@ -85,7 +88,7 @@ public record class VBClassType(VBClassModuleSymbol Symbol, ImmutableArray<VBTyp
     /// Every class always includes <see cref="VBObjectType"/>; <c>Implements</c> directives
     /// (<strong>MS-VBAL §5.2.4.2</strong>, via <see cref="VBClassModuleSymbol.ImplementedInterfaces"/>)
     /// each contribute one more, recursively (an interface's own <c>Implements</c> directives are
-    /// included too — see <see cref="FromClassModule(VBClassModuleSymbol)"/>). Left at the default
+    /// included too: see <see cref="FromClassModule(VBClassModuleSymbol)"/>). Left at the default
     /// <c>[VBObjectType.TypeInfo]</c> for a <see cref="VBClassType"/> built any other way than through
     /// <see cref="FromClassModule(VBClassModuleSymbol)"/>.
     /// </remarks>

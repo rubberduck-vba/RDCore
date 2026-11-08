@@ -26,12 +26,12 @@ internal sealed class SessionStatusHandler(
     IPlatformOrchestrationService orchestration,
     IPlatformClientCapabilitiesService clientCapabilities,
     ILogger<SessionStatusHandler> logger)
-    : RDCoreRequestHandler<SessionStatusParams, SessionStatusResult>
+    : RDCoreRequestHandler<SessionStatusRequest, SessionStatusResult>
 {
     /// <summary>JSON-RPC 2.0 "Invalid Request".</summary>
     private const int InvalidRequestCode = -32600;
 
-    protected override async Task<SessionStatusResult> HandleAsync(SessionStatusParams request, CancellationToken token)
+    protected override async Task<SessionStatusResult> HandleAsync(SessionStatusRequest request, CancellationToken token)
     {
         if (!clientCapabilities.Expects(capabilities => capabilities.SessionStatus))
         {

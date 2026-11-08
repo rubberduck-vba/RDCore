@@ -11,11 +11,11 @@ namespace RDCore.SDK.Model.Errors;
 /// <remarks>
 /// 🧩 Errors should be used to generate <em>error diagnostics</em>.
 /// <para>
-/// MS-VBAL does not distinguish this from an error the runtime semantics report — both are run-time
+/// MS-VBAL does not distinguish this from an error the runtime semantics report: both are run-time
 /// errors, both interrupt the activation, both reach <c>Err</c>, both may be caught. <strong>RD-VBAL
 /// §2.6.3</strong> does, in one respect: the diagnostic families differ, so the editor can say whether a
 /// workspace raised its own error or tripped over one. The distinction is in <em>who raised it</em> and
-/// nothing else — <c>Err.Raise 11</c> is an application error, not a division-by-zero, even though
+/// nothing else: <c>Err.Raise 11</c> is an application error, not a division-by-zero, even though
 /// <c>11</c> is a code MS-VBA defines.
 /// </para>
 /// </remarks>
@@ -28,7 +28,7 @@ public record class VBApplicationErrorInfo(int CustomErrorCode, SourceLocation L
 {
     /// <inheritdoc/>
     /// <remarks>
-    /// <c>VBA</c> (<strong>RD-VBAL §2.6.3</strong>) — a pseudo-code: the numeric portion is whatever the
+    /// <c>VBA</c> (<strong>RD-VBAL §2.6.3</strong>): a pseudo-code: the numeric portion is whatever the
     /// workspace supplied, so unlike the other families it names no documented condition.
     /// </remarks>
     public string ToDiagnosticCode() => $"VBA{ErrorId:00000}";
@@ -37,13 +37,27 @@ public record class VBApplicationErrorInfo(int CustomErrorCode, SourceLocation L
     public VBErrorInfo AsErrorInfo => this;
 
     /// <summary>
+    /// The help context ID <c>Err.Raise</c> gave the error - the one it was given, or the one <c>Err</c> had and kept (<strong>MS-VBAL §6.1.3.2.1.2</strong>) -
+    /// or <see langword="null"/> for the one of its number's message, which an error the runtime raises has, and so does one an <c>Error</c> statement, an
+    /// automation object or a <c>RegExp</c> raises.
+    /// </summary>
+    public int? HelpContext { get; init; }
+
+    /// <summary>
+    /// The source <c>Err.Raise</c> gave the error - the one it was given, or the one <c>Err</c> had and kept (<strong>MS-VBAL §6.1.3.2.1.2</strong>) -
+    /// or <see langword="null"/> for the name of the project whose code runs (<see cref="Runtime.Abstract.Execution.ISessionErrorState.ProjectName"/>),
+    /// which every other error has, one an <c>Error</c> statement raises among them (recorded in Excel: oracle\s61 H07-H10).
+    /// </summary>
+    public string? Source { get; init; }
+
+    /// <summary>
     /// Creates the error an <c>Error</c> statement or an <c>Err.Raise</c> generates.
     /// </summary>
     /// <remarks>
     /// The description is the raiser's own when it supplied one. Unspecified, <strong>MS-VBAL
     /// §6.1.3.2.1.2</strong> says to use "the String that would be returned by the Error function" for
     /// <paramref name="errorNumber"/>, or "Application-defined or object-defined error" when it
-    /// corresponds to no VBA error — which is what <see cref="VBRuntimeErrorInfo.GetErrorString"/> falls
+    /// corresponds to no VBA error, which is what <see cref="VBRuntimeErrorInfo.GetErrorString"/> falls
     /// back to.
     /// </remarks>
     /// <param name="errorNumber">The error code the workspace raised.</param>

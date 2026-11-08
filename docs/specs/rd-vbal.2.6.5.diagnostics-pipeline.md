@@ -11,7 +11,7 @@ The set of registered capabilities, not a hard-coded list, determines which exte
 |Provider|Registration|
 |---|---|
 |**RDCore.Diagnostics**|The core-bundled diagnostics provider. It is always brought up during platform assembly.|
-|Other extensions (dimensional analysis, and so on)|Register as diagnostics providers alongside RDCore.Diagnostics.|
+|Other extensions|Register as diagnostics providers alongside RDCore.Diagnostics.|
 
 With no diagnostics provider registered, a workspace has no diagnostics.
 
@@ -37,7 +37,7 @@ Each diagnostics provider projects its own findings to LSP `Diagnostic`s through
 |Hop|Protocol|
 |---|---|
 |Editor → language server|plain LSP (`textDocument/diagnostic`)|
-|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentRequest](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentRequest.html), answered by a [DiagnoseDocumentResponse](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentResponse.html))|
+|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentParams](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentParams.html), answered by a [DiagnoseDocumentResult](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentResult.html))|
 
 The editor edge of the diagnostics pipeline stays plain LSP throughout. Only the language-server-to-provider hop is an RDCore request.
 
@@ -59,6 +59,3 @@ Diagnostic results are staleness-gated:
 ## Start-up
 
 On start-up the language server pulls diagnostics for every loaded document once. This exercises the fan-out without an editor attached.
-
----
-> ⏮️ [**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-core-diagnostics.md) | ⏭️ [**RD-VBAL §3.0** Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.md)

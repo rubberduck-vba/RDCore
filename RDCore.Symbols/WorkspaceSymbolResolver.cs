@@ -93,10 +93,10 @@ public static class WorkspaceSymbolResolver
     {
         var symbols = new List<Symbol>();
 
-        // a module named as its project keeps the name: MS-VBA refuses one ("Name conflicts with existing module, project, or object library"), and the shell's
-        // own project is named as its one module.
+        // a module named as its project keeps the name: MS-VBA refuses one ("Name conflicts with existing module, project, or object library"), and a project
+        // file can still name one so.
         if (projectName is not null
-            && !modules.Any(module => string.Equals(module.ModuleUri.Fragment.TrimStart('#'), projectName, StringComparison.OrdinalIgnoreCase)))
+            && !modules.Any(module => string.Equals(SymbolUri.ModuleNameOf(module.ModuleUri), projectName, StringComparison.OrdinalIgnoreCase)))
         {
             symbols.Add(new VBProjectSymbol(workspaceRoot, projectName));
         }
@@ -113,7 +113,7 @@ public static class WorkspaceSymbolResolver
             // the module symbol itself is the project symbol provider's job at run time; synthesize
             // it here so the scope tree has a module tier to hang the members off (and so a
             // same-module name collision reads as a duplicate declaration, not an ambiguous name).
-            var moduleName = moduleUri.Fragment.TrimStart('#');
+            var moduleName = SymbolUri.ModuleNameOf(moduleUri);
             // a document module's attributes are what it is, not what its export says (ModuleKinds.DirectivesOf).
             var directives = ModuleKinds.DirectivesOf(moduleType, parseResult.SyntaxTree.GetModuleDirectives());
             var implementedInterfaceNames = parseResult.SyntaxTree?.GetImplementedInterfaceNames() ?? [];

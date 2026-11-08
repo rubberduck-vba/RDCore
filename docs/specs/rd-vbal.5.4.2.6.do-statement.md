@@ -59,6 +59,3 @@ Pre-test, post-test and bare `Do` loops need no per-activation state.
   duplicating the branch logic for a second polarity.
 - `RDCore.Runtime.Execution.ConditionEvaluator` forces the condition to `Boolean`
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.5** Exit For Statement](rd-vbal.5.4.2.5.exit-for-statement.md) | ⏭️ [**RD-VBAL §5.4.2.7** Exit Do Statement](rd-vbal.5.4.2.7.exit-do-statement.md)

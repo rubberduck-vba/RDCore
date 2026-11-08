@@ -7,7 +7,7 @@ using RDCore.SDK.Runtime.Shared;
 namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
-/// The enclosing VBA project itself, as a resolvable, named symbol — the <c>Enclosing Project
+/// The enclosing VBA project itself, as a resolvable, named symbol: the <c>Enclosing Project
 /// namespace</c> tier of <strong>MS-VBAL 5.6.4</strong>'s <em>type binding context</em>: a qualified
 /// type reference like <c>Project.ClassName</c> resolves <c>Project</c> here before looking up
 /// <c>ClassName</c>.
@@ -15,7 +15,7 @@ namespace RDCore.SDK.Model.Symbols;
 /// <remarks>
 /// Scoped to the enclosing (workspace) project only for now: a referenced project's own module
 /// namespace (MS-VBAL's further "Referenced Project" / "Module in Referenced Project" tiers) needs a
-/// library symbol provider that doesn't exist yet — qualifying by a referenced project's name isn't
+/// library symbol provider that doesn't exist yet, so qualifying by a referenced project's name isn't
 /// modeled here.
 /// </remarks>
 /// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the workspace.</param>
@@ -116,8 +116,8 @@ public sealed record class VBProjectSymbol(Uri WorkspaceRoot, string Name)
     // the symbol at the handle is the module, or declared in it: a symbol's address is its parent's with the fragment extended by its own name.
     private static bool IsWithin(Uri handle, VBModuleSymbol module)
     {
-        var inside = handle.Fragment.TrimStart('#');
-        var path = module.Uri.Fragment.TrimStart('#');
+        var inside = SymbolUri.PathOf(handle);
+        var path = SymbolUri.PathOf(module.Uri);
         return handle.GetLeftPart(UriPartial.Path) == module.Uri.GetLeftPart(UriPartial.Path)
             && (string.Equals(inside, path, StringComparison.OrdinalIgnoreCase) || inside.StartsWith(path + ".", StringComparison.OrdinalIgnoreCase));
     }

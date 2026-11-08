@@ -18,10 +18,12 @@ namespace RDCore.SDK.Runtime.Abstract.StdLib;
 /// arrangement as "a global class module with a default instance variable" named <c>Err</c>, which is
 /// what a bare <c>Err</c> resolving to the error object looks like from source; a zero-argument function
 /// of a promoted standard module produces exactly that, and leaves <c>ErrObject</c> nameable in an
-/// <c>As</c> clause the way MS-VBA has it. Not creatable: <c>New ErrObject</c> names nothing.
+/// <c>As</c> clause the way MS-VBA has it. The library says the class can be created, so
+/// <c>New ErrObject</c> compiles, and creating one fails when the program runs
+/// (<see cref="StdLibClassAttribute.CreationAlwaysFails"/>).
 /// </para>
 /// </remarks>
-[StdLibClass("ErrObject", IsCreatable = false)]
+[StdLibClass("ErrObject", CreationAlwaysFails = true)]
 public interface IStdErrClass
 {
     #region 6.1.3.2.1 Public Procedures
@@ -46,7 +48,7 @@ public interface IStdErrClass
     /// </summary>
     /// <remarks>
     /// An argument that is not specified takes the error object's current property setting, unless that
-    /// has been cleared — so <c>Err.Raise</c> given only a <c>Number</c> re-raises with whatever
+    /// has been cleared, so <c>Err.Raise</c> given only a <c>Number</c> re-raises with whatever
     /// <c>Source</c> and <c>Description</c> are already set.
     /// </remarks>
     /// <param name="number">A <see cref="VBLongValue"/> that encodes the nature of the error.</param>
@@ -163,7 +165,7 @@ public interface IStdErrClass
     RuntimeSemanticsEvaluationResult Source(VBStringValue value);
 
     /// <summary>
-    /// 🎯 <strong>RD-VBAL</strong> Gets the call stack the current error was raised on, innermost activation first — one indented line per activation, separated by <c>vbCrLf</c>.
+    /// 🎯 <strong>RD-VBAL</strong> Gets the call stack the current error was raised on, innermost activation first: one indented line per activation, separated by <c>vbCrLf</c>.
     /// </summary>
     /// <remarks>
     /// 👉 Not an MS-VBAL member: VBA has never been able to say <em>where</em> an error came from, only

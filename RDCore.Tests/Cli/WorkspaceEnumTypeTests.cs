@@ -77,15 +77,13 @@ public sealed class WorkspaceEnumTypeTests
     }
 
     [TestMethod]
-    public async Task AMemberOfAVariableOfIt_Loads_AndStopsAsNotYetImplemented()
+    public async Task AMemberOfAVariableOfIt_IsAnInvalidQualifier()
     {
-        // MS-VBAL §5.2.3.4 makes the variable a Long, which has no members. The type the host reads with the Enum carries the Enum's members, so the access
-        // is not refused when the module loads, and it stops when it runs. Left as it is, for Mat.
-        await InspectAsync([], Program(Colour, "Dim c As Colour", "Debug.Print c.cRed"), (_, result, _) =>
-        {
-            Assert.AreEqual(ExecutionOutcome.NotImplemented, result.Outcome, result.ErrorMessage);
-            return Task.CompletedTask;
-        });
+        // MS-VBAL §5.2.3.4 makes the variable a Long, which has no members: only the Enum's name qualifies them (Excel-verified on a Get's result variable of
+        // an Enum, oracle\s64 E02).
+        var errors = await LoadErrorsAsync([], Program(Colour, "Dim c As Colour", "Debug.Print c.cRed"));
+
+        StringAssert.Contains(errors.Single(), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]

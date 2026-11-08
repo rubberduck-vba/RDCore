@@ -26,9 +26,18 @@ public sealed class EndAndStopTests
         return Convert.ToInt64(session.Symbols.Resolver.GetValue(total!).Value.BoxedValue);
     }
 
-    private static async Task<(ExecuteSessionResult Result, long Total, ExecuteSessionResult Again, long TotalAgain)> RunTwiceAsync(string program)
+    // whether the program is past its first statement, which gave Total 3: in the cell the interpreter and compiled code both write it in. Not the frame's
+    // Pc, which compiled code does not keep while it runs: a frame says where the program is once it has stopped, which is when the debugger reads it.
+    private static bool GaveTotalThree(EnvironmentSessionProvider provider)
     {
-        ExecuteSessionResult? first = null, second = null;
+        var symbols = provider.Session.Symbols;
+        return symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module) && symbols.TryResolveValue("Total", module!, out var total)
+            && Convert.ToInt64(symbols.Resolver.GetValue(total!).Value.BoxedValue) == 3;
+    }
+
+    private static async Task<(ExecuteResult Result, long Total, ExecuteResult Again, long TotalAgain)> RunTwiceAsync(string program)
+    {
+        ExecuteResult? first = null, second = null;
         long total = 0, totalAgain = 0;
         await ModuleWorkspace.InspectAsync(NoClasses, program, async (provider, result, runAgain) =>
         {
@@ -97,12 +106,33 @@ public sealed class EndAndStopTests
         Assert.AreEqual(ExecutionOutcome.Halted, run.Again.Outcome);
     }
 
+    // a Static variable is given its storage by its procedure's first call, not by the definition of its module: End lets go of it all the same, and the
+    // next run's first call gives it storage again, from nothing.
+    [TestMethod]
+    public async Task End_LeavesNoStaticOfTheProgram_SoTheNextRunCountsFromTheStart()
+    {
+        var run = await RunTwiceAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print Counted(); Counted()",
+            "    End",
+            "End Sub",
+            "Private Function Counted() As Long",
+            "    Static Seen As Long",
+            "    Seen = Seen + 1",
+            "    Counted = Seen",
+            "End Function"));
+
+        CollectionAssert.AreEqual(new[] { "1  2" }, run.Result.Output.Select(line => line.Trim()).ToArray());
+        CollectionAssert.AreEqual(new[] { "1  2" }, run.Again.Output.Select(line => line.Trim()).ToArray(), "the Static starts from nothing again");
+    }
+
     [TestMethod]
     public async Task End_RunsNoTerminate_AndAProgramThatEndsNormallyDoes()
     {
         var widget = ModuleWorkspace.ClassModule("Widget", "Private Sub Class_Terminate()", "    Debug.Print \"terminated\"", "End Sub");
 
-        ExecuteSessionResult? ended = null, finished = null;
+        ExecuteResult? ended = null, finished = null;
         await ModuleWorkspace.InspectAsync([("Widget", widget)], Program(
             "Public Sub Main()",
             "    Dim w As Widget",
@@ -169,7 +199,7 @@ public sealed class EndAndStopTests
     {
         // a release build keeps the Debug statements unless it is told to drop them; the DEBUG constant is False, and Stop ends the program as End does, as
         // in a compiled VB6 executable.
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         long total = -1;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
@@ -199,7 +229,7 @@ public sealed class EndAndStopTests
     [DataRow(true, ExecutionOutcome.Completed, DisplayName = "dropped: nothing is asserted")]
     public async Task AnAssertionThatFails_InAReleaseBuild(bool drops, ExecutionOutcome expected)
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Sub Main()",
             "    Debug.Assert False",
@@ -217,7 +247,7 @@ public sealed class EndAndStopTests
     [DataRow(true, 0L, DisplayName = "dropped: the function is not called")]
     public async Task ADebugPrintOfACall_InAReleaseBuild(bool drops, long calls)
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         long total = -1;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
@@ -243,7 +273,7 @@ public sealed class EndAndStopTests
     public async Task Stop_InAReleaseBuildThatDropsTheDebugStatements_EndsTheProgram_AndEveryDebugCallIsLeftOut()
     {
         // nothing is printed and nothing is asserted: the arguments are not evaluated.
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         long total = -1;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
@@ -402,7 +432,7 @@ public sealed class EndAndStopTests
     [TestMethod]
     public async Task ABreakFromOutside_IsAStop_OfWhateverTheProgramWasDoing()
     {
-        ExecuteSessionResult? result = null;
+        ExecuteResult? result = null;
         await ModuleWorkspace.InspectAsync(NoClasses, Program(
             "Public Total As Long",
             "Public Sub Main()",
@@ -413,7 +443,7 @@ public sealed class EndAndStopTests
         {
             result = outcome;
             return Task.CompletedTask;
-        }, cancelWhen: provider => provider.Session.CallStack.Current is RDCore.Runtime.Execution.Frames.CallStackFrame { Pc: > 0 });
+        }, cancelWhen: GaveTotalThree);
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result!.Outcome, result.ErrorMessage);
         Assert.IsGreaterThanOrEqualTo(3, result.ErrorLine, "it stopped in the loop, and says which line it was on");

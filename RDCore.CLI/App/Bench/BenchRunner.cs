@@ -56,14 +56,16 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 /// <param name="Compile">Compiling the procedures the cases called to IL, when the engine is <see cref="VBExecutionEngine.Compiled"/>: each the first time it was
 /// called, which is in the first run of its case.</param>
 /// <param name="Cases">The cases, in the order the modules declare them.</param>
-/// <param name="Problems">What kept a module from being parsed or loaded; a case of such a module is not run.</param>
+/// <param name="Problems">What kept a module from being parsed or loaded. While there is any, no case is run: each is refused with it.</param>
 /// <param name="Indent">
 /// Indenting the shell's program of <see cref="BenchRunner.ProgramLines"/> lines as the shell does (<see cref="RDCore.SDK.Formatting.ProgramIndenter"/>), the
 /// fastest of the runs (<see cref="BenchOptions.Runs"/>, <c>--runs</c>): the same program whatever the workspace; none when the cases are only listed.
 /// </param>
+/// <param name="DirectCalls">How many calls compiled code made of compiled procedures through their typed entries, over every run of every case.</param>
+/// <param name="IndirectCalls">How many calls compiled code made through the invoker, over every run of every case.</param>
 internal sealed record class BenchReport(
     BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
-    IReadOnlyList<string> Problems, TimeSpan? Indent = null);
+    IReadOnlyList<string> Problems, TimeSpan? Indent = null, long DirectCalls = 0, long IndirectCalls = 0);
 
 /// <summary>
 /// Runs the benchmarks of a workspace in-process, the way the environment host runs a program: the session composed from the project, each module's symbols and
@@ -113,6 +115,9 @@ internal sealed class BenchRunner(
         var load = await LoadAsync(workspace, profile, token);
         var provider = load.Provider;
 
+        // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): each case is refused with what keeps the modules from loading.
+        var refused = load.Problems.Count > 0 ? $"{ExecutionOutcome.SyntaxError} {string.Join("; ", load.Problems)}" : null;
+
         var cases = new List<BenchCase>();
         foreach (var (name, entryPoint) in Cases(provider.Session, load.Loaded).Where(found => Selected(found.Name, options.Filter)))
         {
@@ -122,12 +127,22 @@ internal sealed class BenchRunner(
                 continue;
             }
 
+            if (refused is not null)
+            {
+                cases.Add(new BenchCase(name, [], refused));
+                continue;
+            }
+
             progress?.Invoke(name);
             cases.Add(await RunCaseAsync(provider, name, entryPoint, options.Runs, token));
         }
 
         var indent = options.ListOnly ? (TimeSpan?)null : IndentProgram(options.Runs);
-        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems, indent);
+
+        // how compiled code made its calls: what says which way a case that calls ran.
+        var (direct, indirect) = provider.Image.CompiledCalls;
+        return new BenchReport(workspace, load.Parse, load.Symbols, load.Load, load.Sweep, provider.Image.CompilationTime, cases, load.Problems, indent,
+            direct, indirect);
     }
 
     /// <summary>
@@ -211,8 +226,10 @@ internal sealed class BenchRunner(
         var parsed = new List<(BenchModule Module, Uri Uri, ModuleParseResult Parse)>();
         foreach (var module in workspace.Modules)
         {
+            // a module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a branch of a #If
+            // that is excluded, which only the host knows.
             var parse = new ModuleParser().Parse(new Uri(fileSystem.Path.Combine(workspace.Root, module.RelativePath)), module.Source);
-            if (parse.IsSuccess && parse.SyntaxTree is not null)
+            if (parse.SyntaxTree is not null)
             {
                 parsed.Add((module, SymbolUri.Module(root, module.Name), parse));
             }
@@ -227,7 +244,7 @@ internal sealed class BenchRunner(
         // as the language server does: the names of every module bound among all of them and the libraries the project references, then each module's symbols
         // defined in the host, then the code of each.
         stopwatch.Restart();
-        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References);
+        var referenced = LibrarySymbolProvider.Load(libraries, workspace.Project.References, environment.Language);
         IReadOnlyList<Symbol> librarySymbols = [.. new LibrarySymbolProvider(root, referenced, environment.Is64Bit).ProvideSymbols()];
         var scope = environment.Language.ImplicitDeclarationScope;
 

@@ -50,7 +50,7 @@ public sealed class ProgramInspectionTests
         "    Stop",
         "End Sub");
 
-    private static Dictionary<string, HostVariable> Named(HostDebugVariablesResult result) => result.Variables.ToDictionary(variable => variable.Name, StringComparer.OrdinalIgnoreCase);
+    private static Dictionary<string, DebugVariable> Named(DebugVariablesResult result) => result.Variables.ToDictionary(variable => variable.Name, StringComparer.OrdinalIgnoreCase);
 
     // ---- the stack ----
 
@@ -192,8 +192,8 @@ public sealed class ProgramInspectionTests
             "    Stop",
             "End Sub"), provider =>
         {
-            CollectionAssert.AreEqual(new[] { "Zebra", "Apple" }, provider.Execution.Variables(0, HostVariableScope.Module, 0).Variables.Select(variable => variable.Name).ToArray());
-            CollectionAssert.AreEqual(new[] { "mango", "banana", "cherry" }, provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables.Select(variable => variable.Name).ToArray());
+            CollectionAssert.AreEqual(new[] { "Zebra", "Apple" }, provider.Execution.Variables(0, DebugVariableScope.Module, 0).Variables.Select(variable => variable.Name).ToArray());
+            CollectionAssert.AreEqual(new[] { "mango", "banana", "cherry" }, provider.Execution.Variables(0, DebugVariableScope.Locals, 0).Variables.Select(variable => variable.Name).ToArray());
             return Task.CompletedTask;
         });
 
@@ -208,7 +208,7 @@ public sealed class ProgramInspectionTests
             "    Stop",
             "End Sub"), provider =>
         {
-            CollectionAssert.AreEqual(new[] { "zz", "aa", "first" }, provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables.Select(variable => variable.Name).ToArray());
+            CollectionAssert.AreEqual(new[] { "zz", "aa", "first" }, provider.Execution.Variables(0, DebugVariableScope.Locals, 0).Variables.Select(variable => variable.Name).ToArray());
             return Task.CompletedTask;
         });
 
@@ -226,7 +226,7 @@ public sealed class ProgramInspectionTests
     public async Task TheLocals_AreTheParametersAndTheVariablesOfTheProcedure_WithTheirValuesAndTypes()
         => await DebugAsync(Source, provider =>
         {
-            var locals = Named(provider.Execution.Variables(0, HostVariableScope.Locals, 0));
+            var locals = Named(provider.Execution.Variables(0, DebugVariableScope.Locals, 0));
 
             Assert.AreEqual("7", locals["k"].Value);
             Assert.AreEqual("Long", locals["k"].Type);
@@ -239,7 +239,7 @@ public sealed class ProgramInspectionTests
     public async Task TheLocals_OfACallingActivation_AreItsOwn()
         => await DebugAsync(Source, provider =>
         {
-            var locals = Named(provider.Execution.Variables(1, HostVariableScope.Locals, 0));
+            var locals = Named(provider.Execution.Variables(1, DebugVariableScope.Locals, 0));
 
             Assert.AreEqual("7", locals["n"].Value);
             Assert.AreEqual("\"a\"\"b\"", locals["s"].Value, "a string is quoted, and its quotes are doubled");
@@ -257,7 +257,7 @@ public sealed class ProgramInspectionTests
     public async Task AnObject_ThatIsNothing_IsNothing()
         => await DebugAsync(Source, provider =>
         {
-            var locals = Named(provider.Execution.Variables(1, HostVariableScope.Locals, 0));
+            var locals = Named(provider.Execution.Variables(1, DebugVariableScope.Locals, 0));
 
             Assert.AreEqual("Nothing", locals["o"].Value);
             return Task.CompletedTask;
@@ -269,12 +269,12 @@ public sealed class ProgramInspectionTests
     public async Task AnArray_HasItsElementsForWhoeverAsks()
         => await DebugAsync(Source, provider =>
         {
-            var arr = Named(provider.Execution.Variables(1, HostVariableScope.Locals, 0))["arr"];
+            var arr = Named(provider.Execution.Variables(1, DebugVariableScope.Locals, 0))["arr"];
 
             Assert.AreEqual("Long(1 To 3)", arr.Type);
             Assert.AreNotEqual(0, arr.Reference);
 
-            var elements = provider.Execution.Variables(0, HostVariableScope.Locals, arr.Reference);
+            var elements = provider.Execution.Variables(0, DebugVariableScope.Locals, arr.Reference);
 
             CollectionAssert.AreEqual(new[] { "(1)", "(2)", "(3)" }, elements.Variables.Select(element => element.Name).ToArray());
             CollectionAssert.AreEqual(new[] { "0", "9", "0" }, elements.Variables.Select(element => element.Value).ToArray());
@@ -285,11 +285,11 @@ public sealed class ProgramInspectionTests
     public async Task AnArrayOfSeveralDimensions_ListsItsElementsWithAllTheirSubscripts()
         => await DebugAsync(Source, provider =>
         {
-            var grid = Named(provider.Execution.Variables(1, HostVariableScope.Locals, 0))["grid"];
+            var grid = Named(provider.Execution.Variables(1, DebugVariableScope.Locals, 0))["grid"];
 
             Assert.AreEqual("Integer(1 To 2, 0 To 1)", grid.Type);
 
-            var elements = provider.Execution.Variables(0, HostVariableScope.Locals, grid.Reference);
+            var elements = provider.Execution.Variables(0, DebugVariableScope.Locals, grid.Reference);
 
             CollectionAssert.AreEqual(new[] { "(1, 0)", "(1, 1)", "(2, 0)", "(2, 1)" }, elements.Variables.Select(element => element.Name).ToArray());
             Assert.AreEqual("4", elements.Variables.Single(element => element.Name == "(2, 1)").Value);
@@ -300,11 +300,11 @@ public sealed class ProgramInspectionTests
     public async Task AUserDefinedType_HasItsFields()
         => await DebugAsync(Source, provider =>
         {
-            var p = Named(provider.Execution.Variables(1, HostVariableScope.Locals, 0))["p"];
+            var p = Named(provider.Execution.Variables(1, DebugVariableScope.Locals, 0))["p"];
 
             Assert.AreEqual("TPoint", p.Type);
 
-            var fields = provider.Execution.Variables(0, HostVariableScope.Locals, p.Reference);
+            var fields = provider.Execution.Variables(0, DebugVariableScope.Locals, p.Reference);
 
             CollectionAssert.AreEqual(new[] { "X", "Y" }, fields.Variables.Select(field => field.Name).ToArray());
             CollectionAssert.AreEqual(new[] { "4", "0" }, fields.Variables.Select(field => field.Value).ToArray());
@@ -327,8 +327,8 @@ public sealed class ProgramInspectionTests
             "End Sub"), provider =>
         {
             // without the type the host reads with the Enum, the variable showed as Empty, of type Unknown.
-            var locals = Named(provider.Execution.Variables(0, HostVariableScope.Locals, 0));
-            var module = Named(provider.Execution.Variables(0, HostVariableScope.Module, 0));
+            var locals = Named(provider.Execution.Variables(0, DebugVariableScope.Locals, 0));
+            var module = Named(provider.Execution.Variables(0, DebugVariableScope.Module, 0));
 
             Assert.AreEqual("2", locals["c"].Value);
             Assert.AreEqual("Long", locals["c"].Type);
@@ -342,7 +342,7 @@ public sealed class ProgramInspectionTests
     public async Task APartOfAValue_ThatIsNoReferenceAnyMore_IsNothing()
         => await DebugAsync(Source, provider =>
         {
-            Assert.IsEmpty(provider.Execution.Variables(0, HostVariableScope.Locals, 999).Variables);
+            Assert.IsEmpty(provider.Execution.Variables(0, DebugVariableScope.Locals, 999).Variables);
             return Task.CompletedTask;
         });
 
@@ -350,14 +350,14 @@ public sealed class ProgramInspectionTests
     public async Task TheReferences_AreForgottenWhenTheProgramGoesOn()
         => await DebugAsync(Source.Replace("    Stop\r\nEnd Sub", "    Stop\r\n    Stop\r\nEnd Sub"), async provider =>
         {
-            var arr = Named(provider.Execution.Variables(1, HostVariableScope.Locals, 0))["arr"];
-            Assert.IsNotEmpty(provider.Execution.Variables(0, HostVariableScope.Locals, arr.Reference).Variables);
+            var arr = Named(provider.Execution.Variables(1, DebugVariableScope.Locals, 0))["arr"];
+            Assert.IsNotEmpty(provider.Execution.Variables(0, DebugVariableScope.Locals, arr.Reference).Variables);
 
             var resumed = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
                 .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
 
             Assert.AreEqual(ExecutionOutcome.Suspended, resumed.Outcome, "at the second Stop");
-            Assert.IsEmpty(provider.Execution.Variables(0, HostVariableScope.Locals, arr.Reference).Variables);
+            Assert.IsEmpty(provider.Execution.Variables(0, DebugVariableScope.Locals, arr.Reference).Variables);
         });
 
     // ---- module ----
@@ -366,7 +366,7 @@ public sealed class ProgramInspectionTests
     public async Task TheModuleVariables_AreThoseOfTheModuleTheProcedureIsDeclaredIn()
         => await DebugAsync(Source, provider =>
         {
-            var module = Named(provider.Execution.Variables(0, HostVariableScope.Module, 0));
+            var module = Named(provider.Execution.Variables(0, DebugVariableScope.Module, 0));
 
             Assert.AreEqual("5", module["Total"].Value);
             Assert.AreEqual("\"hi\"", module["Title"].Value);
@@ -377,8 +377,8 @@ public sealed class ProgramInspectionTests
     public async Task TheVariables_OfAnActivationThatIsNotOnTheStack_AreNone()
         => await DebugAsync(Source, provider =>
         {
-            Assert.IsEmpty(provider.Execution.Variables(7, HostVariableScope.Locals, 0).Variables);
-            Assert.IsEmpty(provider.Execution.Variables(-1, HostVariableScope.Locals, 0).Variables);
+            Assert.IsEmpty(provider.Execution.Variables(7, DebugVariableScope.Locals, 0).Variables);
+            Assert.IsEmpty(provider.Execution.Variables(-1, DebugVariableScope.Locals, 0).Variables);
             return Task.CompletedTask;
         });
 
@@ -388,7 +388,7 @@ public sealed class ProgramInspectionTests
         {
             _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
 
-            Assert.IsEmpty(provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables);
+            Assert.IsEmpty(provider.Execution.Variables(0, DebugVariableScope.Locals, 0).Variables);
             Assert.IsEmpty(provider.Execution.Stack().Frames);
         });
 }

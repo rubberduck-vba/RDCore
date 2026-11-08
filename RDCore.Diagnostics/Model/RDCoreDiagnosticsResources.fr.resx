@@ -312,6 +312,9 @@
   <data name="ArgumentTypedArithmeticOverflow_Message" xml:space="preserve">
     <value>Cette opération est de type {0} : MS-VBA type Abs, Int et Fix d&apos;un nombre comme ce nombre, là où MS-VBAL les déclare Variant. Elle peut déborder (erreur d&apos;exécution 6) là où une opération de Variant s&apos;élargirait à un type plus grand.</value>
   </data>
+  <data name="ArrayGivenASecondEmptyArgumentList_Message" xml:space="preserve">
+    <value>Ce tableau reçoit une deuxième liste d&apos;arguments vide, f()() : MS-VBAL la rend invalide, et MS-VBA la compile, et lève l&apos;erreur d&apos;exécution 9 (L&apos;indice n&apos;appartient pas à la sélection) chaque fois qu&apos;elle s&apos;exécute. Écrivez f(), ou f.</value>
+  </data>
   <data name="IgnoredTypeCharacter_Message" xml:space="preserve">
     <value>Le caractère de type de cette fonction ne correspond pas à son type déclaré ({1}) : MS-VBAL rend ce nom invalide, et MS-VBA ignore le caractère. Écrivez &apos;{0}&apos; sans lui.</value>
   </data>
@@ -353,5 +356,20 @@
   </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est un module de document, où MS-VBAL dit qu&apos;une directive Implements ne peut pas figurer : MS-VBA compile &apos;Implements {1}&apos; tout de même, et RD-VBA aussi.</value>
+  </data>
+  <data name="ObjectVariablePassedByRefIsACopy_Message" xml:space="preserve">
+    <value>Cet argument, une variable publique d&apos;un objet ou un élément d&apos;une telle variable, est passé à un paramètre ByRef comme une copie : ce que la procédure assigne au paramètre ne lui est pas réécrit. MS-VBAL passe la variable elle-même; MS-VBA passe une copie, et RD-VBA aussi.</value>
+  </data>
+  <data name="ObjectVariablePassedLateIsACopy_Message" xml:space="preserve">
+    <value>Cet argument, une variable publique d&apos;un objet ou un élément d&apos;une telle variable, est passé comme une copie à une procédure appelée tardivement, comme MS-VBA le passe : si la procédure le prend ByRef, ce qu&apos;elle assigne au paramètre ne lui est pas réécrit.</value>
+  </data>
+  <data name="StringComparedWithANumberAsADouble_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; compare une String à un entier ou à un Single : MS-VBA compare les deux comme des valeurs Double, et MS-VBAL §5.6.9.5 les compare dans le type du nombre; le résultat peut différer (&quot;2.5&quot; = 2 est False; &quot;40000&quot; comparé à un Integer ne dépasse pas sa capacité).</value>
+  </data>
+  <data name="NewOfAClassNotCreatable_New_Message" xml:space="preserve">
+    <value>New {0} est compilé, et échoue chaque fois qu&apos;il s&apos;exécute : aucun objet de la classe {0} n&apos;est jamais créé, et MS-VBA lève l&apos;erreur d&apos;exécution -2147221164 (Classe non enregistrée).</value>
+  </data>
+  <data name="NewOfAClassNotCreatable_AsNew_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est déclaré As New d&apos;une classe dont aucun objet n&apos;est jamais créé : chaque référence qui créerait son objet lève l&apos;erreur d&apos;exécution -2147221164 (Classe non enregistrée), comme dans MS-VBA.</value>
   </data>
 </root>

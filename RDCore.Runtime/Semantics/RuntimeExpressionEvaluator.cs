@@ -442,6 +442,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     {
         SimpleNameExpressionNode name => IsAVariable(session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol),
         MemberAccessExpressionNode access when ResolveNamespaceQualified(session, context, access) is { } qualified => IsAVariable(qualified),
+
+        // a member with no object before the dot is one of the With block variable (MS-VBAL §5.4.2.21): a field of a record is a variable, in a nested block
+        // (`With .Inner`) too, which holds the field's record itself (recorded in Excel: oracle\s59 M01-M03). A member of an object is not classified here: it
+        // is passed as a copy (M04).
+        MemberAccessExpressionNode { Owner: null } => IsRecord(context.EnclosingWithTarget),
         MemberAccessExpressionNode { Owner: { } owner } access => DeclaredTypeOfOwner(session, context, owner) switch
         {
             VBUserDefinedType => true,
@@ -454,6 +459,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     };
 
     private static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
+
+    private static bool IsRecord(VBTypedValue? value) => value is VBUserDefinedTypeValue or VBVariantValue { TypedValue: VBUserDefinedTypeValue };
+
+    private static bool IsAnObject(VBTypedValue? value) => value is VBObjectValue or VBVariantValue { TypedValue: VBObjectValue };
 
     // the declared type of an expression, as the static semantics read it - without evaluating it, which a caller that only needs to classify an
     // expression must not do a second time (a call in it would be made twice).
@@ -477,6 +486,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         if (VBProjectSymbol.ResolveClass(session.Symbols.Resolver, classModule) is { } current)
         {
             classModule = current;
+        }
+
+        // the variable is left Nothing, and the next reference to it tries again (s62 X09).
+        if (NewExpressionRuntimeSemantics.CreationFailure(classModule, default) is { } refused)
+        {
+            return refused;
         }
 
         var objectId = session.Objects.CreateObject();
@@ -1591,6 +1606,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 string.Format(Exceptions.VBIndex_NothingToIndex_Verbose, calleeValue?.TypeInfo.Name)));
         }
 
+        if (IsTheArrayItself(session, context, indexExpression))
+        {
+            return calleeResult;
+        }
+
+        // `f()()`: a second empty argument list, which MS-VBAL makes invalid, MS-VBA compiles - and when it runs, it is a subscript out of range (Excel-verified,
+        // oracle\s53 E07, E08, F07, F08).
+        if (SDK.Semantics.Static.Expressions.IndexExpressionStaticSemantics.IsASecondEmptyArgumentList(indexExpression) && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBArrayType)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location,
+                Exceptions.VBIndex_SecondEmptyArgumentList_Verbose));
+        }
+
         if (EvaluateSubscripts(session, context, indexExpression.Arguments, out var subscripts, out var subscriptsKnown) is { } subscriptFailure)
         {
             return subscriptFailure;
@@ -1629,6 +1657,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location,
                     string.Join(", ", subscripts)));
     }
+
+    // MS-VBAL 5.6.13.1: an empty argument list, of an array declared as one that was not already given one, is the array itself - `f()` is `f`.
+    private static bool IsTheArrayItself(IRuntimeSession session, RuntimeEvaluationContext context, IndexExpressionNode indexExpression)
+        => IndexExpressionNode.IsEmptyArgumentList(indexExpression.Arguments)
+            && !(indexExpression.Callee is IndexExpressionNode given && IndexExpressionNode.IsEmptyArgumentList(given.Arguments))
+            && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBArrayType;
+
+    // the array `f()` is, as the expression that names it - `f` - so that it is the variable `f` is; any other expression as it is.
+    internal static ExpressionNode TheArrayItself(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode expression)
+        => expression is IndexExpressionNode whole && IsTheArrayItself(session, context, whole) ? whole.Callee : expression;
 
     // whether what an index expression indexes is a variable declared As New - an array of automatic instantiation variables - named bare: a local, a field of
     // the module, or of the object whose code this is.
@@ -2474,6 +2512,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         reference = VBRuntimeReference.NullRef;
         evaluated = null;
 
+        // `f()` is the array itself (MS-VBAL §5.6.13.1), passed by reference as `f` is.
+        argument = TheArrayItself(session, context, argument);
+
         // an element of an array is a variable (MS-VBAL §5.6.13.1), passed by reference as one: MS-VBA writes what the callee assigns to the element, and the
         // array is locked for as long as the call runs (ICallStackFrame.LocksArray). A Declare is given the element where it is in the array: the reference
         // says which one, and the marshaller passes the array's data from there (a String a Declare takes ByVal is a buffer, not this).
@@ -2549,8 +2590,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     && (!typedByAddress || HoldsValueOf(parameter, reference.DeclaredType!, () => Evaluate(session, memberAccess, context).Result));
             }
 
-            return !takesAny && (TryResolveFieldByRefArgument(session, context, memberAccess, parameter, out reference)
-                || TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external));
+            // a public variable of an object named as its member (b.Count, Me.Count, .Count in a With block, late bound too) is passed as a copy, which what
+            // the callee assigns is not written back to (MS-VBA, recorded in Excel: oracle\s55 B01, B02, B06-B08). MS-VBAL §5.6.12 classifies it as a
+            // variable, which §5.3.1.11 would pass by reference: RD-VBA does as MS-VBA does, and warns (RDC11026, RD-VBAL §5.3.1.11). Named by itself in its
+            // own class it is the variable (B05), bound below as any name is.
+            return !takesAny && TryResolveRecordFieldByRefArgument(session, context, memberAccess, parameter, borrowed, out reference, external);
         }
 
         if (qualified is null && argument is not SimpleNameExpressionNode)
@@ -2751,6 +2795,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        // an element of the array a public variable of an object holds, named as its member (b.V(0), Me.V(0), .V(0) in a With block of the object, a nested
+        // one too), is a copy, as the variable itself is (MS-VBA, recorded in Excel: oracle\s58 B01, s59 M04). Named by itself in its own class (V(0)) it is
+        // the element, bound below.
+        if (element.Callee is MemberAccessExpressionNode member && (member.Owner is { } instance
+            ? DeclaredTypeOfOwner(session, context, instance) is VBClassType
+            : IsAnObject(context.EnclosingWithTarget)))
+        {
+            return false;
+        }
+
         var callee = Evaluate(session, element.Callee, context);
         var held = callee.IsSuccess ? callee.Result : null;
         while (held is VBVariantValue { TypedValue: var wrapped })
@@ -2836,23 +2890,48 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // MS-VBAL §5.3.1.11: a field of a record held by a variable is a variable too, and a ByRef parameter is a second name for it - what the callee assigns is
     // the field's (MVVM's `ConnectToConnectionPoint ..., This.Cookie` reads the cookie the call wrote there). Like an element of an array, the field's own cell is
     // given an address for as long as the call runs, which the caller gives back (borrowed). A field that is a record itself has no cell of its own: it is given
-    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`.
+    // one over the field (RecordFieldBinding) - MVVM's `ConnectToConnectionPoint Me, This.RefIID, ...`. In a With block of a record, `.X` is the field of the
+    // With block variable (MS-VBAL §5.4.2.21), which is the record variable itself when the With expression is one (MS-VBA, recorded in Excel: oracle\s58
+    // W01, s59 M01-M03).
     private bool TryResolveRecordFieldByRefArgument(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode access, VBParameterSymbol parameter, List<MemoryAddress> borrowed,
         out VBRuntimeReference reference, bool external)
     {
         reference = VBRuntimeReference.NullRef;
-        if (access.Owner is not { } owner || !DenotesAVariable(session, context, owner)
-            || Evaluate(session, owner, context).Result is not VBUserDefinedTypeValue { IsIndeterminate: false } record
+        VBTypedValue? held = null;
+        if (access.Owner is { } owner)
+        {
+            if (DenotesAVariable(session, context, owner))
+            {
+                held = Evaluate(session, owner, context).Result;
+            }
+        }
+        else
+        {
+            held = context.EnclosingWithTarget;
+        }
+
+        while (held is VBVariantValue { TypedValue: var wrapped })
+        {
+            held = wrapped;
+        }
+
+        if (held is not VBUserDefinedTypeValue { IsIndeterminate: false } record
             || record.TypeInfo is not VBUserDefinedType recordType
             || recordType.Field(access.Member.IdentifierName) is not { ResolvedType: { } fieldType } field)
         {
             return false;
         }
 
-        IBindingHandle? cell = fieldType is VBUserDefinedType nestedType
-            ? new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), nestedType)
-            : record.GetFieldHandle(access.Member.IdentifierName);
+        IBindingHandle? cell;
+        if (fieldType is VBUserDefinedType or VBVariantType)
+        {
+            cell = new Execution.RecordFieldBinding(session, record, recordType.Fields().ToList().IndexOf(field), fieldType);
+        }
+        else
+        {
+            cell = record.GetFieldHandle(access.Member.IdentifierName);
+        }
         if (cell is null || !cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
             return false;
@@ -2887,10 +2966,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // whether a variable of this declared type is one a ByRef parameter can be bound to without a copy: one of the parameter's own declared type, an
     // enumeration being the declared type Long (MS-VBAL §5.2.3.4), so a variable of one and a Long parameter, or two enumerations, are the same type. An
     // array's declared type is an array of its element type, whether it has fixed bounds or none (§5.2.3.1.3): a fixed-size array is passed to an
-    // `A() As Long` parameter by reference, as a resizable one is. The element types match as they are: an array of an Enum is no array of Long.
+    // `A() As Long` parameter by reference, as a resizable one is. The element types match as they are, but for two Enums: an array of an Enum is no array
+    // of Long, and is an array of another Enum (recorded in Excel: oracle\s61 G21, s61b G22, G23).
     private static bool IsOfDeclaredType(VBParameterSymbol parameter, VBType variableType)
         => (parameter.ResolvedType, variableType) is (VBArrayType parameterArray, VBArrayType variableArray)
-            ? parameterArray.ItemType.Equals(variableArray.ItemType)
+            ? parameterArray.ItemType.Equals(variableArray.ItemType) || parameterArray.ItemType is VBEnumType && variableArray.ItemType is VBEnumType
             : VBEnumType.AsDeclaredType(parameter.ResolvedType).Equals(VBEnumType.AsDeclaredType(variableType));
 
     // MS-VBAL §5.3.1.11: a Variant parameter given a variable of another type is bound to it, and the binding knows what the variable is declared to be - the
@@ -2902,38 +2982,6 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // type - which is the variable it hands on when it is passed by reference again.
     private static VBType DeclaredTypeOf(IRuntimeSession session, Symbol symbol, VBType declared)
         => session.CallStack.Current is { } current && current.TryGetReferencedType(symbol, out var referenced) ? referenced : declared;
-
-    // MS-VBAL §5.3.1.11: a public variable of an object is a variable too, with an address of its own, and a ByRef parameter is a second name for it
-    // when the types agree, as for a variable of the code's own - which is also what lets a callee lock it (§5.4.3.3). A property falls through to the copy;
-    // the field of a user-defined type to TryResolveRecordFieldByRefArgument.
-    private bool TryResolveFieldByRefArgument(
-        IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBParameterSymbol parameter, out VBRuntimeReference reference)
-    {
-        reference = VBRuntimeReference.NullRef;
-
-        var evaluated = EvaluateOwner(session, context, memberAccess);
-        if (!evaluated.IsSuccess
-            || UnwrappedOwner(evaluated.Result!) is not VBObjectValue owner
-            || ResolveAssignableMember(session, context, memberAccess, owner, isSet: false)
-                is not { Field: ITypedSymbol { ResolvedType: { } fieldType } field, Instance: { } instance })
-        {
-            return false;
-        }
-
-        if (!IsOfDeclaredType(parameter, fieldType) && parameter.ResolvedType is not VBVariantType)
-        {
-            return false;
-        }
-
-        if (!instance.TryGetAddress((Symbol)field, out var address)
-            || !instance.GetValue((Symbol)field).BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
-        {
-            return false;
-        }
-
-        reference = new VBRuntimeReference(address, ReferencedType(parameter, fieldType));
-        return true;
-    }
 
     // MissingArgumentNode is a placeholder, not a value - element access needs every subscript, so it
     // reports as unresolved rather than being silently skipped the way the static evaluator's own
@@ -3096,18 +3144,29 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return notAnObject;
         }
 
-        var objectValue = (VBObjectValue)operandResult.Result!;
+        return IsInstanceOf(session, ((VBObjectValue)operandResult.Result!).Value, targetClass) is { } isOf
+            ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(isOf))
+            : RuntimeSemanticsEvaluationResult.InternalError();
+    }
 
+    /// <summary>
+    /// Whether the object <paramref name="instance"/>, which is something, is an instance of a class that is, or implements, <paramref name="targetClass"/>
+    /// (MS-VBAL §5.6.7): what <c>TypeOf</c> evaluates to, once its operand is known to be an object that is not <c>Nothing</c>.
+    /// </summary>
+    /// <param name="session">The session the object is in.</param>
+    /// <param name="instance">The reference to the object.</param>
+    /// <param name="targetClass">The class tested against.</param>
+    /// <returns><see langword="null"/> when the session knows no such object.</returns>
+    internal static bool? IsInstanceOf(IRuntimeSession session, VBRuntimeObjectId instance, VBClassModuleSymbol targetClass)
+    {
         // an object of a server is what it answers to (QueryInterface): a form's control is the extender it is wrapped in too - `TypeOf Label1 Is MSForms.Control`,
         // which is how MVVM's BindingManager tells a control - and that is no class its class implements.
-        if (Execution.External.Automation.ServerObjects.IsInstanceOf(session, objectValue.Value, targetClass) is { } answered)
+        if (Execution.External.Automation.ServerObjects.IsInstanceOf(session, instance, targetClass) is { } answered)
         {
-            return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(answered));
+            return answered;
         }
 
-        return session.Symbols.TryGetInstance(objectValue.Value, out var instance)
-            ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(IsOrImplements(instance.ClassModule, targetClass, [])))
-            : RuntimeSemanticsEvaluationResult.InternalError();
+        return session.Symbols.TryGetInstance(instance, out var held) ? IsOrImplements(held.ClassModule, targetClass, []) : null;
     }
 
     // Uri.Equals/GetHashCode ignore the fragment, where a Symbol's own identity lives - AbsoluteUri

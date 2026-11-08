@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 
 namespace RDCore.External.Interaction;
@@ -21,6 +22,7 @@ public interface IUserInteraction
     /// <param name="token">Stops waiting.</param>
     /// <returns>The button that closed the dialog.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="token"/> was cancelled before the dialog was closed.</exception>
+    /// <exception cref="DialogNotAnsweredException">The dialog cannot be answered, and the run fails with the error it says.</exception>
     VBMsgBoxResult ShowMessage(MessageBoxRequest request, CancellationToken token = default);
 
     /// <summary>
@@ -30,7 +32,20 @@ public interface IUserInteraction
     /// <param name="token">Stops waiting.</param>
     /// <returns>What was typed - a zero-length string when nothing was - or <see langword="null"/> when the dialog was cancelled.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="token"/> was cancelled before the dialog was closed.</exception>
+    /// <exception cref="DialogNotAnsweredException">The dialog cannot be answered, and the run fails with the error it says.</exception>
     string? Prompt(InputBoxRequest request, CancellationToken token = default);
+}
+
+/// <summary>
+/// A dialog that cannot be answered: the run fails with an untrappable error of RD-VBA's own (VBR50000-50999), rather than wait on a dialog nobody sees, or go
+/// on with an answer nobody gave.
+/// </summary>
+/// <param name="ErrorId">The error the run fails with.</param>
+/// <param name="message">Why, as the error says it: who was asked, and what they answered.</param>
+public sealed class DialogNotAnsweredException(VBRuntimeErrorId ErrorId, string message) : Exception(message)
+{
+    /// <summary>The error the run fails with.</summary>
+    public VBRuntimeErrorId ErrorId { get; } = ErrorId;
 }
 
 /// <summary>
@@ -41,7 +56,6 @@ public interface IUserInteraction
 /// <param name="Style">The buttons, the icon, the default button and the modality, summed.</param>
 public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgBoxStyle Style)
 {
-    private const int ButtonsMask = 0x7;
     private const int IconMask = 0x70;
     private const int DefaultButtonMask = 0x300;
     private const int DefaultButtonShift = 8;
@@ -50,9 +64,7 @@ public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgB
     /// The set of buttons: <see cref="VBMsgBoxStyle.VBOKOnly"/> through <see cref="VBMsgBoxStyle.VBRetryCancel"/>. A value that names none of them is
     /// <see cref="VBMsgBoxStyle.VBOKOnly"/>.
     /// </summary>
-    public VBMsgBoxStyle Buttons => ((int)Style & ButtonsMask) is var buttons and <= (int)VBMsgBoxStyle.VBRetryCancel
-        ? (VBMsgBoxStyle)buttons
-        : VBMsgBoxStyle.VBOKOnly;
+    public VBMsgBoxStyle Buttons => VBMsgBoxButtons.Of(Style);
 
     /// <summary>
     /// The icon: <see cref="VBMsgBoxStyle.VBCritical"/>, <see cref="VBMsgBoxStyle.VBQuestion"/>, <see cref="VBMsgBoxStyle.VBExclamation"/>,
@@ -63,15 +75,7 @@ public sealed record class MessageBoxRequest(string Prompt, string Title, VBMsgB
     /// <summary>
     /// The buttons of the dialog, in the order they are shown, as the answer each of them gives.
     /// </summary>
-    public IReadOnlyList<VBMsgBoxResult> Choices => Buttons switch
-    {
-        VBMsgBoxStyle.VBOKCancel => [VBMsgBoxResult.VBOK, VBMsgBoxResult.VBCancel],
-        VBMsgBoxStyle.VBAbortRetryIgnore => [VBMsgBoxResult.VBAbort, VBMsgBoxResult.VBRetry, VBMsgBoxResult.VBIgnore],
-        VBMsgBoxStyle.VBYesNoCancel => [VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo, VBMsgBoxResult.VBCancel],
-        VBMsgBoxStyle.VBYesNo => [VBMsgBoxResult.VBYes, VBMsgBoxResult.VBNo],
-        VBMsgBoxStyle.VBRetryCancel => [VBMsgBoxResult.VBRetry, VBMsgBoxResult.VBCancel],
-        _ => [VBMsgBoxResult.VBOK],
-    };
+    public IReadOnlyList<VBMsgBoxResult> Choices => VBMsgBoxButtons.ChoicesOf(Style);
 
     /// <summary>
     /// The index in <see cref="Choices"/> of the button that has the focus when the dialog opens: the one <c>vbDefaultButton1</c> through <c>vbDefaultButton4</c>

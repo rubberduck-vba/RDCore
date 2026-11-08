@@ -1,6 +1,7 @@
-using Newtonsoft.Json.Linq;
 using NSubstitute;
+using OmniSharp.Extensions.LanguageServer.Protocol.Serialization;
 using RDCore.CLI.App.Configuration;
+using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Formatting;
@@ -8,6 +9,8 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using System.IO.Abstractions.TestingHelpers;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace RDCore.Tests.Server.Configuration;
 
@@ -60,10 +63,10 @@ public sealed class RubberduckIndenterImportTests
         var read = Reader(WithConfig(Config)).Read();
 
         Assert.AreEqual(RubberduckIndenterSettingsSource.RubberduckConfig, read.Source);
-        Assert.AreEqual("false", (string?)read.Values["IndentEntireProcedureBody"]);
-        Assert.AreEqual("150", (string?)read.Values["AlignDimColumn"]);
-        Assert.IsNull(read.Values["GeneralSettings"], "only the indenter's settings");
-        Assert.IsNull(read.Values["Language"]);
+        Assert.AreEqual("false", read.Values["IndentEntireProcedureBody"].GetString());
+        Assert.AreEqual("150", read.Values["AlignDimColumn"].GetString());
+        Assert.IsFalse(read.Values.ContainsKey("GeneralSettings"), "only the indenter's settings");
+        Assert.IsFalse(read.Values.ContainsKey("Language"));
     }
 
     [TestMethod]
@@ -96,7 +99,7 @@ public sealed class RubberduckIndenterImportTests
     {
         var read = Reader(WithConfig("<Configuration><UserSettings><IndenterSettings><Unknown>1</Unknown></IndenterSettings></UserSettings></Configuration>")).Read();
 
-        Assert.AreEqual("1", (string?)read.Values["Unknown"], "read as it is");
+        Assert.AreEqual("1", read.Values["Unknown"].GetString(), "read as it is");
         Assert.IsNull(IndenterSettingsImport.From(read), "and none of it is a setting");
     }
 
@@ -108,8 +111,8 @@ public sealed class RubberduckIndenterImportTests
         var read = Reader(new MockFileSystem(), registry).Read();
 
         Assert.AreEqual(RubberduckIndenterSettingsSource.SmartIndenterRegistry, read.Source);
-        Assert.AreEqual("Y", (string?)read.Values["IndentProc"]);
-        Assert.AreEqual("40", (string?)read.Values["AlignDimCol"], "as SaveSetting wrote it: text");
+        Assert.AreEqual("Y", read.Values["IndentProc"].GetString());
+        Assert.AreEqual("40", read.Values["AlignDimCol"].GetString(), "as SaveSetting wrote it: text");
         Assert.AreEqual(3, read.TabWidth);
     }
 
@@ -167,16 +170,16 @@ public sealed class RubberduckIndenterImportTests
             "EndOfLineCommentStyle", "EndOfLineCommentColumnSpaceAlignment", "EmptyLineHandlingMethod", "IndentSpaces", "VerticallySpaceProcedures",
             "LinesBetweenProcedures", "GroupRelatedProperties",
         ];
-        var values = new JObject();
+        var values = new Dictionary<string, JsonElement>();
         foreach (var name in names)
         {
-            values[name] = name switch
+            values[name] = JsonSerializer.SerializeToElement(name switch
             {
                 "EndOfLineCommentStyle" => "StandardGap",
                 "EmptyLineHandlingMethod" => "Indent",
                 "AlignDimColumn" or "EndOfLineCommentColumnSpaceAlignment" or "IndentSpaces" or "LinesBetweenProcedures" => "1",
                 _ => "true",
-            };
+            });
         }
 
         var import = Mapped(new RubberduckIndenterSettingsResult { Source = RubberduckIndenterSettingsSource.RubberduckConfig, Values = values });
@@ -184,18 +187,25 @@ public sealed class RubberduckIndenterImportTests
         CollectionAssert.AreEquivalent(names.Select(name => $"Formatting.{name}").ToArray(), import.Values.Keys.ToArray());
     }
 
-    // the wire: the answer is camelCase JSON with the source as its name.
+    // the wire: the answer is camelCase JSON with the source as its name, as a client with the Protocol package alone writes it and as the shell does.
     [TestMethod]
     public void TheAnswer_TravelsAsJson_WithTheSourceByName()
     {
         var answer = Reader(WithConfig(Config)).Read();
 
-        var json = JObject.FromObject(answer, Newtonsoft.Json.JsonSerializer.Create(new Newtonsoft.Json.JsonSerializerSettings { ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver() }));
+        foreach (var written in new[]
+        {
+            JsonSerializer.Serialize(answer, RDCorePlatformJson.Options),
+            new LspSerializer().SerializeObject(new RubberduckIndenterSettingsReply(answer)),
+        })
+        {
+            var json = JsonNode.Parse(written)!.AsObject();
 
-        Assert.AreEqual("RubberduckConfig", (string?)json["source"]);
-        Assert.AreEqual("2", (string?)json["values"]!["IndentSpaces"]);
-        Assert.IsNotNull(json["tabWidth"]);
-        Assert.AreEqual(JTokenType.Null, json["tabWidth"]!.Type);
+            Assert.AreEqual("RubberduckConfig", (string?)json["source"], written);
+            Assert.AreEqual("2", (string?)json["values"]!["IndentSpaces"], written);
+            Assert.IsTrue(json.ContainsKey("tabWidth"), written);
+            Assert.IsNull(json["tabWidth"], written);
+        }
     }
 
     // CONFIG IMPORT RUBBERDUCK, with no round trip: the shell reads, maps and stores.
@@ -338,17 +348,25 @@ public sealed class RubberduckIndenterImportTests
 
         public string? Answer { get; set; } = IndenterSettingsImportText.Import();
 
+        // the client's error, when nobody answered the question: a shell whose input is a script says so.
+        public Exception? Unanswered { get; set; }
+
+        // the client's error, when it could not take the settings as its own.
+        public Exception? NotApplied { get; set; }
+
         public Task<IndenterSettingsImportOutcome?> OfferAsync(bool formattingWasSet, RubberduckIndenterSettingsResult found)
             => new IndenterSettingsOffer(files, Marker).OfferAsync(formattingWasSet, _ => Read(found),
                 (message, choices, _) =>
                 {
                     Questions.Add(message);
-                    return Task.FromResult(Answer);
+                    return Unanswered is { } unanswered ? Task.FromException<string?>(unanswered) : Task.FromResult(Answer);
                 },
                 (_, _) =>
                 {
                     Applications++;
-                    return Task.FromResult(new RubberduckIndenterSettingsApplyResult { Applied = 7 });
+                    return NotApplied is { } notApplied
+                        ? Task.FromException<RubberduckIndenterSettingsApplyResult>(notApplied)
+                        : Task.FromResult(new RubberduckIndenterSettingsApplyResult { Applied = 7 });
                 },
                 CancellationToken.None);
     }
@@ -381,6 +399,51 @@ public sealed class RubberduckIndenterImportTests
         Assert.IsNull(await offering.OfferAsync(formattingWasSet: false, Found()));
 
         Assert.AreEqual(0, offering.Applications);
+        Assert.IsTrue(files.File.Exists(Marker));
+    }
+
+    [TestMethod]
+    public async Task AQuestionNobodyAnswered_IsNotAnOfferMade_AndIsAskedAtTheNextStart()
+    {
+        var files = new MockFileSystem();
+        var offering = new Offering(files) { Unanswered = new InvalidOperationException("Nobody is at the shell's console to answer the question.") };
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => offering.OfferAsync(formattingWasSet: false, Found()));
+        Assert.IsFalse(files.File.Exists(Marker), "nobody answered, so the offer is still to make");
+
+        offering.Unanswered = null;
+        Assert.AreEqual(7, (await offering.OfferAsync(formattingWasSet: false, Found()))!.Applied);
+        Assert.AreEqual(2, offering.Questions.Count);
+        Assert.IsTrue(files.File.Exists(Marker));
+    }
+
+    // the offer can't be remembered where it is kept (a folder is in the way, as a file the user can't write would be): what the user chose is done all the same.
+    [TestMethod]
+    public async Task AnImportTheUserChose_IsApplied_ThoughTheOfferCantBeRemembered()
+    {
+        var files = new MockFileSystem();
+        files.AddDirectory(Marker);
+        var offering = new Offering(files);
+
+        var outcome = await offering.OfferAsync(formattingWasSet: false, Found());
+
+        Assert.AreEqual(7, outcome!.Applied);
+        Assert.AreEqual(1, offering.Applications);
+    }
+
+    // the settings the user chose to import, that the client could not take: the import is not done, and the offer is made again at the next start.
+    [TestMethod]
+    public async Task AnImportTheClientCouldNotApply_IsOfferedAgainAtTheNextStart()
+    {
+        var files = new MockFileSystem();
+        var offering = new Offering(files) { NotApplied = new InvalidOperationException("The client could not write its settings.") };
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => offering.OfferAsync(formattingWasSet: false, Found()));
+        Assert.IsFalse(files.File.Exists(Marker), "the offer is still to make");
+
+        offering.NotApplied = null;
+        Assert.AreEqual(7, (await offering.OfferAsync(formattingWasSet: false, Found()))!.Applied);
+        Assert.AreEqual(2, offering.Questions.Count);
         Assert.IsTrue(files.File.Exists(Marker));
     }
 

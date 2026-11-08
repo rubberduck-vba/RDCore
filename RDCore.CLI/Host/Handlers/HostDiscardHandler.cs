@@ -15,13 +15,13 @@ namespace RDCore.CLI.Host.Handlers;
 /// </remarks>
 internal sealed class HostDiscardHandler(
     IEnvironmentSessionProvider sessionProvider,
-    ILogger<HostDiscardHandler> logger) : RDCoreRequestHandler<HostDiscardParams, DiscardSessionResult>
+    ILogger<HostDiscardHandler> logger) : RDCoreRequestHandler<HostDiscardParams, DiscardResult>
 {
-    protected override async Task<DiscardSessionResult> HandleAsync(HostDiscardParams request, CancellationToken token)
+    protected override async Task<DiscardResult> HandleAsync(HostDiscardParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
-            return new DiscardSessionResult();
+            return new DiscardResult();
         }
 
         // A client that clears its program (NEW, LOAD) ends the one that is running or waits first. Anything else that takes a module out - a document that is
@@ -39,7 +39,7 @@ internal sealed class HostDiscardHandler(
                 logger.LogInformation("📌 {module}: kept, a program is {state}.", request.ModuleName, execution.State);
             }
 
-            return new DiscardSessionResult();
+            return new DiscardResult();
         }
 
         var session = sessionProvider.Session;
@@ -47,6 +47,7 @@ internal sealed class HostDiscardHandler(
         // the activations of a program that was stopped belong to code that is going: they would be looking at symbols that are no longer there.
         SessionWipe.Abandon(session);
         var discarded = new ModuleUnloader(session, sessionProvider.Image).Unload(request.ModuleUri);
+        HeldDefinitions.Discarded(session, request.ModuleName);
 
         // what the module held is released, and was allocated after the rest of the program's: the free memory at the end of the space is unused again.
         session.Memory.Reclaim();
@@ -56,6 +57,6 @@ internal sealed class HostDiscardHandler(
             logger.LogInformation("🗑️ {module}: {discarded} symbol(s) discarded.", request.ModuleName, discarded);
         }
 
-        return new DiscardSessionResult { Discarded = discarded };
+        return new DiscardResult { Discarded = discarded };
     }
 }

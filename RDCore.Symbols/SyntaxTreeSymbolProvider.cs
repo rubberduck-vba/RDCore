@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Workspace;
@@ -44,7 +45,10 @@ public sealed class SyntaxTreeSymbolProvider(
     bool withImplicitDeclarations = true,
     ImplicitDeclarationScope implicitScope = ImplicitDeclarationScope.Procedure) : ISymbolProvider
 {
-    public IEnumerable<Symbol> ProvideSymbols() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription);
+    // on a thread whose stack has room for the deepest expression a parse has (LargeStackThread): the names of an expression are found by recursion, once or
+    // more for each level of it, and a module whose expression is nested too deeply to run (VBC00060) still declares what it declares.
+    public IEnumerable<Symbol> ProvideSymbols()
+        => LargeStackThread.Run(() => ProvideDeclaredSymbols().Select(WithUserMemId).Select(WithDescription).ToList());
 
     // what a member's own module says it does (`Attribute Item.VB_Description = "..."`): what a completion list and a signature help show of it.
     private Symbol WithDescription(Symbol member)
@@ -65,7 +69,8 @@ public sealed class SyntaxTreeSymbolProvider(
         // one identity (same uri) can be declared once per #If branch — such sites are alternatives of one another, and fuse into the first, carrying every
         // site in Definitions and what each other declares in Alternatives. a site that is not an alternative of the others is not another branch of the same
         // declaration but a second declaration of the name, which is an error for whoever reads the symbols to find, and not one to hide in a fusion.
-        // the accessors of one property have identities of their own (Symbol.UriSuffix), so they never fuse here. the identity is the uri alone, not the
+        // the accessors of one property, and an Enum, a Type or an Event beside a namesake of the module, have identities of their own (Symbol.UriSuffix),
+        // so they never fuse here. the identity is the uri alone, not the
         // symbol's type: a header written once per branch may declare a Sub in one and a Function in the other.
         var blocks = ConditionalCompilationBlocks.Of(parseResult.PrecompilerTrivia);
         foreach (var group in EnumerateDeclaredSymbols().GroupBy(symbol => symbol.Uri.ToString()))

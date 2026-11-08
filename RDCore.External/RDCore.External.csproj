@@ -5,9 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 ${Authors}</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore External</AssemblyTitle>
+    <Description>The platform-independent abstractions through which the RD-VBA runtime reaches outside the platform: COM automation, native libraries, user dialogs, forms, the desktop and saved settings.</Description>
   </PropertyGroup>
 
   <ItemGroup>

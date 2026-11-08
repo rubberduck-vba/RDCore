@@ -5,8 +5,8 @@ namespace RDCore.SDK.Workspace;
 
 /// <summary>
 /// Loads a workspace's <c>.rdproj</c> <see cref="ProjectFile"/> from disk, read-only. Every platform
-/// component that needs the project structure — the language server's workspace services and the
-/// environment host's session composition — resolves the project through this service so there is a
+/// component that needs the project structure (the language server's workspace services and the
+/// environment host's session composition) resolves the project through this service so there is a
 /// single deserialization path.
 /// </summary>
 public interface IProjectFileLoader
@@ -28,8 +28,7 @@ public interface IProjectFileLoader
     /// <param name="workspaceRoot">The absolute path of the workspace root directory.</param>
     /// <param name="token">A token that cancels the read.</param>
     /// <exception cref="FileNotFoundException">No <c>.rdproj</c> exists under the workspace root.</exception>
-    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
-    /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
+    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON, or is no JSON object; the message says where.</exception>
     Task<ProjectFile> LoadAsync(string workspaceRoot, CancellationToken token = default);
 
     /// <summary>
@@ -53,8 +52,7 @@ public interface IProjectFileLoader
     /// <param name="workspaceRoot">The absolute path of the workspace root directory.</param>
     /// <param name="language">The language the workspace is written in, whose <see cref="SupportedLanguage.FileTypes"/> are its source files.</param>
     /// <param name="token">A token that cancels the read.</param>
-    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON; the message says where it stops being JSON.</exception>
-    /// <exception cref="InvalidOperationException">The <c>.rdproj</c> could not be deserialized.</exception>
+    /// <exception cref="InvalidDataException">The <c>.rdproj</c> is not JSON, or is no JSON object; the message says where.</exception>
     Task<ProjectFile> LoadOrSynthesizeAsync(string workspaceRoot, SupportedLanguage language, CancellationToken token = default);
 
     /// <summary>
@@ -101,10 +99,10 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
         }
 
         await using var stream = fileSystem.File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        ProjectFile? project;
         try
         {
-            project = await JsonSerializer.DeserializeAsync<ProjectFile>(stream, cancellationToken: token);
+            // read as any client of the platform reads it: what the file leaves out is empty, and the standard library is no reference of it.
+            return await ProjectFile.ReadAsync(stream, workspaceRoot, token);
         }
         catch (JsonException exception)
         {
@@ -112,18 +110,6 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
             throw new InvalidDataException(string.Format(Exceptions.ProjectFile_InvalidJson, path,
                 (exception.LineNumber ?? 0) + 1, (exception.BytePositionInLine ?? 0) + 1, exception.Message), exception);
         }
-
-        if (project is null)
-        {
-            throw new InvalidOperationException($"The {ProjectFile.FileName} at '{path}' could not be deserialized.");
-        }
-
-        // the standard library is every project's own, and no reference of it: a project file written before lists it - with the path of Office's VBE7.DLL -
-        // and is read without it, which it is written without the next time.
-        var loaded = project.WithUri(workspaceRoot);
-        return loaded.ProjectInfo is { } info && info.References.Any(reference => reference.IsStandardLibrary)
-            ? loaded with { ProjectInfo = info with { References = [.. info.References.Where(reference => !reference.IsStandardLibrary)] } }
-            : loaded;
     }
 
     /// <inheritdoc/>
@@ -203,7 +189,7 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
     {
         try
         {
-            return await fileSystem.File.ReadAllTextAsync(path, token);
+            return ProjectModuleKinds.ReadText(await fileSystem.File.ReadAllBytesAsync(path, token));
         }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
         {
@@ -221,5 +207,5 @@ public sealed class ProjectFileLoader(IFileSystem fileSystem) : IProjectFileLoad
             && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
             && !string.Equals(name, "VBA", StringComparison.OrdinalIgnoreCase)
             ? name
-            : "VBAProject";
+            : RDCoreProject.DefaultName;
 }

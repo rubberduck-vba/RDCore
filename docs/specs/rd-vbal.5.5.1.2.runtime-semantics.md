@@ -73,7 +73,7 @@ Each let-coercion step yields a [LetCoercionResult](../api/RDCore.SDK.Runtime.Sh
 |---|---|
 |`Success`|The coerced [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).|
 |`Error`|A run-time error, such as `TypeMismatch` or `Overflow` (`VBRuntimeErrorId`).|
-|`NotApplicable`|—|
+|`NotApplicable`|None|
 
 
 ## Let-coercion strategies
@@ -109,8 +109,8 @@ When the source value is outside that range, it raises `Overflow`. Otherwise:
 |---|---|
 |Widening|The value is copied, converted to the destination's representation.|
 |Narrowing to a wider-or-equal integral type|The value is copied, converted to the destination's representation.|
-|Floating-point or fixed-point value → integral type (narrowing)|The value is rounded to the nearest integer ([**RD-VBAL §5.5.1.2.1.1** Banker's rounding](#551211-bankers-rounding)) before conversion.|
-|Integral → floating-point|🎯 A plain widening copy (see the divergence note below).|
+|Floating-point or fixed-point value → integral type (narrowing)|The value is rounded to the nearest integer ([**RD-VBAL §5.5.1.2.1.1** Banker's rounding](#551211-bankers-rounding)) before conversion. The whole number it rounds to is the one that must be within the destination's range, as **MS-VBA** checks it (recorded in Excel, `oracle\s58` K01, K02): `CInt(32767.3)` is `32767`, `CInt(-32768.5)` is `-32768`, `CByte(-0.5)` is `0`, and `CInt(32767.5)` and `CByte(255.5)` overflow. A `C*` function and an implicit Let-coercion check it alike, from a `Single`, a `Double`, a `Currency`, a `Decimal` or a `String`.|
+|Integral → floating-point|A plain widening copy. RD-VBA differs from MS-VBAL here (see the note below).|
 |`Single` → `Decimal`|The value to 7 significant digits, ties to even, as **MS-VBA** has it: `CDec(CSng(0.1))` is `0.1`, a `Single` of `16777217` is `16777220` (recorded in Excel). A `Double` keeps 15 digits; a `Currency` is the exact value.|
 
 A `Date` source let-coerced to a numeric destination reports `ConversionSemanticFlags.DateSerial`
@@ -118,7 +118,7 @@ A `Date` source let-coerced to a numeric destination reports `ConversionSemantic
 `VBNumericLetCoercionTypeRuntimeSemantics.DateSerialFlagsOf` computes the `DateSerial` flag for a `Date` source.
 
 > [!NOTE]
-> 🎯 **RD-VBAL diverges from MS-VBAL** in the integral → floating-point block of **MS-VBAL §5.5.1.2.1**.
+> **RD-VBA differs from MS-VBAL** in the integral → floating-point block of **MS-VBAL §5.5.1.2.1**.
 >
 > MS-VBAL specifies that block as a verbatim copy of the preceding (narrowing) block, including the finite-value and
 > banker's-rounding checks. No integer value can meet the finite-value and banker's-rounding conditions, and
@@ -170,7 +170,7 @@ A number is a `Date` when it is strictly between -657435 and 2958466: a time of 
 (`VBDateType.IsValidSerial`). A number past either end, and a `Date` operation whose result is past it
 (`#12/31/9999# + 1`), is run-time error 6, _Overflow_ (MS-VBA, recorded in Excel).
 
-> 👉 A `Date` source let-coerced to a numeric or `Boolean` destination is handled by the numeric or `Boolean`
+> A `Date` source let-coerced to a numeric or `Boolean` destination is handled by the numeric or `Boolean`
 > strategy, which reports its `DateSerial` flag
 > ([**RD-VBAL §5.5.1.2.1** Let-coercion between numeric types](#55121-let-coercion-between-numeric-types),
 > [**RD-VBAL §5.5.1.2.2** Let-coercion to and from Boolean](#55122-let-coercion-to-and-from-boolean)).
@@ -261,10 +261,10 @@ What is read is what MS-VBA reads (recorded in Excel), which is more than §5.5.
 > `/`, `-` or `,` between its parts. Under regional settings whose Short Date is `dd.MM.yyyy`, `CStr` writes
 > `15.01.2020`, which does not read back as a date. How MS-VBA reads a day-first date is not recorded yet.
 
-👉 What the debugger displays is not a let-coercion: it writes a number and a date the way the VBA editor writes a
+What the debugger displays is not a let-coercion: it writes a number and a date the way the VBA editor writes a
 literal, whatever the culture.
 
-👉 The `DateTime` module reads the culture of the thread the interpreter runs on, whatever `Lcid` is, for
+The `DateTime` module reads the culture of the thread the interpreter runs on, whatever `Lcid` is, for
 `vbUseSystemDayOfWeek` and `vbUseSystem`: `Weekday`, `DatePart` and `DateDiff` take the first day of the week from it,
 and `DatePart` the first week of the year
 ([**RD-VBAL §6.1.2.4** DateTime Module](rd-vbal.6.1.2.4.datetime-module.md)).
@@ -297,7 +297,7 @@ or code page takes part:
 |`Byte()`|`String`|Every byte of the array, the elements in order: two bytes to a character, and a trailing byte when the array has an odd number of elements. A pair of bytes that is a lone surrogate is kept as one: `00 D8` is `U+D800`. An uninitialized array is a 0-length string.|
 |`String`|`Byte()`|Every byte of the string's data: an odd string gives an odd number of elements, and `U+D800` gives `00 D8`.|
 
-👉 RD-VBA's format can hold any number of bytes, so the "?" **MS-VBAL §5.5.1.2.6** substitutes for data that cannot
+RD-VBA's format can hold any number of bytes, so the "?" **MS-VBAL §5.5.1.2.6** substitutes for data that cannot
 be represented, and the trailing bytes it discards, never arise: every byte of the array is kept.
 
 
@@ -305,8 +305,18 @@ be represented, and the trailing bytes it discards, never arise: every byte of t
 
 This section corresponds to [**MS-VBAL §5.5.1.2.7** Let-coercion to and from non-Byte arrays](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/38315eed-8ea8-4e2a-b91c-25a96910407a).
 
-> [!NOTE]
-> Reserved. This section has no content yet.
+An array of the destination's element type is copied, a shallow copy with its bounds and rank, as the specification has
+it; an array of any other element type, and a number, a `Boolean`, a `Date` or a `String`, is a type mismatch (13)
+([VBResizableArrayLetCoercionRuntimeSemantics](../api/RDCore.Runtime.Semantics.LetCoercion.VBResizableArrayLetCoercionRuntimeSemantics.html)).
+
+**RD-VBA differs from MS-VBAL:** an array of objects, of `Object` or of any class, is copied into an array of objects of another class, or of
+`Object`, as **MS-VBA** copies it, where the specification's "same element type" would be a type mismatch: a `Variant`
+holding an `Object()` is copied into a `Box()`, a `Collection` in it included, and a `Collection()` into an `Object()`
+whose elements are the same objects (`o(0) Is c(0)` is `True`). No element's class is checked. An array of `Variant`s or
+of numbers into an array of objects, and an array of objects into a `Variant()`, are still type mismatches (recorded in
+Excel). The source of such a
+copy is a `Variant`, whose array the analysis does not know before the code runs, so no diagnostic stands in for the
+difference.
 
 
 ## 5.5.1.2.8 Let-coercion to and from a UDT
@@ -371,7 +381,7 @@ The `VBRuntimeVariantValue` box follows the same pattern a
 [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html)
 ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).
 
-> 👉 A `Variant` read back from a variable, array element, or field carries the exact value that was stored in it,
+> A `Variant` read back from a variable, array element, or field carries the exact value that was stored in it,
 > rather than a new, unrelated `Empty`.
 
 ### Unwrapping
@@ -403,6 +413,3 @@ Code that does not unwrap a `VBVariantValue` sees the box instead of the value.
 The default member of a class type can be implicitly invoked through let-coercion, yielding the _data value_ of the
 object ([**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md);
 [**RD-VBAL §5.6.2** Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md)).
-
----
-> ⏮️ [**RD-VBAL §5.5.1.1** Static semantics](rd-vbal.5.5.1.1.static-semantics.md) | ⏭️ [**RD-VBAL §5.5.2** Set-coercion](rd-vbal.5.5.2.set-coercion.md)

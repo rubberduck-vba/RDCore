@@ -27,4 +27,11 @@ public class AppOptions
     /// <summary>The name of the theme to select once themes are loaded.</summary>
     [Setting(SettingReach.NextStart)]
     public string Theme { get; init; } = "dark";
+
+    /// <summary>
+    /// Whether the console runs programs unattended (<c>--unattended</c>): it tells the language server that nobody is there to answer a program's dialogs
+    /// (<see cref="SDK.Client.Unattended"/>), and a program that opens one fails.
+    /// </summary>
+    [Setting(SettingReach.NextStart)]
+    public bool Unattended { get; init; }
 }

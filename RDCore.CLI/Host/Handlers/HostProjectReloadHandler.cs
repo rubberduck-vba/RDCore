@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using RDCore.CLI.Host;
 using RDCore.Runtime.Execution;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
@@ -41,7 +42,7 @@ internal sealed class HostProjectReloadHandler(
 
         var root = request.WorkspaceRoot.IsFile ? request.WorkspaceRoot.LocalPath : request.WorkspaceRoot.OriginalString;
         var project = await projectFileLoader.LoadOrSynthesizeAsync(root, options.Value.Workspace.SupportedLanguage);
-        sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
+        sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
 
         if (logger.IsEnabled(LogLevel.Information))
         {

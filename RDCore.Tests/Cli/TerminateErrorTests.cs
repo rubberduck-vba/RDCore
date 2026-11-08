@@ -31,9 +31,9 @@ public sealed class TerminateErrorTests
             "End Sub")),
     ];
 
-    private static async Task<ExecuteSessionResult> Run(string declarations, params string[] body)
+    private static async Task<ExecuteResult> Run(string declarations, params string[] body)
     {
-        ExecuteSessionResult? outcome = null;
+        ExecuteResult? outcome = null;
         await InspectAsync(Classes,
             $"Attribute VB_Name = \"Program\"\r\nPublic TermErr As Long\r\n{declarations}\r\nPublic Sub Main()\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n",
             (_, result, _) =>
@@ -44,7 +44,7 @@ public sealed class TerminateErrorTests
         return outcome!;
     }
 
-    private static void EndsTheProgramWith(int number, ExecuteSessionResult result, params string[] printed)
+    private static void EndsTheProgramWith(int number, ExecuteResult result, params string[] printed)
     {
         Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, result.ErrorMessage);
         Assert.AreEqual(number, result.ErrorNumber);

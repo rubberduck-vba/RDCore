@@ -82,6 +82,14 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: true);
 
     /// <summary>
+    /// The errors that stopped the <c>Program</c> standard module from loading, as <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>
+    /// gives them, of a module that may have syntax errors, which the language server sends the host as it sends any other module.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    public static Task<string[]> LoadErrorsWithSyntaxErrorsAsync(string program)
+        => RunCoreAsync([], program, errorsOnly: true, syntaxErrors: true);
+
+    /// <summary>
     /// The libraries a workspace's project references, and the source they are found in. A library is known by its name, as the project's reference says.
     /// </summary>
     /// <param name="References">The names of the libraries the project references, in order, after the standard library.</param>
@@ -99,8 +107,9 @@ internal static class ModuleWorkspace
     /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, for a project that references libraries.
     /// </summary>
-    public static Task<string[]> LoadErrorsAsync(IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries)
-        => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries);
+    public static Task<string[]> LoadErrorsAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries, SupportedLanguage? language = null)
+        => RunCoreAsync(classes, program, errorsOnly: true, libraries: libraries, language: language);
 
     /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with document modules: <c>.doccls</c> files the
@@ -142,6 +151,44 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries, modules: modules);
 
     /// <summary>
+    /// Runs <c>Program.Main</c> unattended, as the language server runs it for a client that expects <c>Unattended</c>: nobody is there to answer a dialog.
+    /// What came of the run, whatever it was.
+    /// </summary>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="libraries">The libraries the project references; only the standard library when omitted.</param>
+    /// <param name="forms">The forms of the workspace, whose parse has what their designer declares.</param>
+    public static async Task<ExecuteResult> RunUnattendedAsync(
+        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries? libraries = null,
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
+    {
+        ExecuteResult? ran = null;
+        await RunCoreAsync(classes, program, errorsOnly: false, inspect: (_, result, _) =>
+        {
+            ran = result;
+            return Task.CompletedTask;
+        }, libraries: libraries, forms: forms, unattended: true);
+        return ran!;
+    }
+
+    /// <summary>
+    /// Runs <c>Program.Main</c> of a module that may have syntax errors, which the language server sends the host as it sends any other module, and the host
+    /// loads what the parser made of it. What came of the run, whatever it was.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c>, which may have syntax errors too.</param>
+    public static async Task<ExecuteResult> RunWithSyntaxErrorsAsync(string program, IReadOnlyList<(string Name, string Source)>? modules = null)
+    {
+        ExecuteResult? ran = null;
+        await RunCoreAsync([], program, errorsOnly: false, inspect: (_, result, _) =>
+        {
+            ran = result;
+            return Task.CompletedTask;
+        }, modules: modules, syntaxErrors: true);
+        return ran!;
+    }
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and asks the host what the semantic analysis pass found out about it, as the language server does.
     /// </summary>
     /// <param name="classes">The class modules of the workspace.</param>
@@ -167,6 +214,40 @@ internal static class ModuleWorkspace
     }
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and asks the host which of its modules declare a procedure the program can start with, as a
+    /// debug adapter asks of a launch that names no module.
+    /// </summary>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="classes">The class modules of the workspace.</param>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="entryPoint">The name of the procedure; <c>Main</c> when omitted.</param>
+    /// <param name="libraries">The libraries the project references; only the standard library when omitted.</param>
+    /// <param name="forms">The forms of the workspace, whose parse has what their designer declares.</param>
+    /// <param name="documents">The document modules of the workspace (<see cref="LoadDocumentsAsync"/>).</param>
+    /// <returns>The modules the host answers with, every module of the workspace having been asked about.</returns>
+    public static async Task<string[]> EntryPointsAsync(
+        string program, IReadOnlyList<(string Name, string Source)>? classes = null, IReadOnlyList<(string Name, string Source)>? modules = null,
+        string entryPoint = "Main", WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null,
+        IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null)
+    {
+        string[] asked =
+        [
+            .. (classes ?? []).Select(module => module.Name), .. (modules ?? []).Select(module => module.Name), .. (forms ?? []).Select(module => module.Name),
+            .. (documents ?? []).Select(module => module.Name), "Program",
+        ];
+
+        string[] declaring = [];
+        await RunCoreAsync(classes ?? [], program, errorsOnly: true, afterLoading: async sessionProvider =>
+        {
+            var result = await new HostEntryPointsHandler(sessionProvider).Handle(
+                new HostEntryPointsParams { EntryPoint = entryPoint, Modules = asked }, CancellationToken.None);
+            declaring = result.Modules;
+        }, libraries: libraries, modules: modules, forms: forms, documents: documents);
+
+        return declaring;
+    }
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and hands the host's session provider to <paramref name="inspect"/>.
     /// </summary>
     public static Task WithHostAsync(
@@ -180,17 +261,18 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="moduleName">The module whose model is given.</param>
     /// <param name="language">The language the code is written in; RD-VBA unless said otherwise.</param>
+    /// <param name="syntaxErrors">Whether a module may have syntax errors, which the language server sends the host as it sends any other module.</param>
     public static async Task<SDK.Semantics.ModuleSemanticModel> ModelAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, string moduleName = "Program", SupportedLanguage? language = null,
-        WorkspaceLibraries? libraries = null)
+        WorkspaceLibraries? libraries = null, bool syntaxErrors = false)
     {
         SDK.Semantics.ModuleSemanticModel? model = null;
         await RunCoreAsync(classes, program, errorsOnly: true, afterLoading: async sessionProvider =>
         {
             // the facts of the code are evaluated in the background, after the model is stored.
             await sessionProvider.Image.Semantics.WhenAllEvaluatedAsync();
-            model = sessionProvider.Image.Semantics.All.Single(candidate => candidate.Module.Fragment.TrimStart('#') == moduleName);
-        }, language: language, libraries: libraries);
+            model = sessionProvider.Image.Semantics.All.Single(candidate => SDK.Model.Symbols.SymbolUri.ModuleNameOf(candidate.Module) == moduleName);
+        }, language: language, libraries: libraries, syntaxErrors: syntaxErrors);
 
         return model!;
     }
@@ -207,16 +289,19 @@ internal static class ModuleWorkspace
     /// loop, in the procedure it loops in), which is asked of the session as the program runs. Never, when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
-    /// <param name="engine">What runs the program; the interpreter when omitted.</param>
+    /// <param name="engine">What runs the program, whatever engine the suite runs with (<c>RDCORE_ENGINE</c>); the suite's when omitted.</param>
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
+    /// <param name="modules">The name and the source of each standard module beside <c>Program</c>; none when omitted.</param>
+    /// <param name="environment">What else the environment says, given the profile the other arguments make; that profile when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
-        VBExecutionEngine engine = VBExecutionEngine.Interpreter, bool releaseDropsDebugStatements = false)
+        VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source)>? modules = null,
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
-            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements);
+            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules, environment: environment);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
@@ -225,13 +310,16 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
     /// <param name="debug">Whether the program runs under a debugger.</param>
+    /// <param name="engine">What runs the program, whatever engine the suite runs with (<c>RDCORE_ENGINE</c>); the suite's when omitted.</param>
     public static Task InspectWithModulesAsync(
         IReadOnlyList<(string Name, string Source)> modules, string program,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> inspect, bool debug = false)
-        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules);
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, bool debug = false,
+        VBExecutionEngine? engine = null)
+        => RunCoreAsync([], program, errorsOnly: false, inspect: inspect, debug: debug, modules: modules, engine: engine);
 
     /// <summary>
-    /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>.
+    /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string)"/>, with <paramref name="engine"/>, whatever engine
+    /// the suite runs with.
     /// </summary>
     public static Task<string[]> RunAsync(IReadOnlyList<(string Name, string Source)> classes, string program, VBExecutionEngine engine)
         => RunCoreAsync(classes, program, errorsOnly: false, engine: engine);
@@ -239,13 +327,17 @@ internal static class ModuleWorkspace
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
-        Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
-        VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine engine = VBExecutionEngine.Interpreter,
-        bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null)
+        VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine? engine = null,
+        bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false,
+        bool syntaxErrors = false, Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
     {
+        // the engine a test asks for is the one that runs its program, whichever the suite runs every other with: the program's runs, and what the test does
+        // with the session while it waits, are in this flow.
+        using var pinned = engine is { } asked ? RDCore.Runtime.Compiled.CompiledExecution.Running(asked) : null;
         var loadErrors = new List<string>();
 
         // the kind of a document module is what the project says, as the platform reads it: one it gives no Super is what its text says.
@@ -277,10 +369,12 @@ internal static class ModuleWorkspace
             files[Path.Combine(Root, $"{module.Name}.{module.Extension}")] = new(module.Source);
         }
 
+        var profile = new RuntimeEnvironmentProfile(
+            Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
+            ExecutionEngine: engine ?? RDCore.SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
+            ReleaseDropsDebugStatements: releaseDropsDebugStatements);
         var sessionProvider = new EnvironmentSessionProvider(
-            new RuntimeEnvironmentProfile(
-                Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
-                ExecutionEngine: engine, ReleaseDropsDebugStatements: releaseDropsDebugStatements),
+            environment?.Invoke(profile) ?? profile,
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
             libraries?.Outside ?? (libraries?.Automation is { } automation ? MachineExternal.World with { Automation = automation } : null));
@@ -291,9 +385,10 @@ internal static class ModuleWorkspace
         var librarySymbols = libraries is null
             ? null
             : (IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>)[.. new LibrarySymbolProvider(
-                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References)).ProvideSymbols()];
+                workspaceRoot, LibrarySymbolProvider.Load(libraries.Source, project.ProjectInfo.References, language)).ProvideSymbols()];
         var parsed = await DefineAsync(sessionProvider, project.ProjectInfo.Name,
-            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers);
+            [.. allModules.Select(module => (module.Name, module.Extension, module.Type, module.Source))], forms, librarySymbols, documentHosts: supers,
+            syntaxErrors: syntaxErrors);
 
         foreach (var module in parsed)
         {
@@ -303,7 +398,8 @@ internal static class ModuleWorkspace
                 continue;
             }
 
-            Assert.IsEmpty(module.CodeErrors, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
+            // a module with syntax errors may not load, and its run is what says so.
+            Assert.IsTrue(syntaxErrors || module.CodeErrors.Count == 0, $"{module.Name}: {string.Join("; ", module.CodeErrors)}");
         }
 
         if (errorsOnly)
@@ -317,7 +413,7 @@ internal static class ModuleWorkspace
         }
 
         var entry = parsed.Single(module => module.Name == "Program");
-        Task<ExecuteSessionResult> Execute(CancellationToken cancellation)
+        Task<ExecuteResult> Execute(CancellationToken cancellation)
             => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
                 .Handle(new HostExecuteParams
                 {
@@ -325,6 +421,7 @@ internal static class ModuleWorkspace
                     ModuleName = "Program",
                     EntryPoint = "Main",
                     Debug = debug,
+                    Unattended = unattended,
                 }, cancellation);
 
         // the first run's request is cancelled once the program is seen where the test wants it, and not after a time, which a slower machine would spend
@@ -377,12 +474,25 @@ internal static class ModuleWorkspace
     /// <param name="only">The names of the modules that are defined and loaded again.</param>
     /// <param name="modules">Every module of the workspace, as it now reads.</param>
     /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
-    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+    public static Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only,
+        params (string Name, ModuleType Type, string Source)[] modules)
+        => ReloadOnlyAsync(provider, only, syntaxErrors: false, modules);
+
+    /// <summary>
+    /// Edits modules of a session like <see cref="ReloadOnlyAsync(EnvironmentSessionProvider, IReadOnlyCollection{string}, ValueTuple{string, ModuleType, string}[])"/>,
+    /// where a module may have syntax errors: the language server sends what the parser made of it all the same.
+    /// </summary>
+    /// <param name="provider">The session's provider, as a test that inspects a run is given it.</param>
+    /// <param name="only">The names of the modules that are defined and loaded again.</param>
+    /// <param name="syntaxErrors">Whether a module may have syntax errors.</param>
+    /// <param name="modules">Every module of the workspace, as it now reads.</param>
+    /// <returns>What each reloaded module's code load said is wrong with it; none when it compiles.</returns>
+    public static async Task<IReadOnlyList<string>> ReloadOnlyAsync(EnvironmentSessionProvider provider, IReadOnlyCollection<string> only, bool syntaxErrors,
         params (string Name, ModuleType Type, string Source)[] modules)
     {
         var defined = await DefineAsync(provider, "Project1",
             [.. modules.Select(module => (module.Name, module.Type == ModuleType.ClassModule ? "cls" : "bas", module.Type, module.Source))], forms: null, librarySymbols: null,
-            only: only);
+            only: only, syntaxErrors: syntaxErrors);
         return [.. defined.SelectMany(module => module.CodeErrors)];
     }
 
@@ -391,13 +501,13 @@ internal static class ModuleWorkspace
     private static async Task<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)[]> DefineAsync(
         EnvironmentSessionProvider sessionProvider, string projectName, (string Name, string Extension, ModuleType Type, string Source)[] modules,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms, IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol>? librarySymbols,
-        IReadOnlyCollection<string>? only = null, IReadOnlyDictionary<string, DocClassType>? documentHosts = null)
+        IReadOnlyCollection<string>? only = null, IReadOnlyDictionary<string, DocClassType>? documentHosts = null, bool syntaxErrors = false)
     {
         var workspaceRoot = Wire.FileUri(Root);
         var parsed = modules.Select(module =>
         {
             var parse = new ModuleParser().Parse(Wire.FileUri(Path.Combine(Root, $"{module.Name}.{module.Extension}")), module.Source);
-            Assert.IsTrue(parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
+            Assert.IsTrue(syntaxErrors || parse.IsSuccess, $"{module.Name}: {string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose))}");
 
             // as the language server does: the parse of a form has what its designer declares, which the parser does not read.
             parse = parse with { Designer = forms?.FirstOrDefault(form => form.Name == module.Name).Designer };

@@ -26,12 +26,12 @@ public sealed record class TypeOfIsExpressionStaticSemantics : IStaticSemantics
     private static readonly Lazy<TypeOfIsExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
-    /// The shared instance — this rule has no state of its own.
+    /// The shared instance: this rule has no state of its own.
     /// </summary>
     public static TypeOfIsExpressionStaticSemantics Instance => _instance.Value;
 
     /// <summary>
-    /// Determines the declared type of a <see cref="TypeOfIsExpressionNode"/> — always
+    /// Determines the declared type of a <see cref="TypeOfIsExpressionNode"/>: always
     /// <see cref="VBBooleanType"/>, provided <see cref="TypeOfIsExpressionNode.Operand"/>'s declared
     /// type satisfies MS-VBAL 5.6.7's classification requirement, and <see cref="TypeOfIsExpressionNode.TypeExpression"/> names a type.
     /// </summary>

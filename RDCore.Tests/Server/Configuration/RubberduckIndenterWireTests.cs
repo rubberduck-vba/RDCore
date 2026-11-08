@@ -75,8 +75,8 @@ public sealed class RubberduckIndenterWireTests
         using var languageClient = await connecting;
 
         var outcome = await IndenterSettingsImportFlow.ImportAsync(
-            token => server.SendRequest(new RubberduckIndenterSettingsParams(), token),
-            (request, token) => server.SendRequest(request, token),
+            async token => await server.SendRequest(new RubberduckIndenterSettingsRequest(), token),
+            (request, token) => server.SendRequest(new RubberduckIndenterSettingsApplyRequest(request), token),
             CancellationToken.None);
 
         Assert.AreEqual(RubberduckIndenterSettingsSource.RubberduckConfig, outcome.Source);
@@ -110,7 +110,7 @@ public sealed class RubberduckIndenterWireTests
         using var languageClient = await connecting;
 
         var outcome = await IndenterSettingsImportFlow.ImportAsync(
-            token => server.SendRequest(new RubberduckIndenterSettingsParams(), token),
+            async token => await server.SendRequest(new RubberduckIndenterSettingsRequest(), token),
             (_, _) => throw new AssertFailedException("nothing was found, so nothing is applied"),
             CancellationToken.None);
 

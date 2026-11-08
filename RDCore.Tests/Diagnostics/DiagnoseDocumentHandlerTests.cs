@@ -43,18 +43,18 @@ public sealed class DiagnoseDocumentHandlerTests
     private static DiagnoseDocumentHandler NewHandler(params IModuleAnalyzer[] analyzers)
         => new(new DiagnosticFactory(), analyzers.Length > 0 ? analyzers : [new OptionExplicitAnalyzer(), new ObsoleteCallStatementAnalyzer()], NullLogger<DiagnoseDocumentHandler>.Instance);
 
-    private static DiagnoseDocumentRequest RequestFor(
+    private static DiagnoseDocumentParams RequestFor(
         string source, out ModuleParseResult parseResult, int version = 1, ModuleSemanticsDto? semantics = null, AnalysisPhase phase = AnalysisPhase.All)
     {
         var uri = TestUri.TestModuleUri();
         parseResult = new ModuleParser().Parse(uri, source);
-        return new DiagnoseDocumentRequest
+        return new DiagnoseDocumentParams
         {
             Json = PlatformJson.Serialize(new DiagnoseDocumentPayload(uri, version, parseResult, semantics, phase)),
         };
     }
 
-    private static Task<DiagnoseDocumentResponse> HandleAsync(DiagnoseDocumentRequest request, params IModuleAnalyzer[] analyzers)
+    private static Task<DiagnoseDocumentResult> HandleAsync(DiagnoseDocumentParams request, params IModuleAnalyzer[] analyzers)
         => NewHandler(analyzers).Handle(request, CancellationToken.None);
 
     [TestMethod]

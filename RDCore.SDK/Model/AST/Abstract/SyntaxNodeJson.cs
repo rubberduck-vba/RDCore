@@ -19,34 +19,29 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// <see cref="ExpressionNode"/>/<see cref="StatementNode"/>'s own <c>Inputs</c>) and specific typed
 /// properties (e.g. <c>InlineIfStatementNode.ConditionExpression</c>). Left alone,
 /// <see cref="System.Text.Json"/> serializes all of them, so each nesting level <em>multiplies</em> the
-/// payload rather than adding to it — an ordinary depth-16 nested expression (`1 + 1 + ... + 1`)
+/// payload rather than adding to it: an ordinary depth-16 nested expression (`1 + 1 + ... + 1`)
 /// serializes to hundreds of megabytes.
 /// <para>
 /// <see cref="Options"/> installs a <see cref="DefaultJsonTypeInfoResolver"/> modifier that detects, per
 /// concrete node type, whether the generic spine (<c>Children</c>/<c>Inputs</c>) is exactly
-/// reconstructable from that type's <em>other</em>, non-<c>[JsonIgnore]</c>d node-bearing properties —
+/// reconstructable from that type's <em>other</em>, non-<c>[JsonIgnore]</c>d node-bearing properties,
 /// and if so, omits the spine from the JSON instead of the reverse. Never the reverse: a typed property
 /// (read directly by consumers like <c>SymbolBuilder</c>, post-deserialize, in a different process)
 /// silently losing data on the wire would be a far worse failure than a bloated payload. The check runs
 /// per <em>instance</em>, not just per type, and falls back to keeping the spine on any shape it can't
-/// prove — false negatives (a payload that could have shrunk further but didn't) are an acceptable
+/// prove: false negatives (a payload that could have shrunk further but didn't) are an acceptable
 /// missed optimization; false positives (dropping data that wasn't actually reconstructable) are not.
 /// </para>
 /// </remarks>
 public static class SyntaxNodeJson
 {
-    /// <summary>
-    /// The options every AST (de)serialization call site should share — <see cref="PlatformJson"/> (the
-    /// live wire path) and tests alike, so what a test exercises matches what actually ships.
-    /// </summary>
-    public static JsonSerializerOptions Options { get; } = new()
+    // what a node's own properties are written with: Options, less the converters that write a tree flat (FlatSyntaxTreeJson).
+    private static readonly JsonSerializerOptions Shape = new()
     {
         PropertyNameCaseInsensitive = true,
 
-        // System.Text.Json defaults to 64, which an AST reaches on source a person could have written:
-        // a nested block statement still costs a JSON level or two with the spine omitted, so the parse
-        // server answered a bogus L0C0 diagnostic for perfectly valid code (measured on this shape: 40
-        // nested `If`s failed to serialize, 18 still fit).
+        // a tree is written flat, so its depth costs no JSON level: what is nested is what one node is written with (a location, a record it holds, the
+        // indexes of the nodes it holds). The limit guards the reader against a payload nested for no reason a tree has.
         MaxDepth = MaxNodeDepth,
 
         // a null is what an absent property deserializes to: writing it says nothing a reader needs (measured: a parse result of a 2,400-line module was
@@ -56,6 +51,21 @@ public static class SyntaxNodeJson
 
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitRedundantSpine, OmitRedundantLocation } },
     };
+
+    private static readonly JsonSerializerOptions LocationFreeShape = WithoutProperties(Shape, IsLocation);
+
+    private static readonly JsonSerializerOptions HeaderShape = WithoutProperties(LocationFreeShape, IsBlock);
+
+    /// <summary>
+    /// The options every AST (de)serialization call site should share: <see cref="PlatformJson"/> (the
+    /// live wire path) and tests alike, so what a test exercises matches what actually ships.
+    /// </summary>
+    /// <remarks>
+    /// A syntax tree is written flat: an array of its nodes, each after the nodes it holds, which it holds by their index in the array. Writing and reading
+    /// one takes the same stack however deep the tree is (a chain of thousands of additions, hundreds of nested parentheses). The outermost node a payload
+    /// holds is the root of a tree, written <c>{"$nodes": [...], "$root": n}</c>; a node held by two properties is written once.
+    /// </remarks>
+    public static JsonSerializerOptions Options { get; } = FlatSyntaxTreeJson.Create(Shape);
 
     /// <summary>
     /// <see cref="Options"/>, less every property that says where something was written: in the source (a <see cref="Source.SourceLocation"/>, a
@@ -67,25 +77,26 @@ public static class SyntaxNodeJson
     /// For comparing, and so for writing only: what is read with these has no location. The fingerprints of a program image are written with them, and
     /// so are those of the declarations a program that waits was suspended with.
     /// </remarks>
-    public static JsonSerializerOptions LocationFreeOptions { get; } = CreateLocationFreeOptions();
+    public static JsonSerializerOptions LocationFreeOptions { get; } = FlatSyntaxTreeJson.Create(LocationFreeShape);
 
-    private static JsonSerializerOptions CreateLocationFreeOptions()
+    // shape, less every property of a type that is removed.
+    private static JsonSerializerOptions WithoutProperties(JsonSerializerOptions shape, Func<Type, bool> removed)
     {
-        var options = new JsonSerializerOptions(Options);
-        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
+        var options = new JsonSerializerOptions(shape);
+        options.TypeInfoResolver = shape.TypeInfoResolver!.WithAddedModifier(typeInfo =>
         {
-            foreach (var property in typeInfo.Properties.Where(property => IsLocation(property.PropertyType)).ToList())
+            foreach (var property in typeInfo.Properties.Where(property => removed(property.PropertyType)).ToList())
             {
                 _ = typeInfo.Properties.Remove(property);
             }
         });
 
         return options;
-
-        static bool IsLocation(Type type)
-            => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
-                && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange) || underlying == typeof(SyntaxNodeId));
     }
+
+    private static bool IsLocation(Type type)
+        => (Nullable.GetUnderlyingType(type) ?? type) is var underlying
+            && (underlying == typeof(Source.SourceLocation) || underlying == typeof(Source.SourceRange) || underlying == typeof(SyntaxNodeId));
 
     /// <summary>
     /// <see cref="LocationFreeOptions"/>, less the statements a block contains: a block statement written with these is its header alone - a
@@ -96,21 +107,7 @@ public static class SyntaxNodeJson
     /// For comparing, and so for writing only. An instruction of a lowered body is written with these: the statements of a block are instructions of
     /// their own, and an edit of one of them leaves the block's opening instruction as it was.
     /// </remarks>
-    public static JsonSerializerOptions HeaderOptions { get; } = CreateHeaderOptions();
-
-    private static JsonSerializerOptions CreateHeaderOptions()
-    {
-        var options = new JsonSerializerOptions(LocationFreeOptions);
-        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(typeInfo =>
-        {
-            foreach (var property in typeInfo.Properties.Where(property => IsBlock(property.PropertyType)).ToList())
-            {
-                _ = typeInfo.Properties.Remove(property);
-            }
-        });
-
-        return options;
-    }
+    public static JsonSerializerOptions HeaderOptions { get; } = FlatSyntaxTreeJson.Create(HeaderShape);
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> Blocks = new();
 
@@ -330,10 +327,8 @@ public static class SyntaxNodeJson
     /// The maximum nesting depth an AST payload may reach, in JSON levels.
     /// </summary>
     /// <remarks>
-    /// A guard against a cyclic or hostile payload, not a language limit — VBA imposes no nesting depth
-    /// of its own, so this is set well past anything anyone writes by hand rather than to a number
-    /// derived from the language. At roughly three or four levels per nested source construct it admits
-    /// a couple of hundred levels of nested statements.
+    /// A guard against a hostile payload, not a language limit. A syntax tree is written flat, an array of its nodes, so the depth of the code it holds costs
+    /// it no level: a payload reaches a few levels per node, whatever the depth of its tree.
     /// </remarks>
     public const int MaxNodeDepth = 1024;
 

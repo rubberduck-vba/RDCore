@@ -65,7 +65,7 @@ public sealed class FrameEvaluationTests
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 
-    private static Task<HostDebugEvaluateResult> Evaluate(EnvironmentSessionProvider provider, int frame, string expression)
+    private static Task<DebugEvaluateResult> Evaluate(EnvironmentSessionProvider provider, int frame, string expression)
         => new HostDebugEvaluateHandler(provider, Substitute.For<IVerboseMessageBuilder>())
             .Handle(new HostDebugEvaluateParams { FrameId = frame, Json = Parsed(expression) }, CancellationToken.None).WaitAsync(Patience);
 
@@ -217,7 +217,7 @@ public sealed class FrameEvaluationTests
         {
             _ = await Evaluate(provider, 1, "n");
 
-            var locals = provider.Execution.Variables(0, HostVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name);
+            var locals = provider.Execution.Variables(0, DebugVariableScope.Locals, 0).Variables.ToDictionary(variable => variable.Name);
 
             Assert.AreEqual("7", locals["k"].Value);
             Assert.AreEqual("3", locals["local"].Value);
@@ -247,6 +247,6 @@ public sealed class FrameEvaluationTests
             Assert.AreNotEqual(0, array.Reference);
             CollectionAssert.AreEqual(
                 new[] { "0", "9", "0" },
-                provider.Execution.Variables(0, HostVariableScope.Locals, array.Reference).Variables.Select(element => element.Value).ToArray());
+                provider.Execution.Variables(0, DebugVariableScope.Locals, array.Reference).Variables.Select(element => element.Value).ToArray());
         });
 }

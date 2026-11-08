@@ -62,7 +62,10 @@ public sealed class IndenterSettingsOfferingTests
 
         public List<string> Log { get; } = [];
 
-        public Platform(bool clientExpects)
+        // the clock the offering waits by: it moves only when a test moves it, so a wait ends at its timeout only when a test says so.
+        public ManualClock Clock { get; } = new();
+
+        public Platform(bool clientExpects, bool unattended = false)
         {
             var environment = Substitute.For<IPlatformEnvironment>();
             environment.UserDataDirectory.Returns(UserFolder);
@@ -72,7 +75,10 @@ public sealed class IndenterSettingsOfferingTests
             Live.Said.Returns(new Dictionary<string, string>());
             Capabilities.Record(new PlatformInitializeParams
             {
-                Expected = new CorePlatformClientCapabilities { LanguageServer = new LanguageServerCapabilities { RubberduckIndenterSettings = new RubberduckIndenterSettings(clientExpects) } },
+                Expected = new CorePlatformClientCapabilities
+                {
+                    LanguageServer = new LanguageServerCapabilities { RubberduckIndenterSettings = new RubberduckIndenterSettings(clientExpects), Unattended = new Unattended(unattended) },
+                },
             });
         }
 
@@ -116,7 +122,9 @@ public sealed class IndenterSettingsOfferingTests
         }
 
         public IndenterSettingsOffering Offering()
-            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(500), Log.Add);
+            => new(Server, Capabilities, new IndenterSettingsOffer(Markers, IndenterSettingsOffer.MarkerIn(UserFolder)), Live, TimeSpan.FromSeconds(1), SettingsWait, Log.Add, Clock);
+
+        public static TimeSpan SettingsWait { get; } = TimeSpan.FromMilliseconds(500);
 
         public ValueTask DisposeAsync()
         {
@@ -182,6 +190,20 @@ public sealed class IndenterSettingsOfferingTests
 
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
+    public async Task AClientThatRunsUnattended_IsNeverAsked_AndIsOfferedAtTheNextStart()
+    {
+        await using var platform = new Platform(clientExpects: true, unattended: true);
+        await platform.StartAsync();
+
+        using var offering = platform.Offering();
+
+        Assert.IsNull(await offering.RunAsync(CancellationToken.None));
+        Assert.AreEqual(0, platform.Questions.Count);
+        Assert.IsFalse(new IndenterSettingsOffer(platform.Markers, IndenterSettingsOffer.MarkerIn(UserFolder)).WasMade, "not made: a start that has someone to answer is offered it");
+    }
+
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
     public async Task SettingsTheClientSaidBeforeTheOfferingWasMade_AreNotWaitedFor()
     {
         // the client has configuration to pull, and its settings are in already: no change is raised after the offering subscribes.
@@ -205,7 +227,11 @@ public sealed class IndenterSettingsOfferingTests
 
         using var offering = platform.Offering();
 
-        Assert.IsNull(await offering.RunAsync(CancellationToken.None));
+        // the wait for the settings is made before RunAsync returns: the handshake is in, and nothing before the wait awaits.
+        var running = offering.RunAsync(CancellationToken.None);
+        platform.Clock.Advance(Platform.SettingsWait);
+
+        Assert.IsNull(await running);
         Assert.AreEqual(0, platform.Questions.Count);
         Assert.HasCount(1, platform.Log);
         StringAssert.StartsWith(platform.Log[0], "The client did not say its settings in time", "the line that says why is the timeout's");
@@ -259,7 +285,8 @@ public sealed class IndenterSettingsOfferingTests
             {
                 ClientConfigurationFollower.Follow(services, started, () => Task.CompletedTask, _ => { });
                 offering.SetResult(new IndenterSettingsOffering(
-                    started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { }));
+                    started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { },
+                    new ManualClock()));
                 return Task.CompletedTask;
             }));
         var connecting = LanguageClient.From(client =>
@@ -311,7 +338,7 @@ public sealed class IndenterSettingsOfferingTests
         extensions.Discover().Returns([]);
         var settings = new PlatformSettings(new MockFileSystem(), environment, extensions);
         var handler = new RubberduckIndenterSettingsApplyHandler(settings, Substitute.For<ILiveSettings>(), new LiveSettingsNotifier(_ => Task.CompletedTask));
-        var result = await handler.Handle(new RubberduckIndenterSettingsApplyParams
+        var result = await handler.Handle(new RubberduckIndenterSettingsApplyRequest
         {
             Source = RubberduckIndenterSettingsSource.RubberduckConfig,
             Settings = new Dictionary<string, string>

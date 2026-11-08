@@ -9,7 +9,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace RDCore.SDK.Runtime.Abstract.Execution;
 
 /// <summary>
-/// Represents a single live object instance — a class module's activation record, owning the storage
+/// Represents a single live object instance: a class module's activation record, owning the storage
 /// for every instance field it declares (<strong>RD-VBAL §2.3.1.2</strong>'s instance heap tier). Two
 /// instances of the same class module never share a field's storage: each gets its own independent
 /// binding, exactly as two activations of the same procedure never share a local's storage on
@@ -34,7 +34,7 @@ public interface IObjectInstance
 
     /// <summary>
     /// Declares <paramref name="field"/> on this instance and reserves storage sized for
-    /// <paramref name="value"/>, its initial value — the class's declared type default for a freshly
+    /// <paramref name="value"/>, its initial value: the class's declared type default for a freshly
     /// created instance.
     /// </summary>
     /// <param name="field">

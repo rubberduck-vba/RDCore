@@ -6,7 +6,7 @@ It ultimately provides a complete semantic model, runtime infrastructure, and ex
 
 
 ---
-## 💡 The idea
+## The idea
 
 Think **Roslyn, but for VBA**.  
 
@@ -22,21 +22,22 @@ VBA is not just a legacy runtime - it is a _language specification_. RDCore simp
 
 
 ---
-## 🚀 Architecture
+## Architecture
 
-- **The RDCore.SDK library** is licensed under **⚖️MIT**;
-- **Everything else** built around it is licensed under **⚖️GPLv3**.
+- **The RDCore.SDK and RDCore.SDK.Protocol libraries** are licensed under **MIT**;
+- **Everything else** built around it is licensed under **GPLv3**.
 
 ![RDCore solution overview](images/solution-overview.png)
 
 RDCore is composed of:
 - **RDCore.SDK** (MIT) defines the _language core_: syntax, symbols, semantic model, type system, etc.
+- **RDCore.SDK.Protocol** (MIT) is what a client speaks to the platform with: its `rdcore/*` messages, the handshake, and how to start the language server, over the .NET base library alone.
 - **RDCore.Runtime** (GPLv3) implements SDK-defined abstractions around runtime semantics, the standard library, etc.
 - **Hosts** (GPLv3) include a CLI client (rdc.exe), a LSP server, and other applications that orchestrate execution and interactions.
 
 
 ---
-## ✨ What RDCore Enables
+## What RDCore Enables
 - **Analyze VBA code** at depths only _LSP analyzers_ can reach
 - **Execute** VBA code outside the VBIDE
 - **Build dev tools** via the _Language Server Protocol_ (LSP)
@@ -45,10 +46,10 @@ RDCore is composed of:
 
 
 ---
-## 📊 Project Status
+## Project Status
 RDCore is currently in active **pre-alpha** development.  
 
-👉 The current **project status** is kept up-to-date in **README.md** alongside its implementation in the [GitHub repository](https://github.com/rubberduck-vba/RDCore).
+The current **project status** is kept up-to-date in **README.md** alongside its implementation in the [GitHub repository](https://github.com/rubberduck-vba/RDCore).
 
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • WELCOME | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](/RDCore/api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

@@ -22,6 +22,3 @@ Three kinds of value are location-identified instead of value-identified. Their 
 |§|Title|
 |---|---|
 |2.5.2.1|[Intrinsic Type Values](rd-vbal.2.5.2.1.intrinsic-type-values.md)|
-
----
-> ⏮️ [**RD-VBAL §2.5.1** Runtime Entities](rd-vbal.2.5.1.runtime-entities.md) | ⏭️ [**RD-VBAL §2.5.2.1** Intrinsic Type Values](rd-vbal.2.5.2.1.intrinsic-type-values.md)

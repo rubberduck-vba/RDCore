@@ -34,13 +34,21 @@ internal interface IDebugWorkspace
     bool TryGetPath(string moduleName, out string path);
 
     /// <summary>
+    /// The modules of the program that declare a procedure it can start with (<see cref="RDCore.SDK.Workspace.ProgramEntryPoint"/>), by programmatic name and in
+    /// order of name, as the environment host defined them: none before the workspace is open, and none of another project's.
+    /// </summary>
+    /// <param name="entryPoint">The name of the procedure.</param>
+    /// <param name="token">Cancels the request.</param>
+    Task<IReadOnlyList<string>> ModulesDeclaringAsync(string entryPoint, CancellationToken token);
+
+    /// <summary>
     /// Runs a procedure of a module of the workspace under a debugger.
     /// </summary>
     /// <param name="moduleName">The programmatic name of the module.</param>
     /// <param name="entryPoint">The name of the parameterless procedure to run.</param>
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>Where the program waits, or how it ended.</returns>
-    Task<ExecuteSessionResult> StartAsync(string moduleName, string entryPoint, CancellationToken token);
+    Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token);
 
     /// <summary>
     /// Reads the files of the workspace's modules again, and has the environment host load each one whose text is not what it loaded: the edits saved while the

@@ -175,9 +175,10 @@ internal static class RecordDataFormat
                 continue;
             }
 
+            // the field read is let in place (TryLetFieldAt): a ByRef parameter given it is bound to its cell (MS-VBAL §5.3.1.11).
             var currentLength = udt.FieldAt(index) is VBStringValue text ? text.Length : 0;
             if (!TryRead(stream, field.ResolvedType ?? VBVariantType.TypeInfo, mode, currentLength, out var value)
-                || !udt.TrySetFieldAt(index, value!))
+                || !udt.TryLetFieldAt(index, value!))
             {
                 return false;
             }

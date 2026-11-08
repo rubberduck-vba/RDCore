@@ -12,8 +12,8 @@ namespace RDCore.LanguageServer.Workspace;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The language server asks the client what it found (<c>rdcore/rubberduck-indenter-settings</c>), maps that to <c>Formatting</c> settings, and asks the client to take them as
-/// its own (<c>rdcore/rubberduck-indenter-settings/apply</c>): a client owns its configuration, and the language server writes none of it. The command takes no argument, and
+/// The language server asks the client what it found (<c>rdcore/formatting/indenterSettings</c>), maps that to <c>Formatting</c> settings, and asks the client to take them as
+/// its own (<c>rdcore/formatting/indenterSettings/apply</c>): a client owns its configuration, and the language server writes none of it. The command takes no argument, and
 /// is refused by a client that did not say it expects <see cref="SDK.Client.RubberduckIndenterSettings"/>.
 /// </para>
 /// <para>

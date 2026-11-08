@@ -29,9 +29,9 @@ namespace RDCore.CLI.Host.Handlers;
 internal sealed class HostExecuteHandler(
     IEnvironmentSessionProvider sessionProvider,
     IVerboseMessageBuilder messages,
-    ILogger<HostExecuteHandler> logger) : RDCoreRequestHandler<HostExecuteParams, ExecuteSessionResult>
+    ILogger<HostExecuteHandler> logger) : RDCoreRequestHandler<HostExecuteParams, ExecuteResult>
 {
-    protected override async Task<ExecuteSessionResult> HandleAsync(HostExecuteParams request, CancellationToken token)
+    protected override async Task<ExecuteResult> HandleAsync(HostExecuteParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
@@ -41,7 +41,7 @@ internal sealed class HostExecuteHandler(
         // a program that is running owns the session: nothing of it is loaded, composed or redefined under it.
         if (sessionProvider.Execution.State is ProgramState.Running)
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning };
+            return new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning };
         }
 
         var payload = PlatformJson.Deserialize<HostExecutePayload>(request.Json);
@@ -71,12 +71,22 @@ internal sealed class HostExecuteHandler(
         // every procedure of the module, lowered and loaded into the session's code under the symbol it belongs to, so a
         // call from one to another - or from one module to another - resolves through the invoker like any other.
         var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, payload.ParseResult);
-        if (errors.Length > 0)
+        if (errors.Length == 0)
         {
-            return new ExecuteSessionResult
+            HeldDefinitions.Loaded(session, request.ModuleName);
+        }
+
+        // a module that failed to load - a syntax error in it, or code that no longer compiled once what a program held was applied - has none of its code, or
+        // the code it had: the run is refused rather than running without it, as MS-VBA refuses to run anything, a statement typed at a prompt too, while the
+        // project does not compile. What is wrong with the other modules is said first: what is wrong with this one may follow from it (a member of one of
+        // them that is not found, its declarations not being read).
+        var failed = HeldDefinitions.FailedToLoad(session, except: request.ModuleName);
+        if (failed.Count > 0 || errors.Length > 0)
+        {
+            return new ExecuteResult
             {
                 Outcome = ExecutionOutcome.SyntaxError,
-                Diagnostics = [.. errors],
+                Diagnostics = [.. failed, .. errors],
             };
         }
 
@@ -92,9 +102,9 @@ internal sealed class HostExecuteHandler(
         return await RunAsync(pipeline, entryPoint, request, token);
     }
 
-    private async Task<ExecuteSessionResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)
+    private async Task<ExecuteResult> RunAsync(RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, HostExecuteParams request, CancellationToken token)
     {
-        var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token, request.Immediate, request.StreamOutput);
+        var result = await sessionProvider.Execution.RunAsync(pipeline, entryPoint, request.Debug, token, request.Immediate, request.StreamOutput, request.Unattended);
 
         if (logger.IsEnabled(LogLevel.Information))
         {
@@ -105,6 +115,6 @@ internal sealed class HostExecuteHandler(
         return result;
     }
 
-    private static ExecuteSessionResult NotFound(string reason)
+    private static ExecuteResult NotFound(string reason)
         => new() { Outcome = ExecutionOutcome.NotFound, ErrorMessage = reason };
 }

@@ -2,6 +2,8 @@
   href: introduction.md
 - name: Getting Started
   href: getting-started.md
+- name: Building on RDCore
+  href: building-on-rdcore.md
 - name: Edit and Continue
   href: edit-and-continue.md
 - name: RD-VBAL

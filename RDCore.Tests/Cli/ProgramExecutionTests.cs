@@ -23,17 +23,17 @@ public sealed class ProgramExecutionTests
 
     private static string Program(params string[] lines) => string.Join("\r\n", lines) + "\r\n";
 
-    private static Task<ExecuteSessionResult> Resume(EnvironmentSessionProvider provider, StepKind? step = null)
+    private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider, StepKind? step = null)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
             .Handle(new HostDebugResumeParams { Step = step }, CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Pause(EnvironmentSessionProvider provider)
+    private static Task<DebugAck> Pause(EnvironmentSessionProvider provider)
         => new HostDebugPauseHandler(provider).Handle(new HostDebugPauseParams(), CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<HostDebugAck> Terminate(EnvironmentSessionProvider provider, bool wipe = false)
+    private static Task<DebugAck> Terminate(EnvironmentSessionProvider provider, bool wipe = false)
         => new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams { Wipe = wipe }, CancellationToken.None).WaitAsync(Patience);
 
-    private static Task<DiscardSessionResult> Discard(EnvironmentSessionProvider provider, bool endProgram)
+    private static Task<DiscardResult> Discard(EnvironmentSessionProvider provider, bool endProgram)
         => new HostDiscardHandler(provider, NullLogger<HostDiscardHandler>.Instance).Handle(new HostDiscardParams
         {
             ModuleUri = new Uri(provider.Image.Fingerprints().Keys.Single(), UriKind.Absolute),
@@ -41,7 +41,7 @@ public sealed class ProgramExecutionTests
             EndProgram = endProgram,
         }, CancellationToken.None).WaitAsync(Patience);
 
-    private static string[] Lines(ExecuteSessionResult result) => [.. result.Output.Select(line => line.Trim())];
+    private static string[] Lines(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
 
     private static async Task WaitForAsync(Func<bool> condition)
     {
@@ -53,7 +53,7 @@ public sealed class ProgramExecutionTests
         }
     }
 
-    private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteSessionResult, Func<Task<ExecuteSessionResult>>, Task> test,
+    private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> test,
         Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
         => ModuleWorkspace.InspectAsync(NoClasses, program, test, cancelWhen, debug: true);
 
@@ -320,8 +320,10 @@ public sealed class ProgramExecutionTests
 
     // ---- moving the point the program goes on from ----
 
-    private static Task<HostDebugGotoResult> Goto(EnvironmentSessionProvider provider, int line = 0, string? label = null)
-        => new HostDebugGotoHandler(provider).Handle(new HostDebugGotoParams { Line = line, Label = label }, CancellationToken.None).WaitAsync(Patience);
+    private static Task<DebugGotoResult> Goto(EnvironmentSessionProvider provider, int line = 0, string? label = null, string? moduleName = null, bool peek = false)
+        => new HostDebugGotoHandler(provider)
+            .Handle(new HostDebugGotoParams { Line = line, Label = label, ModuleName = moduleName, Peek = peek }, CancellationToken.None)
+            .WaitAsync(Patience);
 
     private static readonly string Skippable = Program(
         "Public Total As Long",
@@ -478,12 +480,142 @@ public sealed class ProgramExecutionTests
             CollectionAssert.AreEqual(new[] { "20" }, Lines(await Resume(provider)));
         });
 
+    private static readonly string CalledAndWaiting = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Helper",
+        "    Debug.Print Total",
+        "End Sub",
+        "Private Sub Helper()",
+        "    Stop",
+        "    Total = 1",
+        "    Total = Total + 20",
+        "End Sub");
+
+    // the first statement at or after a line of the module's declarations, or of a procedure above the one that waits, is the first statement of the one that
+    // waits: a statement nobody pointed at.
+    [TestMethod]
+    [DataRow(0, DisplayName = "the module's declarations")]
+    [DataRow(3, DisplayName = "the procedure that called it")]
+    public async Task AGoto_ToALineOutsideTheProcedureThatWaits_IsRefused_AndTheProgramGoesOnFromWhereItStopped(int line)
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) =>
+        {
+            var moved = await Goto(provider, line: line);
+
+            Assert.IsFalse(moved.Moved, $"moved to line {moved.Line}");
+            StringAssert.Contains(moved.Reason, "Program.Helper");
+            CollectionAssert.AreEqual(new[] { "21" }, Lines(await Resume(provider)));
+        });
+
+    [TestMethod]
+    public async Task AGoto_ToALineOfAnotherModule_IsRefused_AndTheProgramGoesOnFromWhereItStopped()
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) =>
+        {
+            var moved = await Goto(provider, line: 8, moduleName: "Other");
+
+            Assert.IsFalse(moved.Moved, $"moved to line {moved.Line}");
+            StringAssert.Contains(moved.Reason, "Other");
+            CollectionAssert.AreEqual(new[] { "21" }, Lines(await Resume(provider)));
+        });
+
+    [TestMethod]
+    public async Task AGoto_ToALineOfTheModuleThatWaits_NamedAsItIs_GoesOnFromThere()
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) =>
+        {
+            Assert.IsTrue((await Goto(provider, line: 8, moduleName: "Program")).Moved);
+
+            CollectionAssert.AreEqual(new[] { "20" }, Lines(await Resume(provider)));
+        });
+
+    // a module's name is the fragment of its address, which escapes a letter that is not ASCII: Modèle is Mod%C3%A8le there.
+    private static readonly (string Name, string Source)[] AnAccentedClass =
+    [
+        ("Modèle", ModuleWorkspace.ClassModule("Modèle",
+            "Public Sub Attend()",
+            "    Stop",
+            "    Total = Total + 10",
+            "    Total = Total + 100",
+            "End Sub")),
+    ];
+
+    private static readonly string CallsTheAccentedClass = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Dim m As New Modèle",
+        "    m.Attend",
+        "    Debug.Print Total",
+        "End Sub");
+
+    [TestMethod]
+    public async Task AGoto_InAModuleWhoseNameIsNotAscii_NamedAsItIs_GoesOnFromThere_AndItsFrameSaysTheName()
+        => await ModuleWorkspace.InspectAsync(AnAccentedClass, CallsTheAccentedClass, async (provider, stopped, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            Assert.AreEqual("Modèle", provider.Execution.Stack().Frames[0].Module);
+            var line = provider.Execution.Stack().Frames[0].Line + 2;
+
+            var moved = await Goto(provider, line: line, moduleName: "Modèle");
+
+            Assert.IsTrue(moved.Moved, moved.Reason);
+            CollectionAssert.AreEqual(new[] { "100" }, Lines(await Resume(provider)));
+        }, debug: true);
+
+    private static readonly string WaitsAboveABlankLine = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Total = 1",
+        "    Stop",
+        "",
+        "    Total = Total + 10",
+        "    Debug.Print Total",
+        "End Sub");
+
+    [TestMethod]
+    public async Task APeek_AtALineWithNoStatement_SaysTheLineOfTheNextOne()
+        => await DebugAsync(WaitsAboveABlankLine, async (provider, _, _) =>
+        {
+            var peeked = await Goto(provider, line: 4, moduleName: "Program", peek: true);
+
+            Assert.IsTrue(peeked.Moved, peeked.Reason);
+            Assert.AreEqual(5, peeked.Line);
+        });
+
+    [TestMethod]
+    public async Task APeek_MovesNothing()
+        => await DebugAsync(WaitsAboveABlankLine, async (provider, _, _) =>
+        {
+            Assert.IsTrue((await Goto(provider, line: 2, peek: true)).Moved);
+
+            var resumed = await Resume(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, resumed.Outcome, "the Stop was run again");
+            CollectionAssert.AreEqual(new[] { "11" }, Lines(resumed));
+        });
+
+    [TestMethod]
+    public async Task APeek_OutsideTheProcedureThatWaits_IsRefused()
+        => await DebugAsync(CalledAndWaiting, async (provider, _, _) => Assert.IsFalse((await Goto(provider, line: 3, peek: true)).Moved));
+
+    // line 4 is a statement of the code the program waited in, and a blank line of the code as it is now: only the edited code says the statement after it.
+    [TestMethod]
+    public async Task APeek_AfterTheCodeChanged_SaysTheLineOfTheEditedCode()
+        => await DebugAsync(Skippable, async (provider, _, _) =>
+        {
+            Reload(provider, Skippable.Replace("    Stop\r\n", "    Stop\r\n\r\n"));
+
+            var peeked = await Goto(provider, line: 4, peek: true);
+
+            Assert.IsTrue(peeked.Moved, peeked.Reason);
+            Assert.AreEqual(5, peeked.Line);
+            CollectionAssert.AreEqual(new[] { "111" }, Lines(await Resume(provider)));
+        });
+
     // ---- breakpoints ----
 
-    private static Task<HostDebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
+    private static Task<DebugBreakpointsResult> SetBreakpoints(EnvironmentSessionProvider provider, params int[] lines)
         => SetBreakpointLines(provider, [.. lines.Select(line => new HostBreakpointLine { Line = line })]);
 
-    private static Task<HostDebugBreakpointsResult> SetBreakpointLines(EnvironmentSessionProvider provider, params HostBreakpointLine[] breakpoints)
+    private static Task<DebugBreakpointsResult> SetBreakpointLines(EnvironmentSessionProvider provider, params HostBreakpointLine[] breakpoints)
         => new HostDebugBreakpointsHandler(provider).Handle(new HostDebugBreakpointsParams { ModuleName = "Program", Breakpoints = breakpoints }, CancellationToken.None).WaitAsync(Patience);
 
     // a condition reaches the host parsed, as the language server parses it: the value of an assignment in a procedure of its own.
@@ -804,7 +936,7 @@ public sealed class ProgramExecutionTests
         "End Sub");
 
     // what the shell does with a statement typed at a stop: a procedure of the module, run alongside the program that waits.
-    private static Task<ExecuteSessionResult> Alongside(EnvironmentSessionProvider provider, string procedure)
+    private static Task<ExecuteResult> Alongside(EnvironmentSessionProvider provider, string procedure)
     {
         var session = provider.Session;
         Assert.IsTrue(session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module));

@@ -44,7 +44,7 @@ public sealed class ClassModuleHostExecutionTests
     private static string Program(params string[] body)
         => "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n", body) + "\r\nEnd Sub\r\n";
 
-    private static async Task<(ExecuteSessionResult Result, EnvironmentSessionProvider Session)> RunAsync(string program, bool defineWithCode = true)
+    private static async Task<(ExecuteResult Result, EnvironmentSessionProvider Session)> RunAsync(string program, bool defineWithCode = true)
     {
         (string Name, string Source, ModuleType Type)[] sources =
         [

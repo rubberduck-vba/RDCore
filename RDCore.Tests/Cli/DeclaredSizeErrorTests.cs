@@ -118,6 +118,33 @@ public sealed class DeclaredSizeErrorTests
     public Task AFieldOfAUserDefinedType_IsSizedAsAVariableIs(string declaration, string expected)
         => AssertError(expected, [.. declaration.Split(": ")], "Debug.Print 1");
 
+    // a variable has no value until the code runs: the bound is no size to reduce, and its error is the one the bound has.
+    [TestMethod]
+    [DataRow("Dim n As Long: Dim a(n) As Byte")]
+    [DataRow("Dim n As Long: Dim a(1 To n, 2) As Byte")]
+    public Task ABoundAVariableGives_IsAConstantExpressionRequired(string statement)
+        => AssertError("Constant expression required", [], statement.Split(": "));
+
+    // a call written in a bound is checked as one written anywhere else is, and the bound is no constant expression either (MS-VBA's errors on these are not
+    // measured yet: oracle-pending-rows, fix/walk-array-bounds).
+    [TestMethod]
+    public async Task AReservedNameWithoutItsArguments_InABound_IsWrittenWithThem_AndNoConstantExpression()
+        => AssertErrors(await LoadErrorsAsync([], Modules, Program([], "Dim b(LenB) As Long")),
+            "Constant expression required", string.Format(RDCore.SDK.Exceptions.VBCompileError_ReservedNameArguments_Verbose, "LenB", 1));
+
+    [TestMethod]
+    public async Task ACallEndingInAnOmittedArgument_InABound_IsATrailingOmittedArgument_AndNoConstantExpression()
+        => AssertErrors(await LoadErrorsAsync([], Modules, Program(["Private Function F(ByVal a As Long, Optional ByVal b As Long) As Long", "End Function"],
+            "Dim a(F(1, )) As Long")), "Constant expression required", RDCore.SDK.Exceptions.VBCompileError_TrailingOmittedArgument_Verbose);
+
+    // two errors: one that starts with what is said first, and one that says what is said second.
+    private static void AssertErrors(string[] errors, string first, string second)
+    {
+        Assert.HasCount(2, errors, string.Join("; ", errors));
+        Assert.IsTrue(errors.Any(error => error.StartsWith(first, StringComparison.Ordinal)), string.Join("; ", errors));
+        Assert.IsTrue(errors.Any(error => error.Contains(second, StringComparison.Ordinal)), string.Join("; ", errors));
+    }
+
     [TestMethod]
     [DataRow("Const K = -1: Dim a(K) As Byte", "Range has no values")]
     [DataRow("Const L = 5, U = 2: Dim a(L To U) As Byte", "Range has no values")]
@@ -125,7 +152,7 @@ public sealed class DeclaredSizeErrorTests
         => AssertError(expected, [], statement);
 
     [TestMethod]
-    [DataRow("Dim a(2147483647) As Byte", "2147483647")]
+    [DataRow("Dim a(2147483640 To 2147483647) As Byte", "2147483647")]
     [DataRow("Const K = 3: Dim a(K) As Byte", "3")]
     [DataRow("Const K = \"abcd\": Dim a(Len(K)) As Long", "4")]
     [DataRow("Const K = \"abcd\": Dim a(LenB(K)) As Long", "8")]

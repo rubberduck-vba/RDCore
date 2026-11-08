@@ -56,8 +56,10 @@ public abstract class AppHost<TApp>() : IDisposable
     /// Gets the <see cref="AssemblyName"/> of this application.
     /// </summary>
     /// <remarks>
-    /// 👉 This provides the <c>Name</c> and <c>Version</c> values for both
-    /// <see cref="ServerInfo"/> and <see cref="ClientInfo"/> unless the application overrides this default.
+    /// 👉 Its numeric <c>Version</c> is the one workspace (<c>.rdproj</c>) versions are stamped with and that the language
+    /// server's <c>WorkspaceService.LoadAsync</c> compares them against; the loader re-stamps a loaded project with it
+    /// (see the <see cref="ProjectFile"/> copy constructor), so that check currently compares the running version with itself.<br/>
+    /// 👉 The version reported in <see cref="ServerInfo"/> and <see cref="ClientInfo"/> is <see cref="AssemblyDisplayVersion"/>'s.
     /// </remarks>
     public static AssemblyName Info => _info.Value;
 
@@ -177,8 +179,8 @@ public abstract class AppHost<TApp>() : IDisposable
     /// (<see cref="SdkAppCommandLineArgs"/>), which is what a client or a server application is started with, and
     /// answers a request for help or version text and a command line it cannot make sense of.
     /// <para>
-    /// 👉 An application whose arguments are not the platform's — a command-line tool that takes a verb and the
-    /// verb's own options — overrides this and answers <see langword="false"/>: every option of the verb is one the
+    /// 👉 An application whose arguments are not the platform's (a command-line tool that takes a verb and the
+    /// verb's own options) overrides this and answers <see langword="false"/>: every option of the verb is one the
     /// platform's parser has never heard of, and would be rejected as a mistake before the verb was ever reached.
     /// What is wrong with such a command line is for the verb to say.
     /// </para>
@@ -338,18 +340,25 @@ public abstract class AppHost<TApp>() : IDisposable
                 // logger, whether or not its override calls the base.
                 if (!WritesToConsole)
                 {
-                    RemoveConsoleLogger(services);
+                    RemoveDefaultLogger(services, typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider));
                 }
+
+                // a component logs to its file. The generic host also writes every warning and error to the Windows Application event log, which one
+                // session fills with dozens of entries, and back-to-back sessions overwrite in an hour.
+                RemoveDefaultLogger(services, typeof(Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider));
+
+                // the language server's container logs through this logging too.
+                builder.WithoutDeferredOutputWarnings();
             });
     }
 
-    // the console logger the generic host adds by default.
-    private static void RemoveConsoleLogger(IServiceCollection services)
+    // a logger the generic host adds by default.
+    private static void RemoveDefaultLogger(IServiceCollection services, Type provider)
     {
-        foreach (var console in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
-            && descriptor.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider)).ToList())
+        foreach (var registered in services.Where(descriptor => descriptor.ServiceType == typeof(ILoggerProvider)
+            && descriptor.ImplementationType == provider).ToList())
         {
-            _ = services.Remove(console);
+            _ = services.Remove(registered);
         }
     }
 

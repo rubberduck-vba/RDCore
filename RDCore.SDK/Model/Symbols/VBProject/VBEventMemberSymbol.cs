@@ -11,7 +11,7 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="WorkspaceRoot">A <c>Uri</c> representing the absolute path to the library or project workspace that defines this symbol.</param>
 /// <param name="ParentUri">The <c>Uri</c> of the parent symbol.</param>
 /// <param name="Name">The name of the symbol.</param>
-/// <param name="Scope">The allocation scope of the symbol — <see cref="ScopeKind.Module"/> in a standard module, <see cref="ScopeKind.Instance"/> in a class module.</param>
+/// <param name="Scope">The allocation scope of the symbol: <see cref="ScopeKind.Module"/> in a standard module, <see cref="ScopeKind.Instance"/> in a class module.</param>
 /// <param name="Range">The entire document <c>Range</c> belonging to this symbol.</param>
 /// <param name="SelectionRange">The specific document <c>Range</c> to highlight when this symbol is selected, usually the symbol's <em>identifier</em> name if applicable.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. <c>AccessModifier.Implicit</c> unless specified otherwise.</param>
@@ -23,6 +23,12 @@ public sealed record class VBEventMemberSymbol(Uri WorkspaceRoot, Uri ParentUri,
     /// describe the signature a handler must match.
     /// </summary>
     public ImmutableArray<VBParameterSymbol> Parameters { get; init; } = [];
+
+    /// <remarks>
+    /// A variable, a constant, an enum member or a procedure of an Event's module may take its name (<strong>MS-VBAL §5.2.4.3</strong>). An Event is
+    /// addressed with the suffix <c>Event</c> after its name (<see cref="SymbolUri"/>), and its parameters under it (<c>Changed]Event.value</c>).
+    /// </remarks>
+    protected override string? UriSuffix => SymbolUri.EventSuffix;
 }
 
 /// <summary>
