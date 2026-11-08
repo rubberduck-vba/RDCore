@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Semantics.Instructions;
 
@@ -12,7 +13,8 @@ public sealed class ProgramImageTests
 
     private static SemanticId Procedure(string module, string name) => new(new Uri($"file:///c:/ws/#{module}.{name}"));
 
-    private static InstructionList Body() => new([], new Dictionary<string, int>(), new Dictionary<RDCore.SDK.Model.AST.Abstract.SyntaxNodeId, int>());
+    // the body of a procedure with no statements, lowered as any body is.
+    private static InstructionList Body() => InstructionListLowering.Lower(new StatementBlock([])).InstructionList;
 
     private static KeyValuePair<SemanticId, InstructionList> Entry(string module, string name) => new(Procedure(module, name), Body());
 

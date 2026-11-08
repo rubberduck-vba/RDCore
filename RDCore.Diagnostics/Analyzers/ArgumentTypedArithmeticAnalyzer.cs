@@ -1,6 +1,9 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -19,11 +22,30 @@ namespace RDCore.Diagnostics.Analyzers;
 internal sealed class ArgumentTypedArithmeticAnalyzer : IModuleAnalyzer
 {
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => (context.Semantics?.Procedures ?? []).SelectMany(procedure => procedure.Expressions
+    {
+        var flagged = (context.Semantics?.Procedures ?? [])
+            .SelectMany(procedure => procedure.Expressions)
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.OverflowsWhereVariantWidens))
-            .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow,
-                fact.Location.Range,
-                DiagnosticSeverity.Warning,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.ArgumentTypedArithmeticOverflow_Message, fact.DeclaredType ?? string.Empty))));
+            .ToArray();
+        if (flagged.Length == 0)
+        {
+            return [];
+        }
+
+        // the finding is about the operator, located at its token: the operations of a chain (`Fix(a) * 7000 + Fix(b)`) begin at the same position.
+        var operators = new Dictionary<SyntaxNodeId, SourceLocation>();
+        foreach (var node in context.ParseResult.SyntaxTree?.Descendants().OfType<VBBinaryOperatorExpressionNode>() ?? [])
+        {
+            if (node.OperatorLocation is { } site)
+            {
+                _ = operators.TryAdd(node.Identity, site);
+            }
+        }
+
+        return flagged.Select(fact => new AnalyzerFinding(
+            RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow,
+            (operators.TryGetValue(fact.Node, out var site) ? site : fact.Location).Range,
+            DiagnosticSeverity.Warning,
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.ArgumentTypedArithmeticOverflow_Message, fact.DeclaredType ?? string.Empty)));
+    }
 }

@@ -236,8 +236,32 @@ public sealed class ForLoopEvaluator(
     /// non-negative <c>step-increment</c> completes when the counter exceeds <c>end-value</c>; a negative
     /// one completes when the counter falls below it.
     /// </summary>
+    /// <remarks>
+    /// A counter that is a <c>Variant</c> holding <c>Null</c> makes the comparison <c>Null</c> (<strong>MS-VBAL §5.6.9.5</strong>); let-coerced to
+    /// <c>Boolean</c> as a condition is (<strong>MS-VBAL §5.5.1.2</strong>), it raises error 94. See <strong>RD-VBAL §5.4.2.3</strong>.
+    /// </remarks>
+    /// <returns>A <c>Boolean</c>: <c>True</c> when the loop completes.</returns>
     public RuntimeSemanticsEvaluationResult IsOutOfRange(IRuntimeSession session, ForLoopState state, VBTypedValue counter)
-        => operators.EvaluateBinaryOperator(session,
+    {
+        var compared = operators.EvaluateBinaryOperator(session,
             state.CountsDown ? Tokens.CompareLessThanOp : Tokens.CompareGreaterThanOp,
             state.ControlExpression, counter, state.End, ConversionSite.LoopBound);
+
+        // the comparison of a Variant counter is declared Variant (MS-VBAL 5.6.9.5), and holds the Boolean the loop is decided by.
+        if (compared is { IsSuccess: true, Result: VBVariantValue { TypedValue: VBBooleanValue held } })
+        {
+            return RuntimeSemanticsEvaluationResult.Success(held);
+        }
+
+        if (!compared.IsSuccess || compared.Result is VBBooleanValue)
+        {
+            return compared;
+        }
+
+        var frame = new LetCoercionStackFrame(state.ControlExpression.Identity, InputIndex.CoercionSourceValue, compared.Result!,
+            new VBTypeDescValue(VBBooleanType.TypeInfo), ConversionSite.LoopBound);
+        var coerced = letCoercion.EvaluateLetCoercionSemantics(session.Symbols.Resolver, state.ControlExpression, frame);
+        return coerced.IsSuccess ? RuntimeSemanticsEvaluationResult.Success(coerced.Result!)
+            : coerced.ErrorInfo is { } error ? RuntimeSemanticsEvaluationResult.Error(error) : RuntimeSemanticsEvaluationResult.InternalError();
+    }
 }

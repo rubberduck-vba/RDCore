@@ -449,8 +449,9 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     {
         if (source is IProvideClassInfo2 info && info.GetGUID(DefaultSourceInterface, out var identifier) == 0)
         {
+            // a container that has no connection point of the interface says so with an error; one that answers none has nothing to listen to.
             container.FindConnectionPoint(ref identifier, out var named);
-            return (named, EventsOf(info, identifier), identifier);
+            return named is null ? null : (named, EventsOf(info, identifier), identifier);
         }
 
         if (source is not IDispatchTypeInformation dispatch)

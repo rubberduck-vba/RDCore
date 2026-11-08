@@ -42,6 +42,8 @@ public abstract class AppHost<TApp>() : IDisposable
     // both reading the benign StartingServerState.ExitCode of 0. A server that never started must
     // never report the same exit code as a clean shutdown.
     private Exception? _unhandledFault;
+    // what the setting of the language of the user interface came to, when the configuration was read.
+    private UserInterfaceLanguageSetting? _language;
 
     private static readonly Lazy<AssemblyName> _info = new(() => Assembly.GetEntryAssembly()?.GetName()!, LazyThreadSafetyMode.PublicationOnly);
 
@@ -124,6 +126,12 @@ public abstract class AppHost<TApp>() : IDisposable
         FollowLiveLogLevel(_host.Services);
         LogIfEnabled(LogLevel.Information, "Application resolved successfully. Starting application host...");
 
+        // what came of the language of the user interface is said once, as the application starts.
+        if (_language is { Message: { } language } setting)
+        {
+            LogIfEnabled(setting.Level, language);
+        }
+
         await BeforeAppStartAsync(_host.Services);
 
         try
@@ -184,11 +192,20 @@ public abstract class AppHost<TApp>() : IDisposable
     /// platform's parser has never heard of, and would be rejected as a mistake before the verb was ever reached.
     /// What is wrong with such a command line is for the verb to say.
     /// </para>
+    /// <para>
+    /// An override that answers a command line builds and starts nothing.
+    /// </para>
+    /// <para>
+    /// <see cref="RunAsync"/> calls this first, and so may an entry point that answers a command line before it builds anything.
+    /// </para>
     /// </remarks>
     /// <param name="args">The command-line arguments as received.</param>
-    /// <param name="exitCode">The process exit code, when this returns <see langword="true"/>.</param>
-    /// <returns><see langword="true"/> if the command line has been answered and there is nothing to run.</returns>
-    protected internal virtual bool TryAnswerCommandLine(string[] args, out int exitCode)
+    /// <param name="exitCode">The process exit code, when this returns <see langword="true"/>. The base implementation answers <c>0</c> for a help or version request, and <c>-1</c> for a command line that cannot be parsed.</param>
+    /// <returns>
+    /// <see langword="true"/> if the command line has been answered: the caller does not run the host, and <see cref="RunAsync"/> returns
+    /// <paramref name="exitCode"/>. <see langword="false"/> if the caller goes on to run it.
+    /// </returns>
+    public virtual bool TryAnswerCommandLine(string[] args, out int exitCode)
         => SdkCommandLine.TryAnswer(args, out exitCode);
 
     /// <summary>
@@ -222,8 +239,26 @@ public abstract class AppHost<TApp>() : IDisposable
         {
         }
 
+        // the builder reads appsettings.json, then the environment and the command line; what the user set goes between the first and the others. The
+        // deployed file is not added again: added after them, it used to say what a Configuration__ environment variable was meant to override.
+        HostApplicationBuilder? builder = null;
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo? unreadable = null;
+        try
+        {
+            builder = Host.CreateApplicationBuilder();
+            builder.Configuration.AddUserSettings(UserSettingsStore.PathIn(PlatformEnvironment.Default), Settings);
+
+            // the language of the user interface comes first: everything the application writes is in it, the help a command line asks for included.
+            _language = UserInterfaceLanguage.Apply(builder.Configuration);
+        }
+        catch (Exception exception)
+        {
+            // a configuration that cannot be read keeps the application from starting, and not from answering a question about its command line.
+            unreadable = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception);
+        }
+
         // a command line that asked a question (--help, --version) or that the parser could not make
-        // sense of is answered here, before any of the host exists: nothing built, nothing started. Both
+        // sense of is answered here, before any of the host is built: nothing configured, nothing started. Both
         // used to fall through into configuration, where the parser's default instance failed the
         // client's "a client cannot start without a workspace" guard - so `rdc --help` printed a
         // NullReferenceException stack trace underneath the help it had just been asked for.
@@ -234,11 +269,8 @@ public abstract class AppHost<TApp>() : IDisposable
 
         try
         {
-            // the builder reads appsettings.json, then the environment and the command line; what the user set goes between the first and the others. The
-            // deployed file is not added again: added after them, it used to say what a Configuration__ environment variable was meant to override.
-            var builder = Host.CreateApplicationBuilder();
-            var configuration = builder.Configuration;
-            configuration.AddUserSettings(UserSettingsStore.PathIn(PlatformEnvironment.Default), Settings);
+            unreadable?.Throw();
+            var configuration = builder!.Configuration;
             Configure(configuration, builder.Services, args);
 
             // bound the generic host's shutdown so a wedged background task cannot hang the process
@@ -257,7 +289,7 @@ public abstract class AppHost<TApp>() : IDisposable
         catch (Exception exception)
         {
             // something went wrong:
-            (WritesToConsole ? Console.Out : Console.Error).WriteLine(exception.ToString());
+            await (WritesToConsole ? Console.Out : Console.Error).WriteLineAsync(exception.ToString());
             return -1;
         }
         finally

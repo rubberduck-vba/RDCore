@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace RDCore.External.Windows.Forms;
 
@@ -19,6 +20,7 @@ namespace RDCore.External.Windows.Forms;
 [ComVisible(true)]
 [ClassInterface(ClassInterfaceType.None)]
 [ComDefaultInterface(typeof(IAmbientProperties))]
+[SupportedOSPlatform("windows")]
 public sealed class FormSite : IOleClientSite, IOleInPlaceSite, IOleInPlaceFrame, IAmbientProperties
 {
     private readonly IntPtr _window;

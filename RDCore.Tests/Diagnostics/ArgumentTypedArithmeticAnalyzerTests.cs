@@ -48,4 +48,15 @@ public sealed class ArgumentTypedArithmeticAnalyzerTests
     [DataRow("x = Fix(n)", DisplayName = "no operation")]
     public async Task AnythingElse_IsNotReported(string statement)
         => Assert.IsEmpty(await FindingsAsync(statement));
+
+    // the two operations of the chain begin at the same position: each is located at its own operator.
+    [TestMethod]
+    public async Task EachOperationOfAChain_IsReportedAtItsOperator()
+    {
+        var findings = await FindingsAsync("x = Fix(n) * 7000 + Fix(n)");
+
+        CollectionAssert.AreEquivalent(
+            new[] { (3, 11, 3, 12), (3, 18, 3, 19) },
+            findings.Select(finding => (finding.Range.Start.Line, finding.Range.Start.Character, finding.Range.End.Line, finding.Range.End.Character)).ToArray());
+    }
 }

@@ -41,10 +41,14 @@ public sealed class ServerInitializationOptionsTests
     [DataRow("{ \"Language\": \"vb6\" }", false, DisplayName = "a client that does not say")]
     [DataRow(null, false, DisplayName = "a client that sends no options")]
     public void WhetherTheClientRunsUnattended_IsReadFromTheOptions(string? options, bool unattended)
-        => Assert.AreEqual(unattended, RDCoreServerApp.ClientRunsUnattended(new OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams
-        {
-            InitializationOptions = options is null ? null : JObject.Parse(options),
-        }));
+    {
+        // a client that sends no options leaves them unset.
+        var request = options is null
+            ? new OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams()
+            : new OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeParams { InitializationOptions = JObject.Parse(options) };
+
+        Assert.AreEqual(unattended, RDCoreServerApp.ClientRunsUnattended(request));
+    }
 
     // a platform's client says it runs unattended in its initializationOptions exactly when it says so in the handshake: rdc.exe --unattended does.
     [TestMethod]

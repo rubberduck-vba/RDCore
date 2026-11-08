@@ -9,7 +9,7 @@ namespace RDCore.CLI.Host.Symbols;
 
 /// <summary>
 /// Produces the project-level conditional-compilation constants a session starts with: the built-in
-/// host constants derived from the <see cref="IRuntimeEnvironmentProfile"/>, the <c>.rdproj</c>
+/// host constants derived from the <see cref="IRuntimeEnvironmentProfile"/> (<see cref="PredefinedConditionalConstants"/>), the <c>.rdproj</c>
 /// <c>#Const</c>s, and (highest precedence) <c>--define</c> command-line overrides.
 /// </summary>
 /// <remarks>
@@ -48,14 +48,10 @@ public sealed class ConfigurationSymbolProvider(
             yield return (entry.Key, entry.Value);
         }
 
-        // RDCore's own, lowest precedence like the rest: a .rdproj #Const or a --define overrides it.
-        // the configured build decides DEBUG, and a dev tool defaults to a debug build.
-        yield return (RuntimeSessionExtensions.DebugConstantName, environment.Configuration is VBBuildConfiguration.Release ? "0" : "-1");
-        yield return ("Win16", "0");
-        yield return ("Win32", environment.Is64Bit ? "0" : "-1");
-        yield return ("Win64", environment.Is64Bit ? "-1" : "0");
-        yield return ("Mac", "0");
-        yield return ("VBA6", "0");
-        yield return ("VBA7", "-1");
+        // the environment's own, lowest precedence: a .rdproj #Const or a --define overrides any of them.
+        foreach (var (name, value) in PredefinedConditionalConstants.Of(environment))
+        {
+            yield return (name, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
     }
 }

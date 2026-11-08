@@ -9,11 +9,11 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CallArgumentPayloadTests
 {
-    private static string Run(string procedures, string body)
+    private static async Task<string> Run(string procedures, string body)
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n" + string.Join("\r\n", procedures.Split(" ;; "))
             + "\r\nPublic Sub Main()\r\n" + string.Join("\r\n", body.Split(" ;; ")) + "\r\nEnd Sub\r\n";
-        return string.Join("/", RunAsync([], program).GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], program));
     }
 
     // the default is a value the parameter is made of: what the callee assigns to the parameter is its own, and the next call starts from the default again.
@@ -23,8 +23,8 @@ public sealed class CallArgumentPayloadTests
         DisplayName = "a Variant, assigned by the callee")]
     [DataRow("Private Sub F(Optional ByVal S As String = \"ab\") ;; Debug.Print S ;; Mid(S, 1, 1) = \"z\" ;; End Sub", "F ;; F", "ab/ab", DisplayName = "a String, written in place")]
     [DataRow("Private Sub F(Optional A As Variant) ;; Debug.Print IsMissing(A) ;; End Sub", "F ;; F 1 ;; F", "True/False/True", DisplayName = "Missing")]
-    public void AnOmittedArgument_IsTheDeclaredDefault_EveryCall(string procedures, string body, string printed)
-        => Assert.AreEqual(printed, Run(procedures, body));
+    public async Task AnOmittedArgument_IsTheDeclaredDefault_EveryCall(string procedures, string body, string printed)
+        => Assert.AreEqual(printed, await Run(procedures, body));
 
     // MS-VBAL §5.5.1.2.12: a Variant holds a scalar it is let-assigned as it is, of its own type.
     [TestMethod]
@@ -35,8 +35,8 @@ public sealed class CallArgumentPayloadTests
     [DataRow("Dim c As Currency ;; c = 1.25 ;; F c", "Currency 1.25", DisplayName = "a Currency")]
     [DataRow("Dim y As Byte ;; y = 200 ;; F y + 100", "Integer 300", DisplayName = "a Byte sum past a Byte")]
     [DataRow("Dim l As Long ;; l = 7 ;; F l * 2", "Long 14", DisplayName = "an expression")]
-    public void AScalarPassedToAVariantParameter_KeepsItsType(string body, string printed)
-        => Assert.AreEqual(printed, Run("Private Sub F(ByVal V As Variant) ;; Debug.Print TypeName(V) & \" \" & V ;; End Sub", body));
+    public async Task AScalarPassedToAVariantParameter_KeepsItsType(string body, string printed)
+        => Assert.AreEqual(printed, await Run("Private Sub F(ByVal V As Variant) ;; Debug.Print TypeName(V) & \" \" & V ;; End Sub", body));
 
     // MS-VBAL §5.3.1.11: each argument is given to its parameter as the call is bound - by position or by name, in any order, a ParamArray collecting the
     // rest - and a ByRef parameter is a second name for a variable, a copy of anything else.
@@ -62,11 +62,11 @@ public sealed class CallArgumentPayloadTests
         "Debug.Print T(1, , 3) ;; Debug.Print T(, 2) ;; Debug.Print T(, , 2) ;; Debug.Print U(1, , 3) ;; S , 2 ;; Call S(, 2)",
         "2:FalseInteger,TrueError,FalseInteger,/1:TrueError,FalseInteger,/2:TrueError,TrueError,FalseInteger,/1:1True10/1True/1True",
         DisplayName = "omitted, collected by a ParamArray")]
-    public void AnArgument_IsGivenToItsParameter(string procedures, string body, string printed)
-        => Assert.AreEqual(printed, Run(procedures, body));
+    public async Task AnArgument_IsGivenToItsParameter(string procedures, string body, string printed)
+        => Assert.AreEqual(printed, await Run(procedures, body));
 
     // a call statement's procedure is bound once: what the name resolves to in the scope it is written in.
     [TestMethod]
-    public void ACallStatement_CallsTheProcedureItsNameResolvesTo_EveryTime()
-        => Assert.AreEqual("1/2/3", Run("Private Sub S(ByVal A As Long) ;; Debug.Print A ;; End Sub", "Dim i As Long ;; For i = 1 To 3 ;; S i ;; Next"));
+    public async Task ACallStatement_CallsTheProcedureItsNameResolvesTo_EveryTime()
+        => Assert.AreEqual("1/2/3", await Run("Private Sub S(ByVal A As Long) ;; Debug.Print A ;; End Sub", "Dim i As Long ;; For i = 1 To 3 ;; S i ;; Next"));
 }

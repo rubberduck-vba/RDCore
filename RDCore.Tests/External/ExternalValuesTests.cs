@@ -51,7 +51,10 @@ public sealed class ExternalValuesTests
     [TestMethod]
     public void ACurrencyAndAnError_KeepWhatTheyAre_WhichTheirNumbersAloneWouldNot()
     {
+        // CS0618: a Currency is a CurrencyWrapper on the wire, as the IDispatch marshaller is given one.
+#pragma warning disable CS0618
         Assert.AreEqual(12.3456m, Assert.IsInstanceOfType<CurrencyWrapper>(RoundTrip(new CurrencyWrapper(12.3456m))).WrappedObject);
+#pragma warning restore CS0618
         Assert.AreEqual(448, Assert.IsInstanceOfType<ErrorWrapper>(RoundTrip(new ErrorWrapper(448))).ErrorCode);
     }
 
@@ -64,7 +67,10 @@ public sealed class ExternalValuesTests
         var back = RoundTrip(held, handleOf: value => ReferenceEquals(value, held) ? 42 : -1, objectOf: handle => handle == 42 ? other : new object());
 
         Assert.AreSame(other, back);
+        // CA1416: a wrapper of no object asks nothing of COM, and Nothing crosses on every platform.
+#pragma warning disable CA1416
         Assert.IsNull(Assert.IsInstanceOfType<DispatchWrapper>(RoundTrip(new DispatchWrapper(null))).WrappedObject);
+#pragma warning restore CA1416
     }
 
     [TestMethod]
@@ -92,12 +98,15 @@ public sealed class ExternalValuesTests
     [TestMethod]
     public void AnArrayOfAnything_IsAnArrayOfAnything_WhoseElementsAreEachWhatTheyAre()
     {
+        // CS0618: a Currency is a CurrencyWrapper on the wire, as the IDispatch marshaller is given one.
+#pragma warning disable CS0618
         var back = Assert.IsInstanceOfType<object?[]>(RoundTrip(new object?[] { 1, "two", null, new CurrencyWrapper(3m) }));
 
         Assert.AreEqual(1, back[0]);
         Assert.AreEqual("two", back[1]);
         Assert.IsNull(back[2]);
         Assert.IsInstanceOfType<CurrencyWrapper>(back[3]);
+#pragma warning restore CS0618
     }
 
     [TestMethod]

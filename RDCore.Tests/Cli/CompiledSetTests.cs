@@ -6,7 +6,9 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Set</c> statement, compiled: of an object variable of the activation, or the function result variable, to an object variable,
 /// <c>Me</c> or <c>Nothing</c>, Set-coerced, stored and counted as the interpreter does it, so that each object's <c>Terminate</c> runs at the instruction
-/// that lets go of it last, which the interpreter runs alone. A program runs the same either way.
+/// that lets go of it last, which the interpreter runs alone. Any other <c>Set</c> (of what a call, a member or <c>New</c> gives, or of a <c>WithEvents</c>
+/// variable, a parameter passed by reference, an element or a member) is a support call: the interpreter runs the statement, and compiled code goes on
+/// after it; one inside a <c>With</c> block the interpreter steps. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledSetTests
@@ -63,7 +65,7 @@ public sealed class CompiledSetTests
             "    Debug.Print \"after\"",
             "    Set Held = Nothing",
             "    Debug.Print \"end\"",
-            "End Sub"), [("Moved", 10)], classes: Noisy);
+            "End Sub"), [("Moved", 8)], classes: Noisy);
 
     // the function result variable is Set as a variable is, and holds what it is Set to until the caller takes it.
     [TestMethod]
@@ -107,7 +109,7 @@ public sealed class CompiledSetTests
 
     // an object that is not of the class of the variable it is Set to does not Set-coerce (MS-VBAL §5.5.2.2): the interpreter runs the Set, and raises error
     // 13 there - to the handler, or to the caller, with the procedure on the stack. A Set whose error leaves the procedure is no recovery: compiled code
-    // goes on nowhere after it.
+    // goes on nowhere after it. The Set of Some to a New object is a support call, no recovery either.
     [TestMethod]
     public async Task AnObjectOfAnotherClass_IsTheInterpretersTypeMismatch()
         => await AssertAlikeAsync(Program(
@@ -130,7 +132,7 @@ public sealed class CompiledSetTests
             "    Set Some = New Collection",
             "    Set Typed = Some",
             "    Debug.Print \"not here\"",
-            "End Sub"), [("Handled", 3), ("Unhandled", 1)], classes: Noisy);
+            "End Sub"), [("Handled", 2), ("Unhandled", 0)], classes: Noisy);
 
     // an error a Terminate leaves unhandled ends the program, whatever handler the code that let go of the object has (MS-VBA): at the Set that
     // destroys the object, and nothing after it runs, compiled or not - which the field the next run prints shows. The interpreter runs the Set alone, then
@@ -152,7 +154,7 @@ public sealed class CompiledSetTests
             "    Set Held = Nothing",
             "    Set Other = Nothing",
             "    Total = Total + 1",
-            "End Sub"), [("Raised", 1)], classes: [("Failing", ModuleWorkspace.ClassModule("Failing", "Option Explicit",
+            "End Sub"), [("Raised", 0)], classes: [("Failing", ModuleWorkspace.ClassModule("Failing", "Option Explicit",
                 "Private Sub Class_Terminate()",
                 "    Debug.Print \"bye\"",
                 "    Err.Raise 5",
@@ -179,5 +181,5 @@ public sealed class CompiledSetTests
             "    N = 32000",
             "    N = N + 1000",
             "    Debug.Print \"not here\"",
-            "End Sub"), [("Overflowed", 2)], classes: Noisy, walkBacks: 1);
+            "End Sub"), [("Overflowed", 1)], classes: Noisy, walkBacks: 1);
 }

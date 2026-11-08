@@ -117,7 +117,10 @@ public sealed class SemanticTokensServiceTests
         _documents.Open(Mod1, $"Public Const Max = 10\r\nPublic Sub Foo()\r\n    x = {Parser.ExpressionNestingTests.ChainPastTheLimit()}\r\n    x = Max\r\nEnd Sub\r\n", 1);
 
         IReadOnlyList<SemanticToken> tokens = [];
+        // the request is answered on the small stack, as the server answers it on a thread of its own: that thread waits for the answer.
+#pragma warning disable VSTHRD002
         var thrown = SmallStack.Run(() => tokens = _sut.GetAsync(Mod1, CancellationToken.None).GetAwaiter().GetResult());
+#pragma warning restore VSTHRD002
 
         Assert.IsNull(thrown, thrown?.ToString());
         Assert.AreEqual(SemanticTokenLegend.ReadOnly, tokens.Single(token => token.Line == 3 && token.Character == 8).Modifiers);

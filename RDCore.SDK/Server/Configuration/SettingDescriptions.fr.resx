@@ -56,7 +56,7 @@
     <value>Les extensions que charge la plateforme, par leur titre, séparées par des virgules. Une extension exécute son propre code, avec les droits de la plateforme.</value>
   </data>
   <data name="Environment_Is64Bit" xml:space="preserve">
-    <value>Si l'environnement est un environnement 64 bits : la largeur de LongPtr, et ce que dit #If Win64.</value>
+    <value>Si l'environnement est un environnement 64 bits : la largeur de LongPtr, et ce que dit #If Win64 sous Windows et #If Linux64 sous Linux.</value>
   </data>
   <data name="Environment_Lcid" xml:space="preserve">
     <value>L'identificateur de paramètres régionaux de l'environnement; 0 désigne les paramètres invariants.</value>
@@ -86,13 +86,16 @@
     <value>Si SaveSetting, GetSetting, GetAllSettings et DeleteSetting utilisent le Registre de Windows, comme le fait MS-VBA, plutôt que les paramètres de l'espace de travail.</value>
   </data>
   <data name="Environment_ExecutionEngine" xml:space="preserve">
-    <value>Ce qui exécute un programme : l'interpréteur (Interpreter), ou du code compilé là où chaque instruction d'une procédure peut l'être (Compiled).</value>
+    <value>Ce qui exécute un programme : du code compilé là où il peut exécuter une procédure, et l'interpréteur ailleurs (Compiled), ou l'interpréteur seul (Interpreter).</value>
   </data>
   <data name="Environment_Configuration" xml:space="preserve">
     <value>Si un programme est construit pour être débogué (Debug) ou pour être exécuté (Release). Dans une version Release, un Stop termine le programme comme le fait End, et DEBUG est False.</value>
   </data>
   <data name="Environment_ReleaseDropsDebugStatements" xml:space="preserve">
     <value>Si une version Release laisse de côté chaque Debug.Print et Debug.Assert, sans en évaluer les arguments. Désactivé par défaut : une version Release les garde, et ils s'exécutent comme dans une version Debug.</value>
+  </data>
+  <data name="Environment_Regional_Language" xml:space="preserve">
+    <value>La langue des messages de la plateforme, sous forme de nom de culture comme en, fr ou fr-CA. Vide par défaut : la langue de la machine. Elle ne change pas la façon d'écrire les nombres ni les dates. Une langue sans traduction est affichée en anglais.</value>
   </data>
   <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
     <value>Ce qui sépare la partie entière d'un nombre de sa fraction.</value>

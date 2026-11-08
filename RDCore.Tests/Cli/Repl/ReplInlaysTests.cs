@@ -2,7 +2,6 @@ using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
-using RDCore.CLI.Themes;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 
@@ -40,19 +39,12 @@ public sealed class ReplInlaysTests
         _context = new ReplCommandContext(_program, _console, _platform, new ReplDocument(_program, _platform, workspace), []);
     }
 
-    private static IAppThemeService Themes()
-    {
-        var themes = Substitute.For<IAppThemeService>();
-        themes.Theme.Returns(new AppTheme(new ThemeDocument()));
-        return themes;
-    }
-
     private Task InlaysAsync(string arguments = "") => new InlaysReplCommand().ExecuteAsync(_context, arguments, CancellationToken.None);
 
     private async Task<List<IReadOnlyList<ReplTextRun>>> ListAsync()
     {
         _console.ClearReceivedCalls();
-        await new ListReplCommand(Themes()).ExecuteAsync(_context, "", CancellationToken.None);
+        await new ListReplCommand().ExecuteAsync(_context, "", CancellationToken.None);
         return [.. _console.ReceivedCalls()
             .Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteListingLine))
             .Select(call => (IReadOnlyList<ReplTextRun>)call.GetArguments()[1]!)];

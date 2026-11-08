@@ -20,7 +20,7 @@ Cet arrangement protège les contributeurs historiques et actuels tout en permet
 <a id="projectstatus"/>
 
 ## 📊 Statut du projet
-RDCore est en développement actif **pré-alpha**. La **spécification** et la **documentation** sont les livrables stables; la plateforme s'exécute de bout en bout (workspace → parse → symbols) mais n'est pas encore terminée : des préversions sont publiées comme _prereleases_ GitHub ([Releases](https://github.com/rubberduck-vba/RDCore/releases)) tant qu'elle demeure au stade pré-alpha.
+RDCore est en développement actif **pré-alpha**. La **spécification** et la **documentation** sont les livrables stables; la plateforme s'exécute de bout en bout (workspace → parse → symbols → execution) mais n'est pas encore terminée. Aucune version n'est publiée : le dépôt n'a pas encore de [publication](https://github.com/rubberduck-vba/RDCore/releases).
 
 **Contributions**
 

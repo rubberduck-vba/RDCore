@@ -55,8 +55,9 @@ public sealed class ReturnValueAnalysisTests
     [TestMethod]
     [DataRow("On Error GoTo Handler\nF = G()\nExit Function\nHandler:\nF = -1", DisplayName = "the handler assigns too")]
     [DataRow("On Error GoTo Handler\nF = G()\nExit Function\nHandler:\nF = -1\nResume Done\nDone:", DisplayName = "the handler assigns, then resumes at a label")]
-    [DataRow("On Error Resume Next\nF = G()", DisplayName = "Resume Next does not make a path of its own")]
     [DataRow("F = 0\nOn Error GoTo Handler\nF = G()\nExit Function\nHandler:\nDebug.Print \"failed\"", DisplayName = "assigned before the error handler is in effect")]
+    // a literal the result's type holds cannot fail, Resume Next or not.
+    [DataRow("On Error Resume Next\nF = 1", DisplayName = "a literal under Resume Next")]
     public async Task ErrorHandlers_AreCodePathsToo(string body)
         => await AssertAsync(body, ReturnValueAssignment.Always);
 
@@ -73,6 +74,10 @@ public sealed class ReturnValueAnalysisTests
     [DataRow("On Error GoTo Handler\nF = G()\nExit Function\nHandler:\nDebug.Print \"failed\"", DisplayName = "an error handler that does not assign")]
     [DataRow("On Error GoTo Handler\nF = G()\nHandler:\nDebug.Print \"falls into it\"", DisplayName = "an error raised by the assignment itself, before it completes")]
     [DataRow("If n > 1 Then\nDo While c\nF = 1\nLoop\nElse\nF = 2\nEnd If", DisplayName = "a nested path")]
+    // under Resume Next, an assignment whose expression fails does not complete, and the function returns what it had.
+    [DataRow("On Error Resume Next\nF = G()", DisplayName = "an assignment that may fail under Resume Next")]
+    // the graph has no edge for the Resume Next, and said Never.
+    [DataRow("On Error GoTo H\nError 5\nF = 1\nExit Function\nH:\nIf n = 0 Then Resume Next", DisplayName = "an assignment reached by a Resume Next on some paths")]
     public async Task ReturnValueNotAssignedOnAPath_IsSometimes(string body)
         => await AssertAsync(body, ReturnValueAssignment.Sometimes);
 

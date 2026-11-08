@@ -19,8 +19,12 @@ namespace RDCore.SDK.Semantics.Flow;
 /// <para>
 /// A fact is stated only when it is true, so nothing is stated when it could not be established: when the static pass found something wrong with the procedure or did not
 /// analyze every expression of it (an assignment may be in what it did not see), or when the graph approximates a jump (<see cref="ControlFlowImprecision.UnresolvedJump"/>,
-/// <see cref="ControlFlowImprecision.Subroutines"/>). <see cref="ControlFlowImprecision.Resumption"/> only takes paths away, and a path that is not in the graph cannot
-/// be reported as one that is.
+/// <see cref="ControlFlowImprecision.Subroutines"/>).
+/// </para>
+/// <para>
+/// The paths are those of the edges <see cref="ErrorHandlingStates"/> derives, not the graph's own: where a <c>Resume</c> continues and where an error goes under
+/// <c>On Error Resume Next</c> are paths of their own, and an assignment reached only through one is reached (<see cref="ControlFlowImprecision.Resumption"/>). An
+/// error raised to the caller ends the activation with no value returned, and is no path to a return.
 /// </para>
 /// </remarks>
 public static class ReturnValueAnalysis
@@ -41,21 +45,56 @@ public static class ReturnValueAnalysis
             return null;
         }
 
-        var graph = ControlFlowGraph.Of(instructions);
+        var graph = ControlFlowGraph.Of(instructions, model);
         if (graph.Imprecision.HasFlag(ControlFlowImprecision.UnresolvedJump) || graph.Imprecision.HasFlag(ControlFlowImprecision.Subroutines))
         {
             return null;
         }
 
+        var states = ErrorHandlingStates.Of(graph);
         var assigns = instructions.Items.Select(instruction => Assigns(instruction, model)).ToArray();
-        var assignment = !graph.CanReach(graph.Exit, instruction => assigns[instruction.Offset])
+        var assignment = !ReturnsWithout(graph, states, assigns)
             ? ReturnValueAssignment.Always
-            : instructions.Items.Any(instruction => assigns[instruction.Offset] && graph.IsReachable(instruction.Offset))
+            : instructions.Items.Any(instruction => assigns[instruction.Offset] && !states.At(instruction.Offset).IsEmpty)
                 ? ReturnValueAssignment.Sometimes
                 : ReturnValueAssignment.Never;
 
         var name = new SourceLocation(declaration.SourceLocation.Uri, declaration.NameRange ?? declaration.SourceLocation.Range);
         return new ReturnValueFact(assignment, declaration.Name, name, IsEmpty: instructions.Items.IsEmpty);
+    }
+
+    // whether a path returns from the activation on which no assignment completes: an instruction that raises an error has not. An error edge to the end is a
+    // return when Resume Next goes on past the last instruction, and returns nothing when the error is raised to the caller.
+    private static bool ReturnsWithout(ControlFlowGraph graph, ErrorHandlingStates states, bool[] assigns)
+    {
+        var edges = states.Edges;
+        var visited = new bool[edges.Count];
+        var pending = new Stack<int>();
+        pending.Push(graph.Entry);
+        visited[graph.Entry] = true;
+        while (pending.TryPop(out var node))
+        {
+            if (node == graph.Exit)
+            {
+                return true;
+            }
+
+            foreach (var edge in edges.SuccessorsOf(node))
+            {
+                var completes = edge.Kind is not ControlFlowEdgeKind.Error;
+                var raisedToTheCaller = !completes && edge.To == graph.Exit
+                    && !states.At(node).Any(state => state is { Policy: ErrorHandlingPolicy.ResumeNext, IsHandling: false });
+                if (completes && assigns[node] || raisedToTheCaller || visited[edge.To])
+                {
+                    continue;
+                }
+
+                visited[edge.To] = true;
+                pending.Push(edge.To);
+            }
+        }
+
+        return false;
     }
 
     // what the statement itself writes to, not what is in the blocks it guards: those are instructions of their own.

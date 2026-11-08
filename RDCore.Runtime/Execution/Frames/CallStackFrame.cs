@@ -74,9 +74,88 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public InstructionList? Body { get; set; }
 
     /// <summary>
+    /// Where the activation stands in its body: while a procedure it called runs, the call expression it is suspended at (<see cref="EnterCall"/>);
+    /// otherwise the location of the instruction at <see cref="Pc"/>, the statement it runs. <see langword="null"/> when <see cref="Pc"/> is past the end of
+    /// the body, and for an activation that has none.
+    /// </summary>
+    /// <remarks>
+    /// The call counts only while the activation stands at the instruction that made it, and only if the call lies in that instruction's statement.
+    /// Anywhere else (an instruction it went on to, a body an edit moved it into, a statement typed while the program waited), the activation is located
+    /// at the statement.
+    /// </remarks>
+    public SourceLocation? CurrentLocation
+    {
+        get
+        {
+            if (Body is not { } body || Pc < 0 || Pc >= body.Items.Length)
+            {
+                return null;
+            }
+
+            var statement = body.Items[Pc].Location;
+            return _call is { } call && _callPc == Pc && statement is { } at && call.Uri == at.Uri
+                && call.Range.Start >= at.Range.Start && call.Range.Start <= at.Range.End
+                    ? call
+                    : statement;
+        }
+    }
+
+    // the call expression the activation is suspended at, and the instruction it made the call at (EnterCall).
+    private SourceLocation? _call;
+    private int _callPc = -1;
+
+    /// <summary>
+    /// The activation makes the call at <paramref name="call"/>, from the instruction at <see cref="Pc"/>: it is located there while the callee runs
+    /// (<see cref="CurrentLocation"/>).
+    /// </summary>
+    /// <param name="call">Where the call expression is; <see langword="null"/> for a call that is written nowhere, which is located by its statement.</param>
+    /// <returns>The call the activation was making before, which <see cref="LeaveCall"/> gives back when this one returns.</returns>
+    public (SourceLocation? Call, int Pc) EnterCall(SourceLocation? call)
+    {
+        var before = (_call, _callPc);
+        (_call, _callPc) = (call, Pc);
+        return before;
+    }
+
+    /// <summary>
+    /// The call <see cref="EnterCall"/> recorded has returned: the activation is again making the call it was making before, if any.
+    /// </summary>
+    /// <param name="before">What <see cref="EnterCall"/> returned.</param>
+    public void LeaveCall((SourceLocation? Call, int Pc) before) => (_call, _callPc) = before;
+
+    /// <summary>
     /// The offset the program waited before, and is resumed at: a breakpoint there is not waited at again, once.
     /// </summary>
     public int WaitedAt { get; set; } = -1;
+
+    /// <summary>
+    /// What compiled code had evaluated of the instruction at <see cref="Pc"/> when it handed the activation to the interpreter in the middle of it: the
+    /// interpreter runs that instruction with them, and no other.
+    /// </summary>
+    internal KnownOperands? Known { get; private set; }
+
+    /// <summary>
+    /// Gives the activation what compiled code had evaluated of the instruction at <see cref="Pc"/>.
+    /// </summary>
+    /// <param name="known">What compiled code had evaluated.</param>
+    internal void Know(KnownOperands known)
+    {
+        Forget();
+        Known = known;
+        KnownOperands.Count(held: true);
+    }
+
+    /// <summary>
+    /// Lets go of what compiled code had evaluated of an instruction: the interpreter is past it.
+    /// </summary>
+    internal void Forget()
+    {
+        if (Known is not null)
+        {
+            Known = null;
+            KnownOperands.Count(held: false);
+        }
+    }
 
     private bool _moved;
 
@@ -151,7 +230,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </remarks>
     public bool TryRebase(InstructionList body, InstructionAlignment alignment, bool waits)
     {
-        if (Rebased(body, alignment, waits, out var rebased) is not null)
+        // a rebase that is refused has no rebasing: the refusal returned is not null, and the rebasing is.
+        if (Rebased(body, alignment, waits, out var rebased) is not null || rebased is null)
         {
             return false;
         }
@@ -392,6 +472,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // callee's header edited - and it goes on in the edited body from the next instruction (CompiledActivation.WantsInterpreterAfterCall).
         if (RunsCompiled)
         {
+            // in the middle of a call a condition or the header of a loop makes, it is refused as an interpreted activation is (below).
+            if (!waits && Pc < before.Items.Length && before.Items[Pc].Kind is not InstructionKind.Simple)
+            {
+                return FrameRebaseRefusal.InTheMiddleOfAHeader;
+            }
+
             if (alignment.IsIdentity)
             {
                 rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Stays = true };

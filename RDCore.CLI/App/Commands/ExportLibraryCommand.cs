@@ -6,6 +6,7 @@ using RDCore.SDK.Runtime.Libraries;
 using System.IO.Abstractions;
 using System.Reflection;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace RDCore.CLI.App.Commands;
@@ -119,6 +120,7 @@ internal sealed class ExportLibraryCommand(IConsoleMessageWriter writer, IFileSy
     // <Name>.json, unless the folder has one that describes another type library of the name: then <Name>.<file stem>.json, which the platform reads as
     // a library of the same name (DirectoryLibrarySource), and so on with the version, then a number. The first that is not there, or that describes this
     // type library, is written: a file of another type library is never written over.
+    [SupportedOSPlatform("windows")]
     private string PathOf(string output, LoadedTypeLibrary loaded, LibraryIdentity identity)
     {
         var stem = loaded.File is null

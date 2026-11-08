@@ -65,7 +65,7 @@ public sealed class InteractionRelayTests
 
         Assert.AreEqual(VBMsgBoxResult.VBNo, relay.ShowMessage(YesNo));
 
-        channel.Received().MessageBoxAsync(Arg.Is<HostMessageBoxParams>(request =>
+        _ = channel.Received().MessageBoxAsync(Arg.Is<HostMessageBoxParams>(request =>
             request.Prompt == "Sure?" && request.Title == "Project1" && request.Style == (int)VBMsgBoxStyle.VBYesNo && request.Output.SequenceEqual(new[] { "before" })),
             Arg.Any<CancellationToken>());
         CollectionAssert.AreEqual(new[] { "pending" }, output.Lines.ToArray(), "what the client was shown is not said again, and an open line is still the run's");
@@ -154,7 +154,7 @@ public sealed class InteractionRelayTests
 
         Assert.IsNull(relay.Prompt(request));
         Assert.AreEqual(string.Empty, relay.Prompt(request));
-        channel.Received().InputBoxAsync(Arg.Is<HostInputBoxParams>(sent => sent.Default == "you" && sent.XPos == 10 && sent.YPos == 20), Arg.Any<CancellationToken>());
+        _ = channel.Received().InputBoxAsync(Arg.Is<HostInputBoxParams>(sent => sent.Default == "you" && sent.XPos == 10 && sent.YPos == 20), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]

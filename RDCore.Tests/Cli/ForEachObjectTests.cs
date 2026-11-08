@@ -82,9 +82,9 @@ public sealed class ForEachObjectTests
             await RunAsync("Dim c As New Collection", "c.Add 1", "c.Add 2", "Dim v As Variant", "For Each v In c", "Debug.Print v", "c.Add 9", "Next", "Debug.Print c.Count"));
 
     [TestMethod]
-    public async Task TheControlVariable_HoldsTheLastMember_WhenTheLoopIsOver()
-        => CollectionAssert.AreEqual(new[] { "3" },
-            await RunAsync("Dim c As New Collection", "c.Add 1", "c.Add 2", "c.Add 3", "Dim v As Variant", "For Each v In c", "Next", "Debug.Print v"));
+    public async Task TheControlVariable_IsEmpty_WhenTheLoopRunsOut()
+        => CollectionAssert.AreEqual(new[] { "Empty" },
+            await RunAsync("Dim c As New Collection", "c.Add 1", "c.Add 2", "c.Add 3", "Dim v As Variant", "For Each v In c", "Next", "Debug.Print TypeName(v)"));
 
     [TestMethod]
     public async Task Members_ThatAreObjects_AreSetAssignedToAControlOfTheirClass()

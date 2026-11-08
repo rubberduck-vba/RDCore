@@ -20,4 +20,11 @@
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
+  <!-- every project, its tests included, builds with no warning: a warning is an error. An advisory published against a package is a warning still, which a
+       build reports without failing - it is news of the package, not of the code built. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+  </PropertyGroup>
+
 </Project>

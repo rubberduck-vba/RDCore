@@ -140,7 +140,7 @@ public sealed class RuntimeSessionComposerTests
         var session = Compose(is64Bit: true, project);
 
         Assert.IsTrue(session.Symbols.TryResolveConditionalConstant("Win64", GlobalScope, out var win64));
-        Assert.AreEqual((short)-1, ((VBIntegerValue)((PrecompilerConstantSymbol)win64!).Value).Value);
+        Assert.AreEqual((short)1, ((VBIntegerValue)((PrecompilerConstantSymbol)win64!).Value).Value);
 
         Assert.IsTrue(session.Symbols.TryResolveConditionalConstant("RDDEBUG", GlobalScope, out var rdDebug));
         Assert.AreEqual((short)1, ((VBIntegerValue)((PrecompilerConstantSymbol)rdDebug!).Value).Value);

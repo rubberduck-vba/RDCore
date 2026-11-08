@@ -68,11 +68,13 @@ public sealed class HostEntryPointsHandlerTests
         => CollectionAssert.AreEquivalent(new[] { "Other", "Program" }, await EntryPointsAsync(
             StandardModule("Program", "Public Sub Main()", "End Sub"), modules: [("Other", StandardModule("Other", "Sub Main(ParamArray Args())", "End Sub"))]));
 
-    // VBA7 is True in the host's session: of the headers a Sub Main has in the branches of a #If block, the one under #If VBA7 is the declaration.
+    // VBA7 is True (1) in the host's session: of the headers a Sub Main has in the branches of a #If block, the one under #If VBA7 is the declaration, and
+    // under #If Not VBA7, the #If's too: Not 1 is -2, which is True, as in MS-VBA.
     [TestMethod]
     [DataRow("#If VBA7 Then\r\nPublic Sub Main()\r\n#Else\r\nPrivate Sub Main(ByVal Count As Long)\r\n#End If", true, DisplayName = "the live header is one")]
     [DataRow("#If VBA7 Then\r\nPrivate Sub Main(ByVal Count As Long)\r\n#Else\r\nPublic Sub Main()\r\n#End If", false, DisplayName = "only a dead header is one")]
-    [DataRow("#If Not VBA7 Then\r\nPrivate Sub Main()\r\n#Else\r\nSub Main(ParamArray Args())\r\n#End If", true, DisplayName = "the live header is the #Else's")]
+    [DataRow("#If VBA7 = 0 Then\r\nPrivate Sub Main()\r\n#Else\r\nSub Main(ParamArray Args())\r\n#End If", true, DisplayName = "the live header is the #Else's")]
+    [DataRow("#If Not VBA7 Then\r\nPrivate Sub Main()\r\n#Else\r\nSub Main(ParamArray Args())\r\n#End If", false, DisplayName = "Not VBA7 is True")]
     public async Task ASubMainWhoseHeaderIsWrittenInEachBranchOfAnIf_IsWhereTheProgramStarts_WhenItsLiveHeaderIs(string headers, bool starts)
         => CollectionAssert.AreEqual(starts ? new[] { "Program" } : [], await EntryPointsAsync(StandardModule("Program", headers, "End Sub")));
 

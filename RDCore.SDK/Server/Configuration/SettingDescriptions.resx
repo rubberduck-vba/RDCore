@@ -56,7 +56,7 @@
     <value>The extensions the platform loads, by their title, separated by commas. An extension runs code of its own, with the platform's rights.</value>
   </data>
   <data name="Environment_Is64Bit" xml:space="preserve">
-    <value>Whether the environment is a 64-bit one: the width of LongPtr, and what #If Win64 says.</value>
+    <value>Whether the environment is a 64-bit one: the width of LongPtr, and what #If Win64 says on Windows and #If Linux64 on Linux.</value>
   </data>
   <data name="Environment_Lcid" xml:space="preserve">
     <value>The locale identifier of the environment; 0 is the invariant locale.</value>
@@ -86,13 +86,16 @@
     <value>Whether SaveSetting, GetSetting, GetAllSettings and DeleteSetting use the Windows Registry, as MS-VBA does, instead of the workspace's settings.</value>
   </data>
   <data name="Environment_ExecutionEngine" xml:space="preserve">
-    <value>What runs a program: the interpreter (Interpreter), or code compiled where every statement of a procedure can be (Compiled).</value>
+    <value>What runs a program: compiled code where it can run a procedure, and the interpreter elsewhere (Compiled), or the interpreter alone (Interpreter).</value>
   </data>
   <data name="Environment_Configuration" xml:space="preserve">
     <value>Whether a program is built to be debugged (Debug) or to be run (Release). In a release build a Stop ends the program as End does, and DEBUG is False.</value>
   </data>
   <data name="Environment_ReleaseDropsDebugStatements" xml:space="preserve">
     <value>Whether a release build leaves out every Debug.Print and Debug.Assert, their arguments unevaluated. Off by default: a release build keeps them, and they run as in a debug build.</value>
+  </data>
+  <data name="Environment_Regional_Language" xml:space="preserve">
+    <value>The language of the platform's messages, as a culture name such as en, fr or fr-CA. Empty by default: the machine's language. It changes no number or date formatting. A language with no translation is shown in English.</value>
   </data>
   <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
     <value>What separates the whole part of a number from its fraction.</value>

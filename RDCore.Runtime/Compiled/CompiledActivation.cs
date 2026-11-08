@@ -49,11 +49,12 @@ public sealed partial class CompiledActivation : ILightActivation
     // (RuntimeCallStack.MaterializeLights), and the activation is held in it from then on.
     private CallStackFrame? _frame;
 
-    // what an activation without a frame holds in place of one: the procedure it is of, the stack it is on, the instruction of the call it is making, and its
-    // function result variable.
+    // what an activation without a frame holds in place of one: the procedure it is of, the stack it is on, the instruction of the call it is making and the
+    // number of that call among the body's callees (-1 when it is making none), and its function result variable.
     private readonly VBTypeMemberSymbol? _procedure;
     private readonly RuntimeCallStack? _stack;
     private int _pc;
+    private int _call = -1;
     private ScalarPayload _result;
     private bool _hasResult;
 
@@ -86,7 +87,8 @@ public sealed partial class CompiledActivation : ILightActivation
         Array.Clear(_cells);
         (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
-        (_pc, _hasResult, _failed, _unspilled) = (0, false, null, false);
+        (_pc, _call, _hasResult, _failed, _unspilled) = (0, -1, false, null, false);
+        _knowns?.Clear();
         _untilPoll = PollInterval;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
@@ -111,6 +113,11 @@ public sealed partial class CompiledActivation : ILightActivation
             ? _invoker.CreateMemberFrame(member, _list, _instance!.ObjectId, me)
             : _invoker.CreateCompiledFrame(_procedure!, _list);
         (frame.Pc, frame.RunsCompiled) = (_pc, true);
+        if (_call >= 0)
+        {
+            _ = frame.EnterCall(_body.Callees[_call].CallLocation);
+        }
+
         if (_hasResult)
         {
             frame.AssignResult(_result);
@@ -262,7 +269,24 @@ public sealed partial class CompiledActivation : ILightActivation
         }
         else
         {
-            _pc = pc;
+            (_pc, _call) = (pc, -1);
+        }
+    }
+
+    // the call numbered callee the activation makes at the instruction at pc, which its frame locates it at while the callee runs (CallStackFrame.EnterCall),
+    // as the interpreter's does: a frame is told it now, one the activation is given later is told it then (MakeFrame). The call is not taken back when it
+    // returns: the frame says the activation is at another instruction before anything can be called on top of it again (SetPc, Return, LeaveBlocks, a
+    // hand-over to the interpreter), and a call is the frame's only at the instruction that made it.
+    private void SetCall(int pc, int callee)
+    {
+        if (_frame is { } frame)
+        {
+            frame.Pc = pc;
+            _ = frame.EnterCall(_body.Callees[callee].CallLocation);
+        }
+        else
+        {
+            (_pc, _call) = (pc, callee);
         }
     }
 
@@ -405,7 +429,7 @@ public sealed partial class CompiledActivation : ILightActivation
     public bool Call(int pc, int callee, out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
@@ -464,7 +488,9 @@ public sealed partial class CompiledActivation : ILightActivation
         var returned = ScalarKinds.Of((member as VBFunctionMemberSymbol)?.ResolvedType);
         if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
-            || (called.Result is { } read ? returned != read : member is VBFunctionMemberSymbol && returned is null))
+            || (called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
+                : called.Result is { } read ? returned != read
+                : member is VBFunctionMemberSymbol { ResolvedType: var discarded } && returned is null && discarded is not SDK.Model.Types.VBVariantType))
         {
             return false;
         }
@@ -472,8 +498,11 @@ public sealed partial class CompiledActivation : ILightActivation
         for (var i = 0; i < called.Parameters.Count; i++)
         {
             var parameter = parameters[i + 1];
+            // an object parameter is one of the member's too, of the very type, which what it is given is Set-coerced to (SetObject).
             if (parameter is ParamArrayParameterSymbol || ScalarKinds.Of(parameter.ResolvedType) != called.Parameters[i]
-                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i])
+                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) != called.ByReference[i]
+                || called.Parameters[i] is null
+                    && (i >= called.ObjectParameters.Count || called.ObjectParameters[i] is not { } passed || !passed.Type.Equals(parameter.ResolvedType)))
             {
                 return false;
             }
@@ -495,7 +524,7 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <returns>Whether the call returned, as <see cref="Call"/> says.</returns>
     public bool CallMember(int pc, int callee, out long integral, out double floating)
     {
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
@@ -519,12 +548,13 @@ public sealed partial class CompiledActivation : ILightActivation
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+            EndStatementAfter(called, _failed.Value);
             return false;
         }
 
         if (called.Result is null)
         {
-            return true;
+            return AssignReturned(called, result.Result);
         }
 
         // a function of a scalar type returns a known value of it.
@@ -601,7 +631,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
 
         // under a debugger, which may look at the stack while the program waits in it, the callee's frame is made as it is called; any other is on the stack
@@ -672,7 +702,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return null;
         }
 
-        SetPc(pc);
+        SetCall(pc, callee);
         _failed = null;
         CompiledActivation activation;
         if (entry.Body.EntersWithoutFrame && _halt.Gate is null && _stack is not null && UnboxedEvaluation.IsEnabled)
@@ -776,13 +806,16 @@ public sealed partial class CompiledActivation : ILightActivation
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
             _failed = outcome.Kind is RuntimeExecutionOutcomeKind.Error ? outcome : RuntimeExecutionOutcome.InternalError;
+            EndStatementAfter(_body.Callees[call], outcome);
             return false;
         }
 
-        // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of.
-        if (_body.Callees[call].Result is null)
+        // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of, and one
+        // whose statement assigns what it returns is assigned it.
+        var called = _body.Callees[call];
+        if (called.Result is null)
         {
-            return true;
+            return AssignReturned(called, called.AssignsResult ? ReturnedBy(callee) : null);
         }
 
         // a function of a scalar type returns a payload of it: its compiled code assigned it when it returned, and so did the interpreter it was handed to.
@@ -900,6 +933,11 @@ public sealed partial class CompiledActivation : ILightActivation
 
         var list = Body;
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
+        if (!HandKnowns(frame, list, pc, inside: _failed is null))
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
         if (_failed is not { } outcome)
         {
             frame.Pc = pc;
@@ -1257,12 +1295,19 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     public RuntimeExecutionOutcome Interpret(int pc)
     {
-        // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body.
+        // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body - or, handed over in the
+        // middle of an instruction after a call inside it, in that instruction, where it now is (HandKnowns).
         var frame = Frame;
         (frame.Pc, frame.RunsCompiled) = (pc, false);
-        _ = frame.ApplyPendingRebase(atTheCall: false);
+        var inside = HasKnowns;
+        _ = frame.ApplyPendingRebase(atTheCall: inside);
         var list = Body;
         pc = frame.Pc;
+        if (!HandKnowns(frame, list, pc, inside))
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
         return _executor.Run(_session, frame, list, _context);
     }
@@ -1297,6 +1342,12 @@ public sealed partial class CompiledActivation : ILightActivation
         var failed = _failed;
         _failed = null;
         var list = Body;
+        if (!HandKnowns(frame, list, pc, inside: failed is null))
+        {
+            _recovered = RuntimeExecutionOutcome.InternalError;
+            return -1;
+        }
+
         var suspensions = Suspensions;
         var outcome = _executor.Step(_session, frame, list, _context, failed);
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)
@@ -1334,8 +1385,10 @@ public sealed partial class CompiledActivation : ILightActivation
             return;
         }
 
+        // the frame says the activation is at pc, as the interpreter's does when it lets go of them: a Class_Terminate that runs of one sees it there.
         foreach (var holder in frame.TakeBlockHoldersOutside(pc))
         {
+            frame.Pc = pc;
             ObjectReferences.Release(_session, holder);
         }
     }
@@ -1455,9 +1508,14 @@ public sealed partial class CompiledActivation : ILightActivation
     // offsets as the one compiled code was compiled from (CallStackFrame.TryRebase).
     private InstructionList Body => _frame?.Body ?? _list;
 
-    /// <summary>What an activation that reached its end, or an <c>Exit</c>, returns.</summary>
-    public RuntimeExecutionOutcome Return()
+    /// <summary>
+    /// What an activation that reached its end, or an <c>Exit</c>, returns. The frame says the activation is at <paramref name="pc"/>, the <c>Exit</c> or the
+    /// end of the body, as the frame of an activation the interpreter runs says when it returns: what lets go of its locals then, and a <c>Class_Terminate</c>
+    /// that runs of it, sees it there, and not at the last call it made.
+    /// </summary>
+    public RuntimeExecutionOutcome Return(int pc)
     {
+        SetPc(pc);
         if (_frame is { } frame)
         {
             frame.RunsCompiled = false;

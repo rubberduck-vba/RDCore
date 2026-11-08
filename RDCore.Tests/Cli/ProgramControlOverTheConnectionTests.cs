@@ -1,5 +1,4 @@
 using System.IO.Pipelines;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Client;
@@ -165,9 +164,7 @@ public sealed class ProgramControlOverTheConnectionTests
                 .AddHandler(resume)
                 .AddHandler(new HostDebugPauseHandler(provider))
                 .AddHandler(new HostDebugTerminateHandler(provider))
-                .WithServices(services => services
-                    .AddSingleton<ArrivalRequests>()
-                    .AddSingleton<IReceiver, RDCoreLifecycleReceiver>()), timeout.Token);
+                .WithLifecycleReceiver(), timeout.Token);
             var connecting = LanguageClient.From(options => options.WithInput(toClient.Reader).WithOutput(toServer.Writer), timeout.Token);
             await Task.WhenAll(serving, connecting).WaitAsync(Patience);
             using var server = await serving;

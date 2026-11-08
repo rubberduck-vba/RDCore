@@ -64,7 +64,18 @@ public static class ExpressionStaticSemanticsEvaluator
         {
             // children are evaluated first, so what is known of an operand is known when the expression that has it is described.
             var fact = ExpressionFactDescriber.Describe(context, facts, expression, result);
-            facts.Record(OverflowsWhereVariantWidens(context, expression, result) ? fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.OverflowsWhereVariantWidens } : fact);
+            var flags = fact.Flags;
+            if (OverflowsWhereVariantWidens(context, expression, result))
+            {
+                flags |= ValueExpressionSemanticFlags.OverflowsWhereVariantWidens;
+            }
+
+            if (TrueValueIsNotMinusOne(context, expression))
+            {
+                flags |= ValueExpressionSemanticFlags.TrueValueIsNotMinusOne;
+            }
+
+            facts.Record(flags == fact.Flags ? fact : fact with { Flags = flags });
         }
 
         // so are its bindings, so that the plan of an operation is made for the declared types of its operands.
@@ -80,6 +91,57 @@ public static class ExpressionStaticSemanticsEvaluator
         => expression is VBBinaryOperatorExpressionNode { Token: Tokens.AdditionOp or Tokens.SubtractionOp or Tokens.MultiplicationOp } binary
             && result is { IsSuccess: true, Result: VBByteType or VBIntegerType or VBLongType }
             && (IsArgumentTypedCall(context, binary.Left) || IsArgumentTypedCall(context, binary.Right));
+
+    // an operation that reads a constant as a truth value, where the constant is True with a value that is not -1 and the operation works on its bits:
+    // `Not DEV` with `Const DEV = 1` is -2, which is True (TruthValueOperations, MS-VBAL §5.6.9.8).
+    private static bool TrueValueIsNotMinusOne(StaticEvaluationContext context, ExpressionNode expression) => expression switch
+    {
+        VBUnaryOperatorExpressionNode { Token: Tokens.LogicalNotOp } not => TruthValueOperations.NotMisleads(TruthOperandOf(context, not.Operand, 0)),
+        VBBinaryOperatorExpressionNode
+        {
+            Token: Tokens.LogicalAndOp or Tokens.LogicalXOrOp or Tokens.LogicalEqvOp or Tokens.LogicalImpOp or Tokens.CompareEqualOp or Tokens.CompareNotEqualOp
+        } binary => TruthValueOperations.Misleads(binary.Token, TruthOperandOf(context, binary.Left, 0), TruthOperandOf(context, binary.Right, 0)),
+        _ => false,
+    };
+
+    // how many constants a constant's value may name in turn before its value is no longer looked for.
+    private const int ConstantDepth = 8;
+
+    // what an operand is as a truth value: a constant's value, written or declared; otherwise what its declared type says it can hold.
+    private static TruthOperand TruthOperandOf(StaticEvaluationContext context, ExpressionNode operand, int depth)
+    {
+        switch (operand)
+        {
+            case VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp } parentheses:
+                return TruthOperandOf(context, parentheses.Operand, depth);
+            case VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp } negation:
+                return TruthOperandOf(context, negation.Operand, depth).Negated;
+            case LiteralExpressionNode literal:
+                return TruthOperand.Of(literal.StaticValue);
+            case SimpleNameExpressionNode name when depth < ConstantDepth
+                && context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri) is { IsResolved: true, Symbol: { } symbol }
+                && ConstantValueOf(symbol) is { Value: { } value } constant:
+                var operandOfValue = TruthOperandOf(context, value, depth + 1);
+                // a Boolean constant is True or False whatever number it is given: Let-coercion makes any other number True, which is -1 (MS-VBAL §5.5.1.2.2).
+                return constant.Type is not VBBooleanType ? operandOfValue
+                    : operandOfValue.Bits is { } bits ? new TruthOperand(TruthOperandKind.Boolean, bits == 0 ? 0 : -1)
+                    : TruthOperand.AnyBoolean;
+        }
+
+        return Evaluate(context with { Facts = null, Bindings = null }, operand).Result switch
+        {
+            VBBooleanType => TruthOperand.AnyBoolean,
+            VBVariantType or VBUnknownType => TruthOperand.Unknown,
+            _ => TruthOperand.Opaque,
+        };
+    }
+
+    private static (VBType Type, ExpressionNode? Value)? ConstantValueOf(Symbol symbol) => symbol switch
+    {
+        VBLocalConstantSymbol local => (local.ResolvedType, local.Value),
+        VBConstantMemberSymbol member => (member.ResolvedType, member.Value),
+        _ => null,
+    };
 
     private static bool IsArgumentTypedCall(StaticEvaluationContext context, ExpressionNode operand)
         => operand is IndexExpressionNode { Arguments: [var only] } call && ProcedureNamedBy(context, call.Callee) is { } procedure
@@ -156,6 +218,7 @@ public static class ExpressionStaticSemanticsEvaluator
         if (memberAccess.Owner is { } namespaceExpression
             && context.Resolver.NamespaceOf(namespaceExpression, context.Scope.Uri) is { } qualifier)
         {
+            DescribeNamespace(context, namespaceExpression, qualifier);
             return EvaluateNamespaceMember(context, expression, qualifier, memberAccess);
         }
 
@@ -201,6 +264,29 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         return MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerType);
+    }
+
+    // the project or the module that qualifies a member is no value, and is not evaluated: what it names is a fact all the same, of every part of it
+    // (`VBA.Strings` and `VBA`), so that the expression the member is written in is analyzed whole - written in another case than it is declared in, too.
+    private static void DescribeNamespace(StaticEvaluationContext context, ExpressionNode qualifierExpression, Symbol qualifier)
+    {
+        if (context.Facts is not { } facts)
+        {
+            return;
+        }
+
+        var written = qualifierExpression switch
+        {
+            SimpleNameExpressionNode name => name.IdentifierName,
+            MemberAccessExpressionNode access => access.Member.IdentifierName,
+            _ => qualifier.Name,
+        };
+        var flags = string.Equals(qualifier.Name, written, StringComparison.Ordinal) ? 0 : ValueExpressionSemanticFlags.CaseMismatch;
+        facts.Record(new ExpressionFact(qualifierExpression.Identity, qualifierExpression.Location, null, ExpressionClassification.Namespace, qualifier.SemanticId, flags));
+        if (qualifierExpression is MemberAccessExpressionNode { Owner: { } outer } && context.Resolver.NamespaceOf(outer, context.Scope.Uri) is { } outerQualifier)
+        {
+            DescribeNamespace(context, outer, outerQualifier);
+        }
     }
 
     // MS-VBAL §5.6.12, an <l-expression> classified as a project or a procedural module: the member access is the

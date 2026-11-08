@@ -233,7 +233,7 @@ public sealed class ChildConnection(
         }
 
         // a restart under way is stopped where it waits; one past its last wait sees the shutdown before it spawns, or shuts down what it spawned.
-        _shutdownCts.Cancel();
+        await _shutdownCts.CancelAsync();
 
         if (State.Value is ConnectionStateValue.Ready && _client is ILanguageClient client)
         {
@@ -445,7 +445,7 @@ public sealed class ChildConnection(
             return await answer;
         }
 
-        abandon.Cancel();
+        await abandon.CancelAsync();
         _ = answer.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         throw new ServerProtocolSdkException($"Child process exited before {before}.");
     }

@@ -8,6 +8,10 @@
 Logical operators compute bitwise in the effective integral type. A `Boolean` effective type is computed bitwise over
 its `-1`/`0` representation.
 
+A logical operator with a `Variant` operand is declared `Variant`, and its result is held in a `Variant`: compared with a
+`Variant` `String`, `v Or 255` ranks below it whatever its value
+([**RD-VBAL §5.6.9.5** An expression over a Variant](rd-vbal.5.6.9.5.relational-operators.md#an-expression-over-a-variant)).
+
 See [**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md) for the evaluation
 pipeline and computation in the effective type.
 

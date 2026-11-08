@@ -144,7 +144,7 @@ public sealed class CompiledObjectFieldTests
             "End Function"), [("Swapped", 0)], classes: [Noisy]);
 
     // a WithEvents field is Set by the interpreter, which detaches its handlers from what it held and attaches them to what it is given (MS-VBAL §5.4.3.9):
-    // the handler runs for an event raised while the field holds the object, and not before nor after.
+    // the handler runs for an event raised while the field holds the object, and not before nor after. The Set is a support call, no recovery.
     [TestMethod]
     public async Task AWithEventsField_IsSetByTheInterpreter_WhichAttachesItsHandlers()
         => await AssertAlikeAsync(Program(
@@ -156,7 +156,7 @@ public sealed class CompiledObjectFieldTests
             "    L.Watch Nothing",
             "    S.Fire 3",
             "    Debug.Print \"end\"; L.Watched",
-            "End Sub"), [("Watch", 2)], classes:
+            "End Sub"), [("Watch", 0)], classes:
             [
                 ("Source", ModuleWorkspace.ClassModule("Source", "Option Explicit",
                     "Public Event Ping(ByVal N As Long)",

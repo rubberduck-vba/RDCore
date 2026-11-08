@@ -74,11 +74,12 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// The bound tree of an expression written in the body of <paramref name="procedure"/>, its variables bound to the slots of the procedure's layout: what
-    /// compiled code is emitted from, whatever activation is current.
+    /// compiled code is emitted from, whatever activation is current. In a <c>With</c> block, <paramref name="withTarget"/> is the block's expression, which a
+    /// member written with no object before the dot is a member of.
     /// </summary>
-    internal BoundNode BindInProcedure(IRuntimeSession session, ExpressionNode expression, Symbol procedure)
+    internal BoundNode BindInProcedure(IRuntimeSession session, ExpressionNode expression, Symbol procedure, ExpressionNode? withTarget = null)
     {
-        var context = new RuntimeEvaluationContext(procedure.Uri);
+        var context = new RuntimeEvaluationContext(procedure.Uri, EnclosingWithTargetExpression: withTarget);
         if (!session.Symbols.Scopes.TryGetScope(context.Scope, out var scope))
         {
             scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);
@@ -242,11 +243,21 @@ public sealed partial class RuntimeExpressionEvaluator
         return RuntimeSemanticsEvaluationResult.Success(coerced);
     }
 
+    // what compiled code evaluated of the instruction the activation runs, before it handed it to the interpreter in the middle of it: a call it made is not
+    // made again, and a variable it read before the call is what it read. A call made meanwhile is the current activation while it runs, so the procedure's
+    // own expressions, in the activation of a recursive call, are evaluated anew.
+    private static bool TryKnown(IRuntimeSession session, BoundNode node, out ScalarPayload known)
+    {
+        known = default;
+        return session.CallStack.Current is CallStackFrame { Known: { } operands } && operands.TryGet(node.Expression, out known);
+    }
+
     private RuntimeSemanticsEvaluationResult EvaluateBoundNode(IRuntimeSession session, BoundNode node, RuntimeEvaluationContext context) => node switch
     {
+        _ when KnownOperands.AnyHeld && TryKnown(session, node, out var known) => RuntimeSemanticsEvaluationResult.Success(known.Type.CreateValue(new ValueBindingHandle(known.Box()))),
         BoundLiteral literal => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), literal.Literal),
         BoundVariable variable => ReadBoundVariable(session, variable),
-        BoundName name => ReadSymbol(session, context, name.Symbol, nameOfEnclosingFunctionIsItsResult: true),
+        BoundName name => ReadSymbol(session, context, name.Symbol, nameOfEnclosingFunctionIsItsResult: true, call: name.Name),
         BoundBinary binary => EvaluateBoundBinary(session, binary, context),
         BoundUnary unary => EvaluateBoundUnary(session, unary, context),
         BoundCall call => EvaluateBoundCall(session, call, context),
@@ -259,7 +270,7 @@ public sealed partial class RuntimeExpressionEvaluator
         BoundArrayBound arrayBound => EvaluateBoundArrayBound(session, arrayBound, context),
         BoundArray array => EvaluateBoundArray(session, array, context),
         BoundDictionaryAccess dictionary => EvaluateBoundDictionaryAccess(session, dictionary, context),
-        BoundQualifiedName qualified => ReadSymbol(session, context, qualified.Member, nameOfEnclosingFunctionIsItsResult: false),
+        BoundQualifiedName qualified => ReadSymbol(session, context, qualified.Member, nameOfEnclosingFunctionIsItsResult: false, call: qualified.Access),
         BoundPrecompilerName precompilerName => EvaluatePrecompilerConstant(session, context, precompilerName.Name),
         // a compile error evaluates to its run-time counterpart: the expression, late-bound.
         BoundError error => EvaluateBoundNode(session, error.Late, context),
@@ -364,7 +375,7 @@ public sealed partial class RuntimeExpressionEvaluator
             {
                 // the arguments are bound for the member of the class the object is declared as: the member implementing it has parameters of its own.
                 result = InvokeProcedure(session, context, member, bound.Arguments?.Arguments ?? [], objectValue.RuntimeValue,
-                    ReferenceEquals(member, bound.Member) ? bound.BoundArguments : null);
+                    ReferenceEquals(member, bound.Member) ? bound.BoundArguments : null, call: (SyntaxNode?)bound.Arguments ?? bound.Access);
             }
         }
         else if (bound.Arguments is { } call)
@@ -445,11 +456,28 @@ public sealed partial class RuntimeExpressionEvaluator
             return EvaluateWithWideOperand(session, binary, plan, context);
         }
 
+        if (ReadsLeftLast(binary))
+        {
+            var right = EvaluateBoundNode(session, binary.Right, context);
+            if (!right.IsSuccess)
+            {
+                return Unvalued(right);
+            }
+
+            var left = EvaluateBoundNode(session, binary.Left, context);
+            return left.IsSuccess ? OperatorProvider.EvaluateBinaryOperator(session, binary.Operation, left.Result!, right.Result!) : Unvalued(left);
+        }
+
         // an operand that raised an error raises it with no value: a Variant operation of it assigns nothing (MS-VBA: e = s * 10 + v leaves e - s42 E06).
         var leftResult = EvaluateBoundNode(session, binary.Left, context);
         if (!leftResult.IsSuccess)
         {
             return Unvalued(leftResult);
+        }
+
+        if (binary is { Left: BoundVariable or BoundMember or BoundIndex or BoundUnary, Right: not (BoundVariable or BoundLiteral) })
+        {
+            leftResult = ReadWhereWritten(leftResult);
         }
 
         var rightResult = EvaluateBoundNode(session, binary.Right, context);
@@ -461,6 +489,38 @@ public sealed partial class RuntimeExpressionEvaluator
         return OperatorProvider.EvaluateBinaryOperator(session, binary.Operation, leftResult.Result!, rightResult.Result!);
     }
 
+    // a variable, a field of a record or an element of an array is read through a view of where it is held, which an operation takes the value of when it
+    // is computed - after its right operand, which may call a procedure that changes it. MS-VBA reads an operand of an integral type or Currency where it is
+    // written, before such a call; one of another type, when the operation is computed (RD-VBAL §5.6.9.2).
+    // MS-VBA reads an operand of a floating-point type, a Date, a String or a Variant when its operation is computed, after its right operand, which may
+    // call a procedure that changes it (RD-VBAL §5.6.9.2): a variable of one, or an element of an array of one indexed by variables and literals, in
+    // parentheses or not, which reading changes nothing of, is read after its right operand - its index too.
+    private static bool ReadsLeftLast(BoundBinary binary) => binary.Right is not (BoundVariable or BoundLiteral) && IsReadLate(binary.Left);
+
+    private static bool IsReadLate(BoundNode node) => node switch
+    {
+        BoundVariable { Variable: ITypedSymbol { ResolvedType: var type } } => IsOfLateType(type),
+        BoundIndex { Callee: BoundVariable { Variable: ITypedSymbol { ResolvedType: VBArrayType { ItemType: var item } } }, Arguments: var indexes }
+            => IsOfLateType(item) && indexes.All(index => index is BoundVariable or BoundLiteral),
+        BoundUnary { Plan: null, Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }
+            => IsReadLate(enclosed),
+        _ => false,
+    };
+
+    private static bool IsOfLateType(VBType type) => type is VBSingleType or VBDoubleType or VBDateType or VBVariantType or (VBStringType and not VBFixedStringType);
+
+    private static RuntimeSemanticsEvaluationResult ReadWhereWritten(RuntimeSemanticsEvaluationResult read)
+    {
+        if (read.Result is not { TypeInfo: VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBCurrencyType } value
+            || !ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out var payload))
+        {
+            return read;
+        }
+
+        var copy = value.TypeInfo.CreateValue(new ValueBindingHandle(payload.Box()));
+        return RuntimeSemanticsEvaluationResult.Success(value.IsIndeterminate ? copy.AsIndeterminate() : copy);
+    }
+
     // what EvaluateIndex does with a callee that resolves to a procedure, its callee resolved once: a function that declares no parameter is not given what
     // follows it in parentheses, which indexes what it returns - and that is evaluated late-bound.
     // Abs, Int, Fix, CSng and CDbl of an extended intermediate are computed on it, CByte to CBool convert it, and Sgn takes its sign, none storing it first
@@ -470,7 +530,7 @@ public sealed partial class RuntimeExpressionEvaluator
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
             : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
                 ? OfResultType(call, AbsOfTheLeast(session, call, context,
-                    InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)))
+                    InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments, call: call.Call)))
                 : EvaluateLate(session, call.Expression, context);
 
     // the absolute value of the least value of a type is no value of it, which the standard library's Abs raises as an overflow: as MS-VBA does for a

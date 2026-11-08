@@ -1,3 +1,4 @@
+using RDCore.CLI.App.Repl.Commands;
 using RDCore.SDK.Client;
 using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Platform.Protocol;
@@ -47,7 +48,7 @@ internal static class ReplExecution
         debug &= context.Platform.Provides<ProgramDebugging>();
         if (!debug)
         {
-            Render(context, await context.Platform.ExecuteAsync(source, ReplProgram.ModuleName, entryPoint, token));
+            await RenderAsync(context, await context.Platform.ExecuteAsync(source, ReplProgram.ModuleName, entryPoint, token));
             return;
         }
 
@@ -56,7 +57,7 @@ internal static class ReplExecution
         try
         {
             var result = await context.Platform.ExecuteAsync(source, ReplProgram.ModuleName, entryPoint, debug: true, immediate: false, CancellationToken.None);
-            Render(context, result);
+            await RenderAsync(context, result);
             if (result.Outcome is ExecutionOutcome.Refused)
             {
                 context.Debugger.Idle();
@@ -127,7 +128,8 @@ internal static class ReplExecution
             result = await context.Platform.ResumeAsync(step, CancellationToken.None);
             if (result.Outcome is not ExecutionOutcome.Refused)
             {
-                Render(context, result);
+                // where a STEP stops is said, and not listed: a listing is what a break prints.
+                await RenderAsync(context, result, listsTheBreak: step is null);
                 return;
             }
         }
@@ -232,11 +234,13 @@ internal static class ReplExecution
     }
 
     /// <summary>
-    /// Writes what a run printed, then what ended it - or what it waits at - as BASIC says it.
+    /// Writes what a run printed, then what ended it - or what it waits at - as BASIC says it. A break also lists the lines around the one it stopped at, as
+    /// many on either side as <see cref="ReplCommandContext.BreakListingLines"/> says, with that line marked as the statement the program waits before.
     /// </summary>
     /// <param name="context">The live session.</param>
     /// <param name="result">The answer to the request that ran the program, or went on with it.</param>
-    public static void Render(ReplCommandContext context, ExecuteResult result)
+    /// <param name="listsTheBreak">Whether a break lists the lines around the one it stopped at.</param>
+    public static async Task RenderAsync(ReplCommandContext context, ExecuteResult result, bool listsTheBreak = true)
     {
         var (console, program) = (context.Console, context.Program);
         foreach (var line in result.Output)
@@ -263,6 +267,10 @@ internal static class ReplExecution
                 var waitsBefore = program.LineNumberAt(result.ErrorLine);
                 context.Debugger.Suspended(waitsBefore);
                 console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
+                if (listsTheBreak)
+                {
+                    await ListAroundAsync(context, waitsBefore);
+                }
 
                 // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
                 if (result.ConditionError.Length > 0)
@@ -288,9 +296,12 @@ internal static class ReplExecution
             // BASIC has always said where it was stopped. A break the host could not place - one that arrived between two statements of nothing the
             // program wrote - is a break all the same.
             case ExecutionOutcome.Interrupted:
-                console.WriteLine(program.LineNumberAt(result.ErrorLine) is { } stoppedAt
-                    ? string.Format(Resources.Repl_Break_InLine, stoppedAt)
-                    : Resources.Repl_Break);
+                var stoppedAt = program.LineNumberAt(result.ErrorLine);
+                console.WriteLine(stoppedAt is { } line ? string.Format(Resources.Repl_Break_InLine, line) : Resources.Repl_Break);
+                if (listsTheBreak)
+                {
+                    await ListAroundAsync(context, stoppedAt);
+                }
                 break;
 
             case ExecutionOutcome.NotFound:
@@ -301,6 +312,22 @@ internal static class ReplExecution
                 console.WriteMessage(MessageKind.Error, Resources.Repl_NotImplemented, result.ErrorMessage);
                 break;
         }
+    }
+
+    // the lines around the one a break stopped at, as LIST lists them, with that line marked as the statement the program waits before: as many lines of the program
+    // above it and below it as there are, up to the setting. Every line of them is listed, a folded block's too: they are what the program was doing. A break that
+    // could not be placed lists nothing. The requests are not the run's to cancel: a break at the keyboard cancelled the run's token already.
+    private static async Task ListAroundAsync(ReplCommandContext context, int? stoppedAt)
+    {
+        var around = Math.Clamp(context.BreakListingLines, 0, AppOptions.MaximumBreakListingLines);
+        if (around == 0 || stoppedAt is not { } stopped || context.Program.IndexOf(stopped) is not (>= 0 and var index))
+        {
+            return;
+        }
+
+        var from = context.Program.NumberAt(Math.Max(0, index - around));
+        var to = context.Program.NumberAt(Math.Min(context.Program.Count - 1, index + around));
+        await ListReplCommand.WriteAsync(context, from, to, current: stopped, withFolds: false, CancellationToken.None);
     }
 
     // BASIC has always said which line it died on, and so does this: the title carries the program's own

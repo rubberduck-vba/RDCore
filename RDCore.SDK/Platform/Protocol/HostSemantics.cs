@@ -191,6 +191,9 @@ public record class ConversionFactDto(
 /// <param name="Comparison">How a comparison compares <c>String</c> values where it is evaluated (<c>Option Compare</c>); <see langword="null"/> for any other operation.</param>
 /// <param name="ComparisonCulture">The name of the culture a <c>Text</c> comparison compares with, when it is not the invariant one.</param>
 /// <param name="Member">The name of the member that is accessed, when it is known (<see cref="MemberAccessFact.Member"/>).</param>
+/// <param name="OperatorLocation">Where the operator token is (<see cref="OperatorFact.OperatorLocation"/>), at which a diagnostic about the operator is
+/// located; <see langword="null"/> when the operation has no token of its own, or a host does not state it, and a diagnostic is then located at
+/// <paramref name="Location"/>.</param>
 public record class OperatorFactDto(
     SyntaxNodeId Node,
     SourceLocation Location,
@@ -205,7 +208,8 @@ public record class OperatorFactDto(
     RuntimeErrorDto? Error,
     OptionCompare? Comparison = null,
     string? ComparisonCulture = null,
-    string? Member = null)
+    string? Member = null,
+    SourceLocation? OperatorLocation = null)
 {
     /// <summary>
     /// Describes an operation for the wire.
@@ -225,7 +229,8 @@ public record class OperatorFactDto(
         Error: fact.Error is null ? null : RuntimeErrorDto.From(fact.Error),
         Comparison: (fact as ComparisonOperatorFact)?.Comparison.Mode,
         ComparisonCulture: (fact as ComparisonOperatorFact)?.Comparison.Culture is { Name.Length: > 0 } culture ? culture.Name : null,
-        Member: (fact as MemberAccessFact)?.Member);
+        Member: (fact as MemberAccessFact)?.Member,
+        OperatorLocation: fact.OperatorLocation);
 }
 
 /// <summary>
@@ -308,9 +313,12 @@ public record class RuntimeFactsDto(
 /// <param name="Expressions">What it found out about each expression.</param>
 /// <param name="ReturnValue">On how many code paths a function or a property getter assigns its return value, when the pass could tell.</param>
 /// <param name="Runtime">What the language core states about the code, or <see langword="null"/> when the procedure has not been evaluated.</param>
+/// <param name="EmptiedControlReads">
+/// The reads of its own <c>For Each</c> control variables that see them emptied by the end of the loop; <see langword="null"/> when there are none the pass could tell.
+/// </param>
 public record class ProcedureSemanticsDto(
     Uri Procedure, bool IsFullyAnalyzed, ImmutableArray<CompileErrorDto> CompileErrors, ImmutableArray<ExpressionFactDto> Expressions, ReturnValueFact? ReturnValue = null,
-    RuntimeFactsDto? Runtime = null);
+    RuntimeFactsDto? Runtime = null, ImmutableArray<EmptiedControlReadFact>? EmptiedControlReads = null);
 
 /// <summary>
 /// A <see cref="DeclarationFact"/>, as it travels.
@@ -366,7 +374,8 @@ public record class ModuleSemanticsDto(
             [.. procedure.Expressions.Values.Select(fact => new ExpressionFactDto(
                 fact.Node, fact.Location, fact.DeclaredType?.Name, fact.Classification, fact.Binding?.Uri, fact.Flags, fact.Error is null ? null : ErrorOf(fact.Error), fact.Creates))],
             procedure.ReturnValue,
-            procedure.Runtime is null ? null : RuntimeFactsDto.From(procedure.Runtime)))],
+            procedure.Runtime is null ? null : RuntimeFactsDto.From(procedure.Runtime),
+            procedure.EmptiedControlReads.IsDefaultOrEmpty ? null : procedure.EmptiedControlReads))],
         [.. model.Declarations.Select(declaration => new DeclarationFactDto(
             declaration.Symbol.Uri, declaration.Name, declaration.Kind, declaration.Access, declaration.IsImplicit, declaration.Location, declaration.References, declaration.Role,
             declaration.DeclaredBy, declaration.Hides, declaration.AutoInstantiationAlwaysFails))],

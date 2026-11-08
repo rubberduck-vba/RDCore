@@ -10,10 +10,10 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class FloatingPointOverflowTests
 {
-    private static string Run(string body)
+    private static async Task<string> Run(string body)
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nOn Error Resume Next\r\n" + string.Join("\r\n", body.Split(" ;; ")) + "\r\nEnd Sub\r\n";
-        return string.Join("/", RunAsync([], program).GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], program));
     }
 
     [TestMethod]
@@ -27,12 +27,12 @@ public sealed class FloatingPointOverflowTests
     [DataRow("Dim s As Single ;; s = 3E+38 ;; Debug.Print s * 10 ;; Debug.Print Err.Number", "6", DisplayName = "D10 not assigned: nothing printed")]
     [DataRow("Dim d As Double ;; d = 1E+308 ;; d = d + d ;; Debug.Print Err.Number", "6", DisplayName = "E05 a Double sum")]
     [DataRow("Dim d As Double ;; d = 1E+308 ;; d = d / 0.1 ;; Debug.Print Err.Number", "6", DisplayName = "E06 a Double quotient")]
-    public void AFloatingPointResultThatIsNotFinite_Overflows(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AFloatingPointResultThatIsNotFinite_Overflows(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
-    public void AVariantSingleProductPastASingle_IsADouble()
-        => Assert.AreEqual("0|Double|3.00000000549776E+39", Run("Dim v As Variant ;; v = CSng(3E+38) ;; v = v * 10 ;; Debug.Print Err.Number & \"|\" & TypeName(v) & \"|\" & v"));
+    public async Task AVariantSingleProductPastASingle_IsADouble()
+        => Assert.AreEqual("0|Double|3.00000000549776E+39", await Run("Dim v As Variant ;; v = CSng(3E+38) ;; v = v * 10 ;; Debug.Print Err.Number & \"|\" & TypeName(v) & \"|\" & v"));
 
     [TestMethod]
     [DataRow("Dim d As Double ;; d = 10 ;; d = d ^ 400 ;; Debug.Print Err.Number & \"|\" & d", "6|10", DisplayName = "E01 past a Double, the variable unchanged")]
@@ -40,8 +40,8 @@ public sealed class FloatingPointOverflowTests
     [DataRow("Dim s As Single ;; s = 10 ;; s = s ^ 50 ;; Debug.Print Err.Number", "6", DisplayName = "E03 a Double power past a Single, assigned to one")]
     [DataRow("Dim v As Variant ;; v = 10 ;; v = v ^ 400 ;; Debug.Print Err.Number & \"|\" & TypeName(v)", "6|Integer", DisplayName = "E04 a Variant: nothing wider than Double")]
     [DataRow("Dim d As Double ;; d = 0 ;; d = d ^ 0 ;; Debug.Print Err.Number & \"|\" & d", "0|1", DisplayName = "0 ^ 0 is 1")]
-    public void APowerThatIsNoFiniteNumber_RaisesAnError(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task APowerThatIsNoFiniteNumber_RaisesAnError(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // MS-VBA assigns the IEEE result of +, -, * and / - and of a Double let-coerced to a Single - to the Single or Double variable it is assigned to,
     // before it raises the error; ^ leaves it unchanged (E01-E03), and so does an assignment to a variable of any other type (F01-F15).
@@ -58,15 +58,15 @@ public sealed class FloatingPointOverflowTests
     [DataRow("Dim s As Single, d As Double ;; d = -1E+39 ;; s = d ;; Debug.Print Err.Number & \"|\" & s", "6|-inf", DisplayName = "F07 a negative Double past a Single")]
     [DataRow("Dim a(1 To 2) As Single, s As Single ;; s = 3E+38 ;; a(1) = s * 10 ;; Debug.Print Err.Number & \"|\" & a(1)", "6|inf", DisplayName = "F08 an element of an array")]
     [DataRow("Dim s As Single, d As Double ;; d = 1E+308 ;; s = d * 10 ;; Debug.Print Err.Number & \"|\" & s", "6|inf", DisplayName = "F15 a Double product, assigned to a Single")]
-    public void AnOverflowingFloatingPointAssignment_StoresWhatIeeeArithmeticGave(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AnOverflowingFloatingPointAssignment_StoresWhatIeeeArithmeticGave(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     [DataRow("Dim d As Double, l As Long ;; d = 1E+308 ;; l = 5 ;; l = d * 10 ;; Debug.Print Err.Number & \"|\" & l", "6|5", DisplayName = "F03 a Long")]
     [DataRow("Dim d As Double, v As Variant ;; d = 1E+308 ;; v = 5 ;; v = d * 10 ;; Debug.Print Err.Number & \"|\" & TypeName(v) & \"|\" & v", "6|Integer|5", DisplayName = "F04 a Variant")]
     [DataRow("Dim c As Currency, d As Double ;; d = 1E+308 ;; c = 3 ;; c = d * 10 ;; Debug.Print Err.Number & \"|\" & c", "6|3", DisplayName = "F10 a Currency")]
-    public void AnOverflowingFloatingPointAssignment_ToAnotherType_LeavesTheVariable(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AnOverflowingFloatingPointAssignment_ToAnotherType_LeavesTheVariable(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // an operation of an infinity is IEEE 754's, with no error - unless it is no number: infinity less infinity is an overflow (F11, F12, F19, F20).
     [TestMethod]
@@ -76,8 +76,8 @@ public sealed class FloatingPointOverflowTests
     [DataRow("Dim s As Single, d As Double ;; s = 3E+38 ;; s = s * 10 ;; Err.Clear ;; d = s ;; Debug.Print Err.Number & \"|\" & d", "0|inf", DisplayName = "F20 a Single infinity, assigned to a Double")]
     [DataRow("Dim s As Single, l As Long ;; s = 3E+38 ;; s = s * 10 ;; Err.Clear ;; l = CLng(s) ;; Debug.Print Err.Number", "6", DisplayName = "F20 a Single infinity, converted to a Long")]
     [DataRow("Dim s As Single ;; s = 3E+38 ;; s = s * 10 ;; Debug.Print CStr(s) & \"|\" & CStr(-s) & \"|\" & Format(s)", "inf|-inf|inf", DisplayName = "F13 the text of an infinity")]
-    public void AnInfinity_IsAValueOfItsType(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AnInfinity_IsAValueOfItsType(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // a NaN is a value of a Single, a Double and a Variant, copied and operated on with no error; compared, given a sign or made a Long, it is 6. Its text
     // shows its sign, which Abs clears (G01-G10, H06).
@@ -93,8 +93,8 @@ public sealed class FloatingPointOverflowTests
     [DataRow(NaN + "Debug.Print CStr(d) & \"|\" & Format(d)", "-nan(ind)|-nan(ind)", DisplayName = "G07 its text")]
     [DataRow(NaN + "Debug.Print Sgn(d) ;; Debug.Print Err.Number", "6", DisplayName = "G10 its sign")]
     [DataRow(NaN + "Debug.Print Abs(d) & \"|\" & Int(d) & \"|\" & Err.Number", "nan|-nan(ind)|0", DisplayName = "H06 Abs and Int")]
-    public void ANaN_IsAValueOfItsType(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task ANaN_IsAValueOfItsType(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // MS-VBA's Variant arithmetic: a Double that is not finite is an overflow, an infinity's included, and assigns nothing; a Single that is not finite is a
     // Double, with no error (H01-H04).
@@ -105,17 +105,17 @@ public sealed class FloatingPointOverflowTests
         DisplayName = "H02 a Double infinity times two")]
     [DataRow(NaN + "Dim v As Variant, e As Double ;; v = d ;; e = v + 1 ;; Debug.Print Err.Number & \"|\" & e", "6|0", DisplayName = "H03 a NaN plus one, assigned to a Double")]
     [DataRow(NaN + "Dim v As Variant ;; v = d ;; v = -v ;; Debug.Print Err.Number", "0", DisplayName = "H04 a NaN negated")]
-    public void TheVariantArithmeticOfAnInfinityOrANaN_IsMsVbas(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task TheVariantArithmeticOfAnInfinityOrANaN_IsMsVbas(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // MS-VBAL §5.6.9.3 lets an implementation "perform floating point operations with a higher-precision than the effective value type (such as an
     // 'extended' or 'long double' type)", and MS-VBA does: an intermediate result past the range of a Double is no overflow until it is stored or made a
     // Double (F02, F18) - so does RD-VBA (ExtendedIntermediates; ExtendedIntermediateTests for the rest of it).
     [TestMethod]
-    public void TwoIntermediateResultsPastADouble_SubtractedToZero_AreNoOverflow()
-        => Assert.AreEqual("0|0", Run("Dim d As Double, e As Double ;; d = 1E+308 ;; e = (d * 10) - (d * 10) ;; Debug.Print Err.Number & \"|\" & e"));
+    public async Task TwoIntermediateResultsPastADouble_SubtractedToZero_AreNoOverflow()
+        => Assert.AreEqual("0|0", await Run("Dim d As Double, e As Double ;; d = 1E+308 ;; e = (d * 10) - (d * 10) ;; Debug.Print Err.Number & \"|\" & e"));
 
     [TestMethod]
-    public void AnIntermediateResultPastADouble_Compared_IsNoOverflow()
-        => Assert.AreEqual("gt/0", Run("Dim d As Double ;; d = 1E+308 ;; If d * 10 > 0 Then Debug.Print \"gt\" ;; Debug.Print Err.Number"));
+    public async Task AnIntermediateResultPastADouble_Compared_IsNoOverflow()
+        => Assert.AreEqual("gt/0", await Run("Dim d As Double ;; d = 1E+308 ;; If d * 10 > 0 Then Debug.Print \"gt\" ;; Debug.Print Err.Number"));
 }

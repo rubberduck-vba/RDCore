@@ -139,8 +139,11 @@ internal sealed partial class ProcedureAnalysis
 
     private bool IsObjectElement(BoundNode node) => node is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Object };
 
-    // left Is right where either is an element of an array of objects (MS-VBAL §5.6.9.7): each operand an element, an object variable of the activation, or
-    // Nothing (null), as TryObjectOperand takes them.
+    // an object held where compiled code finds its cell each time it reads it: an element of an array of objects, or an object field of a record.
+    private bool IsHeldObject(BoundNode node) => IsObjectElement(node) || ObjectFieldOf(node) is not null;
+
+    // left Is right where either is an element of an array of objects or an object field of a record (MS-VBAL §5.6.9.7): each operand one of these, an object
+    // variable of the activation, or Nothing (null), as TryObjectOperand takes them.
     private PayloadNode? ElementIs(BoundBinary compared)
         => TryElementOperand(compared.Left, out var left) && TryElementOperand(compared.Right, out var right) ? new ElementIsNode(left, right) : null;
 
@@ -156,6 +159,10 @@ internal sealed partial class ProcedureAnalysis
                 }
 
                 read = new ObjectElementNode(ArrayOf(index.Callee)!.Slot, subscripts);
+                return true;
+
+            case BoundMember when ObjectFieldOf(operand) is { } field:
+                read = new ObjectFieldNode(field);
                 return true;
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:

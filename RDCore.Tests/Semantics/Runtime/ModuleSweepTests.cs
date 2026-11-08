@@ -174,6 +174,22 @@ public sealed class ModuleSweepTests
     }
 
     [TestMethod]
+    [DataRow("For k = 1 To 3", DisplayName = "counting up")]
+    [DataRow("For k = 3 To 1 Step -1", DisplayName = "counting down")]
+    [DataRow("For k = n To 3", DisplayName = "from a start that is not known")]
+    public async Task ALoopOfAVariantCounter_IsAnalyzed_AndItsBodyStated(string header)
+    {
+        // the counter is a Variant, which the sweep does not know at the Next that compares it with the end: what is compared is not known, and not an
+        // error, and the body's narrowing is stated.
+        var facts = await FactsOfAsync("Dim k", "Dim n As Long", "Dim d As Double", header, "    n = d", "Next k");
+
+        Assert.IsTrue(facts.IsFullyAnalyzed);
+        Assert.IsTrue(facts.Conversions.Any(conversion => conversion.Site == ConversionSite.Assignment && conversion.Flags.HasFlag(ConversionSemanticFlags.Narrowing)));
+        Assert.IsFalse(facts.Conversions.Any(conversion => conversion.Error is not null));
+        Assert.IsFalse(facts.Operations.Any(operation => operation.Error is not null));
+    }
+
+    [TestMethod]
     public async Task AnInstructionThatCannotBeEvaluated_DoesNotTakeTheFollowingOnesWithIt()
     {
         // the first statement reads an Enum member, which the interpreter has no value for yet; whether or not it ever does, the narrowing after it is stated.

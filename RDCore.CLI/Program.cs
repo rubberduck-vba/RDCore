@@ -113,7 +113,7 @@ public class Program
             // the environment host and the external host are servers, whose standard output is no one's to read (AppHost.WritesToConsole).
             var server = string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(mode, RDCoreServerProcess.HostMode, StringComparison.OrdinalIgnoreCase);
-            (server ? Console.Error : Console.Out).WriteLine(exception);
+            await (server ? Console.Error : Console.Out).WriteLineAsync(exception.ToString());
             return -1;
         }
     }
@@ -421,7 +421,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
     // `rdc.exe <verb> <the verb's own options>` is not the platform's command line: --description and --overwrite are
     // options of describe-ext, which the platform's parser has never heard of and would reject as mistakes before the
     // verb ran. The verb parses - and answers for - its own.
-    protected override bool TryAnswerCommandLine(string[] args, out int exitCode)
+    public override bool TryAnswerCommandLine(string[] args, out int exitCode)
     {
         exitCode = 0;
         return false;

@@ -14,8 +14,8 @@ public sealed class ArrayElementPayloadTests
     private static string Program(params string[] body)
         => $"Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nOn Error Resume Next\r\n{string.Join("\r\n", body)}\r\nEnd Sub\r\n";
 
-    private static string Run(string body)
-        => RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last();
+    private static async Task<string> Run(string body)
+        => (await RunAsync([], Program(body.Split(" ;; ")))).Last();
 
     [TestMethod]
     [DataRow("Dim a(1 To 3) As Integer ;; a(2) = 32767 ;; a(2) = a(2) + 1 ;; Debug.Print Err.Number & \"|\" & a(2)", "6|32767", DisplayName = "A18 an Integer element past its range")]
@@ -31,26 +31,26 @@ public sealed class ArrayElementPayloadTests
     [DataRow("Dim a(1 To 3) As Long ;; a(2) = 5 ;; Erase a ;; Debug.Print a(2) ;; a(2) = 6 ;; Debug.Print a(2)", "6", DisplayName = "A28 Erase, then assigned again")]
     [DataRow("Dim a(1 To 3) As Long ;; a(2) = 5 ;; Erase a ;; Debug.Print a(2)", "0", DisplayName = "A28 Erase resets an element")]
     [DataRow("Dim a(1 To 3) As Long, b() As Long ;; a(2) = 5 ;; b = a ;; b(2) = 6 ;; Debug.Print a(2) & \"|\" & b(2)", "5|6", DisplayName = "A29 an array assigned is a copy")]
-    public void AnElement_ReadAndWrittenOnPayloads_IsWhatTheBoxedEvaluationReadsAndWrites(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AnElement_ReadAndWrittenOnPayloads_IsWhatTheBoxedEvaluationReadsAndWrites(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // a module-level array, and one passed by reference: the element written through the parameter is the caller's.
     [TestMethod]
-    public void AnElementOfAModuleArray_AndOfAnArrayPassedByReference_IsTheSameElement()
+    public async Task AnElementOfAModuleArray_AndOfAnArrayPassedByReference_IsTheSameElement()
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPrivate Values(1 To 3) As Long\r\n"
             + "Private Sub Fill(ByRef A() As Long)\r\nDim i As Long\r\nFor i = 1 To 3\r\nA(i) = A(i) + i * 10\r\nNext\r\nEnd Sub\r\n"
             + "Public Sub Main()\r\nValues(2) = 1\r\nFill Values\r\nDebug.Print Values(1) & \"|\" & Values(2) & \"|\" & Values(3)\r\nEnd Sub\r\n";
-        Assert.AreEqual("10|21|30", RunAsync([], program).GetAwaiter().GetResult().Last());
+        Assert.AreEqual("10|21|30", (await RunAsync([], program)).Last());
     }
 
     // an element passed by reference is the element itself, payload cell or not.
     [TestMethod]
-    public void AnElementPassedByReference_IsWrittenWhereItIs()
+    public async Task AnElementPassedByReference_IsWrittenWhereItIs()
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n"
             + "Private Sub Bump(ByRef N As Long)\r\nN = N + 1\r\nEnd Sub\r\n"
             + "Public Sub Main()\r\nDim a(1 To 3) As Long\r\na(2) = 41\r\nBump a(2)\r\nDebug.Print a(2)\r\nEnd Sub\r\n";
-        Assert.AreEqual("42", RunAsync([], program).GetAwaiter().GetResult().Last());
+        Assert.AreEqual("42", (await RunAsync([], program)).Last());
     }
 }

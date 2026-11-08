@@ -73,7 +73,8 @@ public sealed class CompiledMemberCallTests
         }
     }
 
-    // a Sub called in a loop, given an argument; a Function whose result is assigned whole. Only the Set is the interpreter's.
+    // a Sub called in a loop, given an argument; a Function whose result is assigned whole. The Set to a New object is a support call the
+    // interpreter runs, no recovery.
     [TestMethod]
     public async Task AMemberOfAnObject_IsCalledByCompiledCode()
         => await AssertCalledAsync(Program(
@@ -88,7 +89,7 @@ public sealed class CompiledMemberCallTests
             "        T.Add I",
             "    Next",
             "    Called = T.Total()",
-            "End Function"), "Called", recoveries: 1, direct: 6);
+            "End Function"), "Called", recoveries: 0, direct: 6);
 
     // a Function given an argument, its result assigned to a variable, then folded.
     [TestMethod]
@@ -107,7 +108,7 @@ public sealed class CompiledMemberCallTests
             "        V = T.Twice(I)",
             "        Folded = Folded * 7 + V",
             "    Next",
-            "End Function"), "Folded", recoveries: 1, direct: 8);
+            "End Function"), "Folded", recoveries: 0, direct: 8);
 
     // a variable passed by reference to a member is the member's parameter: what it assigns it, it assigns the variable.
     [TestMethod]
@@ -126,7 +127,7 @@ public sealed class CompiledMemberCallTests
             "        N = N + I",
             "    Next",
             "    Bumped = N",
-            "End Function"), "Bumped", recoveries: 1, direct: 5);
+            "End Function"), "Bumped", recoveries: 0, direct: 5);
 
     // two objects of one class: each call is made on the object its variable refers to, which compiled code Sets again in the loop.
     [TestMethod]
@@ -151,7 +152,7 @@ public sealed class CompiledMemberCallTests
             "    Next",
             "    V = B.Total()",
             "    Twice = Twice + V",
-            "End Function"), "Twice", recoveries: 2, direct: 13);
+            "End Function"), "Twice", recoveries: 0, direct: 13);
 
     // a variable declared as an interface: the member called is the one the object's class implements it with, of one class then of another.
     [TestMethod]
@@ -171,9 +172,10 @@ public sealed class CompiledMemberCallTests
             "        V = C.Value()",
             "        Counted = Counted * 3 + V",
             "    Next",
-            "End Function"), "Counted", recoveries: 2, direct: 12);
+            "End Function"), "Counted", recoveries: 0, direct: 12);
 
-    // a call on Nothing raises error 91: the interpreter makes it, and the handler is given the error.
+    // a call on Nothing raises error 91: the interpreter makes it, as a support call, and the handler is given the error. Err.Number is stepped, and
+    // Err.Clear is a support call too.
     [TestMethod]
     public async Task ACallOnNothing_IsMadeByTheInterpreter_WhichRaisesTheError()
         => await AssertCalledAsync(Program(
@@ -190,7 +192,7 @@ public sealed class CompiledMemberCallTests
             "        Err.Clear",
             "        If I = 2 Then Set T = New Tally",
             "    Next",
-            "End Function"), "Raised", recoveries: 9, direct: 1);
+            "End Function"), "Raised", recoveries: 5, direct: 1);
 
     // the object a member is called on lives at least as long as the call: Set to another, the one before is let go of after the call, and terminates.
     [TestMethod]
@@ -208,9 +210,9 @@ public sealed class CompiledMemberCallTests
             "        T.Touch I + 1",
             "    Next",
             "    Touched = I",
-            "End Function"), "Touched", recoveries: 3, direct: 6);
+            "End Function"), "Touched", recoveries: 0, direct: 6);
 
-    // a member of a variable declared Object is late-bound: the interpreter's.
+    // a member of a variable declared Object is late-bound: the interpreter's, which makes it as a support call of the compiled caller.
     [TestMethod]
     public async Task AMemberOfAnObjectDeclaredObject_IsCalledByTheInterpreter()
         => await AssertCalledAsync(Program(
@@ -225,5 +227,5 @@ public sealed class CompiledMemberCallTests
             "        O.Add I",
             "    Next",
             "    Late = 1",
-            "End Function"), "Late", recoveries: 4, direct: 0);
+            "End Function"), "Late", recoveries: 0, direct: 0);
 }

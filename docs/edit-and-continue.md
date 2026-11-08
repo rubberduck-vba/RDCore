@@ -97,6 +97,11 @@ now, or, when the code no longer compiles, where it doesn't compile. It says why
 > RUN
   before
   BREAK IN 20
+     5 Dim Total As Long
+    10 Debug.Print "before"
+    20 Stop
+    30 Debug.Print "after"
+
   ✅ READY.
 > 5 Dim Total As Integer
 > CONT

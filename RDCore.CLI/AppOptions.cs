@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.CLI;
@@ -34,4 +35,22 @@ public class AppOptions
     /// </summary>
     [Setting(SettingReach.NextStart)]
     public bool Unattended { get; init; }
+
+    /// <summary>
+    /// The number of lines a break lists by default (<see cref="BreakListingLines"/>).
+    /// </summary>
+    public const int DefaultBreakListingLines = 2;
+
+    /// <summary>
+    /// The greatest number of lines a break lists on either side of the line it stopped at (<see cref="BreakListingLines"/>).
+    /// </summary>
+    public const int MaximumBreakListingLines = 100;
+
+    /// <summary>
+    /// How many lines of the program the shell lists above, and as many below, the line a program stopped at, after it says <c>BREAK IN</c>: <c>0</c> lists
+    /// none.
+    /// </summary>
+    [Setting(SettingReach.NextStart)]
+    [Range(0, MaximumBreakListingLines)]
+    public int BreakListingLines { get; init; } = DefaultBreakListingLines;
 }

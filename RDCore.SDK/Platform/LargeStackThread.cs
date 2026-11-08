@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.ExceptionServices;
 
@@ -108,17 +109,19 @@ public static class LargeStackThread
     /// Work runs on at most <see cref="StartedAtOnce"/> threads at a time; work started when they are all busy waits, holding no thread, for one of them to be
     /// done. Work started this way must therefore never wait for other work started this way: if every thread did, none would be left to run it.
     /// </remarks>
+    [SuppressMessage("Style", "VSTHRD200:Use \"Async\" suffix for async methods", Justification = "Public API: StartAsync would break its callers; the rename is held for a decision.")]
     public static Task Start(Action work, CancellationToken token = default) => Start(work, _started, token);
 
     // the work runs once one of the threads counted by the semaphore is free.
+    [SuppressMessage("Style", "VSTHRD200:Use \"Async\" suffix for async methods", Justification = "Named as the public Start it implements.")]
     internal static Task Start(Action work, SemaphoreSlim threads, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(work);
         var (culture, uiCulture) = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
-        return StartWhenAThreadIsFree(work, threads, culture, uiCulture, token);
+        return StartWhenAThreadIsFreeAsync(work, threads, culture, uiCulture, token);
     }
 
-    private static async Task StartWhenAThreadIsFree(Action work, SemaphoreSlim threads, CultureInfo culture, CultureInfo uiCulture, CancellationToken token)
+    private static async Task StartWhenAThreadIsFreeAsync(Action work, SemaphoreSlim threads, CultureInfo culture, CultureInfo uiCulture, CancellationToken token)
     {
         await threads.WaitAsync(token).ConfigureAwait(false);
         try
@@ -126,7 +129,7 @@ public static class LargeStackThread
             // the semaphore takes a cancelled wait off its list after the cancellation, and a thread freed in between is handed to it all the same: work that was
             // cancelled before it had a thread is never run, whichever came first.
             token.ThrowIfCancellationRequested();
-            await StartNow(work, culture, uiCulture).ConfigureAwait(false);
+            await StartNowAsync(work, culture, uiCulture).ConfigureAwait(false);
         }
         finally
         {
@@ -134,7 +137,7 @@ public static class LargeStackThread
         }
     }
 
-    private static Task StartNow(Action work, CultureInfo culture, CultureInfo uiCulture)
+    private static Task StartNowAsync(Action work, CultureInfo culture, CultureInfo uiCulture)
     {
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Create(() =>

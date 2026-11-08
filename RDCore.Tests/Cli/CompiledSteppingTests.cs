@@ -126,7 +126,8 @@ public sealed class CompiledSteppingTests
         await AssertAlikeAsync(program, "Value", recoveries: 0, classes: box);
     }
 
-    // a Property Set: compiled code Sets the object field to its object parameter; a call of a member of a library's class is the interpreter's.
+    // a Property Set: compiled code Sets the object field to its object parameter; a call of a member of a library's class is the interpreter's, made
+    // as a support call.
     [TestMethod]
     public async Task APropertySet_IsCompiled()
         => await AssertAlikeAsync(Program(
@@ -134,7 +135,7 @@ public sealed class CompiledSteppingTests
             "    Dim H As New Holder",
             "    Set H.Items = New Collection",
             "    Debug.Print H.Total",
-            "End Sub"), "Set Items", recoveries: 3, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
+            "End Sub"), "Set Items", recoveries: 0, classes: [("Holder", ModuleWorkspace.ClassModule("Holder",
                 "Option Explicit",
                 "Private mItems As Collection",
                 "Private mTotal As Long",
@@ -346,8 +347,8 @@ public sealed class CompiledSteppingTests
     }
 
     // a compiled variable passed by reference in a call the interpreter makes is its cell in the frame, which the callee writes: read back after the call.
-    // The call is the interpreter's because it also gives a late-bound call's result; the interpreter runs it at each of 3 passes, and the Len after the
-    // loop: 4.
+    // The call is the interpreter's because it also gives a late-bound call's result: a support call at each of 3 passes, which steps nothing. The
+    // interpreter steps the Len after the loop: 1.
     [TestMethod]
     public async Task AVariablePassedByReferenceInACallTheInterpreterMakes_IsWhatTheCalleeWrote()
     {
@@ -367,10 +368,11 @@ public sealed class CompiledSteppingTests
             "    N = N + 1",
             "End Sub");
 
-        AssertLateBoundIsStepped(program, await AssertAlikeAsync(program, "Counted", recoveries: 4, classes: Pieces));
+        await AssertAlikeAsync(program, "Counted", recoveries: 1, classes: Pieces);
     }
 
-    // an object the interpreter makes and calls: the frame's, from one statement to the next.
+    // an object the interpreter makes and calls: the frame's, from one statement to the next. The Add is a support call at each of 3 passes, and compiled
+    // code calls the Count inside the expression after the loop: none is stepped.
     [TestMethod]
     public async Task AnObject_IsTheFrames_FromOneStatementTheInterpreterRunsToTheNext()
         => await AssertAlikeAsync(Program(
@@ -386,7 +388,7 @@ public sealed class CompiledSteppingTests
             "    Next",
             "    N = N + C.Count",
             "    Counted = N * 2",
-            "End Function"), "Counted", recoveries: 5);
+            "End Function"), "Counted", recoveries: 0);
 
     // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled.
     [TestMethod]
@@ -449,15 +451,15 @@ public sealed class CompiledSteppingTests
             "    End",
             "End Sub"), "Ended", recoveries: 1);
 
-    // a member calls another member of the object it is a call on, Me: each call is the interpreter's, and what the callee assigns the field is what
-    // compiled code reads of it after.
+    // a member calls another member of the object it is a call on, Me: each call is the interpreter's, made as a support call, and what the callee
+    // assigns the field is what compiled code reads of it after.
     [TestMethod]
     public async Task AMemberCallingAnotherMemberOfMe_IsCompiled()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Dim C As New Counter",
             "    Debug.Print C.AddUpTo(3)",
-            "End Sub"), "AddUpTo", recoveries: 3, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
+            "End Sub"), "AddUpTo", recoveries: 0, classes: [("Counter", ModuleWorkspace.ClassModule("Counter",
                 "Option Explicit",
                 "Private mTotal As Long",
                 "Public Function AddUpTo(ByVal N As Long) As Long",

@@ -23,7 +23,7 @@ internal sealed class BitwiseSemanticsAnalyzer : IModuleAnalyzer
             .Where(op => op.LogicalOpSemanticFlags?.HasFlag(LogicalOperatorSemanticFlags.IsBitwiseSemantics) ?? false)
             .Select(op => new AnalyzerFinding(
                 RDCoreDiagnosticId.BitwiseOperator,
-                op.Location.Range,
+                (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Hint,
                 AnalyzerMessages.Format(
                     RDCoreDiagnosticsResources.BitwiseOperator_Message,

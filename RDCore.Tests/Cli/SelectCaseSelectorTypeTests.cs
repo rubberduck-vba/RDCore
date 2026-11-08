@@ -10,12 +10,12 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class SelectCaseSelectorTypeTests
 {
-    private static string Run(string body, string declarations = "")
+    private static async Task<string> Run(string body, string declarations = "")
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n" + string.Join("\r\n", declarations.Split(" ;; "))
             + "\r\nPrivate Sub P(ByVal v As Variant)\r\nDebug.Print CStr(v)\r\nEnd Sub\r\nPublic Sub Main()\r\nOn Error Resume Next\r\n"
             + string.Join("\r\n", body.Split(" ;; ")) + "\r\nEnd Sub\r\n";
-        return string.Join("/", RunAsync([], program).GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], program));
     }
 
     [TestMethod]
@@ -34,8 +34,8 @@ public sealed class SelectCaseSelectorTypeTests
     [DataRow("Dim s As String: s = \"abc\" ;; Select Case s ;; Case \"ABC\": P \"m\" ;; Case Else: P \"e\" ;; End Select", "e", DisplayName = "G19 String, Option Compare Binary")]
     [DataRow("Dim i As Integer: i = 2 ;; Select Case i ;; Case Is < 2.5: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; Select Case i ;; Case Is <= 1.5: P \"m\" ;; Case Else: P \"e\" ;; End Select", "e/m", DisplayName = "G20 Integer, Case Is < 2.5 and Is <= 1.5, rounded to even")]
     [DataRow("Dim f As String * 5: f = \"ab\" ;; Select Case f ;; Case \"ab\": P \"m\" ;; Case Else: P \"e\" ;; End Select ;; Select Case f ;; Case \"ab   \": P \"m\" ;; Case Else: P \"e\" ;; End Select", "e/m", DisplayName = "H07 String * 5, compared as a String")]
-    public void TheValueOfACase_IsConvertedToTheDeclaredTypeOfTheSelector(string body, string expected)
-        => Assert.AreEqual(expected, Run(body));
+    public async Task TheValueOfACase_IsConvertedToTheDeclaredTypeOfTheSelector(string body, string expected)
+        => Assert.AreEqual(expected, await Run(body));
 
     // a Single, a Double and a Currency selector convert a value too; an integer is not rounded to a Single, and is compared at its exact value (s48 M01-M07).
     [TestMethod]
@@ -46,12 +46,12 @@ public sealed class SelectCaseSelectorTypeTests
     [DataRow("Dim n As Long: n = 2 ;; Select Case n ;; Case 1.6@: P \"m\" ;; Case Else: P \"e\" ;; End Select", "m", DisplayName = "M05 Long, a Currency")]
     [DataRow("Dim s As Single: s = 16777216 ;; Select Case s ;; Case \"16777217\": P \"m\" ;; Case Else: P \"e\" ;; End Select", "m", DisplayName = "M06 Single, a String")]
     [DataRow("Dim d As Double: d = 0.1 ;; Select Case d ;; Case CSng(0.1): P \"m\" ;; Case Else: P \"e\" ;; End Select", "e", DisplayName = "M07 Double, a Single")]
-    public void AFloatingPointSelector_ConvertsAValue_ButNotAnIntegerToASingle(string body, string expected)
-        => Assert.AreEqual(expected, Run(body));
+    public async Task AFloatingPointSelector_ConvertsAValue_ButNotAnIntegerToASingle(string body, string expected)
+        => Assert.AreEqual(expected, await Run(body));
 
     [TestMethod]
-    public void AnEnumSelector_IsALong()
-        => Assert.AreEqual("5 matched", Run("Dim e As Size: e = szFive ;; Select Case e ;; Case 4.6: P \"5 matched\" ;; Case Else: P \"5 else\" ;; End Select",
+    public async Task AnEnumSelector_IsALong()
+        => Assert.AreEqual("5 matched", await Run("Dim e As Size: e = szFive ;; Select Case e ;; Case 4.6: P \"5 matched\" ;; Case Else: P \"5 else\" ;; End Select",
             "Public Enum Size ;; szFive = 5 ;; End Enum"));
 
     // the error a conversion raises is the Case's: Resume Next goes on in its body (MS-VBA, s48 G01).
@@ -63,15 +63,15 @@ public sealed class SelectCaseSelectorTypeTests
     [DataRow("Dim n As Long: n = 2 ;; Select Case n ;; Case \"abc\", 2: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; P \"after \" & Err.Number", "m/after 13", DisplayName = "G15 the first clause raises")]
     [DataRow("Dim n As Long: n = 2 ;; Select Case n ;; Case 2, \"abc\": P \"m\" ;; Case Else: P \"e\" ;; End Select ;; P \"after \" & Err.Number", "m/after 0", DisplayName = "G16 a clause after the match is not evaluated")]
     [DataRow("Dim i As Integer: i = 2 ;; Select Case i ;; Case 1: P \"one\" ;; Case 40000: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; P \"after \" & Err.Number", "m/after 6", DisplayName = "G17 the second Case raises")]
-    public void AValueThatDoesNotConvert_RaisesTheErrorOfTheConversion(string body, string expected)
-        => Assert.AreEqual(expected, Run(body));
+    public async Task AValueThatDoesNotConvert_RaisesTheErrorOfTheConversion(string body, string expected)
+        => Assert.AreEqual(expected, await Run(body));
 
     [TestMethod]
     [DataRow("Dim v: v = 2& ;; Select Case v ;; Case 1.7: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; Dim d: d = 1.5 ;; Select Case d ;; Case 2: P \"m\" ;; Case Else: P \"e\" ;; End Select", "e/e", DisplayName = "G04 a Variant holding a number")]
     [DataRow("Dim h: h = 100 ;; Select Case h ;; Case \"100\": P \"m\" ;; Case Else: P \"e\" ;; End Select ;; P (h = \"100\")", "m/True", DisplayName = "G14 a Variant 100, Case \"100\"")]
     [DataRow("Dim h: h = 100 ;; Select Case h ;; Case Is > \"9\": P \"7 matched\" ;; Case Else: P \"7 else\" ;; End Select", "7 else", DisplayName = "F15g a Variant 100, Case Is > \"9\": compared as text")]    [DataRow("Dim e ;; Select Case e ;; Case 0: P \"m\" ;; Case Else: P \"e\" ;; End Select ;; Select Case e ;; Case \"\": P \"m\" ;; Case Else: P \"e\" ;; End Select", "m/m", DisplayName = "G19 an Empty Variant")]
-    public void AVariantSelector_IsComparedWithTheValueAsItIs(string body, string expected)
-        => Assert.AreEqual(expected, Run(body));
+    public async Task AVariantSelector_IsComparedWithTheValueAsItIs(string body, string expected)
+        => Assert.AreEqual(expected, await Run(body));
 
     // an expression over a Variant is declared Variant (MS-VBAL §5.6.9.3), and so is a selector it is: its value is compared as a Variant's, where a Long
     // expression converts the value of a clause (s56 R08-R14; HexIDE's findings desk, select-case-variant-expr).
@@ -83,8 +83,8 @@ public sealed class SelectCaseSelectorTypeTests
     [DataRow("Dim v As Variant ;; v = 1 ;; Select Case v + 1 ;; Case \"2.0\": P \"match\" ;; Case Else: P \"else\" ;; End Select", "else", DisplayName = "R12 v + 1, Case \"2.0\"")]
     [DataRow("Dim n As Long ;; n = 1 ;; Select Case n + 1 ;; Case \"2.0\": P \"match\" ;; Case Else: P \"else\" ;; End Select", "match", DisplayName = "R13 a Long n + 1, Case \"2.0\"")]
     [DataRow("Dim v As Variant ;; v = \"abc\" ;; Select Case v + 1 ;; Case 1: P \"one\" ;; Case Else: P \"else\" ;; End Select ;; P \"err \" & Err.Number", "err 13", DisplayName = "R14 v + 1 of \"abc\"")]
-    public void AnExpressionOverAVariant_IsAVariantSelector(string body, string expected)
-        => Assert.AreEqual(expected, Run(body));
+    public async Task AnExpressionOverAVariant_IsAVariantSelector(string body, string expected)
+        => Assert.AreEqual(expected, await Run(body));
 
     // a String selector and a number, a Variant or declared, compared as MS-VBA compares them (s56 G03, G06, G07; RD-VBAL 5.6.9.5).
     [TestMethod]
@@ -96,6 +96,6 @@ public sealed class SelectCaseSelectorTypeTests
         DisplayName = "G07 a Variant \"2\", Case 2")]
     [DataRow("Dim i As Integer ;; i = 3 ;; Select Case i ;; Case Is < \"5\": P \"lt\" ;; Case Else: P \"else\" ;; End Select ;; i = 2 ;; Select Case i ;; Case \"2.5\": P \"eq\" ;; Case Else: P \"else\" ;; End Select ;; P (i = \"2.5\")",
         "lt/eq/False", DisplayName = "I07 an Integer selector and a String, converted to Integer where i = \"2.5\" is compared as Doubles")]
-    public void AStringSelector_IsComparedWithANumberAsMSVBACompares(string body, string expected)
-        => Assert.AreEqual(expected, Run(body));
+    public async Task AStringSelector_IsComparedWithANumberAsMSVBACompares(string body, string expected)
+        => Assert.AreEqual(expected, await Run(body));
 }

@@ -29,6 +29,6 @@ public sealed class ArraySubscriptCoercionTests
     [DataRow("Dim a(0 To 3) As Long, v As Variant ;; a(v) = 7 ;; Debug.Print Err.Number & \"|\" & a(0)", "0|7", DisplayName = "A13 Empty is 0, inside the bounds")]
     [DataRow("Dim a(1 To 3) As Long ;; a(Null) = 7 ;; Debug.Print Err.Number", "94", DisplayName = "A14 a Null subscript")]
     [DataRow("Dim a(1 To 3) As Long, d As Date ;; d = 2 ;; a(d) = 7 ;; Debug.Print Err.Number & \"|\" & a(2)", "0|7", DisplayName = "A15 a Date subscript")]
-    public void ASubscript_IsLetCoercedToALong(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task ASubscript_IsLetCoercedToALong(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 }

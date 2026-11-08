@@ -368,6 +368,11 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private bool TryEvaluatePayload(IRuntimeSession session, BoundNode node, out ScalarPayload payload)
     {
+        if (KnownOperands.AnyHeld && TryKnown(session, node, out payload))
+        {
+            return true;
+        }
+
         payload = default;
         switch (node)
         {
@@ -688,10 +693,12 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         var arguments = ArrayPool<ScalarPayload>.Shared.Rent(parameters.Length);
+        var order = BindingOrder(given);
         try
         {
-            for (var i = 0; i < parameters.Length; i++)
+            for (var k = 0; k < parameters.Length; k++)
             {
+                var i = order is null ? k : order[k];
                 var parameter = parameters[i];
                 // a Variant parameter holds a scalar as it is, of its own type (MS-VBAL §5.5.1.2.12): its payload, which is not converted (S1.7).
                 // any other is let-coerced to the parameter's type - an extended intermediate from its 80 bits (MS-VBAL §5.6.9.3).

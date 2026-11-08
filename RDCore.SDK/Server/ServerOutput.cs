@@ -95,10 +95,10 @@ public sealed class ServerOutput(PipeWriter inner) : PipeWriter
     }
 
     /// <inheritdoc/>
-    public override void Complete(Exception? exception = null) => _ = CompleteOnce(exception);
+    public override void Complete(Exception? exception = null) => _ = CompleteOnceAsync(exception);
 
     /// <inheritdoc/>
-    public override ValueTask CompleteAsync(Exception? exception = null) => new(CompleteOnce(exception));
+    public override ValueTask CompleteAsync(Exception? exception = null) => new(CompleteOnceAsync(exception));
 
     // a buffer of its own, asked for once the writer is completed: what is written to it is never written to the stream.
     private static byte[] Discarded(int sizeHint) => new byte[Math.Max(sizeHint, 1)];
@@ -140,7 +140,7 @@ public sealed class ServerOutput(PipeWriter inner) : PipeWriter
     }
 
     // completed once, however many times it is told to.
-    private Task CompleteOnce(Exception? exception)
+    private Task CompleteOnceAsync(Exception? exception)
     {
         TaskCompletionSource completion;
         Task writing;

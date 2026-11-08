@@ -780,6 +780,9 @@ public static class StatementStaticSemanticsEvaluator
             argumentTypes[i] = result.IsSuccess ? result.Result : null;
         }
 
+        // a handler of the event may write to what it is given by reference, as a procedure called may: Cancel, say.
+        ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, arguments);
+
         var declared = context.Scope.SelfAndAncestors()
             .FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?
             .DeclaredAs(eventName.IdentifierName).OfType<VBEventMemberSymbol>().FirstOrDefault();
