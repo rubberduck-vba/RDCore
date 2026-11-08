@@ -34,8 +34,8 @@ public static class FormControlExtender
         => VBProjectSymbol.ResolveQualifiedType(resolver, MSFormsDesignerStorage.Library, ClassName, handle).Symbol as VBClassModuleSymbol;
 
     /// <summary>
-    /// The events the procedures named for <paramref name="variable"/> handle: those of <paramref name="source"/>, its class, and - when it is a form's
-    /// control - those of <paramref name="extender"/> after them, but for the ones its class declares too.
+    /// The events the procedures named for <paramref name="variable"/> handle: those of <paramref name="source"/>, its class, and, when it is a form's
+    /// control, those of <paramref name="extender"/> after them, except the ones its class also declares.
     /// </summary>
     /// <param name="variable">A <c>WithEvents</c> variable of a class module.</param>
     /// <param name="source">The class the variable is declared as.</param>
