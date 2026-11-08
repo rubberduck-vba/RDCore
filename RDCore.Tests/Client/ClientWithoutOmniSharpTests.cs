@@ -550,6 +550,38 @@ public sealed class ClientWithoutOmniSharpTests
         StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Applied, "the parse server it started");
     }
 
+    // the language the user sets (Environment.Regional.Language) is the language of every component, over the locale of a client in English (an IDE's): the
+    // language server answers in it, the environment host's error is in it, and the parse server says it is in it. How the program writes and reads numbers
+    // and dates is untouched. The logs are read once the platform is shut down.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task TheLanguageTheUserSets_IsTheLanguageOfEveryComponent_WhateverTheClientsLocale()
+    {
+        await using var platform = await Platform.StartAsync(others: 1, projectFile: AProjectOfOtherModules, language: "fr");
+        var notFound = await RunAsync(platform, "Progam", sessionModule: false);
+        var told = $"{notFound.ToJsonString()}\n{LogOf(platform.Root)}";
+        Assert.AreEqual((int)ExecutionOutcome.NotFound, notFound["result"]!["outcome"]!.GetValue<int>(), told);
+        StringAssert.Contains(notFound["result"]!["errorMessage"]!.GetValue<string>(), "'Progam' n'est pas un module de l'espace de travail", "the language server: " + told);
+
+        var failed = await platform.Rpc.RequestAsync(4, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = "Public Sub Main()\r\n    Debug.Print CStr(2.5)\r\n    Debug.Print CStr(CDate(\"1/2/2026 13:05\"))\r\n    Debug.Print 1 / 0\r\nEnd Sub\r\n",
+            ["moduleName"] = "Program",
+            ["entryPoint"] = "Main",
+            ["sessionModule"] = true,
+        });
+        told = $"{failed.ToJsonString()}\n{LogOf(platform.Root)}";
+        Assert.AreEqual((int)ExecutionOutcome.RuntimeError, failed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { "2.5", "1/2/2026 1:05:00 PM" }, failed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        StringAssert.Contains(failed["result"]!["errorMessage"]!.GetValue<string>(), "zéro", "the environment host: " + told);
+
+        await platform.ShutdownAsync(5);
+
+        StringAssert.Contains(WholeLogOf(platform.Root), "The user interface is in 'fr' (Environment.Regional.Language), whatever the client's locale ('en-US').",
+            "the language server: " + LogOf(platform.Root));
+        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), "The user interface is in 'fr' (Environment.Regional.Language)", "the parse server it started");
+    }
+
     // the platform as a deployment has it, with a workspace of one module, and the language server started from it as an IDE starts it.
     private sealed class Platform : IAsyncDisposable
     {
@@ -594,8 +626,8 @@ public sealed class ClientWithoutOmniSharpTests
         public ConcurrentQueue<string> Asked { get; } = [];
 
         // the workspace has `others` modules besides Program, which the language server parses and composes the session of before it runs anything, and the
-        // project file given, if one is.
-        public static async Task<Platform> StartAsync(int others = 0, string? projectFile = null)
+        // project file given, if one is; and the language of the user interface the user set, if one is.
+        public static async Task<Platform> StartAsync(int others = 0, string? projectFile = null, string? language = null)
         {
             var root = Path.Combine(Path.GetTempPath(), "RDCore", "raw-client", Guid.NewGuid().ToString("N"));
             var workspace = Path.Combine(root, "Workspace");
@@ -619,6 +651,13 @@ public sealed class ClientWithoutOmniSharpTests
             var start = launch.ToProcessStartInfo();
             start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");
             start.Environment[PlatformEnvironment.LogsEnvironmentVariable] = Path.Combine(root, "Logs");
+            if (language is not null)
+            {
+                var user = Directory.CreateDirectory(Path.Combine(root, "User")).FullName;
+                _ = new RDCore.SDK.Server.Configuration.UserSettingsStore(new System.IO.Abstractions.FileSystem(),
+                    Path.Combine(user, RDCore.SDK.Server.Configuration.UserSettingsStore.FileName), RDCore.SDK.Server.Configuration.SettingsSchema.Platform)
+                    .Set("Environment.Regional.Language", language);
+            }
 
             var process = Process.Start(start)!;
             var exited = process.WaitForExitAsync().ContinueWith(_ => process.ExitCode, TaskScheduler.Default);
