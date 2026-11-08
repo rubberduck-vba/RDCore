@@ -176,6 +176,13 @@ public class LanguageServerCapabilities
     /// asks it to take the <c>Formatting</c> settings it mapped from them as its own, over <c>rdcore/formatting/indenterSettings/apply</c>.
     /// </summary>
     public RubberduckIndenterSettings RubberduckIndenterSettings { get; set; } = new();
+
+    /// <summary>
+    /// If supported, the language server says what a refactoring asks its user before it is applied, over <c>rdcore/refactor/prepare</c>, and applies it with
+    /// the user's answers, over <c>rdcore/refactor/apply</c>: what a client that has a dialog of its own asks with. Any client is offered the refactorings as
+    /// LSP code actions, which complete with their defaults.
+    /// </summary>
+    public Refactoring Refactoring { get; set; } = new();
 }
 
 /// <summary>
@@ -201,6 +208,7 @@ public class LanguageServerCapabilities
 [JsonDerivedType(typeof(SessionMemoryAccess))]
 [JsonDerivedType(typeof(SessionInteraction))]
 [JsonDerivedType(typeof(Unattended))]
+[JsonDerivedType(typeof(Refactoring))]
 [JsonDerivedType(typeof(RubberduckIndenterSettings))]
 public abstract record class CorePlatformClientCapability(bool IsSupported = true);
 
@@ -354,3 +362,15 @@ public record class DiagnoseDocument(bool IsSupported = false) : CorePlatformCli
 /// informational: nothing is negotiated over <c>rdcore/platform/initialize</c> for this capability yet.
 /// </remarks>
 public record class CliCommand(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
+
+/// <summary>
+/// Advertises that the language server says what a refactoring asks its user - <c>rdcore/refactor/prepare</c> - and applies it with the user's answers -
+/// <c>rdcore/refactor/apply</c>: the counterpart to LSP's own <c>codeAction/resolve</c> for a client that shows a dialog of its own before a refactoring is
+/// applied.
+/// </summary>
+/// <remarks>
+/// One pair of requests serves every refactoring, whose choices are described as data. A client that does not expect it is offered the same refactorings as
+/// code actions, which complete with their defaults.
+/// </remarks>
+/// <param name="IsSupported">Whether the capability is expected, or provided.</param>
+public record class Refactoring(bool IsSupported = false) : CorePlatformClientCapability(IsSupported);
