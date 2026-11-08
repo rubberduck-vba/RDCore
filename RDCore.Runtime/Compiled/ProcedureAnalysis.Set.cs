@@ -25,9 +25,15 @@ internal sealed partial class ProcedureAnalysis
     // a Set compiled code assigns, as ExecuteSetAssignment assigns: an object variable of the activation - neither Me nor a parameter passed by reference,
     // whose cell is its caller's - or an object field it reaches, or the function result variable of a function returning an object, given an object
     // variable or field, Me, or Nothing. What it is given is Set-coerced to the declared type of what it is assigned to, at run time
-    // (CompiledActivation.TrySet). A WithEvents variable has its handlers detached and attached again by the Set, which is the interpreter's.
-    private SetStep? SetOf(int offset, AssignmentStatementNode assignment)
+    // (CompiledActivation.TrySet). An object field of one of its records is assigned or given in its own cell (FieldSetStep, FieldSourceSetStep). A
+    // WithEvents variable has its handlers detached and attached again by the Set, which is the interpreter's.
+    private CompiledStep? SetOf(int offset, AssignmentStatementNode assignment)
     {
+        if (assignment.Target is MemberAccessExpressionNode && ObjectFieldOf(Bind(assignment.Target)) is { } field)
+        {
+            return AnalyzeFieldSet(offset, assignment, field);
+        }
+
         if (assignment.Target is not SimpleNameExpressionNode name)
         {
             Refuse(IneligibilityKind.AssignmentTarget, assignment.Target.GetType().Name, assignment.SourceLocation);
@@ -48,6 +54,12 @@ internal sealed partial class ProcedureAnalysis
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, name.IdentifierName, assignment.SourceLocation);
                 return null;
+        }
+
+        // an object field of a record is read in its own cell, which a SetStep has no slot for.
+        if (ObjectFieldOf(Bind(assignment.Value)) is { } held)
+        {
+            return new FieldSourceSetStep(offset, target, held);
         }
 
         return TrySetSource(Bind(assignment.Value), out var source) ? new SetStep(offset, target, source) : null;

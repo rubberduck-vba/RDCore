@@ -26,7 +26,8 @@ internal sealed record class ArrayBoundNode(int Array, bool Upper, PayloadNode? 
 // an element of an array of Variants, read in the Variant's cell the array holds it in (ArrayOperations.VariantElement).
 internal sealed record class VariantElementNode(int Array, IReadOnlyList<PayloadNode> Subscripts) : VariantNode;
 
-// an operand of Is or TypeOf whose reference compiled code reads, where an element of an array of objects is one.
+// an operand of Is or TypeOf whose reference compiled code reads, where an element of an array of objects is one, and an object field of a record
+// (ObjectFieldNode) another.
 internal abstract record class ObjectOperand;
 
 // an object variable of the activation, by its slot.
@@ -38,8 +39,8 @@ internal sealed record class ObjectElementNode(int Array, IReadOnlyList<PayloadN
 // left Is right, where either is an element of an array of objects; an operand that is none is Nothing (ObjectOperations.Is, IsNothing).
 internal sealed record class ElementIsNode(ObjectOperand? Left, ObjectOperand? Right) : PayloadNode(ScalarKind.Boolean);
 
-// TypeOf of an element of an array of objects, against the class the body knows by its number.
-internal sealed record class ElementTypeOfNode(ObjectElementNode Element, int Class) : PayloadNode(ScalarKind.Boolean);
+// TypeOf of an element of an array of objects, or of an object field of a record, against the class the body knows by its number.
+internal sealed record class ElementTypeOfNode(ObjectOperand Element, int Class) : PayloadNode(ScalarKind.Boolean);
 
 // a Let of an element of an array of a scalar kind: its cell found first, as the interpreter finds it before it evaluates the value
 // (RuntimeExpressionEvaluator.TryAssignUnboxed), then written a payload of its kind.

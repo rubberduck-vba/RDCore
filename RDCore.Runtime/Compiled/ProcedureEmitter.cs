@@ -428,6 +428,14 @@ internal sealed partial class ProcedureEmitter
                 EmitSet(set);
                 break;
 
+            case FieldSetStep fieldSet:
+                EmitFieldSet(fieldSet);
+                break;
+
+            case FieldSourceSetStep fromField:
+                EmitSetFromField(fromField);
+                break;
+
             case SelectStep select:
             {
                 var locals = _selects[select.Select];
