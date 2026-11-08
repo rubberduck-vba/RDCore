@@ -368,6 +368,11 @@ public sealed partial class RuntimeExpressionEvaluator
 
     private bool TryEvaluatePayload(IRuntimeSession session, BoundNode node, out ScalarPayload payload)
     {
+        if (KnownOperands.AnyHeld && TryKnown(session, node, out payload))
+        {
+            return true;
+        }
+
         payload = default;
         switch (node)
         {

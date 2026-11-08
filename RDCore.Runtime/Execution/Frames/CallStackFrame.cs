@@ -78,6 +78,30 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     public int WaitedAt { get; set; } = -1;
 
+    /// <summary>
+    /// What compiled code had evaluated of the instruction at <see cref="Pc"/> when it handed the activation to the interpreter in the middle of it: the
+    /// interpreter runs that instruction with them, and no other.
+    /// </summary>
+    internal KnownOperands? Known { get; private set; }
+
+    /// <summary>Gives the activation what compiled code had evaluated of the instruction at <see cref="Pc"/>.</summary>
+    internal void Know(KnownOperands known)
+    {
+        Forget();
+        Known = known;
+        KnownOperands.Count(held: true);
+    }
+
+    /// <summary>Lets go of what compiled code had evaluated of an instruction: the interpreter is past it.</summary>
+    internal void Forget()
+    {
+        if (Known is not null)
+        {
+            Known = null;
+            KnownOperands.Count(held: false);
+        }
+    }
+
     private bool _moved;
 
     /// <summary>
