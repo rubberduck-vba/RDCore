@@ -738,7 +738,7 @@
     <value>Combien de lignes du programme sont listées au-dessus et au-dessous de la ligne où un programme s'est arrêté, après INTERRUPTION À LA LIGNE. 0 n'en liste aucune.</value>
   </data>
   <data name="CLI_VerboseMessages_IsEnabled" xml:space="preserve">
-    <value>Si les détails d'une erreur d'exécution sont formulés : l'expression où elle s'est produite, et les cadres de l'opération qui a échoué.</value>
+    <value>Si les détails d'une erreur d'exécution sont formulés : l'expression où elle s'est produite, et les niveaux de l'opération qui a échoué.</value>
   </data>
   <data name="CLI_VerboseMessages_ShowMessageIcon" xml:space="preserve">
     <value>Si le message des détails commence par son icône (MessageIcon).</value>
@@ -768,28 +768,28 @@
     <value>L'icône par laquelle commence l'emplacement.</value>
   </data>
   <data name="CLI_VerboseMessages_StackTrace" xml:space="preserve">
-    <value>Si les détails listent les cadres de l'opération qui a échoué.</value>
+    <value>Si les détails listent les niveaux de l'opération qui a échoué.</value>
   </data>
   <data name="CLI_VerboseMessages_ShowStackTraceIcon" xml:space="preserve">
-    <value>Si la liste des cadres commence par son icône (StackTraceIcon).</value>
+    <value>Si la liste des niveaux commence par son icône (StackTraceIcon).</value>
   </data>
   <data name="CLI_VerboseMessages_StackTraceIcon" xml:space="preserve">
-    <value>L'icône par laquelle commence la liste des cadres.</value>
+    <value>L'icône par laquelle commence la liste des niveaux.</value>
   </data>
   <data name="CLI_VerboseMessages_StackFrameMarker" xml:space="preserve">
-    <value>Le marqueur par lequel commence chaque cadre sous celui du dessus.</value>
+    <value>Le marqueur par lequel commence chaque niveau sous celui du dessus.</value>
   </data>
   <data name="CLI_VerboseMessages_TopStackFrameMarker" xml:space="preserve">
-    <value>Le marqueur par lequel commence le cadre du dessus, celui où l'erreur s'est produite.</value>
+    <value>Le marqueur par lequel commence le niveau du dessus, celui où l'erreur s'est produite.</value>
   </data>
   <data name="CLI_VerboseMessages_ShowValues" xml:space="preserve">
-    <value>Si chaque entrée d'un cadre est donnée avec sa valeur, et pas seulement son type.</value>
+    <value>Si chaque entrée d'un niveau est donnée avec sa valeur, et pas seulement son type.</value>
   </data>
   <data name="CLI_VerboseMessages_ShowValuesIcon" xml:space="preserve">
-    <value>Si les entrées d'un cadre commencent par leur icône (ValuesIcon), que leurs valeurs soient montrées ou non.</value>
+    <value>Si les entrées d'un niveau commencent par leur icône (ValuesIcon), que leurs valeurs soient montrées ou non.</value>
   </data>
   <data name="CLI_VerboseMessages_ValuesIcon" xml:space="preserve">
-    <value>L'icône par laquelle commencent les entrées d'un cadre.</value>
+    <value>L'icône par laquelle commencent les entrées d'un niveau.</value>
   </data>
   <data name="Config_Summary" xml:space="preserve">
     <value>Affiche les paramètres de la plateforme, et les règle pour vous</value>
@@ -918,6 +918,6 @@
     <value>Le {0} du programme n'a pas pu être relayé au client qui affiche ses dialogues ({1}) : l'exécution échoue, plutôt que d'attendre un dialogue que personne ne voit.</value>
   </data>
   <data name="Verbose_FrameDetails" xml:space="preserve">
-    <value>Détails de la cellule :</value>
+    <value>Détails du niveau :</value>
   </data>
 </root>

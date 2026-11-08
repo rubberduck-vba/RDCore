@@ -8,9 +8,8 @@ namespace RDCore.SDK.Model.Errors;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The runtime records these and formats none of them. Each client formats them its own way: a console client as text under the error, an IDE as the
-/// details of the exception a debugger reports. A client that formats nothing shows <see cref="Message"/>, which is also the error's plain-text verbose
-/// message.
+/// The runtime records these and formats none of them: each client formats them its own way. A client that formats nothing shows <see cref="Message"/>,
+/// which is also the error's plain-text verbose message.
 /// </para>
 /// <para>
 /// They are recorded only when an error is raised, never on the path of an evaluation that succeeds.
