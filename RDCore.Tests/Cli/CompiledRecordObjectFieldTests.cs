@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An object field of a record, compiled: the object held in the field's own cell, which compiled code finds through the record's holder each time, and
-/// reads, compares and Sets there as it does an object variable - counted where the field holds it, and let go of where the interpreter lets go of it. A
+/// reads, compares and Sets there as it does an object variable: counted where the field holds it, and let go of where the interpreter lets go of it. A
 /// program runs the same either way, <c>Class_Terminate</c> included.
 /// </summary>
 [TestClass]

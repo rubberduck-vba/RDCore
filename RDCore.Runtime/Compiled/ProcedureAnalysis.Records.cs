@@ -19,7 +19,7 @@ namespace RDCore.Runtime.Compiled;
 /// (<see cref="Fields"/>), and its fields read and written there alike: a field of a scalar type, read as a payload of its kind and let-assigned one; a
 /// <c>Variant</c> field, read and let-assigned as a Variant variable is; an object field, held in its own cell, which compiled code compares, tests and Sets
 /// there as it does an object variable's (<see cref="ObjectFieldOf"/>). A field of a record that is a record itself is a field too, through it. What is any
-/// other type - a <c>String</c>, an array, an enumeration - the interpreter reads and writes, and runs each statement that does.
+/// other type (a <c>String</c>, an array, an enumeration) the interpreter reads and writes, and runs each statement that does.
 /// </remarks>
 internal sealed partial class ProcedureAnalysis
 {

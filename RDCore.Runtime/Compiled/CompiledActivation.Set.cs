@@ -29,7 +29,7 @@ public sealed partial class CompiledActivation
     /// <c>Nothing</c> (MS-VBAL §5.4.3.9): as <c>LetAssignmentEvaluator.SetField</c> assigns it, the value Set-coerced to the field's declared type, stored in the
     /// field's cell, then counted there, and what the field held before let go of.
     /// </summary>
-    /// <returns><see langword="false"/> when the interpreter runs the statement, as <see cref="TrySet"/>: and when there is no record, or no such field.</returns>
+    /// <returns><see langword="false"/> when the interpreter runs the statement, as for <see cref="TrySet"/>, or when there is no record or no such field.</returns>
     public bool TrySetField(int offset, object? record, int index, object? source, bool nothing)
         => !FailsAccessAtRandom() && record is VBUserDefinedTypeValue held && index < held.Fields.Length && held.Fields[index].ResolvedType is { } declared
             && RecordOperations.ObjectField(held, index) is ValueBindingHandle cell && TrySetIn(offset, cell, declared, source, nothing);
