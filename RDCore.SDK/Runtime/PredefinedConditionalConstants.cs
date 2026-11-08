@@ -8,8 +8,8 @@ namespace RDCore.SDK.Runtime;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One table for every reader: the environment host defines these in each session it composes, and what the language server makes of a <c>#If</c> - which
-/// branch is live, what is analyzed - is what that session's constants say, so nothing reads them anywhere else.
+/// One table for every reader: the environment host defines these in each session it composes, and what the language server makes of a <c>#If</c> (which
+/// branch is live, what is analyzed) is what that session's constants say, so nothing reads them anywhere else.
 /// </para>
 /// <para>
 /// Each is <c>1</c> where it is true and <c>0</c> where it is not, as MS-VBA defines its own (recorded in Excel), and not <c>-1</c> as a <c>Boolean</c> stores

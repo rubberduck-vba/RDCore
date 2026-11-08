@@ -46,7 +46,7 @@ does not, in MS-VBA and in RD-VBA alike ([**MS-VBAL §5.6.9.8** Logical Operator
 - `#If Win64 = True Then` and `#If Win64 = -1 Then` are dead there, because `1` is not `-1`.
 - `#If Win64 And 2 Then` is dead, because `1 And 2` is `0`.
 
-The same goes for a constant of the project or the module that stands for `True` with another number than `-1`, such as `#Const DEV = 1`. The analyzers
+The same goes for a constant of the project or the module that stands for `True` with a number other than `-1`, such as `#Const DEV = 1`. The analyzers
 report such a condition as [**RDC11031** True value that is not -1](../diagnostics/rdc11031.md).
 
 ## Services

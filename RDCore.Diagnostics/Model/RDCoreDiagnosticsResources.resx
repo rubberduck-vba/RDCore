@@ -373,6 +373,6 @@
     <value>&apos;{0}&apos; is declared As New of a class whose objects are never created: each reference to it that would create its object raises run-time error -2147221164 (Class not registered), as MS-VBA does.</value>
   </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
-    <value>This condition reads a constant that is True with a value other than -1 through &apos;{0}&apos;, which works on its bits: the result is not the truth value it seems to be (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; a constant of your own can be given the value True instead.</value>
+    <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
   </data>
 </root>

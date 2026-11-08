@@ -373,6 +373,6 @@
     <value>&apos;{0}&apos; est déclaré As New d&apos;une classe dont aucun objet n&apos;est jamais créé : chaque référence qui créerait son objet lève l&apos;erreur d&apos;exécution -2147221164 (Classe non enregistrée), comme dans MS-VBA.</value>
   </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
-    <value>Cette condition lit, avec &apos;{0}&apos;, une constante qui vaut True sans valoir -1 : l&apos;opérateur travaille sur ses bits, et le résultat n&apos;est pas la valeur de vérité qu&apos;il semble être (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0 ; une constante à vous peut plutôt prendre la valeur True.</value>
+    <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
   </data>
 </root>

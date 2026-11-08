@@ -79,7 +79,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to This condition reads a constant that is True with a value other than -1 through &apos;{0}&apos;, which works on its bits: the result is not the truth value it seems to be (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; a constant of your own can be given the value True instead..
+        ///   Looks up a localized string similar to &apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True..
         /// </summary>
         public static string TrueValueIsNotMinusOne_Message {
             get {

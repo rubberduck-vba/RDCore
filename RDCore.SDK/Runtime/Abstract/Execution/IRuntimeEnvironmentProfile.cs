@@ -22,7 +22,7 @@ public interface IRuntimeEnvironmentProfile
 
     /// <summary>
     /// The operating system the environment runs on. With <see cref="Is64Bit"/>, it decides the built-in <c>Win32</c>, <c>Win64</c>, <c>Mac</c>,
-    /// <c>Linux</c> and <c>Linux64</c> conditional-compilation constants: each is <c>True</c> only on its own operating system.
+    /// <c>Linux</c> and <c>Linux64</c> conditional-compilation constants: each is <c>1</c> only on its own operating system, and <c>0</c> on every other.
     /// </summary>
     /// <remarks>
     /// The environment host's is the one it runs on. <see cref="VBOperatingSystem.Windows"/> unless said otherwise.
