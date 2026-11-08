@@ -34,7 +34,7 @@ Static semantics always yield a
 |`Error`|A [VBCompileErrorInfo](../api/RDCore.SDK.Model.Errors.VBCompileErrorInfo.html): compile-time error metadata.|
 
 > In most static-semantics error cases, the compile-time error metadata returned is for a `TypeMismatch` error
-> ([VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html)).
+> (`VBCompileErrorId`).
 
 ### Static evaluation context
 

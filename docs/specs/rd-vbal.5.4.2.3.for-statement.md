@@ -134,7 +134,7 @@ state for its `Matching` offset, its `ForOpener` never ran in this activation.
 |The counter is a `Variant` that holds `Null` when `Next` tests it.|94 (Invalid use of Null)|
 |The start, the end or the step is out of the range of the type the loop counts in (`For b = 1 To 300` with a `Byte` `b`).|6 (Overflow)|
 
-Run-time error 92 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.ForLoopNotInitialized`
+Run-time error 92 is `VBRuntimeErrorId.ForLoopNotInitialized`
 ([**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md)).
 
 ### An error in the header, under `On Error Resume Next`

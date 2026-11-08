@@ -75,7 +75,7 @@ A `VBCollectionType` can be efficiently iterated using a `For Each...Next` loop 
 
 ### Data Members
 
-MS-VBAL sometimes refers to the _elements_ (or _items_) of a collection as "data members". The term appears in error messages, e.g. [VBR00461](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html) `MethodOrDataMemberNotFound`.
+MS-VBAL sometimes refers to the _elements_ (or _items_) of a collection as "data members". The term appears in error messages, e.g. [VBR00461](../diagnostics/vbr00461.md) `MethodOrDataMemberNotFound`.
 
 RD-VBAL discards the "data member" terminology for collection elements, because it is confusing. In RD-VBA, a "member" is always a direct child symbol of a module, user-defined type, or enum.
 
@@ -120,7 +120,7 @@ Additional workspace source code may be added to a host project if it is _open_ 
 `VBUnknownType` is a special data type that represents an _unresolved type_. It is the fallback data type used when type resolution semantics fail to identify a valid data type for a given value.
 
 > [!WARNING]
-> An unknown type represents a _compile-time binding failure_, and should raise compile error [VBC09311](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) `UserDefinedTypeNotDefined`; see [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md).
+> An unknown type represents a _compile-time binding failure_, and should raise compile error [VBC09311](../diagnostics/vbc09311.md) `UserDefinedTypeNotDefined`; see [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md).
 
 The `UserDefinedTypeNotDefined` wording can be confusing when it is raised for an unknown type. Verbose diagnostic messages should clarify its meaning in that case.
 

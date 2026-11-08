@@ -87,7 +87,7 @@ Whether the enclosing module declares `Option Explicit` is the module-level fact
 |Module declares `Option Explicit`|An unresolved simple name is|
 |---|---|
 |No|A deferred [VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html).|
-|Yes|A **VBC09302** _Variable not defined_ compile-time error: an `Error` carrying `VariableNotDefined` ([VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html)).|
+|Yes|A **VBC09302** _Variable not defined_ compile-time error: an `Error` carrying `VariableNotDefined` (`VBCompileErrorId`).|
 
 An implicit declaration by an unqualified `ReDim` target is legal under `Option Explicit`
 ([**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)).

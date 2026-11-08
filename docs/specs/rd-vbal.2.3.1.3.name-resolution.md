@@ -288,7 +288,7 @@ How a `SimpleNameExpression`'s declared type is determined from a `ResolveValue`
 > `Dim t As TRec` or `Dim c As Colours`. Qualified by its module, the type resolves
 > ([Qualified type names](#qualified-type-names)).
 
-An appropriate compile-time error ([VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html)) should
+An appropriate compile-time error (`VBCompileErrorId`) should
 be issued for a duplicate declaration and for an ambiguous name
 ([**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)).
 

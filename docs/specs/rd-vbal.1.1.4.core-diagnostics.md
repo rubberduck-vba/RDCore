@@ -27,10 +27,10 @@ The `00000` numeric portion of a diagnostic code is a five-digit zero-padded cod
 
 |Origin|Diagnostic|Numeric portion|
 |---|---|---|
-|The *parser*|Normally a *syntax error*|A [VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) value between **42 and 999**.|
+|The *parser*|Normally a *syntax error*|A `VBCompileErrorId` value between **42 and 999**.|
 |The *static semantics analysis pass*|A *compilation error*|A `VBCompileErrorId` value **greater than or equal to 9300**.|
 |A *language core extension*|A *compilation error*|A `VBCompileErrorId` value **between 8000 and 9299**.|
-|The *runtime semantics analysis pass*|A *runtime error*|A [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html) value corresponding to its MS-VBAL specified error code.|
+|The *runtime semantics analysis pass*|A *runtime error*|A `VBRuntimeErrorId` value corresponding to its MS-VBAL specified error code.|
 |*Workspace source code*|An error raised by the *workspace program*|An unspecified `VBA00000` code, defined by the *custom error code* raised in the workspace program.|
 |RDCore.Diagnostics|Any other *language core diagnostic*|Documented under an `RDC00000` code.|
 |The core extension|A *platform extension diagnostic*|Documented under an `RDX00000` code, in the documentation pertaining to the extension.|

@@ -13,7 +13,7 @@ A **semantic compilation error** is raised by the static semantics layer while w
 
 ## Numeric Range
 
-[VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) reserves the range `[9300..]` for semantic compilation errors: errors issued from the static semantics analysis pass report a value greater than or equal to 9300. MS-VBAL does not distinguish a compile-time error raised in CST semantics from one raised in AST semantics; RDCore splits [syntax errors](rd-vbal.2.6.1.syntax-errors.md) and semantic compilation errors by numeric range only.
+`VBCompileErrorId` reserves the range `[9300..]` for semantic compilation errors: errors issued from the static semantics analysis pass report a value greater than or equal to 9300. MS-VBAL does not distinguish a compile-time error raised in CST semantics from one raised in AST semantics; RDCore splits [syntax errors](rd-vbal.2.6.1.syntax-errors.md) and semantic compilation errors by numeric range only.
 
 Compilation errors issued from a *language core extension* report a `VBCompileErrorId` value between 8000 and 9299; see [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
 
