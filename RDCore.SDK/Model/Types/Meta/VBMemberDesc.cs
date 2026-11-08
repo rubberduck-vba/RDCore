@@ -10,6 +10,7 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// An abstract meta-type representing any <c>VBTypeMemberSymbol</c>
 /// </summary>
 /// <param name="Name">The <em>identifier name</em> of the member.</param>
+/// <param name="Parameters">The parameters of the member.</param>
 public abstract record class VBMemberDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBType(typeof(Type), Name, isHidden: true)
 {
 

@@ -12,7 +12,7 @@ namespace RDCore.SDK.Model.Values.Runtime;
 /// nowhere to hold, so reading the variable back would hand out a UDT with default fields however much had
 /// been assigned to it.
 /// <para>
-/// 👉 Deliberately a plain reference type, not a <c>record</c>: <see cref="Abstract.VBTypedValue.Equals"/>
+/// 👉 Deliberately a plain reference type, not a <c>record</c>: <see cref="Abstract.VBTypedValue.Equals(Abstract.VBTypedValue?)"/>
 /// compares <c>Handle.Value.BoxedValue</c>, so boxing through a structurally-equatable wrapper would compare
 /// two UDTs by calling back into <see cref="VBUserDefinedTypeValue"/>'s own equality (which reads through
 /// this same boxed value) recursing forever. A plain class's reference equality breaks the cycle.

@@ -13,9 +13,7 @@ public enum InputIndex
     /// The second input.
     /// </summary>
     Second = 1,
-    /// <summary>
-    /// The third input.
-    /// </summary>
+    // the third input.
     //Third = 2,
 
     /// <summary>

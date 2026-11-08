@@ -10,6 +10,7 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// An abstract meta-type representing any <c>VBPropertySetMemberSymbol</c>
 /// </summary>
 /// <param name="Name">The name of the <c>Property Set</c> member</param>
+/// <param name="Parameters">The parameters of the <c>Property Set</c> member.</param>
 public record class VBPropertySetProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBProcedureMemberDesc(Name, Parameters)
 {
     private static readonly Lazy<VBPropertySetProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);

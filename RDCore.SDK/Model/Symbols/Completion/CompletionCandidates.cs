@@ -650,7 +650,7 @@ public static class CompletionCandidates
     /// </summary>
     /// <remarks>
     /// A library's <c>Enum</c> carries its constants (<see cref="MembersOf(VBType)"/>). One the workspace declares does not: its constants are declarations of
-    /// the module that declares it, each of them of the <c>Enum</c> (<see cref="VBEnumConstMemberSymbol.ParentUri"/>), and are found there.
+    /// the module that declares it, each of them of the <c>Enum</c> (<see cref="RDCore.SDK.Model.Symbols.Abstract.Symbol.ParentUri"/>), and are found there.
     /// </remarks>
     /// <param name="tree">The scope tree of the composed workspace.</param>
     /// <param name="type">The <c>Enum</c>.</param>

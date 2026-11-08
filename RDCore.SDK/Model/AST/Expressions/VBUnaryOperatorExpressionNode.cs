@@ -14,6 +14,7 @@ namespace RDCore.SDK.Model.AST.Expressions;
 /// <param name="Token">The operator token associated with this <em>operator expression</em>.</param>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The <c>Location</c> (holds the document <c>Uri</c> and a <c>Range</c>) of the bound expression.</param>
+/// <param name="Children">The child nodes of this expression: its single operand.</param>
 public record class VBUnaryOperatorExpressionNode(string Token, SyntaxNodeId Identity, SourceLocation Location, ImmutableArray<SyntaxNode> Children)
     : VBOperatorExpression(Identity, Location, Children)
 {

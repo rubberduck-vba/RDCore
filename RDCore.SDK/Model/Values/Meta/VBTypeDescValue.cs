@@ -11,7 +11,6 @@ namespace RDCore.SDK.Model.Values.Meta;
 /// Describes a specified <see cref="VBType"/> for a specified symbol.
 /// </summary>
 /// <param name="Target">The described type.</param>
-/// <param name="Symbol">The symbol associated with this value.</param>
 public record class VBTypeDescValue(VBType Target) : VBTypedValue(VBTypeDesc.TypeInfo)
 {
     private static readonly Lazy<VBTypeDescValue> _defaultValue = new(() => new(VBVoidType.TypeInfo), LazyThreadSafetyMode.PublicationOnly);

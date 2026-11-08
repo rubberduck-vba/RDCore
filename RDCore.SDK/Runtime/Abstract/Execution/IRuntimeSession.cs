@@ -279,7 +279,7 @@ public interface ISessionSymbols
 
     /// <summary>
     /// Composes the class module <paramref name="moduleName"/> from the members the session now has defined for it: its
-    /// <see cref="VBClassModuleSymbol.Members"/>, its default interface, and the interfaces it implements
+    /// <see cref="VBModuleSymbol.Members"/>, its default interface, and the interfaces it implements
     /// (<strong>MS-VBAL §5.2.4.2</strong>), resolved over every class module the session has.
     /// </summary>
     /// <remarks>
@@ -304,7 +304,7 @@ public interface ISessionSymbols
     /// </summary>
     /// <remarks>
     /// While it is <see langword="null"/>, a variable starts as the default value of its declared type, which for a fixed-size array
-    /// is one with no dimensions: <see cref="Symbols.Abstract.SymbolProperties.ArrayBounds"/> are applied by whatever sets this.
+    /// is one with no dimensions: <see cref="RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.ArrayBounds"/> are applied by whatever sets this.
     /// </remarks>
     IVariableDefaults? Defaults { get; set; }
 

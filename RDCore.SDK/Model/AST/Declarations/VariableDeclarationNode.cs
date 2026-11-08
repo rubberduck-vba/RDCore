@@ -15,6 +15,7 @@ namespace RDCore.SDK.Model.AST.Declarations;
 /// so the first one's range begins with <c>Dim</c> (or <c>Static</c>, or the visibility), and the others' begin with their names.
 /// </param>
 /// <param name="Name">The declared identifier name of the member.</param>
+/// <param name="Children">The child nodes of the declaration; an <see cref="ArrayBoundsNode"/> among them when it has an array-dimension clause.</param>
 /// <param name="AccessModifier">The access modifier, if one was supplied.</param>
 /// <param name="TypeHint">The <em>type hint</em> token, if one was supplied.</param>
 /// <param name="IsWithEvents"><c>true</c> if the variable is a <c>WithEvents</c> field.</param>

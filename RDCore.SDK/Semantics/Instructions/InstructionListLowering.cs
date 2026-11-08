@@ -19,7 +19,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// walk cannot express that.
 /// </summary>
 /// <remarks>
-/// <strong>Scope of this pass.</strong> Every statement lexically inside <paramref name="body"/> — at
+/// <strong>Scope of this pass.</strong> Every statement lexically inside <c>body</c> — at
 /// any nesting depth, through <c>If</c>/<c>ElseIf</c>/inline <c>If</c>/<c>Select Case</c>/a loop/
 /// <c>With</c> — is lowered. Structured statements stay instructions; block closers (a loop's back-edge,
 /// an <c>If</c>/<c>Case</c> branch's trailing jump) are synthesized, carry no source

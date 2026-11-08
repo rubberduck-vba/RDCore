@@ -200,7 +200,7 @@ public static class ModuleNodeExtensions
     /// Unlike a module-level attribute (<c>VB_Name</c>, <c>VB_Creatable</c>, ...), a member-qualified
     /// attribute statement is written lexically inside the member's own body — the parser attaches it
     /// as a child of that member's own <see cref="MemberDeclarationNode"/>, not the module's — so this
-    /// searches the named member's <c>Children</c>, not <see cref="ModuleNode.Children"/> directly.
+    /// searches the named member's <c>Children</c>, not the module's own <see cref="Abstract.SyntaxNode.Children"/> directly.
     /// </remarks>
     public static int? GetMemberUserMemId(this ModuleNode module, string memberName)
         => int.TryParse(module.GetMemberAttribute(memberName, Tokens.VB_UserMemId)?.Trim(), out var value) ? value : null;

@@ -22,9 +22,9 @@ namespace RDCore.SDK.Model.Symbols;
 /// resolves as <see cref="SymbolResolutionResult.Ambiguous"/>.
 /// </summary>
 /// <remarks>
-/// <see cref="ResolveValue"/> and <see cref="ResolveType"/> walk the same tree under the two binding
+/// <see cref="ResolveValue"/> and <see cref="ResolveType(string, ScopeKind, Uri)"/> walk the same tree under the two binding
 /// contexts <strong>MS-VBAL §5.6.4</strong> distinguishes, each with its own candidates: a user-defined
-/// type or a class module is only ever bound by <see cref="ResolveType"/> (or, for a class module and the
+/// type or a class module is only ever bound by <see cref="ResolveType(string, ScopeKind, Uri)"/> (or, for a class module and the
 /// project, as the qualifier of a qualified type name, by <see cref="ResolveQualifier"/>), and a
 /// local, parameter, constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
 /// predeclared instance (<see cref="VBPredeclaredInstanceSymbol"/>) is also a name in the default binding

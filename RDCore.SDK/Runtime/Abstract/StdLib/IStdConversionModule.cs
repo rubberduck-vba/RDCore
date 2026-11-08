@@ -173,7 +173,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the localized <em>string</em> <c>Message</c> of the specified <em>error number</em> value (declared type is <see cref="VBVariantType"/>).
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="errorNumber">The <em>error number</em>; when omitted, the number of the most recent run-time error.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Error(VBVariantValue? errorNumber = default);
     /// <summary>
@@ -182,7 +182,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the localized <em>string</em> <c>Message</c> of the specified <em>error number</em> value.
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="errorNumber">The <em>error number</em>; when omitted, the number of the most recent run-time error.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember("Error$")]
     RuntimeSemanticsEvaluationResult<VBStringValue> ErrorStr(VBVariantValue? errorNumber = default);
@@ -193,7 +193,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the integer portion of a numeric value.
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Fix([StdLibValue(ValueDestination.AnyValue)] VBVariantValue number);
 
@@ -203,7 +203,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the hexadecimal (string) representation of the specified numeric value (declared type is <see cref="VBVariantType"/>).
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Hex(VBVariantValue number);
     /// <summary>
@@ -212,7 +212,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the hexadecimal (string) representation of the specified numeric value.
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember("Hex$")]
     RuntimeSemanticsEvaluationResult<VBStringValue> HexStr(VBVariantValue number);
@@ -223,7 +223,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the integer portion of the specified numeric value.
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Int([StdLibValue(ValueDestination.AnyValue)] VBVariantValue number);
 
@@ -233,7 +233,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the octal (string) representation the specified numeric value (the declared type is <see cref="VBVariantType"/>).
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Oct(VBVariantValue number);
     /// <summary>
@@ -242,7 +242,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the octal (string) representation the specified numeric value.
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember("Oct$")]
     RuntimeSemanticsEvaluationResult<VBStringValue> OctStr(VBVariantValue number);
@@ -253,7 +253,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the string representation the specified value (the declared type is <see cref="VBVariantType"/>).
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Str(VBVariantValue number);
     /// <summary>
@@ -262,7 +262,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Gets the string representation the specified value.
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="number">Any <em>data value</em>.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember("Str$")]
     RuntimeSemanticsEvaluationResult<VBStringValue> StrStr(VBVariantValue number);
@@ -273,7 +273,7 @@ public interface IStdConversionModule
     /// <remarks>
     /// Extracts a numeric value from the specified <see cref="VBStringValue"/> value.
     /// </remarks>
-    /// <param name="expression">Any <em>data value</em>.</param>
+    /// <param name="value">The <em>string</em> to read a number from.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBDoubleValue> Val(VBStringValue value);
 }

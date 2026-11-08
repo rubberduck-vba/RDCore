@@ -67,7 +67,7 @@ public abstract class RDCoreServerApp(
     /// <remarks>
     /// 👉 Platform services such as <see cref="Platform.IPlatformCompositionService"/> and the orchestration
     /// services are registered here, not on the internal server container. Server apps that bring up child
-    /// components must pass <strong>this</strong> provider to <see cref="IRDCoreClientApp.RunAsync"/>.
+    /// components must pass <strong>this</strong> provider to <see cref="IRDCoreApp.RunAsync(IServiceProvider, string[])"/>.
     /// </remarks>
     protected IServiceProvider ExternalServices { get; private set; } = default!;
 
@@ -80,7 +80,7 @@ public abstract class RDCoreServerApp(
     /// </summary>
     /// <remarks>
     /// A client may send a notification about a document the server does not serve - a <c>README.md</c> it opens - which OmniSharp hands to no handler. The
-    /// selector is registered for the handlers, and says which changes are waited for (<see cref="IncomingDocumentChanges.Serve"/>): one that no handler applies
+    /// selector is registered for the handlers, and says which changes are waited for (<see cref="IncomingDocumentChanges.Serve(Func{Uri, bool})"/>): one that no handler applies
     /// would be waited for forever.
     /// </remarks>
     protected virtual TextDocumentSelector? DocumentSelector => null;

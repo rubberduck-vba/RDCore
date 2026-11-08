@@ -23,7 +23,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <param name="IsReleaseBuild">
 /// Whether this is a release build, in which <c>Stop</c>, having no debugger to break into, is lowered as
 /// <c>End</c> is, and the <c>Debug</c> statements are not lowered when <paramref name="DropsDebugStatements"/> says so. Driven by the <c>DEBUG</c> conditional compilation constant
-/// (whose default is the environment's <see cref="Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.Configuration"/>),
+/// (whose default is the environment's <see cref="RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.Configuration"/>),
 /// so that <c>#If DEBUG Then</c> and "does this <c>Debug.Print</c> run" are the same fact rather than
 /// two settings that can disagree.
 /// <para>
@@ -39,7 +39,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// </param>
 /// <param name="DropsDebugStatements">
 /// Whether a release build leaves out <c>Debug.Print</c> and <c>Debug.Assert</c> (the environment's
-/// <see cref="Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.ReleaseDropsDebugStatements"/>): they leave no instruction behind, not a no-op one,
+/// <see cref="RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.ReleaseDropsDebugStatements"/>): they leave no instruction behind, not a no-op one,
 /// their arguments unevaluated, so a release build pays nothing for a <c>Debug.Print</c> left in the source. A debug build keeps them whatever this says.
 /// </param>
 public readonly record struct InstructionLoweringOptions(

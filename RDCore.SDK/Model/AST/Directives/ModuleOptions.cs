@@ -1,9 +1,9 @@
 ﻿namespace RDCore.SDK.Model.AST.Directives;
 
-[Flags]
 /// <summary>
 /// <strong>MS-VBAL 5.2.1 Option Directives</strong>
 /// </summary>
+[Flags]
 public enum ModuleOptions
 {
     /// <summary>

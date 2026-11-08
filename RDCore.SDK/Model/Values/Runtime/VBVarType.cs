@@ -13,83 +13,83 @@ namespace RDCore.SDK.Model.Values.Runtime;
 public enum VBVarType
 {
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBEmptyType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBEmptyType"/>.
     /// </summary>
     VBEmpty = 0,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBNullType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBNullType"/>.
     /// </summary>
     VBNull = 1,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBIntegerType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBIntegerType"/>.
     /// </summary>
     VBInteger = 2,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBLongType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBLongType"/>.
     /// </summary>
     VBLong = 3,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBSingleType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBSingleType"/>.
     /// </summary>
     VBSingle = 4,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBDoubleType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBDoubleType"/>.
     /// </summary>
     VBDouble = 5,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBCurrencyType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBCurrencyType"/>.
     /// </summary>
     VBCurrency = 6,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBDateType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBDateType"/>.
     /// </summary>
     VBDate = 7,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBStringType"/>
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBStringType"/>
     /// (a <c>BSTR</c> in the underlying COM representation).
     /// </summary>
     VBString = 8,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBObjectType"/>:
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBObjectType"/>:
     /// COM's own <c>VT_DISPATCH</c>: a late-bound Automation object reference (an <c>IDispatch*</c>
     /// in the underlying COM representation).
     /// </summary>
     VBObject = 9,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBErrorType"/>:
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBErrorType"/>:
     /// also the subtype of the <c>Missing</c> data value an omitted <c>Variant</c> argument carries
     /// (<c>DISP_E_PARAMNOTFOUND</c> in the underlying COM representation).
     /// </summary>
     VBError = 10,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBBooleanType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBBooleanType"/>.
     /// </summary>
     VBBoolean = 11,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBVariantType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBVariantType"/>.
     /// </summary>
     /// <remarks>
     /// 👉 Variant <em>unwrapping</em> can get <em>really funky</em>.
     /// </remarks>
     VBVariant = 12,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBObjectType"/>:
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBObjectType"/>:
     /// COM's own <c>VT_UNKNOWN</c>: an early-bound (<c>IUnknown</c>-only, non-Automation) object
     /// reference. RD-VBA does not yet distinguish this from <see cref="VBObject"/>; nothing constructs
     /// this value today.
     /// </summary>
     VBDataObject = 13,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBDecimalType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBDecimalType"/>.
     /// </summary>
     VBDecimal = 14,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBByteType"/>.
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBByteType"/>.
     /// </summary>
     VBByte = 17,
     /// <summary>
-    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="VBLongLongType"/>
-    /// (and, on a 64-bit host, <see cref="VBLongPtrType_x64"/>).
+    /// The <see cref="RDCore.SDK.Model.Values.Intrinsic.VBVariantValue"/> subtype is <see cref="RDCore.SDK.Model.Types.VBLongLongType"/>
+    /// (and, on a 64-bit host, <see cref="RDCore.SDK.Model.Types.VBLongPtrType_x64"/>).
     /// </summary>
     /// <remarks>
     /// 👉 This value is statically undefined in a 32-bit environment.

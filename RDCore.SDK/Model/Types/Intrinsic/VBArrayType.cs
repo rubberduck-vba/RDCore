@@ -8,7 +8,7 @@ using RDCore.SDK.Model.Values.Runtime;
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// A <see cref="VBIntrinsicType{Object[]}"/> representing any type of <em>array</em> data type.
+/// A <see cref="VBIntrinsicType{T}"/> representing any type of <em>array</em> data type.
 /// </summary>
 /// <remarks>
 /// The <em>managed type</em> of a value of this data type is <c>object[]</c>.

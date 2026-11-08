@@ -18,6 +18,8 @@ namespace RDCore.SDK.Extensibility;
 /// <param name="options">The <em>extensions</em> configuration settings.</param>
 /// <param name="validation">A service that validates an <em>extension manifest</em>.</param>
 /// <param name="fileSystem">Abstracts the <em>file system</em>.</param>
+/// <param name="environment">The platform environment the extensions are found in.</param>
+/// <param name="logger">The service's logger.</param>
 public class ExtensionsClient(
     IOptions<SdkAppOptions> options,
     IExtensionManifestValidationService validation,

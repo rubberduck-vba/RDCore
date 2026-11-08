@@ -83,14 +83,6 @@ public sealed class StdLibSymbolReader
     }
 
     /// <summary>
-    /// Reads every standard-library declaration an assembly exports.
-    /// </summary>
-    /// <param name="assembly">
-    /// The assembly to scan. Nothing declares which modules a workspace gets — every VBA project has
-    /// the standard library whether or not a <c>.rdproj</c> mentions it (<strong>RD-VBAL §6.1</strong>)
-    /// — so the set is whatever carries the markers.
-    /// </param>
-    /// <summary>
     /// The key that says which declaration a standard-library symbol was read off, carried on the symbol as
     /// <see cref="SymbolProperties.ExternalTarget"/> so that a dispatcher can find the method again.
     /// </summary>
@@ -110,6 +102,14 @@ public sealed class StdLibSymbolReader
     public static string ExternalTargetOf(Type declaringType, MethodInfo method)
         => $"{declaringType.Name}.{method.Name}/{method.GetParameters().Length}";
 
+    /// <summary>
+    /// Reads every standard-library declaration an assembly exports.
+    /// </summary>
+    /// <param name="assembly">
+    /// The assembly to scan. Nothing declares which modules a workspace gets — every VBA project has
+    /// the standard library whether or not a <c>.rdproj</c> mentions it (<strong>RD-VBAL §6.1</strong>)
+    /// — so the set is whatever carries the markers.
+    /// </param>
     public ImmutableArray<Symbol> Read(Assembly assembly) => Read(assembly.GetExportedTypes());
 
     /// <summary>

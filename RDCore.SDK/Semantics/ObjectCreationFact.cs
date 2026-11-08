@@ -32,7 +32,7 @@ public enum ObjectClassSource
 /// class described here is a compile error or changes what the program does.
 /// </para>
 /// <para>
-/// A class is found by the identifier its library describes it with (<see cref="Runtime.Libraries.ClassDescription.ProgId"/>), in the library the identifier's
+/// A class is found by the identifier its library describes it with (<see cref="RDCore.SDK.Runtime.Libraries.ClassDescription.ProgId"/>), in the library the identifier's
 /// first part names, without regard to case. An identifier that names no version (<c>DAO.DBEngine</c>) is the class whose identifier is the same with one
 /// (<c>DAO.DBEngine.120</c>): which version a machine has is its own to say, and the class is the same one. 🚧 TODO A library whose name is not the first part
 /// of the identifiers of its classes (<c>VBScript_RegExp_55</c>, for <c>VBScript.RegExp</c>) is not found.

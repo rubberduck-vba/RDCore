@@ -9,6 +9,7 @@ namespace RDCore.SDK.Model.AST.Directives;
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="Location">The <c>Location</c> of the directive.</param>
+/// <param name="NameExpression">The name of the implemented interface, as it is written; <see langword="null"/> when the directive names none.</param>
 public record class ImplementsDirectiveNode(SyntaxNodeId Identity, SourceLocation Location, SyntaxNode? NameExpression = null)
     : DirectiveNode(Identity, Location, NameExpression is null ? [] : [NameExpression])
 {

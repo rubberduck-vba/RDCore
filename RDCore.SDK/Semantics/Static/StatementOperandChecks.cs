@@ -174,7 +174,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     }
 
     /// <summary>
-    /// What a function named as an element of an <c>Erase</c> statement, outside its own body, must be (<see cref="RequireFunctionTarget(ExpressionNode, VBFunctionMemberSymbol, FunctionTarget)"/>).
+    /// What a function named as an element of an <c>Erase</c> statement, outside its own body, must be (<see cref="RequireFunctionTarget(ExpressionNode, VBReturningMemberSymbol, FunctionTarget)"/>).
     /// </summary>
     /// <param name="expression">The element.</param>
     public void RequireErasable(ExpressionNode expression)

@@ -28,7 +28,7 @@ public readonly record struct RuntimeSemanticsEvaluationResult(
     /// 👉 This value represents a <strong>specified, consistent state</strong> where program execution resumes in a controlled error state.<br/>
     /// A result value may or may not have been assigned before the failure: most errors carry none, which is why
     /// this asks only whether there is an error. It used to require a value too, and so answered <c>false</c> for
-    /// every error raised without one - which is what <see cref="Error(VBRuntimeErrorInfo, VBTypedValue?)"/>'s
+    /// every error raised without one - which is what <see cref="Error(IVBRaisableError, VBTypedValue?)"/>'s
     /// own default produces.
     /// </remarks>
     public bool IsError => ErrorInfo is not null;
@@ -50,6 +50,7 @@ public readonly record struct RuntimeSemanticsEvaluationResult(
     /// Creates a new (failed) <see cref="RuntimeSemanticsEvaluationResult"/> with the specified <see cref="IVBRaisableError"/> error information metadata.
     /// </summary>
     /// <param name="error">The runtime error metadata describing the evaluation failure.</param>
+    /// <param name="result">The result value assigned before the failure, if any.</param>
     /// <remarks>❌ Use this method <em>only</em> to signal a <strong>failed</strong> expression evaluation. A result value may still have been assigned.</remarks>
     public static RuntimeSemanticsEvaluationResult Error(IVBRaisableError error, VBTypedValue? result = null) => new(result, error);
 
