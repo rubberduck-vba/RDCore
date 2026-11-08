@@ -1,4 +1,6 @@
-namespace RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace;
+
+namespace RDCore.LanguageServer.Services.Workspace;
 
 /// <summary>
 /// What a folder of a workspace is for: a project's own folder, or a folder that holds sources some project lists.

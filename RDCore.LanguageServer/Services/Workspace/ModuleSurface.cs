@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
@@ -11,7 +12,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
-namespace RDCore.SDK.Model.AST;
+namespace RDCore.LanguageServer.Services.Workspace;
 
 /// <summary>
 /// What the other modules of a project can be told by a module, in two parts: what it declares, and what its code refers to. Each is a text that is the same
@@ -200,10 +201,11 @@ public sealed record class ModuleSurface(string Declarations, string References)
         _ => [],
     };
 
-    // a record or a struct of the syntax tree's own that is no node: what it holds is a node's, as a DefType's letters or an array's bounds are.
+    // a record or a struct of the syntax tree's own that is no node: what it holds is a node's, as a DefType's letters or an array's bounds are. The tree's own
+    // types are those of the namespace of the parse result.
     private static bool IsOfTheTree(object? value)
         => value is not (null or SyntaxNode or SourceRange or SourceLocation or SyntaxNodeId)
-            && value.GetType().Namespace?.StartsWith(typeof(ModuleSurface).Namespace!, StringComparison.Ordinal) == true;
+            && value.GetType().Namespace?.StartsWith(typeof(ModuleParseResult).Namespace!, StringComparison.Ordinal) == true;
 
     // what the node is, and what it says that is not a node of its own - and of a declaration, the branches it is written in.
     private static void Describe(StringBuilder surface, SyntaxNode node, string branches = "")

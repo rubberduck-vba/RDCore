@@ -1,7 +1,7 @@
 using System.Reflection;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
-namespace RDCore.SDK.Server.Serialization;
+namespace RDCore.LanguageServer.Services.Diagnostics;
 
 /// <summary>
 /// Makes the answers of a <c>workspace/diagnostic</c> pull (<strong>LSP 3.17</strong> §Workspace Diagnostics), which OmniSharp 0.19.9 gives no way to make.
@@ -10,7 +10,7 @@ namespace RDCore.SDK.Server.Serialization;
 /// OmniSharp 0.19.9 generates <see cref="WorkspaceDiagnosticReport"/> and <see cref="WorkspaceDiagnosticReportPartialResult"/> with constructors that are all
 /// non-public, and an <c>init</c> accessor for their <c>Items</c>: a handler can neither construct one nor set what it holds. Each is made here with its
 /// non-public parameterless constructor, its items set as the serializer would. The report's own records - one document's full or unchanged report - are
-/// public, and are made as usual; they are written by <see cref="PullDiagnosticsLspSerializer"/>.
+/// public, and are made as usual; they are written by the SDK's <c>PullDiagnosticsLspSerializer</c>.
 /// </remarks>
 public static class WorkspaceDiagnosticReports
 {
@@ -31,20 +31,18 @@ public static class WorkspaceDiagnosticReports
     public static WorkspaceDiagnosticReportPartialResult PartialOf(IEnumerable<WorkspaceDocumentDiagnosticReport> reports)
         => With<WorkspaceDiagnosticReportPartialResult>(PartialItems, reports);
 
-    // the repaired serializer (PullDiagnosticsLspSerializer), through the interface that applies the repair.
-    private static readonly OmniSharp.Extensions.JsonRpc.ISerializer Serializer = new PullDiagnosticsLspSerializer();
-
     /// <summary>
     /// A partial result as it is sent (<c>$/progress</c>): written by the repaired serializer.
     /// </summary>
     /// <remarks>
     /// OmniSharp 0.19.9's progress manager writes a partial result with its serializer's inner <c>JsonSerializer</c>, past the interface
-    /// <see cref="PullDiagnosticsLspSerializer"/> repairs the report converters through, and the document reports' stub converter throws. A partial result
+    /// <c>PullDiagnosticsLspSerializer</c> repairs the report converters through, and the document reports' stub converter throws. A partial result
     /// sent as this JSON goes out as it is.
     /// </remarks>
     /// <param name="partial">The partial result.</param>
-    public static Newtonsoft.Json.Linq.JToken ToJson(WorkspaceDiagnosticReportPartialResult partial)
-        => Newtonsoft.Json.Linq.JToken.Parse(Serializer.SerializeObject(partial));
+    /// <param name="serializer">The server's serializer: the repaired one, through the interface that applies the repair.</param>
+    public static Newtonsoft.Json.Linq.JToken ToJson(WorkspaceDiagnosticReportPartialResult partial, OmniSharp.Extensions.JsonRpc.ISerializer serializer)
+        => Newtonsoft.Json.Linq.JToken.Parse(serializer.SerializeObject(partial));
 
     private static T With<T>(PropertyInfo items, IEnumerable<WorkspaceDocumentDiagnosticReport> reports) where T : class
     {

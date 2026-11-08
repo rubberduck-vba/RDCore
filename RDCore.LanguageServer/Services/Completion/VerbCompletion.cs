@@ -1,4 +1,7 @@
-﻿namespace RDCore.SDK.Platform.Commands;
+﻿using RDCore.SDK.Platform.Commands;
+using RDCore.SDK.Server.Configuration;
+
+namespace RDCore.LanguageServer.Services.Completion;
 
 /// <summary>
 /// The argument of a verb that is being written, and what of it is typed.
@@ -25,7 +28,7 @@ public sealed record class VerbCompletionSite(VerbArgument Argument, string Type
     /// The setting a <see cref="VerbArgumentKind.SettingValue"/> is a value of (<see cref="VerbArgument.ValueOf"/>), as its key is written before it;
     /// <see langword="null"/> when it is of no setting the form knows.
     /// </summary>
-    public Server.Configuration.SettingDescriptor? Setting
+    public SettingDescriptor? Setting
         => Argument.ValueOf is { } name && Written.TryGetValue(name, out var key)
             && Form.FirstOrDefault(argument => argument.Name == name) is { Kind: VerbArgumentKind.Setting } owner
                 ? owner.Settings.FirstOrDefault(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase))
@@ -98,17 +101,17 @@ public static class VerbCompletion
     /// <param name="settings">The settings.</param>
     /// <param name="typed">What is typed of the key: <c>server.Ve</c>.</param>
     /// <returns>Each part once, in the order of the settings, with the setting it is the name of; <see langword="null"/> for a section.</returns>
-    public static IReadOnlyList<(string Part, Server.Configuration.SettingDescriptor? Setting)> SettingPartsAfter(
-        IEnumerable<Server.Configuration.SettingDescriptor> settings, string typed)
+    public static IReadOnlyList<(string Part, SettingDescriptor? Setting)> SettingPartsAfter(
+        IEnumerable<SettingDescriptor> settings, string typed)
     {
         var dot = typed.LastIndexOf('.');
         var section = dot < 0 ? string.Empty : typed[..(dot + 1)];
-        var parts = new List<(string Part, Server.Configuration.SettingDescriptor? Setting)>();
+        var parts = new List<(string Part, SettingDescriptor? Setting)>();
         foreach (var setting in settings.Where(setting => setting.Key.StartsWith(section, StringComparison.OrdinalIgnoreCase)))
         {
             var rest = setting.Key[section.Length..];
             var end = rest.IndexOf('.');
-            (string Part, Server.Configuration.SettingDescriptor? Setting) part = end < 0 ? (rest, setting) : (rest[..end], null);
+            (string Part, SettingDescriptor? Setting) part = end < 0 ? (rest, setting) : (rest[..end], null);
             if (part.Part.Length > 0 && !parts.Any(other => string.Equals(other.Part, part.Part, StringComparison.OrdinalIgnoreCase)))
             {
                 parts.Add(part);

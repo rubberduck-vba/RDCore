@@ -1,4 +1,6 @@
-namespace RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace;
+
+namespace RDCore.LanguageServer.Services.Workspace;
 
 /// <summary>
 /// The folders of a workspace, as a client gives them (<strong>LSP 3.17</strong> <c>workspaceFolders</c>): they are the bounds of the workspace - a file a

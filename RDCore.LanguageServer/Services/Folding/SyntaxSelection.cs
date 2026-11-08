@@ -1,7 +1,8 @@
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 
-namespace RDCore.SDK.Model.AST.Abstract;
+namespace RDCore.LanguageServer.Services.Folding;
 
 /// <summary>
 /// What a selection grows to, step by step, from a position of a module (<strong>LSP 3.17</strong> §Selection Range Request): each node of the syntax tree

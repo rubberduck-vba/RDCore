@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Workspace;
+namespace RDCore.LanguageServer.Services.Workspace;
 
 /// <summary>
 /// A project file the user chose to regenerate (<see cref="ProjectFileRegeneration"/>) that could not be written, nor put back as it was: the file as it was

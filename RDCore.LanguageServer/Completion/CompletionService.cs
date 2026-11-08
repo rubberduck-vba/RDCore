@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Folding;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Services.Completion;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model;

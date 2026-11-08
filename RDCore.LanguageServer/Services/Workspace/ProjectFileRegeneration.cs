@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Resources;
 using System.Text.Json;
 
-namespace RDCore.SDK.Workspace;
+namespace RDCore.LanguageServer.Services.Workspace;
 
 /// <summary>
 /// The offer to regenerate a project file the platform cannot read (<strong>RD-VBAL §2.2.3</strong>): the file is kept next to itself, and the project is
@@ -17,7 +17,7 @@ namespace RDCore.SDK.Workspace;
 /// </remarks>
 public static class ProjectFileRegeneration
 {
-    private static readonly ResourceManager Messages = new("RDCore.SDK.Workspace.ProjectFileMessages", typeof(ProjectFileRegeneration).Assembly);
+    private static readonly ResourceManager Messages = new("RDCore.LanguageServer.Services.Workspace.ProjectFileMessages", typeof(ProjectFileRegeneration).Assembly);
 
     /// <summary>
     /// Where a project file is kept before it is regenerated: next to it, as <c>.rdproj.bak</c>, or, when a file is there already, as the first of
