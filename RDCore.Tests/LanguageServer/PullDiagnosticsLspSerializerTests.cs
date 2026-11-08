@@ -153,4 +153,26 @@ public sealed class PullDiagnosticsLspSerializerTests
         Assert.AreEqual(original.Uri, result.Uri);
         Assert.AreEqual("Syntax error", result.Diagnostics.Single().Message);
     }
+
+    // an edit names its annotation by the identifier (annotationId: "x"), and a client finds the annotation under that key: not under the text of the record.
+    [TestMethod]
+    public void TheChangeAnnotationsOfAnEdit_AreKeyedByTheirIdentifiers_BothWays()
+    {
+        var serializer = Sut();
+        var edit = new WorkspaceEdit
+        {
+            ChangeAnnotations = new Dictionary<ChangeAnnotationIdentifier, ChangeAnnotation>
+            {
+                ["rdcore.rename.inString"] = new ChangeAnnotation { Label = "Called by its name in a string", NeedsConfirmation = true },
+            },
+        };
+
+        var written = serializer.SerializeObject(edit);
+        var read = serializer.DeserializeObject<WorkspaceEdit>(written);
+
+        Assert.IsTrue((bool?)JObject.Parse(written)["changeAnnotations"]?["rdcore.rename.inString"]?["needsConfirmation"], written);
+        var (identifier, annotation) = read.ChangeAnnotations!.Single();
+        Assert.AreEqual("rdcore.rename.inString", identifier.Identifier);
+        Assert.AreEqual("Called by its name in a string", annotation.Label);
+    }
 }
