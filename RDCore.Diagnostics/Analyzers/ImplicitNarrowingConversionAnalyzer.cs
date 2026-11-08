@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -32,7 +31,7 @@ internal sealed class ImplicitNarrowingConversionAnalyzer : IModuleAnalyzer
             .Where(conversion => conversion.Flags.HasFlag(Reported) && !conversion.Flags.HasFlag(ConversionSemanticFlags.Explicit))
             .Where(conversion => conversion.Error is null && (!conversion.IsValueKnown || conversion.Flags.HasFlag(ConversionSemanticFlags.Lossy)))
             .Select(conversion => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitNarrowingConversion,
+                RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode(),
                 conversion.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(

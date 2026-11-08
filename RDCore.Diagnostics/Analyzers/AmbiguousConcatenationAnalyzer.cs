@@ -1,7 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -23,7 +22,7 @@ internal sealed class AmbiguousConcatenationAnalyzer : IModuleAnalyzer
             .SelectMany(procedure => procedure.Runtime?.Operations ?? [])
             .Where(op => op.Operator == Tokens.AdditionOp && (op.ArithmeticOpSemanticFlags?.HasFlag(ArithmeticOperatorSemanticFlags.VBStringEffectiveType) ?? false))
             .Select(op => new AnalyzerFinding(
-                RDCoreDiagnosticId.AmbiguousConcatenation,
+                RDCoreDiagnosticId.AmbiguousConcatenation.ToCode(),
                 (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(

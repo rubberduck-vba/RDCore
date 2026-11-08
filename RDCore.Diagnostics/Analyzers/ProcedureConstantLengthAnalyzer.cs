@@ -3,7 +3,6 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -26,7 +25,7 @@ internal sealed class ProcedureConstantLengthAnalyzer : IModuleAnalyzer
                 .OfType<ConstantDeclarationNode>()
                 .Where(constant => constant.ConstKind == ConstKind.Local && constant.Descendants().OfType<IndexExpressionNode>().Any(IsLen))
                 .Select(constant => new AnalyzerFinding(
-                    RDCoreDiagnosticId.ProcedureConstantLength,
+                    RDCoreDiagnosticId.ProcedureConstantLength.ToCode(),
                     constant.Location.Range,
                     DiagnosticSeverity.Warning,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.ProcedureConstantLength_Message, constant.Name)))

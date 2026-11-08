@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -16,7 +15,7 @@ internal sealed class TypeDefDirectiveAnalyzer : SyntaxTreeAnalyzer
         => module.Children
             .OfType<TypeDefDirectiveNode>()
             .Select(directive => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitTypeDeclarationsEnabled,
+                RDCoreDiagnosticId.ImplicitTypeDeclarationsEnabled.ToCode(),
                 directive.Location.Range,
                 DiagnosticSeverity.Hint,
                 Say(RDCoreDiagnosticsResources.ImplicitTypeDeclarationsEnabled_Message, directive.Token)));

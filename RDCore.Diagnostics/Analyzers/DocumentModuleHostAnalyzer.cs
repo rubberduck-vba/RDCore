@@ -1,7 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -46,7 +45,7 @@ internal sealed class DocumentModuleHostAnalyzer : IModuleAnalyzer
     }
 
     private static AnalyzerFinding Finding(RDCoreDiagnosticId id, ModuleNode module, string message)
-        => new(id, FirstLineOf(module), DiagnosticSeverity.Error, message);
+        => new(id.ToCode(), FirstLineOf(module), DiagnosticSeverity.Error, message);
 
     private static SourceRange FirstLineOf(ModuleNode module)
         => module.Children.FirstOrDefault()?.SourceLocation.Range is { } first

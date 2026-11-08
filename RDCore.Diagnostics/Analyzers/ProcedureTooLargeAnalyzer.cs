@@ -3,7 +3,6 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using System.Globalization;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -30,7 +29,7 @@ internal sealed class ProcedureTooLargeAnalyzer : SyntaxTreeAnalyzer
             .Select(procedure => (Procedure: procedure, Statements: procedure.Descendants().OfType<StatementNode>().Count()))
             .Where(counted => counted.Statements > MaxStatements)
             .Select(counted => new AnalyzerFinding(
-                RDCoreDiagnosticId.ProcedureTooLarge,
+                RDCoreDiagnosticId.ProcedureTooLarge.ToCode(),
                 counted.Procedure.NameRange ?? counted.Procedure.SourceLocation.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ProcedureTooLarge_Message, counted.Procedure.Name,

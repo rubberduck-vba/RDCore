@@ -2,7 +2,6 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using System.Globalization;
 using System.Text;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -38,7 +37,7 @@ internal sealed class UseMeaningfulIdentifierNamesAnalyzer(IOptions<DiagnosticsO
             .Select(declared => (declared, message: MessageFor(declared.Name)))
             .Where(entry => entry.message is not null)
             .Select(entry => new AnalyzerFinding(
-                RDCoreDiagnosticId.UseMeaningfulIdentifierNames,
+                RDCoreDiagnosticId.UseMeaningfulIdentifierNames.ToCode(),
                 entry.declared.Range,
                 DiagnosticSeverity.Information,
                 Say(entry.message!, entry.declared.Name))

@@ -235,10 +235,13 @@ internal sealed class DocumentDiagnosticsService(
             var firstLine = document.Text.Split('\n', 2)[0].TrimEnd('\r').Length;
             var range = edit.Range ?? new SourceRange(new SourcePosition(0, 0), new SourcePosition(0, firstLine));
             // the reason is the host's, in the language of the user interface.
-            yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(RDCoreDiagnosticId.EditNotApplied, range, DiagnosticSeverity.Information,
+            yield return Findings.FromAnalyzerFinding(new AnalyzerFinding(EditNotApplied, range, DiagnosticSeverity.Information,
                 string.Format(DebuggerMessages.EditNamed, edit.Name, edit.Reason)));
         }
     }
+
+    // a core diagnostic the language server reports itself: the core extension's registry of RDC codes names it EditNotApplied.
+    private static readonly RDCoreDiagnosticCode EditNotApplied = new(RDCoreDiagnosticCode.CorePrefix, 20001);
 
     private static readonly DiagnosticFactory Findings = new();
 

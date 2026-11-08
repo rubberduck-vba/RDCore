@@ -5,7 +5,6 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
@@ -66,7 +65,7 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
             foreach (var (name, _) in reads)
             {
                 yield return new AnalyzerFinding(
-                    RDCoreDiagnosticId.ImplicitResultLocal,
+                    RDCoreDiagnosticId.ImplicitResultLocal.ToCode(),
                     name.Location.Range,
                     DiagnosticSeverity.Information,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplicitResultLocal_Message, procedure.Name))

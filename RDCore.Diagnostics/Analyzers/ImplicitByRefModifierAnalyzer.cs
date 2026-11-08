@@ -3,7 +3,6 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -21,7 +20,7 @@ internal sealed class ImplicitByRefModifierAnalyzer : SyntaxTreeAnalyzer
             .OfType<ParameterDeclarationNode>()
             .Where(parameter => parameter is { ParameterKind: ParameterKind.ImplicitByRef, IsParamArray: false })
             .Select(parameter => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitByRefModifier,
+                RDCoreDiagnosticId.ImplicitByRefModifier.ToCode(),
                 parameter.Location.Range,
                 DiagnosticSeverity.Information,
                 Say(RDCoreDiagnosticsResources.ImplicitByRefModifier_Message, parameter.Name)));

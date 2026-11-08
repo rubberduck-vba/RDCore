@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -20,5 +19,5 @@ internal sealed class OptionBaseAnalyzer : SyntaxTreeAnalyzer
             .OfType<ModuleOptionDirectiveNode>()
             .Where(directive => directive.ModuleOption == ModuleOptions.OptionBase1)
             .Select(directive => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitNonDefaultArrayBase, directive.Location.Range, DiagnosticSeverity.Hint, RDCoreDiagnosticsResources.ImplicitNonDefaultArrayBase_Message));
+                RDCoreDiagnosticId.ImplicitNonDefaultArrayBase.ToCode(), directive.Location.Range, DiagnosticSeverity.Hint, RDCoreDiagnosticsResources.ImplicitNonDefaultArrayBase_Message));
 }

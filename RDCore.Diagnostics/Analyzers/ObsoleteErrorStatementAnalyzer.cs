@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -21,7 +20,7 @@ internal sealed class ObsoleteErrorStatementAnalyzer : IModuleAnalyzer
             ? module.Descendants()
                 .OfType<ErrorStatementNode>()
                 .Select(statement => new AnalyzerFinding(
-                    RDCoreDiagnosticId.ObsoleteErrorSyntax,
+                    RDCoreDiagnosticId.ObsoleteErrorSyntax.ToCode(),
                     statement.SourceLocation.Range,
                     DiagnosticSeverity.Information,
                     RDCoreDiagnosticsResources.ObsoleteErrorSyntax_Message))

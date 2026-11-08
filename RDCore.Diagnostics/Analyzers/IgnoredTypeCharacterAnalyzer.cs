@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -22,7 +21,7 @@ internal sealed class IgnoredTypeCharacterAnalyzer : IModuleAnalyzer
         => (context.Semantics?.Procedures ?? []).SelectMany(procedure => procedure.Expressions
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.IgnoredTypeCharacter))
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.IgnoredTypeCharacter,
+                RDCoreDiagnosticId.IgnoredTypeCharacter.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.IgnoredTypeCharacter_Message, NameOf(fact), fact.DeclaredType ?? string.Empty))));

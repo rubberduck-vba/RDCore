@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -19,7 +18,7 @@ internal sealed class ModuleScopeDimAnalyzer : SyntaxTreeAnalyzer
         => DeclarationStatements.In(module.Children)
             .Where(statement => statement[0] is VariableDeclarationNode { AccessModifier: AccessModifier.Implicit })
             .Select(statement => new AnalyzerFinding(
-                RDCoreDiagnosticId.ModuleScopeDimDeclaration,
+                RDCoreDiagnosticId.ModuleScopeDimDeclaration.ToCode(),
                 DeclarationStatements.RangeOf(statement),
                 DiagnosticSeverity.Information,
                 RDCoreDiagnosticsResources.ModuleScopeDimDeclaration_Message));

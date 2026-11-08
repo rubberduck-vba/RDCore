@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -20,7 +19,7 @@ internal sealed class MultilineParameterAnalyzer : SyntaxTreeAnalyzer
             .OfType<ParameterDeclarationNode>()
             .Where(parameter => parameter.Location.Range.Start.Line != parameter.Location.Range.End.Line)
             .Select(parameter => new AnalyzerFinding(
-                RDCoreDiagnosticId.MultilineParameterDeclaration,
+                RDCoreDiagnosticId.MultilineParameterDeclaration.ToCode(),
                 parameter.Location.Range,
                 DiagnosticSeverity.Information,
                 Say(RDCoreDiagnosticsResources.MultilineParameterDeclaration_Message, parameter.Name)));

@@ -15,6 +15,7 @@ using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 
@@ -188,7 +189,7 @@ public sealed class DiagnoseDocumentHandlerTests
         public AnalysisPhase Phase => phase;
 
         public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-            => [new AnalyzerFinding(RDCoreDiagnosticId.ImplicitNarrowingConversion, new SourceRange(new SourcePosition(line, 0), new SourcePosition(line, 1)), DiagnosticSeverity.Warning, phase.ToString())];
+            => [new AnalyzerFinding(RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode(), new SourceRange(new SourcePosition(line, 0), new SourcePosition(line, 1)), DiagnosticSeverity.Warning, phase.ToString())];
     }
 
     [TestMethod]

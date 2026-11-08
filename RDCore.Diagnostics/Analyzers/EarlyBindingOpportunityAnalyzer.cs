@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -21,6 +20,6 @@ internal sealed class EarlyBindingOpportunityAnalyzer : IModuleAnalyzer
             .SelectMany(procedure => procedure.Expressions)
             .Where(fact => fact.Creates is { Source: ObjectClassSource.ReferencedLibrary })
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.EarlyBindingOpportunity, fact.Location.Range, DiagnosticSeverity.Information,
+                RDCoreDiagnosticId.EarlyBindingOpportunity.ToCode(), fact.Location.Range, DiagnosticSeverity.Information,
                 string.Format(RDCoreDiagnosticsResources.EarlyBindingOpportunity_Message, fact.Creates!.ProgId, fact.Creates.Library, fact.Creates.ClassName)));
 }

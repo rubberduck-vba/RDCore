@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.Tests.Cli;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

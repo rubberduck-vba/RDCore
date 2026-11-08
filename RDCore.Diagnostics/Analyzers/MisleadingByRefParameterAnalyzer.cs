@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -17,7 +16,7 @@ internal sealed class MisleadingByRefParameterAnalyzer : SyntaxTreeAnalyzer
             .OfType<ParameterDeclarationNode>()
             .Where(parameter => parameter.IsByRefIgnored)
             .Select(parameter => new AnalyzerFinding(
-                RDCoreDiagnosticId.MisleadingByRefParameter,
+                RDCoreDiagnosticId.MisleadingByRefParameter.ToCode(),
                 parameter.Location.Range,
                 DiagnosticSeverity.Information,
                 Say(RDCoreDiagnosticsResources.MisleadingByRefParameter_Message, parameter.Name)));

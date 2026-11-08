@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -22,7 +21,7 @@ internal sealed class OptionExplicitAnalyzer : IModuleAnalyzer
         {
             // the module as a whole is what is wrong with it: the first line is where a reader looks for the option.
             yield return new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitDeclarationsEnabled,
+                RDCoreDiagnosticId.ImplicitDeclarationsEnabled.ToCode(),
                 new SourceRange(new SourcePosition(0, 0), new SourcePosition(1, 0)),
                 DiagnosticSeverity.Warning,
                 RDCoreDiagnosticsResources.ImplicitDeclarationsEnabled_Message);

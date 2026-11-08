@@ -4,7 +4,6 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
@@ -50,7 +49,7 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
             if (presumes.Length > 0)
             {
                 yield return new AnalyzerFinding(
-                    RDCoreDiagnosticId.HostedDocumentCode,
+                    RDCoreDiagnosticId.HostedDocumentCode.ToCode(),
                     FirstLineOf(module),
                     DiagnosticSeverity.Error,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_Message, NameOf(semantics.Module), hostClass))
@@ -63,7 +62,7 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
         foreach (var fact in References(semantics))
         {
             yield return new AnalyzerFinding(
-                RDCoreDiagnosticId.HostedDocumentCode,
+                RDCoreDiagnosticId.HostedDocumentCode.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Error,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.HostedDocumentCode_Reference_Message, NameAt(context, fact)));

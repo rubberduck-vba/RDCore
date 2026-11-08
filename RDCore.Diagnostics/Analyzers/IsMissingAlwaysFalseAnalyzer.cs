@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -41,7 +40,7 @@ internal sealed class IsMissingAlwaysFalseAnalyzer : IModuleAnalyzer
                     ? RDCoreDiagnosticsResources.IsMissingAlwaysFalse_HasADefault
                     : RDCoreDiagnosticsResources.IsMissingAlwaysFalse_NotAVariant;
                 yield return new AnalyzerFinding(
-                    RDCoreDiagnosticId.IsMissingAlwaysFalse,
+                    RDCoreDiagnosticId.IsMissingAlwaysFalse.ToCode(),
                     fact.Location.Range,
                     DiagnosticSeverity.Warning,
                     AnalyzerMessages.Format(RDCoreDiagnosticsResources.IsMissingAlwaysFalse_Message, argument.IdentifierName, reason));

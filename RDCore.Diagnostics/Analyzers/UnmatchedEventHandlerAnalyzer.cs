@@ -1,7 +1,6 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -27,7 +26,7 @@ internal sealed class UnmatchedEventHandlerAnalyzer : IModuleAnalyzer
         => (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration is { Role: DeclarationRole.UnmatchedEventHandler, References.Total: 0 })
             .Select(declaration => new AnalyzerFinding(
-                RDCoreDiagnosticId.UnmatchedEventHandler,
+                RDCoreDiagnosticId.UnmatchedEventHandler.ToCode(),
                 RangeOf(context, declaration),
                 DiagnosticSeverity.Hint,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.UnmatchedEventHandler_Message, declaration.Name))

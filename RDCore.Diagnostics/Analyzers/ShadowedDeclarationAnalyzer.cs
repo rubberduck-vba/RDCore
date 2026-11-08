@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -20,6 +19,6 @@ internal sealed class ShadowedDeclarationAnalyzer : IModuleAnalyzer
         => (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration.Hides is not null)
             .Select(declaration => new AnalyzerFinding(
-                RDCoreDiagnosticId.ShadowedDeclaration, declaration.Location.Range, DiagnosticSeverity.Information,
+                RDCoreDiagnosticId.ShadowedDeclaration.ToCode(), declaration.Location.Range, DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ShadowedDeclaration_Message, declaration.Name, declaration.Hides!.QualifiedName)));
 }

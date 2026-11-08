@@ -3,7 +3,6 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -55,7 +54,7 @@ internal sealed class ObsoleteTypeHintAnalyzer : IModuleAnalyzer
             if (name is not null)
             {
                 yield return new AnalyzerFinding(
-                    RDCoreDiagnosticId.ObsoleteTypeHint, range, DiagnosticSeverity.Information, AnalyzerMessages.Format(RDCoreDiagnosticsResources.ObsoleteTypeHint_Message, name));
+                    RDCoreDiagnosticId.ObsoleteTypeHint.ToCode(), range, DiagnosticSeverity.Information, AnalyzerMessages.Format(RDCoreDiagnosticsResources.ObsoleteTypeHint_Message, name));
             }
         }
     }

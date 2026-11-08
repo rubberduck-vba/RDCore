@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -30,7 +29,7 @@ internal sealed class ImplicitVariantDeclarationAnalyzer : SyntaxTreeAnalyzer
             if (name is not null && !ImplicitTypes.IsTypeStated(node, typeHint) && ImplicitTypes.IsVariant(module, name))
             {
                 yield return new AnalyzerFinding(
-                    RDCoreDiagnosticId.ImplicitVariantDeclaration, range, DiagnosticSeverity.Information, Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Message, name));
+                    RDCoreDiagnosticId.ImplicitVariantDeclaration.ToCode(), range, DiagnosticSeverity.Information, Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Message, name));
             }
         }
     }

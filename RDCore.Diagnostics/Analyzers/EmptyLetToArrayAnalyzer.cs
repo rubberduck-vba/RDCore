@@ -1,6 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -22,7 +21,7 @@ internal sealed class EmptyLetToArrayAnalyzer : IModuleAnalyzer
         => (context.Semantics?.Procedures ?? []).SelectMany(procedure => procedure.Expressions
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.EmptyLetToArray))
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.EmptyLetToArray,
+                RDCoreDiagnosticId.EmptyLetToArray.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.EmptyLetToArray_Message, fact.DeclaredType ?? "Empty"))));

@@ -1,7 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -20,7 +19,7 @@ internal sealed class ImplementsInDocumentModuleAnalyzer : IModuleAnalyzer
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => context.Semantics?.Document is not null && context.ParseResult.SyntaxTree is { } module
             ? module.GetImplementedInterfaceNames().Zip(module.GetImplementedInterfaceRanges()).Select(directive => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplementsInDocumentModule,
+                RDCoreDiagnosticId.ImplementsInDocumentModule.ToCode(),
                 directive.Second,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementsInDocumentModule_Message, SymbolUri.ModuleNameOf(context.Semantics.Module), directive.First)))

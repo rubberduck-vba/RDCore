@@ -1,14 +1,11 @@
-﻿namespace RDCore.SDK.Model.Diagnostics;
+﻿using RDCore.SDK.Extensibility.Diagnostics;
 
-/// <summary>
-/// The identifiers of the <em>Rubberduck Core diagnostics</em>: the <c>RDC00000</c> family issued by
-/// the <c>RDCore.Diagnostics</c> analyzers, distinct from the language core's <c>VBC</c>/<c>VBR</c>/<c>VBA</c>
-/// error diagnostics. The numeric value is the code (see <see cref="Errors.Abstract.VBErrorExtensions"/>).
-/// </summary>
-/// <remarks>
-/// A member with an explicit value is <em>published</em>: an analyzer issues it, and its documentation page exists, so its value is the code older builds link to
-/// and is never changed. A member without one is only reserved, and takes the value after the one above it until it is published, which is when it is given its own.
-/// </remarks>
+namespace RDCore.Diagnostics;
+
+// the Rubberduck Core diagnostics: the RDC codes, which the core extension's analyzers report, distinct from the language's VBC, VBR and VBA errors. The value is
+// the number of the code (RDCoreDiagnosticIds.ToCode).
+// a member with an explicit value is published: an analyzer reports it, and its documentation page exists, so its value is the code older builds link to and
+// is never changed. A member without one is only reserved, and takes the value after the one above it until it is published, which is when it is given its own.
 public enum RDCoreDiagnosticId
 {
     // TODO sort and categorize, then carve in stone.
@@ -116,4 +113,22 @@ public enum RDCoreDiagnosticId
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits
     */
     EditNotApplied = 20001, // an edit made while the program waits that is not applied to it: picked up when it is run again, or it does not compile
+}
+
+public static class RDCoreDiagnosticIds
+{
+    extension(RDCoreDiagnosticId id)
+    {
+        public RDCoreDiagnosticCode ToCode() => new(RDCoreDiagnosticCode.CorePrefix, (int)id);
+
+        public string ToDiagnosticCode() => id.ToCode().ToString();
+    }
+
+    extension(AnalyzerFinding finding)
+    {
+        // the core diagnostic of the finding; null for a code that is not one.
+        public RDCoreDiagnosticId? Id => finding.Code.Prefix == RDCoreDiagnosticCode.CorePrefix && Enum.IsDefined((RDCoreDiagnosticId)finding.Code.Number)
+            ? (RDCoreDiagnosticId)finding.Code.Number
+            : null;
+    }
 }

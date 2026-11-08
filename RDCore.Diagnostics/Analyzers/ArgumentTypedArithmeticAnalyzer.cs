@@ -2,7 +2,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -44,7 +43,7 @@ internal sealed class ArgumentTypedArithmeticAnalyzer : IModuleAnalyzer
         }
 
         return flagged.Select(fact => new AnalyzerFinding(
-            RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow,
+            RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow.ToCode(),
             (operators.TryGetValue(fact.Node, out var site) ? site : fact.Location).Range,
             DiagnosticSeverity.Warning,
             AnalyzerMessages.Format(RDCoreDiagnosticsResources.ArgumentTypedArithmeticOverflow_Message, fact.DeclaredType ?? string.Empty)));

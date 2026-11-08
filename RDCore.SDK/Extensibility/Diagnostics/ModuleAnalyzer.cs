@@ -1,7 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.Diagnostics;
-using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 
@@ -30,25 +28,6 @@ public sealed record class ModuleAnalysisContext(Uri Document, ModuleParseResult
 /// <param name="Message">What is worth saying about it, in the language of the reader.</param>
 public sealed record class AnalyzerFinding(RDCoreDiagnosticCode Code, SourceRange Range, DiagnosticSeverity Severity, string Message)
 {
-    /// <summary>
-    /// Creates the finding of a core diagnostic.
-    /// </summary>
-    /// <param name="id">The core diagnostic: what it is, and the <c>RDC00000</c> code it is reported under.</param>
-    /// <param name="range">Where in the document it is.</param>
-    /// <param name="severity">How serious it is.</param>
-    /// <param name="message">What is worth saying about it, in the language of the reader.</param>
-    public AnalyzerFinding(RDCoreDiagnosticId id, SourceRange range, DiagnosticSeverity severity, string message)
-        : this(id.ToCode(), range, severity, message)
-    {
-    }
-
-    /// <summary>
-    /// The core diagnostic the finding is of; <see langword="null"/> when <see cref="Code"/> is not a core diagnostic's.
-    /// </summary>
-    public RDCoreDiagnosticId? Id => Code.Prefix == RDCoreDiagnosticCode.CorePrefix && Enum.IsDefined((RDCoreDiagnosticId)Code.Number)
-        ? (RDCoreDiagnosticId)Code.Number
-        : null;
-
     /// <summary>
     /// What the client is told about how to render the range (<strong>LSP 3.17</strong> <c>DiagnosticTag</c>): <see cref="DiagnosticTag.Unnecessary"/> for code
     /// that is dead, which a client renders faded, as it renders code that cannot be reached.

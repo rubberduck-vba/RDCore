@@ -1,7 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -21,7 +20,7 @@ internal sealed class ObsoleteRemCommentAnalyzer : IModuleAnalyzer
                 .OfType<CommentTriviaNode>()
                 .Where(comment => IsRem(comment.Value))
                 .Select(comment => new AnalyzerFinding(
-                    RDCoreDiagnosticId.ObsoleteCommentSyntax,
+                    RDCoreDiagnosticId.ObsoleteCommentSyntax.ToCode(),
                     ModuleLanguage.KeywordAt(comment.SourceLocation.Range, "Rem".Length),
                     DiagnosticSeverity.Information,
                     RDCoreDiagnosticsResources.ObsoleteCommentSyntax_Message))

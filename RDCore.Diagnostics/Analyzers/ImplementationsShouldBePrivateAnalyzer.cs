@@ -1,7 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -28,7 +27,7 @@ internal sealed class ImplementationsShouldBePrivateAnalyzer : IModuleAnalyzer
                     { Role: DeclarationRole.InterfaceImplementation or DeclarationRole.EventHandler, Kind: DeclarationKind.Procedure or DeclarationKind.Property }
                 && declaration.Access is AccessModifier.Public or AccessModifier.Implicit)
             .Select(declaration => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplementationsShouldBePrivate,
+                RDCoreDiagnosticId.ImplementationsShouldBePrivate.ToCode(),
                 declaration.Location.Range,
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(

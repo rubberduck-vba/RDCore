@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
@@ -40,5 +39,5 @@ internal sealed class LikePatternDepartureAnalyzer : IModuleAnalyzer
     }
 
     private static AnalyzerFinding Finding(SourceRange range, string message)
-        => new(RDCoreDiagnosticId.LikePatternDeparture, range, DiagnosticSeverity.Warning, message);
+        => new(RDCoreDiagnosticId.LikePatternDeparture.ToCode(), range, DiagnosticSeverity.Warning, message);
 }

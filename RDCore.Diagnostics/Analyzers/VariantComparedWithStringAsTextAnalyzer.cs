@@ -1,6 +1,5 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -25,7 +24,7 @@ internal sealed class VariantComparedWithStringAsTextAnalyzer : IModuleAnalyzer
             .SelectMany(procedure => procedure.Runtime?.Operations ?? [])
             .Where(op => op.ComparisonOpSemanticFlags?.HasFlag(ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText) ?? false)
             .Select(op => new AnalyzerFinding(
-                RDCoreDiagnosticId.VariantComparedWithStringAsText,
+                RDCoreDiagnosticId.VariantComparedWithStringAsText.ToCode(),
                 (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(

@@ -3,7 +3,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -45,7 +44,7 @@ internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> opt
         => DeclaredNames.In(module)
             .Where(declared => !allowed.Contains(declared.Name) && IsHungarian(declared.Name))
             .Select(declared => new AnalyzerFinding(
-                RDCoreDiagnosticId.HungarianNotation,
+                RDCoreDiagnosticId.HungarianNotation.ToCode(),
                 declared.Range,
                 DiagnosticSeverity.Information,
                 Say(RDCoreDiagnosticsResources.HungarianNotation_Message, declared.Name))

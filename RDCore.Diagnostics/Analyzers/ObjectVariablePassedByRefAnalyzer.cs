@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
 
@@ -23,6 +22,6 @@ internal sealed class ObjectVariablePassedByRefAnalyzer : IModuleAnalyzer
             .SelectMany(procedure => procedure.Expressions)
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy))
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy, fact.Location.Range, DiagnosticSeverity.Warning,
+                RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning,
                 RDCoreDiagnosticsResources.ObjectVariablePassedByRefIsACopy_Message));
 }
