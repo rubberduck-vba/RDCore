@@ -278,10 +278,12 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
             throw new InvalidServerStateException();
         }
 
+        // the root is the workspace's before its project file is read: a project file that can't be read loads no project, and what the client runs is still run
+        // there, as in a folder with no modules.
+        documentService.Initialize(workspaceRoot);
         await LoadProjectFileAsync(workspaceRoot, ask, token);
         LogSchemaOf(projectFileService.Project);
 
-        documentService.Initialize(workspaceRoot);
         // the root is a folder of the workspace whether or not the client lists it among its folders.
         string[] all = [workspaceRoot, .. folders];
         _projects.Initialize(workspaceRoot, folders, all.Where(HoldsAProject));
