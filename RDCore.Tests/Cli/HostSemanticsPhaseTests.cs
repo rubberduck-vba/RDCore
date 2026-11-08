@@ -5,6 +5,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using System.Collections.Immutable;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

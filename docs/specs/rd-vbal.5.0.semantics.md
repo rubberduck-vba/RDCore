@@ -65,7 +65,7 @@ grows.
 
 A declaration is bound to a type that exists, whichever module declares the type and in whichever order the project file
 lists the modules. The environment host is given a workspace's symbols in three phases, each for every module before
-the next ([DefineSymbolsParams](../api/RDCore.SDK.Platform.Protocol.DefineSymbolsParams.html)`.DeclareTypesOnly`):
+the next ([DefineSymbolsParams](../api/RDCore.SDK.Platform.Components.DefineSymbolsParams.html)`.DeclareTypesOnly`):
 
 1. **Declare types.** Each module's user-defined types, with their fields, and enumerations, with their members. A class
    module exists as soon as the project is composed.

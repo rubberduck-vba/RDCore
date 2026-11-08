@@ -1,8 +1,9 @@
 using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
+using RDCore.SDK.Platform.Protocol;
 
-namespace RDCore.SDK.Platform.Protocol;
+namespace RDCore.SDK.Platform.Components;
 
 /// <summary>
 /// Notification <c>rdcore/host/output</c>: lines a program printed, said as they are printed instead of with the answer to the request that runs it.
@@ -15,6 +16,9 @@ namespace RDCore.SDK.Platform.Protocol;
 /// A notification and a response travel apart, and the receiver does not see them in the order they were sent. <see cref="Total"/> and
 /// <see cref="ExecuteResult.StreamedLines"/> count the lines the host has said since it started, so that the one who got the response can tell whether it got all
 /// of the lines that came before it.
+/// </para>
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
 /// </para>
 /// </remarks>
 [Method(RDCoreComponentProtocol.HostOutput, Direction.ServerToClient)]

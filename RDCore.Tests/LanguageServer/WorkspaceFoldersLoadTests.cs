@@ -15,6 +15,7 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

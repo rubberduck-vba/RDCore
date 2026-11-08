@@ -14,6 +14,7 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

@@ -1,12 +1,22 @@
-namespace RDCore.SDK.Client;
+using RDCore.SDK.Client;
+using RDCore.SDK.Extensibility;
+
+namespace RDCore.SDK.Platform.Components;
 
 /// <summary>
 /// The names of the methods of the RDCore platform's own protocol (<c>rdcore/*</c>) that the components of the platform send one another, and no client sends:
-/// the language server's to the environment host (<c>rdcore/host/*</c>), to the parser (<c>rdcore/parser/*</c>) and to a diagnostics provider
-/// (<c>rdcore/diagnostics/*</c>), and the environment host's to the language server.
+/// the language server's to the environment host (<c>rdcore/host/*</c>) and to the parser (<c>rdcore/parser/*</c>), and the environment host's to the
+/// language server.
 /// </summary>
 /// <remarks>
-/// The methods a client sends or answers are <see cref="RDCorePlatformProtocol"/>'s; the language server serves most of them with one of these.
+/// <para>
+/// The component protocol is outside the SDK's compatibility promise: its methods and their types can change in any release. Only the platform's own processes
+/// speak it.
+/// </para>
+/// <para>
+/// The methods a client sends or answers are <see cref="RDCorePlatformProtocol"/>'s; the language server serves most of them with one of these. The method
+/// the language server sends a diagnostics provider is part of the extension contract (<see cref="RDCoreExtensionProtocol"/>).
+/// </para>
 /// </remarks>
 public static class RDCoreComponentProtocol
 {
@@ -137,9 +147,4 @@ public static class RDCoreComponentProtocol
     /// Asks the environment host for the semantic model of the code it holds: what the language server hands a diagnostics provider.
     /// </summary>
     public const string HostSemantics = "rdcore/host/semantics";
-
-    /// <summary>
-    /// Hands a diagnostics-provider extension a parsed document and asks for the diagnostics it finds.
-    /// </summary>
-    public const string DiagnoseDocument = "rdcore/diagnostics/document";
 }

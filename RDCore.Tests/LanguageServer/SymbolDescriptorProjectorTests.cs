@@ -8,6 +8,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

@@ -18,6 +18,7 @@ using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using System.Diagnostics;
 using System.IO.Abstractions;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.CLI.App.Bench;
 

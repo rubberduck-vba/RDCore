@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.CLI.Host.Symbols;
 

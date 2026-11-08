@@ -4,8 +4,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Platform.Protocol;
 
-namespace RDCore.SDK.Platform.Protocol;
+namespace RDCore.SDK.Extensibility.Diagnostics;
 
 /// <summary>
 /// Request for <c>rdcore/diagnostics/document</c>: the language server hands a diagnostics-provider
@@ -20,7 +21,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <see cref="Diagnostic"/> is the transport serializer's own model. Only extensions whose manifest
 /// advertises the <see cref="DiagnoseDocument"/> capability receive this request.
 /// </remarks>
-[Method(RDCoreComponentProtocol.DiagnoseDocument, Direction.ClientToServer)]
+[Method(RDCoreExtensionProtocol.DiagnoseDocument, Direction.ClientToServer)]
 public record class DiagnoseDocumentParams : IRequest, IRequest<DiagnoseDocumentResult>
 {
     /// <summary>

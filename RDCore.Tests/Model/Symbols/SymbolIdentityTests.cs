@@ -21,6 +21,7 @@ using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Model.Symbols;
 

@@ -12,6 +12,7 @@ using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.LanguageServer.Debugging;
 

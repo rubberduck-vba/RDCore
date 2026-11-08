@@ -14,6 +14,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using System.IO.Pipelines;
 using System.Text;
 using System.Text.Json.Nodes;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

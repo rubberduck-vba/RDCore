@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.CLI.Host.Handlers;
 

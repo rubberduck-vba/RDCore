@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

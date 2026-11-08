@@ -15,6 +15,7 @@ using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.LanguageServer.Symbols;
 

@@ -1,8 +1,9 @@
 ﻿using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
+using RDCore.SDK.Platform.Protocol;
 
-namespace RDCore.SDK.Platform.Protocol;
+namespace RDCore.SDK.Platform.Components;
 
 /// <summary>
 /// Request for <c>rdcore/host/project/reload</c>: the language server asks the component that owns the runtime session to compose it again from the project
@@ -17,6 +18,9 @@ namespace RDCore.SDK.Platform.Protocol;
 /// <para>
 /// A program that is running or waits keeps the session it runs in, and nothing is composed (<see cref="HostProjectReloadResult.IsProgramRunning"/>).
 /// </para>
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </para>
 /// </remarks>
 [Method(RDCoreComponentProtocol.HostProjectReload, Direction.ClientToServer)]
 public record class HostProjectReloadParams : IRequest, IRequest<HostProjectReloadResult>
@@ -30,6 +34,9 @@ public record class HostProjectReloadParams : IRequest, IRequest<HostProjectRelo
 /// <summary>
 /// What composing the runtime session again did.
 /// </summary>
+/// <remarks>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </remarks>
 public record class HostProjectReloadResult
 {
     /// <summary>

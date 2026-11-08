@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.CLI.Host.Handlers;
 

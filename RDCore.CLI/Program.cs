@@ -39,6 +39,7 @@ using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
+using RDCore.SDK.Platform.Components;
 
 // expose internals to RDCore.Tests and the LSP handler container's dynamic proxies:
 [assembly: InternalsVisibleTo("RDCore.Tests")]

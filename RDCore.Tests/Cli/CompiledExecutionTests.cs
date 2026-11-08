@@ -5,6 +5,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection;
 using System.Reflection.Emit;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

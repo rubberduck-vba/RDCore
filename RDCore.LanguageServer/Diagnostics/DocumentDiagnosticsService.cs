@@ -16,6 +16,8 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.LanguageServer.Diagnostics;
 

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

@@ -10,6 +10,7 @@ using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
 using System.IO.Abstractions;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

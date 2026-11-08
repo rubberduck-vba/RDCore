@@ -3,8 +3,9 @@ using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server;
+using RDCore.SDK.Platform.Protocol;
 
-namespace RDCore.SDK.Platform.Protocol;
+namespace RDCore.SDK.Platform.Components;
 
 /// <summary>
 /// Request for <c>rdcore/host/debug/resume</c>: goes on with a program that was run under a debugger and waits where it stopped.
@@ -16,6 +17,9 @@ namespace RDCore.SDK.Platform.Protocol;
 /// A program that was changed while it waited cannot be resumed from where it is: the code it runs is the code it was suspended with, and resuming it with
 /// something else underneath would run a program nobody wrote. The answer is then <see cref="ExecutionOutcome.Refused"/>, and the program still waits - it can be
 /// run again, which picks the changes up, or the changes undone.
+/// </para>
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
 /// </para>
 /// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugResume, Direction.ClientToServer)]
@@ -31,6 +35,9 @@ public record class HostDebugResumeParams : IRequest, IRequest<ExecuteResult>
 /// Request for <c>rdcore/host/debug/pause</c>: stops a program that is running, at the next instruction, so that it waits there. The request that is running
 /// the program answers <see cref="ExecutionOutcome.Suspended"/>.
 /// </summary>
+/// <remarks>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </remarks>
 /// <remarks>Handled as it arrives, while the request that runs the program runs (<see cref="HandledOnArrivalAttribute"/>).</remarks>
 [HandledOnArrival]
 [Method(RDCoreComponentProtocol.HostDebugPause, Direction.ClientToServer)]
@@ -44,6 +51,9 @@ public record class HostDebugPauseParams : IRequest, IRequest<DebugAck>;
 /// Handled as it arrives, while the request that runs the program runs (<see cref="HandledOnArrivalAttribute"/>): a program that is running is stopped at its
 /// next instruction, and ended by the request that runs it, which this answers after. A program in a call outside it - a <c>Declare</c>, an object, a dialog -
 /// comes to its next instruction when the call returns: the answer waits for that a few seconds at most, and the end asked of the program stands.
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </para>
 /// </remarks>
 [HandledOnArrival]
 [Method(RDCoreComponentProtocol.HostDebugTerminate, Direction.ClientToServer)]
@@ -64,6 +74,9 @@ public record class HostDebugTerminateParams : IRequest, IRequest<DebugAck>
 /// <see cref="ExecuteResult.ErrorNumber"/>, <see cref="ExecuteResult.ErrorMessage"/>, <see cref="ExecuteResult.ErrorCode"/> and
 /// <see cref="ExecuteResult.ErrorTitle"/>. Resumed, it deals with the error as it would have.
 /// <para>Handled as it arrives, while a request that runs a program runs (<see cref="HandledOnArrivalAttribute"/>): the next error raised is weighed by it.</para>
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </para>
 /// </remarks>
 [HandledOnArrival]
 [Method(RDCoreComponentProtocol.HostDebugErrorBreak, Direction.ClientToServer)]
@@ -83,6 +96,9 @@ public record class HostDebugErrorBreakParams : IRequest, IRequest<DebugAck>
 /// of that procedure as it was when the program stopped. Anything else is <see cref="DebugGotoResult.Moved"/> false, and the program still waits where it was.
 /// <para>
 /// Moving into or out of a block statement is moving as <c>GoTo</c> does: the state a block keeps (a <c>With</c> object, a <c>For</c> counter) is the state it had.
+/// </para>
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
 /// </para>
 /// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugGoto, Direction.ClientToServer)]
@@ -117,6 +133,9 @@ public record class HostDebugGotoParams : IRequest, IRequest<DebugGotoResult>
 /// its point of execution would be refused for (<see cref="DebugEditStatusResult"/>). A client asks after each edit it sends, to say so of the edit as it is
 /// made, before the program is asked to go on.
 /// </summary>
+/// <remarks>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugEditStatus, Direction.ClientToServer)]
 public record class HostDebugEditStatusParams : IRequest, IRequest<DebugEditStatusResult>;
 
@@ -124,6 +143,9 @@ public record class HostDebugEditStatusParams : IRequest, IRequest<DebugEditStat
 /// Request for <c>rdcore/host/debug/breakpoints</c>: sets the lines of a module a program that runs under a debugger waits at before it runs them. Replaces the
 /// breakpoints the module had (<see cref="DebugBreakpointsResult"/>).
 /// </summary>
+/// <remarks>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugBreakpoints, Direction.ClientToServer)]
 public record class HostDebugBreakpointsParams : IRequest, IRequest<DebugBreakpointsResult>
 {
@@ -139,6 +161,9 @@ public record class HostDebugBreakpointsParams : IRequest, IRequest<DebugBreakpo
 /// </summary>
 /// <remarks>
 /// A disabled breakpoint is sent all the same: its line is judged like any other's (<see cref="DebugBreakpoint.Verified"/>), and the program does not wait at it.
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </para>
 /// </remarks>
 public record class HostBreakpointLine
 {
@@ -158,12 +183,18 @@ public record class HostBreakpointLine
 /// <summary>
 /// Request for <c>rdcore/host/debug/stack</c>: the activations of the program that waits, innermost first.
 /// </summary>
+/// <remarks>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugStack, Direction.ClientToServer)]
 public record class HostDebugStackParams : IRequest, IRequest<DebugStackResult>;
 
 /// <summary>
 /// Request for <c>rdcore/host/debug/variables</c>: the variables of an activation of the program that waits, or the parts of one of them.
 /// </summary>
+/// <remarks>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugVariables, Direction.ClientToServer)]
 public record class HostDebugVariablesParams : IRequest, IRequest<DebugVariablesResult>
 {
@@ -188,6 +219,9 @@ public record class HostDebugVariablesParams : IRequest, IRequest<DebugVariables
 /// The expression travels as a parsed tree for the reason <see cref="HostExecuteParams.Json"/> does. Its names are looked up from the procedure of the activation - its
 /// locals and parameters, then its module, then the project - and a call in it is made, in the session as it is: what the expression does stays done, as it does in the
 /// immediate window of the VBA editor. A <c>Stop</c> in it stops it and not the program.
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </para>
 /// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugEvaluate, Direction.ClientToServer)]
 public record class HostDebugEvaluateParams : IRequest, IRequest<DebugEvaluateResult>
@@ -205,6 +239,9 @@ public record class HostDebugEvaluateParams : IRequest, IRequest<DebugEvaluateRe
 /// </summary>
 /// <remarks>
 /// What it does stays done: an assignment to a local is the value the program goes on with. It is answered as <c>rdcore/host/debug/evaluate</c> is, with no value.
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </para>
 /// </remarks>
 [Method(RDCoreComponentProtocol.HostDebugExecute, Direction.ClientToServer)]
 public record class HostDebugExecuteParams : IRequest, IRequest<DebugEvaluateResult>

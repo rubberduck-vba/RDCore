@@ -25,6 +25,7 @@ using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Tests.Semantics.Runtime;
 using System.IO.Abstractions;
 using RDCore.Symbols;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Runtime;
 

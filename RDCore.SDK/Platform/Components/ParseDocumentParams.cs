@@ -3,8 +3,9 @@ using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform.Protocol;
 
-namespace RDCore.SDK.Platform.Protocol;
+namespace RDCore.SDK.Platform.Components;
 
 /// <summary>
 /// The <em>parameter</em> object for a <c>ParseDocumentCommand</c>. The <c>[Method]</c> attribute lets
@@ -14,6 +15,9 @@ namespace RDCore.SDK.Platform.Protocol;
 /// The response is a <see cref="PlatformJsonEnvelope"/> wrapping a <see cref="ModuleParseResult"/>:
 /// the AST is polymorphic and the JSON-RPC transport's serializer cannot round-trip it (see
 /// <see cref="PlatformJson"/>).
+/// <para>
+/// Part of the component protocol (<see cref="RDCoreComponentProtocol"/>), outside the SDK's compatibility promise.
+/// </para>
 /// </remarks>
 [Method(RDCoreComponentProtocol.ParseFullDocument, Direction.ClientToServer)]
 public record class ParseDocumentParams : IRequest, IRequest<PlatformJsonEnvelope>

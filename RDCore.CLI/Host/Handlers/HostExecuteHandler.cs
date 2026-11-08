@@ -9,6 +9,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Services.VerboseMessages;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.CLI.Host.Handlers;
 

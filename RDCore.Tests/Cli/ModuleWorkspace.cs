@@ -17,6 +17,7 @@ using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using RDCore.Symbols;
 using RDCore.Tests.Platform;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

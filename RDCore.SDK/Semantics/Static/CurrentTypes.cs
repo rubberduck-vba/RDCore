@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.SDK.Semantics.Static;
 
@@ -41,7 +42,7 @@ public static class CurrentTypes
     /// itself when there is nothing to resolve it in, it is an external library's, or the composition no longer has it.
     /// </summary>
     /// <remarks>
-    /// A type is declared before its fields are bound (<see cref="Platform.Protocol.DefineSymbolsParams.DeclareTypesOnly"/>): a declaration bound to it, in
+    /// A type is declared before its fields are bound (<see cref="Platform.Components.DefineSymbolsParams.DeclareTypesOnly"/>): a declaration bound to it, in
     /// a module listed before the one that declares it, holds the type as it was declared, and a field of it that names another type not yet bound. The type
     /// is found again by its name in the module that declares it (<strong>MS-VBAL §5.2.3.3</strong>), as a member access reads its fields.
     /// </remarks>

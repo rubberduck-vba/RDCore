@@ -9,6 +9,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 
 using RDCore.Parsing;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.ParseServer.Handlers;
 

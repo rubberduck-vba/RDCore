@@ -20,6 +20,8 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Progress;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.LanguageServer;
 

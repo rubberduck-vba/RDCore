@@ -6,10 +6,12 @@ using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Extensibility;
 
 namespace RDCore.Diagnostics.Handlers;
 
-[Method(RDCoreComponentProtocol.DiagnoseDocument)]
+[Method(RDCoreExtensionProtocol.DiagnoseDocument)]
 internal sealed class DiagnoseDocumentHandler(
     ICoreDiagnosticsFactory diagnostics, IEnumerable<IModuleAnalyzer> analyzers, ILogger<DiagnoseDocumentHandler> logger)
     : RDCoreRequestHandler<DiagnoseDocumentParams, DiagnoseDocumentResult>
@@ -68,7 +70,7 @@ internal sealed class DiagnoseDocumentHandler(
         }
 
         logger.LogInformation("📥 {method}: {uri} → {count} diagnostic(s)",
-            RDCoreComponentProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Count);
+            RDCoreExtensionProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Count);
 
         return new DiagnoseDocumentResult
         {

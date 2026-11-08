@@ -18,6 +18,7 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 
