@@ -420,6 +420,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // callee's header edited - and it goes on in the edited body from the next instruction (CompiledActivation.WantsInterpreterAfterCall).
         if (RunsCompiled)
         {
+            // in the middle of a call a condition or the header of a loop makes, it is refused as an interpreted activation is (below).
+            if (!waits && Pc < before.Items.Length && before.Items[Pc].Kind is not InstructionKind.Simple)
+            {
+                return FrameRebaseRefusal.InTheMiddleOfAHeader;
+            }
+
             if (alignment.IsIdentity)
             {
                 rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Stays = true };
