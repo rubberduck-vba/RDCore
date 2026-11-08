@@ -10,8 +10,7 @@ namespace RDCore.Tests.Cli;
 /// </summary>
 /// <remarks>
 /// Each row is the probe it was recorded with in Excel, in a module with no <c>Option Explicit</c>, so that <c>A</c>, <c>MinValue</c> and <c>MaxValue</c> are
-/// implicit Variants: <c>oracle\s81-or-precedence</c> (rows r and x) and <c>oracle\s81-varops</c> (rows y and b). Each runs in the interpreter and in the
-/// compiled engine, which give the same.
+/// implicit Variants, and keeps the name it was recorded with. Each runs in the interpreter and in the compiled engine, which give the same.
 /// </remarks>
 [TestClass]
 [TestCategory("MS-VBAL 5.6.9 Operators")]
@@ -74,7 +73,7 @@ public sealed class VariantLogicalRelationalResultTests
         => await AssertPrintsAsync(Program(string.Empty, "\"40\"", "v2 = MinValue Or MaxValue", "v = A < v2",
             "Debug.Print Err.Number & \"|\" & TypeName(v) & \"|\" & CStr(v)"), "0|Boolean|False");
 
-    // the author's grid: A of three Strings, MinValue an implicit Variant (U) or a Long (L), MaxValue a Variant either way.
+    // the program's own grid: A of three Strings, MinValue an implicit Variant (U) or a Long (L), MaxValue a Variant either way.
     [TestMethod]
     [DataRow("", "\"40\"", "A < (MinValue Or MaxValue)", "0|Boolean|False", DisplayName = "r03 U 40")]
     [DataRow("", "\"-5\"", "A < (MinValue Or MaxValue)", "0|Boolean|False", DisplayName = "r03 U -5")]

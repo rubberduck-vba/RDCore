@@ -57,7 +57,7 @@ other a numeric, `Boolean` or `Date` value:
 **RD-VBA differs from MS-VBAL §5.6.9.5,** which ranks only a numeric value type (**MS-VBAL §5.5.1.2.1**). MS-VBA ranks a
 `Boolean` and a `Date` the same way, and RD-VBA does what MS-VBA does. With `a` holding `"40"`, `a < b` is `False` for `b`
 a `Variant` `False`, and `a = b` is `False` for `b` a `Variant` `True`. With `a` holding `"1/1/1990"`, `a < d` is `False`
-for `d` a `Variant` date of 1/1/2000 (recorded in Excel, `oracle\s81-varops` y22-y27).
+for `d` a `Variant` date of 1/1/2000 (observed in Excel).
 
 The short-circuit runs before normal coercion because normal coercion would otherwise try, and fail, to coerce the
 `String` to a number. Because the case is reduced to synthetic ranks, the `Variant` String/Numeric case needs no
@@ -193,7 +193,7 @@ An operator with a `Variant` operand is declared `Variant`, and what it evaluate
 `Is` is declared `Boolean` (**MS-VBAL §5.6.9.7**). So `v + 1`, `v * 1`, `-v`, `v & ""`, `(v + 1)`, `v Or 255`, `Not v` and
 `v < 255` are compared as `v` itself is ([above](#variant-compared-with-a-string)). With `a` holding `"40"` and `v` holding `0`,
 `a < (v Or 255)` and `a < (a < 255)` are `False`: both operands are `Variant` values, and the `String` ranks above the other
-([above](#variant-stringnumeric-comparison); recorded in Excel, `oracle\s81-or-precedence` x03-x12, `oracle\s81-varops` y01-y21).
+([above](#variant-stringnumeric-comparison); observed in Excel).
 `If`, `Select Case`, `Do While` and `IIf` decide on these values the same way. With `v` holding `1`,
 `(v + 1) = "2.0"` is `False`, compared as text, and `CInt(v) = "1.0"` is `True`, as `CInt` returns an `Integer`. These were
 measured in Excel (`oracle\s56` G02, G09, G10), and a `Select Case` over such an expression compares its `Case` values the same way
