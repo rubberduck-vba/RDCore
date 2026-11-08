@@ -2080,8 +2080,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         var mapped = mapResult.Mapped;
         var bound = new IRuntimeValue[parameters.Length];
-        for (var i = 0; i < parameters.Length; i++)
+        var order = BindingOrder(given);
+        for (var k = 0; k < parameters.Length; k++)
         {
+            var i = order is null ? k : order[k];
             var parameter = parameters[i];
             var boundArgument = given.IsDefault ? null : given[i];
 
@@ -2293,6 +2295,35 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         arguments = bound;
         return null;
+    }
+
+    // MS-VBAL §5.3.1.11: each parameter is bound to its argument's data value, Let-assigned to the parameter's new local. A variable given to a parameter
+    // passed by value gives the value it has when the call is made, after the arguments right of it are evaluated - a call among them may change it, as
+    // MS-VBA has it. The order the arguments of a call are evaluated in: those variables last; null when it is the parameters' own.
+    private static int[]? BindingOrder(ImmutableArray<BoundArgument> given)
+    {
+        if (given.IsDefault)
+        {
+            return null;
+        }
+
+        bool[]? last = null;
+        var callsRightOfIt = false;
+        for (var i = given.Length - 1; i >= 0; i--)
+        {
+            var argument = given[i];
+            if (callsRightOfIt && argument is { Passing: ArgumentPassing.Value, Value: BoundVariable, Expression: not ByValArgumentExpressionNode })
+            {
+                (last ??= new bool[given.Length])[i] = true;
+            }
+
+            callsRightOfIt |= argument.Passing is ArgumentPassing.ParamArray ? argument.Elements.Any(MayCall) : argument.Value is { } value && MayCall(value);
+        }
+
+        return last is null ? null : [.. Enumerable.Range(0, given.Length).Where(i => !last[i]), .. Enumerable.Range(0, given.Length).Where(i => last[i])];
+
+        // what evaluating may change a variable: anything but a variable read or a literal.
+        static bool MayCall(BoundNode node) => node is not (BoundVariable or BoundLiteral);
     }
 
     private readonly record struct ParamArrayCollectResult(IRuntimeValue? Value, RuntimeSemanticsEvaluationResult? Error);

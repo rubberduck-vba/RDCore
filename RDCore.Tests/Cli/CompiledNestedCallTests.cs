@@ -276,7 +276,7 @@ public sealed class CompiledNestedCallTests
     [DataRow("x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "read before the call")]
     [DataRow("x = Bump(a) + a", "| 4 ; 2 |", DisplayName = "read after the call")]
     [DataRow("x = a * 10 + Bump(a) * Bump(a)", "| 16 ; 3 |", DisplayName = "read before two calls")]
-    [DataRow("x = Sum2(a, Bump(a))", "| 12 ; 2 |", DisplayName = "an argument beside the call")]
+    [DataRow("x = Sum2(a, Bump(a))", "| 22 ; 2 |", DisplayName = "an argument beside the call, read when the call binds it")]
     [DataRow("If a < Bump(a) Then x = 1 Else x = 2", "| 2 ; 2 |", DisplayName = "a condition")]
     public async Task AVariableReadInAnExpressionThatPassesItByReference_IsReadByTheInterpreter(string statement, string printed)
         => StringAssert.Contains(await AssertSteppedAlikeAsync(Changing("Dim a As Long, x As Long", "a = 1", statement), "a"), printed);
