@@ -39,7 +39,7 @@ internal static class OperatorAnalysisHarness
         where TContext : SemanticContext<TFlags>, new()
         where TFlags : struct, Enum
     {
-        var builder = new SemanticContextBuilder<TContext, TFlags>(Substitute.For<ICoreDiagnosticsFactory>());
+        var builder = new SemanticContextFlagsBuilder<TContext, TFlags>();
         semantics.Analyze(Session(), new ConversionOperationSemanticContext(), builder, expression, operands);
         return builder.Build();
     }

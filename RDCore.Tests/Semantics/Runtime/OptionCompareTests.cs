@@ -75,8 +75,7 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
 
     private static ComparisonOperatorSemanticFlags Analyze(IRuntimeSession session, string left, string right)
     {
-        var builder = new SemanticContextBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(
-            Substitute.For<ICoreDiagnosticsFactory>());
+        var builder = new SemanticContextFlagsBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>();
         Eq().Analyze(session, new ConversionOperationSemanticContext(), builder, ThrowawayExpression, new VBStringValue(left), new VBStringValue(right));
         return builder.Build().Flags;
     }
@@ -263,8 +262,7 @@ public sealed class OptionCompareTests : LetCoercionRuntimeSemanticsTests
     [TestMethod]
     public void AComparisonOfNumbers_HasNoStringComparisonMode()
     {
-        var builder = new SemanticContextBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(
-            Substitute.For<ICoreDiagnosticsFactory>());
+        var builder = new SemanticContextFlagsBuilder<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>();
         Eq().Analyze(SessionIn(OptionCompare.Text), new ConversionOperationSemanticContext(), builder, ThrowawayExpression, new VBLongValue(1), new VBLongValue(2));
 
         Assert.AreEqual((ComparisonOperatorSemanticFlags)0, builder.Build().Flags & (ComparisonOperatorSemanticFlags.StringComparisonBinary | ComparisonOperatorSemanticFlags.StringComparisonText));
