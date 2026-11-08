@@ -161,6 +161,8 @@ public static class ClassModuleEventSemantics
     /// Whether <paramref name="candidate"/>, named as the handler of <paramref name="handled"/>, is one the event can call: a subroutine whose parameter list is
     /// compatible with the event's (<strong>MS-VBAL §5.3.1.8</strong>).
     /// </summary>
+    /// <param name="candidate">The procedure named as the handler of the event.</param>
+    /// <param name="handled">The event.</param>
     internal static bool Matches(VBTypeMemberSymbol candidate, VBEventMemberSymbol handled) => Matches(candidate, handled.Parameters);
 
     /// <summary>
