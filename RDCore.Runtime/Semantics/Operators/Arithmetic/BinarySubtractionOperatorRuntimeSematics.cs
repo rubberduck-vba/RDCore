@@ -27,7 +27,7 @@ public record class BinarySubtractionOperatorRuntimeSematics(
     protected override string Operator => Tokens.SubtractionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch

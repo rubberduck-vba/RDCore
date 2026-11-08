@@ -1,10 +1,10 @@
-using RDCore.SDK.Semantics.Static;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.SDK.Runtime.Abstract.StdLib;
 
 /// <summary>
 /// States that a standard-library parameter declared <c>Variant</c> reads the value of its argument, as MS-VBA compiles it: an object given to it stands for
-/// its default member's value, and one that has none to give is a compile error (<see cref="ObjectValueStaticSemantics"/>).
+/// its default member's value, and one that has none to give is a compile error (<see cref="ValueDestination"/>).
 /// </summary>
 /// <remarks>
 /// MS-VBAL declares these parameters <c>Variant</c>, as it declares those of <c>Round</c> or <c>Hex</c>, which MS-VBA compiles any argument for. What tells

@@ -235,26 +235,5 @@ internal sealed class SymbolTable
 
         public SymbolResolutionResult ResolveMember(Symbol qualifier, string name, Uri handle)
             => Resolver.ResolveMember(qualifier, name, handle);
-
-        public IBindingHandle GetValue(Symbol symbol)
-            => throw new NotSupportedException("The scope-tree resolver binds names only; it holds no run-time bindings.");
-
-        public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
-        {
-            value = null;
-            return false;
-        }
-
-        public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
-        {
-            address = default;
-            return false;
-        }
-
-        public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
-        {
-            address = default;
-            return false;
-        }
     }
 }

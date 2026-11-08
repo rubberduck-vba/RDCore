@@ -10,7 +10,7 @@ namespace RDCore.SDK.Extensibility.Diagnostics;
 /// </summary>
 /// <remarks>
 /// An analyzer says what the fix is, and the platform makes it: a rename is planned by the language server against the whole workspace when it is asked for
-/// (<see cref="Semantics.Refactoring.SymbolRename"/>), and is offered only when it can be made. An extension states a fix without knowing how the workspace
+/// (<c>SymbolRename</c>), and is offered only when it can be made. An extension states a fix without knowing how the workspace
 /// is renamed, and gets the code actions of the platform for it. A fix that changes only the document the finding is in - the edits of one procedure - is the
 /// analyzer's to make, from the syntax tree it was given: it states the edits themselves (<see cref="Edit"/>).
 /// </remarks>

@@ -28,10 +28,10 @@ internal sealed class RecordFieldBinding(IRuntimeSession session, VBUserDefinedT
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue | BindingCapabilities.SetValue;
 
     /// <inheritdoc/>
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => Value;
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver) => Value;
 
     /// <inheritdoc/>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value)
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value)
     {
         // the field holds what it is assigned, and what that holds is the field's now: what it held is let go of.
         var before = ObjectReferences.HeldInField(record, index);
@@ -40,5 +40,5 @@ internal sealed class RecordFieldBinding(IRuntimeSession session, VBUserDefinedT
     }
 
     /// <inheritdoc/>
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
 }

@@ -18,6 +18,7 @@ using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Model.Symbols;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Refactoring;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.LanguageServer.Refactoring;
@@ -286,7 +287,7 @@ internal sealed class RenameWorkspace
     }
 
     /// <summary>
-    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="SDK.Semantics.Refactoring.ParameterHints"/>),
+    /// The names of the parameters the positional arguments of the calls in a range of a document are given to (<see cref="global::RDCore.Runtime.LanguageCore.Refactoring.ParameterHints"/>),
     /// each where its argument begins in the text of the document.
     /// </summary>
     public IReadOnlyList<(string Name, Position Position)> ParameterHints(Uri documentUri, LspRange range)
@@ -298,7 +299,7 @@ internal sealed class RenameWorkspace
 
         var start = module.ToModulePosition(range.Start);
         var end = module.ToModulePosition(range.End);
-        return [.. SDK.Semantics.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
+        return [.. global::RDCore.Runtime.LanguageCore.Refactoring.ParameterHints.In(PartOf(module).Context, module.Module, new SourceRange(start, end))
             .Select(hint => (hint.Name, module.ToTextRange(new SourceRange(hint.Position, hint.Position)).Start))];
     }
 

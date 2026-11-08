@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.LanguageServer.Refactoring;
 

@@ -12,8 +12,10 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
+using RDCore.SDK.Semantics.References;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
-namespace RDCore.SDK.Semantics.References;
+namespace RDCore.Runtime.LanguageCore.References;
 
 /// <summary>
 /// Finds where the modules of a workspace name a symbol, and how each names it (<see cref="SymbolReference"/>): what a refactoring that rewrites the references

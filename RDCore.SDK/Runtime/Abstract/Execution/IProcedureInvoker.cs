@@ -30,5 +30,5 @@ public interface IProcedureInvoker
     /// A successful result with the value the procedure returns - the <c>Void</c> value, for a <c>Sub</c> - or the run-time error that was
     /// raised in the procedure, and that nothing handled. Never throws for an error of the running program.
     /// </returns>
-    RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, ISymbolResolver resolver, IRuntimeValue[] arguments);
+    RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments);
 }

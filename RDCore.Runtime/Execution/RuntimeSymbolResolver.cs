@@ -19,7 +19,7 @@ namespace RDCore.Runtime.Execution;
 /// </remarks>
 /// <param name="names">The compile-time resolver <see cref="ResolveValue"/> delegates to.</param>
 /// <param name="storage">The session's value storage.</param>
-public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage storage) : ISymbolResolver
+public sealed class RuntimeSymbolResolver(ISymbolResolver names, ISessionStorage storage) : IRuntimeSymbolResolver
 {
     private readonly SymbolAddressTable _addresses = new(storage);
 

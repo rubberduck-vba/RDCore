@@ -7,6 +7,7 @@ using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 

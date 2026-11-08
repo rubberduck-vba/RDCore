@@ -28,6 +28,7 @@ using System.Globalization;
 using System.IO.Abstractions;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.Diagnostics;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Workspace.Forms;
 

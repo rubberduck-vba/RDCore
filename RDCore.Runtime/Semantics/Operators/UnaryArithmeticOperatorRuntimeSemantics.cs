@@ -68,7 +68,7 @@ public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
     /// The effective type is the operation's plan (<see cref="OperationPlanner"/>), made once for each value type and kept.
     /// </remarks>
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
         => EffectiveTypeOf(OperationPlanner.ForValue(Operator, frame[InputIndex.UnaryOperand].TypeInfo), expression);

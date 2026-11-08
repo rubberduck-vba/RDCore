@@ -41,7 +41,7 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     protected override bool ComparesValues => false;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -77,7 +77,7 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     /// (RD-VBAL §5.6.9.6): neither departure depends on the text it is matched against.
     /// </remarks>
     protected override ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> builder,
         ExpressionNode expression,

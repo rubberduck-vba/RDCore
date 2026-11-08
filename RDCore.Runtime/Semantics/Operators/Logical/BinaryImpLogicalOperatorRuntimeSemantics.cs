@@ -37,7 +37,7 @@ public record class BinaryImpLogicalOperatorRuntimeSemantics(
     /// Base implementation has already handled the case where both operands are <see cref="IIntegralNumericType"/>, and the case where they're both <c>Null</c>.
     /// </remarks>
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {

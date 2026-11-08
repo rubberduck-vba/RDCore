@@ -1,14 +1,11 @@
-using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Static.Abstract;
-using RDCore.SDK.Platform.Components;
 
-namespace RDCore.SDK.Semantics.Static;
+namespace RDCore.SDK.Model.Symbols;
 
 /// <summary>
 /// The class a declaration is of, as the composition has it now.
@@ -100,23 +97,4 @@ public static class CurrentTypes
         var found = resolver.ResolveProjectType(library, name[(dot + 1)..]);
         return found.IsResolved ? DeclaredTypes.Of(found.Symbol) : null;
     }
-
-    /// <summary>
-    /// The class of <paramref name="declared"/> as the composition of <paramref name="context"/> has it now: see <see cref="Of(ISymbolResolver?, VBClassType)"/>.
-    /// </summary>
-    /// <param name="context">The compile-time context the class is resolved in.</param>
-    /// <param name="declared">The class a declaration was bound to.</param>
-    /// <returns>The class to read members and the default member of.</returns>
-    public static VBClassType Of(StaticEvaluationContext context, VBClassType declared)
-        => Of(context.Resolver, declared);
-
-    /// <summary>
-    /// The user-defined type of <paramref name="declared"/> as the composition of <paramref name="context"/> has it now: see
-    /// <see cref="Of(ISymbolResolver?, VBUserDefinedType)"/>.
-    /// </summary>
-    /// <param name="context">The compile-time context the type is resolved in.</param>
-    /// <param name="declared">The user-defined type a declaration was bound to.</param>
-    /// <returns>The type to read fields of.</returns>
-    public static VBUserDefinedType Of(StaticEvaluationContext context, VBUserDefinedType declared)
-        => Of(context.Resolver, declared);
 }

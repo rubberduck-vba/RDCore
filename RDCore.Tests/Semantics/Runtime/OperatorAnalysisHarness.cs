@@ -24,7 +24,7 @@ internal static class OperatorAnalysisHarness
     private static IRuntimeSession Session()
     {
         var symbols = Substitute.For<ISessionSymbols>();
-        symbols.Resolver.Returns(Substitute.For<ISymbolResolver>());
+        symbols.Resolver.Returns(Substitute.For<IRuntimeSymbolResolver>());
         var session = Substitute.For<IRuntimeSession>();
         session.Symbols.Returns(symbols);
         return session;
@@ -63,10 +63,10 @@ internal sealed class RecordingLetCoercionProvider(ILetCoercionRuntimeSemanticsP
     /// <summary>The builder every analyzed coercion of an operation contributes to: the one the whole operation's conversion facts end up in.</summary>
     public ILetCoercionSemanticContextBuilder? Builder { get; private set; }
 
-    public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
         => inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
 
-    public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+    public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
     {
         AnalyzedFrames.Add(frame);
         Builder = builder;

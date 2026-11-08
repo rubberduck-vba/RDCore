@@ -20,9 +20,9 @@ public record class ConstantBindingHandle : IBindingHandle
 
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue;
 
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => _value;
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver) => _value;
 
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => throw new NotSupportedException();
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value) => throw new NotSupportedException();
 
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
 }

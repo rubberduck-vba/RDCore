@@ -36,7 +36,7 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
     : LetCoercionRuntimeSemantics<VBNumericType>(FormatterService)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver, ExpressionNode expression,
+        IRuntimeSymbolResolver resolver, ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
         frame = WithoutVariant(frame);
@@ -47,7 +47,7 @@ public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
