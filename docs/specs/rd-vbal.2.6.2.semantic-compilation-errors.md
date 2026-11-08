@@ -21,7 +21,7 @@ Compilation errors issued from a *language core extension* report a `VBCompileEr
 
 Semantic compilation errors are emitted by the resolver and the static semantic pass.
 
-[ICoreDiagnosticsFactory](../api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html)`.FromVBCompileError` is the projection for semantic compilation errors, the counterpart of `FromVBSyntaxError`, and [SemanticContextBuilder](../api/RDCore.SDK.Semantics.Builders.SemanticContextBuilder-2.html)`.AddDiagnosticOnError` uses it. No production code path calls `AddDiagnosticOnError`, so semantic compilation errors are not currently projected to LSP diagnostics.
+[ICoreDiagnosticsFactory](../api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html)`.FromVBCompileError` is the projection for semantic compilation errors, the counterpart of `FromVBSyntaxError`.
 
 > [!NOTE]
 > **Not implemented.** The RDCore.Diagnostics handler for `rdcore/diagnostics/document` projects the syntax errors of the parse result only. Semantic compilation errors do not reach the `textDocument/diagnostic` pull through it; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).

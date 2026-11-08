@@ -36,7 +36,7 @@ An implementation that commands client-side _workspace edits_ must ensure that t
 
 The responding side builds `Provided` by _reflecting_ the `[assembly: ProvidesCorePlatformClientCapability<T>]` attributes ([`ProvidesCorePlatformClientCapabilityAttribute<T>`](../api/RDCore.SDK.Client.ProvidesCorePlatformClientCapabilityAttribute-1.html)) declared on its entry assembly. A component's platform capability set is therefore a compile-time property of the build rather than runtime configuration.
 
-The `rdcore/platform/initialize` method is answered by a handler ([`PlatformInitializeHandler`](../api/RDCore.SDK.Server.Handlers.Platform.PlatformInitializeHandler.html)) that the SDK registers on every RDCore server, alongside the LSP `shutdown`, `exit`, and `$/setTrace` handlers.
+The `rdcore/platform/initialize` method is answered by a handler (`PlatformInitializeHandler`) that the SDK registers on every RDCore server, alongside the LSP `shutdown`, `exit`, and `$/setTrace` handlers.
 
 The handshake is _informational_:
 
@@ -69,7 +69,7 @@ A language the platform does not serve is logged and ignored.
 
 What a server says (the messages of its diagnostics, why a rename is refused, the titles of its code actions, its hovers) is said in the language the
 client's user interface is in: the `locale` of the `initialize` request (**LSP 3.17**), such as `fr-CA` or `en`
-([`ClientLocale`](../api/RDCore.SDK.Server.ClientLocale.html)). Every server of the platform applies it before it builds anything from the request,
+(`ClientLocale`). Every server of the platform applies it before it builds anything from the request,
 and a language server tells the servers it starts the same `locale`, so that the diagnostics an extension finds are in the client's language too. A culture
 reads its own language's messages, or its parent's: `fr-FR` and `fr-CA` read the French ones, and every other culture (`en-GB`, the invariant culture) reads
 the English ones. Only the language of the user interface is the client's: how numbers and dates are written and read does not depend on it. A `locale`
@@ -283,7 +283,7 @@ OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendIn
 
 ### Requests that fail
 
-A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line. It never carries the stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log ([`ServerErrorAnswers.WithOneLineErrors`](../api/RDCore.SDK.Server.ServerErrorAnswers.html)).
+A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line. It never carries the stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log (`ServerErrorAnswers.WithOneLineErrors`).
 
 ### `textDocument/inlayHint`
 

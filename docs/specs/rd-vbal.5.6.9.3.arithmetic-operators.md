@@ -38,7 +38,7 @@ operation, and RD-VBA follows MS-VBA.
 MS-VBAL §5.6.9.3 lets an implementation "perform floating point operations with a higher-precision than the effective
 value type (such as an 'extended' or 'long double' type)". MS-VBA does: it computes them as an x87 floating-point unit
 does, in 80 bits - a 64-bit significand and a 15-bit exponent - and RD-VBA computes them the same way
-([Float80](../api/RDCore.SDK.Model.Values.Numerics.Float80.html)). An expression of `Single`, `Double` and `Date`
+(`Float80`). An expression of `Single`, `Double` and `Date`
 operations whose operands have declared types is computed operation after operation in that format, a `Single`'s
 included, and rounded where its value is stored. So:
 
