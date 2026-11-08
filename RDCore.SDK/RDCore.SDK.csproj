@@ -8,6 +8,7 @@
     <AssemblyTitle>RDCore SDK</AssemblyTitle>
     <Description>The RDCore language model and the plumbing every process and extension of the platform shares.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
