@@ -1036,6 +1036,7 @@ public sealed class ProgramDebugAdapterTests
 
         var threads = await session.SendAsync(new ThreadsArguments());
 
+        Assert.IsNotNull(threads.Threads);
         Assert.AreEqual(1, threads.Threads.Single().Id);
     }
 
@@ -1095,6 +1096,7 @@ public sealed class ProgramDebugAdapterTests
         var locals = await session.SendAsync(new VariablesArguments { VariablesReference = scopes.Scopes.First().VariablesReference });
         var evaluated = await session.SendAsync(new EvaluateArguments { Expression = "k", FrameId = frames[1].Id });
 
+        Assert.IsNotNull(locals.Variables);
         Assert.AreEqual("7", locals.Variables.Single().Value);
         Assert.AreEqual("7", evaluated.Result);
     }
@@ -1129,6 +1131,7 @@ public sealed class ProgramDebugAdapterTests
         var locals = await session.SendAsync(new VariablesArguments { VariablesReference = scopes.Scopes.First().VariablesReference });
 
         CollectionAssert.AreEqual(new[] { "Locals", "Module" }, scopes.Scopes.Select(scope => scope.Name).ToArray());
+        Assert.IsNotNull(locals.Variables);
         CollectionAssert.AreEqual(new[] { "k", "arr" }, locals.Variables.Select(variable => variable.Name).ToArray());
         Assert.AreEqual("7", locals.Variables.First().Value);
         Assert.AreEqual(0, locals.Variables.First().VariablesReference);
@@ -1150,9 +1153,11 @@ public sealed class ProgramDebugAdapterTests
         }));
         var scopes = await session.SendAsync(new ScopesArguments { FrameId = 0 });
         var locals = await session.SendAsync(new VariablesArguments { VariablesReference = scopes.Scopes.First().VariablesReference });
+        Assert.IsNotNull(locals.Variables);
 
         var parts = await session.SendAsync(new VariablesArguments { VariablesReference = locals.Variables.Single().VariablesReference });
 
+        Assert.IsNotNull(parts.Variables);
         CollectionAssert.AreEqual(new[] { "9", "8" }, parts.Variables.Select(part => part.Value).ToArray());
     }
 
@@ -1169,6 +1174,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<StoppedEvent>();
         var after = await session.SendAsync(new VariablesArguments { VariablesReference = before });
 
+        Assert.IsNotNull(after.Variables);
         Assert.AreEqual(0, after.Variables.Count());
         await session.Debugging.DidNotReceiveWithAnyArgs().VariablesAsync(default, default, default, default);
     }
@@ -1244,6 +1250,7 @@ public sealed class ProgramDebugAdapterTests
         var parts = await session.SendAsync(new VariablesArguments { VariablesReference = response.VariablesReference });
 
         Assert.AreNotEqual(0, response.VariablesReference);
+        Assert.IsNotNull(parts.Variables);
         Assert.AreEqual("5", parts.Variables.Single().Value);
     }
 

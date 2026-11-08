@@ -333,7 +333,9 @@ public sealed class CompiledEditAndContinueTests
             return host;
         }
 
-        private static void Serve<TParams, TResult>(IRDCoreClientApp host, Func<TParams, CancellationToken, Task<TResult>> handle) where TParams : IRequest<TResult>
+        private static void Serve<TParams, TResult>(IRDCoreClientApp host, Func<TParams, CancellationToken, Task<TResult>> handle)
+            where TParams : IRequest<TResult>
+            where TResult : notnull
             => host.SendRequestAsync<TParams, TResult>(Arg.Any<TParams>(), Arg.Any<CancellationToken>())
                 .Returns(async call => Wire.RoundTrip(await handle(Wire.RoundTrip(call.Arg<TParams>()), call.Arg<CancellationToken>())));
 

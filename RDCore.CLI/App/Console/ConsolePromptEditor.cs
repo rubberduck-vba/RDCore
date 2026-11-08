@@ -287,7 +287,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 while (true)
                 {
                     var readingToken = reading.Token;
-                    key ??= Task.Run(() => editor._keys.ReadKey(readingToken), CancellationToken.None);
+                    var read = key ??= Task.Run(() => editor._keys.ReadKey(readingToken), CancellationToken.None);
 
                     // a list or a signature that is there is shown before the next key is taken - Task.WhenAny answers the first of those that are done, in
                     // the order they are given - and what is drawn under the line is drawn again when it changes.
@@ -304,7 +304,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
 
                     // a question that waits is asked at a line where nothing is typed - after a key that is pressed already, which may type something - and
                     // on any other line, waits for it to be entered.
-                    waiting.AddRange([key, invalidated]);
+                    waiting.AddRange([read, invalidated]);
                     var interjection = IsIdle ? editor.Interjections?.Waiting : null;
                     if (interjection is not null)
                     {
@@ -314,7 +314,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                     var done = await Task.WhenAny(waiting);
                     if (done == interjection)
                     {
-                        (key, reading) = await InterjectAsync(key, reading, token);
+                        (key, reading) = await InterjectAsync(read, reading, token);
                         Draw();
                         continue;
                     }
@@ -341,7 +341,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                         continue;
                     }
 
-                    var pressed = await key;
+                    var pressed = await read;
                     key = null;
                     if (Press(pressed))
                     {

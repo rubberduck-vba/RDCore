@@ -151,7 +151,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </remarks>
     public bool TryRebase(InstructionList body, InstructionAlignment alignment, bool waits)
     {
-        if (Rebased(body, alignment, waits, out var rebased) is not null)
+        // a rebase that is refused has no rebasing: the refusal returned is not null, and the rebasing is.
+        if (Rebased(body, alignment, waits, out var rebased) is not null || rebased is null)
         {
             return false;
         }

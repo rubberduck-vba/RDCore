@@ -136,10 +136,12 @@ public sealed class JsonWorkspaceSettings(IFileSystem fileSystem, string workspa
             var node = root;
             foreach (var segment in segments[..^1])
             {
-                if ((node = Child(node, segment, create: false)) is null)
+                if (Child(node, segment, create: false) is not { } child)
                 {
                     return false;
                 }
+
+                node = child;
             }
 
             switch (node)
