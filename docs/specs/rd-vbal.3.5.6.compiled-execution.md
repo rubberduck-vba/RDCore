@@ -108,8 +108,7 @@ field of a record that is itself a record (`P.Inner.X`) is read and written in p
   a variable: one whose object does not Set-coerce, and one that lets go of the last reference to an object.
 
 The interpreter does the rest on its own: a `String` field, an enumeration field, an array in a record, a field declared `As New`, a call of a member of an
-object field (`this.Owner.Name`), and a field passed to a procedure, which the
-interpreter binds to the field itself when it is passed `ByRef`.
+object field (`this.Owner.Name`), and a field passed to a procedure, which the interpreter binds to the field itself when it is passed `ByRef`.
 
 ### Arrays
 
