@@ -214,7 +214,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// <summary>
     /// The members a form's class has besides its controls and its code: those of the classes it is composed with (<see cref="FormClasses.Of"/>). For a UserForm, the
     /// Microsoft Forms <c>UserForm</c>'s (<c>Caption</c>, <c>Controls</c>…), when the project references Microsoft Forms, and the VBA form object's
-    /// (<see cref="FormObject"/>: <c>Show</c>, <c>Hide</c>, <c>Left</c>…); for a Visual Basic 6.0 form, the <c>VB.Form</c>'s (<c>Show</c>, <c>Caption</c>…).
+    /// (<see cref="FormObject"/>: <c>Show</c>, <c>Hide</c>, <c>Left</c>…). For a Visual Basic 6.0 form, the <c>VB.Form</c>'s (<c>Show</c>, <c>Caption</c>…).
     /// They are members of the form's class itself, part of its default interface: <c>Me.Caption</c> is a member of the form whose code it is in, and
     /// <c>Caption</c>, there, is too.
     /// </summary>
