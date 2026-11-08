@@ -80,7 +80,9 @@ public sealed partial record class SignatureDescription(string Label, IReadOnlyL
         }
 
         label.Append(')');
-        var type = symbol is ITypedSymbol { ResolvedType: { } resolved } && resolved is not VBUnknownType ? resolved : null;
+        // a control array's type has no name a user could write (Workspace.Forms.FormControlArray)
+        var type = symbol is ITypedSymbol { ResolvedType: { } resolved } && resolved is not VBUnknownType
+            && Workspace.Forms.FormControlArray.ElementOf(resolved) is null ? resolved : null;
         if (keyword != "Sub" && type is not null && type.Name != VBTypeNames.VBVoid)
         {
             label.Append($" As {type.Name}");

@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
 namespace RDCore.Symbols;
@@ -80,6 +81,7 @@ public static class SymbolDescriptorProjector
             Constants = ConstantsOf(symbol, children, moduleKey),
             IsWithEvents = symbol.GetProperty(SymbolProperties.WithEvents),
             IsDesignerControl = symbol.GetProperty(SymbolProperties.DesignerControl),
+            IsDesignerControlArray = FormControlArray.ElementOf(accessible?.ResolvedType) is not null,
             ExternalTarget = symbol.GetProperty(SymbolProperties.ExternalTarget),
             IsAutoInstantiated = symbol.GetProperty(SymbolProperties.AutoInstantiated),
             UserMemId = symbol.TryGetProperty(SymbolProperties.UserMemId, out var userMemId) ? userMemId : null,
@@ -132,8 +134,9 @@ public static class SymbolDescriptorProjector
         _ => null,
     };
 
+    // a control array travels as the class of its controls, which the host makes the array's type again (SymbolDescriptor.IsDesignerControlArray).
     private static string? DeclaredTypeNameOf(AccessibleTypedSymbol? symbol, string moduleKey)
-        => symbol is null ? null : TypeNameOf(symbol.ResolvedType, moduleKey);
+        => symbol is null ? null : TypeNameOf(FormControlArray.ElementOf(symbol.ResolvedType) ?? symbol.ResolvedType, moduleKey);
 
     // the name a declared type travels as: the type's own, and for an array its element's - the kind of array and how it is
     // sized are the array descriptor's. A type that is not known has no name to carry, and one that did not resolve carries the

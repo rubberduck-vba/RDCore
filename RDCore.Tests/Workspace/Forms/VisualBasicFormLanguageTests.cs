@@ -18,12 +18,14 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Parsing;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
+using System.Globalization;
 using System.IO.Abstractions;
 
 namespace RDCore.Tests.Workspace.Forms;
@@ -156,12 +158,38 @@ public sealed class VisualBasicFormLanguageTests
     }
 
     [TestMethod]
-    [Ignore("A control array's field is typed as one control of its class, so Command2(0).Caption is an invalid qualifier: VB.json describes no control array object (Item, Count, LBound, UBound).")]
-    public async Task AControlOfAControlArray_IsReachedByItsIndex()
+    [DataRow("    Command2(0).Caption = \"a\"", DisplayName = "a control of the array, by its index")]
+    [DataRow("    Debug.Print Me.Command2(1).Caption", DisplayName = "another, through Me")]
+    [DataRow("    Debug.Print Command2(0).Index", DisplayName = "the index a control of the array has")]
+    [DataRow("    Debug.Print Command2.Count", DisplayName = "how many controls the array has")]
+    [DataRow("    Debug.Print Command2.LBound", DisplayName = "the least index")]
+    [DataRow("    Debug.Print Command2.UBound", DisplayName = "the greatest index")]
+    public async Task AControlArray_HasItsControlsByTheirIndex_AndItsBounds(string statement)
     {
-        var errors = await ErrorsAsync(Form("Private Sub Form_Load()", "    Command2(0).Caption = \"a\"", "    Debug.Print Me.Command2(1).Caption", "End Sub"));
+        var errors = await ErrorsAsync(Form("Private Sub Form_Load()", statement, "End Sub"));
 
         Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    [TestMethod]
+    public async Task AControlThatIsNoControlArray_HasNoIndex()
+    {
+        var errors = await ErrorsAsync(Form("Private Sub Form_Load()", "    Command1(0).Caption = \"a\"", "End Sub"));
+
+        Assert.ContainsSingle(errors);
+    }
+
+    [TestMethod]
+    public void AControlArray_IsOfItsControlsClass_WhichItsHoverNames()
+    {
+        var array = (VBPropertyGetMemberSymbol)ComposedForm(Form()).Members.Single(member => member.Name == "Command2");
+        var hover = SymbolHover.Of(array);
+        var count = Assert.IsInstanceOfType<VBClassType>(array.ResolvedType).Symbol.Members.Single(member => member.Name == "Count");
+
+        Assert.AreEqual("CommandButton", Assert.IsInstanceOfType<VBClassType>(FormControlArray.ElementOf(array.ResolvedType)).Symbol.Name);
+        Assert.AreEqual("Control array of VB.CommandButton", hover.ToPlainText(CultureInfo.InvariantCulture).Split('\n').Last());
+        Assert.IsFalse(hover.Declaration.Contains(" As ", StringComparison.Ordinal), $"the array's class has no name a declaration writes: {hover.Declaration}");
+        Assert.IsNull(SymbolHover.Of(count).Container, "a member of the array's class is not said to be of a class by its name");
     }
 
     [TestMethod]
