@@ -140,6 +140,7 @@ the program waited in the callee, and when the code was edited meanwhile. The in
 - no call is made twice;
 - an operand keeps the value it was read as, even when a debugger assigned the variable while the program waited in the callee;
 - after an edit made while the program waited in the callee, the statement finishes as it was, and the activation goes on after it in the edited code.
+  When the call is made by the condition of an `If`, an `ElseIf` or a loop, the edit is not applied yet, as in the interpreter.
 
 An error the statement raises after the call goes to the handler as any error does. A `Resume` runs the statement again, calls included.
 
