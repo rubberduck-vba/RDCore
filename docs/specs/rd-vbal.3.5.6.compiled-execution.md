@@ -114,6 +114,31 @@ The interpreter does the rest on its own:
 - An element passed `ByRef`: the array cannot be resized while the callee holds its element.
 - An element of an array of `String`s or of records.
 
+### Calls inside an expression
+
+Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If F(A) > 0 Then` or `G(F(A))`, when the statement is one of these:
+
+- a `Let` of a scalar variable of the procedure or of the function's result;
+- a call statement;
+- the condition of an `If`, an `ElseIf` or a loop.
+
+A function given no argument and called by its name alone is called this way too. The function itself may be compiled or not: one the interpreter
+runs is called as the interpreter calls it.
+
+Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
+function's result variable, a call, or an operation of these. The interpreter runs a statement with any other operand on its own, as described below: a
+`Variant`, a `String`, an object, a field or an element of an array. Such an operand would be read a second time after a call that may have changed it.
+
+When compiled code hands the activation to the interpreter after such a call, it also gives the interpreter what it already evaluated of the statement:
+the result of each call it made, and each variable as it read it. This happens when an operation of the result fails, when the program is to stop, when
+the program waited in the callee, and when the code was edited meanwhile. The interpreter evaluates the rest of the statement with those values, so:
+
+- no call is made twice;
+- an operand keeps the value it was read as, even when a debugger assigned the variable while the program waited in the callee;
+- after an edit made while the program waited in the callee, the statement finishes as it was, and the activation goes on after it in the edited code.
+
+An error the statement raises after the call goes to the handler as any error does. A `Resume` runs the statement again, calls included.
+
 ### What compiled code does itself
 
 Compiled code does these itself:
@@ -123,7 +148,7 @@ Compiled code does these itself:
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar `Static`, or of the function's result; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
-|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. A function so called can also be called inside an expression (see Calls inside an expression, below).|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
@@ -239,7 +264,7 @@ The rest of the activation runs in the interpreter instead when any of these hol
 |`ProcedureAnalysis`|Decides whether a procedure is compiled, and translates its instructions into the payload operations they are made of.|
 |`ProcedureEmitter`|Writes one static method per procedure, `Run(CompiledActivation)`, with an IL label for each instruction.|
 |`ProcedureCompiler`|Compiles each procedure on its first call, into one collectible assembly for each program image, and keeps the result for as long as the session's scopes are the same.|
-|`CompiledActivation`|What compiled code is given: its parameters, the cells of its `ByRef` variables, its calls, the poll, the hand-over to the interpreter, and `Recover`, which has the interpreter run one instruction.|
+|`CompiledActivation`|What compiled code is given: its parameters, the cells of its `ByRef` variables, its calls, the poll, the hand-over to the interpreter with what compiled code evaluated of the instruction, and `Recover`, which has the interpreter run one instruction.|
 |`PayloadOperations`|The operations compiled code and the interpreter share.|
 |`VariantOperations`|What compiled code does with a `Variant`: reads and writes it in the frame, and runs its operations through the interpreter's own code.|
 |`ObjectOperations`|What compiled code does with an object variable: reads the reference it holds in the frame, and compares references with `Is`.|
