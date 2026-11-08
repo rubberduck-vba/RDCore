@@ -143,7 +143,7 @@ public static class ObjectVariableArgumentStaticSemantics
     }
 
     // the parameter an argument is for: the one named, or the one at its position - a ParamArray's for every position from its own on.
-    private static VBParameterSymbol? ParameterOf(ImmutableArray<VBParameterSymbol> parameters, int index, string? name)
+    internal static VBParameterSymbol? ParameterOf(ImmutableArray<VBParameterSymbol> parameters, int index, string? name)
     {
         if (name is not null)
         {

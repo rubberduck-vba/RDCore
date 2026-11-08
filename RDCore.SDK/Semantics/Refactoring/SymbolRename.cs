@@ -314,7 +314,7 @@ public static class SymbolRename
 
     // whether a string a library calls a procedure by may name one of the symbols: only a member of a module is called by its name, and a string that names a
     // module of the workspace names the member of that one.
-    private static bool IsCalledBy(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence named)
+    internal static bool IsCalledBy(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence named)
         => symbols.Any(symbol => NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri)) is VBModuleSymbol module
             && (named.Qualifier is not { } qualifier
                 || string.Equals(qualifier, module.Name, StringComparison.OrdinalIgnoreCase)

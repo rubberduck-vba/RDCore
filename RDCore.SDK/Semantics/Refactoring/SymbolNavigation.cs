@@ -262,7 +262,7 @@ public static class SymbolNavigation
     };
 
     // whether the type a name names where it is written is the symbol.
-    private static bool IsTheType(RenameContext context, Symbol type, Uri scope)
+    internal static bool IsTheType(RenameContext context, Symbol type, Uri scope)
         => context.Resolver.ResolveType(type.Name, ScopeKind.Local, scope).Symbol is { } resolved && resolved.SemanticId == type.SemanticId;
 
     /// <summary>
@@ -376,7 +376,7 @@ public static class SymbolNavigation
     }
 
     // a property is defined by each of its procedures - its Property Get, Let and Set: what an access calls is not known from the name alone.
-    private static IEnumerable<Symbol> DefinedTogether(RenameContext context, Symbol symbol)
+    internal static IEnumerable<Symbol> DefinedTogether(RenameContext context, Symbol symbol)
     {
         if (symbol is not (VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
             || !context.ScopeTree.TryGetScope(NameOccurrences.ModuleOf(symbol.Uri), out var module))
