@@ -417,21 +417,20 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(id);
     }
 
-    // the shell's own program, `10 PRINT "HELLO"` and `20 GOTO 10`, run as RUN runs it - under the debugger, in the shell's BASIC - and stopped as a break at the
-    // keyboard stops it: a GoTo that goes back for ever is stopped too, and the run says the line it stopped at, which is one of the program's.
+    // a program of the shell, `10 ? "HELLO"` and `20 GOTO 10` - `?` is Debug.Print - as the shell's RUN sends it, run under the debugger and stopped as a break at
+    // the keyboard stops it: a GoTo that goes back for ever is stopped too, and the run says the line it stopped at, which is one of the program's. The workspace
+    // is a VBA one, whose module Program the program is run as.
     [TestMethod]
     [Timeout(180_000, CooperativeCancellation = true)]
     public async Task TheShellsEndlessGoTo_IsStoppedByABreak_AndSaysALineOfTheProgram()
     {
         var program = new RDCore.CLI.App.Repl.ReplProgram();
-        program.Store(10, "PRINT \"HELLO\"");
-        program.Store(20, "GOTO 10");
+        program.Store(10, "Debug.Print \"HELLO\"");
+        program.Store(20, "GoTo 10");
         await using var platform = await Platform.StartAsync();
         var rpc = platform.Rpc;
 
-        var parameters = platform.InitializeParams(AsHexIdeDeclares);
-        parameters["initializationOptions"] = new JsonObject { ["language"] = RDCore.SDK.Workspace.SupportedLanguages.BASIC.Id };
-        var initialize = await rpc.RequestAsync(1, "initialize", parameters);
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclares));
         Assert.IsNull(initialize["error"], initialize.ToJsonString());
         await rpc.NotifyAsync("initialized", new JsonObject());
         Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDebugging)!.AsObject()))["error"]);
