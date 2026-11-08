@@ -14,7 +14,6 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -41,7 +40,7 @@ internal static class LetCoercionAnalysisHarness
     /// </summary>
     public static ILetCoercionRuntimeSemanticsProvider BuildProvider(AnalysisObservation? observation = null)
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [

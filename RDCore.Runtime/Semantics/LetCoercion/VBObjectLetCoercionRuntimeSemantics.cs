@@ -16,7 +16,6 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -31,8 +30,8 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// </remarks>
 public record class VBObjectLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : LetCoercionRuntimeSemantics<VBObjectType>(FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : LetCoercionRuntimeSemantics<VBObjectType>(ErrorDetails)
 {
     /// <summary>
     /// The invoker a default-member call runs through. Settable rather than a constructor parameter,
@@ -143,7 +142,7 @@ public record class VBObjectLetCoercionRuntimeSemantics(
 
     private VBRuntimeErrorInfo OnLetCoercionObjectDoesntSupportThisPropertyOrMethod(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location,
-            FormatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose, expression, [frame]));
+            ErrorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose, expression, [frame]));
 
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,

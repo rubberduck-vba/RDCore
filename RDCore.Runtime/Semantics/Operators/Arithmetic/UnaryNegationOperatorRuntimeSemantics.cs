@@ -13,7 +13,6 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Model;
 
 namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
@@ -23,8 +22,8 @@ namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 /// </summary>
 public sealed record class UnaryNegationOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : UnaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : UnaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, ErrorDetails)
 {
     protected override string Operator => Tokens.NegationOp;
 

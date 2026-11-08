@@ -15,15 +15,14 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
 /// <summary>
 /// MS-VBAL 5.5.1.2.11 Let-coercion to and from <c>VBEmptyType</c>
 /// </summary>
-public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) 
-    : LetCoercionRuntimeSemantics<VBEmptyType>(FormatterService)
+public record class VBEmptyTypeLetCoercionRuntimeSemantics(IErrorDetailsRecorder ErrorDetails) 
+    : LetCoercionRuntimeSemantics<VBEmptyType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame) =>
         frame.DestinationTypeDesc.Target switch

@@ -98,7 +98,7 @@ public sealed class AnalysisSessionRuntimeTests
         var declared = Declared(M);
         var analysis = RuntimeSessionComposer.ComposeForAnalysis(declared);
         _ = RuntimeExecutionPipeline.CreateForAnalysis(analysis, new Dictionary<SemanticId, RDCore.SDK.Semantics.Instructions.InstructionList>(),
-            NSubstitute.Substitute.For<RDCore.SDK.Services.VerboseMessages.IVerboseMessageBuilder>(), new RecordingAnalysisObserver());
+            NSubstitute.Substitute.For<RDCore.Runtime.Semantics.IErrorDetailsRecorder>(), new RecordingAnalysisObserver());
 
         var inAnalysis = analysis.Symbols.Resolver.GetValue(M);
         inAnalysis.Store(analysis.Symbols.Resolver, new VBRuntimeValue<int>(7), isKnown: true);
@@ -130,7 +130,7 @@ public sealed class AnalysisSessionRuntimeTests
         var declared = Declared(M);
         var analysis = RuntimeSessionComposer.ComposeForAnalysis(declared);
         _ = RuntimeExecutionPipeline.CreateForAnalysis(analysis, new Dictionary<SemanticId, RDCore.SDK.Semantics.Instructions.InstructionList>(),
-            NSubstitute.Substitute.For<RDCore.SDK.Services.VerboseMessages.IVerboseMessageBuilder>(), new RecordingAnalysisObserver());
+            NSubstitute.Substitute.For<RDCore.Runtime.Semantics.IErrorDetailsRecorder>(), new RecordingAnalysisObserver());
 
         var cell = (IKnowledgeBinding)analysis.Symbols.Resolver.GetValue(M);
         cell.Store(new VBRuntimeValue<int>(7), isKnown: true);

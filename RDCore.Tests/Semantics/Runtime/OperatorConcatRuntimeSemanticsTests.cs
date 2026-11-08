@@ -12,7 +12,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -54,7 +54,7 @@ public abstract class OperatorConcatRuntimeSemanticsTests : OperatorArithmeticRu
     /// </summary>
     protected static ILetCoercionRuntimeSemanticsProvider StringCoercionProvider()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         return new LetCoercionRuntimeSemanticsProvider([new VBStringLetCoercionRuntimeSemantics(fmt)], fmt);
     }
 }

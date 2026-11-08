@@ -10,7 +10,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -19,8 +18,8 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// </summary>
 public record class VBErrorTypeLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService) 
-    : LetCoercionRuntimeSemantics<VBErrorType>(FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : LetCoercionRuntimeSemantics<VBErrorType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(
         ISymbolResolver resolver,

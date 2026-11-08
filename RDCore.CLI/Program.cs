@@ -23,6 +23,7 @@ using RDCore.External.Native;
 using RDCore.External.Windows.Automation;
 using RDCore.External.Windows.Forms;
 using RDCore.External.Windows.Native;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
@@ -35,7 +36,6 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
@@ -453,9 +453,8 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
             .AddSingleton<ConfigCommand>()
             .AddSingleton<ICliCommand, ConfigCliCommand>()
-            // rdc bench runs a workspace in-process, as the environment host runs one: it needs what the host's errors are described with.
-            .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
-            .AddVerboseMessages()
+            // rdc bench runs a workspace in-process, as the environment host runs one: it records the details of its errors as the host does.
+            .AddSingleton<IErrorDetailsRecorder, ErrorDetailsRecorder>()
             .AddSingleton<RDCore.CLI.App.Bench.BenchRunner>()
             .AddSingleton<ICliCommandProvider, NativeCliCommandProvider>()
             .AddSingleton<ICliCommandProvider, ExtensionCliCommandProvider>()
@@ -519,8 +518,7 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
         // the runtime session this host owns for the workspace it was launched against; composed on
         // the LSP initialize handshake, then populated as the language server sends symbol descriptors.
         services
-            .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
-            .AddVerboseMessages()
+            .AddSingleton<IErrorDetailsRecorder, ErrorDetailsRecorder>()
             // the program's calls to the outside world are made by an external host of this one, which is rdc.exe again, in external mode:
             // whatever the outside world does to that process, this one - and the session it owns - is still there.
             .AddSingleton(provider => new ExternalHost(
@@ -618,7 +616,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .AddSingleton(sessionProvider)
             .AddSingleton(projectFileLoader)
             .AddSingleton(_ => ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>())
-            .AddSingleton(_ => ExternalServices.GetRequiredService<IVerboseMessageBuilder>());
+            .AddSingleton(_ => ExternalServices.GetRequiredService<IErrorDetailsRecorder>());
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities) { }
 

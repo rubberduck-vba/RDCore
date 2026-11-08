@@ -14,7 +14,6 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Semantics.Plans;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -74,16 +73,16 @@ public interface ILetCoercionRuntimeSemanticsProvider
 /// 👉 Each instance only instantiates the let-coercion strategies it needs for its context.
 /// </remarks>
 /// <param name="semantics">The let-coercion strategies, keyed by the destination type each is specified for.</param>
-/// <param name="formatterService">Builds the verbose half of an error message.</param>
+/// <param name="errorDetails">Records the details of the errors raised.</param>
 /// <param name="observation">Told of every coercion this provider evaluates, as a <see cref="ConversionFact"/>; <see langword="null"/> when nothing is
 /// analyzing the code, which is how code runs.</param>
 public class LetCoercionRuntimeSemanticsProvider(
     IEnumerable<ILetCoercionRuntimeSemantics> semantics,
-    IVerboseMessageBuilder formatterService,
+    IErrorDetailsRecorder errorDetails,
     AnalysisObservation? observation = null)
     : ILetCoercionRuntimeSemanticsProvider
 {
-    private readonly IVerboseMessageBuilder _formatterService = formatterService;
+    private readonly IErrorDetailsRecorder _errorDetails = errorDetails;
 
     private readonly Dictionary<Type, ILetCoercionRuntimeSemantics> _strategies =
         semantics.ToDictionary(strategy => strategy.LetCoercionSpecification, strategy => strategy);
@@ -124,20 +123,20 @@ public class LetCoercionRuntimeSemanticsProvider(
 
     private VBRuntimeErrorInfo OnLetCoercionTypeMismatch(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, expression.Location,
-            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, [frame]));
+            _errorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, [frame]));
 
     private VBRuntimeErrorInfo OnLetCoercionNotApplicableInternalError(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, expression.Location,
-            _formatterService.Format(Exceptions.VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable, expression, [frame]));
+            _errorDetails.Record(Exceptions.VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable, expression, [frame]));
 
     private VBRuntimeErrorInfo OnLetCoercionStackCorruptionInternalError(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.InternalError, expression.Location,
-            _formatterService.Format(Exceptions.VBRuntimeInternalError_LetCoercionStackCorruption
+            _errorDetails.Record(Exceptions.VBRuntimeInternalError_LetCoercionStackCorruption
                 .Replace("{$DEPTH}", _stack.Depth.ToString()), expression, [frame]));
 
     private VBRuntimeErrorInfo OnRecursiveLetCoercionError(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.OutOfStackSpace, expression.Location,
-            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose, expression, [frame]));
+            _errorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose, expression, [frame]));
 
     public LetCoercionAnalysisContext Analyze(
         ISymbolResolver resolver,

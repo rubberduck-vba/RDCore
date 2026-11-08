@@ -17,7 +17,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Runtime.Execution;
 
@@ -121,7 +121,7 @@ public sealed class EventRuntimeTests
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
             [new StdLibSymbolProvider(Root), new Provider([module, source, sink, changed, bump, fire, fireBump, total, src, tag, attach, detach, .. handled])],
             output: output);
-        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IVerboseMessageBuilder>());
+        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IErrorDetailsRecorder>());
         return new World(session, pipeline, output, module, source, sink, bodies);
     }
 

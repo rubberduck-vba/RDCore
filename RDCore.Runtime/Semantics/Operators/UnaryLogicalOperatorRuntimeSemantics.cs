@@ -19,7 +19,6 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Plans;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators;
@@ -29,8 +28,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </summary>
 public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : UnaryOperatorRuntimeSemantics<UnaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : UnaryOperatorRuntimeSemantics<UnaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionProvider, ErrorDetails)
 {
     /// <summary>
     /// Evaluates the bitwise result of a unary logical operation in the effective type's own representation.

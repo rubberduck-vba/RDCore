@@ -8,7 +8,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Cli;
 
@@ -41,7 +41,7 @@ public sealed class EditAndContinueLayoutTests
     // a statement typed at the stop, in the activation the program waits in: what it printed, or why it did not run.
     private static async Task<string> AtTheStopAsync(EnvironmentSessionProvider provider, string statement)
     {
-        var result = await new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+        var result = await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
             .Handle(new HostDebugExecuteParams { FrameId = 0, Json = PlatformJson.Serialize(Statement(statement)) }, CancellationToken.None)
             .WaitAsync(TimeSpan.FromSeconds(20));
         return result.Success ? $"at the stop: {string.Join("|", result.Output.Select(line => line.Trim()))}" : $"at the stop, not run: {result.Error}";

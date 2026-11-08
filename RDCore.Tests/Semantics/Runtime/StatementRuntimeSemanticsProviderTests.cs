@@ -22,7 +22,6 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -69,7 +68,7 @@ public sealed class StatementRuntimeSemanticsProviderTests
 
     private static StatementRuntimeSemanticsProvider Provider_()
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, new ProviderHandle());
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
             [numericCoercion, new VBBooleanLetCoercionRuntimeSemantics(new ProviderHandle(), formatter), new VBStringLetCoercionRuntimeSemantics(formatter)], formatter);

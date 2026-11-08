@@ -19,7 +19,6 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Plans;
 using RDCore.SDK.Semantics.Runtime.Operators;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators;
@@ -29,8 +28,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </summary>
 public abstract record class UnaryArithmeticOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : UnaryOperatorRuntimeSemantics<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : UnaryOperatorRuntimeSemantics<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>(LetCoercionProvider, ErrorDetails)
 {
     protected sealed override ISemanticContextContributor<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> AnalyzeEffectiveType(
         ISemanticContextContributor<UnaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags> builder,

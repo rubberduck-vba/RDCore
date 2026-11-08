@@ -14,7 +14,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -31,13 +30,13 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// lives in <see cref="VBNumericLetCoercionTypeRuntimeSemantics"/> for that same reason.
 /// </remarks>
 /// <param name="Provider">The coercions this one is one of.</param>
-/// <param name="FormatterService">Writes the messages of the errors the coercion raises.</param>
+/// <param name="ErrorDetails">Records the details of the errors the coercion raises.</param>
 /// <param name="Regional">The regional settings a <c>String</c> is read by as a number (MS-VBAL 5.5.1.2.4); en-US when none are given.</param>
 public sealed record class VBBooleanLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider Provider,
-    IVerboseMessageBuilder FormatterService,
+    IErrorDetailsRecorder ErrorDetails,
     SDK.Runtime.RegionalSettings? Regional = null)
-    : LetCoercionRuntimeSemantics<VBBooleanType>(FormatterService)
+    : LetCoercionRuntimeSemantics<VBBooleanType>(ErrorDetails)
 {
     public sealed override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
     {

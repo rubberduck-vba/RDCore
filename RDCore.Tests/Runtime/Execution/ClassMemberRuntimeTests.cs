@@ -16,7 +16,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Runtime.Execution;
 
@@ -98,7 +98,7 @@ public sealed class ClassMemberRuntimeTests
         var session = RuntimeSessionComposer.Compose(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
             [new StdLibSymbolProvider(Root), new Provider([module, box, size, grow, show, copy, bump, main])], output: output);
-        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IVerboseMessageBuilder>());
+        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IErrorDetailsRecorder>());
         bodies[main.SemanticId] = Lower(body);
 
         var outcome = pipeline.Invoker.Invoke(main, session.Symbols.Resolver, []);

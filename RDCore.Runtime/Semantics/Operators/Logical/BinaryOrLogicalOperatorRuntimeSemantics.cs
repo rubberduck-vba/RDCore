@@ -12,7 +12,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators.Logical;
 
@@ -21,8 +20,8 @@ namespace RDCore.Runtime.Semantics.Operators.Logical;
 /// </summary>
 public record class BinaryOrLogicalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, ErrorDetails)
 {
     protected override string Operator => Tokens.LogicalOrOp;
 

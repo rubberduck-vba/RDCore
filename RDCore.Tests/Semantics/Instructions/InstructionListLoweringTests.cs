@@ -18,7 +18,6 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Instructions;
@@ -869,13 +868,13 @@ public sealed class InstructionListLoweringTests
     private static IRuntimeSession ComposeSession(params Symbol[] symbols)
         => RuntimeSessionComposer.Compose(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new Provider(symbols));
 
-    private static RuntimeExpressionEvaluator Evaluator() => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IVerboseMessageBuilder>()));
+    private static RuntimeExpressionEvaluator Evaluator() => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IErrorDetailsRecorder>()));
 
     // The real Numeric/Boolean let-coercion strategies - for operators to determine their effective
     // type for real, rather than the identity passthrough a bare NSubstitute fake would give every operand.
     private static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [

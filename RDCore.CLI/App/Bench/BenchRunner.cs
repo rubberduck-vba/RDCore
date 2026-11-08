@@ -13,7 +13,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using System.Diagnostics;
@@ -83,14 +83,14 @@ internal sealed record class BenchReport(
 /// </remarks>
 /// <param name="environment">The environment the session is composed for.</param>
 /// <param name="fileSystem">The file system the workspace is on.</param>
-/// <param name="messages">Builds the verbose half of a run-time error message.</param>
+/// <param name="errorDetails">Records the details of the run-time errors raised.</param>
 /// <param name="loggers">Makes the loggers of the host's parts.</param>
 /// <param name="libraries">
 /// Where the descriptions of the libraries a project references are found: the platform's, as the environment host has them, so that a workspace that
 /// references Excel is benched with Excel's types.
 /// </param>
 internal sealed class BenchRunner(
-    IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, IVerboseMessageBuilder messages, ILoggerFactory loggers, ILibrarySource libraries)
+    IRuntimeEnvironmentProfile environment, IFileSystem fileSystem, IErrorDetailsRecorder errorDetails, ILoggerFactory loggers, ILibrarySource libraries)
 {
     /// <summary>What the name of a case begins with.</summary>
     public const string CasePrefix = "Bench";
@@ -188,7 +188,7 @@ internal sealed class BenchRunner(
     {
         var load = await LoadAsync(workspace, environment, token);
         var session = load.Provider.Session;
-        var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, messages, token, outside: load.Provider.Outside);
+        var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, errorDetails, token, outside: load.Provider.Outside);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
         foreach (var (module, _) in load.Loaded)
         {
@@ -264,7 +264,7 @@ internal sealed class BenchRunner(
             workspace.Project.Name, scope, librarySymbols, hosts);
 
         // as the language server does, the types of every module are declared before the declarations of any are bound (DefineSymbolsParams.DeclareTypesOnly).
-        var define = new DefineSymbolsHandler(provider, messages, loggers.CreateLogger<DefineSymbolsHandler>());
+        var define = new DefineSymbolsHandler(provider, errorDetails, loggers.CreateLogger<DefineSymbolsHandler>());
         foreach (var declareTypesOnly in new[] { true, false })
         {
             foreach (var (module, uri, parse) in parsed)
@@ -358,7 +358,7 @@ internal sealed class BenchRunner(
             token.ThrowIfCancellationRequested();
 
             // a pipeline per run, as the host composes one per request: its cancellation is the run's.
-            var pipeline = RuntimeExecutionPipeline.Create(provider.Session, provider.Image, messages, token, outside: provider.Outside);
+            var pipeline = RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errorDetails, token, outside: provider.Outside);
             var stopwatch = Stopwatch.StartNew();
             var result = await provider.Execution.RunAsync(pipeline, entryPoint, debug: false, token);
             stopwatch.Stop();
