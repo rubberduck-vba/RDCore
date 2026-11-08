@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Model.Diagnostics;
+namespace RDCore.SDK.Extensibility.Diagnostics;
 
 /// <summary>
 /// How much of what the platform can find out about a module an analysis waits for.

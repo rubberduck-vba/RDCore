@@ -3,13 +3,13 @@ using Newtonsoft.Json.Linq;
 using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Server;
 using System.Globalization;
 using System.IO.Pipelines;
 using System.Text;
 using OmniSharp.Extensions.LanguageServer.Server;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Server;
 

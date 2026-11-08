@@ -1,7 +1,7 @@
 using MediatR;
 using OmniSharp.Extensions.JsonRpc;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.SDK.Platform.Components;
 

@@ -1,10 +1,11 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 
-namespace RDCore.SDK.Model.Diagnostics;
+namespace RDCore.SDK.Extensibility.Diagnostics;
 
 /// <summary>
 /// What an analyzer is given of a module: the syntax tree, and the facts the platform's semantic analysis pass found out about it.

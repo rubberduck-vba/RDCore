@@ -15,7 +15,6 @@ using RDCore.Parsing;
 using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Progress;

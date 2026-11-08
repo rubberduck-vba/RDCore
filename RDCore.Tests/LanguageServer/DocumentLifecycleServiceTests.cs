@@ -9,9 +9,9 @@ using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.Diagnostics;
 using System.IO.Abstractions.TestingHelpers;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.LanguageServer;
 

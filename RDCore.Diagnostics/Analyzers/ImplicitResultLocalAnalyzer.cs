@@ -11,6 +11,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 

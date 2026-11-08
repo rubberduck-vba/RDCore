@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Runtime.Libraries;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

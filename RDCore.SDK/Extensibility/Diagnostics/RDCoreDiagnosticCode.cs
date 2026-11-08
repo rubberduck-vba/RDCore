@@ -1,6 +1,7 @@
+using RDCore.SDK.Model.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
-namespace RDCore.SDK.Model.Diagnostics;
+namespace RDCore.SDK.Extensibility.Diagnostics;
 
 /// <summary>
 /// The code a diagnostic is reported under: a prefix of three letters that says who issues it, and a number of five digits, as in <c>XYZ00042</c>

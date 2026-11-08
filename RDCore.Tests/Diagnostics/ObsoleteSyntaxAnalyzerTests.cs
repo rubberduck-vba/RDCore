@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Cli;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

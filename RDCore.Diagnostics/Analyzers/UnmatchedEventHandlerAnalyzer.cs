@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 

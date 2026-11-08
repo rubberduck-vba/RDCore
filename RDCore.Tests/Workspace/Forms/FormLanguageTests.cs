@@ -26,6 +26,7 @@ using RDCore.Tests.Platform;
 using RDCore.Tests.Runtime.Libraries;
 using System.IO.Abstractions.TestingHelpers;
 using MemberKind = RDCore.SDK.Runtime.Libraries.MemberKind;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Workspace.Forms;
 

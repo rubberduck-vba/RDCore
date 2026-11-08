@@ -2,6 +2,7 @@
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 

@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.Tests.Cli;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

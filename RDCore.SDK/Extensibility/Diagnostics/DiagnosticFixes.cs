@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
-namespace RDCore.SDK.Model.Diagnostics;
+namespace RDCore.SDK.Extensibility.Diagnostics;
 
 /// <summary>
 /// What can be done about a finding, which the platform knows how to do: the fixes an analyzer states with what it found, and which travel with the diagnostic

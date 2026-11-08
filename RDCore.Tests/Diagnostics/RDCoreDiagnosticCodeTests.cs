@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

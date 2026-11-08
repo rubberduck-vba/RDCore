@@ -4,11 +4,11 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace.Services;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.LanguageServer.Refactoring;
 

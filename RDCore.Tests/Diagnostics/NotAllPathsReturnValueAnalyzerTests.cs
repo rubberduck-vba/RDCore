@@ -4,6 +4,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.Tests.Cli;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 
