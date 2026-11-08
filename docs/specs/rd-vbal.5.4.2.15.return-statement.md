@@ -23,7 +23,7 @@
 
 |Condition|Run-time error|
 |---|---|
-|The GoSub Resumption List is empty.|3 — Return without GoSub|
+|The GoSub Resumption List is empty.|3 (Return without GoSub)|
 
 Nested `GoSub`s unwind in LIFO order: the innermost `Return` is taken first.
 
@@ -38,6 +38,3 @@ The GoSub Resumption List is a plain stack because `Return` depends only on the 
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `Return` instructions.
 - `Return` pops the list through `CallStackFrame.TryPopGoSubReturn`
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.14** GoSub Statement](rd-vbal.5.4.2.14.gosub-statement.md) | ⏭️ [**RD-VBAL §5.4.2.16** On...GoSub Statement](rd-vbal.5.4.2.16.on-gosub-statement.md)

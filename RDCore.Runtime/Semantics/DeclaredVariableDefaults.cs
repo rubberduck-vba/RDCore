@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Runtime.Semantics;
@@ -70,22 +71,21 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
             return new VBResizableArrayValue([], array.ItemType);
         }
 
+        // an array of more elements than RD-VBA holds is a compile error of its declaration (VBC09380, Out of memory), and is never made: the module it is
+        // declared in does not run.
         return variable.TryGetProperty(SymbolProperties.ArrayBounds, out var declared)
             && !declared.IsDefaultOrEmpty
             && TryReduce(variable, declared) is { } dimensions
+            && VBArrayValue.LengthOf(dimensions) <= VBArrayValue.MaximumLength
                 ? new VBFixedSizeArrayValue(dimensions, array.ItemType, ((IVariableDefaults)this).ElementDefaultOf(array.ItemType), ElementCellOf(array.ItemType))
                 : new VBFixedSizeArrayValue([], array.ItemType);
     }
 
     /// <inheritdoc/>
     /// <remarks>
-    /// An element of a scalar type is kept in a cell that holds it as a payload (IR lowering S1.6), as a scalar variable is: an expression of it is
-    /// evaluated on the payload, and an assignment to it writes one, with no value made of it either way.
+    /// The cells of <see cref="ElementCells"/>, which the copy an assignment makes of an array is given too.
     /// </remarks>
-    public Func<IBindingHandle>? ElementCellOf(VBType itemType)
-        => UnboxedEvaluation.IsEnabled && ScalarPayload.TryOf(itemType, itemType.DefaultValue.RuntimeValue, out var initial)
-            ? () => ScalarCell.Of(initial)
-            : null;
+    public Func<IBindingHandle>? ElementCellOf(VBType itemType) => ElementCells.Of(itemType);
 
     private (int, int)[]? TryReduce(Symbol variable, IReadOnlyList<ArrayDimensionBound> declared)
     {
@@ -135,7 +135,7 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
             return frame.Directives.Base;
         }
 
-        var moduleName = variable.Uri.Fragment.TrimStart('#').Split('.')[0];
+        var moduleName = SymbolUri.ModuleNameOf(variable.Uri);
         return (session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var module)
                 || session.Symbols.TryResolveType(moduleName, GlobalSymbols.UnresolvedSymbol, out module))
             && module is VBModuleSymbol { } declaring

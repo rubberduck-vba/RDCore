@@ -122,6 +122,11 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                     return RuntimeSemanticsEvaluationResult.Success(new VBStringValue(form));
                 case ("VISIBLE", "get") when !bound:
                     return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
+
+                // a program run unattended shows no form, modal or not, in the process or through an external host, and makes none to show: nobody is there to
+                // answer it, and the run fails (IRuntimeSession.RunsUnattended).
+                case ("SHOW", _) when session.RunsUnattended:
+                    return RuntimeSemanticsEvaluationResult.Error(Unattended.NobodyToAnswer(session, $"{form}.Show", request.CallSite));
             }
 
             if (FormOf(identity, form, request) is not { } hosted)

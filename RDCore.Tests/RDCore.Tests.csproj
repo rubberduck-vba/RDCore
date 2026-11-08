@@ -5,9 +5,10 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 9562-7303 Québec inc.</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore Tests</AssemblyTitle>
+    <Description>The tests of the RDCore platform.</Description>
+    <!-- a test method that does not await what it asserts passes without asserting it: an async method with no await, and a call whose task is dropped. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1998;CS4014</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,6 +34,11 @@
     <EmbeddedResource Include="Workspace\Forms\Fixtures\**" />
     <!-- Rubberduck's indenter test cases (GPLv3), as data: input, settings, expected output -->
     <EmbeddedResource Include="Formatting\Data\rubberduck-indenter-cases.json" LogicalName="RubberduckIndenterCases" />
+    <!-- a type library declared in terms of a library no machine has, loaded from its file by export-library -->
+    <None Include="Cli\Data\Widgets.tlb" CopyToOutputDirectory="PreserveNewest" />
+    <!-- the program that makes it, run on its own (dotnet run MakeWidgetsTlb.cs): not a source of the tests -->
+    <Compile Remove="Cli\Data\MakeWidgetsTlb.cs" />
+    <None Include="Cli\Data\MakeWidgetsTlb.cs" />
   </ItemGroup>
 
   <ItemGroup>

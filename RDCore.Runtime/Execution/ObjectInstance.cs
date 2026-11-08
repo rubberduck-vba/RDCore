@@ -45,8 +45,8 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
     /// <inheritdoc/>
     public IReadOnlyCollection<Symbol> StaticLocals => _staticLocals;
 
-    // the fields the object was given storage for: those of its class as it was when the object was created, which a field added to the class while the
-    // object lives is not one of, and a field removed from it still is.
+    // the fields the object was given storage for: those of its class as it was when the object was created, and those the class was given while the object
+    // lived (ISessionSymbols.ExtendLiveInstances). A field removed from the class still is one.
     internal IReadOnlyCollection<Symbol> Fields => _fields;
 
     /// <inheritdoc/>
@@ -69,6 +69,35 @@ public sealed class ObjectInstance(VBRuntimeObjectId objectId, VBClassModuleSymb
         // a field of a scalar type (or a Variant holding one) is held as a payload, as a local is (Frames.CallStackFrame.CellFor): what
         // the code of the class evaluates its fields on.
         _ = _addresses.TryAllocate(field, value.Size, Frames.CallStackFrame.CellFor(value), out _);
+    }
+
+    /// <summary>Whether the object holds <paramref name="local"/>, a <c>Static</c> of one of its class's members, given storage by a call of it.</summary>
+    internal bool HoldsStatic(Symbol local) => _staticLocals.Any(held => held.SemanticId == local.SemanticId);
+
+    /// <summary>
+    /// Lets go of <paramref name="local"/>, a <c>Static</c> of one of its class's members whose edited definition declares it as another type, or no longer
+    /// declares it: what it holds is let go of, its storage is freed, and the member's next call on the object gives it storage again.
+    /// </summary>
+    /// <param name="local">The <c>Static</c>.</param>
+    /// <param name="letGo">What lets go of what it holds.</param>
+    /// <returns>Whether the object held it.</returns>
+    internal bool ForgetStatic(Symbol local, Action<IBindingHandle>? letGo)
+    {
+        var index = _staticLocals.FindIndex(held => held.SemanticId == local.SemanticId);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        if (letGo is not null && _addresses.TryRead(local, out var cell) && cell is not null)
+        {
+            letGo(cell);
+        }
+
+        _ = _addresses.TryDeallocate(local);
+        _staticLocals.RemoveAt(index);
+        _ = _declared.Remove(local.SemanticId);
+        return true;
     }
 
     /// <inheritdoc/>

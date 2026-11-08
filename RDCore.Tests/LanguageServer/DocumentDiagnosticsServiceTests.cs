@@ -82,8 +82,8 @@ public sealed class DocumentDiagnosticsServiceTests
             $"{title}.exe", title, new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
             [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
         app.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        app.SendRequestAsync<DiagnoseDocumentRequest, DiagnoseDocumentResponse>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new DiagnoseDocumentResponse { Diagnostics = diagnostics, SourceVersion = sourceVersion });
+        app.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
+            .Returns(new DiagnoseDocumentResult { Diagnostics = diagnostics, SourceVersion = sourceVersion });
         return app;
     }
 
@@ -209,18 +209,18 @@ public sealed class DocumentDiagnosticsServiceTests
         ParseYields();
         ProvidersAre(Provider("RDCore.Diagnostics", 1));
         var debugging = Substitute.For<IProgramDebugService>();
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
         {
             Suspended = true,
             Edits =
             [
-                new HostDebugEdit
+                new DebugEdit
                 {
-                    Name = "Mod1.Foo", Kind = HostDebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1"),
+                    Name = "Mod1.Foo", Kind = DebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1"),
                     Range = new SourceRange(new SourcePosition(0, 0), new SourcePosition(1, 7)),
                 },
-                new HostDebugEdit { Name = "Mod1", Kind = HostDebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Mod1") },
-                new HostDebugEdit { Name = "Other.Bar", Kind = HostDebugEditKind.NotYet, Reason = "a local was added", ModuleUri = new Uri("file:///c:/ws#Other") },
+                new DebugEdit { Name = "Mod1", Kind = DebugEditKind.Restart, Reason = "an option was changed", ModuleUri = new Uri("file:///c:/ws#Mod1") },
+                new DebugEdit { Name = "Other.Bar", Kind = DebugEditKind.NotYet, Reason = "a local was added", ModuleUri = new Uri("file:///c:/ws#Other") },
             ],
         });
         var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
@@ -238,6 +238,28 @@ public sealed class DocumentDiagnosticsServiceTests
         Assert.AreEqual(new Range(new Position(0, 0), new Position(0, "Public Sub Foo()".Length)), edits[1].Range, "the module as a whole, on its first line");
     }
 
+    // the module of an edit is named by its address, which escapes the name of a module named with an accent.
+    [TestMethod]
+    public async Task AnEditTheProgramThatWaitsDoesNotHave_IsAFindingOfItsModule_WhenTheModuleIsNamedWithAnAccent()
+    {
+        var document = new WorkspaceDocument("src/Modèle.bas", Root, "Public Sub Foo()\r\nEnd Sub", 1);
+        WorkspaceHas(document);
+        ParseYields();
+        ProvidersAre(Provider("RDCore.Diagnostics", 1));
+        var debugging = Substitute.For<IProgramDebugService>();
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
+        {
+            Suspended = true,
+            Edits = [new DebugEdit { Name = "Modèle", Kind = DebugEditKind.Restart, Reason = "an option was changed", ModuleUri = SDK.Model.Symbols.SymbolUri.Module("file:///c:/ws", "Modèle") }],
+        });
+        var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
+
+        Assert.IsTrue(await editStatus.CheckAsync(CancellationToken.None));
+        var result = await Sut(editStatus).GetAsync(document.Id.Uri.ToUri(), previousResultId: null, CancellationToken.None);
+
+        Assert.AreEqual("Modèle: an option was changed", result.Diagnostics.Single(diagnostic => diagnostic.Code?.String == "RDC20001").Message);
+    }
+
     [TestMethod]
     public async Task NoProgramThatWaits_HasNoEditItDoesNotHave()
     {
@@ -246,7 +268,7 @@ public sealed class DocumentDiagnosticsServiceTests
         ParseYields();
         ProvidersAre(Provider("RDCore.Diagnostics", 1));
         var debugging = Substitute.For<IProgramDebugService>();
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
         var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
 
         Assert.IsFalse(await editStatus.CheckAsync(CancellationToken.None), "nothing changed");
@@ -258,10 +280,10 @@ public sealed class DocumentDiagnosticsServiceTests
     private async Task<EditStatusMonitor> OneEditListedAsync()
     {
         var debugging = Substitute.For<IProgramDebugService>();
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult
         {
             Suspended = true,
-            Edits = [new HostDebugEdit { Name = "Mod1.Foo", Kind = HostDebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
+            Edits = [new DebugEdit { Name = "Mod1.Foo", Kind = DebugEditKind.Restart, Reason = "a parameter was added", ModuleUri = new Uri("file:///c:/ws#Mod1") }],
         });
         var editStatus = new EditStatusMonitor(debugging, _refresh, NullLogger<EditStatusMonitor>.Instance);
         await editStatus.CheckAsync(CancellationToken.None);
@@ -393,7 +415,7 @@ public sealed class DocumentDiagnosticsServiceTests
             "boom.exe", "Boom", new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
             [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
         failing.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        failing.SendRequestAsync<DiagnoseDocumentRequest, DiagnoseDocumentResponse>(Arg.Any<DiagnoseDocumentRequest>(), Arg.Any<CancellationToken>())
+        failing.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("boom"));
 
         ProvidersAre(failing, Provider("RDCore.Diagnostics", 1, Diag(1)));
@@ -416,7 +438,7 @@ public sealed class DocumentDiagnosticsServiceTests
     private static DiagnoseDocumentPayload PayloadSentTo(IRDCoreClientApp provider)
     {
         var request = provider.ReceivedCalls().Single(call => call.GetMethodInfo().Name == nameof(IRDCoreClientApp.SendRequestAsync)).GetArguments()[0];
-        return PlatformJson.Deserialize<DiagnoseDocumentPayload>(((DiagnoseDocumentRequest)request!).Json);
+        return PlatformJson.Deserialize<DiagnoseDocumentPayload>(((DiagnoseDocumentParams)request!).Json);
     }
 
     [TestMethod]
@@ -463,7 +485,7 @@ public sealed class DocumentDiagnosticsServiceTests
     {
         var debugging = Substitute.For<IProgramDebugService>();
         var suspended = false;
-        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(_ => new HostDebugEditStatusResult { Suspended = suspended });
+        debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(_ => new DebugEditStatusResult { Suspended = suspended });
         var monitor = new EditStatusMonitor(debugging, refresh, NullLogger<EditStatusMonitor>.Instance);
         return (monitor, async waits =>
         {
@@ -618,22 +640,26 @@ public sealed class DocumentDiagnosticsServiceTests
         => _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new ModuleParser().Parse(TestUri.TestModuleUri(), "Public Sub Foo()\r\nEnd Sub"));
 
+    // the module is named in the host as its code names it: its address escapes a name with an accent.
     [TestMethod]
-    public async Task AModuleTheClientSupplied_IsPutInTheHost_DefinedAndLoaded_BeforeItIsAskedAbout()
+    [DataRow("Program", DisplayName = "an ASCII name")]
+    [DataRow("Modèle", DisplayName = "a name with an accented letter")]
+    public async Task AModuleTheClientSupplied_IsPutInTheHost_DefinedAndLoaded_BeforeItIsAskedAbout(string name)
     {
+        var module = SDK.Model.Symbols.SymbolUri.Module(new Uri("file://rdcore-test"), name);
         FragmentParses();
-        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(FragmentUri, false, [], [], [])])));
+        var host = HostThatProvidesSemantics(PlatformJson.Serialize(new SemanticsPayload([new ModuleSemanticsDto(module, false, [], [], [])])));
         var provider = Provider("RDCore.Diagnostics", 0);
         ProvidersAre(provider);
 
-        await Sut().AnalyzeFragmentAsync(FragmentUri, "Public Sub Foo()\r\nEnd Sub", CancellationToken.None);
+        await Sut().AnalyzeFragmentAsync(module, "Public Sub Foo()\r\nEnd Sub", CancellationToken.None);
 
         Received.InOrder(() =>
         {
-            _symbols.SyncModuleAsync("Program", Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
-            _symbols.LoadModuleCodeAsync("Program", Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
+            _symbols.SyncModuleAsync(name, Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
+            _symbols.LoadModuleCodeAsync(name, Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
             host.SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
-                Arg.Is<HostSemanticsParams>(request => request.ModuleName == "Program"), Arg.Any<CancellationToken>());
+                Arg.Is<HostSemanticsParams>(request => request.ModuleName == name), Arg.Any<CancellationToken>());
         });
         Assert.AreEqual(false, PayloadSentTo(provider).Semantics!.OptionExplicit);
     }

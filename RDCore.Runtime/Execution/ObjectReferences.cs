@@ -267,7 +267,9 @@ internal static class ObjectReferences
     public static void Release(IRuntimeSession session, IBindingHandle holder, Held kept = default)
         => Release(session, HeldIn(session, holder), kept);
 
-    // the cell a write lands in: a ByRef parameter's binding is the address of the variable it was given, which holds what is written through it.
+    // the cell a write lands in: a ByRef parameter's binding is the address of the variable it was given, which holds what is written through it. A record's
+    // field given by reference (RecordFieldBinding) is no cell that holds: a write through it is counted in the field it writes, by the binding itself, and
+    // counting the binding too would keep what it writes alive once the field lets go of it.
     private static IBindingHandle? CellOf(IRuntimeSession session, IBindingHandle holder)
     {
         var cell = holder;
@@ -282,7 +284,7 @@ internal static class ObjectReferences
             cell = bound;
         }
 
-        return cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue) ? cell : null;
+        return cell is not RecordFieldBinding && cell.BindingCapabilities.HasFlag(BindingCapabilities.GetValue) ? cell : null;
     }
 
     // what is stored in a cell: an object's reference, or a box - a Variant, an array, a record - with what it holds in it.
@@ -362,6 +364,30 @@ internal static class ObjectReferences
     public static void RebindField(IRuntimeSession session, VBUserDefinedTypeValue record, int index, Held before)
     {
         foreach (var (cell, instance) in HeldInField(record, index))
+        {
+            session.Objects.AddRef(instance, cell);
+        }
+
+        Release(session, before);
+    }
+
+    /// <summary>
+    /// Reads what each field of a record holds, before the record is written field by field where it is (<c>LSet</c>).
+    /// </summary>
+    /// <param name="record">The record.</param>
+    public static Held HeldInRecord(VBUserDefinedTypeValue record)
+    {
+        var holds = default(Collector);
+        CollectRecord(record, ref holds);
+        return new Held(holds);
+    }
+
+    /// <summary>
+    /// Records what each field of a record holds now that the record was written, and lets go of what they held before.
+    /// </summary>
+    public static void RebindRecord(IRuntimeSession session, VBUserDefinedTypeValue record, Held before)
+    {
+        foreach (var (cell, instance) in HeldInRecord(record))
         {
             session.Objects.AddRef(instance, cell);
         }

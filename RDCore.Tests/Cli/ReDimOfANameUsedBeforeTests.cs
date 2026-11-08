@@ -52,4 +52,15 @@ public sealed class ReDimOfANameUsedBeforeTests
     public async Task UnderOptionExplicit_ANameUsedBeforeItsReDim_IsNotDefined()
         => StringAssert.Contains(Assert.ContainsSingle(await ModuleWorkspace.LoadErrorsAsync([],
             "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\ny = 5\r\nReDim y(2)\r\nEnd Sub\r\n")), Exceptions.VBCompileError_VariableNotDefined);
+
+    // the bound of an array declared before the ReDim is required to be a constant expression, which the name is not. Whether MS-VBA also reports the name as
+    // not defined there is not measured (oracle-pending-rows: a ReDim of a name a bound uses before it): no more than the bound's own error is reported.
+    [TestMethod]
+    public async Task UnderOptionExplicit_ANameInABoundBeforeItsReDim_IsAConstantExpressionRequired_Only()
+    {
+        var errors = await ModuleWorkspace.LoadErrorsAsync([],
+            "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nDim b(n) As Long\r\nReDim n(3)\r\nEnd Sub\r\n");
+
+        StringAssert.StartsWith(Assert.ContainsSingle(errors), Exceptions.VBCompileError_ConstantExpressionRequired, string.Join(" | ", errors));
+    }
 }

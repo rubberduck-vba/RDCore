@@ -25,7 +25,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// each; this is the language-server side of asking for them, never sent by a client. The answer is the semantic facts, which a diagnostics extension
 /// analyzes: the host says what is, and an analyzer decides what is worth saying. A module the host does not have, or has not loaded, has no model.
 /// </remarks>
-[Method(RDCorePlatformProtocol.HostSemantics, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.HostSemantics, Direction.ClientToServer)]
 public record class HostSemanticsParams : IRequest, IRequest<HostSemanticsResult>
 {
     /// <summary>
@@ -325,9 +325,10 @@ public record class ProcedureSemanticsDto(
 /// <param name="Role">What it is there for, when it implements an interface member or handles an event.</param>
 /// <param name="DeclaredBy">How a local variable came to be declared; <see langword="null"/> for any other declaration.</param>
 /// <param name="Hides">What a local or a parameter hides; <see langword="null"/> when it hides nothing, and for any other declaration.</param>
+/// <param name="AutoInstantiationAlwaysFails">Whether it is a variable declared <c>As New</c> of a class whose objects are never created.</param>
 public record class DeclarationFactDto(
     Uri Symbol, string Name, DeclarationKind Kind, AccessModifier Access, bool IsImplicit, SourceLocation Location, DeclarationReferences? References,
-    DeclarationRole Role = DeclarationRole.None, LocalDeclarationKind? DeclaredBy = null, HiddenDeclaration? Hides = null);
+    DeclarationRole Role = DeclarationRole.None, LocalDeclarationKind? DeclaredBy = null, HiddenDeclaration? Hides = null, bool AutoInstantiationAlwaysFails = false);
 
 /// <summary>
 /// A <see cref="ModuleSemanticModel"/>, as it travels.
@@ -368,7 +369,7 @@ public record class ModuleSemanticsDto(
             procedure.Runtime is null ? null : RuntimeFactsDto.From(procedure.Runtime)))],
         [.. model.Declarations.Select(declaration => new DeclarationFactDto(
             declaration.Symbol.Uri, declaration.Name, declaration.Kind, declaration.Access, declaration.IsImplicit, declaration.Location, declaration.References, declaration.Role,
-            declaration.DeclaredBy, declaration.Hides))],
+            declaration.DeclaredBy, declaration.Hides, declaration.AutoInstantiationAlwaysFails))],
         model.Language,
         model.Class,
         model.Document);

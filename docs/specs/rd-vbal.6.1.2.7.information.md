@@ -36,17 +36,18 @@ this section.
 |6.1.2.7.1.11|[RGB](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2a99cfd6-54fd-4e91-abd5-2aab8ee4b7c4)||
 |6.1.2.7.1.12|[TypeName](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/713495ae-6a54-46f4-ad76-a7e7697803af)||
 |6.1.2.7.1.13|[VarType](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2deec703-c2ef-4bf1-a246-1d51c60895da)|Declared to return a `VbVarType` value. See [**RD-VBAL §6.1.1** Predefined Enums](rd-vbal.6.1.1.predefined-enums.md).|
-|6.1.2.7.1.14|🧩 `Erl`|RD-VBA addition. See [§6.1.2.7.1.14](#6127114-erl).|
-|6.1.2.7.1.15|🧩 `Err`|RD-VBA addition. See [§6.1.2.7.1.15](#6127115-err).|
+|6.1.2.7.1.14|`Erl`|RD-VBA addition. See [§6.1.2.7.1.14](#6127114-erl).|
+|6.1.2.7.1.15|`Err`|RD-VBA addition. See [§6.1.2.7.1.15](#6127115-err).|
 
 ### 6.1.2.7.1.14 Erl
 
-🧩 `Information.Erl` is an RD-VBA addition to MS-VBAL. `Erl` returns the line number at which the most recent
+`Information.Erl` is an RD-VBA addition to MS-VBAL. `Erl` returns the line number at which the most recent
 run-time error was raised.
 
 MS-VBAL does not document `Erl`. MS-VBA exposes `Erl` from the `Information` module as a hidden member.
 
-🎯 `Erl` is a deliberate RD-VBA departure from MS-VBA, in two respects: what it counts, and its width.
+`Erl` is a deliberate RD-VBA departure from MS-VBA, in three respects: what it counts, what `Err.Clear` does to it,
+and its width.
 
 #### What Erl counts
 
@@ -71,12 +72,31 @@ A named label never sets `Erl`, in either `ErlLineNumbering` mode. Only a label 
 In a program that numbers every line, the line-number label is the document line, and `LineLabel` reports it.
 `LineLabel` mode exists for a workspace whose own code depends on MS-VBA's `Erl` behaviour.
 
+#### After Err.Clear
+
+In MS-VBA, `Err.Clear` resets the error's number and the other properties of the error object, but `Erl` keeps
+reporting the line of the error it cleared. Every other way an error is cleared resets `Erl` to `0`: a `Resume`
+statement in any form, an `On Error` statement, and leaving the procedure from an error handler.
+
+Leaving a procedure under `On Error Resume Next`, at its end or by an `Exit` statement, clears no error. The caller sees
+the error and its line as the procedure left them: after `20  x = 1 / 0`, `Erl` is `20` and `Err.Number` is `11`. After
+an `Err.Clear` in the procedure, the caller sees what `Err.Clear` left: `Err.Number` is `0`, and `Erl` is as
+`ErlAfterErrClear` says.
+
+What `Err.Clear` does to `Erl` is a second environment setting, `ErlAfterErrClear`, bound from `appsettings.json` like
+`ErlLineNumbering`. It applies to `Err.Clear` only.
+
+|`ErlAfterErrClear` value ([VBErlAfterErrClear](../api/RDCore.SDK.Runtime.Abstract.Execution.VBErlAfterErrClear.html))|`Erl` after `Err.Clear`|
+|---|---|
+|`Reset` (the default)|`0`, as there is no error any more.|
+|`Kept`|The line of the error `Err.Clear` cleared. This matches MS-VBA's `Erl`.|
+
 #### Width
 
 MS-VBA's `Erl` has `ushort` resolution. It wraps around on any line number that does not fit, so for a program
 numbered past line 65535 it reports a line that does not exist.
 
-🎯 For this reason, RD-VBA's `Erl` returns a `Long`, in which every legal line number is representable.
+For this reason, RD-VBA's `Erl` returns a `Long`, in which every legal line number is representable.
 
 #### Implementation
 
@@ -90,11 +110,8 @@ provides the line number `Erl` reports ([**RD-VBAL §3.5.1** InstructionList](rd
 
 ### 6.1.2.7.1.15 Err
 
-🧩 `Err` is not a member MS-VBAL lists under this module. RD-VBA implements the MS-VBA shape of `Err`: a zero-argument
+`Err` is not a member MS-VBAL lists under this module. RD-VBA implements the MS-VBA shape of `Err`: a zero-argument
 `Function` of the `Information` module, returning an instance of the class `ErrObject`.
 
 The `Err` function, the `ErrObject` class, and the MS-VBAL shape they differ from are described in
 [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md).
-
----
-> ⏮️ [**RD-VBAL §6.1.2.6** Financial](rd-vbal.6.1.2.6.financial.md) | ⏭️ [**RD-VBAL §6.1.2.8** Interaction](rd-vbal.6.1.2.8.interaction.md)

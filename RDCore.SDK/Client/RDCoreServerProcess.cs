@@ -51,37 +51,6 @@ public interface IRDCoreServerProcess : IDisposable
     Task WaitForExitAsync();
 }
 
-public enum CoreServerComponent
-{
-    /// <summary>
-    /// Application is a RD-VBA runtime environment host component.
-    /// </summary>
-    EnvironmentHost,
-    /// <summary>
-    /// Application is a RDCore platform orchestration and RD-VBA language server.
-    /// </summary>
-    LanguageServer,
-    /// <summary>
-    /// Application is a parsing server component.
-    /// </summary>
-    ParsingServer,
-    /// <summary>
-    /// Application is a platform extension server component.
-    /// </summary>
-    Extension,
-    /// <summary>
-    /// Application is the external host of an environment host: <c>rdc.exe</c> in external mode, the process that makes a program's calls to the outside world.
-    /// </summary>
-    ExternalHost,
-    /// <summary>
-    /// Application is a LSP client.
-    /// </summary>
-    /// <remarks>
-    /// This application type cannot be started from a server app.
-    /// </remarks>
-    ClientApp,
-}
-
 /// <summary>
 /// Represents a <c>RDCore.SDK</c> <em> server application</em>.
 /// </summary>
@@ -183,7 +152,9 @@ public class RDCoreServerProcess(
         _serverProcess?.Dispose();
         _serverProcess = null;
 
-        var fullPath = PlatformEnvironment.Resolve(relativePath);
+        // the path is the platform manifest's, or an extension's that its manifest names: a platform starts only what is under its root, and starts it where the
+        // check found it. What is in this process's own folder is its own (rdc starting rdc, its external host), whatever the root is said to be.
+        var fullPath = PlatformRootConfinement.Confined(PlatformEnvironment.Root, PlatformEnvironment.Resolve(relativePath), AppContext.BaseDirectory);
         var workspace = Options.Value.Workspace.WorkspaceUri;
         var trace = LogLevel.Trace; // Options.Value.Server.TraceLevel;
         var verbose = true; //Options.Value.Server.Verbose;

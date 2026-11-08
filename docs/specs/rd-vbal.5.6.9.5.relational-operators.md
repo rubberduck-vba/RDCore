@@ -18,14 +18,15 @@ Relational operators compare in the effective type, and yield a
 |`Boolean`|A 64-bit integer (`long`).|
 |Fixed-point (`Currency`, `Decimal`)|`decimal`|
 |`String`|The data of the strings, in the module's comparison mode. See [String comparison](#string-comparison).|
+|`Error`|The error codes, as two `Error` values are compared: `CVErr(5) < CVErr(6)` is `True`. An `Error` is compared as it is, and is never let-coerced to an `Error`, which no let-coercion makes. An `Error` and any other value is a type mismatch (13), as the table has it and **MS-VBA** raises it (recorded in Excel).|
 
 |Condition|Run-time error|
 |---|---|
-|An operand is `NaN`.|6 — Overflow|
+|An operand is `NaN`.|6 (Overflow)|
 
 Run-time error 6 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.Overflow`.
 
-👉 The range checks of a `For` loop use the relational operators
+The range checks of a `For` loop use the relational operators
 `RDCore.Runtime.Semantics.Operators.Relational.BinaryGtRelationalOperatorRuntimeSemantics` and
 `BinaryLtRelationalOperatorRuntimeSemantics`, not a raw numeric comparison
 ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)).
@@ -70,7 +71,7 @@ variable declared `As String`, or a string literal) **as text**, as MS-VBA does:
   ([String comparison](#string-comparison)).
 - No error is raised, whatever the `String` holds.
 
-🎯 This departs from **MS-VBAL §5.6.9.5**. Its effective-value-type table gives a numeric operand and a `String` operand
+**RD-VBA differs from MS-VBAL §5.6.9.5.** Its effective-value-type table gives a numeric operand and a `String` operand
 the numeric type, so the `String` is Let-coerced to a number, which raises run-time error 13 (Type mismatch) when it is
 not one. Its one exception covers two `Variant` operands only (above).
 
@@ -106,9 +107,11 @@ is not a `Variant` (a variable declared with the type, a literal). RD-VBA compar
 - When the coercion is a type mismatch, nothing is raised, and the `String` ranks above the other operand, whatever its
   value, as it does when both operands are `Variant` values ([above](#variant-stringnumeric-comparison)): `"abc" > 5` is
   `True`, `"abc" = 5` is `False`, and `5 < "abc"` is `True`.
-- Any other error of the coercion is raised: a number's text too large for the type overflows (6).
+- Any other error of the coercion is raised. A number's text too large for a `Byte`, an `Integer` or a `Long` is no
+  error: the two are compared as `Double` values ([below](#a-string-compared-with-a-byte-an-integer-or-a-long)), and
+  `"40000" > 2` is `True` with an `Integer` `2` (`oracle\s56` H01, H06).
 
-🎯 This departs from **MS-VBAL §5.6.9.5**. Its table makes the `String`'s coercion to the effective type a type mismatch
+**RD-VBA differs from MS-VBAL §5.6.9.5.** Its table makes the `String`'s coercion to the effective type a type mismatch
 (13), and so does Microsoft Learn's
 [Comparison operators](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/comparison-operators)
 page, for a `Variant` string that can't be converted to a number. These results were measured in Excel (`oracle\s48` H,
@@ -127,6 +130,57 @@ A `String` declared as one is not a `Variant`: `s < 5`, with `s` holding `"abc"`
 the table says, and in RD-VBA. The analysis states the departure as a fact of the operation
 (`ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked`), and RDCore.Diagnostics reports it as
 [`RDC11020`](../diagnostics/rdc11020.md), a warning that stands in for the type mismatch the specification raises.
+
+### A String compared with a Byte, an Integer or a Long
+
+RD-VBA compares a `String` with a `Byte`, an `Integer` or a `Long` **as `Double` values**, as MS-VBA does. This holds whether the
+`String` is a `Variant`'s or one declared `As String`: the effective value type is `Double`, and `"2.5" = 2` is `False`.
+
+**RD-VBA differs from MS-VBAL §5.6.9.5.** Its table gives the two the integral type, which Let-coerces `"2.5"` to `2` and
+makes `"2.5" = 2` `True`. [Microsoft Learn](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/comparison-operators)
+calls the comparison "numeric" and names no type. These results were measured in Excel (`oracle\s56` G01-G12):
+
+|`String`|Other operand|Comparison|MS-VBA|MS-VBAL §5.6.9.5|
+|---|---|---|---|---|
+|a `Variant` `"2.5"`|`2`, `CLng(2)`, an `Integer`, a `Byte` of `2`|`=`|`False`|`True`|
+|a `Variant` `"2.5"`|`2`|`>`|`True`|`False`|
+|a `String` `"2.5"`|`2`|`=`|`False`|`True`|
+|a `Variant` `"2.5"`|`2.5`, a `Double`, a `Currency` of `2.5`|`=`|`True`|`True`|
+|a `Variant` `"2.5"`|`True`|`=`|`True`, compared as `Boolean` values, as the table says|`True`|
+|a `Variant` or a `String` `"2.00001"`|a `Currency` of `2`|`=`|`True`, compared as `Currency` values, to 4 decimals, as the table says|`True`|
+|a `Variant` `"9007199254740993"`|a `Decimal` of `9007199254740992`|`=`|`False`, compared as `Decimal` values, as the table says|`False`|
+
+A `Currency` and a `Decimal` keep the table's types (`oracle\s56` I02-I04).
+
+A `Variant` `String` compared with a `Single` or a `LongLong` is compared as `Double` values too (`oracle\s56` H02-H04):
+
+|`String`|Other operand|Comparison|MS-VBA|MS-VBAL §5.6.9.5|
+|---|---|---|---|---|
+|a `Variant` `"0.1"`|a `Single` of `0.1`|`=`|`False`|`True`|
+|a `String` `"0.1"`|a `Single` of `0.1`|`=`|`True`, compared as `Single` values, as the table says|`True`|
+|a `Variant` `"2.5"`|a `LongLong` of `2`|`=`, `>`|`False`, `True`|`True`, `False`|
+|a `Variant` `"9007199254740993"`|a `LongLong` of `9007199254740992`|`=`|`True`, as the two are the same `Double`|`False`|
+
+A `String` declared as one, compared with a `LongLong`, is not measured, and keeps the table's type.
+
+The analysis states the departure as a fact of the operation (`ComparisonOperatorSemanticFlags.IsStringComparedAsADouble`) where the operator can
+answer otherwise than in the table's type:
+- a `String` it does not know;
+- a `String` that is a number the table's type does not hold as the `Double` does (`"2.5"`, or `"40000"` with an `Integer`), where the answers differ.
+  It compares them for the number, when it is known, and otherwise for the numbers next to the `String`'s value. Only there can they differ: `"2.5"` is
+  the table's `2`, and `"2.5" < n` is `2 < n` for every integer, where `"2.5" > n` is not `2 > n` for `n = 2`.
+
+It does not state it for a known `String` that is no number, a type mismatch (13) either way. RDCore.Diagnostics reports it as
+[`RDC11027`](../diagnostics/rdc11027.md), a warning.
+
+### An expression over a Variant
+
+An arithmetic operator, `&`, and a pair of parentheses with a `Variant` operand are declared `Variant`
+(**MS-VBAL §5.6.9.3**, **§5.6.9.4**, **§5.6.6**), and what they evaluate to is a `Variant`'s value. So `v + 1`, `v * 1`, `-v`,
+`v & ""` and `(v + 1)` are compared as `v` itself is ([above](#variant-compared-with-a-string)). With `v` holding `1`,
+`(v + 1) = "2.0"` is `False`, compared as text, and `CInt(v) = "1.0"` is `True`, as `CInt` returns an `Integer`. These were
+measured in Excel (`oracle\s56` G02, G09, G10), and a `Select Case` over such an expression compares its `Case` values the same way
+([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)).
 
 ### A String compared with a Date
 
@@ -148,7 +202,7 @@ and sees every byte of a string's data, a trailing byte included
 |Binary|Their data: the code units, in order, then a trailing byte. A string whose code units begin another's, followed by more, is greater. Between the same code units, no trailing byte is less than any, and two trailing bytes compare by value.|
 |Text|Their characters regardless of case, according to the environment's regional settings. A trailing byte is not text: it only breaks a tie between two strings that are equal regardless of case, the same way.|
 
-🎯 **MS-VBAL §5.6.9.5** compares "each byte of the implementation-specific representation of the string data". Binary
+**RD-VBA differs from MS-VBAL §5.6.9.5,** which compares "each byte of the implementation-specific representation of the string data". Binary
 mode compares the code units of that data rather than its bytes one by one. The two find the same strings equal, and
 order alike any two strings whose characters are all below `U+0100`. Where they differ, RD-VBA's representation is
 little-endian: `"Ł"` (`41 01`) is greater than `"B"` (`42 00`) by code unit, and would be less byte by byte.
@@ -197,6 +251,3 @@ This section corresponds to [**MS-VBAL §5.6.9.5.6** >= Operator](https://learn.
 
 > [!NOTE]
 > Reserved. This section has no content yet.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.4** & Operator](rd-vbal.5.6.9.4.ampersand-operator.md) | ⏭️ [**RD-VBAL §5.6.9.6** Like Operator](rd-vbal.5.6.9.6.like-operator.md)

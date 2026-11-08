@@ -137,6 +137,18 @@ public enum VBCompileErrorId
     /// <strong>MS-VBAL §3.4</strong> Conditional Compilation.
     /// </summary>
     HashIfWithoutEndIf = 59,
+    /// <summary>
+    /// An expression is nested in more than 2,500 others: parentheses in parentheses, a call in the argument of a call, an operation of an operation.<br/>
+    /// <strong>RD-VBAL §2.6.1</strong> Syntax Errors. <strong>MS-VBAL</strong> leaves the depth of an expression to the implementation; MS-VBA runs a chain of
+    /// 2,500 terms, and crashes the host past it.
+    /// </summary>
+    ExpressionNestedTooDeeply = 60,
+    /// <summary>
+    /// An output item is written right after another, with nothing between them: <c>Debug.Print 1(2)</c>, <c>Print #1, "a"x</c>.<br/>
+    /// <strong>RD-VBAL §5.4.5.8.1</strong> Output Lists. <strong>MS-VBAL §5.4.5.8.1</strong> lets an output item follow another with nothing between them;
+    /// RD-VBA requires a space, a <c>;</c> or a <c>,</c> between two output clauses, and the VBE writes a <c>;</c> there.
+    /// </summary>
+    OutputItemsNotSeparated = 61,
 
     #endregion
 
@@ -642,10 +654,22 @@ public enum VBCompileErrorId
     /// </summary>
     ForEachMayOnlyIterateOverACollectionObjectOrAnArray = 9379,
     /// <summary>
-    /// A module declares more than 10,000 names at module level: RD-VBA's cap, below the count MS-VBA compiles, with MS-VBA's message.<br/>
+    /// A module declares more than 10,000 names at module level: RD-VBA's cap, below the count MS-VBA compiles, with MS-VBA's message. Or a fixed-size array is
+    /// declared with more elements than an array holds in RD-VBA (<see cref="Values.Intrinsic.VBArrayValue.MaximumLength"/>), which MS-VBA allocates.<br/>
     /// <strong>MS-VBAL §5.2</strong> Module Declarations, which sets no limit.
     /// </summary>
     OutOfMemory = 9380,
+    /// <summary>
+    /// A parameter of a user-defined type is declared <c>ByVal</c>: a record is passed by reference. MS-VBAL sets no such rule; MS-VBA refuses it, and so does
+    /// RD-VBA.<br/>
+    /// <strong>MS-VBAL §5.3.1.5</strong> Parameter Lists.
+    /// </summary>
+    UserDefinedTypeMayNotBePassedByVal = 9381,
+    /// <summary>
+    /// A record of a user-defined type that no public class module defines is given to a <c>Variant</c>, which can't hold it.<br/>
+    /// <strong>MS-VBAL §5.5.1.2</strong> Let-coercion.
+    /// </summary>
+    UserDefinedTypeNotCoercibleToVariant = 9382,
 
 
     /***********************************************************************************************

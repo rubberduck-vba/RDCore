@@ -151,11 +151,20 @@ namespace RDCore.LanguageServer.Debugging {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A launch configuration names the module that has the entry point: &quot;module&quot;..
+        ///   Looks up a localized string similar to No standard module of the program declares a Public Sub {0}() or a Public Sub {0}(ParamArray Args()) to start with. Declare one, or name the module that has the entry point in the launch configuration: &quot;module&quot;..
         /// </summary>
-        internal static string LaunchNeedsModule {
+        internal static string NoModuleDeclaresTheEntryPoint {
             get {
-                return ResourceManager.GetString("LaunchNeedsModule", resourceCulture);
+                return ResourceManager.GetString("NoModuleDeclaresTheEntryPoint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to More than one standard module declares a Sub {0} the program could start with: {1}. Name the one to run in the launch configuration: &quot;module&quot;..
+        /// </summary>
+        internal static string ModulesDeclaringTheEntryPoint {
+            get {
+                return ResourceManager.GetString("ModulesDeclaringTheEntryPoint", resourceCulture);
             }
         }
         
@@ -174,6 +183,24 @@ namespace RDCore.LanguageServer.Debugging {
         internal static string NoRuntimeEnvironment {
             get {
                 return ResourceManager.GetString("NoRuntimeEnvironment", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to no folder is open: there is no workspace to run in.
+        /// </summary>
+        internal static string NoWorkspaceToRunIn {
+            get {
+                return ResourceManager.GetString("NoWorkspaceToRunIn", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to a module of the client&apos;s own can&apos;t be named &apos;{0}&apos;: it is the name of the project, or of a library it references.
+        /// </summary>
+        internal static string SessionModuleNameIsTaken {
+            get {
+                return ResourceManager.GetString("SessionModuleNameIsTaken", resourceCulture);
             }
         }
         
@@ -284,7 +311,16 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("StopPaused", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to The program is still stopping: it waits for an outside call to return, and ends when it does..
+        /// </summary>
+        internal static string StillStopping {
+            get {
+                return ResourceManager.GetString("StillStopping", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Step.
         /// </summary>

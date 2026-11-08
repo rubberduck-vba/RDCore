@@ -33,7 +33,12 @@ internal static class LanguageServerServices
     /// Registers the platform services in the <em>external</em> container.
     /// </summary>
     /// <param name="services">The container the application is built from.</param>
-    /// <param name="version">The version of the application, which the workspace is checked against.</param>
+    /// <param name="version">
+    /// The version of the application, which the workspace is checked against: the numeric <c>AssemblyName.Version</c>, not the
+    /// informational one, because <c>WorkspaceService.LoadAsync</c> compares a project's version against it as a <see cref="Version"/>,
+    /// and <c>new Version("0.1.0+&lt;sha&gt;")</c> would throw. That check is a no-op today: the loader re-stamps the project with
+    /// this same version (see the <c>ProjectFile</c> copy constructor).
+    /// </param>
     public static IServiceCollection AddPlatformCoordination(this IServiceCollection services, Version version)
     {
         services
@@ -84,6 +89,8 @@ internal static class LanguageServerServices
             .AddSingleton<RDCore.LanguageServer.Debugging.IEditStatusMonitor, RDCore.LanguageServer.Debugging.EditStatusMonitor>()
             .AddSingleton<RDCore.LanguageServer.Debugging.EditStatusPublication>()
             .AddSingleton<IHostOutputRelay, HostOutputRelay>()
+            // a pull declined while a dialog of the program was open is made again once it closes: the client is asked to pull its diagnostics again.
+            .AddSingleton(provider => new OpenDialogs { PullAgain = provider.GetRequiredService<IWorkspaceRefresh>().PullsDeclined })
             .AddSingleton<IClientInteractionRelay, ClientInteractionRelay>()
             // the indenter settings of Rubberduck, offered once and imported on demand (rdcore.importIndenterSettings).
             .AddSingleton(provider => new IndenterSettingsOffer(

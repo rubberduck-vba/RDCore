@@ -6,6 +6,7 @@ using OmniSharp.Extensions.DebugAdapter.Protocol.Server;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace;
 using DapThread = OmniSharp.Extensions.DebugAdapter.Protocol.Models.Thread;
 
 namespace RDCore.LanguageServer.Debugging;
@@ -15,10 +16,16 @@ namespace RDCore.LanguageServer.Debugging;
 /// </summary>
 public record class ProgramLaunchRequestArguments : LaunchRequestArguments
 {
-    /// <summary>The programmatic name of the module that has the entry point.</summary>
+    /// <summary>
+    /// The programmatic name of the module that has the entry point. When the client does not say, it is the one standard module of the program that declares the
+    /// entry point (<see cref="ProgramEntryPoint"/>), and a launch is refused when none does, or more than one does.
+    /// </summary>
     public string? Module { get; init; }
 
-    /// <summary>The name of the parameterless procedure to run. <c>Main</c> when the client does not say.</summary>
+    /// <summary>
+    /// The name of the procedure to run, which takes no argument, or takes the program's as one <c>ParamArray</c>, which is run empty. <c>Main</c> when the
+    /// client does not say.
+    /// </summary>
     public string? EntryPoint { get; init; }
 }
 
@@ -103,7 +110,7 @@ internal sealed class ProgramDebugAdapter(
     private bool _launched;
     private bool _started;
     private int _terminated;
-    private ExecuteSessionResult? _stoppedError;
+    private ExecuteResult? _stoppedError;
     private ErrorBreakMode _errorBreak;
 
     // an edit was loaded while the program waited, which it goes on with, and its next stop is told as invalidating what the client showed; and whether the client
@@ -113,7 +120,14 @@ internal sealed class ProgramDebugAdapter(
     private bool _invalidatedSupported;
     private readonly SemaphoreSlim _going = new(1, 1);
 
-    private sealed record VariableScope(int Frame, HostVariableScope Scope, int Reference);
+    private sealed record VariableScope(int Frame, DebugVariableScope Scope, int Reference);
+
+    // the targets a client was given to go on from, by the id it goes to one with: a line of a module, as the host said the program would go on from it. They
+    // are the targets of one stop: the program going on, or stopping again, forgets them, and an id given before is refused.
+    private readonly Dictionary<long, GotoPoint> _gotoTargets = [];
+    private long _nextGotoTarget;
+
+    private sealed record GotoPoint(string Module, int Line);
 
     /// <summary>Completes when the client has disconnected, or the adapter has nothing left to debug.</summary>
     public Task Closed => _closed.Task;
@@ -203,14 +217,8 @@ internal sealed class ProgramDebugAdapter(
     public async Task<LaunchResponse> Handle(ProgramLaunchRequestArguments request, CancellationToken cancellationToken)
     {
         _launching = true;
-        _entryPoint = string.IsNullOrWhiteSpace(request.EntryPoint) ? "Main" : request.EntryPoint;
-        _module = request.Module;
-        if (string.IsNullOrWhiteSpace(_module))
-        {
-            var refusal = Refusal(DebuggerMessages.LaunchNeedsModule);
-            _ = _opened.TrySetException(refusal);
-            throw refusal;
-        }
+        _entryPoint = string.IsNullOrWhiteSpace(request.EntryPoint) ? ProgramEntryPoint.Name : request.EntryPoint;
+        _module = string.IsNullOrWhiteSpace(request.Module) ? null : request.Module;
 
         try
         {
@@ -220,6 +228,23 @@ internal sealed class ProgramDebugAdapter(
         {
             _ = _opened.TrySetException(Refusal(exception.Message));
             throw Refusal(exception.Message);
+        }
+
+        // a launch that names no module runs the program from where it starts: the one module that declares its entry point, which only the workspace's symbols
+        // tell, once it is open.
+        if (_module is null)
+        {
+            var declaring = await workspace.ModulesDeclaringAsync(_entryPoint, cancellationToken);
+            if (declaring is not [var only])
+            {
+                var refusal = Refusal(declaring.Count == 0
+                    ? string.Format(DebuggerMessages.NoModuleDeclaresTheEntryPoint, _entryPoint)
+                    : string.Format(DebuggerMessages.ModulesDeclaringTheEntryPoint, _entryPoint, string.Join(", ", declaring)));
+                _ = _opened.TrySetException(refusal);
+                throw refusal;
+            }
+
+            _module = only;
         }
 
         if (!workspace.TryGetPath(_module, out _))
@@ -285,7 +310,7 @@ internal sealed class ProgramDebugAdapter(
         }
 
         // a breakpoint whose condition is refused is never waited at, which is what a client shows a breakpoint that is not verified as.
-        static bool IsWaitedAt(HostBreakpoint breakpoint) => breakpoint.Verified && breakpoint.ConditionError is null;
+        static bool IsWaitedAt(DebugBreakpoint breakpoint) => breakpoint.Verified && breakpoint.ConditionError is null;
 
         return new SetBreakpointsResponse
         {
@@ -321,7 +346,7 @@ internal sealed class ProgramDebugAdapter(
 
     public Task<ExceptionInfoResponse> Handle(ExceptionInfoArguments request, CancellationToken cancellationToken)
     {
-        ExecuteSessionResult? error;
+        ExecuteResult? error;
         ErrorBreakMode mode;
         lock (_sync)
         {
@@ -428,9 +453,9 @@ internal sealed class ProgramDebugAdapter(
 
     // the edits the program does not have, then what the user does about them: code that does not compile is corrected, and the program goes on; any other edit is
     // picked up when the program is run again.
-    private static string Told(string format, IReadOnlyCollection<HostDebugEdit> edits)
+    private static string Told(string format, IReadOnlyCollection<DebugEdit> edits)
     {
-        var uncompiled = edits.Count(edit => edit.Kind == HostDebugEditKind.DoesNotCompile);
+        var uncompiled = edits.Count(edit => edit.Kind == DebugEditKind.DoesNotCompile);
         var advice = uncompiled == 0
             ? DebuggerMessages.EditsAdviceRunAgain
             : uncompiled == edits.Count
@@ -440,7 +465,7 @@ internal sealed class ProgramDebugAdapter(
     }
 
     // each edit on a line of its own, as the user names it, and why.
-    private static string Listed(IEnumerable<HostDebugEdit> edits) => Listed(edits.Select(edit => (edit.Name, edit.Reason)));
+    private static string Listed(IEnumerable<DebugEdit> edits) => Listed(edits.Select(edit => (edit.Name, edit.Reason)));
 
     private static string Listed(IEnumerable<(string Name, string Reason)> items)
         => string.Join("\n", items.Select(item => "  " + string.Format(DebuggerMessages.EditNamed, item.Name, item.Reason)));
@@ -462,6 +487,7 @@ internal sealed class ProgramDebugAdapter(
         {
             _stepped = step is not null;
             _references.Clear();
+            _gotoTargets.Clear();
             _stoppedError = null;
         }
 
@@ -469,7 +495,7 @@ internal sealed class ProgramDebugAdapter(
     }
 
     // runs a request that answers when the program next waits or is over, on its own: the client has been answered already.
-    private void Run(Func<CancellationToken, Task<ExecuteSessionResult>> request)
+    private void Run(Func<CancellationToken, Task<ExecuteResult>> request)
     {
         _ = Task.Run(async () =>
         {
@@ -490,7 +516,7 @@ internal sealed class ProgramDebugAdapter(
         });
     }
 
-    private async Task ReportAsync(ExecuteSessionResult result)
+    private async Task ReportAsync(ExecuteResult result)
     {
         // the lines the program printed came apart from the answer, and are said before what the answer says of the program.
         await output.WaitForAsync(result.StreamedLines, TimeSpan.FromSeconds(2), _lifetime.Token);
@@ -524,14 +550,14 @@ internal sealed class ProgramDebugAdapter(
         await editStatus.CheckAsync(_lifetime.Token);
     }
 
-    private static string Describe(ExecuteSessionResult result) => result.Outcome switch
+    private static string Describe(ExecuteResult result) => result.Outcome switch
     {
         ExecutionOutcome.SyntaxError => string.Join("\n", result.Diagnostics),
         ExecutionOutcome.RuntimeError => $"{(result.ErrorTitle.Length > 0 ? result.ErrorTitle : DebuggerMessages.RuntimeErrorTitle)} '{result.ErrorNumber}': {result.ErrorMessage}",
         _ => result.ErrorMessage.Length > 0 ? result.ErrorMessage : result.Outcome.ToString(),
     };
 
-    private async Task StoppedAsync(ExecuteSessionResult result)
+    private async Task StoppedAsync(ExecuteResult result)
     {
         bool stepped;
         bool paused;
@@ -541,6 +567,7 @@ internal sealed class ProgramDebugAdapter(
             (stepped, paused, invalidate) = (_stepped, _paused, _invalidateOnStop);
             (_stepped, _paused, _invalidateOnStop) = (false, false, false);
             _stoppedError = result.ErrorNumber != 0 ? result : null;
+            _gotoTargets.Clear();
         }
 
         // the program went on with code that is not the code it waited in: the frames and the variables the client showed of it are not where they were.
@@ -692,8 +719,8 @@ internal sealed class ProgramDebugAdapter(
             return Task.FromResult(new ScopesResponse
             {
                 Scopes = new Container<Scope>(
-                    new Scope { Name = DebuggerMessages.ScopeLocals, PresentationHint = "locals", VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Locals, 0)) },
-                    new Scope { Name = DebuggerMessages.ScopeModule, VariablesReference = Reference(new VariableScope(frame, HostVariableScope.Module, 0)) }),
+                    new Scope { Name = DebuggerMessages.ScopeLocals, PresentationHint = "locals", VariablesReference = Reference(new VariableScope(frame, DebugVariableScope.Locals, 0)) },
+                    new Scope { Name = DebuggerMessages.ScopeModule, VariablesReference = Reference(new VariableScope(frame, DebugVariableScope.Module, 0)) }),
             });
         }
     }
@@ -719,7 +746,7 @@ internal sealed class ProgramDebugAdapter(
         }
 
         var result = await debugging.VariablesAsync(scope.Frame, scope.Scope, scope.Reference, cancellationToken);
-        IEnumerable<HostVariable> variables = result.Variables;
+        IEnumerable<DebugVariable> variables = result.Variables;
         if (request.Start is > 0)
         {
             variables = variables.Skip((int)request.Start.Value);
@@ -772,27 +799,78 @@ internal sealed class ProgramDebugAdapter(
             {
                 Result = result.Value,
                 Type = result.Type,
-                VariablesReference = result.Reference == 0 ? 0 : Reference(new VariableScope(frame, HostVariableScope.Locals, result.Reference)),
+                VariablesReference = result.Reference == 0 ? 0 : Reference(new VariableScope(frame, DebugVariableScope.Locals, result.Reference)),
             };
         }
     }
 
     // ---- the point the program goes on from ----
 
-    public Task<GotoTargetsResponse> Handle(GotoTargetsArguments request, CancellationToken cancellationToken)
-        => Task.FromResult(new GotoTargetsResponse
+    // a line is a target when the program could go on from it: the line of the first statement that begins on it or after it, in the procedure the program waits in,
+    // as the host says of the code as it is saved. A line of another procedure or source is none.
+    public async Task<GotoTargetsResponse> Handle(GotoTargetsArguments request, CancellationToken cancellationToken)
+    {
+        await _opened.Task.WaitAsync(cancellationToken);
+        if (request.Source?.Path is not { } path || !workspace.TryGetModule(path, out var module))
         {
-            Targets = new Container<GotoTarget>(new GotoTarget { Id = request.Line, Label = string.Format(DebuggerMessages.GotoTargetLine, request.Line), Line = (int)request.Line }),
-        });
+            return new GotoTargetsResponse { Targets = new Container<GotoTarget>() };
+        }
+
+        DebugGotoResult peeked;
+        await _going.WaitAsync(cancellationToken);
+        try
+        {
+            await LoadSavedAsync(cancellationToken);
+            peeked = await debugging.GotoAsync(module, ToLine(request.Line), peek: true, cancellationToken);
+            await editStatus.CheckAsync(cancellationToken);
+        }
+        finally
+        {
+            _going.Release();
+        }
+
+        if (!peeked.Moved)
+        {
+            return new GotoTargetsResponse { Targets = new Container<GotoTarget>() };
+        }
+
+        lock (_sync)
+        {
+            var id = ++_nextGotoTarget;
+            _gotoTargets[id] = new GotoPoint(module, peeked.Line);
+            var line = ToClientLine(peeked.Line);
+            return new GotoTargetsResponse
+            {
+                Targets = new Container<GotoTarget>(new GotoTarget
+                {
+                    Id = id,
+                    Label = string.Format(DebuggerMessages.GotoTargetLine, line),
+                    Line = line,
+                    Column = peeked.Character >= 0 ? ToClientColumn(peeked.Character) : null,
+                }),
+            };
+        }
+    }
 
     public async Task<GotoResponse> Handle(GotoArguments request, CancellationToken cancellationToken)
     {
+        GotoPoint? target;
+        lock (_sync)
+        {
+            _ = _gotoTargets.TryGetValue(request.TargetId, out target);
+        }
+
+        if (target is null)
+        {
+            throw Refusal(DebuggerMessages.CannotGoOnFromThere);
+        }
+
         // a point moved to is in the code as it is saved, which the host checks the edits against as it does when the program goes on: one request at a time.
         await _going.WaitAsync(cancellationToken);
         try
         {
             await LoadSavedAsync(cancellationToken);
-            var moved = await debugging.GotoAsync(ToLine(request.TargetId), label: null, cancellationToken);
+            var moved = await debugging.GotoAsync(target.Module, target.Line, peek: false, cancellationToken);
             await editStatus.CheckAsync(cancellationToken);
             if (!moved.Moved)
             {
@@ -805,6 +883,7 @@ internal sealed class ProgramDebugAdapter(
             lock (_sync)
             {
                 _references.Clear();
+                _gotoTargets.Clear();
                 (edited, _editedWhileWaiting) = (_editedWhileWaiting, false);
             }
 
@@ -830,7 +909,12 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<TerminateResponse> Handle(TerminateArguments request, CancellationToken cancellationToken)
     {
-        _ = await debugging.TerminateAsync(wipe: true, cancellationToken);
+        // a program in a call outside it ends when the call returns: the request that runs it answers then, and the end is told as the end of any run is.
+        if ((await debugging.TerminateAsync(wipe: true, cancellationToken)).Stopping)
+        {
+            Say(DebuggerMessages.StillStopping + "\n", OutputEventCategory.Console);
+            return new TerminateResponse();
+        }
 
         // a program that is over has no edits it does not have.
         await editStatus.CheckAsync(cancellationToken);
@@ -853,7 +937,7 @@ internal sealed class ProgramDebugAdapter(
 
     // ---- output ----
 
-    private void Say(string text, OutputEventCategory category, ExecuteSessionResult? located = null)
+    private void Say(string text, OutputEventCategory category, ExecuteResult? located = null)
     {
         if (_server is not { } server)
         {

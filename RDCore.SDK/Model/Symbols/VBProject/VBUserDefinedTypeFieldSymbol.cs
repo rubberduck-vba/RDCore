@@ -6,8 +6,8 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 
 /// <summary>
 /// Represents a field (element) of a user-defined <c>Type … End Type</c> declaration
-/// (MS-VBAL 5.2.3.3). Unlike a module field it is not independently accessible — it is reached only
-/// through an instance of its enclosing type — so it is a distinct symbol whose <c>ParentUri</c> is
+/// (MS-VBAL 5.2.3.3). Unlike a module field it is not independently accessible (it is reached only
+/// through an instance of its enclosing type), so it is a distinct symbol whose <c>ParentUri</c> is
 /// the <see cref="VBUserDefinedTypeMemberSymbol"/>, not the module.
 /// </summary>
 /// <param name="WorkspaceRoot">The workspace root for this symbol. For an external project or library, this should be different than the user's project workspace.</param>

@@ -67,6 +67,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, CaseComparedInSelectorTypeAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LikePatternDepartureAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariantStringThatIsNoNumberRankedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, StringComparedWithANumberAsADoubleAnalyzer>();
 
         // the ones that read how the module is written.
         services.AddSingleton<IModuleAnalyzer, OptionBaseAnalyzer>();
@@ -92,10 +93,14 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObsoleteWhileWendAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteOnLocalErrorStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedByRefAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedLateAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, NewOfAClassNotCreatableAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ArgumentTypedArithmeticAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IgnoredTypeCharacterAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ArrayGivenASecondEmptyArgumentListAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureConstantLengthAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ReDimOfAnImplicitVariantAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureTooLargeAnalyzer>();

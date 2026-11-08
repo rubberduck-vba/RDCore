@@ -19,6 +19,3 @@ That is every local variable, whatever declared it: a `Dim`, a `ReDim` of an arr
 ([**MS-VBAL §5.6.10**](rd-vbal.5.6.10.simple-name-expressions.md)). It is not a parameter, which is a new value at every call, and it is not a constant.
 
 A procedure that is not declared `Static` is not made one by a local variable that is: only that variable keeps its value.
-
----
-> ⏮️ [**RD-VBAL §5.3.1.1** Procedure Scope](rd-vbal.5.3.1.1.procedure-scope.md) | ⏭️ [**RD-VBAL §5.3.1.3** Procedure Names](rd-vbal.5.3.1.3.procedure-names.md)

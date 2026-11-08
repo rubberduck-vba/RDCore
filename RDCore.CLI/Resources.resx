@@ -221,7 +221,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>Type libraries are read from the registry and files of a Windows machine: this command only runs on Windows.</value>
   </data>
   <data name="ExportLibrary_NotFound" xml:space="preserve">
-    <value>This machine has no type library '{0}'. A library is given as a file, as the identifier the machine gave it, or by its name.</value>
+    <value>This machine has no type library '{0}'. A library is given as a file, as the identifier the machine gave it, or by its name. A file that holds more than one library is given with the number of the library's resource, as a .vbp references it (MSVBVM60.DLL\3).</value>
   </data>
   <data name="ExportLibrary_Written" xml:space="preserve">
     <value>Library '{0}' described: {1}</value>
@@ -285,6 +285,9 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Repl_Memory" xml:space="preserve">
     <value>{0} BYTES RESERVED  {1} AVAILABLE  {2} ALLOCATED  {3} FREE</value>
+  </data>
+  <data name="Repl_NobodyAnswers" xml:space="preserve">
+    <value>Nobody is at the shell's console to answer the question.</value>
   </data>
   <data name="Repl_NoSession" xml:space="preserve">
     <value>NO RUNTIME SESSION</value>
@@ -505,12 +508,6 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_HandlerOfAnActiveProcedure" xml:space="preserve">
     <value>the error handler of a procedure the program is in, or the statement its error was raised at</value>
   </data>
-  <data name="Host_Edit_LocalsOfAnActiveProcedure" xml:space="preserve">
-    <value>a local added to or removed from a procedure the program is in, which is not applied to a program that waits yet</value>
-  </data>
-  <data name="Host_Edit_FieldOfAClass" xml:space="preserve">
-    <value>a field added to a class whose objects the program may hold, which is not applied to a program that waits yet</value>
-  </data>
   <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
     <value>the signature of a procedure the program is in</value>
   </data>
@@ -518,7 +515,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>a procedure the program is in, removed</value>
   </data>
   <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
-    <value>a local of a procedure the program is in, given another type</value>
+    <value>a local of a procedure the program is in, given another type or made a Static</value>
   </data>
   <data name="Host_Edit_StoredValue" xml:space="preserve">
     <value>a variable or a field that holds a value, given another type or removed</value>
@@ -535,8 +532,8 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
     <value>an option of the module the program is in, which is not applied to a program that waits yet</value>
   </data>
-  <data name="Host_Edit_FieldOfAType" xml:space="preserve">
-    <value>a field added to a Type whose values the program may hold, which is not applied to a program that waits yet</value>
+  <data name="Host_Edit_TypeHeldUntilRun" xml:space="preserve">
+    <value>a Type whose values the program may hold, given other fields: its values keep the fields they have while the program is in progress, and the edit applies once the program is over, and the project's values are reset then, as MS-VBA resets the project for this edit - take the edit back to go on</value>
   </data>
   <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
     <value>a constant that sizes what a variable holds, given another value</value>
@@ -552,6 +549,12 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
     <value>no statement of the procedure begins at that line or after it</value>
+  </data>
+  <data name="Host_GotoOutsideTheProcedure" xml:space="preserve">
+    <value>the line is not in {0}, the procedure the program waits in</value>
+  </data>
+  <data name="Host_GotoInAnotherModule" xml:space="preserve">
+    <value>the line is in {0}, and the program waits in {1}</value>
   </data>
   <data name="Host_NoSuchActivation" xml:space="preserve">
     <value>there is no such activation</value>
@@ -634,11 +637,14 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Line" xml:space="preserve">
     <value>line {0}</value>
   </data>
+  <data name="Compilation_Stepped" xml:space="preserve">
+    <value>run by the interpreter: {0}</value>
+  </data>
   <data name="Compilation_Reason_MemberOfAClass" xml:space="preserve">
     <value>a member of a class</value>
   </data>
   <data name="Compilation_Reason_ParameterByReference" xml:space="preserve">
-    <value>a parameter passed by reference: {0}</value>
+    <value>a ParamArray parameter: {0}</value>
   </data>
   <data name="Compilation_Reason_NotAScalar" xml:space="preserve">
     <value>not a number, a Boolean or a Date: {0}</value>
@@ -656,7 +662,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>an assignment of what is not a variable of the procedure: {0}</value>
   </data>
   <data name="Compilation_Reason_ForCounter" xml:space="preserve">
-    <value>a For loop whose counter is not a numeric variable of the procedure: {0}</value>
+    <value>a For loop whose counter is not a numeric variable of the procedure, or is passed by reference: {0}</value>
   </data>
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>a call: {0}</value>
@@ -669,6 +675,9 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Compilation_Reason_LateBound" xml:space="preserve">
     <value>a name resolved when it is evaluated: {0}</value>
+  </data>
+  <data name="Compilation_Reason_New" xml:space="preserve">
+    <value>an object made with New: {0}</value>
   </data>
   <data name="Compilation_Reason_VariantOperand" xml:space="preserve">
     <value>an operand of a Variant or an object: {0}</value>
@@ -720,6 +729,9 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="CLI_Theme" xml:space="preserve">
     <value>The theme the console starts with. THEME changes the theme of this session only.</value>
+  </data>
+  <data name="CLI_Unattended" xml:space="preserve">
+    <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
   </data>
   <data name="Config_Summary" xml:space="preserve">
     <value>Shows the settings of the platform, and sets them for you</value>

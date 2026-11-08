@@ -301,8 +301,10 @@ public abstract class RDCoreServerApp(
     private void ConfigureServer(LanguageServerOptions serverOptions)
     {
         serverOptions
-            .WithInput(PipeReader.Create(_incomingChanges.Tap(_namedPipe)))
-            .WithOutput(PipeWriter.Create(_namedPipe))
+            // OmniSharp completes both as it handles exit, under the loops that read and write them: the input then ends, and a message still being
+            // written is no longer cancelled through the writer that was completed. Neither disposes the pipe, which this app does as it is disposed.
+            .WithInput(new ServerInput(PipeReader.Create(_incomingChanges.Tap(_namedPipe))))
+            .WithOutput(ServerOutput.Over(_namedPipe))
             // basic server app information:
             .WithServerInfo(GetServerInfo())
             // wire-up lifecycle delegates:
@@ -316,8 +318,9 @@ public abstract class RDCoreServerApp(
             // a request whose handler throws is answered on one line, which a client shows as it is, and the whole exception is written to this server's own
             // log:
             .WithOneLineErrors(logger)
-            // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change:
-            .WithConfigurationSection(LiveSettingsProtocol.Section)
+            // the client's live settings, which the server asks for (workspace/configuration) when it is initialized and whenever they change, of any client
+            // that answers it:
+            .WithClientConfiguration(LiveSettingsProtocol.Section)
             // core SDK handlers:
             .ConfigureCoreSdkHandlers()
             // OmniSharp 0.19.9 cannot write a pull diagnostic report, and the throw takes the entire
@@ -339,8 +342,9 @@ public abstract class RDCoreServerApp(
             }
 
             // the other half of the platform handshake: what the connected client expects of us.
-            // A handler serving an optional, client-driven request family consults it.
-            services.AddSingleton<IPlatformClientCapabilitiesService, PlatformClientCapabilitiesService>();
+            // A handler serving an optional, client-driven request family consults it. It logs what it
+            // is told with this app's logger, which writes to the file; this container's write to the client.
+            services.AddSingleton<IPlatformClientCapabilitiesService>(new PlatformClientCapabilitiesService(logger));
 
             // OmniSharp's own AddOptions() hands handlers an unconfigured SdkServerOptions; bridge the
             // configured instance so a closed-type registration wins over the open generic.
@@ -351,6 +355,9 @@ public abstract class RDCoreServerApp(
                 // not AddLanguageProtocolLogging(): OmniSharp's protocol logger forwards a caught
                 // exception's raw ToString() over window/logMessage. Forward the same records scrubbed.
                 builder.Services.AddSingleton<ILoggerProvider, ScrubbingLanguageServerLoggerProvider>();
+                // and to the file, which otherwise has nothing of the connection's own failures.
+                builder.Services.AddSingleton<ILoggerProvider>(new ContainerFileLoggerProvider(logger));
+                builder.WithoutDeferredOutputWarnings();
             });
 
             // app-specific service registrations:
@@ -389,16 +396,16 @@ public abstract class RDCoreServerApp(
     /// Gets information about this LSP server application and its configuration.
     /// </summary>
     /// <remarks>
-    /// 🧩 The base implementation returns the <c>Name</c> and <c>Version</c> of the executing <see cref="Assembly"/>,
-    /// which is everything <see cref="ServerInfo"/> needs.
+    /// 🧩 The base implementation returns the <c>Name</c> of the entry <see cref="Assembly"/> and its <see cref="AssemblyDisplayVersion"/>
+    /// (the informational version, prerelease suffix and <c>+commit</c> build metadata included), which is everything <see cref="ServerInfo"/> needs.
     /// </remarks>
     protected virtual ServerInfo GetServerInfo()
     {
-        var assemblyName = Assembly.GetEntryAssembly()?.GetName();
+        var assembly = Assembly.GetEntryAssembly();
         return new()
         {
-            Name = assemblyName?.Name ?? "RDCore.CustomLanguageServerApp",
-            Version = (assemblyName?.Version ?? new Version()).ToString(3)
+            Name = assembly?.GetName().Name ?? "RDCore.CustomLanguageServerApp",
+            Version = AssemblyDisplayVersion.Get(assembly)
         };
     }
 
@@ -457,7 +464,7 @@ public abstract class RDCoreServerApp(
         // what the client says of itself comes before everything that is built from it: the capabilities below, and whatever an
         // application brings up in its own handler - the children a language server starts are told the same locale.
         ApplyInitializationOptions(request);
-        var locale = ClientLocale.Of(request.Locale, ReadInitializationOptions(request.InitializationOptions));
+        var locale = ClientLocale.Of(ClientLocale.Said(server, request), ReadInitializationOptions(request.InitializationOptions));
         if (ClientLocale.Apply(locale) is { } culture)
         {
             LogIfEnabled(LogLevel.Information, $"🌐 The client's user interface is in '{culture.Name}'.");
@@ -507,6 +514,25 @@ public abstract class RDCoreServerApp(
     }
 
     /// <summary>
+    /// Whether the client of an <c>initialize</c> request says nobody is there to answer what the server would ask its user
+    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions.Unattended"/>).
+    /// </summary>
+    /// <param name="request">The request.</param>
+    protected internal static bool ClientRunsUnattended(InitializeParams request) => ReadInitializationOptions(request.InitializationOptions)?.Unattended == true;
+
+    /// <summary>
+    /// Whether the client of an <c>initialize</c> request answers what the server asks its user before the request is answered
+    /// (<see cref="Platform.Protocol.RDCoreInitializationOptions.AnswersDuringInitialize"/>): it says it does, and does not run unattended.
+    /// </summary>
+    /// <remarks>
+    /// A server asks nothing while it answers <c>initialize</c> of a client this is <see langword="false"/> for: it would wait for an answer that does not come,
+    /// and the client for the answer to <c>initialize</c>.
+    /// </remarks>
+    /// <param name="request">The request.</param>
+    protected internal static bool ClientAnswersDuringInitialize(InitializeParams request)
+        => ReadInitializationOptions(request.InitializationOptions) is { AnswersDuringInitialize: true, Unattended: false };
+
+    /// <summary>
     /// Reads the <c>initializationOptions</c> of an <c>initialize</c> request, which the protocol leaves a client free to put anything in.
     /// </summary>
     /// <param name="initializationOptions">What the request carried.</param>
@@ -552,7 +578,7 @@ public abstract class RDCoreServerApp(
     /// The request wins: it is LSP's own way for a client to say which process owns this server, and
     /// only a client that spawned the server itself could have passed <c>-p</c>. Nothing read the
     /// request at all, so a client that sent a <c>processId</c> was told in the log that it had sent
-    /// none — and nothing watched it, leaving the whole platform running after the client that owned it
+    /// none, and nothing watched it, leaving the whole platform running after the client that owned it
     /// was gone. A <c>null</c> <c>processId</c> is LSP's "the parent is not a process I can name".
     /// </remarks>
     internal static int ClientProcessId(long? requested, int configured, out bool outOfRange)
@@ -615,5 +641,13 @@ internal static class LanguageServerOptionsExtensions
         // through per spec, so ExitHandler above never runs and the host hangs instead of exiting
         // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
         // registered first, so registering ours here pre-empts it.
-        .WithServices(services => services.AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
+        .WithLifecycleReceiver();
+
+    // the receiver; the requests it keeps once the server is initialized, which act on a running program and are handled as they arrive rather than after the
+    // request that runs the program (ArrivalRequests); and the locale of the initialize request it keeps (InitializeLocale).
+    internal static LanguageServerOptions WithLifecycleReceiver(this LanguageServerOptions options)
+        => options.WithServices(services => services
+            .AddSingleton<ArrivalRequests>()
+            .AddSingleton<InitializeLocale>()
+            .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }

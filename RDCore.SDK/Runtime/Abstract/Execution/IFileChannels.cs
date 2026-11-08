@@ -8,13 +8,13 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// </summary>
 /// <remarks>
 /// The association "remains in effect until they are explicitly disassociated using a
-/// <c>close-statement</c>" (<strong>§5.4.5.1</strong>) — so a channel outlives the procedure that opened it
+/// <c>close-statement</c>" (<strong>§5.4.5.1</strong>), so a channel outlives the procedure that opened it
 /// and belongs to the session, not to a call frame.
 /// </remarks>
 public interface IFileChannel
 {
     /// <summary>
-    /// The file number source refers to this channel by — <c>#1</c>'s <c>1</c>.
+    /// The file number source refers to this channel by: <c>#1</c>'s <c>1</c>.
     /// </summary>
     int FileNumber { get; }
 
@@ -78,7 +78,7 @@ public interface IFileChannel
     IFileChannelInput Input { get; }
 
     /// <summary>
-    /// The current <em>file-pointer-position</em>, one-based — counted in <em>records</em> when the channel
+    /// The current <em>file-pointer-position</em>, one-based: counted in <em>records</em> when the channel
     /// was opened <see cref="VBFileMode.Random"/> and in bytes otherwise (<strong>MS-VBAL §5.4.5.3</strong>).
     /// </summary>
     long Position { get; }
@@ -105,13 +105,13 @@ public interface IFileChannel
     /// (<strong>MS-VBAL §5.4.5.3</strong>).
     /// </summary>
     /// <remarks>
-    /// A position past the end of the file extends it — "the extended content of the file is implementation
-    /// defined and can be undefined" — except on a channel whose access is
+    /// A position past the end of the file extends it ("the extended content of the file is implementation
+    /// defined and can be undefined") except on a channel whose access is
     /// <see cref="VBFileAccessMode.Read"/>, which the specification exempts.
     /// </remarks>
     /// <param name="position">The new position, in the same units <see cref="Position"/> is counted in.</param>
     /// <returns>
-    /// The error that stopped it, or <c>null</c>. A position of <c>0</c> or less is one — the specification
+    /// The error that stopped it, or <c>null</c>. A position of <c>0</c> or less is one: the specification
     /// says "an error is raised" without naming it, and MS-VBA raises <c>63</c>, <c>Bad record number</c>.
     /// </returns>
     Model.Errors.VBRuntimeErrorId? Seek(long position);
@@ -123,7 +123,7 @@ public interface IFileChannel
     /// <remarks>
     /// "Multiple lock ranges established by multiple lock statements can be simultaneously active", and each
     /// "remains in effect until it is removed by an <c>Unlock</c> statement... or specifies a record range
-    /// that evaluates to the same start record and end record" — so which ranges are held is not bookkeeping,
+    /// that evaluates to the same start record and end record", so which ranges are held is not bookkeeping,
     /// it is what decides whether the next <c>Unlock</c> is legal.
     /// </remarks>
     IEnumerable<FileRecordRange> Locks { get; }
@@ -136,7 +136,7 @@ public interface IFileChannel
     /// locks the entire file whatever is asked for, which the specification states outright.</param>
     /// <returns>
     /// The error that stopped it, or <c>null</c>. "Start record MUST be greater than or equal to 1, and less
-    /// than or equal to end record. If not, an error is raised" — unnamed there, and MS-VBA raises <c>63</c>.
+    /// than or equal to end record. If not, an error is raised": unnamed there, and MS-VBA raises <c>63</c>.
     /// </returns>
     Model.Errors.VBRuntimeErrorId? LockRange(FileRecordRange range);
 
@@ -155,7 +155,7 @@ public interface IFileChannel
 
     /// <summary>
     /// Writes one record at the current <em>file-pointer-position</em>, in the byte format
-    /// <strong>MS-VBAL §5.4.5.11</strong>'s tables define — what a <c>Put</c> statement does.
+    /// <strong>MS-VBAL §5.4.5.11</strong>'s tables define: what a <c>Put</c> statement does.
     /// </summary>
     /// <remarks>
     /// Record I/O is bytes rather than characters, so it does not go through <see cref="Output"/>: a record's
@@ -166,15 +166,15 @@ public interface IFileChannel
     /// <param name="isVariant">Whether the <c>data</c> expression's declared type is <c>Variant</c>, which the
     /// format precedes with a two-byte type descriptor.</param>
     /// <param name="written">How many bytes reached the file, which <c>Put</c> checks against a record length.</param>
-    /// <returns><c>false</c> for a value the format has no row for — an object, or a UDT.</returns>
+    /// <returns><c>false</c> for a value the format has no row for: an object, or a UDT.</returns>
     bool TryWriteRecord(Model.Values.Abstract.VBTypedValue value, bool isVariant, out int written);
 
     /// <summary>
-    /// Reads one record at the current <em>file-pointer-position</em> — what a <c>Get</c> statement does
+    /// Reads one record at the current <em>file-pointer-position</em>: what a <c>Get</c> statement does
     /// (<strong>MS-VBAL §5.4.5.12</strong>).
     /// </summary>
     /// <param name="declaredType">The declared type of the variable being read into, which decides how many
-    /// bytes the record occupies — except for a <c>Variant</c>, where the record's own descriptor decides.</param>
+    /// bytes the record occupies, except for a <c>Variant</c>, where the record's own descriptor decides.</param>
     /// <param name="currentLength">The length of the variable's current value, which is how many bytes a
     /// <c>String</c> read from a <see cref="VBFileMode.Binary"/> channel takes.</param>
     /// <param name="value">The value read.</param>
@@ -182,7 +182,7 @@ public interface IFileChannel
     bool TryReadRecord(Model.Types.Abstract.VBType declaredType, int currentLength, out Model.Values.Abstract.VBTypedValue? value);
 
     /// <summary>
-    /// Reads one record into the fields of <paramref name="userDefinedType"/>, in declaration order — what a
+    /// Reads one record into the fields of <paramref name="userDefinedType"/>, in declaration order: what a
     /// <c>Get</c> whose variable is a UDT does (<strong>MS-VBAL §5.4.5.12</strong>).
     /// </summary>
     /// <remarks>
@@ -197,12 +197,12 @@ public interface IFileChannel
 }
 
 /// <summary>
-/// A span of an open file, in records or in bytes depending on the channel's mode — a <c>Lock</c> or
+/// A span of an open file, in records or in bytes depending on the channel's mode: a <c>Lock</c> or
 /// <c>Unlock</c> statement's <c>record-range</c> (<strong>MS-VBAL §5.4.5.4</strong>).
 /// </summary>
 /// <remarks>
 /// Both ends are inclusive, and both are one-based, so <see cref="Start"/> is never <c>0</c> in a range a
-/// program asked for — which is what lets <c>0 To 0</c> mean <see cref="EntireFile"/> rather than being a
+/// program asked for, which is what lets <c>0 To 0</c> mean <see cref="EntireFile"/> rather than being a
 /// range at all.
 /// </remarks>
 /// <param name="Start">The first record or byte in the span.</param>
@@ -210,7 +210,7 @@ public interface IFileChannel
 public readonly record struct FileRecordRange(long Start, long End)
 {
     /// <summary>
-    /// The whole file — what a <c>Lock</c> or <c>Unlock</c> with no <c>record-range</c> applies to.
+    /// The whole file: what a <c>Lock</c> or <c>Unlock</c> with no <c>record-range</c> applies to.
     /// </summary>
     public static FileRecordRange EntireFile => new(0, 0);
 
@@ -221,7 +221,7 @@ public readonly record struct FileRecordRange(long Start, long End)
 }
 
 /// <summary>
-/// The writing side of an <see cref="IFileChannel"/> — an <see cref="IRuntimeOutput"/> that also has the
+/// The writing side of an <see cref="IFileChannel"/>: an <see cref="IRuntimeOutput"/> that also has the
 /// <em>maximum line length</em> a <c>Width</c> statement sets (<strong>MS-VBAL §5.4.5.7</strong>).
 /// </summary>
 /// <remarks>
@@ -232,7 +232,7 @@ public readonly record struct FileRecordRange(long Start, long End)
 public interface IFileChannelOutput : IRuntimeOutput
 {
     /// <summary>
-    /// The most characters a line of this file may hold, or <c>0</c> for no maximum — which is what a channel
+    /// The most characters a line of this file may hold, or <c>0</c> for no maximum, which is what a channel
     /// has until a <c>Width</c> statement says otherwise, and what <c>Width #n, 0</c> returns it to.
     /// </summary>
     /// <remarks>
@@ -243,14 +243,14 @@ public interface IFileChannelOutput : IRuntimeOutput
 }
 
 /// <summary>
-/// The reading side of an <see cref="IFileChannel"/> — the characters at and after its current
+/// The reading side of an <see cref="IFileChannel"/>: the characters at and after its current
 /// <em>file-pointer-position</em> (<strong>MS-VBAL §5.4.5</strong>).
 /// </summary>
 /// <remarks>
 /// Character-mode reading, which is what <c>Line Input #</c> and <c>Input #</c> do: the specification
 /// describes both as consuming bytes that are "converted in an implementation dependent manner" into data
-/// values, so the bytes-to-characters step belongs to the channel — the only thing that knows its own
-/// encoding — and the statements above it see characters.
+/// values, so the bytes-to-characters step belongs to the channel (the only thing that knows its own
+/// encoding), and the statements above it see characters.
 /// <para>
 /// 👉 Binary- and random-mode record I/O addresses <em>records</em> rather than characters, so it has a
 /// surface of its own beside this one: <see cref="IFileChannel.TryReadRecord"/> and
@@ -260,7 +260,7 @@ public interface IFileChannelOutput : IRuntimeOutput
 public interface IFileChannelInput
 {
     /// <summary>
-    /// Whether there are no characters at or after the current <em>file-pointer-position</em> — which is
+    /// Whether there are no characters at or after the current <em>file-pointer-position</em>, which is
     /// what <c>EOF</c> reports, and what makes a character-mode read raise error <c>62</c>.
     /// </summary>
     bool IsEndOfFile { get; }
@@ -293,7 +293,7 @@ public interface IFileChannelInput
     /// </summary>
     /// <remarks>
     /// The line termination sequence is not part of the result. A line ended by the end of the file rather
-    /// than by a terminator still reads as a line — the specification says so outright — so an empty string
+    /// than by a terminator still reads as a line (the specification says so outright), so an empty string
     /// and <c>null</c> mean different things here.
     /// </remarks>
     /// <returns>The line, or <c>null</c> when <see cref="IsEndOfFile"/> already was <c>true</c>.</returns>
@@ -301,7 +301,7 @@ public interface IFileChannelInput
 }
 
 /// <summary>
-/// The file numbers a session has open (<strong>MS-VBAL §5.4.5</strong>) — the shim every file statement
+/// The file numbers a session has open (<strong>MS-VBAL §5.4.5</strong>): the shim every file statement
 /// goes through.
 /// </summary>
 /// <remarks>
@@ -472,7 +472,7 @@ public interface IFileChannels
     Model.Errors.VBRuntimeErrorId? TryGetLastWriteTime(string path, out DateTime modified);
 
     /// <summary>
-    /// Closes every open channel — what a <c>Close</c> with no file number, and a <c>Reset</c>, both do
+    /// Closes every open channel: what a <c>Close</c> with no file number, and a <c>Reset</c>, both do
     /// (<strong>MS-VBAL §5.4.5.2</strong>).
     /// </summary>
     /// <returns>How many were closed.</returns>

@@ -19,11 +19,17 @@ public sealed record class VBUserDefinedTypeMemberSymbol(Uri WorkspaceRoot, Uri 
     : VBTypeMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, SymbolKindExt.UserDefinedType, VBUnknownType.TypeInfo, Range, SelectionRange, AccessModifier)
 {
     /// <summary>
-    /// This type's fields, in declaration order — the same <see cref="VBUserDefinedTypeFieldSymbol"/>s
+    /// This type's fields, in declaration order: the same <see cref="VBUserDefinedTypeFieldSymbol"/>s
     /// also yielded parented to this symbol's <see cref="Symbol.Uri"/>. Carried here so a resolver can
     /// hand back a fully-formed <c>VBUserDefinedType</c> without a second lookup.
     /// </summary>
     public ImmutableArray<VBTypeMemberSymbol> Members { get; init; } = [];
+
+    /// <remarks>
+    /// A Type's name is a type's, and a variable, a constant or a procedure of its module may take it (<strong>MS-VBAL §5.2.3.3</strong>). A Type is
+    /// addressed with the suffix <c>Type</c> after its name (<see cref="SymbolUri"/>), and its fields under it (<c>Point]Type.X</c>).
+    /// </remarks>
+    protected override string? UriSuffix => SymbolUri.TypeSuffix;
 }
 
 /// <summary>

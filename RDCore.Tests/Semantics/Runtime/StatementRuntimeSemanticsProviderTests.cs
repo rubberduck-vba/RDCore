@@ -79,7 +79,7 @@ public sealed class StatementRuntimeSemanticsProviderTests
         var assignments = new LetAssignmentEvaluator(letCoercion, operators, expressionEvaluator);
         return new StatementRuntimeSemanticsProvider(expressionEvaluator, assignments, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, letCoercion),
             new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator), letCoercion, assignments, new InputListEvaluator(assignments)),
-            new FixedAssignmentRuntimeSemantics(expressionEvaluator, letCoercion, assignments),
+            new FixedAssignmentRuntimeSemantics(expressionEvaluator, letCoercion, assignments, new SetCoercionRuntimeSemantics(formatter)),
             new ArrayStatementRuntimeSemantics(expressionEvaluator, letCoercion, assignments),
             new MidStatementRuntimeSemantics(expressionEvaluator, letCoercion, assignments));
     }

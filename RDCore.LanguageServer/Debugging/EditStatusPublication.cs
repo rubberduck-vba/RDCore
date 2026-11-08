@@ -4,6 +4,7 @@ using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.LanguageServer.Debugging;
@@ -36,7 +37,7 @@ internal sealed class EditStatusPublication(
         }
     }
 
-    private void Republish(HostDebugEditStatusResult previous, HostDebugEditStatusResult current)
+    private void Republish(DebugEditStatusResult previous, DebugEditStatusResult current)
     {
         if (!publisher.IsEnabled)
         {
@@ -46,7 +47,7 @@ internal sealed class EditStatusPublication(
         // a program that begins or ends waiting in break mode changes the findings of every module: what comes of evaluating the code is withdrawn while it waits,
         // and is found out again once it no longer does.
         var everyModule = previous.Suspended != current.Suspended;
-        var named = previous.Edits.Concat(current.Edits).Select(edit => edit.ModuleUri?.Fragment.TrimStart('#')).OfType<string>()
+        var named = previous.Edits.Concat(current.Edits).Select(edit => edit.ModuleUri is { } module ? SymbolUri.ModuleNameOf(module) : null).OfType<string>()
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var document in documents.GetAllDocuments())
         {

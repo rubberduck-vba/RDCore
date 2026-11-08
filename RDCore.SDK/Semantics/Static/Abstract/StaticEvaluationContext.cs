@@ -12,10 +12,10 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// </summary>
 /// <remarks>
 /// <see cref="Resolver"/> and <see cref="Scope"/> are deliberately just those two: a rule that needs a
-/// module-level fact — <c>Option Explicit</c>, <c>Option Compare</c>, whatever MS-VBAL directive comes
-/// next — reads it off <see cref="LexicalScope.EnclosingModuleDirectives"/> through <see cref="Scope"/>,
+/// module-level fact (<c>Option Explicit</c>, <c>Option Compare</c>, whatever MS-VBAL directive comes
+/// next) reads it off <see cref="LexicalScope.EnclosingModuleDirectives"/> through <see cref="Scope"/>,
 /// rather than this record growing a parameter for it. <see cref="EnclosingWithTargetType"/> is a
-/// different kind of fact — it isn't lexical (derivable from <see cref="Scope"/> alone), it's
+/// different kind of fact: it isn't lexical (derivable from <see cref="Scope"/> alone), it's
 /// statement-tree-positional: only a caller that has walked the enclosing statement tree (see
 /// <c>StatementStaticSemanticsEvaluator</c>) knows it, which is why it's threaded through here rather
 /// than derived.
@@ -42,4 +42,24 @@ namespace RDCore.SDK.Semantics.Static.Abstract;
 /// </param>
 public readonly record struct StaticEvaluationContext(
     ISymbolResolver Resolver, LexicalScope Scope, VBType? EnclosingWithTargetType = null, IExpressionFactSink? Facts = null,
-    Binding.ExpressionBindings? Bindings = null, StaticEnvironment? Environment = null);
+    Binding.ExpressionBindings? Bindings = null, StaticEnvironment? Environment = null)
+{
+    // what the expressions of the tree being evaluated evaluated to, which the evaluation of the tree gives every evaluation inside it. It is no part of what
+    // the context is: two contexts that differ only by it are equal.
+    internal ExpressionEvaluations? Evaluations { get; init; }
+
+    /// <summary>
+    /// Whether <paramref name="other"/> is the same context: the same resolver, scope, <c>With</c> target, sinks and environment.
+    /// </summary>
+    /// <param name="other">The context to compare with.</param>
+    public bool Equals(StaticEvaluationContext other)
+        => EqualityComparer<ISymbolResolver>.Default.Equals(Resolver, other.Resolver)
+            && EqualityComparer<LexicalScope>.Default.Equals(Scope, other.Scope)
+            && EqualityComparer<VBType?>.Default.Equals(EnclosingWithTargetType, other.EnclosingWithTargetType)
+            && EqualityComparer<IExpressionFactSink?>.Default.Equals(Facts, other.Facts)
+            && EqualityComparer<Binding.ExpressionBindings?>.Default.Equals(Bindings, other.Bindings)
+            && EqualityComparer<StaticEnvironment?>.Default.Equals(Environment, other.Environment);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => HashCode.Combine(Resolver, Scope, EnclosingWithTargetType, Facts, Bindings, Environment);
+}

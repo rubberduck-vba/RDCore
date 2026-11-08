@@ -16,6 +16,7 @@ using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -148,7 +149,7 @@ internal sealed class CompletionService(
         var line = isProgram ? position.Line + BasicProgramText.HeaderLines : position.Line;
 
         var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
-        return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position.Character, token,
+        return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position, token,
             IsArgumentTrigger(triggerCharacter));
     }
 
@@ -156,7 +157,7 @@ internal sealed class CompletionService(
     {
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
         var kind = ModuleKinds.Of((RDCoreModule?)null, source);
-        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position.Character, token, IsArgumentTrigger(triggerCharacter));
+        return CompleteAsync(moduleUri, moduleName, kind, source, position.Line, position, token, IsArgumentTrigger(triggerCharacter));
     }
 
     public async Task<CompletionList> CompleteCommandAsync(string moduleName, string source, SessionCommandCompletion command, CancellationToken token)
@@ -268,25 +269,31 @@ internal sealed class CompletionService(
     private static bool IsArgumentTrigger(string? triggerCharacter)
         => triggerCharacter is not null && ICompletionService.ArgumentTriggerCharacters.Contains(triggerCharacter);
 
+    // line is the line of the module's source; requested is the position as the client asked, in its own document, which the edits of the items are written
+    // in (a program's lines are further down in its module).
     private async Task<CompletionList> CompleteAsync(
-        Uri address, string moduleName, ModuleType kind, string source, int line, int character, CancellationToken token, bool argumentTrigger = false)
+        Uri address, string moduleName, ModuleType kind, string source, int line, Position requested, CancellationToken token, bool argumentTrigger = false)
     {
+        var character = requested.Character;
         var lines = source.Split('\n');
         if (line < 0 || line >= lines.Length)
         {
             return Empty;
         }
 
-        var text = lines[line].TrimEnd('\r');
-        var before = text[..Math.Clamp(character, 0, text.Length)];
+        // a statement is read off its logical line: its physical lines are joined where a line continuation ends one.
+        var logical = LogicalLine.At(lines, line, character);
+        var before = logical.Before;
         var context = CompletionSite.Read(before);
         if (context.Kind == CompletionSiteKind.None)
         {
             return Empty;
         }
 
-        // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first.
-        var argument = context.Kind == CompletionSiteKind.Name ? SignatureSite.Read(before) : null;
+        // a name that starts an argument of a call being written: what its parameter is declared as decides what the list offers first. A member is written in
+        // an argument too, which an array is given to (UBound(r.Slots)).
+        var call = context.Kind is CompletionSiteKind.Name or CompletionSiteKind.Member ? SignatureSite.Read(before) : null;
+        var argument = context.Kind == CompletionSiteKind.Name ? call : null;
 
         // asked for by a character typed, a list is only of where an argument's value starts: anywhere else - a space after an operand - it would offer nothing,
         // and the workspace is not composed for it.
@@ -301,7 +308,7 @@ internal sealed class CompletionService(
         // the line is taken out, and only what the list needs of it goes back in: what a member is accessed on - the one being completed, or the one whose
         // member is called.
         var qualifier = context.Kind == CompletionSiteKind.Member ? context.Qualifier : argument is { IsMemberAccess: true } ? argument.Qualifier : string.Empty;
-        if (await ComposeAsync(address, moduleName, kind, lines, line, qualifier, token) is not { } composed)
+        if (await ComposeAsync(address, moduleName, kind, lines, logical, line, qualifier, token) is not { } composed)
         {
             return Empty;
         }
@@ -317,34 +324,53 @@ internal sealed class CompletionService(
             _ => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line),
         };
 
+        // a member call's procedure is found in the composition with its qualifier put back in the line, which a member completed in its argument takes instead.
+        var signature = call is not null && (argument is not null || !call.IsMemberAccess)
+            ? SignatureDescription.OfCall(ProcedureAt(call, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver)
+            : null;
+
+        // after a named argument, every argument is named (MS-VBAL 5.6.13.1): nothing but the names of the parameters left is written where one starts.
+        var namesOnly = argument is { NamesBefore.Count: > 0 } && argument.ArgumentName is null && argument.IsWhereAnArgumentStarts(context.Prefix);
+        IReadOnlyList<CompletionCandidate> names = signature is not null && argument is not null
+            ? CompletionCandidates.NamedArguments(signature, argument, context.Prefix, logical.After)
+            : [];
+
+        // an argument an array is given to (of LBound, of UBound, of a parameter declared as an array) is offered the names it can be given, and no other.
+        var written = context.Kind == CompletionSiteKind.Member
+            ? before[^Math.Min(before.Length, context.Qualifier.Length + 1 + context.Prefix.Length)..]
+            : context.Prefix;
+        var arrays = call is null
+            ? null
+            : CompletionArrayArgument.Of(call, signature?.ActiveParameterOf(call.ArgumentIndex, call.ArgumentName) is { } given ? signature.Parameters[given] : null, written);
+
         // the constants of the Enum the argument's parameter is declared as come first, by name, the first of them selected: what is most likely to be written
         // there (MsgBox "Hello", vbYesNo).
-        IReadOnlyList<CompletionCandidate> constants = argument is not null && ProcedureAt(argument, composition, workspaceRoot, moduleUri, origin, module, line) is { } procedure
-            && SignatureDescription.Of(procedure) is { } signature
+        IReadOnlyList<CompletionCandidate> constants = !namesOnly && signature is not null && argument is not null
             && signature.ActiveParameterOf(argument.ArgumentIndex, argument.ArgumentName) is { } active
             && signature.Parameters[active].Type is VBEnumType constantsOf
                 ? CompletionCandidates.ConstantsOf(tree, constantsOf)
                 : [];
-        if (argumentTrigger && constants.Count == 0)
+        if (argumentTrigger && constants.Count == 0 && names.Count == 0)
         {
             return Empty;
         }
 
-        // a list is for the name being typed: what has the letters typed so far, in their order, is all a client can still show of it as more is typed. The name
-        // a qualifier is assigned to in the line that stands for the one typed is no name of the module.
-        var first = CompletionCandidates.Matching(constants, context.Prefix);
-        var offered = first.Select(constant => constant.Label).Append(Probe).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var matching = CompletionCandidates.Matching(candidates, context.Prefix).Where(candidate => !offered.Contains(candidate.Label)).ToList();
+        // the name a qualifier is assigned to in the line that stands for the one typed is no name of the module.
+        IReadOnlyList<CompletionCandidate> others = namesOnly
+            ? []
+            : [.. candidates.Where(candidate => !string.Equals(candidate.Label, Probe, StringComparison.OrdinalIgnoreCase))];
+
+        // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
+        IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
+        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
+            arrays is null ? others : [], requested);
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) first, {count} of {all} candidate(s).",
-                moduleName, line, character, context.Kind, context.Prefix, first.Count, matching.Count, candidates.Count);
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",
+                moduleName, line, character, context.Kind, context.Prefix, constants.Count, names.Count, list.Items.Count(), candidates.Count);
         }
 
-        return new CompletionList(
-            first.Select((constant, index) => constant.ToCompletionItem() with { SortText = $"!{index:D3}", Preselect = index == 0 })
-                .Concat(matching.Select(candidate => candidate.ToCompletionItem())),
-            isIncomplete: false);
+        return list;
     }
 
     public async Task<SignatureHelp?> SignatureHelpDocumentAsync(Uri documentUri, Position position, CancellationToken token)
@@ -379,18 +405,16 @@ internal sealed class CompletionService(
             return null;
         }
 
-        var text = lines[line].TrimEnd('\r');
-        if (SignatureSite.Read(text[..Math.Clamp(character, 0, text.Length)]) is not { } site
-            || await ComposeAsync(address, moduleName, kind, lines, line, site.IsMemberAccess ? site.Qualifier : string.Empty, token) is not { } composed)
+        var logical = LogicalLine.At(lines, line, character);
+        if (SignatureSite.Read(logical.Before) is not { } site
+            || await ComposeAsync(address, moduleName, kind, lines, logical, line, site.IsMemberAccess ? site.Qualifier : string.Empty, token) is not { } composed)
         {
             return null;
         }
 
         var (composition, module, workspaceRoot, moduleUri) = composed;
         var origin = CompletionCandidates.OriginAt(composition.ScopeTree, moduleUri, new SourcePosition(line, character));
-        var procedure = ProcedureAt(site, composition, workspaceRoot, moduleUri, origin, module, line);
-
-        if (procedure is null || SignatureDescription.Of(procedure) is not { } signature)
+        if (SignatureDescription.OfCall(ProcedureAt(site, composition, workspaceRoot, moduleUri, origin, module, line), composition.Resolver) is not { } signature)
         {
             return null;
         }
@@ -413,12 +437,18 @@ internal sealed class CompletionService(
                 .FirstOrDefault(candidate => string.Equals(candidate.Label, site.Name, StringComparison.OrdinalIgnoreCase))?.Symbol
             : composition.Resolver.ResolveValue(site.Name, SDK.Model.Symbols.Abstract.ScopeKind.Global, origin).Symbol;
 
-    // the module with its line taken out - and, for a member access, put back as an assignment of what the member is accessed on - parsed and composed with the
-    // workspace; nothing when the module cannot be parsed even so.
+    // the module with the logical line taken out - and, for a member access, put back as an assignment of what the member is accessed on, in the physical line
+    // of the position - parsed and composed with the workspace; nothing when the module cannot be parsed even so. The lines keep their count, so a position
+    // in the module is where it was.
     private async Task<(WorkspaceComposition Composition, ModuleNode Module, Uri WorkspaceRoot, Uri ModuleUri)?> ComposeAsync(
-        Uri address, string moduleName, ModuleType kind, string[] lines, int line, string qualifier, CancellationToken token)
+        Uri address, string moduleName, ModuleType kind, string[] lines, LogicalLine logical, int line, string qualifier, CancellationToken token)
     {
-        lines[line] = (qualifier.Length > 0 ? $"{Probe} = {qualifier}" : string.Empty) + (lines[line].EndsWith('\r') ? "\r" : string.Empty);
+        for (var index = logical.FirstLine; index <= logical.LastLine; index++)
+        {
+            var terminator = lines[index].EndsWith('\r') ? "\r" : string.Empty;
+            lines[index] = (index == line && qualifier.Length > 0 ? $"{Probe} = {qualifier}" : string.Empty) + terminator;
+        }
+
         var parse = await parsing.ParseFragmentAsync(address, string.Join('\n', lines), token);
         if (parse.SyntaxTree is not { } syntaxTree)
         {
@@ -438,7 +468,7 @@ internal sealed class CompletionService(
         // any other document is completed in the project that loaded it, and so is a line typed at a prompt: the primary project's.
         var root = !isOwnProject && documents.TryGetDocument(address, out var holder) ? holder.WorkspaceRoot : documents.WorkspaceRoot;
         var primary = isOwnProject || WorkspacePaths.Same(root, documents.WorkspaceRoot);
-        var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : new Uri(root);
+        var workspaceRoot = isOwnProject ? SymbolUri.RootOf(address, documents.WorkspaceRoot) : SymbolUri.Root(root);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
         // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
@@ -514,9 +544,16 @@ internal sealed class CompletionService(
             : [];
     }
 
+    // the static semantics of the qualifier, of the With blocks around the line and of what the module Sets the qualifier to recurse once for each level of
+    // each of them: they run on a large-stack thread, one for the list.
     private IReadOnlyList<CompletionCandidate> MembersOf(
         WorkspaceComposition composition, Uri workspaceRoot, Uri moduleUri, Uri origin, CompletionSite context, ModuleNode module, int line)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => MembersOf(composition, workspaceRoot, moduleUri, origin, context, module, line));
+        }
+
         var scope = composition.ScopeTree.ScopeFor(origin);
         var site = new MemberSite(composition, workspaceRoot, moduleUri, module, scope,
             new StaticEnvironment(options.Value.Environment.Is64Bit) { Libraries = librarySource });
@@ -559,6 +596,10 @@ internal sealed class CompletionService(
             {
                 return [];
             }
+
+            // a type is read as the composition has it now: what the members of a class of the workspace return is bound by then, and a class a library names
+            // before it reads it is the class of that name (CurrentTypes).
+            type = CurrentTypes.Of(site.Composition.Resolver, type);
 
             // a form's control is its class and the extender it is wrapped in: Left, SetFocus, Visible (FormControlExtender)
             return ObjectValueStaticSemantics.DesignerControlOf(context, expression) is not null

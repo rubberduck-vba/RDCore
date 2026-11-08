@@ -30,11 +30,12 @@ public sealed class EditStatusPublicationTests
 
     private static readonly WorkspaceDocument Module1 = new("Module1.bas", Root, "Attribute VB_Name = \"Module1\"\r\n");
     private static readonly WorkspaceDocument Module2 = new("Module2.bas", Root, "Attribute VB_Name = \"Module2\"\r\n");
+    private static readonly WorkspaceDocument Modele = new("Modèle.bas", Root, "Attribute VB_Name = \"Modèle\"\r\n");
 
     public EditStatusPublicationTests()
     {
         var documents = Substitute.For<IWorkspaceDocumentService>();
-        documents.GetAllDocuments().Returns([Module1, Module2]);
+        documents.GetAllDocuments().Returns([Module1, Module2, Modele]);
         _diagnostics.GetAsync(Arg.Any<Uri>(), Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<IProgress<SDK.Server.Progress.WorkProgressStep>?>())
             .Returns(call => DocumentDiagnosticsResult.Fresh(1, []));
         _publisher.IsEnabled.Returns(true);
@@ -53,7 +54,7 @@ public sealed class EditStatusPublicationTests
         new EditStatusPublication(_monitor, documents, Substitute.For<IParsingClientService>(), _diagnostics, _publisher, NullLogger<EditStatusPublication>.Instance).Attach();
     }
 
-    private async Task<Uri[]> PublishedAsync(HostDebugEditStatusResult previous, HostDebugEditStatusResult current, int expected)
+    private async Task<Uri[]> PublishedAsync(DebugEditStatusResult previous, DebugEditStatusResult current, int expected)
     {
         lock (_published)
         {
@@ -62,10 +63,20 @@ public sealed class EditStatusPublicationTests
             _allPublished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
-        _monitor.Changed += Raise.Event<Action<HostDebugEditStatusResult, HostDebugEditStatusResult>>(previous, current);
+        _diagnostics.ClearReceivedCalls();
+        _monitor.Changed += Raise.Event<Action<DebugEditStatusResult, DebugEditStatusResult>>(previous, current);
+
+        // which modules are pushed again is decided as the change is told: each one's findings are asked for before the push of any of them waits on anything.
+        // What was asked by then is every module that is ever pushed for this change.
+        var asked = _diagnostics.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(IDocumentDiagnosticsService.GetAsync))
+            .Select(call => (Uri)call.GetArguments()[0]!)
+            .ToArray();
+
         await _allPublished.Task.WaitAsync(Patience);
         lock (_published)
         {
+            CollectionAssert.AreEquivalent(asked, _published, "what is pushed is what was asked for");
             return [.. _published];
         }
     }
@@ -75,19 +86,30 @@ public sealed class EditStatusPublicationTests
     [DataRow(true, false, DisplayName = "break mode ended")]
     public async Task BreakModeBegunOrEnded_PushesEveryModuleAgain(bool before, bool after)
     {
-        var published = await PublishedAsync(new HostDebugEditStatusResult { Suspended = before }, new HostDebugEditStatusResult { Suspended = after }, expected: 2);
+        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = before }, new DebugEditStatusResult { Suspended = after }, expected: 3);
 
-        CollectionAssert.AreEquivalent(new[] { Module1.Id.Uri.ToUri(), Module2.Id.Uri.ToUri() }, published);
+        CollectionAssert.AreEquivalent(new[] { Module1.Id.Uri.ToUri(), Module2.Id.Uri.ToUri(), Modele.Id.Uri.ToUri() }, published);
     }
 
     // an edit listed while the program waits as it did is of the modules it names, and of no other.
     [TestMethod]
     public async Task AnEditListed_WhileTheProgramWaitsStill_PushesTheModuleItNamesAgain()
     {
-        var edit = new HostDebugEdit { Name = "Module2.Foo", Kind = HostDebugEditKind.Restart, Reason = "a local was removed", ModuleUri = new Uri("file:///ws#Module2") };
+        var edit = new DebugEdit { Name = "Module2.Foo", Kind = DebugEditKind.Restart, Reason = "a local was removed", ModuleUri = new Uri("file:///ws#Module2") };
 
-        var published = await PublishedAsync(new HostDebugEditStatusResult { Suspended = true }, new HostDebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
+        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = true }, new DebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
 
         CollectionAssert.AreEqual(new[] { Module2.Id.Uri.ToUri() }, published);
+    }
+
+    // the module an edit names is read from its address, which escapes a name with an accent.
+    [TestMethod]
+    public async Task AnEditListed_OfAModuleNamedWithAnAccent_PushesThatModuleAgain()
+    {
+        var edit = new DebugEdit { Name = "Modèle.Foo", Kind = DebugEditKind.Restart, Reason = "a local was removed", ModuleUri = SDK.Model.Symbols.SymbolUri.Module(new Uri("file:///ws"), "Modèle") };
+
+        var published = await PublishedAsync(new DebugEditStatusResult { Suspended = true }, new DebugEditStatusResult { Suspended = true, Edits = [edit] }, expected: 1);
+
+        CollectionAssert.AreEqual(new[] { Modele.Id.Uri.ToUri() }, published);
     }
 }

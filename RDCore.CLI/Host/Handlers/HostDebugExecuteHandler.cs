@@ -9,21 +9,27 @@ namespace RDCore.CLI.Host.Handlers;
 /// Handles <c>rdcore/host/debug/execute</c>: runs a statement in an activation of the program that waits.
 /// </summary>
 internal sealed class HostDebugExecuteHandler(IEnvironmentSessionProvider sessionProvider, IVerboseMessageBuilder messages)
-    : RDCoreRequestHandler<HostDebugExecuteParams, HostDebugEvaluateResult>
+    : RDCoreRequestHandler<HostDebugExecuteParams, DebugEvaluateResult>
 {
-    protected override Task<HostDebugEvaluateResult> HandleAsync(HostDebugExecuteParams request, CancellationToken token)
+    protected override Task<DebugEvaluateResult> HandleAsync(HostDebugExecuteParams request, CancellationToken token)
     {
         if (!sessionProvider.IsComposed)
         {
-            return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_NoRuntimeSession });
+            return Task.FromResult(new DebugEvaluateResult { Error = Resources.Host_NoRuntimeSession });
         }
 
         if (sessionProvider.Execution.State is not ProgramState.Suspended)
         {
-            return Task.FromResult(new HostDebugEvaluateResult
+            return Task.FromResult(new DebugEvaluateResult
             {
                 Error = sessionProvider.Execution.State is ProgramState.Running ? Resources.Host_TheProgramIsRunning : Resources.Host_NoProgramIsSuspended,
             });
+        }
+
+        // nothing of the project runs while a module of it does not load: a statement typed at the stop either.
+        if (HeldDefinitions.FailedToLoad(sessionProvider.Session) is { Count: > 0 } failed)
+        {
+            return Task.FromResult(new DebugEvaluateResult { Error = string.Join(Environment.NewLine, failed) });
         }
 
         SyntaxNode statement;
@@ -33,7 +39,7 @@ internal sealed class HostDebugExecuteHandler(IEnvironmentSessionProvider sessio
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or InvalidOperationException)
         {
-            return Task.FromResult(new HostDebugEvaluateResult { Error = Resources.Host_RequestCarriedNoStatement });
+            return Task.FromResult(new DebugEvaluateResult { Error = Resources.Host_RequestCarriedNoStatement });
         }
 
         var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages, outside: sessionProvider.Outside);

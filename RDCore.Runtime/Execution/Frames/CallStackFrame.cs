@@ -48,6 +48,10 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         public Stack<int>? GoSubReturns;
         public Dictionary<int, (int? End, ValueBindingHandle Cell)>? BlockHolders;
         public List<Symbol>? DeclaredAtAStop;
+        public List<Symbol>? EditedLocals;
+        public List<Symbol>? RetiredLocals;
+        public List<IBindingHandle>? RetiredCells;
+        public List<MemoryAddress>? RetiredAddresses;
         public Dictionary<SemanticId, MemoryAddress>? ReferenceVariants;
     }
 
@@ -171,7 +175,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // edit pending from an earlier wait is replaced by this one, which is aligned with the same body.
         if (rebased.Deferred)
         {
-            _pendingRebase = (body, alignment, Pc);
+            _pendingRebase = (body, alignment, Pc, rebased.ErrorHandler);
             return true;
         }
 
@@ -213,7 +217,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     // the edited body an activation running compiled code goes on in once its call returns, how it aligns with the body it runs, and the call.
-    private (InstructionList Body, InstructionAlignment Alignment, int Call)? _pendingRebase;
+    private (InstructionList Body, InstructionAlignment Alignment, int Call, ErrorHandlerState Handler)? _pendingRebase;
 
     /// <summary>
     /// Whether the activation, running compiled code, is to go on in an edited body once the call it is in the middle of returns
@@ -230,17 +234,26 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <returns>Whether there was an edited body to move into.</returns>
     public bool ApplyPendingRebase(bool atTheCall)
     {
-        if (_pendingRebase is not var (body, alignment, call))
+        if (_pendingRebase is not var (body, alignment, call, handler))
         {
             return false;
         }
 
-        // the call and the loops around it are as they were: TryRebase found it so.
+        // the call, the loops around it, the handler and each GoSub it is in are as they were: TryRebase found it so.
         var kept = alignment[call]!.Value;
-        (Body, Pc, _pendingRebase) = (body, atTheCall ? kept : kept + 1, null);
-        if (_occasional is { ForLoopState: { } loops } occasional)
+        (Body, Pc, ErrorHandler, _pendingRebase) = (body, atTheCall ? kept : kept + 1, handler, null);
+        if (_occasional is { } occasional)
         {
-            occasional.ForLoopState = loops.Where(loop => alignment[loop.Key] is not null).ToDictionary(loop => alignment[loop.Key]!.Value, loop => loop.Value);
+            if (occasional.ForLoopState is { } loops)
+            {
+                occasional.ForLoopState = loops.Where(loop => alignment[loop.Key] is not null).ToDictionary(loop => alignment[loop.Key]!.Value, loop => loop.Value);
+            }
+
+            if (occasional.GoSubReturns is { } returns)
+            {
+                // a stack enumerates from its top, and is pushed from its bottom.
+                occasional.GoSubReturns = new Stack<int>(returns.Select(offset => alignment[offset - 1]!.Value + 1).Reverse());
+            }
         }
 
         return true;
@@ -248,8 +261,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     // an activation running compiled code, in the middle of a call: the call, and the For loops around it, are kept, for certain, and around it still - no
     // loop of the edited body is around it that was not - so that its loops' state, which compiled code writes into the frame when the call returns, is of
-    // the loops it is in. Its If, Do and While blocks hold no state in its frame, and compiled code has no With, no GoSub and no handler. Its variables are
-    // its layout's, as any frame's.
+    // the loops it is in. Its If, Do and While blocks hold no state in its frame, and compiled code has no With; its handler and its GoSub Resumption List are
+    // in its frame, and are moved as an interpreted activation's are (ApplyPendingRebase). Its variables are its layout's, as any frame's.
     private FrameRebaseRefusal? CompiledRebased(InstructionList before, InstructionList body, InstructionAlignment alignment, [NotNullWhen(false)] out Rebasing? rebased)
     {
         rebased = null;
@@ -286,7 +299,74 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return FrameRebaseRefusal.BlockChanged;
         }
 
-        rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Deferred = true };
+        // the handler and the GoSub Resumption List compiled code keeps in the frame (IR lowering S2.4) are moved as an interpreted activation's are.
+        if (RebasedGoSubReturns(alignment) is { } goSubRefusal)
+        {
+            return goSubRefusal;
+        }
+
+        if (RebasedHandler(before, body, alignment, ErrorHandler, out var handler) is { } handlerRefusal)
+        {
+            return handlerRefusal;
+        }
+
+        rebased = new Rebasing(Pc, false, WaitedAt, handler, new Dictionary<int, int>()) { Deferred = true };
+        return null;
+    }
+
+    // the handler of an On Error GoTo is its label, as it was named or where it was; where an error being handled was raised is where its Resume goes back
+    // to. Both must be in the edited body.
+    private static FrameRebaseRefusal? RebasedHandler(InstructionList before, InstructionList body, InstructionAlignment alignment, ErrorHandlerState handler,
+        out ErrorHandlerState rebased)
+    {
+        rebased = handler;
+        int? Handler(int? offset)
+            => offset is not { } target ? null
+                : before.LabelAt(target) is { } label && body.TryGetLabelOffset(label, out var named) ? named
+                : alignment[target];
+        if ((handler.HandlerTarget is not null && Handler(handler.HandlerTarget) is null) || (handler.HandlerEntry is not null && Handler(handler.HandlerEntry) is null))
+        {
+            return FrameRebaseRefusal.HandlerChanged;
+        }
+
+        if (handler.IsHandling && handler.FaultStatementOffset is { } fault)
+        {
+            if (!alignment.IsCertain(fault))
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            if (alignment[fault] is null)
+            {
+                return FrameRebaseRefusal.HandlerChanged;
+            }
+        }
+
+        rebased = handler with
+        {
+            HandlerTarget = Handler(handler.HandlerTarget),
+            HandlerEntry = Handler(handler.HandlerEntry),
+            FaultStatementOffset = handler.FaultStatementOffset is { } raisedAt ? alignment[raisedAt] : null,
+        };
+        return null;
+    }
+
+    // a GoSub returns to the instruction after it, which is after the GoSub as it now is: each GoSub the activation is in must be in the edited body.
+    private FrameRebaseRefusal? RebasedGoSubReturns(InstructionAlignment alignment)
+    {
+        foreach (var offset in _occasional?.GoSubReturns ?? (IEnumerable<int>)[])
+        {
+            if (!alignment.IsCertain(offset - 1))
+            {
+                return FrameRebaseRefusal.Uncertain;
+            }
+
+            if (alignment[offset - 1] is null)
+            {
+                return FrameRebaseRefusal.BlockChanged;
+            }
+        }
+
         return null;
     }
 
@@ -381,7 +461,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
         // an error is being handled when an On Error GoTo caught it: its Resume goes back to the statement that raised it. One On Error Resume Next went on
         // past is gone by.
-        var handling = handler is { Mode: ErrorHandlingMode.Disabled, ActiveError: not null, HandlerEntry: not null };
+        var handling = handler.IsHandling;
 
         // where the activation goes on from, and may go back to: where it is, where each GoSub it is in returns to, and the statement a Resume goes back to.
         var returns = _occasional?.GoSubReturns?.ToList() ?? [];
@@ -422,51 +502,16 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 offsets[opener] = kept;
             }
 
-            // a GoSub returns to the instruction after it, which is after the GoSub as it now is.
-            foreach (var offset in returns)
+            if (RebasedGoSubReturns(alignment) is { } goSubRefusal)
             {
-                if (!alignment.IsCertain(offset - 1))
-                {
-                    return FrameRebaseRefusal.Uncertain;
-                }
-
-                if (alignment[offset - 1] is null)
-                {
-                    return FrameRebaseRefusal.BlockChanged;
-                }
+                return goSubRefusal;
             }
         }
 
-        // the handler of an On Error GoTo is its label, as it was named or where it was; where an error being handled was raised is where its Resume goes
-        // back to.
-        int? Handler(int? offset)
-            => offset is not { } target ? null
-                : before.LabelAt(target) is { } label && body.TryGetLabelOffset(label, out var named) ? named
-                : alignment[target];
-        if ((handler.HandlerTarget is not null && Handler(handler.HandlerTarget) is null) || (handler.HandlerEntry is not null && Handler(handler.HandlerEntry) is null))
+        if (RebasedHandler(before, body, alignment, handler, out handler) is { } handlerRefusal)
         {
-            return FrameRebaseRefusal.HandlerChanged;
+            return handlerRefusal;
         }
-
-        if (handling && handler.FaultStatementOffset is { } fault)
-        {
-            if (!alignment.IsCertain(fault))
-            {
-                return FrameRebaseRefusal.Uncertain;
-            }
-
-            if (alignment[fault] is null)
-            {
-                return FrameRebaseRefusal.HandlerChanged;
-            }
-        }
-
-        handler = handler with
-        {
-            HandlerTarget = Handler(handler.HandlerTarget),
-            HandlerEntry = Handler(handler.HandlerEntry),
-            FaultStatementOffset = handler.FaultStatementOffset is { } raisedAt ? alignment[raisedAt] : null,
-        };
 
         var waitedAt = WaitedAt >= 0 && alignment[WaitedAt] is { } waited ? waited : -1;
         rebased = new Rebasing(pc, moved, waitedAt, handler, offsets);
@@ -864,15 +909,59 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <param name="symbol">The parameter.</param>
     /// <param name="cell">The cell of the caller's variable.</param>
     /// <param name="slot">The number of the parameter's slot, when the caller knows it; <c>-1</c> to look it up.</param>
-    internal void PushAlias(Symbol symbol, IBindingHandle cell, int slot)
-        => Hold(symbol, cell, cell is ScalarCell scalar ? scalar.Type.DefaultValue.Size : 0, slot, isAlias: true);
+    /// <param name="referencedType">
+    /// The declared type of the variable when the parameter does not have it - a <c>Variant</c> parameter given a variable of another type
+    /// (<see cref="TryGetReferencedType"/>); <see langword="null"/> when it does.
+    /// </param>
+    internal void PushAlias(Symbol symbol, IBindingHandle cell, int slot, VBType? referencedType = null)
+    {
+        Hold(symbol, cell, cell is ScalarCell scalar ? scalar.Type.DefaultValue.Size : 0, slot, isAlias: true, referencedType);
+        if (referencedType is not null)
+        {
+            (Occasionally.ReferencedTypes ??= [])[symbol.SemanticId] = referencedType;
+        }
+    }
+
+    /// <summary>
+    /// Declares <paramref name="symbol"/>, a variable of the activation, held in <paramref name="cell"/>: a cell compiled code made of it, and holds it in
+    /// (IR lowering S2.3c), which the activation frees as its own.
+    /// </summary>
+    /// <param name="symbol">The parameter or the variable.</param>
+    /// <param name="cell">Its cell.</param>
+    /// <param name="slot">The number of its slot.</param>
+    internal void PushCell(Symbol symbol, ScalarCell cell, int slot) => Hold(symbol, cell, cell.Type.DefaultValue.Size, slot);
+
+    /// <summary>
+    /// Declares <paramref name="symbol"/>, a parameter of an object, held in <paramref name="cell"/>: the cell of its reference, as <see cref="HoldArgument"/>
+    /// gives it one: the cell an activation of a member of a class entered without a frame held its <c>Me</c> in, which the activation
+    /// lets go of as its own.
+    /// </summary>
+    /// <param name="symbol">The parameter.</param>
+    /// <param name="type">Its declared type.</param>
+    /// <param name="cell">The cell of its reference.</param>
+    /// <param name="slot">The number of its slot.</param>
+    internal void PushObject(Symbol symbol, VBType type, ValueBindingHandle cell, int slot) => Hold(symbol, cell, type.DefaultValue.Size, slot);
+
+    /// <summary>
+    /// What is bound at the address the variable in slot <paramref name="slot"/> was given, when the slot holds an address rather than a cell: the variable's
+    /// cell, unless something other than a cell is bound there.
+    /// </summary>
+    internal bool TryGetAddressedSlot(int slot, [NotNullWhen(true)] out IBindingHandle? handle)
+    {
+        handle = null;
+        return (uint)slot < (uint)_slots.Length && _slots[slot] is { IsFilled: true, Cell: null } held && Storage.TryRead(held.Address, out handle);
+    }
+
+    /// <summary>Whether slot <paramref name="slot"/> of the activation's layout holds a variable: a cell, or an address.</summary>
+    internal bool IsSlotFilled(int slot) => (uint)slot < (uint)_slots.Length && _slots[slot].IsFilled;
 
     /// <summary>The layout the activation was laid out as (<see cref="LayOut"/>), if it was.</summary>
     internal FrameLayout? Layout => _layout;
 
     // a slot the caller numbered is the one of this activation's layout, which is what the caller read the number from: no symbol is looked up (S1.3).
-    // isAlias: the cell is a variable of the caller's (PushAlias), which this activation has a second name for and does not free.
-    private IBindingHandle Hold(Symbol symbol, IBindingHandle cell, int size, int slot, bool isAlias = false)
+    // isAlias: the cell is a variable of the caller's (PushAlias), which this activation has a second name for and does not free; referencedType, the type a
+    // Variant reference parameter reads it as.
+    private IBindingHandle Hold(Symbol symbol, IBindingHandle cell, int size, int slot, bool isAlias = false, VBType? referencedType = null)
     {
         if ((uint)slot < (uint)_slots.Length || TryGetOwnSlot(symbol, out slot))
         {
@@ -883,7 +972,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 throw new InvalidOperationException($"'{symbol.Uri}' is already declared on this frame.");
             }
 
-            held = new Slot(true, default, cell, null, size, isAlias);
+            held = new Slot(true, default, cell, referencedType, size, isAlias);
             return cell;
         }
 
@@ -942,8 +1031,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return false;
     }
 
-    // the address of a variable that has none yet: the cell is bound at it, and is reached through it from now on - a POKE rebinds what is at an address,
-    // which a slot that held the cell would not see, so the slot holds the address instead.
+    // the address of a variable that has none yet: the cell is bound at it, and is reached through it from now on - something other than a cell may be
+    // bound at an address, which a slot that held the cell would not see, so the slot holds the address instead.
     // NOTE: TryAllocate failing here (storage exhausted) needs to surface as a coded VBRuntimeErrorId.OutOfMemory runtime error once this has a caller with
     // a source location to attach it to - matches RuntimeSymbolResolver.TryAllocate's own documented contract.
     private bool TryGiveAddress(Symbol symbol, out MemoryAddress address)
@@ -1022,6 +1111,69 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// The locals of this activation that statements typed where the program waited declared (<see cref="PushDeclaredAtAStop"/>), in the order they were.
     /// </summary>
     public IReadOnlyList<Symbol> DeclaredAtAStop => (IReadOnlyList<Symbol>?)_occasional?.DeclaredAtAStop ?? [];
+
+    /// <summary>
+    /// The locals the activation holds since an edit made while the program waited changed what its procedure declares, in the order the procedure now
+    /// declares them (<see cref="Relaid"/>); <see langword="null"/> while it holds those its procedure had when it began. What it lets go of when it returns,
+    /// in that order, with <see cref="RetiredLocals"/>.
+    /// </summary>
+    public IReadOnlyList<Symbol>? EditedLocals => _occasional?.EditedLocals;
+
+    /// <summary>
+    /// The locals an edit removed from the procedure this is an activation of while the activation holds them: nothing names them any more, and the activation
+    /// lets go of them when it returns.
+    /// </summary>
+    public IReadOnlyList<Symbol> RetiredLocals => (IReadOnlyList<Symbol>?)_occasional?.RetiredLocals ?? [];
+
+    /// <summary>
+    /// Says which locals the activation holds once an edit changed what its procedure declares (<see cref="EditedLocals"/>), and which it holds that the procedure
+    /// no longer declares (<see cref="RetiredLocals"/>).
+    /// </summary>
+    /// <param name="locals">The locals the procedure declares, in its order, each declared on the activation.</param>
+    /// <param name="retired">The locals it holds that the procedure no longer declares.</param>
+    public void Relaid(IReadOnlyList<Symbol> locals, IReadOnlyList<Symbol> retired)
+        => (Occasionally.EditedLocals, Occasionally.RetiredLocals) = ([.. locals], [.. retired]);
+
+    /// <summary>
+    /// Lets go of the name of <paramref name="local"/>, so that it can be declared again as another variable of the same name: the cell it named is held apart
+    /// (<see cref="RetiredCells"/>) and let go of when the activation returns, as the activation's own locals are, and so is the address it was given.
+    /// </summary>
+    /// <param name="local">The local.</param>
+    public void Retire(Symbol local)
+    {
+        if (TryResolve(local, out var cell))
+        {
+            (Occasionally.RetiredCells ??= []).Add(cell);
+        }
+
+        var retired = Occasionally.RetiredAddresses ??= [];
+        if (TryGetOwnSlot(local, out var index))
+        {
+            if (_slots[index] is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+            {
+                retired.Add(given);
+            }
+
+            _slots[index] = default;
+        }
+
+        if (_cells is not null && _cells.Remove(local.SemanticId, out var held) && held is { IsAlias: false, Cell: ScalarCell { Address: { } address } })
+        {
+            retired.Add(address);
+        }
+
+        if (_addresses?.Forget(local) is { } bound)
+        {
+            retired.Add(bound);
+        }
+
+        _ = _declared?.Remove(local.SemanticId);
+    }
+
+    /// <summary>
+    /// The cells of locals whose names the activation let go of (<see cref="Retire"/>): what they hold is let go of when the activation returns.
+    /// </summary>
+    public IReadOnlyList<IBindingHandle> RetiredCells => (IReadOnlyList<IBindingHandle>?)_occasional?.RetiredCells ?? [];
 
     /// <summary>
     /// Declares <paramref name="symbol"/> on this frame as a <c>ByRef</c> reference parameter binding
@@ -1114,8 +1266,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
 
     // the slots of the activation (IR lowering D2), filled as they are read: each holds the cell of a variable that has no address, or the address of one
     // that has - this activation's own, or the one a ByRef parameter is an alias of - and the type a Variant reference parameter reads its variable as. A
-    // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address does (a POKE
-    // rebinds it), which is why it is read there every time rather than kept.
+    // variable's address does not change while the activation runs (Push and PushByRef declare each variable once); the binding at the address may (a POKE
+    // rebinds one that is not a cell), which is why it is read there every time rather than kept.
     private readonly record struct Slot(bool IsFilled, MemoryAddress Address, IBindingHandle? Cell, VBType? ReferencedType, int Size, bool IsAlias = false);
 
     private FrameLayout? _layout;
@@ -1246,9 +1398,23 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         _addresses?.ReleaseAll();
-        foreach (var (_, variant) in _occasional?.ReferenceVariants ?? [])
+
+        // what an activation has none of is not made to be gone through: a frame is let go of at every return.
+        if (_occasional?.ReferenceVariants is { } variants)
         {
-            Storage.TryDeallocate(variant);
+            foreach (var (_, variant) in variants)
+            {
+                Storage.TryDeallocate(variant);
+            }
+        }
+
+        // the addresses of locals whose names an edit let go of (Retire).
+        if (_occasional?.RetiredAddresses is { } retiredAddresses)
+        {
+            foreach (var retired in retiredAddresses)
+            {
+                Storage.TryDeallocate(retired);
+            }
         }
 
         // a variable of this activation that a parameter of a call it made was asked the address of, and that was not asked for it itself since: the
@@ -1261,11 +1427,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             }
         }
 
-        foreach (var (_, held) in _cells ?? [])
+        if (_cells is { } cells)
         {
-            if (held is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+            foreach (var (_, held) in cells)
             {
-                Storage.TryDeallocate(given);
+                if (held is { IsAlias: false, Cell: ScalarCell { Address: { } given } })
+                {
+                    Storage.TryDeallocate(given);
+                }
             }
         }
 

@@ -12,11 +12,18 @@ A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes 
 - Paths are relative to the root, separated by `/`, in ordinal order. Of two files that declare the same `VB_Name`, the first in that order is the module (**RD-VBAL §2.2.3.3**).
 - The project is named after the folder when the folder's name is a valid _identifier name_ other than `VBA`, and `VBAProject` otherwise, as the VBE names a new project.
 
+The interactive shell, given no workspace, runs in a scratch one of its own: a project named `VBAProject` whose one module is `Program`. MS-VBA refuses a module named as its project ("Name conflicts with existing module, project, or object library"), so the two names differ. `VBAProject` is the name that a project-qualified reference to the program's members uses (`VBAProject.Program.Main`), and the name that `Err.Source` and the dialogs' title give.
+
+A project's name is the language core's default until a client gives it another: a client may rename its project, `Untitled1` say, as an IDE names a new project on startup. The name the platform reports follows the project file. When the `.rdproj` names the project anew, the workspace is reloaded and the environment host composes its session again, so that `Err.Source`, a dialog's default title, the session's status and a project-qualified reference all give the new name. A host whose program is running keeps its session, and the name it had, until it composes the session again.
+
+> [!NOTE]
+> **Not implemented.** No request of the platform renames a project. The language server is the only writer of a `.rdproj`, so a client renames its project only by changing the file outside the editor, which the platform reads as any other change to its project file ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md)).
+
 The synthesized project is written to `.rdproj` on its first change, a file the client created, renamed or deleted (see [**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles)), and is a project file like any other from then on. The language server is the only writer of a `.rdproj`.
 
 ```javascript
 {
-  "Version": "",
+  "Version": "1.0",
   "Configuration": [],
   "ProjectInfo": RDCoreProject
 }
@@ -24,12 +31,37 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 |Member|Type|Description|
 |---|---|---|
-|`Version`|`string`|The RD-VBA _language core_ version the project file was _serialized_ with.|
+|`Version`|`string`|The version of the `.rdproj` format the file is written in, as _major.minor_ ([§2.2.3.0](#2230-the-formats-version)). It is not the version of RDCore. A file written by hand may leave it out or leave it empty.|
 |`Configuration`|array of `string`|The locations (relative paths) of any configuration files to bind at run-time.|
 |`ProjectInfo`|[`RDCoreProject`](#2231-rdcoreproject)|An object that describes the content of an RD-VBA project.|
 
 > [!TIP]
 > This model is intended to natively support VB6 _project files_ (`.vbp`).
+
+## 2.2.3.0 The format's version
+
+A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.1`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
+
+RDCore opens a project file whatever version it says:
+
+- **The same format, or an older one.** The project opens. An older file is written in the current format the next time RDCore saves it.
+- **A newer second number** (`1.1` when RDCore writes `1.0`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
+- **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
+
+Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open.
+
+A project file that cannot be read at all, because it is not JSON or a member is not what the format says it is, does not open. Instead, RDCore offers to regenerate it from the source files of its folder, the same way it builds a project for a folder that has no project file. It always asks first, because what only the project file says, such as the project's references, is lost.
+
+- **You accept.** The file as it was is kept next to it, as `.rdproj.bak` (or `.rdproj.1.bak` and so on, if that name is taken), and the new file replaces it.
+- **The new file cannot be written.** The old one is put back as it was, and the project does not open, as if you had not accepted.
+- **The old one cannot be put back either.** It stays as the `.bak` file, and RDCore says so, and what to rename it to.
+- **You decline.** Nothing changes, and the project does not open until the file is fixed.
+
+Who is asked:
+
+- **An IDE** asks in its own window, but only if it says it can answer while the project opens (`answersDuringInitialize`, [**RD-VBAL §2.0.2.1.3**](rd-vbal.2.0.2.client-server-capabilities.md#20213-what-the-server-asks-before-it-answers-initialize)). One that does not say so is not asked, and the project does not open.
+- **The `rdc` shell** asks at its prompt, but only when someone is typing at it: a script piped into `rdc` is not asked, and none of its lines is taken for an answer. A question that comes while you are typing a line waits until you enter it, so your keys stay on the line.
+- **Under `--unattended`**, nobody is there to answer, so nothing is asked: the project does not open, and RDCore says why.
 
 ## 2.2.3.1 RDCoreProject
 
@@ -60,7 +92,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 The rule is worded "should not" because whether a _source project_ can reference a _different project_ that has the same name is explicitly specified as _host-dependent_ behavior. An RD-VBA _host environment_ **should** explicitly deny the addition of any such ambiguous project reference.
 
-The _standard library_ symbols are present in a project whether or not its `.rdproj` mentions the library at all (see [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)). It is RDCore's own, in every dialect, and is no reference: RDCore writes none to it in a `.rdproj` - a new project, one a folder makes up, or one imported from a VB6 project. A `.rdproj` written before lists it first, with the path of Office's `VBE7.DLL`: it is read without it, and written without it the next time RDCore writes the file.
+The _standard library_ symbols are present in a project whether or not its `.rdproj` mentions the library at all (see [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)). It is RDCore's own, in every dialect, and is no reference: RDCore writes none to it in a `.rdproj` - a new project, one a folder makes up, or one imported from a VB6 project. A `.rdproj` that lists it anyway, with the path of Office's `VBE7.DLL`, is read without it, and written without it.
 
 ## 2.2.3.2 RDCoreReference
 
@@ -80,51 +112,50 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 |Member|Type (default)|Description|
 |---|---|---|
 |`Name`|`string`|The _identifier name_ (token) used in workspace source code to reference this library.|
-|`Guid`|`string`|A _Globally Unique Identifier_ optionally identifying the referenced library in a _host-defined application registry_.|
+|`Guid`|`string`|The identifier of the type library the reference is to, optional. When it is given, the library is the description made from that type library; when it is empty, the library of `Name`.|
 |`AbsolutePath`|`string`|The full path to the physical location of the referenced library, if it exists. An import of a `.vbp` resolves the path VB6 writes relative to the `.vbp`'s folder (`..\..\Windows\System32\FM20.DLL`), so that it names the same file wherever the project is moved.|
-|`Major`|number (`0`)|The _major_ version number of the referenced library, if available.|
-|`Minor`|number (`0`)|The _minor_ version number of the referenced library, if available.|
+|`Major`|number, optional|The _major_ version number of the referenced type library. With a `Guid`, the description must have this major version. With a `Guid` and no `Major`, the library is the description of the highest version of the identifier.|
+|`Minor`|number, optional|The _minor_ version number of the referenced type library. With a `Guid`, the description of exactly this minor version is the library, and otherwise the one of the highest minor version above it. With no `Minor`, the library is the description of the highest minor version of `Major`. A `Minor` with a `Guid` and no `Major` is not valid, and the reference is not resolved.|
 |`IsUnremovable`|boolean (`false`)|A _soft indicator_ marking the reference as _unremovable_ from an LSP _client_.|
 
-> [!NOTE]
-> 🧩 A supplied `Guid` necessarily refers to a COM registered library. Resolving such a library implies platform-specific _Windows Registry_ lookups.
-> The _environment host_ may use _implementation-dependent_ alternative means to provide _symbols_ and _semantics_ for such references.
+A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 
-👉 An `RDCoreReference` for a reference to a [`VBHostProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
+An `RDCoreReference` for a reference to a [`VBHostProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
-The order in which project references appear in the `.rdproj` file of a _workspace folder_ determines the _reference priority_ (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
+The order in which project references appear in the `.rdproj` file of a _workspace folder_ determines their _reference precedence_: a reference that appears earlier has the higher precedence (**MS-VBAL §4.1**), and the `VBA` standard library comes before every reference the file lists (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#reference-precedence)).
 
 [`IRuntimeSession`](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeSession.html)`.References` is the runtime-facing view of the `.rdproj` `RDCoreReference` list (see [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 ## 2.2.3.3 RDCoreModule
 
-[`RDCoreModule`](../api/RDCore.SDK.Workspace.RDCoreModule.html) describes the modules (source files) of a _workspace folder_.
+[`RDCoreModule`](../api/RDCore.SDK.Workspace.RDCoreModule.html) describes the modules (source files) of a _workspace folder_. A standard or class module is its path, relative to the root; a document module is an object that also says its document:
 
 ```javascript
-{
-  "Name": "",
-  "Super": null
-}
+"Modules": [
+  "Module1.bas",
+  "Shapes/Disc.cls",
+  { "RelativeUri": "Sheet1.doccls", "Super": "ExcelWorksheet" }
+]
 ```
 
 |Member|Description|
 |---|---|
-|`Name`|The _identifier name_ (token) used in workspace source code to reference this module.|
-|`Super`|A `string` value that can be parsed as a member of the [`DocClassType`](#22331-docclasstype-enum) enumeration: `"ExcelWorksheet"`. A number (`2`), which earlier project files wrote, is read the same; it is written as the name. `null` for a standard or class module.|
+|`RelativeUri`|The path of the module's source file, relative to the root of the _workspace folder_, separated by `/`.|
+|`Super`|A `string` value that can be parsed as a member of the [`DocClassType`](#22331-docclasstype-enum) enumeration: `"ExcelWorksheet"`. A number (`2`) is read the same, and written as the name.|
 
-A module whose `Super` is not `null` is a _document module_, whatever its text and its file name say: its export (a `.doccls`, or a `.cls` from the VBE) has no header that would say so. Any other module is a class module when its text has a `VERSION` header, and a standard module otherwise. The environment host and the language server decide it the same way ([`ModuleKinds.Of`](../api/RDCore.SDK.Workspace.ModuleKinds.html)).
+A module whose `Super` is set is a _document module_, whatever its text and its file name say: its export (a `.doccls`, or a `.cls` from the VBE) has no header that would say so. Any other module is a class module when its text has a `VERSION` header, and a standard module otherwise. The environment host and the language server decide it the same way ([`ModuleKinds.Of`](../api/RDCore.SDK.Workspace.ModuleKinds.html)). An object with no `Super`, or a `null` one, is read as the module's path alone.
 
 > [!IMPORTANT]
-> The value of the `Name` property of an `RDCoreModule` **must** be unique within its _project_. A project is its own namespace: two projects of a _workspace_ can each have a `Module1`.
+> A module's name **must** be unique within its _project_. A project is its own namespace: two projects of a _workspace_ can each have a `Module1`.
 
 A client can open several folders (**LSP 3.17** `workspaceFolders`). The first is the project the platform runs, and each other folder that is a project's is a project that is analyzed - diagnostics, navigation, completion - and not run. The first folder is always a project. A later folder that holds a `.rdproj` of its own is a project, imported or native, even when another project lists files in it: a file two projects list is a module of each. A later folder that holds no `.rdproj` is only a place for sources when a project loaded before it lists files in it, and a project when none does. This is read when the workspace is loaded. The folders are the bounds of the workspace: a module path that climbs out of the project's folder (`..\Shared\Util.bas`) is accepted when a folder of the workspace holds the file, and is refused, and reported to the client, otherwise. Only the first project is run: the others get the language server's analysis, and not the environment host's. A file that two projects list is one document, and a module of each project - with a copy of its own, as in Visual Basic 6: each project reaches its own copy's `Friend` members and `Private` classes, with module-level state of its own. The diagnostics of the document are the first project's that loaded it, since a client keeps one set of diagnostics for a document. A file the client renames (`workspace/didRenameFiles`) is listed under its new path by every project that lists it, each in its own `.rdproj`; a project other than the first is not reloaded by the other file operations (create, delete) yet. _Known limit:_ only the first project's libraries are resolved: the other projects see the standard library and their own modules, and a name from a library they reference is not found (nothing tells the client yet).
 
-The `Name` of an `RDCoreModule` is always supplied by a `VB_Name` _attribute_ (see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)). In case of a mismatch between `Name` and the value of the `VB_Name` attribute, _the attribute value always takes precedence_.
+A module's name is its `VB_Name` _attribute_ (see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)), not its file name: a project file doesn't say it.
 
 ### 2.2.3.3.1 DocClassType Enum
 
 > [!NOTE]
-> 🧩 This `enum` type is an extension point: it is intended to be extended as additional _document modules_ are explicitly supported.
+> This `enum` type is an extension point: it is intended to be extended as additional _document modules_ are explicitly supported.
 
 The [`DocClassType`](../api/RDCore.SDK.Workspace.DocClassType.html) enumeration defines constants that map _document modules_ to the class of the host library their document is an object of ([`ModuleKinds.HostClassOf`](../api/RDCore.SDK.Workspace.ModuleKinds.html)):
 
@@ -139,7 +170,7 @@ The [`DocClassType`](../api/RDCore.SDK.Workspace.DocClassType.html) enumeration 
 
 A name or a number the enumeration does not have reads as `Unknown`: the project still loads.
 
-_Document modules_ can only be added to a VBA project via the _host application_ that defines them: in MS-VBA, the project lives inside the host's document, and a document module belongs to the host. The _VBIDE Extensibility API_ exports one as a `.cls` file, which would re-import as a _class module_. Rubberduck (the VBE add-in) exported what the code pane shows of one, with no attributes, to a `.doccls` file. Neither says what the module is; the project file does (`Super`), and nothing else - no module name, file extension or event handler makes a module a document module.
+_Document modules_ can only be added to a VBA project via the _host application_ that defines them: in MS-VBA, the project lives inside the host's document, and a document module belongs to the host. The _VBIDE Extensibility API_ exports one as a `.cls` file, which would re-import as a _class module_. Rubberduck (the VBE add-in) exports what the code pane shows of one, with no attributes, to a `.doccls` file. Neither says what the module is; the project file does (`Super`), and nothing else - no module name, file extension or event handler makes a module a document module.
 
 RD-VBA is not hosted: it runs VBA outside of any host application, and automates an application from the outside. A document module is therefore loaded **for analysis only**:
 
@@ -150,7 +181,7 @@ RD-VBA is not hosted: it runs VBA outside of any host application, and automates
 > [!NOTE]
 > RD-VBA cannot create a `Workbook` host document, nor a `Worksheet` module in its `Sheets` collection, because that is the responsibility of _Microsoft Excel_.
 
-> 🎯 Code that handles a document's events holds the document in a `WithEvents` variable of the host's class (`Private WithEvents AutomationSheet As Excel.Worksheet`), from an application the workspace code automates, and handles `AutomationSheet_Change` instead of `Worksheet_Change`.
+> Code that handles a document's events holds the document in a `WithEvents` variable of the host's class (`Private WithEvents AutomationSheet As Excel.Worksheet`), from an application the workspace code automates, and handles `AutomationSheet_Change` instead of `Worksheet_Change`.
 
 ## 2.2.3.4 RDCoreFile
 
@@ -159,15 +190,13 @@ RD-VBA is not hosted: it runs VBA outside of any host application, and automates
 > [!TIP]
 > For example, an `RDCoreProject` could include `README.md`, `CONTRIBUTING.md`, and `LICENCE.md` text/markdown files as `RDCoreFile` entries. These files would always be bundled with the project, but ignored by the RD-VBA _language core_.
 
+A file is its path, relative to the root of the _workspace folder_, separated by `/`:
+
 ```javascript
-{
-  "Name": ""
-}
+"OtherFiles": [ "README.md", "docs/LICENCE.md" ]
 ```
 
-|Member|Description|
-|---|---|
-|`Name`|The _identifier name_ (token) used in workspace source code to reference this module.|
+An object with a `RelativeUri` member is read the same.
 
 ## 2.2.3.5 Importing a VB6 Project
 
@@ -206,6 +235,3 @@ A folder that has a `.rdproj` already keeps what the `.vbp` does not describe ([
 
 > [!NOTE]
 > **Not implemented.** A VB6 project group (`.vbg`) is to be imported as a workspace file ([**RD-VBAL §2.2.2**](rd-vbal.2.2.2.workspacefile.md)).
-
----
-> ⏮️ [**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md) | ⏭️ [**RD-VBAL §2.3** Application Host](rd-vbal.2.3.application-host.md)

@@ -68,7 +68,9 @@ internal static class BlockStructureScanner
                 continue;
             }
 
-            if (broken)
+            // a statement written with a modifier is a declaration (Static x As Long), which opens and closes no block: Static For As Long is no For, and is
+            // the grammar's error.
+            if (broken || modified)
             {
                 continue;
             }

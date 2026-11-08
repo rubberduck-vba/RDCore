@@ -19,10 +19,10 @@ internal sealed class RubberduckIndenterSettingsClient(ILanguageServerFacade ser
     public bool ClientExpects => capabilities.Expects(group => group.RubberduckIndenterSettings);
 
     /// <summary>Asks the client what it found of Rubberduck's indenter settings.</summary>
-    public Task<RubberduckIndenterSettingsResult> ReadAsync(CancellationToken token)
-        => server.SendRequest(new RubberduckIndenterSettingsParams(), token);
+    public async Task<RubberduckIndenterSettingsResult> ReadAsync(CancellationToken token)
+        => await server.SendRequest(new RubberduckIndenterSettingsRequest(), token);
 
     /// <summary>Asks the client to take the settings as its own.</summary>
     public Task<RubberduckIndenterSettingsApplyResult> ApplyAsync(RubberduckIndenterSettingsApplyParams settings, CancellationToken token)
-        => server.SendRequest(settings, token);
+        => server.SendRequest(new RubberduckIndenterSettingsApplyRequest(settings), token);
 }

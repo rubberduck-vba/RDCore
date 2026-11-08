@@ -158,12 +158,12 @@ public static partial class ValueConversions
         _ => Ranged(value, destination) ? ValueConversionResult.Success(destination.CreateValue(value)) : Overflow,
     };
 
-    // a decimal number to a numeric type: for an integral type, a number within its range is rounded to a whole number by Banker's rounding, which a
-    // number within the range always rounds to one within it.
+    // a decimal number to a numeric type: for an integral type, it is rounded to a whole number by Banker's rounding, and that is the number that must be
+    // within the range (a Currency of -32768.5 is the Integer -32768, recorded in Excel: oracle\s58 K02).
     private static ValueConversionResult FromFixed(decimal value, VBNumericType destination) => destination switch
     {
-        IIntegralNumericType when WholeRangeOf(destination) is var (lowest, highest)
-            => value >= lowest && value <= highest ? FromWhole((long)Math.Round(value, MidpointRounding.ToEven), destination) : Overflow,
+        IIntegralNumericType when WholeRangeOf(destination) is var (lowest, highest) && Math.Round(value, MidpointRounding.ToEven) is var whole
+            => whole >= lowest && whole <= highest ? FromWhole((long)whole, destination) : Overflow,
         VBCurrencyType => value >= CurrencyMinValue && value <= CurrencyMaxValue ? ValueConversionResult.Success(new VBCurrencyValue(value)) : Overflow,
         VBDecimalType => ValueConversionResult.Success(new VBDecimalValue(value)),
         _ => Ranged((double)value, destination) ? ValueConversionResult.Success(destination.CreateValue((double)value)) : Overflow,

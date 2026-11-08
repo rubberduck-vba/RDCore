@@ -12,7 +12,7 @@ public static class RuntimeSessionExtensions
     /// The name of the conditional compilation constant that says whether this is a debug build.
     /// </summary>
     /// <remarks>
-    /// RDCore's own, not MS-VBAL's — VBA has no such constant. It is a conditional compilation
+    /// RDCore's own, not MS-VBAL's: VBA has no such constant. It is a conditional compilation
     /// constant rather than a setting of its own so that <c>#If DEBUG Then</c> and "does this
     /// <c>Debug.Print</c> run" cannot disagree, and so that the precedence a project already has over
     /// its constants (a <c>--define</c> beats the <c>.rdproj</c>, which beats the built-in) applies to
@@ -21,7 +21,7 @@ public static class RuntimeSessionExtensions
     public const string DebugConstantName = "DEBUG";
 
     /// <summary>
-    /// Whether this session is running a debug build — whether <c>Stop</c> breaks, and whether a release build's
+    /// Whether this session is running a debug build: whether <c>Stop</c> breaks, and whether a release build's
     /// choice to drop <c>Debug.Print</c> and <c>Debug.Assert</c> (<see cref="Abstract.Execution.IRuntimeEnvironmentProfile.ReleaseDropsDebugStatements"/>) applies.
     /// </summary>
     /// <remarks>

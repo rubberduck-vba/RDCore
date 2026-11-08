@@ -130,8 +130,10 @@ public sealed class LetAssignmentEvaluator(
             _ => null,
         };
 
-        return symbol is ITypedSymbol { ResolvedType: var declared }
+        // a Variant reference parameter given a variable of another type holds what that variable is declared as (MS-VBAL §5.3.1.11).
+        return symbol is ITypedSymbol { ResolvedType: var own }
             && session.Symbols.Resolver.TryGetAddress(symbol, out _)
+            && (session.CallStack.Current is { } frame && frame.TryGetReferencedType(symbol, out var referenced) ? referenced : own) is var declared
             && Held(declared.CreateValue(session.Symbols.Resolver.GetValue(symbol).ForReading())) is VBArrayValue array
             && session.CallStack.Frames.Any(frame => frame.LocksArray(array));
     }
@@ -309,7 +311,12 @@ public sealed class LetAssignmentEvaluator(
         var before = ObjectReferences.HeldIn(session, cell);
         if (cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
-            cell.Store(session.Symbols.Resolver, value, !source.IsIndeterminate);
+            // a record let to an element that holds one is written where the element's record is: a field given by reference is the field.
+            if (!SymbolAddressTable.TryLetRecordInPlace(cell, source))
+            {
+                cell.Store(session.Symbols.Resolver, value, !source.IsIndeterminate);
+            }
+
             ObjectReferences.Rebind(session, cell, before);
             return cell;
         }
@@ -371,7 +378,10 @@ public sealed class LetAssignmentEvaluator(
             // `r.Values(1) = value`: an element of the array a field of the record holds, which is written where it is.
             VBUserDefinedTypeValue record when !indexArguments.IsEmpty && record[memberAccess.Member.IdentifierName] is { } field
                 => AssignElementOf(session, context, statement, field, memberAccess, indexArguments, source, value, isSet),
-            _ => RuntimeExecutionOutcome.InternalError,
+            VBUserDefinedTypeValue => RuntimeExecutionOutcome.InternalError,
+            // a Variant that holds neither an object nor a record - an array, a number - has no member to assign, indexed or Set: 424 (MS-VBA, recorded in
+            // Excel: oracle\s56 D09, D10), as AssignField raises for `v.Foo = 1`.
+            _ => RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, memberAccess.Member.IdentifierName)),
         };
     }
 
@@ -720,10 +730,11 @@ public sealed class LetAssignmentEvaluator(
 
         if (owner is not VBUserDefinedTypeValue udt)
         {
-            // a public variable of an object, or a Property Let of it.
+            // a public variable of an object, or a Property Let of it. A Variant that holds neither an object nor a record - an array, a number - has no
+            // member to assign: 424 (MS-VBA, recorded in Excel: oracle\s56 I01, C04); a variable declared as one is a compile error, Invalid qualifier.
             return owner is VBObjectValue objectOwner
                 ? AssignObjectMember(session, context, statement, memberAccess, [], objectOwner, source, value, isSet: false)
-                : RuntimeExecutionOutcome.InternalError;
+                : RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, memberAccess.Member.IdentifierName));
         }
 
         var name = memberAccess.Member.IdentifierName;
@@ -745,12 +756,13 @@ public sealed class LetAssignmentEvaluator(
 
         var index = udt.Fields.IndexOf(declared);
         var before = ObjectReferences.HeldInField(udt, index);
-        if (!udt.TrySetFieldAt(index, coerced))
+        // a scalar field is written in its cell, which a ByRef parameter given the field is bound to (MS-VBAL §5.3.1.11).
+        if (!udt.TryLetFieldAt(index, coerced))
         {
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        // the field holds what it was given in a cell of its own now, which is what holds the objects in it.
+        // a field that can hold an object holds what it was given in a cell of its own now, which is what holds the objects in it.
         ObjectReferences.RebindField(session, udt, index, before);
         return RuntimeExecutionOutcome.Next;
     }

@@ -590,6 +590,24 @@ public sealed class SyntaxTreeSymbolProviderTests
         Assert.IsEmpty(symbols.OfType<VBLocalVariableSymbol>());
     }
 
+    // the label of every statement that branches to one names no variable, without Option Explicit too: On Error GoTo's was bound as an implicit Variant.
+    [TestMethod]
+    [DataRow("On Error GoTo Done", DisplayName = "On Error GoTo")]
+    [DataRow("GoTo Done", DisplayName = "GoTo")]
+    [DataRow("GoSub Done", DisplayName = "GoSub")]
+    [DataRow("Resume Done", DisplayName = "Resume")]
+    public void TheLabelOfAStatementThatBranchesToIt_IsNotAnImplicitDeclaration(string statement)
+    {
+        var symbols = Provide($"""
+            Public Sub Foo()
+                {statement}
+            Done:
+            End Sub
+            """, new IntrinsicSymbolResolver());
+
+        Assert.IsEmpty(symbols.OfType<VBLocalVariableSymbol>(), string.Join(", ", symbols.OfType<VBLocalVariableSymbol>().Select(local => local.Name)));
+    }
+
     [TestMethod]
     public void ATypeName_IsNotAnImplicitDeclaration()
     {

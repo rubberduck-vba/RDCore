@@ -76,6 +76,8 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.HashElseWithoutIf] = Exceptions.VBCompileError_HashElseWithoutIf,
         [VBCompileErrorId.ElseIfWithoutIf] = Exceptions.VBCompileError_ElseIfWithoutIf,
         [VBCompileErrorId.HashIfWithoutEndIf] = Exceptions.VBCompileError_HashIfWithoutEndIf,
+        [VBCompileErrorId.ExpressionNestedTooDeeply] = Exceptions.VBCompileError_ExpressionNestedTooDeeply,
+        [VBCompileErrorId.OutputItemsNotSeparated] = Exceptions.VBCompileError_OutputItemsNotSeparated,
 
         [VBCompileErrorId.TypeMismatch] = Exceptions.VBCompileError_TypeMismatch,
         [VBCompileErrorId.InvalidUseOfObject] = Exceptions.VBCompileError_InvalidUseOfObject,
@@ -157,5 +159,7 @@ public record class VBCompileErrorInfo : VBErrorInfo
         [VBCompileErrorId.WithObjectMustBeUserDefinedTypeObjectOrVariant] = Exceptions.VBCompileError_WithObjectMustBeUserDefinedTypeObjectOrVariant,
         [VBCompileErrorId.ForEachMayOnlyIterateOverACollectionObjectOrAnArray] = Exceptions.VBCompileError_ForEachMayOnlyIterateOverACollectionObjectOrAnArray,
         [VBCompileErrorId.OutOfMemory] = Exceptions.VBCompileError_OutOfMemory,
+        [VBCompileErrorId.UserDefinedTypeMayNotBePassedByVal] = Exceptions.VBCompileError_UserDefinedTypeMayNotBePassedByVal,
+        [VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant] = Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant,
     };
 }

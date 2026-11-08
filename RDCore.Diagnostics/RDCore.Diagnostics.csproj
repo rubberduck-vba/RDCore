@@ -7,11 +7,8 @@
     <OutputType>Exe</OutputType>
 	<ApplicationIcon>logo.ico</ApplicationIcon>
 	<StartupObject>RDCore.Diagnostics.Program</StartupObject>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Company>9562-7303 Québec inc.</Company>
-    <Description>RDCore core inspection extension — syntax, compilation, runtime, and application diagnostics.</Description>
-    <Copyright>Copyright © 2026 ${Authors}</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore Diagnostics</AssemblyTitle>
+    <Description>The diagnostics extension bundled with the RDCore platform: syntax, compile, run-time and code-quality diagnostics of VBA and RD-VBA code.</Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -9,7 +9,7 @@ namespace RDCore.SDK.ConsoleIO;
 public enum SourcePathScrubMode
 {
     /// <summary>
-    /// Rewrite each path to one relative to the RDCore repository root — e.g.
+    /// Rewrite each path to one relative to the RDCore repository root, e.g.
     /// <c>RDCore.Parsing/AST/DeclarationsParseTreeListener.cs:line 241</c>. Falls back to
     /// <see cref="FileName"/> for a path that cannot be anchored to an RDCore project folder.
     /// This is the default.
@@ -17,13 +17,13 @@ public enum SourcePathScrubMode
     RepoRelative,
 
     /// <summary>
-    /// Replace each path with its file name only — e.g.
+    /// Replace each path with its file name only, e.g.
     /// <c>DeclarationsParseTreeListener.cs:line 241</c>.
     /// </summary>
     FileName,
 
     /// <summary>
-    /// Replace each path with the literal <c>&lt;source&gt;</c>, keeping only the line number — e.g.
+    /// Replace each path with the literal <c>&lt;source&gt;</c>, keeping only the line number, e.g.
     /// <c>&lt;source&gt;:line 241</c>.
     /// </summary>
     Redacted,
@@ -38,7 +38,7 @@ public enum SourcePathScrubMode
 /// portable PDBs with absolute document paths) produces stack frames like
 /// <c>… in /home/somebody/src/RDCore/RDCore.Parsing/…/Foo.cs:line 12</c>, disclosing the build
 /// machine's directory layout and user name. This rewrites those frames at the DTO funnel; the
-/// unredacted text is still written to the process log. It is a defensive net — the source fix is
+/// unredacted text is still written to the process log. It is a defensive net: the source fix is
 /// <c>PathMap</c> / <c>ContinuousIntegrationBuild</c> at build time, so Roslyn never writes an
 /// absolute document path.
 /// <para>A pure function with no state, DI, or configuration.</para>

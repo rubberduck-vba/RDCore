@@ -93,4 +93,20 @@ public enum VBRuntimeErrorId
     CantSaveFileToTemp = 735,
     SearchTextNotFound = 744,
     ReplacementsTooLong = 746,
+
+    // RD-VBA's own run-time errors (VBR50000-50999), which MS-VBA has no number for. A program can raise its own error 50001 (Err.Raise), which is an application
+    // error of the VBA family (VBA50001): the family follows the raiser (RD-VBAL §2.6.3), so the two never meet.
+
+    /// <summary>
+    /// A dialog - <c>MsgBox</c>, <c>InputBox</c>, a form shown - in a program run unattended (<c>--unattended</c>), or one the client that shows the program's
+    /// dialogs declined to answer: nobody is there to answer it, and the run fails, whatever error handler the program has (it is untrappable).
+    /// </summary>
+    NobodyToAnswer = 50001,
+
+    /// <summary>
+    /// A dialog - <c>MsgBox</c>, <c>InputBox</c> - that a client which shows the program's dialogs answered with what the dialog cannot be answered with (a button
+    /// the <c>MsgBox</c> does not have), or that could not be relayed to it: the program cannot go on with the answer, and the run fails, whatever error handler
+    /// the program has (it is untrappable). The fault is the platform's or the client's, never the program's, whose call was valid.
+    /// </summary>
+    UnusableDialogAnswer = 50002,
 }

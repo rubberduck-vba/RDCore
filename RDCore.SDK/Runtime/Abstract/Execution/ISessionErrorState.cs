@@ -55,7 +55,20 @@ public interface ISessionErrorState
     /// <strong>MS-VBAL §6.1.3.2.2.6</strong> <c>Err.Source</c>: the object or application that
     /// originally generated the error.
     /// </summary>
+    /// <remarks>
+    /// A raise sets it to <see cref="ProjectName"/>, whatever it was: a run-time error, one an <c>Error</c>
+    /// statement or an automation object raises. <c>Err.Raise</c> sets it to the source it is given, or keeps
+    /// the one it has - and with none, it is <see cref="ProjectName"/> too (<strong>MS-VBAL §6.1.3.2.1.2</strong>;
+    /// recorded in Excel: oracle\s58 H06, s61 H07-H12). <see cref="Clear"/> empties it.
+    /// </remarks>
     string Source { get; set; }
+
+    /// <summary>
+    /// The name of the project whose code runs: the source of an error that is given none (<strong>MS-VBAL
+    /// §6.1.3.2.1.2</strong>: "the programmatic ID of the current Visual Basic project"). <c>VBAProject</c>, as
+    /// MS-VBA names a project, until the host that loads one says what it is named.
+    /// </summary>
+    string ProjectName { get; set; }
 
     /// <summary>
     /// <strong>MS-VBAL §6.1.3.2.2.3</strong> <c>Err.HelpFile</c>.
@@ -142,8 +155,13 @@ public interface ISessionErrorState
     /// <c>Resume</c> statement, <c>Exit Sub</c>/<c>Exit Function</c>/<c>Exit Property</c>, and an
     /// <c>On Error</c> statement.
     /// </remarks>
+    /// <param name="keepLineNumber">
+    /// <c>true</c> to leave <see cref="LineNumber"/> as it is, as <c>Err.Clear</c> does when the environment keeps <c>Erl</c>
+    /// (<see cref="VBErlAfterErrClear.Kept"/>, <strong>RD-VBAL §6.1.2.7.1.14</strong>). <c>false</c>, the default, resets it, as every other way to clear
+    /// the error does.
+    /// </param>
     /// <returns><c>true</c> if there was an error to clear.</returns>
-    bool Clear();
+    bool Clear(bool keepLineNumber = false);
 
     /// <summary>
     /// The error a <c>Class_Terminate</c> raised and left unhandled, which ends the program: no handler of the code that let go of the object handles it

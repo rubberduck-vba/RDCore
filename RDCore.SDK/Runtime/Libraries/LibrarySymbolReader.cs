@@ -51,8 +51,8 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
     /// </summary>
     /// <param name="libraries">The libraries, each after those it depends on (<see cref="ReferencedLibraries.Libraries"/>).</param>
     /// <param name="priorities">
-    /// The precedence of each library (<see cref="ReferencedLibraries.Priorities"/>), which every symbol that is a name of the project carries
-    /// (<see cref="SymbolProperties.LibraryPriority"/>). The position of a library among the others when omitted.
+    /// The reference precedence of each library (<see cref="ReferencedLibraries.Priorities"/>), which every symbol that is a name of the project carries
+    /// (<see cref="SymbolProperties.LibraryPriority"/>). The position of a library among the others when omitted, from <c>1</c>: the first ranks highest.
     /// </param>
     public ImmutableArray<Symbol> Read(IReadOnlyList<LibraryDescription> libraries, IReadOnlyDictionary<string, int>? priorities = null)
     {
@@ -159,6 +159,7 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
         var symbol = (VBClassModuleSymbol)new VBClassModuleSymbol(workspaceRoot, new VBProjectSymbol(workspaceRoot, library.Name).Uri, description.Name)
             .With(SymbolProperties.Library, library.Name)
             .With(SymbolProperties.Creatable, description.IsCreatable)
+            // TODO RDC11028: should a host's document class (Workbook, Worksheet: oracle\s62 X02, X03, s63 Y05, Y07) be CreationAlwaysFails?
             // a library's classes are the host's, and a host adds members to its objects that the library does not declare.
             .With(SymbolProperties.Extensible, true);
         if (description.ProgId is { Length: > 0 } progId)
@@ -372,7 +373,7 @@ public sealed class LibrarySymbolReader(Uri workspaceRoot, bool is64Bit = true)
                     : new VBUnresolvedType(text);
             }
 
-            foreach (var library in new[] { from }.Concat(from.DependsOn.Where(libraries.ContainsKey).Select(dependency => libraries[dependency])))
+            foreach (var library in new[] { from }.Concat(from.DependsOn.Select(dependency => dependency.Name).Where(libraries.ContainsKey).Select(dependency => libraries[dependency])))
             {
                 if (Find(library.Name, text) is { } found)
                 {

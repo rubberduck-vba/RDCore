@@ -812,6 +812,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
             case GoToStatementNode:
             case GoSubStatementNode:
             case ResumeStatementNode:
+            case OnErrorGoToStatementNode:
                 yield break;
 
             case TypeOfIsExpressionNode typeOfIs:

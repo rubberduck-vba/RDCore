@@ -19,14 +19,14 @@ public sealed record class PlatformComponentContext(CoreServerComponent Componen
 /// capabilities its entry assembly declares via <c>[assembly: ProvidesCorePlatformClientCapability&lt;T&gt;]</c>,
 /// and records what the caller said it expects of this server.
 /// </summary>
-[Method(RDCorePlatformHandshake.Method, Direction.ClientToServer)]
+[Method(RDCorePlatformProtocol.PlatformInitialize, Direction.ClientToServer)]
 public class PlatformInitializeHandler(
     ILogger<IJsonRpcHandler> logger,
     PlatformComponentContext context,
     IPlatformClientCapabilitiesService clientCapabilities)
-    : RDCoreRequestHandler<PlatformInitializeParams, PlatformInitializeResult>
+    : RDCoreRequestHandler<PlatformInitializeRequest, PlatformInitializeResult>
 {
-    protected override Task<PlatformInitializeResult> HandleAsync(PlatformInitializeParams request, CancellationToken token)
+    protected override Task<PlatformInitializeResult> HandleAsync(PlatformInitializeRequest request, CancellationToken token)
     {
         var provided = ProvidedCorePlatformCapabilities.Reflect(Assembly.GetEntryAssembly()!);
         logger.LogInformation("Platform handshake: {Component} provides {Provided}", context.Component, provided);

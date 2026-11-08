@@ -11,8 +11,9 @@ using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using System.Collections.Concurrent;
 using System.IO.Pipelines;
+using System.Text;
+using System.Text.Json.Nodes;
 
 namespace RDCore.Tests.LanguageServer;
 
@@ -28,12 +29,16 @@ public sealed class ProgramDebugAdapterTests
 
     private sealed class Session : IAsyncDisposable
     {
-        private readonly ConcurrentQueue<object> _events = new();
+        private readonly Lock _eventsLock = new();
+        private readonly List<object> _events = [];
+        private readonly SemaphoreSlim _arrived = new(0);
         private readonly TaskCompletionSource<string> _lost = new();
+        private readonly WireTap _wire = new();
 
         public IDebugWorkspace Workspace { get; } = Substitute.For<IDebugWorkspace>();
         public IProgramDebugService Debugging { get; } = Substitute.For<IProgramDebugService>();
-        public HostOutputRelay Relay { get; } = new();
+        // on a clock that never moves: the lines a result says were streamed are waited for until they come, and never given up on.
+        public HostOutputRelay Relay { get; } = new(new ManualClock());
 
         // what the program that waits does not have of the edits, as the host says it: nothing, unless a test says otherwise.
         public EditStatusMonitor EditStatus { get; }
@@ -58,11 +63,11 @@ public sealed class ProgramDebugAdapterTests
             });
             Workspace.TryGetModule(Arg.Is<string>(path => path != Path), out Arg.Any<string>()).Returns(false);
             Debugging.SetBreakpointsAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-                .Returns(call => Task.FromResult(new HostDebugBreakpointsResult
+                .Returns(call => Task.FromResult(new DebugBreakpointsResult
                 {
-                    Breakpoints = [.. call.Arg<IReadOnlyList<SessionBreakpointLine>>().Select(breakpoint => new HostBreakpoint(breakpoint.Line, true))],
+                    Breakpoints = [.. call.Arg<IReadOnlyList<SessionBreakpointLine>>().Select(breakpoint => new DebugBreakpoint(breakpoint.Line, true))],
                 }));
-            Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+            Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
             Workspace.ReloadChangedAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
             EditStatus = new EditStatusMonitor(Debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
             Adapter = new ProgramDebugAdapter(Workspace, Debugging, Relay, EditStatus, NullLogger<ProgramDebugAdapter>.Instance);
@@ -76,17 +81,17 @@ public sealed class ProgramDebugAdapterTests
             var toClient = new Pipe();
 
             // the server is started when the client has initialized it.
-            var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), toClient.Writer.AsStream()), Adapter);
+            var starting = DebugAdapterApp.StartServerAsync(new DebugAdapterTransport(toServer.Reader.AsStream(), new WireTap.Stream(toClient.Writer.AsStream(), _wire)), Adapter);
             Client = await DebugAdapterClient.From(options =>
             {
                 options.WithInput(toClient.Reader.AsStream()).WithOutput(toServer.Writer.AsStream());
                 options.LinesStartAt1 = linesStartAt1;
                 options.ColumnsStartAt1 = linesStartAt1;
-                options.OnInvalidated(invalidated => _events.Enqueue(invalidated));
-                options.OnStopped(stopped => _events.Enqueue(stopped));
-                options.OnOutput(output => _events.Enqueue(output));
-                options.OnExited(exited => _events.Enqueue(exited));
-                options.OnTerminated(terminated => _events.Enqueue(terminated));
+                options.OnInvalidated(Arrived);
+                options.OnStopped(Arrived);
+                options.OnOutput(Arrived);
+                options.OnExited(Arrived);
+                options.OnTerminated(Arrived);
             });
             Server = await starting.WaitAsync(Patience);
             Adapter.Initialize(new InitializeRequestArguments
@@ -103,43 +108,62 @@ public sealed class ProgramDebugAdapterTests
 
         public void Lose(string component) => _lost.TrySetResult(component);
 
+        // each event the client is told of is kept, and whoever waits for one looks again.
+        private void Arrived(object @event)
+        {
+            lock (_eventsLock)
+            {
+                _events.Add(@event);
+            }
+
+            _arrived.Release();
+        }
+
         /// <summary>The next event of the type that satisfies <paramref name="where"/>, whenever it comes.</summary>
         public async Task<TEvent> NextAsync<TEvent>(Func<TEvent, bool>? where = null)
         {
-            var deadline = DateTime.UtcNow + Patience;
-            while (DateTime.UtcNow < deadline)
+            using var hangGuard = new CancellationTokenSource(Patience);
+            while (true)
             {
-                var kept = new List<object>();
-                TEvent? found = default;
-                var hit = false;
-                while (_events.TryDequeue(out var next))
+                // the event is taken out where it is, under the lock an event that arrives is added under: what was not asked for stays for who does, in the
+                // order it came.
+                lock (_eventsLock)
                 {
-                    if (!hit && next is TEvent typed && (where?.Invoke(typed) ?? true))
+                    var at = _events.FindIndex(next => next is TEvent typed && (where?.Invoke(typed) ?? true));
+                    if (at >= 0)
                     {
-                        (found, hit) = (typed, true);
-                    }
-                    else
-                    {
-                        kept.Add(next);
+                        var found = (TEvent)_events[at];
+                        _events.RemoveAt(at);
+                        return found;
                     }
                 }
 
-                // what was not asked for stays for who does.
-                kept.ForEach(_events.Enqueue);
-                if (hit)
+                // an event that came since the queue was looked at has released the semaphore already: it is not missed.
+                try
                 {
-                    return found!;
+                    await _arrived.WaitAsync(hangGuard.Token);
                 }
-
-                await Task.Delay(10);
+                catch (OperationCanceledException)
+                {
+                    Assert.Fail($"no {typeof(TEvent).Name} came");
+                }
             }
-
-            Assert.Fail($"no {typeof(TEvent).Name} came");
-            return default!;
         }
 
         /// <summary>Everything that was said and not asked for yet, of one kind.</summary>
-        public IReadOnlyList<TEvent> Pending<TEvent>() => [.. _events.OfType<TEvent>()];
+        public IReadOnlyList<TEvent> Pending<TEvent>()
+        {
+            lock (_eventsLock)
+            {
+                return [.. _events.OfType<TEvent>()];
+            }
+        }
+
+        /// <summary>
+        /// How many events of a kind the adapter wrote since the session started, read off the wire as they were written, whether the client was told of them
+        /// yet or not: what the adapter wrote before the answer to a request the client has is counted.
+        /// </summary>
+        public int Said(string @event, Func<JsonNode?, bool>? where = null) => _wire.Events(@event, where);
 
         public async ValueTask DisposeAsync()
         {
@@ -149,10 +173,105 @@ public sealed class ProgramDebugAdapterTests
         }
     }
 
-    private static ExecuteSessionResult Suspended(params string[] output) => new() { Outcome = ExecutionOutcome.Suspended, Output = output };
+    // what the adapter writes, message by message, in the order it writes them: each message is read off as it is written, before it is passed on to the client,
+    // so it is here before the client can read it.
+    private sealed class WireTap
+    {
+        private static readonly byte[] EndOfHeader = "\r\n\r\n"u8.ToArray();
+        private readonly List<byte> _pending = [];
+        private readonly List<JsonNode> _messages = [];
 
-    private static HostDebugStackResult StackAt(int line, string module = "Prog", string procedure = "Main")
-        => new() { Frames = [new HostStackFrame(0, procedure, module, line, 4)] };
+        public int Events(string @event, Func<JsonNode?, bool>? where)
+        {
+            lock (_messages)
+            {
+                return _messages.Count(message => (string?)message["type"] == "event" && (string?)message["event"] == @event && (where?.Invoke(message["body"]) ?? true));
+            }
+        }
+
+        private void Wrote(ReadOnlySpan<byte> bytes)
+        {
+            lock (_messages)
+            {
+                _pending.AddRange(bytes);
+                while (true)
+                {
+                    var buffered = _pending.ToArray();
+                    var end = buffered.AsSpan().IndexOf(EndOfHeader);
+                    if (end < 0)
+                    {
+                        return;
+                    }
+
+                    var header = Encoding.ASCII.GetString(buffered, 0, end);
+                    var length = int.Parse(header.Split("\r\n").Single(line => line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))["Content-Length:".Length..].Trim());
+                    var start = end + EndOfHeader.Length;
+                    if (buffered.Length < start + length)
+                    {
+                        return;
+                    }
+
+                    _messages.Add(JsonNode.Parse(buffered.AsSpan(start, length))!);
+                    _pending.RemoveRange(0, start + length);
+                }
+            }
+        }
+
+        public sealed class Stream(System.IO.Stream inner, WireTap tap) : System.IO.Stream
+        {
+            public override bool CanRead => false;
+
+            public override bool CanSeek => false;
+
+            public override bool CanWrite => true;
+
+            public override long Length => throw new NotSupportedException();
+
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+            public override void Flush() => inner.Flush();
+
+            public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+
+            public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+            public override void SetLength(long value) => throw new NotSupportedException();
+
+            public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
+
+            public override void Write(ReadOnlySpan<byte> buffer)
+            {
+                tap.Wrote(buffer);
+                inner.Write(buffer);
+            }
+
+            public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+                => WriteAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+            public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                tap.Wrote(buffer.Span);
+                return inner.WriteAsync(buffer, cancellationToken);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    inner.Dispose();
+                }
+
+                base.Dispose(disposing);
+            }
+        }
+    }
+
+    private static ExecuteResult Suspended(params string[] output) => new() { Outcome = ExecutionOutcome.Suspended, Output = output };
+
+    private static DebugStackResult StackAt(int line, string module = "Prog", string procedure = "Main")
+        => new() { Frames = [new DebugStackFrame(0, procedure, module, line, 4)] };
 
     // ---- initialize ----
 
@@ -183,16 +302,89 @@ public sealed class ProgramDebugAdapterTests
         await session.Workspace.Received(1).OpenAsync(Arg.Any<CancellationToken>());
     }
 
+    // what a client that prepared the launch (RDCoreDebugAdapterLaunch) says beyond what every launch says, as a client that knows nothing of this adapter's
+    // arguments sends it: the module and the entry point it names are what is run.
     [TestMethod]
-    public async Task ALaunch_ThatNamesNoModule_IsRefused()
+    public async Task TheLaunchArguments_APreparedLaunchSays_AreWhatIsRun()
     {
         await using var session = new Session();
+        var started = new TaskCompletionSource();
+        session.Workspace.StartAsync("Prog", "Start", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            started.TrySetResult();
+            return new ExecuteResult { Outcome = ExecutionOutcome.Completed };
+        });
+        await session.StartAsync();
+        var prepared = new Dictionary<string, object>
+        {
+            [RDCore.SDK.Client.RDCoreDebugAdapterLaunch.ModuleArgument] = "Prog",
+            [RDCore.SDK.Client.RDCoreDebugAdapterLaunch.EntryPointArgument] = "Start",
+        };
+
+        _ = await session.SendAsync(new LaunchRequestArguments { ExtensionData = prepared });
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        await started.Task.WaitAsync(Patience);
+    }
+
+    // a project has no startup object: a launch that names no module runs the one that declares where the program starts.
+    [TestMethod]
+    [DataRow(null, "Main", DisplayName = "no entry point named: Main")]
+    [DataRow("Start", "Start", DisplayName = "an entry point named")]
+    public async Task ALaunch_ThatNamesNoModule_RunsTheOneModuleThatDeclaresTheEntryPoint(string? named, string entryPoint)
+    {
+        await using var session = new Session();
+        var started = new TaskCompletionSource();
+        session.Workspace.ModulesDeclaringAsync(entryPoint, Arg.Any<CancellationToken>()).Returns(["Prog"]);
+        session.Workspace.StartAsync("Prog", entryPoint, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            started.TrySetResult();
+            return new ExecuteResult { Outcome = ExecutionOutcome.Completed };
+        });
+        await session.StartAsync();
+
+        _ = await session.SendAsync(new ProgramLaunchRequestArguments { EntryPoint = named });
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        await started.Task.WaitAsync(Patience);
+    }
+
+    [TestMethod]
+    public async Task ALaunch_ThatNamesNoModule_WhenNoModuleDeclaresTheEntryPoint_IsRefused_AndSaysWhatItLookedFor()
+    {
+        await using var session = new Session();
+        session.Workspace.ModulesDeclaringAsync("Main", Arg.Any<CancellationToken>()).Returns([]);
         await session.StartAsync();
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ProgramLaunchRequestArguments()));
 
-        StringAssert.Contains(refusal.Message, "module");
-        await session.Workspace.DidNotReceive().OpenAsync(Arg.Any<CancellationToken>());
+        StringAssert.Contains(refusal.Message, "Public Sub Main()");
+        StringAssert.Contains(refusal.Message, "\"module\"");
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ConfigurationDoneArguments()));
+    }
+
+    [TestMethod]
+    public async Task ALaunch_ThatNamesNoModule_WhenMoreThanOneDeclaresTheEntryPoint_IsRefused_AndNamesThem()
+    {
+        await using var session = new Session();
+        session.Workspace.ModulesDeclaringAsync("Main", Arg.Any<CancellationToken>()).Returns(["Données", "Prog"]);
+        await session.StartAsync();
+
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new ProgramLaunchRequestArguments()));
+
+        StringAssert.Contains(refusal.Message, "Données, Prog");
+        await session.Workspace.DidNotReceive().StartAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task ALaunch_ThatNamesAModule_DoesNotLookForTheEntryPoint()
+    {
+        await using var session = new Session();
+        await session.StartAsync();
+
+        await session.LaunchAsync();
+
+        _ = session.Workspace.DidNotReceive().ModulesDeclaringAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [TestMethod]
@@ -276,7 +468,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         session.Debugging.SetBreakpointsAsync("Prog", Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [new HostBreakpoint(11, true, "expected an expression")], Judged = true }));
+            .Returns(Task.FromResult(new DebugBreakpointsResult { Breakpoints = [new DebugBreakpoint(11, true, "expected an expression")], Judged = true }));
         await session.StartAsync();
         await session.LaunchAsync();
 
@@ -295,7 +487,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         session.Debugging.SetBreakpointsAsync("Prog", Arg.Any<IReadOnlyList<SessionBreakpointLine>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugBreakpointsResult { Breakpoints = [new HostBreakpoint(3, false)] }));
+            .Returns(Task.FromResult(new DebugBreakpointsResult { Breakpoints = [new DebugBreakpoint(3, false)] }));
         await session.StartAsync();
         await session.LaunchAsync();
 
@@ -361,7 +553,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task TheProgram_IsStartedWhenTheClientIsDoneConfiguring_AndTheClientIsAnsweredAtOnce()
     {
         await using var session = new Session();
-        var running = new TaskCompletionSource<ExecuteSessionResult>();
+        var running = new TaskCompletionSource<ExecuteResult>();
         var started = new TaskCompletionSource();
         session.Workspace.StartAsync("Prog", "Main", Arg.Any<CancellationToken>()).Returns(_ =>
         {
@@ -374,7 +566,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.SendAsync(new ConfigurationDoneArguments());
 
         await started.Task.WaitAsync(Patience);
-        running.SetResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
+        running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
@@ -443,7 +635,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(
-            new ExecuteSessionResult { Outcome = ExecutionOutcome.Suspended, StreamedLines = 2 }));
+            new ExecuteResult { Outcome = ExecutionOutcome.Suspended, StreamedLines = 2 }));
         session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(StackAt(line: 12)));
         await session.StartAsync();
         await session.LaunchAsync();
@@ -488,7 +680,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed, Output = ["done"] }));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed, Output = ["done"] }));
 
         var response = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
 
@@ -541,7 +733,7 @@ public sealed class ProgramDebugAdapterTests
     public async Task AProgramThatWaitsAtAnError_IsSaidToHaveStoppedOnAnException_AndTheClientCanAskWhich()
     {
         await using var session = new Session();
-        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteSessionResult
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
         {
             Outcome = ExecutionOutcome.Suspended,
             ErrorNumber = 11,
@@ -580,9 +772,9 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        var running = new TaskCompletionSource<ExecuteSessionResult>();
+        var running = new TaskCompletionSource<ExecuteResult>();
         session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(running.Task);
-        session.Debugging.PauseAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck { Acted = true }));
+        session.Debugging.PauseAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true }));
         _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
 
         _ = await session.SendAsync(new PauseArguments { ThreadId = 1 });
@@ -606,11 +798,34 @@ public sealed class ProgramDebugAdapterTests
 
     // ---- the end of the program ----
 
+    // a module with a syntax error is not run: what the host refused it with is the program's error output, and the program is over with exit code 1.
+    [TestMethod]
+    public async Task AProgramRefusedForASyntaxError_IsSaidToHaveEnded_WithTheErrors()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.SyntaxError,
+            Diagnostics = ["Syntax error: Expected: expression", "Output items not separated"],
+        }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new SetBreakpointsArguments { Source = new Source { Path = Path }, Breakpoints = new Container<SourceBreakpoint>() });
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        var output = await session.NextAsync<OutputEvent>();
+        Assert.AreEqual("Syntax error: Expected: expression\nOutput items not separated\n", output.Output);
+        Assert.AreEqual(OutputEventCategory.StandardError, output.Category);
+        Assert.AreEqual(1, (await session.NextAsync<ExitedEvent>()).ExitCode);
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
+
     [TestMethod]
     public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas()
     {
         await using var session = new Session();
-        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteSessionResult
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
         {
             Outcome = ExecutionOutcome.RuntimeError,
             ErrorNumber = 11,
@@ -638,35 +853,54 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed }));
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck()));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed }));
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck()));
 
         _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
         _ = await session.NextAsync<TerminatedEvent>();
         _ = await session.SendAsync(new TerminateArguments());
 
-        // what the adapter sent before it answered a request it answers at once has come.
-        _ = await session.SendAsync(new ThreadsArguments());
-        Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
-        Assert.AreEqual(0, session.Pending<ExitedEvent>().Count - 1, "the one exit that was not asked for yet");
+        await FlushedAsync(session);
+        Assert.AreEqual(1, session.Said("terminated"), "said once");
+        Assert.AreEqual(1, session.Said("exited"));
     }
 
     [TestMethod]
     public async Task ARequestTheProgramCannotBeAskedNow_DoesNotEndIt()
     {
         await using var session = new Session();
+        var asked = EditStatusAsked(session, 3);
         await StartedAndWaitingAsync(session);
         session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" }));
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = "the program is running" }));
 
         _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
 
         var output = await session.NextAsync<OutputEvent>();
         StringAssert.Contains(output.Output, "the program is running");
 
-        // what the adapter sent before it answered a request it answers at once has come.
-        _ = await session.SendAsync(new ThreadsArguments());
-        Assert.AreEqual(0, session.Pending<TerminatedEvent>().Count);
+        // the edits are asked of after the stop the session started at, before the program is asked to go on, and last when what it answered is reported:
+        // all that report says is written before the flush's answer.
+        await asked[2].Task.WaitAsync(Patience);
+        await FlushedAsync(session);
+        Assert.AreEqual(0, session.Said("terminated"));
+    }
+
+    // each time the adapter asks which edits the program does not have, in the order it asks.
+    private static TaskCompletionSource[] EditStatusAsked(Session session, int count)
+    {
+        var asked = Enumerable.Range(0, count).Select(_ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
+        var calls = -1;
+        session.Debugging.When(debugging => debugging.EditStatusAsync(Arg.Any<CancellationToken>())).Do(_ =>
+        {
+            var call = Interlocked.Increment(ref calls);
+            if (call < count)
+            {
+                asked[call].TrySetResult();
+            }
+        });
+
+        return asked;
     }
 
     [TestMethod]
@@ -674,7 +908,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.ExecuteAsync(1, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true }));
+        session.Debugging.ExecuteAsync(1, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugEvaluateResult { Success = true }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "k = 5", FrameId = 1, Context = EvaluateArgumentsContext.Repl });
 
@@ -688,7 +922,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.ExecuteAsync(0, "k = 1 \\ 0", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Error = "Division by zero" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Error = "Division by zero" }));
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "k = 1 \\ 0", FrameId = 0, Context = EvaluateArgumentsContext.Repl }));
 
@@ -701,7 +935,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.ExecuteAsync(0, "?k + 1", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Output = [" 8 "] }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Output = [" 8 "] }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "?k + 1", FrameId = 0, Context = EvaluateArgumentsContext.Repl });
 
@@ -719,7 +953,7 @@ public sealed class ProgramDebugAdapterTests
         var context = kind == "watch" ? EvaluateArgumentsContext.Watch : EvaluateArgumentsContext.Hover;
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.EvaluateAsync(0, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "False", Type = "Boolean" }));
+        session.Debugging.EvaluateAsync(0, "k = 5", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "False", Type = "Boolean" }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "k = 5", FrameId = 0, Context = context });
 
@@ -732,7 +966,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck { Acted = true }));
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true }));
 
         _ = await session.SendAsync(new TerminateArguments());
 
@@ -741,12 +975,36 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<TerminatedEvent>();
     }
 
+    // a program in a call outside it ends when the call returns: the client is told it is still stopping, and the end is told when the run that was going on
+    // is over.
+    [TestMethod]
+    public async Task ATerminate_OfAProgramStillStopping_SaysSo_AndTheEndIsToldWhenTheRunIsOver()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        var running = new TaskCompletionSource<ExecuteResult>();
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(running.Task);
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true, Stopping = true }));
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        session.Debugging.ClearReceivedCalls();
+
+        _ = await session.SendAsync(new TerminateArguments());
+
+        Assert.AreEqual(DebuggerMessages.StillStopping + "\n", (await session.NextAsync<OutputEvent>()).Output);
+        await FlushedAsync(session);
+        Assert.AreEqual(0, session.Said("terminated"));
+        await session.Debugging.DidNotReceiveWithAnyArgs().EditStatusAsync(default);
+
+        running.SetResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
+
     [TestMethod]
     public async Task ADisconnect_EndsTheProgramTheClientStarted_AndTheAdapterIsDone()
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck { Acted = true }));
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck { Acted = true }));
 
         _ = await session.SendAsync(new DisconnectArguments { TerminateDebuggee = true });
 
@@ -786,12 +1044,12 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
             Frames =
             [
-                new HostStackFrame(0, "Helper", "Prog", 11, 4, Handler: "ErrHandler"),
-                new HostStackFrame(1, "Main", "Prog", 6, 4),
+                new DebugStackFrame(0, "Helper", "Prog", 11, 4, Handler: "ErrHandler"),
+                new DebugStackFrame(1, "Main", "Prog", 6, 4),
             ],
         }));
 
@@ -812,18 +1070,18 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
             Frames =
             [
-                new HostStackFrame(0, "Helper", "Prog", 20, 4, ReturnLines: [14, 6]),
-                new HostStackFrame(1, "Main", "Prog", 3, 4),
+                new DebugStackFrame(0, "Helper", "Prog", 20, 4, ReturnLines: [14, 6]),
+                new DebugStackFrame(1, "Main", "Prog", 3, 4),
             ],
         }));
-        session.Debugging.VariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugVariablesResult { Variables = [new HostVariable("k", "7", "Long")] }));
+        session.Debugging.VariablesAsync(0, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DebugVariablesResult { Variables = [new DebugVariable("k", "7", "Long")] }));
         session.Debugging.EvaluateAsync(0, "k", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "7", Type = "Long" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "7", Type = "Long" }));
 
         var stack = await session.SendAsync(new StackTraceArguments { ThreadId = 1 });
 
@@ -846,9 +1104,9 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugStackResult
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
         {
-            Frames = [new HostStackFrame(0, "C", "Prog", 1, 0), new HostStackFrame(1, "B", "Prog", 1, 0), new HostStackFrame(2, "A", "Prog", 1, 0)],
+            Frames = [new DebugStackFrame(0, "C", "Prog", 1, 0), new DebugStackFrame(1, "B", "Prog", 1, 0), new DebugStackFrame(2, "A", "Prog", 1, 0)],
         }));
 
         var stack = await session.SendAsync(new StackTraceArguments { ThreadId = 1, StartFrame = 1, Levels = 1 });
@@ -862,9 +1120,9 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.VariablesAsync(1, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        session.Debugging.VariablesAsync(1, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("k", "7", "Long"), new HostVariable("arr", "", "Long(1 To 2)", Reference: 5)],
+            Variables = [new DebugVariable("k", "7", "Long"), new DebugVariable("arr", "", "Long(1 To 2)", Reference: 5)],
         }));
 
         var scopes = await session.SendAsync(new ScopesArguments { FrameId = 1 });
@@ -882,13 +1140,13 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.VariablesAsync(0, HostVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        session.Debugging.VariablesAsync(0, DebugVariableScope.Locals, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("arr", "", "Long(1 To 2)", Reference: 5)],
+            Variables = [new DebugVariable("arr", "", "Long(1 To 2)", Reference: 5)],
         }));
-        session.Debugging.VariablesAsync(0, HostVariableScope.Locals, 5, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugVariablesResult
+        session.Debugging.VariablesAsync(0, DebugVariableScope.Locals, 5, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugVariablesResult
         {
-            Variables = [new HostVariable("(1)", "9", "Long"), new HostVariable("(2)", "8", "Long")],
+            Variables = [new DebugVariable("(1)", "9", "Long"), new DebugVariable("(2)", "8", "Long")],
         }));
         var scopes = await session.SendAsync(new ScopesArguments { FrameId = 0 });
         var locals = await session.SendAsync(new VariablesArguments { VariablesReference = scopes.Scopes.First().VariablesReference });
@@ -923,7 +1181,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(1, "k + 1", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "8", Type = "Long" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "8", Type = "Long" }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "k + 1", FrameId = 1, Context = EvaluateArgumentsContext.Watch });
 
@@ -937,7 +1195,7 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.EvaluateAsync(0, "1", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "1", Type = "Integer" }));
+        session.Debugging.EvaluateAsync(0, "1", Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "1", Type = "Integer" }));
 
         _ = await session.SendAsync(new EvaluateArguments { Expression = "1", Context = EvaluateArgumentsContext.Watch });
 
@@ -950,7 +1208,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(0, "Nope", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Error = "'Nope' is not defined" }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Error = "'Nope' is not defined" }));
 
         var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "Nope", FrameId = 0 }));
 
@@ -963,7 +1221,7 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(0, "Noisy()", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Value = "1", Type = "Long", Output = ["from the call"] }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Value = "1", Type = "Long", Output = ["from the call"] }));
 
         _ = await session.SendAsync(new EvaluateArguments { Expression = "Noisy()", FrameId = 0, Context = EvaluateArgumentsContext.Watch });
 
@@ -978,9 +1236,9 @@ public sealed class ProgramDebugAdapterTests
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
         session.Debugging.EvaluateAsync(0, "arr", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugEvaluateResult { Success = true, Type = "Long(1 To 2)", Reference = 4 }));
-        session.Debugging.VariablesAsync(0, Arg.Any<HostVariableScope>(), 4, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugVariablesResult { Variables = [new HostVariable("(1)", "5", "Long")] }));
+            .Returns(Task.FromResult(new DebugEvaluateResult { Success = true, Type = "Long(1 To 2)", Reference = 4 }));
+        session.Debugging.VariablesAsync(0, Arg.Any<DebugVariableScope>(), 4, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DebugVariablesResult { Variables = [new DebugVariable("(1)", "5", "Long")] }));
 
         var response = await session.SendAsync(new EvaluateArguments { Expression = "arr", FrameId = 0 });
         var parts = await session.SendAsync(new VariablesArguments { VariablesReference = response.VariablesReference });
@@ -991,15 +1249,61 @@ public sealed class ProgramDebugAdapterTests
 
     // ---- the point the program goes on from ----
 
+    // what the host says a goto to a line would do, without moving anything.
+    private static void Peeks(Session session, int line, DebugGotoResult result)
+        => session.Debugging.GotoAsync("Prog", line, true, Arg.Any<CancellationToken>()).Returns(Task.FromResult(result));
+
+    private static async Task<GotoTarget> TargetAsync(Session session, int line)
+        => (await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = line })).Targets.Single();
+
     [TestMethod]
     public async Task ALineIsATarget_ToGoOnFrom()
     {
         await using var session = new Session();
-        await session.StartAsync();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 13 });
 
-        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = 14 });
+        var target = await TargetAsync(session, 14);
 
-        Assert.AreEqual(14, targets.Targets.Single().Line);
+        Assert.AreEqual(14, target.Line);
+    }
+
+    // a line no statement begins on goes to the next one: that is the target, and not the line asked for.
+    [TestMethod]
+    public async Task ALineWithNoStatement_IsTheTargetOfTheLineTheProgramWouldGoOnFrom()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 15, Character = 4 });
+
+        var target = await TargetAsync(session, 14);
+
+        Assert.AreEqual(16, target.Line);
+        Assert.AreEqual(5, target.Column);
+    }
+
+    [TestMethod]
+    public async Task ALineTheProgramCannotGoOnFrom_IsNoTarget()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 2, new DebugGotoResult { Moved = false, Reason = "the line is not in Prog.Callee, the procedure the program waits in" });
+
+        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = 3 });
+
+        Assert.IsEmpty(targets.Targets);
+    }
+
+    [TestMethod]
+    public async Task ALineOfASourceNotInTheWorkspace_IsNoTarget()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+
+        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path + ".other" }, Line = 3 });
+
+        Assert.IsEmpty(targets.Targets);
+        await session.Debugging.DidNotReceiveWithAnyArgs().GotoAsync(default!, default, default, default);
     }
 
     [TestMethod]
@@ -1007,10 +1311,11 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.GotoAsync(13, null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true, Line = 13 }));
-        var targets = await session.SendAsync(new GotoTargetsArguments { Source = new Source { Path = Path }, Line = 14 });
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 15 });
+        session.Debugging.GotoAsync("Prog", 15, false, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 15 }));
+        var target = await TargetAsync(session, 14);
 
-        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = targets.Targets.Single().Id });
+        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id });
 
         var stopped = await session.NextAsync<StoppedEvent>();
         Assert.AreEqual(StoppedEventReason.Goto, stopped.Reason);
@@ -1022,30 +1327,62 @@ public sealed class ProgramDebugAdapterTests
     {
         await using var session = new Session();
         await StartedAndWaitingAsync(session);
-        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new HostDebugGotoResult { Moved = false, Reason = "that line is in another procedure" }));
+        Peeks(session, 2, new DebugGotoResult { Moved = true, Line = 2 });
+        session.Debugging.GotoAsync("Prog", 2, false, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DebugGotoResult { Moved = false, Reason = "that line is in another procedure" }));
+        var target = await TargetAsync(session, 3);
 
-        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 }));
+        var refusal = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id }));
 
         StringAssert.Contains(refusal.Message, "another procedure");
+    }
+
+    // a target is a line as the program waited at it: the program has gone on since, and may wait in other code.
+    [TestMethod]
+    public async Task AGoto_ToATargetGivenBeforeTheProgramWentOn_IsRefused()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        Peeks(session, 13, new DebugGotoResult { Moved = true, Line = 13 });
+        session.Debugging.GotoAsync("Prog", 13, false, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 13 }));
+        session.Debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Suspended()));
+        var target = await TargetAsync(session, 14);
+        _ = await session.SendAsync(new ContinueArguments { ThreadId = 1 });
+        _ = await session.NextAsync<StoppedEvent>();
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id }));
+
+        await session.Debugging.DidNotReceive().GotoAsync("Prog", 13, false, Arg.Any<CancellationToken>());
+    }
+
+    [TestMethod]
+    public async Task AGoto_ToATargetTheClientWasNotGiven_IsRefused()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 }));
+
+        await session.Debugging.DidNotReceiveWithAnyArgs().GotoAsync(default!, default, default, default);
+        await session.Debugging.DidNotReceiveWithAnyArgs().GotoAsync(default, default, default);
     }
 
     // ---- edit and continue ----
 
 
-    private static readonly HostDebugEdit CalleeLocalRemoved = new()
+    private static readonly DebugEdit CalleeLocalRemoved = new()
     {
         Name = "Prog.Callee",
-        Kind = HostDebugEditKind.Restart,
+        Kind = DebugEditKind.Restart,
         Reason = "a local was removed",
         ModuleUri = new Uri("file:///c:/dap-ws#Prog"),
         Range = new RDCore.SDK.Model.Source.SourceRange(new(3, 0), new(5, 7)),
     };
 
-    private static void Listing(Session session, params HostDebugEdit[] edits)
-        => session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult { Suspended = true, Edits = [.. edits] });
+    private static void Listing(Session session, params DebugEdit[] edits)
+        => session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult { Suspended = true, Edits = [.. edits] });
 
-    // what the adapter wrote before it answered a request it answers at once has come.
+    // what the adapter wrote before it answered a request it answers at once is on the wire, and counted (Session.Said), once the client has the answer.
     private static async Task FlushedAsync(Session session) => _ = await session.SendAsync(new ThreadsArguments());
 
     // the edit is said as soon as it is loaded, which is the closest to the edit the client can be told: once, and not again while it is still listed.
@@ -1063,7 +1400,7 @@ public sealed class ProgramDebugAdapterTests
 
         Assert.AreEqual(OutputEventCategory.Console, said.Category);
         StringAssert.Contains(said.Output, "a local was removed");
-        Assert.IsFalse(session.Pending<OutputEvent>().Any(output => output.Output.Contains("Prog.Callee", StringComparison.Ordinal)), "said once");
+        Assert.AreEqual(1, session.Said("output", body => ((string?)body?["output"])?.Contains("Prog.Callee", StringComparison.Ordinal) == true), "said once");
     }
 
     // a program that waits with an edit it does not have is not asked to go on: the client is refused, with the edit, and told it too.
@@ -1092,10 +1429,10 @@ public sealed class ProgramDebugAdapterTests
         await session.Debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
     }
 
-    private static readonly HostDebugEdit CallerDoesNotCompile = new()
+    private static readonly DebugEdit CallerDoesNotCompile = new()
     {
         Name = "Prog.Caller",
-        Kind = HostDebugEditKind.DoesNotCompile,
+        Kind = DebugEditKind.DoesNotCompile,
         Reason = "Variable not defined",
         ModuleUri = new Uri("file:///c:/dap-ws#Prog"),
         Range = new RDCore.SDK.Model.Source.SourceRange(new(7, 4), new(7, 14)),
@@ -1170,7 +1507,7 @@ public sealed class ProgramDebugAdapterTests
         _ = await session.NextAsync<StoppedEvent>();
         await FlushedAsync(session);
 
-        Assert.AreEqual(0, session.Pending<InvalidatedEvent>().Count);
+        Assert.AreEqual(0, session.Said("invalidated"));
     }
 
     // the program is over: it has no edits it does not have, and what was said of them is not so any more.
@@ -1182,8 +1519,8 @@ public sealed class ProgramDebugAdapterTests
         Listing(session, CalleeLocalRemoved);
         await session.EditStatus.CheckAsync(CancellationToken.None, afterLoad: true);
         Assert.HasCount(1, session.EditStatus.Current.Edits);
-        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugAck()));
-        session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        session.Debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugAck()));
+        session.Debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
 
         _ = await session.SendAsync(new TerminateArguments());
 
@@ -1239,12 +1576,14 @@ public sealed class ProgramDebugAdapterTests
         await StartedAndWaitingAsync(session);
         var order = new List<string>();
         session.Workspace.When(workspace => workspace.ReloadChangedAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("reload"));
-        session.Debugging.When(debugging => debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>())).Do(_ => order.Add("goto"));
-        session.Debugging.GotoAsync(Arg.Any<int>(), null, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new HostDebugGotoResult { Moved = true }));
+        session.Debugging.When(debugging => debugging.GotoAsync("Prog", Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()))
+            .Do(call => order.Add(call.ArgAt<bool>(2) ? "peek" : "goto"));
+        session.Debugging.GotoAsync("Prog", Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugGotoResult { Moved = true, Line = 2 }));
 
-        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = 3 });
+        var target = await TargetAsync(session, 3);
+        _ = await session.SendAsync(new GotoArguments { ThreadId = 1, TargetId = target.Id });
 
-        CollectionAssert.AreEqual(new[] { "reload", "goto" }, order.ToArray());
+        CollectionAssert.AreEqual(new[] { "reload", "peek", "reload", "goto" }, order.ToArray());
     }
 
     // what is saved can't be gone on with - a file that can't be read, a module the host could not load, one renamed - or could not be loaded at all: the client

@@ -29,19 +29,35 @@ namespace RDCore.SDK.Server.Serialization;
 /// not available.
 /// </para>
 /// <para>
-/// <b>The repair is re-applied on every call rather than installed once, and it has to be.</b>
+/// <b>The contract resolver is put back at the point of use, because it has to be.</b>
 /// <c>LspSerializer.Reset</c> assigns a brand new <c>LspContractResolver</c> straight onto
 /// <c>Settings</c>, bypassing <c>CreateSerializerSettings</c> entirely, and every <c>With*</c> method and
-/// <c>SetServerCapabilities</c> calls it while the client capabilities are being read. So a repair made at
+/// <c>SetServerCapabilities</c> calls it while the client capabilities are being read. So a resolver set at
 /// construction is silently discarded during <c>initialize</c>, which looks exactly like the repair not
 /// working. <c>Reset</c> is private and the methods that call it are not virtual, so there is nothing to
 /// override; checking at the point of use is what is left.
 /// </para>
+/// <para>
+/// <b>The converters are added once, at construction.</b> <c>Reset</c> replaces OmniSharp's own converters and
+/// never removes these, and the serializer is used from the input and the output threads of a connection at
+/// once: a converter list looked through and added to on every call would be changed while another thread reads
+/// it. The resolver is a reference, read and replaced whole; replacing it is done under a lock, so that two
+/// threads that find it reset wrap it once.
+/// </para>
 /// </remarks>
-public sealed class PullDiagnosticsLspSerializer(ClientVersion clientVersion)
-    : LspSerializer(clientVersion), OmniSharp.Extensions.JsonRpc.ISerializer
+public sealed class PullDiagnosticsLspSerializer
+    : LspSerializer, OmniSharp.Extensions.JsonRpc.ISerializer
 {
+    private readonly object _repairing = new();
+
     public PullDiagnosticsLspSerializer() : this(ClientVersion.Lsp3) { }
+
+    public PullDiagnosticsLspSerializer(ClientVersion clientVersion) : base(clientVersion)
+    {
+        Settings.Converters.Add(new RelatedDocumentDiagnosticReportConverter());
+        Settings.Converters.Add(new WorkspaceDocumentDiagnosticReportConverter());
+        Repair();
+    }
 
     // Re-implementing the interface rather than overriding: SerializerBase.SerializeObject is not virtual,
     // and the output handler holds this as an ISerializer, so the interface map is the seam available.
@@ -63,23 +79,20 @@ public sealed class PullDiagnosticsLspSerializer(ClientVersion clientVersion)
         return DeserializeObject<T>(json);
     }
 
-    /// <summary>Puts the repair back if anything has replaced it. Cheap, and idempotent.</summary>
+    /// <summary>Puts the resolver back if <c>Reset</c> has replaced it. Cheap, and idempotent: nearly always one reference read.</summary>
     private void Repair()
     {
-        if (Settings.ContractResolver is not WithoutReportStub)
+        if (Settings.ContractResolver is WithoutReportStub)
         {
-            Settings.ContractResolver = new WithoutReportStub(
-                Settings.ContractResolver ?? new DefaultContractResolver());
+            return;
         }
 
-        if (!Settings.Converters.OfType<RelatedDocumentDiagnosticReportConverter>().Any())
+        lock (_repairing)
         {
-            Settings.Converters.Add(new RelatedDocumentDiagnosticReportConverter());
-        }
-
-        if (!Settings.Converters.OfType<WorkspaceDocumentDiagnosticReportConverter>().Any())
-        {
-            Settings.Converters.Add(new WorkspaceDocumentDiagnosticReportConverter());
+            if (Settings.ContractResolver is not WithoutReportStub)
+            {
+                Settings.ContractResolver = new WithoutReportStub(Settings.ContractResolver ?? new DefaultContractResolver());
+            }
         }
     }
 

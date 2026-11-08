@@ -23,6 +23,18 @@ public sealed class ModuleIndenterTests
     private static string Lines(params string[] lines) => string.Join("\r\n", lines);
 
     [TestMethod]
+    public void AModuleWithAnExpressionPastTheLimitOfNesting_IsIndented()
+    {
+        var chain = Parser.ExpressionNestingTests.ChainPastTheLimit();
+
+        var indented = string.Empty;
+        var thrown = SmallStack.Run(() => indented = Indented(Lines("Public Sub Foo()", $"x = {chain}", "End Sub")));
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.AreEqual(Lines("Public Sub Foo()", $"    x = {chain}", "End Sub"), indented);
+    }
+
+    [TestMethod]
     public void NestedBlocks_AreALevelEach_TheirBranchesAtTheLevelOfTheBlock()
     {
         var text = Lines(
@@ -229,6 +241,14 @@ public sealed class ModuleIndenterTests
     public void ARangeThatSplitsAStatement_IsWidenedToTheWholeStatement()
         => Assert.AreEqual(Lines("Sub A()", "    x = Foo(1, _", "            2)", "End Sub"),
             Indented(Lines("Sub A()", "x = Foo(1, _", "      2)", "End Sub"), first: 2, last: 2));
+
+    // a statement no rule reads is where the body it is in has it, even one whose words would open a block.
+    [TestMethod]
+    [DataRow("a = 1-")]
+    [DataRow("If x = 1 - Then")]
+    public void AStatementNoRuleReads_IsAtTheLevelOfTheBodyItIsIn(string statement)
+        => Assert.AreEqual(Lines("Public Sub Test()", "    If a Then", $"        {statement}", "    End If", "End Sub"),
+            Indented(Lines("Public Sub Test()", "If a Then", statement, "End If", "End Sub")));
 
     // as the VBE has it: a label is in column 1, and the code after it where the level has it.
     [TestMethod]

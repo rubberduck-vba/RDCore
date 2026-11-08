@@ -41,6 +41,3 @@ reads back.
 [IFileChannelOutput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html), which it shares with
 `Print #`. `Width #` sets that surface's maximum line length
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.5.8** Print Statement](rd-vbal.5.4.5.8.print-statement.md) | ⏭️ [**RD-VBAL §5.4.5.10** Input Statement](rd-vbal.5.4.5.10.input-statement.md)

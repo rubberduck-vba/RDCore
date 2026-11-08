@@ -22,10 +22,10 @@ IEEE-754's, with no error: infinity plus one is infinity, and an infinity compar
 
 |Condition|Run-time error|
 |---|---|
-|An integral or fixed-point result does not fit the effective type.|6 — Overflow|
-|A floating-point value stored as a `Single` or `Double` is past its range.|6 — Overflow|
-|A floating-point result of operands that are numbers is NaN.|6 — Overflow|
-|A floating-point number other than zero is divided by zero.|11 — Division by zero|
+|An integral or fixed-point result does not fit the effective type.|6 (Overflow)|
+|A floating-point value stored as a `Single` or `Double` is past its range.|6 (Overflow)|
+|A floating-point result of operands that are numbers is NaN.|6 (Overflow)|
+|A floating-point number other than zero is divided by zero.|11 (Division by zero)|
 
 The error carries the value IEEE-754 arithmetic gave the operation, and a `Let` assignment of it to a `Single` or
 `Double` variable assigns it before raising the error: after `s = s * 10`, `s` is infinite
@@ -90,10 +90,23 @@ This section corresponds to [**MS-VBAL §5.6.9.3.1** Unary - Operator](https://l
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.6.9.3.2** + Operator](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/91621d4b-3da3-4fe9-9581-adda857efe05).
 
-🧩 RD-VBA explicitly adds runtime semantics for a unary `+` operator, as a language core extension
-([**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)).
+MS-VBAL's grammar has no unary `+`. The VBE removes one from the code, whether it is typed or imported, and RD-VBA reads
+and erases it the same way, as a language core extension ([**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)).
+A program runs as the code the VBE keeps:
 
-👉 A `For` loop's `ForNext` instruction adds `step` to the counter through the addition operator,
+|Written|Kept by the VBE|Value|
+|---|---|---|
+|`x = +1`, `x = ++1`|`x = 1`|1, an Integer|
+|`x = -+1`, `x = +-1`|`x = -1`|-1, an Integer|
+|`x = +"1"`|`x = "1"`|"1", a String|
+|`x = +True`|`x = True`|True, a Boolean|
+|`Foo +1`|`Foo 1`|1, an Integer|
+
+So a unary `+` is no operator, and converts nothing. A variable after it is still the variable: `Foo +x` passes `x` by
+reference, and `Set o = +obj` assigns the object. No node of the syntax tree stands for a `+`. Each one is kept as
+the module's trivia, as a comment is ([ErasedPlusTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.ErasedPlusTriviaNode.html)), so that the source can be written back as it was read.
+
+A `For` loop's `ForNext` instruction adds `step` to the counter through the addition operator,
 `RDCore.Runtime.Semantics.Operators.Arithmetic.BinaryAdditionOperatorRuntimeSemantics`. The step addition is therefore
 an overflow-checked operation, not a plain CLR addition
 ([**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)).
@@ -135,7 +148,7 @@ This section corresponds to [**MS-VBAL §5.6.9.3.5** / Operator](https://learn.m
 
 |Condition|Run-time error|
 |---|---|
-|An integral division or `Mod` by zero.|11 — Division by zero|
+|An integral division or `Mod` by zero.|11 (Division by zero)|
 
 Run-time error 11 is `VBRuntimeErrorId.DivisionByZero`.
 
@@ -151,11 +164,8 @@ gives no finite number:
 
 |Condition|Run-time error|
 |---|---|
-|`0` to a negative power.|5 — Invalid procedure call or argument|
-|A negative number to a fractional power (`(-8) ^ (1 / 3)`), which has no real result.|5 — Invalid procedure call or argument|
-|A result past the range of a `Double` (`10 ^ 400`).|6 — Overflow|
+|`0` to a negative power.|5 (Invalid procedure call or argument)|
+|A negative number to a fractional power (`(-8) ^ (1 / 3)`), which has no real result.|5 (Invalid procedure call or argument)|
+|A result past the range of a `Double` (`10 ^ 400`).|6 (Overflow)|
 
 A `Variant` operand doesn't change this: `Double` has nothing wider. `0 ^ 0` is `1`.
-
----
-> ⏮️ [**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md) | ⏭️ [**RD-VBAL §5.6.9.4** & Operator](rd-vbal.5.6.9.4.ampersand-operator.md)

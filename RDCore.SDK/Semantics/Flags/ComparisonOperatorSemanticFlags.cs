@@ -109,6 +109,20 @@ public enum ComparisonOperatorSemanticFlags
     IsVariantStringThatIsNoValueRanked = 1 << 23,
 
     /// <summary>
+    /// <c>true</c> if a <c>String</c> is compared with a <c>Byte</c>, an <c>Integer</c> or a <c>Long</c> - or a <c>VBVariant</c> holding a <c>String</c>
+    /// with a <c>Single</c> or a <c>LongLong</c> that is no <c>VBVariant</c> - as two <c>Double</c> values, as MS-VBA compares them, and the operator
+    /// can answer otherwise than it would in the type MS-VBAL's table gives: the <c>String</c> is not known; or it is a number that type does not hold
+    /// as the <c>Double</c> does, and the answers differ for the number, or, the number not being known, for one next to the <c>String</c>'s value
+    /// (<c>"2.5"</c> is the table's <c>2</c>: <c>"2.5" &gt; n</c> is reported, <c>"2.5" &lt; n</c> is not).
+    /// </summary>
+    /// <remarks>
+    /// 👉 <strong>MS-VBAL §5.6.9.5</strong> makes the effective type the number's: <c>"2.5" = 2</c> is <c>True</c>, and <c>"40000" &gt; i</c>, with
+    /// <c>i</c> an <c>Integer</c>, overflows (6). MS-VBA compares the two as <c>Double</c> values: <c>False</c>, and no error
+    /// (<see cref="Plans.OperationPlanner.SpecifiedRelationalEffectiveType"/>; RD-VBAL §5.6.9.5).
+    /// </remarks>
+    IsStringComparedAsADouble = 1 << 24,
+
+    /// <summary>
     /// Combines all values.
     /// </summary>
     All = IntegralNumericEffectiveType | FixedPointNumericEffectiveType
@@ -121,4 +135,5 @@ public enum ComparisonOperatorSemanticFlags
         | IsVariantStringNumericException | IsVariantComparedWithStringAsText
         | LikePatternHasEmptyCharList | LikePatternIsInvalid
         | IsVariantStringThatIsNoValueRanked
+        | IsStringComparedAsADouble
 }

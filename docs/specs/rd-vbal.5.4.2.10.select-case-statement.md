@@ -9,8 +9,8 @@
 |---|---|---|
 |[SelectCaseStatementNode](../api/RDCore.SDK.Model.AST.Statements.SelectCaseStatementNode.html)|`Select`|The `Select Case` opener. Its `End` is right past the block.|
 |[CaseExpressionStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseExpressionStatementNode.html)|`ConditionalBranch`|A `Case` header. Its `Matching` names the offset of its `Select` opener. Its `Else` is the offset to go to on no match: the next header in the chain, the first instruction of the `Case Else` body, or right past the whole construct.|
-|[CaseElseClauseStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|—|`Case Else` needs no condition.|
-|— (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
+|[CaseElseClauseStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|None|`Case Else` needs no condition.|
+|None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
 
 Each `Case` line's comma-separated conditions form their own node hierarchy under the abstract
 [CaseRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseRangeClauseNode.html). The three condition forms
@@ -106,6 +106,10 @@ the selector, and the two are compared in that type. This is what MS-VBA does (E
 - A selector declared `Variant` is compared with the value as it is, as in an expression: with `v` holding the `Long`
   `2`, `Case 1.7` does not match, and with `h` holding `100`, `Case "100"` matches and `Case Is > "9"` does not (a
   `Variant` number compared with a `String` is compared as text; [**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md)).
+- So is a selector that is an expression over a `Variant`, which is declared `Variant`: with `v` holding `1`, `Select Case v + 1`
+  does not match `Case "2.0"`, where `Select Case n + 1` of a `Long` `n` converts `"2.0"` to `2` and does. With `v` holding
+  `"2.5"`, `Case 2` matches neither `v` nor `v + 0`, as a `String` and a number are compared as `Double` values
+  (`oracle\s56` R08-R14).
 
 **MS-VBAL §5.4.2.10** says only that a single value "is compared with the value of select-expression", so `Case 1.7`
 has nothing to depart from. For the two other forms it states the expression that is evaluated:
@@ -114,9 +118,11 @@ the conversion makes a `Case Is` clause a different comparison from that express
 [`RDC11014`](../diagnostics/rdc11014.md), a warning that stands in for the comparison the specification states.
 
 The runtime states it as a `CaseClauseStatementFact` with `CaseClauseSemanticFlags.ComparedInSelectorType`: the
-conversion is stated when the relational operator's effective type for the two
-([**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md)) is not the selector's type. With `n As Long`,
-`Case Is < 5` is not stated: an `Integer` compared with a `Long` is compared as a `Long` either way.
+conversion is stated when the effective type **MS-VBAL §5.6.9.5**'s table gives the two is not the selector's type. With `n As Long`,
+`Case Is < 5` is not stated: an `Integer` compared with a `Long` is compared as a `Long` either way. Nor is `Case Is < "5"` with
+`i As Integer`: the table compares the two as `Integer` values, as the clause is. MS-VBA compares the expression `i < "5"` as `Double` values
+([**RD-VBAL §5.6.9.5**](rd-vbal.5.6.9.5.relational-operators.md#a-string-compared-with-a-byte-an-integer-or-a-long)), and
+that departure is the expression's, not the clause's.
 
 ## Implementation
 
@@ -145,6 +151,3 @@ conversion is stated when the relational operator's effective type for the two
 - This relies on the node parameter of `OperatorRuntimeSemantics<TContext,TFlags>` being typed
   [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
   ([**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)).
-
----
-> ⏮️ [**RD-VBAL §5.4.2.9** Single-line If Statement](rd-vbal.5.4.2.9.single-line-if-statement.md) | ⏭️ [**RD-VBAL §5.4.2.11** Stop Statement](rd-vbal.5.4.2.11.stop-statement.md)

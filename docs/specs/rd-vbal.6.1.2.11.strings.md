@@ -314,8 +314,10 @@ any other. `ChrB` is a `String` of one byte (`Len` `0`, `LenB` `1`), and a code 
 > This section describes the implementation of [**MS-VBAL §6.1.2.11.1.7** Filter](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/22ca3cbf-f56b-4795-8f9c-f0a59414eaad).
 
 `Filter` keeps the elements that contain `Match` as `InStr` finds it, or with `Include` `False` those that do not. A
-zero-length element contains nothing, and a zero-length `Match` is in every other element. An element is kept as the
-`String` it was read as, a trailing byte included.
+zero-length element contains no other `String`, but a zero-length `Match` is in every element, a zero-length one too, as
+**MS-VBA** has it, where `InStr("", "")` is `0` (recorded in Excel). An element is kept as the `String` it was read as, a
+trailing byte included. A `Compare` that is no comparison is error `5` when an element is compared, and only then, as it
+is to `InStr`.
 
 The result is a `String()` from `0`: `Filter` builds the array itself and never reads `Option Base`, so under
 `Option Base 1` its lower bound is still `0`
@@ -436,15 +438,20 @@ argument is `1`, and a `String` to search or a pattern left out is error `449`.
 
 The start is read as a `Long` would be ("If start contains the data value Null, an error occurs": error `94`), then
 the `String`s; a `Null` `String` gives `Null`, before the start is checked. A start below `1` is error `5`. A
-zero-length `String` to search gives `0`, and a zero-length pattern is found at the start, up to one past the end:
-`InStr(4, "abc", "")` is `4`.
+zero-length `String` to search gives `0`, and a zero-length pattern is the start, wherever it is: `InStr(9, "abc", "")` is
+`9`, as **MS-VBA** has it (recorded in Excel).
 
 The page's three-argument prose says "Arg1 is used as a string", and its table gives `0` for "Arg1 > Arg3". Both are
-read as errata: the start is a number, and that row is a start past the end of the `String` to search, plus one for a
-zero-length pattern.
+read as errata: the start is a number, and that row is a start past the end of the `String` to search. The table's rows
+apply in their order, so its "Arg3 is zero-length" row comes first.
+
+A `Compare` that is neither `vbBinaryCompare`, `vbTextCompare` nor a locale's identifier is error `5`, unless the `String`
+or the pattern is zero-length: their result takes no comparison, and MS-VBA checks no `Compare` for it
+(`InStr(1, "", "a", 2)` is `0`). A start past the end is error `5` (recorded in Excel).
 
 `InStrB` is the same over the `String`'s bytes, a trailing one included, and may match inside a character. It searches the bytes whatever its
-`Compare` and the module's `Option Compare` are: `InStrB(1, "xAx", "a", vbTextCompare)` is `0`, as in MS-VBA (recorded in Excel).
+`Compare` and the module's `Option Compare` are: `InStrB(1, "xAx", "a", vbTextCompare)` is `0`, as in MS-VBA (recorded in Excel). A
+zero-length pattern from past the end of the bytes is `0` to `InStrB`, where `InStr`'s is the start.
 
 ### 6.1.2.11.1.15 InStrRev
 
@@ -520,12 +527,13 @@ one function with two exceptions (strings and UDTs), rather than two functions.
 |A `String`|Its number of whole characters.|"the number of bytes used to represent that string": two per character, and one more for a trailing byte ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)).|
 |A fixed-length `String`|Its declared length.|Twice its declared length.|
 |`Null`|`Null`|`Null`|
+|An `Error` value|Error `13`, as **MS-VBA** has it (recorded in Excel).|Error `13`.|
 |Any other scalar|The bytes it occupies.|The same as `Len`: the bytes it occupies.|
-|A UDT|"the size as it will be written to the file": 👉 its members' memory widths, with no padding|"the in-memory size, including any implementation-specific padding between elements"|
+|A UDT|"the size as it will be written to the file": its members' memory widths, with no padding|"the in-memory size, including any implementation-specific padding between elements"|
 
 #### UDT sizes
 
-The UDT row is the one that needs the platform to know two different sizes for the same value. 🎯 A UDT has two
+The UDT row is the one that needs the platform to know two different sizes for the same value. A UDT has two
 sizes, and RD-VBA measures both as MS-VBA does (recorded in Excel, 64-bit), for the environment's pointer width:
 
 - `LenB` is its in-memory size: each member aligned to its own width (up to 8), and the whole padded to its widest
@@ -538,7 +546,7 @@ environment), a `Variant` is 24 (16 in a 32-bit one), and a fixed-size array mem
 `{ a As Long, s As String }` is `12` whatever `s` holds, and its `LenB` is `16`; `{ a As Byte, b As String * 3 }` is
 `4` and `7`.
 
-👉 This is not "the size as it will be written to the file": a `Put` of a record writes a variable-length `String`
+This is not "the size as it will be written to the file": a `Put` of a record writes a variable-length `String`
 member as its length and its characters. MS-VBAL warns that "`Len` might not be able to determine the actual number of
 storage bytes required when used with variable-length strings in user-defined data types"; MS-VBA, and RD-VBA, count the
 pointer.
@@ -560,14 +568,14 @@ returns a `String` or a `Variant` counts its characters, and of one whose defaul
 
 #### Declared types at external dispatch
 
-👉 An external call carries _runtime_ values rather than _typed_ ones, so the declared type of the value a member was
+An external call carries _runtime_ values rather than _typed_ ones, so the declared type of the value a member was
 called with is recovered at external dispatch
 ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).
 The declared type survives external dispatch because each intrinsic stores its own exact managed type: a `short` for
 `Integer` and an `int` for `Long`, not one integer type for both
 ([**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md)).
 
-👉 This is what lets `Len` return "the number of bytes required to store a variable" for the variable it is given.
+This is what lets `Len` return "the number of bytes required to store a variable" for the variable it is given.
 `Date` and `Double` are indistinguishable at external dispatch. That costs `Len` nothing, because they have the same
 width; a parameter declared `Date` will need its declared type to recover its argument.
 
@@ -709,6 +717,3 @@ the regional settings: `WeekdayName(1)` is `"lundi"` in fr-FR. The page's table 
 declaration does not: the declaration is what is declared, and MS-VBA's type library declares the same default, `0`
 (`VBE7.DLL`: `Optional FirstDayOfWeek As VbDayOfWeek = 0`). A `Weekday` other than `1` to `7`, then a `FirstDayOfWeek` that
 is no value of its enumeration, are error `5`.
-
----
-> ⏮️ [**RD-VBAL §6.1.2.10** Math](rd-vbal.6.1.2.10.math.md) | ⏭️ [**RD-VBAL §6.1.2.12** SystemColorConstants](rd-vbal.6.1.2.12.systemcolorconstants.md)

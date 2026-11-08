@@ -22,7 +22,8 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// <item>An invalid element - an unterminated list, or a range whose first character is above its last - raises error 93 when it is tested
 /// against a character, and the items of a list are tested in order until one matches. A <c>*</c> reached with text left to match checks the
 /// whole rest of the pattern first, and raises error 93 if any of it is invalid; a <c>*</c> reached at the end of the text checks nothing.</item>
-/// <item><c>#</c> matches <c>0</c> to <c>9</c> and no other digit; <c>?</c> and <c>*</c> match a line feed like any other character.</item>
+/// <item><c>#</c> matches <c>0</c> to <c>9</c> and their fullwidth forms (U+FF10 to U+FF19), and no other digit; <c>?</c> and <c>*</c> match a line
+/// feed like any other character.</item>
 /// <item>In text mode a character matches its other case where the two map to each other in the regional settings (<see cref="Fold"/>),
 /// and a range is folded the same way before it is tested: <c>[A-z]</c> is <c>[a-z]</c>, and <c>[Z-a]</c> is invalid.</item>
 /// <item>In text mode a character the collation expands to two letters (<see cref="Expansion"/>) is matched as itself or as its letters, in the
@@ -90,6 +91,7 @@ internal sealed class LikePattern
     /// <exception cref="InvalidLikePatternException">The match reached an invalid element.</exception>
     public bool IsMatch(ReadOnlySpan<char> text, StringComparisonRules rules)
     {
+        t_steps = 0;
         if (!rules.IgnoresCase)
         {
             return IsMatch(new TextUnits(text, textInfo: null), _binary, _binaryInvalidFrom);
@@ -100,18 +102,30 @@ internal sealed class LikePattern
         return IsMatch(TextUnits.Of(text, textInfo), form.Elements, form.InvalidFrom);
     }
 
+    [ThreadStatic]
+    private static long t_steps;
+
+    /// <summary>
+    /// The work the last match of this thread did: each pass of the matcher over an element. What a guard of the matcher's work counts, where a clock would
+    /// count the machine.
+    /// </summary>
+    internal static long StepsOfLastMatch => t_steps;
+
     private static bool IsMatch(in TextUnits text, Element[] elements, bool[] invalidFrom)
     {
         var p = 0;
         var t = 0;
         var star = -1;
         var starText = 0;
+        var steps = 0L;
         while (t < text.Length)
         {
+            steps++;
             if (p < elements.Length && elements[p].Kind == ElementKind.Star)
             {
                 if (invalidFrom[p + 1])
                 {
+                    t_steps = steps;
                     throw new InvalidLikePatternException();
                 }
 
@@ -129,6 +143,7 @@ internal sealed class LikePattern
 
             if (star < 0)
             {
+                t_steps = steps;
                 return false;
             }
 
@@ -137,6 +152,7 @@ internal sealed class LikePattern
             t = ++starText;
         }
 
+        t_steps = steps;
         // the text is matched: whatever is left of the pattern must match nothing, and only a * can. It checks nothing here.
         return p == elements.Length || (p == elements.Length - 1 && elements[p].Kind == ElementKind.Star);
     }
@@ -440,7 +456,7 @@ internal sealed class LikePattern
                 case ElementKind.Any:
                     return text.EndOfCharacter(index);
                 case ElementKind.Digit:
-                    return text[index] is >= '0' and <= '9' ? index + 1 : -1;
+                    return text[index] is >= '0' and <= '9' or >= '０' and <= '９' ? index + 1 : -1;
                 case ElementKind.List:
                     // an expanded character in the list as itself is taken whole.
                     if (!IsNegated && text.IsExpandedCharacter(index, out var character)

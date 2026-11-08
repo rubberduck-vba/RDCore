@@ -8,6 +8,12 @@
           "files": [
             "**/*.csproj"
           ]
+        },
+        {
+          "src": "../RDCore.SDK.Protocol",
+          "files": [
+            "**/*.csproj"
+          ]
         }
       ],
       "dest": "api"

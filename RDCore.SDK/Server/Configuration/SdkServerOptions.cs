@@ -72,6 +72,15 @@ public record class SdkAppCommandLineArgs
     [Option('t', "trace-level")]
     public LogLevel? TraceLevel { get; set; }
     /// <summary>
+    /// A <em>command-line switch</em> that has a client app run programs unattended: it tells the language server that nobody is there to answer a program's
+    /// dialogs (<see cref="Unattended"/>), and a program that opens one fails the run with the untrappable run-time error <c>VBR50001</c>.
+    /// </summary>
+    /// <remarks>
+    /// 👉 For a run nobody watches - a CI job, a script piped into <c>rdc.exe</c> - which has to fail loudly rather than wait for an answer. A server app ignores it.
+    /// </remarks>
+    [Option("unattended")]
+    public bool? Unattended { get; set; }
+    /// <summary>
     /// A <em>command-line switch</em> that overrides the <see cref="SdkServerOptions.TraceLevel"/> setting.
     /// </summary>
     /// <remarks>
@@ -202,6 +211,16 @@ public record class SdkAppOptions
 public record class SdkEnvironmentOptions
 {
     /// <summary>
+    /// The engine a program runs with when its configuration names none: the default of <see cref="ExecutionEngine"/>, and of a
+    /// <see cref="Runtime.RuntimeEnvironmentProfile"/> made without one.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/>. The <c>ExecutionEngine</c> of the platform's <c>RDCore.CLI/appsettings.json</c>
+    /// holds the same value, and a test holds the two to it: a change of the default changes both.
+    /// </remarks>
+    public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Interpreter;
+
+    /// <summary>
     /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, <c>#If Win64</c> / <c>#If VBA7</c>).
     /// </summary>
     public bool Is64Bit { get; set; } = true;
@@ -230,6 +249,12 @@ public record class SdkEnvironmentOptions
     /// label before it, bug for bug with MS-VBA).
     /// </summary>
     public Runtime.Abstract.Execution.VBErlLineNumbering ErlLineNumbering { get; set; }
+
+    /// <summary>
+    /// What <c>Err.Clear</c> does to the line <c>Erl</c> reports: <c>Reset</c> (the default: <c>0</c>, as
+    /// there is no error any more) or <c>Kept</c> (the line of the error it cleared, as MS-VBA does).
+    /// </summary>
+    public Runtime.Abstract.Execution.VBErlAfterErrClear ErlAfterErrClear { get; set; }
 
     /// <summary>
     /// 🎯 Whether a <c>Declare</c>'d library import may actually be called. <c>true</c> by default; set it
@@ -274,10 +299,10 @@ public record class SdkEnvironmentOptions
     public SdkRegionalOptions Regional { get; set; } = new();
 
     /// <summary>
-    /// 🎯 What runs the code of a program: <c>Interpreter</c> (the default) or <c>Compiled</c> (IL where every instruction of a procedure can be compiled, the
-    /// interpreter elsewhere).
+    /// 🎯 What runs the code of a program: <c>Interpreter</c> or <c>Compiled</c> (IL where every instruction of a procedure can be compiled, the interpreter
+    /// elsewhere); <see cref="DefaultExecutionEngine"/> unless said otherwise.
     /// </summary>
-    public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; }
+    public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; } = DefaultExecutionEngine;
 
     /// <summary>
     /// 🎯 Whether a program is built to be debugged or to be run: <c>Debug</c> (the default) or <c>Release</c>, in which a <c>Stop</c> statement ends the

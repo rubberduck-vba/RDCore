@@ -67,7 +67,7 @@ public sealed class WorkspaceFoldersLoadTests
             Documents = new WorkspaceDocumentService(States, NullLogger<WorkspaceDocumentService>.Instance, files.Path, files.File);
             Projects = new WorkspaceProjects(ProjectFiles);
             Workspace = new WorkspaceService(
-                new Version(99, 0, 0), state, NullLogger<WorkspaceService>.Instance, files.Path, files.File, files.Directory, ProjectFiles, Documents, States,
+                state, NullLogger<WorkspaceService>.Instance, files.Path, files.File, files.Directory, ProjectFiles, Documents, States,
                 () => ProtocolSupportedLanguage.VBA, Projects, new ProjectFileLoader(files));
             await Workspace.LoadAsync(root, folders);
             return this;

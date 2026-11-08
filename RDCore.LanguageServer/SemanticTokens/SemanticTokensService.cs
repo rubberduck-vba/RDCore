@@ -143,21 +143,27 @@ internal sealed class SemanticTokensService(IWorkspaceDocumentService documents,
         return (constants, types);
     }
 
-    private static void Collect(SyntaxNode node, HashSet<string> constants, HashSet<string> types)
+    // the walk keeps a stack of its own: an expression of the module may be nested deeper than the handler's thread has stack for.
+    private static void Collect(SyntaxNode root, HashSet<string> constants, HashSet<string> types)
     {
-        switch (node)
+        var pending = new Stack<SyntaxNode>();
+        pending.Push(root);
+        while (pending.TryPop(out var node))
         {
-            case ConstantDeclarationNode constant:
-                constants.Add(constant.Name);
-                break;
-            case MemberDeclarationNode { MemberKind: MemberKind.Enum or MemberKind.UserDefinedType } declaration:
-                types.Add(declaration.Name);
-                break;
-        }
+            switch (node)
+            {
+                case ConstantDeclarationNode constant:
+                    constants.Add(constant.Name);
+                    break;
+                case MemberDeclarationNode { MemberKind: MemberKind.Enum or MemberKind.UserDefinedType } declaration:
+                    types.Add(declaration.Name);
+                    break;
+            }
 
-        foreach (var child in node.Children)
-        {
-            Collect(child, constants, types);
+            foreach (var child in node.Children)
+            {
+                pending.Push(child);
+            }
         }
     }
 

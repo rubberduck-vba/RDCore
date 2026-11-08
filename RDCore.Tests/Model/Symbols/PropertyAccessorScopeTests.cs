@@ -19,7 +19,7 @@ namespace RDCore.Tests.Model.Symbols;
 /// <summary>
 /// The <c>Get</c>, <c>Let</c> and <c>Set</c> accessors of one property share a name but each define a scope of their
 /// own: their parameters and locals are theirs alone. The <c>Get</c> accessor keeps the property's own identity; the
-/// <c>Let</c> and <c>Set</c> accessors are addressed by the reserved word after the name.
+/// <c>Let</c> and <c>Set</c> accessors are addressed with the reserved word after the name, after a <c>]</c> (<see cref="SymbolUri"/>).
 /// </summary>
 [TestClass]
 public sealed class PropertyAccessorScopeTests
@@ -37,18 +37,18 @@ public sealed class PropertyAccessorScopeTests
         var let = new VBPropertyLetMemberSymbol(Root, module, "Item", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
         var set = new VBPropertySetMemberSymbol(Root, module, "Item", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Public);
 
-        Assert.AreEqual("Cls.Item", get.Uri.Fragment.TrimStart('#'));
-        Assert.AreEqual("Cls.Item.Let", let.Uri.Fragment.TrimStart('#'));
-        Assert.AreEqual("Cls.Item.Set", set.Uri.Fragment.TrimStart('#'));
+        Assert.AreEqual("Cls.Item", SymbolUri.PathOf(get.Uri));
+        Assert.AreEqual("Cls.Item]Let", SymbolUri.PathOf(let.Uri));
+        Assert.AreEqual("Cls.Item]Set", SymbolUri.PathOf(set.Uri));
         Assert.HasCount(3, new HashSet<SemanticId> { get.SemanticId, let.SemanticId, set.SemanticId });
         Assert.IsTrue(new[] { get.Name, let.Name, set.Name }.All(name => name == "Item"), "the accessors still share the property's name");
     }
 
     [TestMethod]
     public void ACopyOfAnAccessor_KeepsItsIdentity()
-        => Assert.AreEqual("Cls.Item.Set", (new VBPropertySetMemberSymbol(
+        => Assert.AreEqual("Cls.Item]Set", SymbolUri.PathOf((new VBPropertySetMemberSymbol(
                 Root, new Uri("file://rdcore-test#Cls"), "Item", ScopeKind.Module, SymbolKindExt.Property, VBVoidType.TypeInfo, R, R, AccessModifier.Public)
-            with { AccessModifier = AccessModifier.Private }).Uri.Fragment.TrimStart('#'));
+            with { AccessModifier = AccessModifier.Private }).Uri));
 
     private const string Property = """
         Attribute VB_Name = "Cls"
@@ -80,8 +80,8 @@ public sealed class PropertyAccessorScopeTests
     {
         var resolver = Composed();
 
-        Assert.IsInstanceOfType<VBObjectType>(TypeOf(resolver, "value", "Cls.Item.Set"));
-        Assert.AreEqual(VBLongType.TypeInfo, TypeOf(resolver, "value", "Cls.Item.Let"));
+        Assert.IsInstanceOfType<VBObjectType>(TypeOf(resolver, "value", "Cls.Item]Set"));
+        Assert.AreEqual(VBLongType.TypeInfo, TypeOf(resolver, "value", "Cls.Item]Let"));
         Assert.IsTrue(resolver.ResolveValue("value", ScopeKind.Unallocated, ModuleUri("Cls.Item")).IsUnbound,
             "the Get has no `value`: another accessor's parameter is not in its scope");
     }
@@ -92,8 +92,8 @@ public sealed class PropertyAccessorScopeTests
         var resolver = Composed();
 
         Assert.AreEqual(VBLongType.TypeInfo, TypeOf(resolver, "tmp", "Cls.Item"));
-        Assert.AreEqual(VBStringType.TypeInfo, TypeOf(resolver, "tmp", "Cls.Item.Let"));
-        Assert.AreEqual(VBDateType.TypeInfo, TypeOf(resolver, "tmp", "Cls.Item.Set"));
+        Assert.AreEqual(VBStringType.TypeInfo, TypeOf(resolver, "tmp", "Cls.Item]Let"));
+        Assert.AreEqual(VBDateType.TypeInfo, TypeOf(resolver, "tmp", "Cls.Item]Set"));
     }
 
     [TestMethod]

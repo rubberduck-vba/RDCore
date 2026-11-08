@@ -50,10 +50,11 @@ public sealed class ReferencedLibraryTests
     }
 
     [TestMethod]
-    public async Task AMemberOfAClassThatNamesAClassNotReadYet_OrOneTheLibraryDoesNotDeclare_IsLateBound_NotWrong()
+    public async Task AMemberThatReturnsAClassNotReadYet_IsTyped_AndOneTheLibraryDoesNotDeclare_IsLateBound_NotWrong()
     {
-        // `Find` returns a Part, which a Gadget names before the Part was read: what is known of the result is not its type, and an operator applied to it is
-        // applied to what it turns out to be, as it is to a member that an extensible class has and does not declare.
+        // `Find` returns a Part, which a Gadget names before the Part was read: the name is resolved where the member is used, and the result is a Part, as
+        // a variable declared as one is. A member that an extensible class has and does not declare is late-bound, and an operator applied to it is applied to
+        // what it turns out to be.
         var errors = await LoadErrorsAsync([], Program(
             "Public Sub Use()",
             "Dim g As Widgets.Gadget",
@@ -62,6 +63,34 @@ public sealed class ReferencedLibraryTests
             "Debug.Print -g.Find(\"x\").Owner.Mode",
             "End Sub"),
             References(new InMemoryLibrarySource(Widgets), "Widgets"));
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    // a library class's member whose type the library does not qualify names no class the library declares: it is not the class of that name a project
+    // declares, and what is accessed on it is late-bound.
+    [TestMethod]
+    public async Task AMemberOfALibraryClassThatNamesATypeTheLibraryDoesNotDeclare_IsNotTheProjectsClassOfThatName()
+    {
+        var orphan = new LibraryDescription
+        {
+            Name = "Orphan",
+            Classes =
+            [
+                new ClassDescription
+                {
+                    Name = "Holder",
+                    Members = [new MemberDescription { Name = "Thing", Kind = MemberKind.PropertyGet, Type = "Widget" }],
+                },
+            ],
+        };
+
+        var errors = await LoadErrorsAsync([("Widget", ClassModule("Widget", "Public Name As String"))], Program(
+            "Public Sub Use()",
+            "Dim h As Orphan.Holder",
+            "Debug.Print h.Thing.Nope",
+            "End Sub"),
+            References(new InMemoryLibrarySource(orphan), "Orphan"));
 
         Assert.IsEmpty(errors, string.Join("; ", errors));
     }

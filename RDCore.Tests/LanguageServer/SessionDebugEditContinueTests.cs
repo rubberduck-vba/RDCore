@@ -25,15 +25,15 @@ public sealed class SessionDebugEditContinueTests
     private readonly EditStatusMonitor _editStatus;
 
     // the edit the host refuses the program for once the whole workspace is loaded: a name the edited module used is gone from another.
-    private static readonly HostDebugEdit DoesNotCompile = new()
+    private static readonly DebugEdit DoesNotCompile = new()
     {
-        Name = "M1.Caller", Kind = HostDebugEditKind.DoesNotCompile, Reason = "Sub or Function not defined: Helper", ModuleUri = new Uri("file:///c:/ws#M1"),
+        Name = "M1.Caller", Kind = DebugEditKind.DoesNotCompile, Reason = "Sub or Function not defined: Helper", ModuleUri = new Uri("file:///c:/ws#M1"),
     };
 
     public SessionDebugEditContinueTests()
     {
         _capabilities.Expects(Arg.Any<Func<LanguageServerCapabilities, CorePlatformClientCapability>>()).Returns(true);
-        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
         _editStatus = new EditStatusMonitor(_debugging, Substitute.For<IWorkspaceRefresh>(), NullLogger<EditStatusMonitor>.Instance);
     }
 
@@ -54,14 +54,14 @@ public sealed class SessionDebugEditContinueTests
     public async Task AContinue_IsRelayedOnceTheWorkspaceIsLoaded_AndIsAnsweredWhatTheHostChecksItAgainst()
     {
         var (asked, loaded) = LoadPending();
-        _debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(new ExecuteSessionResult
+        _debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(new ExecuteResult
         {
             Outcome = ExecutionOutcome.Refused,
             ErrorMessage = $"{DoesNotCompile.Name}: {DoesNotCompile.Reason}",
         });
         var handler = new SessionDebugResumeHandler(_debugging, _capabilities, _editStatus, _lifecycle);
 
-        var answer = handler.Handle(new SessionDebugResumeParams(), CancellationToken.None);
+        var answer = handler.Handle(new SessionDebugResumeRequest(), CancellationToken.None);
         await asked.Task.WaitAsync(Patience);
 
         await _debugging.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
@@ -77,10 +77,10 @@ public sealed class SessionDebugEditContinueTests
     public async Task AGoto_IsRelayedOnceTheWorkspaceIsLoaded()
     {
         var (asked, loaded) = LoadPending();
-        _debugging.GotoAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new HostDebugGotoResult { Moved = false, Reason = DoesNotCompile.Reason });
+        _debugging.GotoAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new DebugGotoResult { Moved = false, Reason = DoesNotCompile.Reason });
         var handler = new SessionDebugGotoHandler(_debugging, _capabilities, _editStatus, _lifecycle);
 
-        var answer = handler.Handle(new SessionDebugGotoParams { Line = 3 }, CancellationToken.None);
+        var answer = handler.Handle(new SessionDebugGotoRequest { Line = 3 }, CancellationToken.None);
         await asked.Task.WaitAsync(Patience);
 
         await _debugging.DidNotReceiveWithAnyArgs().GotoAsync(default, default, default);
@@ -93,10 +93,10 @@ public sealed class SessionDebugEditContinueTests
     public async Task TheEditStatus_IsAskedOnceTheWorkspaceIsLoaded_AndIsWhatTheDiagnosticsAreOf()
     {
         var (asked, loaded) = LoadPending();
-        var listed = new HostDebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] };
+        var listed = new DebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] };
         var handler = new SessionDebugEditStatusHandler(_capabilities, _editStatus, _lifecycle);
 
-        var answer = handler.Handle(new SessionDebugEditStatusParams(), CancellationToken.None);
+        var answer = handler.Handle(new SessionDebugEditStatusRequest(), CancellationToken.None);
         await asked.Task.WaitAsync(Patience);
 
         await _debugging.DidNotReceiveWithAnyArgs().EditStatusAsync(default);
@@ -112,10 +112,10 @@ public sealed class SessionDebugEditContinueTests
     public async Task AContinue_WithNoLoadPending_IsRelayedAtOnce()
     {
         _lifecycle.WhenAllLoadedAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        _debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Suspended });
+        _debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(new ExecuteResult { Outcome = ExecutionOutcome.Suspended });
         var handler = new SessionDebugResumeHandler(_debugging, _capabilities, _editStatus, _lifecycle);
 
-        Assert.AreEqual(ExecutionOutcome.Suspended, (await handler.Handle(new SessionDebugResumeParams(), CancellationToken.None).WaitAsync(Patience)).Outcome);
+        Assert.AreEqual(ExecutionOutcome.Suspended, (await handler.Handle(new SessionDebugResumeRequest(), CancellationToken.None).WaitAsync(Patience)).Outcome);
     }
 
     // a program that is over, or went on with every edit, has none it does not have: what was said is cleared once it is answered.
@@ -123,13 +123,13 @@ public sealed class SessionDebugEditContinueTests
     public async Task AContinue_ThatIsAnswered_HasTheEditsAskedAgain()
     {
         _lifecycle.WhenAllLoadedAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] });
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] });
         await _editStatus.CheckAsync(CancellationToken.None);
-        _debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed });
-        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        _debugging.ResumeAsync(null, Arg.Any<CancellationToken>()).Returns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
         var handler = new SessionDebugResumeHandler(_debugging, _capabilities, _editStatus, _lifecycle);
 
-        _ = await handler.Handle(new SessionDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
+        _ = await handler.Handle(new SessionDebugResumeRequest(), CancellationToken.None).WaitAsync(Patience);
 
         Assert.IsEmpty(_editStatus.Current.Edits);
     }
@@ -141,27 +141,57 @@ public sealed class SessionDebugEditContinueTests
     [DataRow("discard")]
     public async Task AProgramEndedAtTheStop_HasTheEditsAskedAgain_EvenWhenTheRequestIsCancelledOnceAnswered(string request)
     {
-        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] });
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] });
         await _editStatus.CheckAsync(CancellationToken.None);
-        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new HostDebugEditStatusResult());
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
         using var cancelled = new CancellationTokenSource();
         var symbols = Substitute.For<RDCore.LanguageServer.Symbols.ISymbolSyncService>();
         _debugging.ExecuteAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
         {
             cancelled.Cancel();
-            return new HostDebugEvaluateResult { Value = string.Empty };
+            return new DebugEvaluateResult { Value = string.Empty };
         });
         symbols.DiscardModuleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>(), true).Returns(_ =>
         {
             cancelled.Cancel();
-            return new DiscardSessionResult { Discarded = 1 };
+            return new DiscardResult { Discarded = 1 };
         });
 
         object answer = request == "execute"
-            ? await new SessionDebugExecuteHandler(_debugging, _capabilities, _editStatus).Handle(new SessionDebugExecuteParams { Statement = "End" }, cancelled.Token)
-            : await new SessionDiscardHandler(symbols, _capabilities, _editStatus).Handle(new DiscardSessionParams { ModuleName = "M1", EndProgram = true }, cancelled.Token);
+            ? await new SessionDebugExecuteHandler(_debugging, _capabilities, _editStatus).Handle(new SessionDebugExecuteRequest { Statement = "End" }, cancelled.Token)
+            : await new SessionDiscardHandler(symbols, _capabilities, _editStatus).Handle(new SessionDiscardRequest { ModuleName = "M1", EndProgram = true }, cancelled.Token);
 
         Assert.IsNotNull(answer);
         Assert.IsEmpty(_editStatus.Current.Edits);
+    }
+
+    // a program that ended has its edits asked again once the end is answered.
+    [TestMethod]
+    public async Task ATerminate_ThatEndedTheProgram_HasTheEditsAskedAgain()
+    {
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult { Suspended = true, Edits = [DoesNotCompile] });
+        await _editStatus.CheckAsync(CancellationToken.None);
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new DebugEditStatusResult());
+        _debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new DebugAck { Acted = true });
+        var handler = new SessionDebugTerminateHandler(_debugging, _capabilities, _editStatus);
+
+        Assert.IsTrue((await handler.Handle(new SessionDebugTerminateRequest(), CancellationToken.None).WaitAsync(Patience)).Acted);
+
+        Assert.IsEmpty(_editStatus.Current.Edits);
+    }
+
+    // a program still stopping runs on in a call outside it: the host would answer what its edits are only once the request that runs it is done, so the end is
+    // answered without asking, and the relay holds none of the requests marked to be handled on arrival behind it.
+    [TestMethod]
+    public async Task ATerminate_OfAProgramStillStopping_IsAnsweredSo_WithoutAskingForTheEdits()
+    {
+        _debugging.EditStatusAsync(Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource<DebugEditStatusResult>().Task);
+        _debugging.TerminateAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new DebugAck { Acted = true, Stopping = true });
+        var handler = new SessionDebugTerminateHandler(_debugging, _capabilities, _editStatus);
+
+        var result = await handler.Handle(new SessionDebugTerminateRequest(), CancellationToken.None).WaitAsync(Patience);
+
+        Assert.IsTrue(result.Stopping);
+        await _debugging.DidNotReceiveWithAnyArgs().EditStatusAsync(default);
     }
 }

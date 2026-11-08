@@ -154,7 +154,7 @@ internal class PrecompilerDirectiveListener(Uri sourceUri, ErrorListener errors)
         => OnEnterParent();
     public override void ExitUnaryMinusOp([NotNull] VBAConditionalCompilationParser.UnaryMinusOpContext context)
         => OnExitParent(provider => new VBUnaryOperatorExpressionNode(Tokens.NegationOp, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), [.. provider.GetChildren]));
-    // FIXME RD-VBA defines an explicit unary '+' operator that has no reason to not be a supported precompilation node. Grammar needs a tweak.
+    // FIXME the directive grammar reads no unary +, which the code's grammar reads and erases (RD-VBAL §5.6.9.3).
 
     public override void EnterIntDivOp([NotNull] VBAConditionalCompilationParser.IntDivOpContext context)
         => OnEnterParent();

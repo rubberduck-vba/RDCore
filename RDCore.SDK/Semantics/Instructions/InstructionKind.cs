@@ -138,12 +138,14 @@ public enum InstructionKind
     /// <summary>
     /// <c>On Error GoTo</c> &lt;label&gt; (<strong>MS-VBAL §5.4.4.1</strong>): sets the activation's
     /// error-handling policy to branch to <see cref="Instruction.Target"/> on the next error. Always
-    /// falls through — the branch only happens later, when (if) an error is actually raised.
+    /// falls through — the branch only happens later, when (if) an error is actually raised. Inside an active handler, it sets only the policy the
+    /// activation has once the handler is over: a second error raised in the handler still goes to the caller (MS-VBA, Excel-verified, oracle\s53).
     /// </summary>
     OnErrorGoTo,
 
     /// <summary>
-    /// <c>On Error GoTo 0</c> (<strong>MS-VBAL §5.4.4.1</strong>): disables the activation's error-handling policy. Always falls through.
+    /// <c>On Error GoTo 0</c> (<strong>MS-VBAL §5.4.4.1</strong>): disables the activation's error-handling policy. Always falls through. Inside an active
+    /// handler, it sets only the policy the activation has once the handler is over, as <see cref="OnErrorGoTo"/> does.
     /// </summary>
     OnErrorDisable,
 
@@ -157,7 +159,8 @@ public enum InstructionKind
     /// <summary>
     /// <c>On Error Resume Next</c> (<strong>MS-VBAL §5.4.4.1</strong>): sets the activation's
     /// error-handling policy to silently continue at the statement after any statement that raises an
-    /// error. Always falls through.
+    /// error. Always falls through. Inside an active handler, it sets only the policy the activation has once the handler is over, as
+    /// <see cref="OnErrorGoTo"/> does.
     /// </summary>
     OnErrorResumeNext,
 

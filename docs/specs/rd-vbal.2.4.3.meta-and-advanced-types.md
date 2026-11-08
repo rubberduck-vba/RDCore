@@ -5,7 +5,7 @@ _Meta types_ are _introspective_ data types that can _reflectively_ describe the
 > [!WARNING]
 > Meta types must not be exposed directly to RD-VBA source code. Doing so would break the language on a fundamental level.
 
-> 🧩 Meta types provide _language-level extension_ possibilities.
+> Meta types provide _language-level extension_ possibilities.
 
 The type system includes and uses meta types, such as `VBTypeDescValue`; see [**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts.md).
 
@@ -21,7 +21,7 @@ The meta types are:
 
 `VBTypeDesc` represents (describes) a [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html) within the type system.
 
-👉 A value of the `VBTypeDesc` meta type, a [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html), is used in the implementation of:
+A value of the `VBTypeDesc` meta type, a [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html), is used in the implementation of:
 
 - the `Is` relational operator (see [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md));
 - _let-coercion_ (see [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)).
@@ -81,6 +81,3 @@ RD-VBAL groups the following descriptors under `VBReturningMemberDesc`:
 ## 2.4.3.3 VBParameterDesc
 
 `VBParameterDesc` is a descriptor that represents (describes) a [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html).
-
----
-> ⏮️ [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md) | ⏭️ [**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md)

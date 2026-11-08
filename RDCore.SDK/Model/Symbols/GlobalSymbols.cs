@@ -11,19 +11,19 @@ namespace RDCore.SDK.Model.Symbols;
 /// One member, and it is a sentinel: something a resolver or a caller can name when there is nothing
 /// real to name.
 /// <para>
-/// This was a grab-bag of some 140 static symbols — a table of every operator symbol, named accessors
+/// This was a grab-bag of some 140 static symbols: a table of every operator symbol, named accessors
 /// into that table, an <c>ExtensionSymbols</c> nest of per-type <c>Byte.Min</c>/<c>Long.Max</c>
 /// constants, a <c>StaticSymbols</c> nest of <c>True</c>/<c>Nothing</c>/<c>vbNullString</c>, and an
 /// <c>Initialize</c> that seeded an index with the operators. Exactly one of them was ever read by any
-/// code, and only for its declared type — which the type itself already names — and nothing called
+/// code, and only for its declared type (which the type itself already names), and nothing called
 /// <c>Initialize</c> at all. Together they looked like a language model; measured, they were a list of
 /// names nobody could resolve, because nothing ever put them in a scope.
 /// </para>
 /// <para>
 /// The real thing they gestured at is <see cref="RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider"/>: a
 /// symbol provider whose symbols reach the scope tree, so a name like <c>vbNullString</c> actually
-/// binds. Anything from the old nests that is genuinely part of the language belongs there — declared
-/// once, resolvable — rather than here as a static field.
+/// binds. Anything from the old nests that is genuinely part of the language belongs there (declared
+/// once, resolvable) rather than here as a static field.
 /// </para>
 /// </remarks>
 public static class GlobalSymbols

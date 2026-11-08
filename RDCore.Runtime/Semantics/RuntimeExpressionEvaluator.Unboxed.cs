@@ -300,6 +300,42 @@ public sealed partial class RuntimeExpressionEvaluator
         return true;
     }
 
+    /// <summary>
+    /// The step and the end of a loop of a Variant counter held in <paramref name="cell"/>, converted to <paramref name="counterType"/>, when every Next
+    /// of it that finds the counter holding a value of that type is stepped on payloads (<see cref="TryStepForUnboxed"/>) with these plans: counter + step
+    /// done in the counter's type, and its comparison with the end too (compiled code's speculation of the counter's subtype).
+    /// </summary>
+    /// <param name="session">The session the loop runs in.</param>
+    /// <param name="state">The state the loop's <c>For</c> statement gave the frame.</param>
+    /// <param name="context">The context the loop's expressions are evaluated in.</param>
+    /// <param name="cell">The cell of the counter.</param>
+    /// <param name="counterType">The type compiled code speculates the counter holds.</param>
+    /// <param name="step">The step, converted to <paramref name="counterType"/>.</param>
+    /// <param name="end">The end, converted to <paramref name="counterType"/>.</param>
+    /// <returns><see langword="false"/> when the loop is not stepped on payloads, or not in that type: each Next is then stepped as any is.</returns>
+    internal bool TryVariantForBounds(IRuntimeSession session, ForLoopState state, RuntimeEvaluationContext context, VariantCell cell, VBType counterType,
+        out ScalarPayload step, out ScalarPayload end)
+    {
+        step = end = default;
+        if (!UnboxedEvaluation.IsEnabled || Observation is not null || AssumesVariables
+            || state.RuntimeState is not ForLoopPayloads loop || loop.IsDeclined
+            || !(loop.IsReady && ReferenceEquals(loop.Scopes, session.Symbols.Scopes)) && !TryPrepareFor(session, state, context, loop)
+            || BindingOf(session, loop.Counter!) is not (VariantCell counter, null) || !ReferenceEquals(counter, cell))
+        {
+            return false;
+        }
+
+        var sum = OperationPlanner.ForValues(Tokens.AdditionOp, counterType, loop.Step.Type);
+        if (sum.OperandDestination is not { } destination || !destination.Equals(counterType) || sum.EffectiveType is not { } summed || !summed.Equals(counterType))
+        {
+            return false;
+        }
+
+        var comparison = OperationPlanner.ForValues(state.CountsDown ? Tokens.CompareLessThanOp : Tokens.CompareGreaterThanOp, summed, loop.End.Type);
+        return comparison.OperandDestination is { } compared && compared.Equals(counterType)
+            && TryConvertPayload(loop.Step, counterType, out step) && TryConvertPayload(loop.End, counterType, out end);
+    }
+
     // a Variant counter (S1.4), which the loop gave a value of the type it counts in (ForLoopEvaluator.Operands): counter + step and the comparison with
     // the end are Variant operations, planned for what the counter holds - a sum that overflows declines, and the boxed loop widens the counter as MS-VBA
     // does. The plans are made again only when the counter's subtype changes.
@@ -343,7 +379,8 @@ public sealed partial class RuntimeExpressionEvaluator
             case BoundBinary binary when PlanOf(binary) is { IsDeferred: false } plan && (IsWide(binary.Left) || IsWide(binary.Right)):
                 return TryOperateWithWide(session, binary, plan, out payload);
             case BoundUnary { Plan: not null } unary when PlanOf(unary) is { IsDeferred: false, OperandDestination: { } destination } plan && IsWide(unary.Operand):
-                return TryEvaluatePayloadAs(session, unary.Operand, destination, out var converted) && TryOperateUnary(plan, converted, out payload);
+                return TryEvaluatePayloadAs(session, unary.Operand, destination, out var converted)
+                    && TryOperateUnary(plan, converted, unary.NegatesAConstantExpression, out payload);
             case BoundLiteral literal:
                 return ScalarPayload.TryOf(literal.Literal.StaticValue.TypeInfo, literal.Literal.StaticValue.RuntimeValue, out payload);
             case BoundVariable variable:
@@ -364,8 +401,9 @@ public sealed partial class RuntimeExpressionEvaluator
             case BoundUnary { Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp
                 or SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return TryEvaluatePayload(session, enclosed, out payload);
-            case BoundUnary { Plan: { } plan, Operand: var operand } when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
-                return TryEvaluatePayload(session, operand, out var value) && TryOperateUnary(PlanFor(plan, value), value, out payload);
+            case BoundUnary { Plan: { } plan, Operand: var operand } unary when plan.Operator is Tokens.NegationOp or Tokens.LogicalNotOp:
+                return TryEvaluatePayload(session, operand, out var value)
+                    && TryOperateUnary(PlanFor(plan, value), value, unary.NegatesAConstantExpression, out payload);
             // two Strings compared (S1.4b).
             case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } plan, Left: var left, Right: var right }:
                 return TryCompareText(session, plan, left, right, out payload);
@@ -523,9 +561,8 @@ public sealed partial class RuntimeExpressionEvaluator
     // of a Long, outside its dimension - is that evaluation's to raise, and so is an array that is not known, or one whose elements are kept as values.
     private ScalarCell? ElementCellOf(IRuntimeSession session, BoundIndex index)
     {
-        if (index.Callee is not BoundVariable variable
-            || BindingOf(session, variable).Handle is not ValueBindingHandle { Value: VBRuntimeValue<VBRuntimeArrayValue> { Value.Array: { IsIndeterminate: false } array } }
-            || index.Arguments.Length != array.Rank || array.Rank > MaxPayloadRank)
+        if (index.Callee is not BoundVariable variable || PayloadArrayOf(BindingOf(session, variable).Handle) is not { } array
+            || index.Arguments.Length != array.Rank)
         {
             return null;
         }
@@ -548,6 +585,20 @@ public sealed partial class RuntimeExpressionEvaluator
     // MS-VBAL §5.6.13 sets no limit on the rank of an array; MS-VBA's is 60. An element of more dimensions than this is read boxed.
     private const int MaxPayloadRank = 8;
 
+    /// <summary>
+    /// The array the cell of an array variable holds, known, whose elements are read and written on payloads: what an element of it is found in
+    /// (<see cref="ElementCellOf"/>), and what compiled code finds one in too.
+    /// </summary>
+    /// <returns><see langword="null"/> when the cell holds no array, one that is not known, or one of more dimensions than are read on payloads.</returns>
+    internal static VBArrayValue? PayloadArrayOf(IBindingHandle? handle)
+        => KnownArrayOf(handle) is { Rank: <= MaxPayloadRank } array ? array : null;
+
+    /// <summary>
+    /// The array the cell of an array variable holds, when it is known: whose bounds <c>LBound</c> and <c>UBound</c> read.
+    /// </summary>
+    internal static VBArrayValue? KnownArrayOf(IBindingHandle? handle)
+        => handle is ValueBindingHandle { Value: VBRuntimeValue<VBRuntimeArrayValue> { Value.Array: { IsIndeterminate: false } array } } ? array : null;
+
     // MS-VBAL §5.6.9: a plan that depends on what a Variant operand holds is made again for the types of the payloads (S1.4) - the value types the
     // boxed evaluation makes it for (PlanExecutor); any other plan is final.
     private static OperationPlan PlanFor(OperationPlan plan, ScalarPayload operand)
@@ -556,11 +607,52 @@ public sealed partial class RuntimeExpressionEvaluator
     private static OperationPlan PlanFor(OperationPlan plan, ScalarPayload left, ScalarPayload right)
         => plan.IsDeferred ? OperationPlanner.ForValues(plan.Operator, left.Type, right.Type) : plan;
 
-    private static bool TryOperateUnary(OperationPlan plan, ScalarPayload operand, out ScalarPayload result)
+    /// <summary>
+    /// An operation of a <c>Variant</c> operand, on the payloads of its operands (MS-VBAL §5.6.9): planned for their types, as a deferred plan is made again
+    /// here: what compiled code evaluates one with.
+    /// </summary>
+    /// <param name="token">The operator's token.</param>
+    /// <param name="lhs">The payload of the left operand.</param>
+    /// <param name="rhs">The payload of the right operand.</param>
+    /// <param name="result">The operation's result.</param>
+    /// <returns><see langword="false"/> when the operation is not done on payloads: it raises an error, or its result is no payload.</returns>
+    internal static bool TryOperateDeferred(string token, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
+        => TryOperateBinary(OperationPlanner.ForValues(token, lhs.Type, rhs.Type), lhs, rhs, out result);
+
+    /// <summary>
+    /// A negation or a <c>Not</c> of a <c>Variant</c> operand, on its payload (<see cref="TryOperateDeferred"/>).
+    /// </summary>
+    /// <param name="token">The operator's token.</param>
+    /// <param name="operand">The payload of the operand.</param>
+    /// <param name="ofAConstantExpression">Whether the operation is part of a constant expression.</param>
+    /// <param name="result">The operation's result.</param>
+    /// <returns><see langword="false"/> when the operation is not done on payloads.</returns>
+    internal static bool TryOperateDeferred(string token, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
+        => TryOperateUnary(OperationPlanner.ForValue(token, operand.Type), operand, ofAConstantExpression, out result);
+
+    /// <summary>
+    /// A payload let-coerced to <paramref name="destination"/> when the conversion is exact, as an expression evaluated on payloads is.
+    /// </summary>
+    /// <param name="payload">The payload converted.</param>
+    /// <param name="destination">The type it is converted to.</param>
+    /// <param name="converted">The converted payload.</param>
+    /// <returns>Whether the conversion is exact.</returns>
+    internal static bool TryConvertExactly(ScalarPayload payload, VBType destination, out ScalarPayload converted)
+        => TryConvertPayload(payload, destination, out converted);
+
+    /// <summary>
+    /// A payload let-assigned to a <c>Variant</c>'s cell, as an assignment on payloads writes it (MS-VBAL §5.5.1.2.12): not over an object.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant.</param>
+    /// <param name="payload">The payload assigned.</param>
+    /// <returns>Whether the payload was assigned.</returns>
+    internal static bool TryWriteVariant(VariantCell cell, ScalarPayload payload) => TryWritePayload(cell, payload);
+
+    private static bool TryOperateUnary(OperationPlan plan, ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
     {
         result = default;
         return plan.EffectiveType is { } effective && TryConvertPayload(operand, effective, out var converted)
-            && (plan.Operator == Tokens.NegationOp ? TryNegate(converted, out result) : TryNot(converted, out result));
+            && (plan.Operator == Tokens.NegationOp ? TryNegate(converted, ofAConstantExpression, out result) : TryNot(converted, out result));
     }
 
     private static bool TryOperateBinary(OperationPlan plan, ScalarPayload lhs, ScalarPayload rhs, out ScalarPayload result)
@@ -763,13 +855,15 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // whether an expression evaluated on payloads is declared Variant: a Variant variable or constant, what parentheses enclose of one, and an operation of a
-    // Variant operand, whose plan is deferred - the payload of each being of the subtype of the value (S1.4).
-    private static bool IsDeclaredVariant(BoundNode node) => node switch
+    // Variant operand, whose plan is deferred - the payload of each being of the subtype of the value. A selector compiled code compares is none. An Is
+    // of an operand declared Object is deferred too, but is a Boolean whatever its operands hold (MS-VBAL §5.6.9.7).
+    internal static bool IsDeclaredVariant(BoundNode node) => node switch
     {
         BoundVariable { Variable: ITypedSymbol { ResolvedType: VBVariantType } } => true,
         BoundName { Symbol: ITypedSymbol { ResolvedType: VBVariantType } } or BoundQualifiedName { Member: ITypedSymbol { ResolvedType: VBVariantType } } => true,
         BoundUnary { Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp
             or SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed } => IsDeclaredVariant(enclosed),
+        BoundBinary { Operation.Token: Tokens.CompareIsOp } => false,
         BoundBinary { Plan: not { IsDeferred: false } } or BoundUnary { Plan: not { IsDeferred: false } } => true,
         _ => false,
     };
@@ -807,8 +901,8 @@ public sealed partial class RuntimeExpressionEvaluator
     }
 
     // the type the value of a Case is converted to, for a selector of a type (RD-VBAL 5.4.2.10): the selector's, but for an integer and a Single selector,
-    // where the integer is compared at its exact value (s48 M02, s42 D22) - as CaseMatchEvaluator converts a value that is no payload.
-    private static VBType CaseValueTypeOf(VBType selector, VBType value)
+    // where the integer is compared at its exact value (s48 M02, s42 D22) - as CaseMatchEvaluator converts a value that is no payload, and compiled code does.
+    internal static VBType CaseValueTypeOf(VBType selector, VBType value)
         => selector is VBSingleType && value is VBByteType or VBIntegerType or VBLongType or VBLongLongType ? value : selector;
 
     // the conversions that are exact - what a value of one numeric scalar type is in another, with no rounding to decide: an integer in the range of an
@@ -915,8 +1009,9 @@ public sealed partial class RuntimeExpressionEvaluator
         return true;
     }
 
-    // the negation of the least value of an integer type is not in its range (MS-VBA: Overflow), which the boxed evaluation raises.
-    private static bool TryNegate(ScalarPayload operand, out ScalarPayload result)
+    // the negation of the least value of an integer type is not in its range (MS-VBA: Overflow), which the boxed evaluation raises - but the least Long of a
+    // constant expression, which MS-VBA negates as itself (BoundUnary.NegatesAConstantExpression).
+    private static bool TryNegate(ScalarPayload operand, bool ofAConstantExpression, out ScalarPayload result)
     {
         result = default;
         if (ScalarKinds.Of(operand.Type) is not { } kind)
@@ -935,7 +1030,9 @@ public sealed partial class RuntimeExpressionEvaluator
             return true;
         }
 
-        if (PayloadOperations.Negate(kind, operand.Integral, out var integral) is not PayloadStatus.Ok)
+        if ((ofAConstantExpression
+                ? PayloadOperations.NegateConstant(kind, operand.Integral, out var integral)
+                : PayloadOperations.Negate(kind, operand.Integral, out integral)) is not PayloadStatus.Ok)
         {
             return false;
         }

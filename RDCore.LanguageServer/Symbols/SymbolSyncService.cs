@@ -60,11 +60,12 @@ internal interface ISymbolSyncService
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="parseResult">The parsed module.</param>
     /// <param name="token">A token that cancels the request.</param>
+    /// <param name="sessionModule">Whether the module is the client's own, of the session and not of the project (<see cref="DefineSymbolsParams.SessionModule"/>).</param>
     /// <returns>
     /// The module URI the symbols were defined under — derived here, from the workspace's own root, so
     /// that a caller cannot address the same module differently than the workspace sync does.
     /// </returns>
-    Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token);
+    Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token, bool sessionModule = false);
 
     /// <summary>
     /// Has the environment host load the code of a module whose symbols it has been sent (<see cref="SyncModuleAsync"/>), so that the semantic analysis pass runs
@@ -102,7 +103,7 @@ internal interface ISymbolSyncService
     /// <param name="token">A token that cancels the request.</param>
     /// <returns>What the host took out; nothing when the host cannot be told.</returns>
     /// <param name="endProgram">Whether the program that is running or waits is ended too, and the session wiped: what clearing a program asks (<c>NEW</c>, <c>LOAD</c>).</param>
-    Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false);
+    Task<DiscardResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false);
 
     /// <summary>
     /// Keeps every other sync from the environment host until the hold is disposed, so that what the caller sends and then asks about is what the host holds
@@ -205,14 +206,14 @@ internal sealed class SymbolSyncService(
         }
     }
 
-    public async Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    public async Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token, bool sessionModule = false)
     {
         // what the client supplies is bound among the workspace's modules, which the host is given first. A caller that holds the hold waited for them already.
         await WorkspaceDefinedAsync(token);
         var host = orchestration.RuntimeEnvironment;
         await host.WaitForReadyAsync(token);
 
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        var workspaceRoot = SymbolUri.Root(documents.WorkspaceRoot);
         var moduleUri = SymbolUri.Module(workspaceRoot, moduleName);
 
         // the module is one of the project's, and its names are bound among the others' as a module of the workspace binds its own: a shell's program calls a
@@ -234,7 +235,7 @@ internal sealed class SymbolSyncService(
         // run it, not with this one.
         await DefineModuleSymbolsAsync(
             workspaceRoot, moduleUri, moduleName, ModuleType.StdModule, parseResult, workspaceResolver, replace: true,
-            withCode: false, token);
+            withCode: false, token, sessionModule: sessionModule);
         return moduleUri;
     }
 
@@ -379,7 +380,7 @@ internal sealed class SymbolSyncService(
 
     private async Task<int> DefineModuleSymbolsAsync(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false)
+        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false, bool sessionModule = false)
     {
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
@@ -406,6 +407,7 @@ internal sealed class SymbolSyncService(
                 PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult),
                 Replace = replace,
                 DeclareTypesOnly = declareTypesOnly,
+                SessionModule = sessionModule,
             }, token);
 
         if (logger.IsEnabled(LogLevel.Information))
@@ -481,12 +483,12 @@ internal sealed class SymbolSyncService(
         await SendModuleCodeAsync(workspaceRoot, changed.Uri, changed.Name, changed.Kind, changed.Parse, token);
     }
 
-    public async Task<DiscardSessionResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false)
+    public async Task<DiscardResult> DiscardModuleAsync(string moduleName, CancellationToken token, bool endProgram = false)
     {
         var host = orchestration.RuntimeEnvironment;
         if (host is null)
         {
-            return new DiscardSessionResult();
+            return new DiscardResult();
         }
 
         await host.WaitForReadyAsync(token);
@@ -494,11 +496,11 @@ internal sealed class SymbolSyncService(
         if (host.PlatformInfo?.Provides<SessionDiscard>() != true)
         {
             // the host cannot be told: what it holds stays, as it did before there was a way to say otherwise.
-            return new DiscardSessionResult();
+            return new DiscardResult();
         }
 
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
-        var result = await host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
+        var result = await host.SendRequestAsync<HostDiscardParams, DiscardResult>(
             new HostDiscardParams { ModuleUri = moduleUri, ModuleName = moduleName, EndProgram = endProgram }, token);
 
         LogIfEnabled(LogLevel.Information, $"🗑️ {moduleName}: {result.Discarded} symbol(s) discarded.");
@@ -507,7 +509,7 @@ internal sealed class SymbolSyncService(
 
     public Task LoadModuleCodeAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
     {
-        var workspaceRoot = new Uri(documents.WorkspaceRoot);
+        var workspaceRoot = SymbolUri.Root(documents.WorkspaceRoot);
         return SendModuleCodeAsync(workspaceRoot, SymbolUri.Module(workspaceRoot, moduleName), moduleName, ModuleType.StdModule, parseResult, token,
             fromShell: true);
     }

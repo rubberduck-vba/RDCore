@@ -10,13 +10,13 @@ namespace RDCore.SDK.Platform.Protocol;
 /// it supplies and report what is wrong with it, without running anything.
 /// </summary>
 /// <remarks>
-/// The counterpart to <see cref="ExecuteSessionParams"/> for a client with no editor: an editor gets
+/// The counterpart to <see cref="SessionExecuteParams"/> for a client with no editor: an editor gets
 /// this through LSP's own <c>textDocument/diagnostic</c> pull against a document it has open, and a
-/// shell has neither a document nor a pull — but wants the same answer, from the same providers, for
+/// shell has neither a document nor a pull, but wants the same answer, from the same providers, for
 /// the code in its buffer.
 /// </remarks>
 [Method(RDCorePlatformProtocol.SessionAnalyze, Direction.ClientToServer)]
-public record class AnalyzeSessionParams : IRequest, IRequest<AnalyzeSessionResult>, IWorkDoneProgressParams
+public record class SessionAnalyzeParams : IRequest, IRequest<SessionAnalyzeResult>, IWorkDoneProgressParams
 {
     /// <summary>
     /// The token the progress of the analysis is reported to (<strong>LSP 3.17</strong> §Work Done Progress): the parse, the semantic model, and each
@@ -38,7 +38,7 @@ public record class AnalyzeSessionParams : IRequest, IRequest<AnalyzeSessionResu
 /// <summary>
 /// What the platform found in the module.
 /// </summary>
-public record class AnalyzeSessionResult
+public record class SessionAnalyzeResult
 {
     /// <summary>
     /// The diagnostics, in source order.
@@ -92,7 +92,7 @@ public record class SessionDiagnostic
     /// </summary>
     /// <remarks>
     /// Physical, not logical: the client supplied the source, so only the client knows what its own
-    /// lines mean — a shell whose buffer is numbered maps this back to the line number the user typed.
+    /// lines mean. A shell whose buffer is numbered maps this back to the line number the user typed.
     /// </remarks>
     public int Line { get; init; }
 

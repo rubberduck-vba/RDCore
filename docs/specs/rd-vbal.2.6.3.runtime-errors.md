@@ -129,6 +129,20 @@ The verbose message for `ForLoopNotInitialized` is the resx entry `VBForLoopNotI
 |[`VBR00744`](../diagnostics/vbr00744.md)|Search text not found|
 |[`VBR00746`](../diagnostics/vbr00746.md)|Replacements too long|
 
+## RD-VBA's Own Run-time Errors
+
+RD-VBA raises a few run-time errors that MS-VBA has no number for. They are numbered in a block of their own, `VBR50000` to `VBR50999`, which no MS-VBA
+run-time error uses.
+
+The family of an error follows whoever raised it: `VBR` for the runtime, `VBA` for a program (see [Application Errors](#application-errors)). So a program's
+own `Err.Raise 50001` is the application error `VBA50001`, and it is never the runtime's `VBR50001`. An error of this block that is untrappable is never
+read by a program's code, whose handler it doesn't reach.
+
+|Code|Description|
+|---|---|
+|[`VBR50001`](../diagnostics/vbr50001.md)|Nobody to answer: a program run unattended opens a dialog, or the client that shows its dialogs declines one. Untrappable.|
+|[`VBR50002`](../diagnostics/vbr50002.md)|Unusable dialog answer: the client that shows a program's dialogs answers one with what it can't be answered with (a button the `MsgBox` doesn't have), or can't be reached. Untrappable.|
+
 ## Application Errors
 
 An **application error** is a custom run-time error explicitly raised from workspace source code with `Error` or `Err.Raise`; see [**RD-VBAL §5.4.4.3** Error Statement](rd-vbal.5.4.4.3.error-statement.md) and [**RD-VBAL §6.1.3.2** Err Class](rd-vbal.6.1.3.2.err-class.md). MS-VBAL does not distinguish an application error from a semantic run-time error.
@@ -142,6 +156,3 @@ An **application error** is a custom run-time error explicitly raised from works
 |Severity|`Error`|
 
 RDCore removes the need for the `vbObjectError` constant by internally representing run-time errors and application errors as different error metadata types; see [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
-
----
-> ⏮️ [**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md) | ⏭️ [**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-core-diagnostics.md)

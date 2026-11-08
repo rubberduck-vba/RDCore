@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Model.Symbols;
@@ -27,13 +28,14 @@ namespace RDCore.SDK.Model.Symbols;
 /// project, as the qualifier of a qualified type name, by <see cref="ResolveQualifier"/>), and a
 /// local, parameter, constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
 /// predeclared instance (<see cref="VBPredeclaredInstanceSymbol"/>) is also a name in the default binding
-/// context — as that instance, a variable of the class's type.
+/// context, as that instance: a variable of the class's type.
 /// <para>
-/// A name-resolution service only — the value-binding members throw, matching the intent of a
+/// A name-resolution service only: the value-binding members throw, matching the intent of a
 /// design-time resolver that holds no run-time bindings. Where the candidates of one tier of the project or
-/// global scope are of different projects, the workspace's own shadow every library's, and a library shadows
-/// one whose reference ranks below it in the project (<see cref="SymbolProperties.LibraryPriority"/>);
-/// candidates that still share the top rank are an ambiguous name, a result that carries
+/// global scope are of different projects, the workspace's own shadow every library's, the standard library
+/// shadows every referenced library, and a library shadows one the project references after it: the earlier
+/// reference has the higher reference precedence (<strong>MS-VBAL §4.1</strong>,
+/// <see cref="SymbolProperties.LibraryPriority"/>); candidates still tied after that, of the one project with the highest reference precedence, are an ambiguous name, a result that carries
 /// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> and the candidates rather than an unbound one.
 /// </para>
 /// </remarks>
@@ -70,9 +72,14 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         // the procedure and the enclosing module: the tree's own order, innermost first.
         foreach (var lexicalScope in origin.TakeWhile(lexicalScope => lexicalScope.Kind is not (LexicalScopeKind.Project or LexicalScopeKind.Global)))
         {
-            if (SelectTier(lexicalScope, lexicalScope.DeclaredAs(name).Where(IsValueDeclaration)) is { } result)
+            if (SelectTier(lexicalScope, ValuesOverEnums(lexicalScope.DeclaredAs(name).Where(IsValueDeclaration))) is { } result)
             {
                 return result;
+            }
+
+            if (ResultVariableOf(lexicalScope, name) is { } function)
+            {
+                return SymbolResolutionResult.Resolved(function);
             }
         }
 
@@ -96,7 +103,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         foreach (var (tier, isCandidate) in tiers)
         {
-            if (tier is not null && SelectTier(tier, tier.DeclaredAs(name).Where(isCandidate)) is { } result)
+            if (tier is not null && SelectTier(tier, ValuesOverEnumsOfEachModule(tier.DeclaredAs(name).Where(isCandidate))) is { } result)
             {
                 return result;
             }
@@ -210,7 +217,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
         return SelectTier(
             moduleScope,
-            moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate))))
+            ValuesOverEnums(moduleScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && (fromWithin || ScopeTreeBuilder.IsProjectVisible(candidate)))))
             ?? SymbolResolutionResult.Unbound;
     }
 
@@ -242,7 +249,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         // 3. otherwise the member exactly one of its procedural modules has - a class's default instance variable among them, which §5.2.4.1.2 declares
         // as if at module level, under the class's name (MVVM.AppContext.Create), and which the global scope holds as it does for the name unqualified.
         if (projectScope is not null
-            && SelectTier(projectScope, projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))) is { } member)
+            && SelectTier(projectScope, ValuesOverEnumsOfEachModule(projectScope.DeclaredAs(name).Where(candidate => IsValueDeclaration(candidate) && InProject(candidate))))
+                is { } member)
         {
             return member;
         }
@@ -288,7 +296,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             return null;
         }
 
-        var module = global.DeclaredAs(moduleScope.Uri.Fragment.TrimStart('#')).OfType<VBClassModuleSymbol>()
+        var module = global.DeclaredAs(SymbolUri.ModuleNameOf(moduleScope.Uri)).OfType<VBClassModuleSymbol>()
             .FirstOrDefault(candidate => candidate.HostClass is not null && candidate.Uri.AbsoluteUri == moduleScope.Uri.AbsoluteUri);
         if (module is null || VBProjectSymbol.ResolveHostClass(this, module) is not { } host)
         {
@@ -298,6 +306,15 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SelectTier(moduleScope, host.DefaultInterfaceMembers.Where(member => member is not VBEventMemberSymbol
             && string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)));
     }
+
+    // MS-VBAL §5.3.1: a Function declares a local of its own name, its result variable, and a Property Get returns its value the same way, so in the
+    // body the name is bound in the procedure's tier, and a namesake of the module (an Enum of the name: `Property Get PlayerType() As PlayerType`) is
+    // no candidate. The procedure stands for its result variable, as it does when the name is bound in the module's tier.
+    private static Symbol? ResultVariableOf(LexicalScope lexicalScope, string name)
+        => lexicalScope is { Kind: LexicalScopeKind.Procedure, Parent: { } module }
+            ? module.DeclaredAs(name).FirstOrDefault(declared => declared is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
+                && declared.Uri.AbsoluteUri == lexicalScope.Uri.AbsoluteUri)
+            : null;
 
     // the first tier with at least one candidate is the selected tier (MS-VBAL §5.6.10): null when this
     // tier has none, so the caller moves on to the next one.
@@ -310,8 +327,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         }
 
         // at the project and global tiers the candidates are of different projects - the workspace's own and each library's - and a name that several of them
-        // declare means the one that shadows the others: the workspace's declaration shadows every library's, and a library that is referenced later shadows
-        // one that is referenced earlier (RD-VBAL §2.3.1.2). Candidates of one rank are still a collision.
+        // declare means the one that shadows the others: the workspace's declaration shadows every library's, the standard library's every referenced library's,
+        // and a library that is referenced earlier one that is referenced later (MS-VBAL §4.1, RD-VBAL §2.3.1.3). Candidates of one rank are still a collision.
         if (matches.Length > 1 && lexicalScope.Kind is LexicalScopeKind.Project or LexicalScopeKind.Global)
         {
             matches = Shadowing(matches);
@@ -337,21 +354,58 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             : SymbolResolutionResult.Duplicate(matches);
     }
 
-    // what shadows: a symbol of no library is the workspace's own and outranks any library's; a library's rank is the precedence of its reference.
+    // what shadows, the lowest rank first: a symbol of no library is the workspace's own and outranks any library's; then the standard library's, which comes
+    // before every reference (MS-VBAL §4.1: the earlier reference has the higher precedence); then each library by the precedence of its reference; and a symbol
+    // of a library that carries no precedence comes after every one that does, so that it never ties with the standard library or the workspace.
     private static Symbol[] Shadowing(Symbol[] candidates)
     {
-        static int Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) is null ? int.MaxValue : symbol.GetProperty(SymbolProperties.LibraryPriority);
+        static long Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) switch
+        {
+            null => -1,
+            StdLibSymbolProvider.LibraryName => 0,
+            _ => symbol.TryGetProperty(SymbolProperties.LibraryPriority, out var priority) ? priority : long.MaxValue,
+        };
 
-        var highest = candidates.Max(Rank);
+        var highest = candidates.Min(Rank);
         return [.. candidates.Where(candidate => Rank(candidate) == highest)];
     }
 
-    // MS-VBAL §5.6.10 lists no user-defined type and no class module among the default binding context's
-    // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2).
+    // the project tier holds the names every module declares: the namesakes of one module are decided among themselves as they are inside it, and two
+    // modules' declarations of the name are still an ambiguous name. Seen from another module, an Enum and a Function of one module is the Function, an Enum
+    // and a variable the Enum; an Enum and a Function of two modules, ambiguous (Excel-verified, oracle\s66 X01-X06, X08, X09). A module is told by its
+    // address, and not by a candidate's parent: the parent of an Enum's constant is the Enum.
+    private static IEnumerable<Symbol> ValuesOverEnumsOfEachModule(IEnumerable<Symbol> candidates)
+        => candidates.GroupBy(candidate => (Root: candidate.Uri.GetLeftPart(UriPartial.Query), Module: SymbolUri.ModuleNameOf(candidate.Uri))).SelectMany(ValuesOverEnums);
+
+    // an Enum and a procedure of one name in one module: in a value the name is the procedure, even where it qualifies a member of the Enum
+    // (`Other = PlayerType.ComputerControlled` beside `Property Get PlayerType() As PlayerType` is an invalid qualifier), and the Enum is a type only. An Enum
+    // and a variable or a constant of one name: the name is the Enum, whichever is declared first and whatever their access (`V = 5` is "Expected variable or
+    // procedure, not enum type"). Excel-verified, oracle\s64 E03, E04, E11, E14, E20-E23.
+    private static IEnumerable<Symbol> ValuesOverEnums(IEnumerable<Symbol> candidates)
+    {
+        var matches = candidates.ToArray();
+        if (!matches.Any(candidate => candidate is VBEnumMemberSymbol))
+        {
+            return matches;
+        }
+
+        return matches.Any(IsProcedure)
+            ? matches.Where(candidate => candidate is not VBEnumMemberSymbol)
+            : matches.Where(candidate => candidate is VBEnumMemberSymbol);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="symbol"/> is a procedure: a <c>Sub</c>, a <c>Function</c>, a property accessor, or a <c>Declare</c>d one.
+    /// </summary>
+    internal static bool IsProcedure(Symbol symbol) => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol;
+
+    // MS-VBAL §5.6.10 lists no user-defined type, no class module and no event among the default binding context's
+    // candidates: a class is a name there only through its predeclared instance (5.2.4.1.2), and an event is only ever raised
+    // (RaiseEvent finds it in its class), so an Event and a Sub of one name are no collision (Excel-verified, oracle\s64 E06-E09).
     // MS-VBAL §3.4.1: a conditional compilation constant is accessible to cc-expressions only, so it is
     // never a candidate here however the name ranks - `x = Win64` in ordinary source binds nothing.
     private static bool IsValueDeclaration(Symbol symbol)
-        => symbol is not (VBUserDefinedTypeMemberSymbol or VBClassModuleSymbol or PrecompilerConstantSymbol);
+        => symbol is not (VBUserDefinedTypeMemberSymbol or VBClassModuleSymbol or VBEventMemberSymbol or PrecompilerConstantSymbol);
 
     private static bool IsConditionalConstant(Symbol symbol) => symbol is PrecompilerConstantSymbol;
 

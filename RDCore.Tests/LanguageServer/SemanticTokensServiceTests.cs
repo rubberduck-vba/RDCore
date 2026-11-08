@@ -111,6 +111,18 @@ public sealed class SemanticTokensServiceTests
         Assert.AreEqual(TypeIndex("class"), (await TokenAtAsync(0, 9)).Type);
     }
 
+    [TestMethod]
+    public void AModuleWithAnExpressionPastTheLimitOfNesting_HasItsNamesToldApart()
+    {
+        _documents.Open(Mod1, $"Public Const Max = 10\r\nPublic Sub Foo()\r\n    x = {Parser.ExpressionNestingTests.ChainPastTheLimit()}\r\n    x = Max\r\nEnd Sub\r\n", 1);
+
+        IReadOnlyList<SemanticToken> tokens = [];
+        var thrown = SmallStack.Run(() => tokens = _sut.GetAsync(Mod1, CancellationToken.None).GetAwaiter().GetResult());
+
+        Assert.IsNull(thrown, thrown?.ToString());
+        Assert.AreEqual(SemanticTokenLegend.ReadOnly, tokens.Single(token => token.Line == 3 && token.Character == 8).Modifiers);
+    }
+
     private void ParsingFragments()
         => _parsing.ParseFragmentAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(new ModuleParser().Parse((Uri)call[0], (string)call[1])));

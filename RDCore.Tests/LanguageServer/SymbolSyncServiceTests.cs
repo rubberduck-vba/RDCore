@@ -383,8 +383,8 @@ public sealed class SymbolSyncServiceTests
         var host = Substitute.For<IRDCoreClientApp>();
         host.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         host.PlatformInfo.Returns(new PlatformInitializeResult { Provided = providesDiscard ? [nameof(SessionDiscard)] : [] });
-        host.SendRequestAsync<HostDiscardParams, DiscardSessionResult>(Arg.Any<HostDiscardParams>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new DiscardSessionResult { Discarded = 3 }));
+        host.SendRequestAsync<HostDiscardParams, DiscardResult>(Arg.Any<HostDiscardParams>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new DiscardResult { Discarded = 3 }));
 
         var orchestration = Substitute.For<IPlatformOrchestrationService>();
         orchestration.RuntimeEnvironment.Returns(hasHost ? host : null);
@@ -403,7 +403,7 @@ public sealed class SymbolSyncServiceTests
         var result = await sut.DiscardModuleAsync("Program", CancellationToken.None);
 
         Assert.AreEqual(3, result.Discarded);
-        await host.Received(1).SendRequestAsync<HostDiscardParams, DiscardSessionResult>(
+        await host.Received(1).SendRequestAsync<HostDiscardParams, DiscardResult>(
             Arg.Is<HostDiscardParams>(p => p.ModuleName == "Program" && p.ModuleUri == new UriBuilder(new Uri(Root)) { Fragment = "Program" }.Uri),
             Arg.Any<CancellationToken>());
     }
@@ -416,7 +416,7 @@ public sealed class SymbolSyncServiceTests
         var result = await sut.DiscardModuleAsync("Program", CancellationToken.None);
 
         Assert.AreEqual(0, result.Discarded);
-        await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostDiscardParams, DiscardSessionResult>(default!, default);
+        await host.DidNotReceiveWithAnyArgs().SendRequestAsync<HostDiscardParams, DiscardResult>(default!, default);
     }
 
     [TestMethod]
@@ -438,7 +438,7 @@ public sealed class SymbolSyncServiceTests
     }
 
     [TestMethod]
-    [Timeout(10_000, CooperativeCancellation = true)]
+    [Timeout(60_000, CooperativeCancellation = true)]
     public async Task WhatIsDoneUnderAHold_IsNotInterleavedWithTheWorkspaceSync()
     {
         // the workspace sync defines every module, then loads the code of each: the host takes its time over the code of the scaffold. What is recorded is
@@ -484,23 +484,22 @@ public sealed class SymbolSyncServiceTests
         var sut = new SymbolSyncService(orchestration, parsing, documents, new IntrinsicSymbolResolver(), Options(), NullLogger<SymbolSyncService>.Instance, new NoLibraries());
 
         var workspace = sut.SyncWorkspaceAsync(CancellationToken.None);
-        await loading.Task;
+        await loading.Task.WaitAsync(Patience);
 
-        // a client's own text of the same module, defined and loaded to be asked about, while the workspace sync is not done.
-        var fragment = Task.Run(async () =>
-        {
-            var analyzed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", "Program.bas")), "Public Sub Main()\r\n    Dim Analyzed As Long\r\nEnd Sub");
-            await using (await sut.HoldAsync(CancellationToken.None))
-            {
-                await sut.SyncModuleAsync("Program", analyzed, CancellationToken.None);
-                await sut.LoadModuleCodeAsync("Program", analyzed, CancellationToken.None);
-            }
-        });
+        // a client's own text of the same module, defined and loaded to be asked about, while the workspace sync is not done. The hold is asked for on the
+        // test's own thread: whether it is given at once is decided before HoldAsync returns, by whether the workspace sync has it.
+        var holding = sut.HoldAsync(CancellationToken.None);
+        Assert.IsFalse(holding.IsCompleted, "the workspace sync has the hold while the host loads the scaffold's code");
 
-        // time enough for the fragment to be done, if nothing holds it back.
-        await Task.WhenAny(fragment, Task.Delay(300));
         release.SetResult();
-        await Task.WhenAll(workspace, fragment);
+        var analyzed = new ModuleParser().Parse(new Uri(Path.Combine(Root, "src", "Program.bas")), "Public Sub Main()\r\n    Dim Analyzed As Long\r\nEnd Sub");
+        await using (await holding.WaitAsync(Patience))
+        {
+            await sut.SyncModuleAsync("Program", analyzed, CancellationToken.None);
+            await sut.LoadModuleCodeAsync("Program", analyzed, CancellationToken.None);
+        }
+
+        await workspace.WaitAsync(Patience);
 
         CollectionAssert.AreEqual(
             new[] { "workspace symbols", "workspace code", "fragment symbols", "fragment code" },

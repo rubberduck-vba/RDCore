@@ -22,7 +22,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     private static readonly Lazy<MemberAccessExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
-    /// The shared instance — this rule has no state of its own.
+    /// The shared instance: this rule has no state of its own.
     /// </summary>
     public static MemberAccessExpressionStaticSemantics Instance => _instance.Value;
 
@@ -35,16 +35,16 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     /// The compile-time context this expression is evaluated against. Member lookup is structural (an
     /// owner type's own members), not lexical; the context's resolver is only used to read those members
     /// from the owner class's or user-defined type's declaration, by identity, rather than from the
-    /// snapshot the type was built with — a class typed after itself cannot carry a complete snapshot.
+    /// snapshot the type was built with: a class typed after itself cannot carry a complete snapshot.
     /// </param>
     /// <param name="expression">The <see cref="MemberAccessExpressionNode"/> being evaluated.</param>
     /// <param name="operandDeclaredTypes">
     /// The effective owner's already-determined declared type, at
-    /// <see cref="InputIndex.MemberAccessOwner"/> — <see cref="MemberAccessExpressionNode.Owner"/>'s
+    /// <see cref="InputIndex.MemberAccessOwner"/>: <see cref="MemberAccessExpressionNode.Owner"/>'s
     /// declared type, or, for a <c>with-expression</c> (<see cref="MemberAccessExpressionNode.Owner"/>
     /// is <c>null</c>), the innermost enclosing <c>With</c> block's target type (MS-VBAL §5.6.15),
-    /// which the caller is responsible for substituting in — this rule doesn't care which it was.
-    /// <see cref="MemberAccessExpressionNode.Member"/> has no independent declared type to pass here —
+    /// which the caller is responsible for substituting in. This rule does not care which it was.
+    /// <see cref="MemberAccessExpressionNode.Member"/> has no independent declared type to pass here:
     /// it is a bare member name, not a lexically resolved expression.
     /// </param>
     /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="MemberAccessExpressionNode"/>.</exception>
@@ -55,7 +55,9 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
             throw new ArgumentException($"Expected a {nameof(MemberAccessExpressionNode)}.", nameof(expression));
         }
 
+        // a type a library names before it reads it (a member that returns the class being read) is the type of that name, resolved where it is used.
         var owner = operandDeclaredTypes[(int)InputIndex.MemberAccessOwner];
+        owner = owner is VBUnresolvedType ? CurrentTypes.Of(context.Resolver, owner) : owner;
         if (owner is VBVariantType or VBObjectType)
         {
             // late-bound: static semantics cannot know what the run-time object actually supports.
@@ -65,9 +67,9 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
 
         if (owner is not IVBMemberOwnerType ownerType)
         {
-            // a number, a String, a Boolean or a Date has no members: MS-VBA refuses a member of one at compile time (Excel-verified). Any other type that
-            // is not known to own members is deferred, not an error.
-            return owner is VBNumericType or VBStringType or VBBooleanType or VBDateType
+            // a number, a String, a Boolean or a Date has no members, nor does an array, fixed-size or resizable, read or assigned: MS-VBA refuses a member of one at
+            // compile time (Excel-verified; arrays oracle\s56 I02, C01, C02, C13). Any other type that is not known to own members is deferred, not an error.
+            return owner is VBNumericType or VBStringType or VBBooleanType or VBDateType or VBArrayType
                 ? StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidQualifier, expression.Location, memberAccess.Member.IdentifierName))
                 : StaticSemanticsEvaluationResult.Success(VBUnknownType.TypeInfo);
         }
@@ -79,7 +81,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
         var found = named.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() ?? named.FirstOrDefault();
         if (found is not null)
         {
-            return StaticSemanticsEvaluationResult.Success(found.ResolvedType);
+            return StaticSemanticsEvaluationResult.Success(found.ResolvedType is VBUnresolvedType ? CurrentTypes.Of(context.Resolver, found.ResolvedType) : found.ResolvedType);
         }
 
         // an extensible class can have members its declaration does not: a library's, whose host adds members to its objects (`Excel.Application.XLookup`,

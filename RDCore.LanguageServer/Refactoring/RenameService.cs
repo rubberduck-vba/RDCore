@@ -122,7 +122,7 @@ internal sealed class RenameService(
 
     private async Task<RenameWorkspace.ProjectPart> ComposeProjectAsync(string root, bool primary, string? name, CancellationToken token)
     {
-        var workspaceRoot = new Uri(root);
+        var workspaceRoot = SymbolUri.Root(root);
         var modules = new List<RenameWorkspace.DocumentModule>();
         foreach (var document in documents.GetProjectDocuments(root))
         {
@@ -144,7 +144,7 @@ internal sealed class RenameService(
             implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
             libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
             documentHosts: modules.Where(module => module.Document.Super is not null)
-                .GroupBy(module => module.Module.Fragment.TrimStart('#'), StringComparer.OrdinalIgnoreCase)
+                .GroupBy(module => SymbolUri.ModuleNameOf(module.Module), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.First().Document.Super!.Value, StringComparer.OrdinalIgnoreCase));
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
@@ -366,10 +366,21 @@ internal sealed class RenameWorkspace
     /// <param name="documentUri">The document.</param>
     /// <param name="position">A position in the name, in the text of the document.</param>
     /// <param name="includeDeclaration">Whether the names its declarations declare are references too.</param>
-    /// <returns>Each place; none where no name is written, or where what the name refers to is not known.</returns>
-    public IReadOnlyList<Location> References(Uri documentUri, Position position, bool includeDeclaration)
-        => [.. Navigate(documentUri, position, (context, module, at) => SymbolNavigation.ReferencesAt(context, module, at, includeDeclaration))
-            .Select(link => new Location { Uri = link.TargetUri, Range = link.TargetSelectionRange })];
+    /// <returns>
+    /// Each place; none where no name is written, or where what the name refers to is not known. Incomplete: what the user is told when a name whose meaning is
+    /// not known could refer to the symbol too (<see cref="SymbolNavigationTarget.IncompleteMessage"/>), with its place named as a rename names it.
+    /// </returns>
+    public (IReadOnlyList<Location> Locations, string? Incomplete) References(Uri documentUri, Position position, bool includeDeclaration)
+    {
+        if (ModuleOf(documentUri) is not { } module
+            || SymbolNavigation.ReferencesAt(PartOf(module).Context, module.Module, module.ToModulePosition(position), includeDeclaration) is not { } target)
+        {
+            return ([], null);
+        }
+
+        var part = PartOf(module);
+        return ([.. Links(module, target).Select(link => new Location { Uri = link.TargetUri, Range = link.TargetSelectionRange })], target.IncompleteMessage(Locator(part)));
+    }
 
     /// <summary>
     /// The members a document declares whose references a client shows (<see cref="SymbolLenses.In"/>): each name, in the text of the document.
@@ -441,6 +452,11 @@ internal sealed class RenameWorkspace
             return [];
         }
 
+        return Links(module, target);
+    }
+
+    private IReadOnlyList<LocationLink> Links(DocumentModule module, SymbolNavigationTarget target)
+    {
         var origin = module.ToTextRange(target.Origin);
         var modules = PartOf(module).Modules;
         return [.. target.Sites
@@ -463,10 +479,12 @@ internal sealed class RenameWorkspace
     }
 
     // a position is named the way the document names it: its file, and the line of its text - for a program of the BASIC, the number it labels the line with.
-    private static string Say(ProjectPart part, RenameRefusal refusal) => refusal.ToMessage((module, position) =>
+    private static string Say(ProjectPart part, RenameRefusal refusal) => refusal.ToMessage(Locator(part));
+
+    private static Func<Uri, SourcePosition, string> Locator(ProjectPart part) => (module, position) =>
         part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } document
             ? document.Locate(position)
-            : $"{module.Fragment.TrimStart('#')} {position.Line + 1}:{position.Character + 1}");
+            : $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}";
 
     /// <summary>A document, and the module it is.</summary>
     internal sealed record class DocumentModule(WorkspaceDocument Document, Uri Module, ModuleType Type, SDK.Model.AST.ModuleParseResult Parse, string Source)

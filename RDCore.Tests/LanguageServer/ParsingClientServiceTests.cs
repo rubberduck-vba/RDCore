@@ -218,7 +218,7 @@ public sealed class ParsingClientServiceTests
             .SingleOrDefault();
 
         Assert.IsNotNull(method, "ParseDocumentParams needs [Method] so the JSON-RPC layer can infer the request method by type.");
-        Assert.AreEqual(RDCorePlatformProtocol.ParseFullDocument, method.Method);
+        Assert.AreEqual(RDCoreComponentProtocol.ParseFullDocument, method.Method);
     }
 
     [TestMethod]

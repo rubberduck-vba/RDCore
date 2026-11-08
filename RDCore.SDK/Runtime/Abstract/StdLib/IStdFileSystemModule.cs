@@ -115,7 +115,7 @@ public interface IStdFileSystemModule
     /// for a free one is how they avoid colliding.
     /// </remarks>
     /// <param name="rangeNumber">
-    /// Which range to take the number from: <c>0</c> — the default — for <c>1</c>-<c>255</c>, and <c>1</c> for
+    /// Which range to take the number from: <c>0</c> (the default) for <c>1</c>-<c>255</c>, and <c>1</c> for
     /// <c>256</c>-<c>511</c>. The two halves exist so that a caller can keep its own channels away from
     /// another's.
     /// </param>

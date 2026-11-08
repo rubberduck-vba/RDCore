@@ -72,35 +72,7 @@ internal sealed class ProcedureCompiler
             }
 
             // compiled code works on payloads: where the process holds its values boxed, no procedure is compiled, and each says why, once for its body.
-            if (!UnboxedEvaluation.IsEnabled)
-            {
-                _bodies.AddOrUpdate(list, new Entry(scopes, Boxed));
-                _results[procedure.SemanticId] = (procedure, Boxed);
-                return Boxed;
-            }
-
-            var stopwatch = Stopwatch.StartNew();
-            CompiledBody? body;
-            IReadOnlyList<Ineligibility> reasons;
-            try
-            {
-                var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
-                body = analysis.Reasons.Count == 0 ? Emit(analysis, procedure) : null;
-                reasons = analysis.Reasons;
-            }
-            catch (Exception exception)
-            {
-                // a failure to compile a procedure is the compiler's defect, never the program's - a cancellation too, as compiling is told of none: the
-                // procedure runs in the interpreter, as one that is not compiled does, and the failure is reported.
-                body = null;
-                reasons = [new Ineligibility(IneligibilityKind.Refused, $"{exception.GetType().Name}: {exception.Message}")];
-                failure = exception;
-            }
-
-            stopwatch.Stop();
-
-            result = new CompilationResult(body, reasons, stopwatch.Elapsed);
-            _ = Interlocked.Add(ref _elapsedTicks, stopwatch.Elapsed.Ticks);
+            (result, failure) = UnboxedEvaluation.IsEnabled ? Make(session, evaluator, procedure, list) : (Boxed, null);
             _bodies.AddOrUpdate(list, new Entry(scopes, result));
             _results[procedure.SemanticId] = (procedure, result);
         }
@@ -110,8 +82,62 @@ internal sealed class ProcedureCompiler
             Report(procedure, failure);
         }
 
+        return Told(procedure, result);
+    }
+
+    // the procedure compiled, or found not to be: what is made of it, and the compiler's failure if it failed.
+    private (CompilationResult Result, Exception? Failure) Make(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol procedure, InstructionList list)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        CompiledBody? body;
+        IReadOnlyList<Ineligibility> reasons;
+        IReadOnlyList<Ineligibility> stepped = [];
+        Exception? failure = null;
+        _ = _inProgress.Add(procedure.SemanticId);
+        try
+        {
+            var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
+            body = analysis.Reasons.Count == 0 ? Emit(session, evaluator, analysis, procedure, list) : null;
+            reasons = analysis.Reasons;
+            stepped = body is null ? [] : analysis.Stepped;
+        }
+        catch (Exception exception)
+        {
+            // a failure to compile a procedure is the compiler's defect, never the program's - a cancellation too, as compiling is told of none: the
+            // procedure runs in the interpreter, as one that is not compiled does, and the failure is reported.
+            body = null;
+            reasons = [new Ineligibility(IneligibilityKind.Refused, $"{exception.GetType().Name}: {exception.Message}")];
+            failure = exception;
+        }
+        finally
+        {
+            _ = _inProgress.Remove(procedure.SemanticId);
+        }
+
+        stopwatch.Stop();
+        _ = Interlocked.Add(ref _elapsedTicks, stopwatch.Elapsed.Ticks);
+        return (new CompilationResult(body, reasons, stopwatch.Elapsed) { Stepped = stepped }, failure);
+    }
+
+    // the result made, told to the Compiled handlers: as a failure is told, what is told of a result cannot fail the call.
+    private CompilationResult Told(VBTypeMemberSymbol procedure, CompilationResult result)
+    {
+        try
+        {
+            Compiled?.Invoke(procedure, result);
+        }
+        catch (Exception)
+        {
+        }
+
         return result;
     }
+
+    /// <summary>
+    /// Raised when a procedure was compiled, or found not to be, for the session's scopes: once for each time its <see cref="CompilationResult"/> is made, on
+    /// the thread of the call that made it, before the call goes on.
+    /// </summary>
+    public event Action<VBTypeMemberSymbol, CompilationResult>? Compiled;
 
     // what is told of a failure is told once it is the procedure's result, and what is told of it cannot fail the call.
     private void Report(VBTypeMemberSymbol procedure, Exception failure)
@@ -132,18 +158,71 @@ internal sealed class ProcedureCompiler
     /// </summary>
     public event Action<VBTypeMemberSymbol, Exception>? Refused;
 
-    // a type of its own for each procedure, created as soon as its one method is written: what is created is what can be called. The IL is compiled now,
-    // rather than at the first call, so that code the runtime refuses is refused here.
-    private CompiledBody Emit(ProcedureAnalysis analysis, VBTypeMemberSymbol procedure)
+    // the procedures being compiled, by identity: a callee that is one of them - a procedure that calls the one that calls it - is not compiled for its caller
+    // before it, and is called through the invoker (DirectCall).
+    private readonly HashSet<SemanticId> _inProgress = [];
+
+    // a type of its own for each procedure, created as soon as its methods are written: what is created is what can be called. The IL is compiled now,
+    // rather than at the first call, so that code the runtime refuses is refused here. Two methods: the typed entry (Body), which a compiled caller calls with
+    // the arguments as it holds them, and Run, which reads them from the frame's cells, as an interpreted caller gives them, and calls it. The argument of a
+    // parameter passed by reference is a cell, which the IL holds as an object it only hands back to CompiledActivation.
+    private CompiledBody Emit(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, InstructionList list)
     {
         var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
+        Type[] parameters = [typeof(CompiledActivation), .. analysis.Parameters.Select(parameter => parameter.ByReference ? typeof(object) : ProcedureEmitter.ClrTypeOf(parameter.Kind))];
+        var entry = type.DefineMethod("Body", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), parameters);
         var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
-        ProcedureEmitter.Emit(analysis, method);
 
-        var run = type.CreateType().GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
+        var directs = analysis.Callees.Select(callee => Link(session, evaluator, procedure, entry, list, callee, analysis.NeedsFrame)).ToArray();
+        ProcedureEmitter.Emit(analysis, method, entry, directs);
+
+        var created = type.CreateType();
+        var run = created.GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
+        var body = created.GetMethod("Body") ?? throw new MissingMethodException(type.Name, "Body");
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
-        return new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
-            analysis.Callees);
+        RuntimeHelpers.PrepareMethod(body.MethodHandle);
+        var compiled = new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
+            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
+            Classes = analysis.Classes, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1 };
+
+        // a call the body makes of itself is of the body just created.
+        foreach (var direct in directs)
+        {
+            if (direct is not null && ReferenceEquals(direct.Entry, entry))
+            {
+                direct.Body = compiled;
+            }
+        }
+
+        return compiled;
+    }
+
+    // how the body calls callee: directly through its typed entry when the callee is compiled - for the same scopes, before its caller - or is the body
+    // itself; through the invoker when it is not compiled, is not run by the invoker the body's own calls are, or is being compiled already (a procedure that
+    // calls the one that calls it).
+    // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame; so is
+    // one given a String, which its frame holds.
+    private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodBuilder entry, InstructionList list,
+        CompiledCallee callee, bool callerNeedsFrame)
+    {
+        // a member of an object is called through its binding, the object given as Me (CompiledActivation.CallMember).
+        if (callee.Site is not null || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        {
+            return null;
+        }
+
+        if (callee.Procedure.SemanticId == caller.SemanticId)
+        {
+            return callerNeedsFrame ? null : new DirectCall(entry, callee.Procedure, list);
+        }
+
+        if (_inProgress.Contains(callee.Procedure.SemanticId) || invoker.BodyOf(callee.Procedure) is not { } calleeList
+            || Compile(session, evaluator, callee.Procedure, calleeList).Body is not { Entry: { } calleeEntry, NeedsFrame: false } calleeBody)
+        {
+            return null;
+        }
+
+        return new DirectCall(calleeEntry, callee.Procedure, calleeList) { Body = calleeBody };
     }
 }
 
@@ -183,8 +262,26 @@ internal static class CompiledExecution
     public static bool WalksBackAtRandom { get; set; }
 
     /// <summary>
-    /// What the random walk-back's safepoints are chosen with (<see cref="CompiledBody.NextRandomSafepoint"/>): a run that fails is replayed with the same
-    /// seed. The test assembly sets it from <c>RDCORE_WALKBACK_SEED</c>, and to 1 when that is not set.
+    /// Whether each compiled activation fails one access of its frame chosen at random - a variable read back after the interpreter ran an instruction, or
+    /// written into the frame before it does - as compiled code fails one when the frame holds a variable where it cannot read or write it: the read hands
+    /// the rest of the activation to the interpreter, and the write, made all the same, has the interpreter run the activation from the instruction instead
+    /// of that instruction alone. The first read-back after a call the program waited in fails too, whatever the seed
+    /// (<see cref="CompiledActivation.ReadsBackAfterCall"/>). The frame holds what it always does, so a program runs the same; what the suite runs under to
+    /// show that each of those hand-overs leaves the interpreter what it needs. The test assembly sets it from <c>RDCORE_RELOADS=fail-at-random</c>; nothing
+    /// else does.
+    /// </summary>
+    public static bool FailsReloadsAtRandom { get; set; }
+
+    /// <summary>
+    /// Whether a compiled activation may be handed to the interpreter where nothing asks for it (<see cref="WalksBackAtRandom"/>,
+    /// <see cref="FailsReloadsAtRandom"/>): how many times compiled code recovers or walks back is then not the program's.
+    /// </summary>
+    public static bool HandsOverAtRandom => WalksBackAtRandom || FailsReloadsAtRandom;
+
+    /// <summary>
+    /// What the random walk-back's safepoints, and the random failed accesses, are chosen with (<see cref="CompiledBody.NextRandomSafepoint"/>,
+    /// <see cref="CompiledBody.NextRandomFailedAccess"/>): a run that fails is replayed with the same seed. The test assembly sets it from
+    /// <c>RDCORE_WALKBACK_SEED</c>, and to 1 when that is not set.
     /// </summary>
     public static int WalkBackSeed { get; set; } = 1;
 

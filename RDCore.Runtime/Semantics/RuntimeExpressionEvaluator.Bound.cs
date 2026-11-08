@@ -4,9 +4,11 @@ using RDCore.Runtime.Semantics.Literals;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -397,6 +399,15 @@ public sealed partial class RuntimeExpressionEvaluator
     // always, so the member is found once.
     private readonly ConcurrentDictionary<BoundMember, (VBClassModuleSymbol Class, VBTypeMemberSymbol? Member)> _memberSites = new(ReferenceEqualityComparer.Instance);
 
+    /// <summary>
+    /// The member an object of <paramref name="actual"/> invokes for the member <paramref name="bound"/> was bound to, an expression of an object declared as a
+    /// class, as this evaluation finds it (MS-VBAL §5.3.1.9): what compiled code calls for it. A field of the object is the member too.
+    /// </summary>
+    /// <param name="bound">The member access, as it was bound.</param>
+    /// <param name="actual">The class of the object the member is invoked on.</param>
+    /// <returns>The member invoked; <see langword="null"/> when the class invokes none for it.</returns>
+    internal VBTypeMemberSymbol? MemberOf(BoundMember bound, VBClassModuleSymbol actual) => ImplementationOf(bound, actual);
+
     // the member an object of `actual` invokes for a member of the class the expression is declared as (MS-VBAL §5.3.1.9): the member itself, of an object of
     // that class; the one implementing it, of a class that implements it as an interface; or the class's own member by that name, as it is found
     // late-bound.
@@ -458,8 +469,37 @@ public sealed partial class RuntimeExpressionEvaluator
         => IsWide(call) ? EvaluateStored(session, call, context)
             : EvaluateWideConversion(session, call, context) is { } converted ? converted
             : call.Procedure is VBTypeMemberSymbol procedure && !ReturnsToBeIndexed(procedure, null, call.Call.Arguments)
-                ? OfResultType(call, InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments))
+                ? OfResultType(call, AbsOfTheLeast(session, call, context,
+                    InvokeProcedure(session, context, procedure, call.Call.Arguments, boundArguments: call.BoundArguments)))
                 : EvaluateLate(session, call.Expression, context);
+
+    // the absolute value of the least value of a type is no value of it, which the standard library's Abs raises as an overflow: as MS-VBA does for a
+    // variable of a numeric type (recorded in Excel: oracle\s60 A01, A03). Of the least Long, the call decides two others. MS-VBA evaluates a constant
+    // expression when it compiles the code, and Abs of the least Long in one is that Long (A01, A02), as its negation is (BoundUnary.NegatesAConstantExpression).
+    // A Variant's absolute value that its type does not hold is of the next wider one, as the Variant's arithmetic is (MS-VBAL §5.6.9.3): Abs of a Variant
+    // holding the least Long is the Double 2147483648 (A03), and of one holding the least Integer the Long 32768 (s61). Each is evaluated again, on the overflow.
+    private RuntimeSemanticsEvaluationResult AbsOfTheLeast(IRuntimeSession session, BoundCall call, RuntimeEvaluationContext context,
+        RuntimeSemanticsEvaluationResult returned)
+    {
+        if (returned is not { IsSuccess: false, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow }
+            || call.Procedure is not VBFunctionMemberSymbol { Name: var name } function || !string.Equals(name, "Abs", StringComparison.OrdinalIgnoreCase)
+            || !SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(function)
+            || call.Call.Arguments is not [var argument]
+            || Evaluate(session, argument, context) is not { IsSuccess: true, Result: { } given })
+        {
+            return returned;
+        }
+
+        return given switch
+        {
+            VBLongValue { Value: int.MinValue } least when call.IsAConstantExpression => RuntimeSemanticsEvaluationResult.Success(least),
+            VBVariantValue { TypedValue: VBLongValue { Value: int.MinValue } }
+                => RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(new VBDoubleValue(2147483648d))),
+            VBVariantValue { TypedValue: VBIntegerValue { Value: short.MinValue } }
+                => RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(new VBLongValue(32768))),
+            _ => returned,
+        };
+    }
 
     // what a member reached late-bound returns is a Variant (BoundMember.IsLateBound): a scalar it returns is held by one. An object, an array, a record,
     // and a Variant already, are what they are.
@@ -490,6 +530,11 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         var operandResult = EvaluateBoundNode(session, unary.Operand, context);
+        if (unary.NegatesAConstantExpression && operandResult is { IsSuccess: true, Result: VBLongValue { Value: int.MinValue } least })
+        {
+            return RuntimeSemanticsEvaluationResult.Success(least);
+        }
+
         return operandResult.IsSuccess
             ? OperatorProvider.EvaluateUnaryOperator(session, unary.Operation, operandResult.Result!)
             : operandResult;

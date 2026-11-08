@@ -27,7 +27,7 @@ public sealed class ReplClearProgramTests
         _platform.Provides<SessionDiscard>().Returns(true);
         _platform.Provides<SessionExecute>().Returns(true);
         _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new ExecuteSessionResult { Outcome = ExecutionOutcome.Completed }));
+            .Returns(Task.FromResult(new ExecuteResult { Outcome = ExecutionOutcome.Completed }));
         _context = new ReplCommandContext(_program, _console, _platform, new ReplDocument(_program, _platform), []);
     }
 

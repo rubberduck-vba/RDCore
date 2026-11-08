@@ -1,4 +1,4 @@
-# RDCore™
+# RDCore
 <sup>_Ce document est disponible en [français](./README.fr.md)_</sup>
 
 ![VIVAT CUCUMIS](./assets/vivat-cucumis-stonecore.png)
@@ -9,8 +9,9 @@
 
 This repository contains different projects **under active development** producing different libraries and executables, under a relatively simple licensing model:
 
-- **The RDCore.SDK library** (including its documentation) is licensed under **⚖️MIT**;
-- **Everything else** built around it is licensed under **⚖️GPLv3**.
+- **The RDCore.SDK and RDCore.SDK.Protocol libraries** (including their documentation) are licensed under **⚖️MIT**;
+- **Everything else** built around it is licensed under **⚖️GPLv3 or later**.
+- **Your projects are yours:** the VBA and RD-VBA code you write, and whatever RDCore builds from it, belong to you, to license as you please (see [NOTICE.md](NOTICE.md)).
 
 This arrangement protects both the legacy and current contributors while enabling the future: **The RDCore runtime implementation shall remain open-source**.
 
@@ -19,7 +20,7 @@ This arrangement protects both the legacy and current contributors while enablin
 <a id="projectstatus"/>
 
 ## 📊 Project Status
-RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols → execution) but is not completed nor released yet.
+RDCore is in active **pre-alpha** development. The **specification** and **documentation** are the stable deliverables; the platform runs end to end (workspace → parse → symbols → execution) but is not completed yet: preview builds are published as GitHub [prereleases](https://github.com/rubberduck-vba/RDCore/releases) while it remains pre-alpha.
 
 **Contributions**  
 
@@ -54,6 +55,9 @@ implementation, references and highlights, call and type hierarchy, rename and c
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html)
+- [RDCore.SDK](https://github.com/rubberduck-vba/RDCore.SDK): the language model and platform plumbing that every RDCore component and extension builds on
+- [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE): the add-in that brings RDCore into HexIDE
+- [HexIDE](https://github.com/hexide-io/HexIDE): the IDE for VB developers that RDCore.HexIDE extends
 
 <hr/>
 <p align='left' style='margin-left: 32px;'>

@@ -99,7 +99,12 @@ internal static class LibraryFixtures
 /// </summary>
 internal sealed class InMemoryLibrarySource(params LibraryDescription[] descriptions) : ILibrarySource
 {
-    private readonly Dictionary<string, LibraryDescription> _byName = descriptions.ToDictionary(description => description.Name, StringComparer.OrdinalIgnoreCase);
+    // the first description of a name is the library of the name; the others are other type libraries of it, as DAO.dao2535.json is beside DAO.json.
+    private readonly Dictionary<string, LibraryDescription> _byName = descriptions.DistinctBy(description => description.Name, StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(description => description.Name, StringComparer.OrdinalIgnoreCase);
+
+    public IEnumerable<LibraryDescription> DescriptionsOf(string name)
+        => [.. descriptions.Where(description => string.Equals(description.Name, name, StringComparison.OrdinalIgnoreCase))];
 
     /// <summary>The names asked of the source, in order.</summary>
     public List<string> Asked { get; } = [];

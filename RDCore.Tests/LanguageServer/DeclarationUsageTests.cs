@@ -95,6 +95,17 @@ public sealed class DeclarationUsageTests
     }
 
     [TestMethod]
+    [DataRow("Abs")]
+    [DataRow("Int")]
+    [DataRow("Sgn")]
+    public void AVariablePassedToAFunctionOfTheLibrary_IsPassedAsAnArgument(string function)
+    {
+        var facts = Facts("Public Sub Run()", "Dim x As Long", "x = 5", $"Debug.Print {function}(x)", "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(0, 1, 1), References(facts, "x"));
+    }
+
+    [TestMethod]
     public void AnArgumentWrittenWithByVal_IsRead_ForItCanNotBeWrittenTo()
     {
         var facts = Facts("Private Sub Work(ByVal n As Long)", "End Sub", "Public Sub Run()", "Dim local As Long", "Work ByVal local", "End Sub");

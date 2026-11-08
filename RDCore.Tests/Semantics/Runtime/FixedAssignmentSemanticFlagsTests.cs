@@ -2,6 +2,7 @@ using NSubstitute;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
+using RDCore.Runtime.Semantics.SetCoercion;
 using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
@@ -55,7 +56,8 @@ public sealed class FixedAssignmentSemanticFlagsTests
         var letCoercion = new LetCoercionRuntimeSemanticsProvider([strings], formatter);
         var operators = new OperatorRuntimeSemanticsProvider(letCoercion, formatter);
         var expressions = new RuntimeExpressionEvaluator(operators);
-        return new FixedAssignmentRuntimeSemantics(expressions, letCoercion, new LetAssignmentEvaluator(letCoercion, operators, expressions));
+        return new FixedAssignmentRuntimeSemantics(expressions, letCoercion, new LetAssignmentEvaluator(letCoercion, operators, expressions),
+            new SetCoercionRuntimeSemantics(formatter));
     }
 
     private static FixedAssignmentSemanticFlags Analyze(AssignmentKind kind, VBTypedValue target, VBTypedValue source)

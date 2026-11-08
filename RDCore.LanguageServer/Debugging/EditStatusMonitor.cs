@@ -23,12 +23,12 @@ namespace RDCore.LanguageServer.Debugging;
 internal interface IEditStatusMonitor
 {
     /// <summary>What the host said last: no program waits, and nothing is listed, until it is first asked.</summary>
-    HostDebugEditStatusResult Current { get; }
+    DebugEditStatusResult Current { get; }
 
     /// <summary>
     /// The list changed, or the program began or ended waiting in break mode: what it was, and what it is now.
     /// </summary>
-    event Action<HostDebugEditStatusResult, HostDebugEditStatusResult>? Changed;
+    event Action<DebugEditStatusResult, DebugEditStatusResult>? Changed;
 
     /// <summary>
     /// An edit was loaded while a program waited. Whether it is listed or not, the program goes on with code that may not be the code it waits in.
@@ -48,11 +48,11 @@ internal sealed class EditStatusMonitor(IProgramDebugService debugging, IWorkspa
 {
     // one question at a time: the answers are compared in the order they were given.
     private readonly SemaphoreSlim _asking = new(1, 1);
-    private HostDebugEditStatusResult _current = new();
+    private DebugEditStatusResult _current = new();
 
-    public HostDebugEditStatusResult Current => Volatile.Read(ref _current);
+    public DebugEditStatusResult Current => Volatile.Read(ref _current);
 
-    public event Action<HostDebugEditStatusResult, HostDebugEditStatusResult>? Changed;
+    public event Action<DebugEditStatusResult, DebugEditStatusResult>? Changed;
 
     public event Action? LoadedWhileSuspended;
 
@@ -61,7 +61,7 @@ internal sealed class EditStatusMonitor(IProgramDebugService debugging, IWorkspa
         await _asking.WaitAsync(token);
         try
         {
-            HostDebugEditStatusResult status;
+            DebugEditStatusResult status;
             try
             {
                 status = await debugging.EditStatusAsync(token);
@@ -70,7 +70,7 @@ internal sealed class EditStatusMonitor(IProgramDebugService debugging, IWorkspa
             {
                 // a host that cannot say is a host whose program is not known to wait: nothing is listed.
                 logger.LogWarning(exception, "✏️ The environment host could not say which edits are not applied to the program that waits.");
-                status = new HostDebugEditStatusResult();
+                status = new DebugEditStatusResult();
             }
 
             if (status.Suspended && afterLoad)

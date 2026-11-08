@@ -90,12 +90,6 @@ public class RDCoreParserApp(
         // into this container (OmniSharp's own AddOptions would supply an unconfigured default).
         services.AddSingleton<IModuleParser, ModuleParser>();
         services.AddSingleton<ISyntaxTokenizer, SyntaxTokenizer>();
-
-        // handlers resolve ILogger<T> from the OmniSharp-internal container, which otherwise has no
-        // sink — route it to the same RDCore.ParseServer.log the outer host writes.
-        services.AddLogging(builder => builder.AddFile(
-            System.IO.Path.Combine(RDCore.SDK.Platform.PlatformEnvironment.Default.LogsDirectory, "RDCore.ParseServer.log"),
-            LogLevel.Debug));
     }
 
     protected override void Dispose(bool disposing)

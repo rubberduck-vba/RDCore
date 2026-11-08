@@ -184,13 +184,31 @@ internal sealed class PlatformDebugWorkspace(
         return found;
     }
 
-    public async Task<ExecuteSessionResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)
+    public async Task<IReadOnlyList<string>> ModulesDeclaringAsync(string entryPoint, CancellationToken token)
+    {
+        var maps = Volatile.Read(ref _maps);
+        string[] program = [.. ProgramFiles().Select(FullPath).Where(maps.ByPath.ContainsKey).Select(path => maps.ByPath[path].Module)];
+        if (program.Length == 0)
+        {
+            return [];
+        }
+
+        // which header of a declaration written in each branch of a #If block is the live one is the host's to say: it has the project's constants.
+        var environment = orchestration.RuntimeEnvironment;
+        await environment.WaitForReadyAsync(token);
+        var result = await environment.SendRequestAsync<HostEntryPointsParams, HostEntryPointsResult>(
+            new HostEntryPointsParams { EntryPoint = entryPoint, Modules = program }, token);
+
+        return [.. result.Modules.Order(StringComparer.OrdinalIgnoreCase)];
+    }
+
+    public async Task<ExecuteResult> StartAsync(string moduleName, string entryPoint, CancellationToken token)
     {
         var maps = Volatile.Read(ref _maps);
         if (!maps.ByModule.TryGetValue(moduleName, out var path) || !maps.ByPath.TryGetValue(path, out var entry)
             || !parsing.TryGetCached(entry.Document, out var parse))
         {
-            return new ExecuteSessionResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, moduleName) };
+            return new ExecuteResult { Outcome = ExecutionOutcome.NotFound, ErrorMessage = string.Format(DebuggerMessages.NotAModuleOfTheWorkspace, moduleName) };
         }
 
         var environment = orchestration.RuntimeEnvironment;
@@ -201,13 +219,15 @@ internal sealed class PlatformDebugWorkspace(
 
         // the symbols of the workspace were defined under this address; the same declaration addressed another way is another declaration.
         var moduleUri = SymbolUri.Module(documents.WorkspaceRoot, moduleName);
-        return await environment.SendRequestAsync<HostExecuteParams, ExecuteSessionResult>(new HostExecuteParams
+        return await environment.SendRequestAsync<HostExecuteParams, ExecuteResult>(new HostExecuteParams
         {
             Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
             ModuleName = moduleName,
             EntryPoint = entryPoint,
             Debug = true,
             StreamOutput = true,
+            Unattended = services.GetService(typeof(RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService))
+                is RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService expected && expected.Expects(capabilities => capabilities.Unattended),
         }, token);
     }
 

@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
 using System.Text.RegularExpressions;
@@ -179,14 +180,22 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return assigned;
     }
 
-    // the name an assignment's target assigns: the name, or the member after a dot, of what is called with arguments or not.
-    private static SimpleNameExpressionNode? AssignedName(ExpressionNode target) => target switch
+    // the name an assignment's target assigns: the name, or the member after a dot, of what is called with arguments or not - through as many argument lists
+    // as are written after it (`a(1)(2) = x`), one at a time.
+    private static SimpleNameExpressionNode? AssignedName(ExpressionNode target)
     {
-        SimpleNameExpressionNode name => name,
-        MemberAccessExpressionNode access => access.Member,
-        IndexExpressionNode index => AssignedName(index.Callee),
-        _ => null,
-    };
+        while (target is IndexExpressionNode index)
+        {
+            target = index.Callee;
+        }
+
+        return target switch
+        {
+            SimpleNameExpressionNode name => name,
+            MemberAccessExpressionNode access => access.Member,
+            _ => null,
+        };
+    }
 
     /// <summary>The scope a position of a module is in.</summary>
     public static LexicalScope ScopeOf(RenameContext context, RenameModule module, SourcePosition position) => ScopeAt(context, module, position);
@@ -226,8 +235,17 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     /// <summary>
     /// Every place <paramref name="name"/> is written in <paramref name="modules"/>, in any case, and what it refers to at each.
     /// </summary>
+    /// <remarks>
+    /// The static pass binds each name, and recurses once for each level of an expression: it runs on a large-stack thread, one for the call (a hover, a rename,
+    /// the references of a name), and not one for each module or each expression.
+    /// </remarks>
     public static NameOccurrences Find(RenameContext context, string name, IEnumerable<RenameModule> modules)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => Find(context, name, modules));
+        }
+
         var occurrences = new List<NameOccurrence>();
         var unknown = new List<NameOccurrence>();
         foreach (var module in modules.Where(module => module.Source.Contains(name, StringComparison.OrdinalIgnoreCase)))
@@ -236,6 +254,16 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
             var lines = LinesOf(module.Source);
             foreach (var (node, parent) in Walk(module.Syntax))
             {
+                // a name written in an expression the parser kept as text is not analyzed (RD-VBAL 2.6.1): what it refers to there is not known.
+                if (node is UnbuiltExpressionTriviaNode unbuilt)
+                {
+                    foreach (var unbuiltName in unbuilt.Names.Where(each => string.Equals(each.Name, name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var kind = unbuiltName.IsMember ? OccurrenceKind.Member : OccurrenceKind.Name;
+                        unknown.Add(new NameOccurrence(module.Module, unbuiltName.Range, null, kind, ScopeAt(context, module, unbuiltName.Range.Start)));
+                    }
+                }
+
                 if (WrittenName(node, parent, lines) is not { } written || !string.Equals(written.Name, name, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -263,7 +291,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
 
         // a field of a Type is no scope's declaration: it is a member of the type.
-        var fragment = id.Uri.Fragment.TrimStart('#');
+        var fragment = SymbolUri.PathOf(id.Uri);
         var dot = fragment.LastIndexOf('.');
         if (dot <= 0)
         {
@@ -283,11 +311,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
 
     /// <summary>The address of the module a symbol is declared in: the first part of its address.</summary>
     public static Uri ModuleOf(Uri symbol)
-    {
-        var fragment = symbol.Fragment.TrimStart('#');
-        var dot = fragment.IndexOf('.');
-        return new UriBuilder(symbol) { Fragment = dot < 0 ? fragment : fragment[..dot] }.Uri;
-    }
+        => new UriBuilder(symbol) { Fragment = SymbolUri.ModuleNameOf(symbol) }.Uri;
 
     /// <summary>Whether a module of the workspace declares the symbol.</summary>
     public static bool IsDeclaredBy(RenameContext context, Symbol symbol)
@@ -312,7 +336,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
 
                 if (string.Equals(named, type.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    return module.Module.Fragment.TrimStart('#');
+                    return SymbolUri.ModuleNameOf(module.Module);
                 }
             }
         }
@@ -335,12 +359,17 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return declaring?.DeclaredAs(name).FirstOrDefault(declared => declared.SemanticId != symbol.SemanticId);
     }
 
-    /// <summary>What a symbol is, as a reader would name it: its address in the workspace or its library.</summary>
-    public static string Describe(Symbol symbol) => symbol.Uri.Fragment.TrimStart('#') is { Length: > 0 } path ? path : symbol.Name;
+    /// <summary>What a symbol is, as a reader would name it: its qualified name in the workspace or its library (<see cref="SymbolUri.QualifiedNameOf"/>).</summary>
+    public static string Describe(Symbol symbol) => SymbolUri.QualifiedNameOf(symbol.Uri) is { Length: > 0 } path ? path : symbol.Name;
 
-    // what the static pass binds the expressions of each procedure of the module to.
+    // what the static pass binds the expressions of each procedure of the module to: on a large-stack thread, which a caller that is on one already is.
     private static Dictionary<SyntaxNodeId, ExpressionFact> FactsOf(RenameContext context, RenameModule module)
     {
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => FactsOf(context, module));
+        }
+
         var facts = new Dictionary<SyntaxNodeId, ExpressionFact>();
         foreach (var declaration in module.Syntax.Children.OfType<MemberDeclarationNode>().Where(declaration => Procedures.Contains(declaration.MemberKind)))
         {
@@ -415,6 +444,12 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         if (facts.TryGetValue(expression.Identity, out var fact))
         {
             return fact;
+        }
+
+        // an expression the pass did not evaluate - one outside of a procedure - is evaluated on its own, as deep as it is written.
+        if (!LargeStackThread.IsCurrent)
+        {
+            return LargeStackThread.Run(() => FactOf(context, expression, facts, scope));
         }
 
         var evaluated = new ExpressionFactCollector();

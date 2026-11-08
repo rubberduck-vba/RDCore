@@ -41,8 +41,22 @@ internal sealed class DefineSymbolsHandler(
             return Task.FromResult(new DefineSymbolsResult());
         }
 
+        // made against declarations a program in progress holds as they were: made again once the program is over, against them as they are declared - in
+        // the order the requests came in, the latest of each module and phase.
+        // only a request that carries the module's parse loads its code, and says what is wrong with it: one of symbols alone leaves a failure as it is.
         var session = sessionProvider.Session;
+        var loadsCode = !request.DeclareTypesOnly && request.ParseResultJson.Length > 0;
+        var result = HeldDefinitions.Define(session, $"{request.ModuleName}|{request.DeclareTypesOnly}|{request.CodeOnly}", request.ModuleName,
+            loadsCode ? defined => [.. defined.CodeErrors] : null, () => Define(session, request), () => [.. Define(session, request).CodeErrors]);
 
+        // told once it is made: a statement typed at a stop from now on is given what the code as edited declares.
+        ProgramEdits.Edited(session);
+        return Task.FromResult(result);
+    }
+
+    private DefineSymbolsResult Define(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        DefineClientModule(session, request);
         ApplyDirectives(session, request);
 
         var unresolvedTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -98,7 +112,7 @@ internal sealed class DefineSymbolsHandler(
                 request.ModuleName, defined, replaced, merged, skipped.Count, unresolvedTypeNames.Count);
         }
 
-        return Task.FromResult(new DefineSymbolsResult
+        return new DefineSymbolsResult
         {
             Defined = defined,
             Replaced = replaced,
@@ -106,7 +120,7 @@ internal sealed class DefineSymbolsHandler(
             UnresolvedTypeNames = [.. unresolvedTypeNames],
             CodeErrors = loadErrors,
             MergedDefinitions = merged,
-        });
+        };
     }
 
     // what declares a type: a user-defined type, with its fields, and an enumeration, with its members (DefineSymbolsParams.DeclareTypesOnly).
@@ -150,7 +164,8 @@ internal sealed class DefineSymbolsHandler(
     // Reads the module's symbols and defines them, the newest winning when asked to. The language server fuses a declaration written once per #If branch
     // into one symbol, each other branch's arriving beside it with the same identity (uri): of those the one of the live branch is defined, and a declaration
     // written in dead branches only is not, as MS-VBA compiles a module. Without the directives, the first that carries every site is, as it always was.
-    // Property Get/Let/Set have identities of their own (Symbol.UriSuffix), so they stay distinct.
+    // Property Get/Let/Set, and an Enum, a Type or an Event beside a namesake of the module, have identities of their own (Symbol.UriSuffix), so they stay
+    // distinct.
     private static (int Defined, int Replaced, int Merged, List<string> Skipped) DefineSymbols(
         IRuntimeSession session, DefineSymbolsParams request, HashSet<string> unresolvedTypeNames, bool replace, Func<SourcePosition, bool>? isDead)
     {
@@ -290,13 +305,7 @@ internal sealed class DefineSymbolsHandler(
             return [];
         }
 
-        var errors = Load(session, request.ModuleName, module, parseResult);
-
-        // lowered against a variable a program in progress holds as it was: lowered again once the program is over, against the variable as it is declared,
-        // and what is wrong with it then said as it is said now.
-        var name = request.ModuleName;
-        HeldDefinitions.Loaded(session, name, () => session.Symbols.TryGetModule(name, out var current) ? Load(session, name, current, parseResult) : []);
-        return errors;
+        return Load(session, request.ModuleName, module, parseResult);
     }
 
     private ImmutableArray<string> Load(IRuntimeSession session, string name, VBModuleSymbol module, ModuleParseResult parseResult)
@@ -322,6 +331,25 @@ internal sealed class DefineSymbolsHandler(
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IRuntimeSession, ModuleLoadFailures> LoadFailuresBySession = new();
+
+    // the client's own module, which the project does not list - a shell's program, in a workspace of its own or in one whose project file could not be read -
+    // is a standard module of the session, as the language server binds it (SymbolSyncService.SyncModuleAsync): its members are then a module's, and it runs.
+    // The project is not changed, and a module of any other name the session does not have is still not found. Nor is one named after the project or a library
+    // it references, which the language server refuses to run: the project, the projects it references and its procedural modules are matched in one tier
+    // (MS-VBAL §5.6.10), so the name would match twice, and every name qualified by it would be invalid.
+    private static void DefineClientModule(IRuntimeSession session, DefineSymbolsParams request)
+    {
+        if (!request.SessionModule || request.CodeOnly || request.WorkspaceRoot is not { } workspaceRoot || request.ModuleName.Length == 0
+            || session.Symbols.TryGetModule(request.ModuleName, out _)
+            || string.Equals(request.ModuleName, session.Errors.ProjectName, StringComparison.OrdinalIgnoreCase)
+            || session.References.Any(reference => string.Equals(reference.Name, request.ModuleName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var module = new VBStandardModuleSymbol(workspaceRoot, workspaceRoot, request.ModuleName);
+        _ = session.Symbols.TryDefine(module, module.ScopeKind);
+    }
 
     // MS-VBAL 5.2.1: the module symbol is composed from the .rdproj without parsing anything, so its
     // Option directives are not known until the language server sends them here. They are what an

@@ -36,6 +36,28 @@ MS-VBA defers argument-type validation to run time: it never rejects an omitted 
 > **Not implemented.** No diagnostic flags `IsMissing` used on a non-`Variant` parameter, for which `IsMissing` always
 > returns `False` (see [Omitted Arguments and IsMissing](#omitted-arguments-and-ismissing)).
 
+### Array parameters
+
+An array parameter (`ByRef a() As Long`) is a second name for an array of its element type, which it must be given. MS-VBA refuses anything else at compile
+time, with "Type mismatch: array or user-defined type expected", and so does RD-VBA. Each row was recorded in Excel (64-bit, en-US, `oracle\s57` A05,
+`s58` G01-G12, `s59` G13-G20, `s61` G21-G34); a named argument (`Count(a:=v)`) is checked as a positional one is.
+
+|Argument, to `a() As Long` unless noted|MS-VBA|
+|---|---|
+|A `Long()` variable; an array field of a record (`r.A`); what a function or a `Property Get` of an object declared as its class returns, declared `As Long()`|Runs|
+|A `Box()` to a `Box()`; a fixed-size `Variant()` to a `Variant()`; an array of an `Enum` to an array of that `Enum`, or of another `Enum`|Runs|
+|An `Integer()`, a `Variant()`; a `Collection()` to an `Object()`; what a function returns, declared `As Integer()`|Compile error|
+|An array of an `Enum` to a `Long()`, a `Long()` to an array of an `Enum`: the element types are matched as declared, every `Enum` being the same one, and an `Enum` is not a `Long` here|Compile error|
+|A `String * 3` array to a `String()`|Compile error|
+|A member of an `Object` or a `Variant` (`o.Arr`), which is late-bound, and so a `Variant`|Compile error|
+|A `Variant`, whatever it holds: a variable, a `ByVal` `Variant` parameter, one in parentheses, an element of a `Variant` array; to a `Variant()`, a `TPair()` or an array of no declared type too|Compile error|
+|What `Array` returns, to a `Variant()`; what `Split` returns, to a `Variant()` or a `String()`: both are declared `Variant`|Compile error|
+|A scalar (`Dim n As Long`)|Compile error|
+|An array in parentheses (`Count((c))`, `c` a `Long()`, and the statement `Takes (c)`): a value, and no array variable|Compile error|
+
+The array parameters of the standard library are checked as a procedure's are: `IRR` given a `Variant`, or a `Double()` in parentheses, is the
+same compile error (`s61` G27, G28), and `IRR(d)` of a `Double()` runs (G29). A `ParamArray` and a `Declare`d procedure's parameter are not checked here.
+
 ## Runtime Semantics
 
 A procedure invocation runs these steps:
@@ -193,8 +215,8 @@ allows a plain reference binding for without a class/`Object` copy-back. An `Enu
 ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)), so a variable of an `Enum`
 exactly matches a parameter declared `Long` or as another `Enum`, and a `Long` variable a parameter of an `Enum`. An
 array of an `Enum` does not match an array parameter of `Long`, nor an array of `Long` one of an `Enum`: the element
-type is not mapped, so the array falls to the copy, and an array let-coerced to an array of another element type
-raises error 13, Type mismatch.
+type is not mapped. An array of an `Enum` matches an array parameter of any `Enum`, its own or another. An array of another element type given to an array parameter is a compile error; see
+[Array parameters](#array-parameters).
 
 An array's declared type is an array of its element type, whether it was declared with fixed bounds or none: a
 fixed-size array (`Dim V(1 To 3) As Long`) passed to a parameter `A() As Long` is bound by reference, as a resizable
@@ -205,7 +227,8 @@ its bounds kept.
 |Parameter|Argument|Binding|
 |---|---|---|
 |`ByVal`|Any|A fresh, Let-coerced [ValueBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.ValueBindingHandle.html), which never aliases the caller's storage.|
-|`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), that name through its module (`Module1.x`), a public variable of an object (`obj.Count`, `.Count`), or an element of an array a variable holds (`arr(1)`, `v(1)`)|A reference binding.|
+|`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), that name through its module (`Module1.x`), or an element of an array a variable holds (`arr(1)`, `v(1)`)|A reference binding.|
+|`ByRef`|A public variable of an object, named as its member (`obj.Count`, `Me.Count`, `.Count`), or an element of one (`obj.V(0)`)|A copy, as **MS-VBA** passes it; see [A public variable of an object](#a-public-variable-of-an-object).|
 |`ByRef`, declared `Variant`|An addressable, writable variable, of either of those|A reference binding.|
 |`ByRef`, declared as a class or `Object`|A variable of a different declared type|A `ByVal`-style copy: the class/`Object` copy-back is not modeled.|
 |`ByRef`|Not recognized as aliasable: an expression, a literal, a variable of mismatched declared type, a read-only target|The same `ByVal`-style Let-coerced copy: **MS-VBAL §5.3.1.11**'s "otherwise" case. Never an error.|
@@ -234,6 +257,63 @@ the call is over - after every handler, for a `RaiseEvent`. What the callee assi
 runs ([**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)). An element of what a function or a property returns is a value, and is copied;
 so is an element passed to a `Declare`d procedure, which the marshaller lays out.
 
+#### A public variable of an object
+
+**MS-VBAL §5.6.12** classifies a member access to a public variable of a class as a variable, which a `ByRef` parameter would be bound to by reference.
+**MS-VBA** passes a copy instead (recorded in Excel): it implements a public variable of a class as a property of the class's interface, and what a caller is
+given of `b.Count` is the value its `Get` returns. What the procedure assigns to the parameter is lost. RD-VBA passes the copy too, and
+[**RDC11026**](../diagnostics/rdc11026.md) warns where the code is written so. Neither MS-VBAL nor Microsoft Learn says so.
+
+With `Public Count As Long` in a class `Box`, `b` a `Box`, and `Sub Bump(ByRef n As Long): n = n + 1`:
+
+|Argument|Where|After the call|
+|---|---|---|
+|`b.Count`|Any module|`b.Count` is unchanged: a copy.|
+|`Me.Count`|`Box`'s own code|Unchanged: a copy.|
+|`.Count`, in `With b`|Any module|Unchanged: a copy.|
+|`o.Count`, `o` an `Object` holding a `Box`|Any module|Unchanged: a copy (late bound).|
+|`b.Count`, to `ByRef v As Variant`|Any module|Unchanged: a copy.|
+|`Count`|`Box`'s own code|Written: the variable itself.|
+|`Globals.Counter`, `Counter`, a standard module's `Public Counter As Long`|Any module|Written: the variable itself, however it is named.|
+
+What takes the argument makes no difference, and an element of a public `Variant` of an object is passed the same way as the variable is. Recorded in Excel
+(`oracle\s58` B01, F01-F05, `s59` M04), with `Public V As Variant` holding `Array(1, 2)` and `Public Event Changed(ByRef n As Long)` in `Box`:
+
+|Argument|Given to|After the call|
+|---|---|---|
+|`b.Count`, `.Count`|A `ParamArray` (`Sub SetFirst(ParamArray a() As Variant)`)|Unchanged: a copy. A local variable given to it is written.|
+|`b.C`, `Public C As Currency`|A `Declare`d procedure's `ByRef` parameter (`QueryPerformanceCounter`)|Unchanged: a copy.|
+|`t.Count`, `u.Count` (`u` an `Object` holding `t`)|A procedure called late (`o.Twice t.Count`, `o` an `Object` or a `Variant`)|Unchanged: a copy. A local variable given to it is written.|
+|`o.Count`, `Me.Count`|The handlers of `RaiseEvent Changed(...)`|Unchanged: a copy.|
+|`Count`, a local variable|The handlers of `RaiseEvent Changed(...)`|Written.|
+|`b.V(0)`, `.V(0)` in `With b`, `Me.V(0)`|`ByRef x As Variant`|Unchanged: a copy.|
+|`.Inner.V(0)` in `With b`, `.V(0)` in `With b.Inner`, `.V(0)` in `With .Inner` in `With b`|`ByRef x As Variant`|Unchanged: a copy.|
+|`V(0)`|`ByRef x As Variant`, in `Box`'s own code|Written: the element itself.|
+
+[**RDC11026**](../diagnostics/rdc11026.md) warns of each copy given to a `ByRef` parameter, a `ParamArray`, a `Declare`d procedure and a raised event,
+whose parameters are known. [**RDC11029**](../diagnostics/rdc11029.md), a hint, says the same of a copy given to a procedure called late, which may take
+the argument `ByRef` or `ByVal`. Neither is raised for a member of an object bound late (`u.Count`), which is not known to be a variable, nor for what a
+member of a referenced library is given. An element is flagged only of a `Variant`: of a variable of any other type (`b.Items(1)`, `Items` a `Collection`)
+it is what the default member of the object returns, which MS-VBAL passes as a copy too.
+
+A field of a variable of a user-defined type is a variable, however it is named. In a `With` block of a record, a member with no object before the dot is
+one of the With block variable (**MS-VBAL §5.4.2.21**), which is the record variable itself when the `With` expression is one, and a nested `With` block of
+a field of it holds the field's record itself. With `r` a `TOuter`, `t` an array of them, and `Sub BumpLong(ByRef n As Long)`, all of these are written
+(recorded in Excel, `oracle\s58` W01, `oracle\s59` M01-M03):
+
+|Argument|Where|
+|---|---|
+|`.X`|`With r` (a `TPair`), `With t(0)`|
+|`r.X`, `t(0).X`|Any|
+|`.Inner.X`|`With r`, `With t(0)`|
+|`.X`|`With .Inner`, in `With r` or `With t(0)`|
+|`.A(0)`, `A(1) As Long` a fixed-size array field|`With r`, `With t(0)`|
+|`.B(0)`, `B() As Long` a resizable array field|`With r`|
+|`.V(0)`, `.V`, `V As Variant` a field holding an array or a number (to a `ByRef` `Variant`)|`With r`|
+|`r.A(0)`, `r.B(0)`, `r.Inner.X`, `r.V(0)`|Any|
+
+RD-VBA writes `r.V` too, as it writes `.V` in `With r`.
+
 The `ByVal` and `ByRef`-fallback copy is made by a direct Let-coercion call, since there is no addressable
 symbol to Let-assign through. A Let-assignment to the function result variable makes the same lower-level call,
 for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md).
@@ -243,7 +323,7 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
 > A `ByRef` parameter declared as a class or `Object`, whose argument is a variable of a different declared
 > type, falls through to a `ByVal`-style copy.
 
-> 👉 UDT values **must** be passed by reference (`ByRef`). See
+> UDT values **must** be passed by reference (`ByRef`). See
 > [**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md).
 
 ### Standard Library Calls
@@ -264,7 +344,7 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
   Missing it passes for an optional argument is filled in the same way. A required argument left out is error `5`, and
   the member is not called.
 
-> 👉 An external call carries runtime values rather than typed ones, so the declared type a member was called
+> An external call carries runtime values rather than typed ones, so the declared type a member was called
 > with is recovered when the call is dispatched. See [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)
 > and [**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md) (`Len` / `LenB`).
 
@@ -318,10 +398,10 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 
 |Condition|Run-time error|
 |---|---|
-|A `MissingArgumentNode` (an argument omitted with a comma) is mapped to a non-`Optional` parameter. Checked during argument mapping.|448 — Named argument not found|
-|After argument mapping, a non-`Optional` parameter other than a `ParamArray` has no argument mapped to it.|449 — Argument not optional|
-|An extra positional argument goes beyond the parameter count, and there is no trailing `ParamArray` parameter.|450 — Wrong number of arguments or invalid property assignment|
-|Pushing the callee's frame exceeds the call-depth limit (`RuntimeCallStack.OnBeforeTryPush`).|28 — Out of stack space|
+|A `MissingArgumentNode` (an argument omitted with a comma) is mapped to a non-`Optional` parameter. Checked during argument mapping.|448 (Named argument not found)|
+|After argument mapping, a non-`Optional` parameter other than a `ParamArray` has no argument mapped to it.|449 (Argument not optional)|
+|An extra positional argument goes beyond the parameter count, and there is no trailing `ParamArray` parameter.|450 (Wrong number of arguments or invalid property assignment)|
+|Pushing the callee's frame exceeds the call-depth limit (`RuntimeCallStack.OnBeforeTryPush`).|28 (Out of stack space)|
 
 ## Implementation
 
@@ -347,6 +427,3 @@ outcome. A nested call's runtime error therefore propagates as any other runtime
 `ProcedureExecutor` built from a `StatementRuntimeSemanticsProvider` built from the same
 `RuntimeExpressionEvaluator`: the evaluator must exist before its invoker can be built. See
 [**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md).
-
----
-> ⏮️ [**RD-VBAL §5.3.1.10** Lifecycle Handler Declarations](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md) | ⏭️ [**RD-VBAL §5.4** Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md)

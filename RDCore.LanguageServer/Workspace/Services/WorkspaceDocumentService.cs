@@ -187,6 +187,29 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     // in: one never overwrites another with what it read before, and nothing sees a document that is at neither of two paths.
     private readonly object _sync = new();
 
+    /// <summary>
+    /// Called on a thread that finds the changes' lock held by another, just before it waits for it: the thread is then waiting for the change being made.
+    /// </summary>
+    internal Action? Contended { get; set; }
+
+    // the changes' lock: taken at once when it is free; a thread that finds it held says so (Contended), then waits for it.
+    private Held Locked()
+    {
+        if (!Monitor.TryEnter(_sync))
+        {
+            Contended?.Invoke();
+            Monitor.Enter(_sync);
+        }
+
+        return new Held(_sync);
+    }
+
+    // a ref struct can't be held across an await: as with lock, the compiler refuses an await while the lock is held.
+    private readonly ref struct Held(object sync)
+    {
+        public void Dispose() => Monitor.Exit(sync);
+    }
+
     public string WorkspaceRoot { get; private set; } = string.Empty;
 
     public void Initialize(string workspaceRoot)
@@ -222,7 +245,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             said.TryAdd(id, super);
         }
 
-        lock (_sync)
+        using (Locked())
         {
             var index = _supers.FindIndex(entry => WorkspacePaths.Same(entry.Root, projectRoot));
             if (index < 0)
@@ -280,7 +303,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var path = id.Uri.GetFileSystemPath();
 
         // a file another project listed is the same document: it has the text, the version and the state it has, and is a module of this project too.
-        lock (_sync)
+        using (Locked())
         {
             if (_documents.TryGetValue(id, out var listed) && !listed.Projects.Any(root => WorkspacePaths.Same(root, projectRoot)))
             {
@@ -312,7 +335,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
             failure = exception;
         }
 
-        lock (_sync)
+        using (Locked())
         {
             _documents.TryGetValue(id, out var shared);
 
@@ -362,7 +385,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public bool Reset(TextDocumentIdentifier id)
     {
-        lock (_sync)
+        using (Locked())
         {
             if (IsOpen(id))
             {
@@ -428,7 +451,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public bool Remove(TextDocumentIdentifier id)
     {
-        lock (_sync)
+        using (Locked())
         {
             if (IsOpen(id))
             {
@@ -443,7 +466,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public void Leave(TextDocumentIdentifier id, string projectRoot)
     {
-        lock (_sync)
+        using (Locked())
         {
             if (!_documents.TryGetValue(id, out var document))
             {
@@ -467,7 +490,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public bool Move(TextDocumentIdentifier id, TextDocumentIdentifier newId)
     {
-        lock (_sync)
+        using (Locked())
         {
             if (!_documents.TryGetValue(id, out var document))
             {
@@ -523,7 +546,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public void Edit(TextDocumentIdentifier id, string text)
     {
-        lock (_sync)
+        using (Locked())
         {
             var currentState = documentStateProvider.GetCurrentState(id);
             if (currentState is LoadedDocumentState or OpenedDocumentState
@@ -548,7 +571,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
 
     public void Edit(TextDocumentIdentifier id, TextDocumentRange range, int rangeLength, string text)
     {
-        lock (_sync)
+        using (Locked())
         {
             var currentState = documentStateProvider.GetCurrentState(id);
             if (currentState is LoadedDocumentState or OpenedDocumentState
@@ -591,7 +614,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                     await ioFile.WriteAllTextAsync(path, document.Text);
 
                     // what was written is what is saved: a document that changed - or moved - while it was written is not.
-                    lock (_sync)
+                    using (Locked())
                     {
                         if (_documents.TryGetValue(id, out var current) && string.Equals(current.Text, workspaceDocument.Text, StringComparison.Ordinal))
                         {
@@ -655,7 +678,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var companion = documentUri.IsFile ? ReadCompanion(text, path) : default;
 
         // the document is the client's from the moment it is open, with the projects it was a module of at that moment: a move to this path, or out of it, is made before it or after it.
-        lock (_sync)
+        using (Locked())
         {
             if (_documents.TryGetValue(id, out var existing) && documentStateProvider.IsTracked(id) && documentStateProvider.GetCurrentState(id) is OpenedDocumentState)
             {
@@ -696,7 +719,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         var id = new TextDocumentIdentifier(documentUri);
 
         // read and written back in one step, with the projects the document is a module of when it is written: a project that took or left it meanwhile keeps its say.
-        lock (_sync)
+        using (Locked())
         {
             if (!_documents.TryGetValue(id, out var document)
                 || !documentStateProvider.IsTracked(id) || documentStateProvider.GetCurrentState(id) is not OpenedDocumentState)
@@ -726,7 +749,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     public bool Saved(Uri documentUri, string? text)
     {
         var id = new TextDocumentIdentifier(documentUri);
-        lock (_sync)
+        using (Locked())
         {
             if (!_documents.TryGetValue(id, out var document))
             {
@@ -744,7 +767,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     {
         var id = new TextDocumentIdentifier(documentUri);
         WorkspaceDocument document;
-        lock (_sync)
+        using (Locked())
         {
             if (!_documents.TryGetValue(id, out var found))
             {
@@ -774,7 +797,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
                 var companion = ReadCompanion(content, path);
 
                 // the document is what it is when this is written, not what it was before the file was read: it may have moved on, or a project may have taken it.
-                lock (_sync)
+                using (Locked())
                 {
                     if (!_documents.TryGetValue(id, out var current))
                     {
@@ -811,7 +834,7 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         }
 
         // not the workspace's, not a file, or not one that can be read: there is no document without the client's text - unless the client opened it again.
-        lock (_sync)
+        using (Locked())
         {
             if (IsOpen(id) && _documents.TryGetValue(id, out var reopened))
             {

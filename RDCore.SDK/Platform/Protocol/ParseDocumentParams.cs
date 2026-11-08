@@ -11,11 +11,11 @@ namespace RDCore.SDK.Platform.Protocol;
 /// the JSON-RPC layer infer the request method when the caller sends this by type.
 /// </summary>
 /// <remarks>
-/// The response is a <see cref="PlatformJsonEnvelope"/> wrapping a <see cref="ModuleParseResult"/> —
+/// The response is a <see cref="PlatformJsonEnvelope"/> wrapping a <see cref="ModuleParseResult"/>:
 /// the AST is polymorphic and the JSON-RPC transport's serializer cannot round-trip it (see
 /// <see cref="PlatformJson"/>).
 /// </remarks>
-[Method(RDCorePlatformProtocol.ParseFullDocument, Direction.ClientToServer)]
+[Method(RDCoreComponentProtocol.ParseFullDocument, Direction.ClientToServer)]
 public record class ParseDocumentParams : IRequest, IRequest<PlatformJsonEnvelope>
 {
     /// <summary>
@@ -23,7 +23,7 @@ public record class ParseDocumentParams : IRequest, IRequest<PlatformJsonEnvelop
     /// </summary>
     /// <remarks>
     /// This identifies the document (for error locations and module identity) but does not by itself
-    /// supply source text — the parser does not read from the filesystem. A document with no backing
+    /// supply source text: the parser does not read from the filesystem. A document with no backing
     /// file (e.g. an unsaved <c>untitled:</c> buffer) still has a <c>DocumentUri</c>; only <see cref="Fragment"/>
     /// need be a real, saved file's content.
     /// </remarks>

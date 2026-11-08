@@ -28,6 +28,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Formatting;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
@@ -94,13 +95,14 @@ public class Program
 
             // rdc.exe with no arguments: the interactive shell. It is an LSP client like any other,
             // so it needs a workspace to attach to - it scaffolds a private, scratch one of its own.
+            // So does one given only --unattended: a shell that a CI job pipes a program into.
             ReplWorkspace? scratchWorkspace = null;
-            if (args.Length == 0)
+            if (args.Length == 0 || args is ["--unattended"])
             {
                 Console.WriteLine("Initializing...");
                 var fileSystem = new FileSystem();
                 scratchWorkspace = await ReplWorkspace.CreateAsync(fileSystem, new ProjectFileWriter(fileSystem));
-                args = ["--workspace", scratchWorkspace.Root];
+                args = [.. args, "--workspace", scratchWorkspace.Root];
             }
 
             using var clientHost = new RDCoreConsoleClientHost(scratchWorkspace);
@@ -134,6 +136,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             // assigns is the one the next line reads, the standard library is RDC rather than VBA, and a bare Print is a statement. The
             // servers are told, when they are started and in the initializationOptions of the initialize request.
             ("Configuration:Workspace:Language", SupportedLanguages.BASIC.Id),
+            // a shell given --unattended answers no dialog; one that is not keeps what its settings say.
+            .. baseArgs.Unattended is true ? [($"{SettingsSchema.Root}:{AppOptions.Section}:{nameof(AppOptions.Unattended)}", (string?)bool.TrueString)]
+                : Array.Empty<(string, string?)>(),
         ];
 
     protected override SettingsSchema Settings => SettingsSchema.Platform.Combine(AppOptions.Schema);
@@ -162,6 +167,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                 System.Console.Out,
                 ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi,
                 consoleWidth: () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth))
+            // and the questions the language server asks, when the console is the shell's to ask them at: the shell's messages wait while one is asked.
+            .AddSingleton(provider => new ReplServerQuestions(provider.GetRequiredService<IConsoleKeys>(), provider.GetService<PromptAwareMessageWriter>()))
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))
             .AddSingleton<IReplCommand, HelpReplCommand>()
             .AddSingleton<IReplCommand, ShowSplashReplCommand>()
@@ -225,6 +232,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                         Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
                         // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
                         ListAfterSpace = provider.GetRequiredService<ReplCompletion>().ListsAfterSpace,
+                        // a question the language server asks is asked at once while nothing is typed, and waits for the line to be entered otherwise.
+                        Interjections = provider.GetRequiredService<ReplServerQuestions>(),
                     };
 
                     // from now on, the shell's messages are written above the line being edited, not over it.
@@ -237,7 +246,8 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                     System.Console.Out,
                     () => System.Console.WindowWidth,
                     provider.GetRequiredService<ConsolePromptEditor>(),
-                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii))
+                    unicode: ConsoleBorder.For(System.Console.Out) != ConsoleBorder.Ascii,
+                    messages: provider.GetRequiredService<PromptAwareMessageWriter>()))
                 // the shell's messages, its log's included, through a writer the editor attaches itself to as it is made.
                 .AddSingleton<SpectreConsoleMessageWriter>()
                 .AddSingleton(provider => new PromptAwareMessageWriter(provider.GetRequiredService<SpectreConsoleMessageWriter>()))
@@ -317,6 +327,8 @@ internal class RDCoreConsoleClientApp(
     RubberduckIndenterSettingsReader rubberduck,
     IPlatformSettings settings,
     ILiveSettings liveSettings,
+    IOptions<AppOptions> appOptions,
+    ReplServerQuestions questions,
     ILogger<RDCoreConsoleClientApp> logger)
     : RDCoreClientApp(options, connectionFactory, logger)
 {
@@ -324,6 +336,10 @@ internal class RDCoreConsoleClientApp(
 
     // the shell shows the progress of the work the language server does, where its console can draw it.
     protected override bool SupportsWorkDoneProgress => !System.Console.IsOutputRedirected;
+
+    // the shell answers what the language server asks as it starts, at its console, where somebody is there to: not at one whose input is a script, which
+    // would answer that nobody does, with an error the language client holds until the server has answered initialize.
+    protected override bool AnswersDuringInitialize => !appOptions.Value.Unattended && questions.AreAnswered;
 
     // what rdc.exe asks the language server to serve beyond LSP. The language server records these
     // and refuses a request family the client never advertised, so the negotiation is real in both
@@ -344,8 +360,9 @@ internal class RDCoreConsoleClientApp(
             // the code it lists - the condition of a breakpoint - is highlighted the way the language server tells the tokens of it.
             SessionSemanticTokens = new SessionSemanticTokens(true),
             SessionMemoryAccess = new SessionMemoryAccess(true),
-            // the shell answers the dialogs a program opens, at its console.
-            SessionInteraction = new SessionInteraction(true),
+            // the shell answers the dialogs a program opens, at its console - unless it runs unattended (--unattended), and nobody is there to.
+            SessionInteraction = new SessionInteraction(!appOptions.Value.Unattended),
+            Unattended = new Unattended(appOptions.Value.Unattended),
             // the shell reads the indenter settings its user had in Rubberduck (on Windows), and takes the ones the language server maps as its own.
             RubberduckIndenterSettings = new RubberduckIndenterSettings(true),
         },
@@ -359,6 +376,8 @@ internal class RDCoreConsoleClientApp(
             .AddSingleton(rubberduck)
             .AddSingleton(settings)
             .AddSingleton(liveSettings)
+            .AddSingleton(new ReplUnattended(appOptions.Value.Unattended))
+            .AddSingleton(questions)
             .AddSingleton(new LiveSettingsNotifier(NotifyLiveSettingsChangedAsync));
 
     protected override ClientCapabilities ConfigureClientCapabilities(ClientCapabilities capabilities)
@@ -370,6 +389,8 @@ internal class RDCoreConsoleClientApp(
     protected override void ConfigureHandlers(IRDCoreLSPHandlerConfigurationBuilder builder)
         => builder
             .WithHandler<ReplMessageBoxHandler>()
+            .WithHandler<ReplShowMessageRequestHandler>()
+            .WithHandler<ReplShowMessageHandler>()
             .WithHandler<ReplInputBoxHandler>()
             .WithHandler<RubberduckIndenterSettingsHandler>()
             .WithHandler<RubberduckIndenterSettingsApplyHandler>();
@@ -572,6 +593,7 @@ internal class RDCoreConsoleEnvironmentHostApp(
             .WithHandler<DefineSymbolsHandler>()
             .WithHandler<HostSessionStatusHandler>()
             .WithHandler<HostExecuteHandler>()
+            .WithHandler<HostEntryPointsHandler>()
             .WithHandler<HostDiscardHandler>()
             .WithHandler<HostProjectReloadHandler>()
             .WithHandler<HostDebugResumeHandler>()
@@ -629,8 +651,21 @@ internal class RDCoreConsoleEnvironmentHostApp(
         {
             // a folder with no project file is the project it holds, as the language server makes it up.
             var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
-            var project = await projectFileLoader.LoadOrSynthesizeAsync(request.RootUri.GetFileSystemPath(), language);
-            sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
+            var root = request.RootUri.GetFileSystemPath();
+            ProjectFile project;
+            try
+            {
+                project = await projectFileLoader.LoadOrSynthesizeAsync(root, language);
+            }
+            catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException or IOException or UnauthorizedAccessException)
+            {
+                // a project file that can't be read loads no project, as the language server loads none: what the client runs is still run, in a project
+                // with no modules at the workspace root.
+                LogIfEnabled(LogLevel.Warning, $"⚠️ The project file could not be read; the runtime session has no project modules:\n{exception}");
+                project = new ProjectFile(root, new RDCoreProject { Name = RDCoreProject.DefaultName });
+            }
+
+            sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }
         catch (Exception exception)

@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.SDK.Model.AST.Expressions;
 
 /// <summary>
-/// <strong>MS-VBAL 5.6.8</strong> New Expressions — <c>New &lt;type-expression&gt;</c>, instantiating
+/// <strong>MS-VBAL 5.6.8</strong> New Expressions: <c>New &lt;type-expression&gt;</c>, instantiating
 /// a new object of the class referenced by <see cref="TypeExpression"/> and yielding that object.
 /// </summary>
 /// <remarks>

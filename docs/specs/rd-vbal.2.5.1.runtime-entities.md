@@ -87,7 +87,7 @@ The symbol kind of a `Symbol` is as specified in **LSP 3.17**. The symbol kinds 
 
 ### Extension Symbol Kinds
 
-🧩 RD-VBA additionally defines the following _extension symbol kinds_ in `SymbolKindExt`:
+RD-VBA additionally defines the following _extension symbol kinds_ in `SymbolKindExt`:
 
 - `Ignored`
 - `Attribute`
@@ -108,6 +108,3 @@ The extension symbol kinds may or may not be supported by an LSP client (editor)
 [VBProcedureMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol.html)`.Locals` and `VBReturningMemberSymbol.Locals` list every `Dim`, `Static` and `Const` declared in the procedure body. The `Locals` property of a procedure member symbol mirrors its `Parameters` property; see [**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md).
 
 A class module with `VB_PredeclaredId = True` has a [VBPredeclaredInstanceSymbol](../api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html): a global variable named after the class, whose declared type is that class. It is an automatic instantiation variable ([SymbolProperties](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.AutoInstantiated`, [**MS-VBAL §2.5.1** Automatic Object Instantiation](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fef06761-45b9-48c2-825c-b75c28aee9b5)), as is any variable declared with an `As New` clause. See [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) and [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md).
-
----
-> ⏮️ [**RD-VBAL §2.5** Runtime Values](rd-vbal.2.5.runtime-values.md) | ⏭️ [**RD-VBAL §2.5.2** VBTypedValue](rd-vbal.2.5.2.vbtypedvalue.md)
