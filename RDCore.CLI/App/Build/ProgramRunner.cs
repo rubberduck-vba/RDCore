@@ -49,7 +49,7 @@ internal static class ProgramRunner
     public const int Completed = 0;
 
     /// <summary>
-    /// The exit code of a program a run-time error stopped.
+    /// The exit code of a program a run-time error stopped, whatever the error: its number is in the message on standard error.
     /// </summary>
     public const int Failed = 1;
 
@@ -152,8 +152,10 @@ internal static class ProgramRunner
             return Completed;
         }
 
+        // the error's VBA number is in the message and never in the exit code, which is 1 whatever the error: a process's exit code is a byte on Linux,
+        // where 1004 or vbObjectError + n would wrap.
         await error.WriteLineAsync(result.Outcome is ExecutionOutcome.RuntimeError
-            ? $"{result.ErrorCode} {result.ErrorMessage}".Trim()
+            ? string.Format(CultureInfo.CurrentCulture, Resources.Run_RuntimeError, result.ErrorTitle, result.ErrorNumber, result.ErrorMessage, result.ErrorCode)
             : $"{result.Outcome} {result.ErrorMessage}".Trim());
         foreach (var frame in result.StackTrace)
         {

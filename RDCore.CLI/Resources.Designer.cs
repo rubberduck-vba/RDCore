@@ -160,6 +160,15 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to {0} &apos;{1}&apos;: {2} ({3}).
+        /// </summary>
+        public static string Run_RuntimeError {
+            get {
+                return ResourceManager.GetString("Run_RuntimeError", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to compiled.
         /// </summary>
         public static string Compilation_Compiled {

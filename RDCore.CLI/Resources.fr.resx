@@ -644,6 +644,9 @@
   <data name="Run_Summary" xml:space="preserve">
     <value>Exécute le programme d'un espace de travail et se termine avec son code de sortie : 0 quand il se termine, 1 en cas d'erreur d'exécution, 2 quand il ne peut pas démarrer.</value>
   </data>
+  <data name="Run_RuntimeError" xml:space="preserve">
+    <value>{0} '{1}' : {2} ({3})</value>
+  </data>
   <data name="Compilation_Compiled" xml:space="preserve">
     <value>compilée</value>
   </data>
