@@ -122,7 +122,9 @@ handler reads it the activations it names have been unwound. It is captured at t
 point, the one place every run-time error passes through ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
 The activation the error was raised in is located at the statement or the expression that faulted. Each of its
-callers is located at the statement it was suspended at, which is the statement that made the call.
+callers is located at the call it was suspended at: the start of the call expression, or of the call statement, that
+was running when the error was raised. In `Debug.Print Outer(Inner(0))`, an error raised in `Inner` locates its caller
+at `Inner(0)`, and one raised in `Outer` locates it at `Outer(Inner(0))`.
 
 Each activation also lists the `GoSub` statements it had not `Return`ed from when the error was raised, innermost
 first: its GoSub Resumption List at that moment ([**RD-VBAL §5.4.2.14** GoSub Statement](rd-vbal.5.4.2.14.gosub-statement.md)).

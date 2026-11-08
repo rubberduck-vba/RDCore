@@ -9,8 +9,8 @@ namespace RDCore.SDK.Model.Errors;
 /// <param name="ProcedureName">The name of the procedure the activation is of.</param>
 /// <param name="Location">
 /// Where in that procedure execution stood, when it is known. For the activation the error was raised
-/// in, it is the faulting statement or expression. For each of its callers, it is the statement the
-/// caller was suspended at: the one that made the call.
+/// in, it is the faulting statement or expression. For each of its callers, it is the call the caller
+/// was suspended at: the call expression or call statement that was running.
 /// </param>
 /// <param name="GoSubs">
 /// Where the <c>GoSub</c> statements the activation had not <c>Return</c>ed from were, innermost first: how it got to where it was, within the procedure. It is the

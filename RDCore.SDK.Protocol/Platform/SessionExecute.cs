@@ -167,8 +167,8 @@ public record class ExecuteResult
 /// <param name="Line">
 /// Zero-based line in the submitted source, or <c>-1</c> when the activation carries no location. For
 /// the activation the error was raised in, it is the line of the faulting statement or expression. For
-/// each of its callers, it is the line of the statement the caller was suspended at: the one that made
-/// the call.
+/// each of its callers, it is the line of the call the caller was suspended at: the call expression or
+/// call statement that was running.
 /// </param>
 /// <param name="Character">Zero-based character within <paramref name="Line"/>, or <c>-1</c>.</param>
 /// <param name="ReturnLines">
