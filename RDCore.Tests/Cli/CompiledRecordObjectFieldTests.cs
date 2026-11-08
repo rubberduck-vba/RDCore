@@ -61,6 +61,32 @@ public sealed class CompiledRecordObjectFieldTests
             "    Hold = H.N",
             "End Function"), "Hold", recoveries: 0, classes: Noisy(), expected: "3333");
 
+    // an object field of a record that is itself a field of a record is Set and compared in place, in the inner record the outer one holds.
+    [TestMethod]
+    public async Task AnObjectFieldOfARecordInARecord_IsSetInPlace()
+        => await AssertAlikeAsync(Program([.. Types,
+            "Private Type TPair",
+            "    Inner As THolder",
+            "    Other As THolder",
+            "End Type",
+            "Public Sub Main()",
+            "    Dim A As Noisy",
+            "    Set A = New Noisy",
+            "    A.Name = \"a\"",
+            "    Debug.Print Nest(A)",
+            "    Set A = Nothing",
+            "    Debug.Print \"after\"",
+            "End Sub",
+            "Private Function Nest(ByVal A As Noisy) As Long",
+            "    Dim P As TPair",
+            "    Set P.Inner.O = A",
+            "    If P.Other.O Is Nothing Then Nest = 1",
+            "    If P.Inner.O Is A Then Nest = Nest + 10",
+            "    Set P.Other.P = P.Inner.O",
+            "    If P.Other.P Is P.Inner.O Then Nest = Nest + 100",
+            "    If P.Inner.P Is Nothing Then Nest = Nest + 1000",
+            "End Function"]), "Nest", recoveries: 0, classes: Noisy(), expected: "1111 ; gone a ; after");
+
     // a Set that lets go of the last reference to the object the field held destroys it: the interpreter runs that Set, and its Class_Terminate runs where
     // MS-VBA runs it, before the statement after the Set. A Set that lets go of an object something else still holds is compiled code's.
     [TestMethod]
