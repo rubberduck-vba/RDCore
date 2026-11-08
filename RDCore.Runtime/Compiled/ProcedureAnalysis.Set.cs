@@ -45,6 +45,12 @@ internal sealed partial class ProcedureAnalysis
                 return null;
         }
 
+        // an object field of a record is read in its own cell, which a SetStep has no slot for.
+        if (ObjectFieldOf(Bind(assignment.Value)) is { } held)
+        {
+            return new FieldSourceSetStep(offset, target, held);
+        }
+
         return TrySetSource(Bind(assignment.Value), out var source) ? new SetStep(offset, target, source) : null;
     }
 

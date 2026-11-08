@@ -318,7 +318,7 @@ internal sealed partial class ProcedureAnalysis
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
         bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
-            or SetStep or FieldSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+            or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)

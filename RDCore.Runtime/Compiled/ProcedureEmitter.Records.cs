@@ -141,6 +141,25 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, failure);
     }
 
+    // CompiledActivation.TrySet of a variable, or TrySetResult, given the cell an object field of a record holds its object in, as EmitSet gives them a
+    // variable's: a Set it declines is the interpreter's alone, and compiled code goes on after it.
+    private void EmitSetFromField(FieldSourceSetStep set)
+    {
+        var source = EmitObjectFieldCell(new ObjectFieldNode(set.Source));
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, set.Offset);
+        if (set.Target != SetStep.Result)
+        {
+            _il.Emit(OpCodes.Ldc_I4, set.Target);
+            _il.Emit(OpCodes.Ldloc, _objects[set.Target]);
+        }
+
+        _il.Emit(OpCodes.Ldloc, source);
+        _il.Emit(OpCodes.Ldc_I4_0);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(set.Target == SetStep.Result ? nameof(CompiledActivation.TrySetResult) : nameof(CompiledActivation.TrySet))!);
+        _il.Emit(OpCodes.Brfalse, RecoverAt(set.Offset));
+    }
+
     // a Let of a Variant field: what the Variant held decides it, as a Variant variable's (VariantLetStep) - over an object, the interpreter runs it alone.
     private void EmitVariantFieldLet(VariantFieldLetStep let)
     {

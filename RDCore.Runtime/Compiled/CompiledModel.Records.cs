@@ -18,6 +18,10 @@ internal sealed record class ObjectFieldNode(FieldPath Field) : ObjectOperand;
 // a Set of an object field of a record to the object Source holds, or to Nothing when it is none (CompiledActivation.TrySetField).
 internal sealed record class FieldSetStep(int Offset, FieldPath Field, ObjectOperand? Source) : CompiledStep(Offset);
 
+// a Set of Target - an object slot, or the function result variable (SetStep.Result) - to the object an object field of a record holds, as a SetStep Sets it
+// to a variable's.
+internal sealed record class FieldSourceSetStep(int Offset, int Target, FieldPath Source) : CompiledStep(Offset);
+
 // a Let of a field of a record of a scalar type: the value, let-coerced to its kind, written where the record holds it.
 internal sealed record class FieldLetStep(int Offset, FieldPath Field, PayloadNode Value) : CompiledStep(Offset);
 

@@ -113,6 +113,34 @@ public sealed class CompiledRecordObjectFieldTests
             "    Swap = N",
             "End Function"), "Swap", recoveries: 14, classes: Noisy(), expected: "set 1 ; gone n1 ; set 2 ; gone n2 ; set 3 ; loop done ; gone n3 ; cleared");
 
+    // a variable Set to the object a field holds holds a counted reference of its own: the field can let go of it and the object lives on, and the Set that
+    // lets go of the last reference to what the variable held before is the interpreter's, which runs its Class_Terminate there.
+    [TestMethod]
+    public async Task AVariableSetToAField_HoldsTheObjectOfItsOwn()
+        => await AssertAlikeAsync(Module(
+            "Public Sub Main()",
+            "    Debug.Print Take(3)",
+            "End Sub",
+            "Private Function Take(ByVal N As Long) As Long",
+            "    Dim H As THolder",
+            "    Dim X As Noisy",
+            "    Dim I As Long",
+            "    Set X = New Noisy",
+            "    X.Name = \"first\"",
+            "    Set H.O = X",
+            "    For I = 1 To N",
+            "        Set X = H.O",
+            "        If X Is H.O Then Take = Take + 1",
+            "    Next",
+            "    Set H.P = New Noisy",
+            "    H.P.Name = \"second\"",
+            "    Set H.O = Nothing",
+            "    Set X = H.P",
+            "    Debug.Print \"taken\"",
+            "    Set H.P = Nothing",
+            "    Debug.Print \"kept\"; X.Name",
+            "End Function"), "Take", recoveries: 7, classes: Noisy(), expected: "gone first ; taken ; keptsecond ; gone second ; 3");
+
     // a Set of a field to an object of another class than it is declared as does not Set-coerce (MS-VBAL §5.5.2.2): the interpreter runs the Set, and raises
     // the error to the handler, and the field holds what it held before.
     [TestMethod]
@@ -237,7 +265,8 @@ public sealed class CompiledRecordObjectFieldTests
                 "Public Sub Detach()",
                 "    Set this.Owner = Nothing",
                 "End Sub",
-                "Public Property Get Links() As Long", "    Links = this.Links", "End Property"])),
+                "Public Property Get Links() As Long", "    Links = this.Links", "End Property",
+                "Public Property Get Owner() As Node", "    Set Owner = this.Owner", "End Property"])),
         ];
 
     // `this.Owner` is each object's own, Set and compared where Me holds the record: an owner held only by a child's field lives as long as the child holds it,
@@ -261,14 +290,14 @@ public sealed class CompiledRecordObjectFieldTests
             "    Set P = Nothing",
             "    Debug.Print \"p dropped\"",
             "    C.Attach D",
-            "    Debug.Print \"c moved\"; C.IsChildOf(D); C.Links",
+            "    Debug.Print \"c moved\"; C.IsChildOf(D); C.Links; C.Owner Is D; P Is Nothing",
             "    D.Detach",
             "    Debug.Print \"d detached\"; D.IsChildOf(Nothing)",
             "    Set D = Nothing",
             "    Debug.Print \"d dropped\"",
             "End Sub");
-        var compiled = await AssertAlikeAsync(program, Nodes(), expected: "TrueFalseTrue 1  1 ; p dropped ; gone p ; c movedTrue 2 ; d detachedTrue ; d dropped ; gone c ; gone d");
-        foreach (var name in new[] { "Attach", "IsChildOf", "Detach" })
+        var compiled = await AssertAlikeAsync(program, Nodes(), expected: "TrueFalseTrue 1  1 ; p dropped ; gone p ; c movedTrue 2 TrueTrue ; d detachedTrue ; d dropped ; gone c ; gone d");
+        foreach (var name in new[] { "Attach", "IsChildOf", "Detach", "Owner" })
         {
             Assert.IsTrue(compiled.TryGetValue(name, out var result), $"{name} was not called");
             Assert.IsNotNull(result.Body, $"{name}: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");

@@ -102,12 +102,13 @@ field of a record that is itself a record (`P.Inner.X`) is read and written in p
 
 - A field of a scalar type is read and written as a variable of that type, and a `Variant` field as a `Variant` (see Variants, above).
 - An object field is compared with `Is`, tested with `TypeOf`, and Set as an object variable is (see Objects, above): to an object variable or field,
-  to another object field of a record, to `Me` or to `Nothing`. Each object field holds its object in a place of its own, where the reference is counted,
-  so the object lives exactly as long as in the interpreter. The interpreter runs on its own the same `Set`s of a field as of a variable: one whose object
-  does not Set-coerce, and one that lets go of the last reference to an object.
+  to another object field of a record, to `Me` or to `Nothing`. An object variable, or the result of a function that returns an object
+  (`Set Owner = this.Owner`, in a `Property Get`), is Set to the object a field holds. Each object field holds its object in a place of its own, where
+  the reference is counted, so the object lives exactly as long as in the interpreter. The interpreter runs on its own the same `Set`s of a field as of
+  a variable: one whose object does not Set-coerce, and one that lets go of the last reference to an object.
 
 The interpreter does the rest on its own: a `String` field, an enumeration field, an array in a record, a field declared `As New`, a call of a member of an
-object field (`this.Owner.Name`), a `Set` of a variable or of a function's result to an object field, and a field passed to a procedure, which the
+object field (`this.Owner.Name`), and a field passed to a procedure, which the
 interpreter binds to the field itself when it is passed `ByRef`.
 
 ### Arrays
@@ -139,7 +140,7 @@ Compiled code does these itself:
 |---|---|
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
-|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, or of the function's result; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
+|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, or of the function's result; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
 |Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
