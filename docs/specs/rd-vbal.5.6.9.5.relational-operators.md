@@ -10,7 +10,8 @@ Relational operators are simple data operators: they validate their operands thr
 ([**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)).
 
 Relational operators compare in the effective type, and yield a
-[VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html).
+[VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html). With a `Variant` operand, it is held in a `Variant`
+([An expression over a Variant](#an-expression-over-a-variant)).
 
 |Effective type|Compared in|
 |---|---|
@@ -36,9 +37,9 @@ The range checks of a `For` loop use the relational operators
 RD-VBA implements the `Variant` String/Numeric comparison exception of **MS-VBAL §5.6.9.5** as run-time behaviour.
 
 The exception applies when both relational operands are `Variant`, one originally holding a `String` value and the
-other a numeric value:
+other a numeric, `Boolean` or `Date` value:
 
-- The numeric operand is always considered less than the `String` operand, regardless of their actual values.
+- The other operand is always considered less than the `String` operand, regardless of their actual values.
 - RD-VBA never attempts to coerce the `String` operand to a number. Depending on its content, that coercion would
   fail, or succeed incorrectly.
 
@@ -50,8 +51,13 @@ other a numeric value:
 
 |Operand|Synthetic `Integer` rank|
 |---|---|
-|The numeric-holding `Variant`|`0`|
+|The `Variant` holding a number, a `Boolean` or a `Date`|`0`|
 |The `String`-holding `Variant`|`1`|
+
+**RD-VBA differs from MS-VBAL §5.6.9.5,** which ranks only a numeric value type (**MS-VBAL §5.5.1.2.1**). MS-VBA ranks a
+`Boolean` and a `Date` the same way, and RD-VBA does what MS-VBA does. With `a` holding `"40"`, `a < b` is `False` for `b`
+a `Variant` `False`, and `a = b` is `False` for `b` a `Variant` `True`. With `a` holding `"1/1/1990"`, `a < d` is `False`
+for `d` a `Variant` date of 1/1/2000 (recorded in Excel, `oracle\s81-varops` y22-y27).
 
 The short-circuit runs before normal coercion because normal coercion would otherwise try, and fail, to coerce the
 `String` to a number. Because the case is reduced to synthetic ranks, the `Variant` String/Numeric case needs no
@@ -175,9 +181,20 @@ It does not state it for a known `String` that is no number, a type mismatch (13
 
 ### An expression over a Variant
 
-An arithmetic operator, `&`, and a pair of parentheses with a `Variant` operand are declared `Variant`
-(**MS-VBAL §5.6.9.3**, **§5.6.9.4**, **§5.6.6**), and what they evaluate to is a `Variant`'s value. So `v + 1`, `v * 1`, `-v`,
-`v & ""` and `(v + 1)` are compared as `v` itself is ([above](#variant-compared-with-a-string)). With `v` holding `1`,
+An operator with a `Variant` operand is declared `Variant`, and what it evaluates to is a `Variant`'s value:
+
+|Operators|MS-VBAL|
+|---|---|
+|The arithmetic operators, `&`|**§5.6.9.3**, **§5.6.9.4**|
+|The relational operators, `Like`|**§5.6.9.5**, **§5.6.9.6**|
+|The logical operators, `Not` included|**§5.6.9.8**|
+|A pair of parentheses|**§5.6.6**|
+
+`Is` is declared `Boolean` (**MS-VBAL §5.6.9.7**). So `v + 1`, `v * 1`, `-v`, `v & ""`, `(v + 1)`, `v Or 255`, `Not v` and
+`v < 255` are compared as `v` itself is ([above](#variant-compared-with-a-string)). With `a` holding `"40"` and `v` holding `0`,
+`a < (v Or 255)` and `a < (a < 255)` are `False`: both operands are `Variant` values, and the `String` ranks above the other
+([above](#variant-stringnumeric-comparison); recorded in Excel, `oracle\s81-or-precedence` x03-x12, `oracle\s81-varops` y01-y21).
+`If`, `Select Case`, `Do While` and `IIf` decide on these values the same way. With `v` holding `1`,
 `(v + 1) = "2.0"` is `False`, compared as text, and `CInt(v) = "1.0"` is `True`, as `CInt` returns an `Integer`. These were
 measured in Excel (`oracle\s56` G02, G09, G10), and a `Select Case` over such an expression compares its `Case` values the same way
 ([**RD-VBAL §5.4.2.10**](rd-vbal.5.4.2.10.select-case-statement.md)).
