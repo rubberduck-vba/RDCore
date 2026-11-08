@@ -101,7 +101,7 @@ public sealed class ExtractionControlFlowTests
         Assert.AreEqual("Done", exit.Label);
     }
 
-    // the second review's 2a-9: an exit a literal condition never takes is still code the new procedure has, and an edit of the literal takes it.
+    // an exit a literal condition never takes is still code the new procedure has, and an edit of the literal takes it.
     [TestMethod]
     [DataRow("If False Then Exit Sub\nDebug.Print n", 0, 0, ExtractionExitKind.Procedure, DisplayName = "behind If False")]
     [DataRow("Dim i As Long\nDo\nIf False Then Exit Do\ni = i + 1\nLoop While True", 2, 3, ExtractionExitKind.Loop, DisplayName = "out of a loop that never ends")]
@@ -220,7 +220,7 @@ public sealed class ExtractionControlFlowTests
         Assert.IsTrue(plan.IsExtractable, string.Join(", ", RefusalsOf(plan)));
     }
 
-    // the second review's 2a-6: a handler that ends without a Resume leaves the error active inline; extracted, the call ends with its callee, and the error with it.
+    // a handler that ends without a Resume leaves the error active inline; extracted, the call ends with its callee, and the error with it.
     [TestMethod]
     public void AHandlerOfItsOwnThatFallsThroughWithTheErrorActive_IsRefused()
         => CollectionAssert.Contains(RefusalsOf(Plan("Debug.Print n\nOn Error GoTo H\nDebug.Print 1 / n\nH:\nOn Error GoTo 0\nDebug.Print n", 1, 4)),
@@ -234,7 +234,7 @@ public sealed class ExtractionControlFlowTests
         Assert.IsTrue(plan.IsExtractable, string.Join(", ", RefusalsOf(plan)));
     }
 
-    // the second review's 2a-5: the On Error Resume Next the new procedure starts with clears what Err says of an error before the selection.
+    // the On Error Resume Next the new procedure starts with clears what Err says of an error before the selection.
     [TestMethod]
     public void AReadOfErrUnderAnInheritedResumeNext_IsABehaviourChange()
     {

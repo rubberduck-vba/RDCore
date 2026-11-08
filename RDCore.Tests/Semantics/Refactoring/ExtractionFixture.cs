@@ -9,12 +9,16 @@ namespace RDCore.Tests.Semantics.Refactoring;
 /// </summary>
 internal static class ExtractionFixture
 {
-    /// <summary>The plan of extracting the lines of the body from <paramref name="first"/> to <paramref name="last"/> (zero-based).</summary>
+    /// <summary>
+    /// The plan of extracting the lines of the body from <paramref name="first"/> to <paramref name="last"/> (zero-based).
+    /// </summary>
     public static ExtractionPlan Plan(
         string body, int first, int last, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true, string declarations = "")
         => Plan(body, new SourcePosition(first, 0), new SourcePosition(last, 1), header, end, optionExplicit, declarations);
 
-    /// <summary>The plan of extracting the body from <paramref name="start"/> to <paramref name="end"/>, lines zero-based from the body's first.</summary>
+    /// <summary>
+    /// The plan of extracting the body from <paramref name="start"/> to <paramref name="end"/>, lines zero-based from the body's first.
+    /// </summary>
     public static ExtractionPlan Plan(
         string body, SourcePosition start, SourcePosition end, string header = "Public Sub Run(ByVal n As Long)", string close = "End Sub", bool optionExplicit = true,
         string declarations = "")

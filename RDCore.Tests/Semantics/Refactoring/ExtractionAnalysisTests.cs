@@ -93,7 +93,7 @@ public sealed class ExtractionAnalysisTests
         Assert.AreEqual(reason, parameter.Reason);
     }
 
-    // the second review's 2a-2, its case: every local of a Static procedure is Static (MS-VBAL §5.3.1.2), whose value is the procedure's to keep.
+    // every local of a Static procedure is Static (MS-VBAL §5.3.1.2), whose value is the procedure's to keep.
     [TestMethod]
     [DataRow("Static Sub Run()", "End Sub", DisplayName = "a Static Sub")]
     [DataRow("Public Static Function Run() As Long", "End Function", DisplayName = "a Static Function")]
@@ -153,7 +153,7 @@ public sealed class ExtractionAnalysisTests
         Assert.IsInstanceOfType<VBVariantType>(t.Type, "with no DefType, a Variant");
     }
 
-    // the second review's 2a-7: an undeclared variable has the type its DefType gives its name (MS-VBAL §5.2.3.1.5), which the new procedure's declaration
+    // an undeclared variable has the type its DefType gives its name (MS-VBAL §5.2.3.1.5), which the new procedure's declaration
     // keeps; a Variant there would no longer overflow where the source procedure's Integer does.
     [TestMethod]
     public void AnUndeclaredVariable_KeepsTheTypeItsDefTypeGivesIt()
@@ -163,7 +163,7 @@ public sealed class ExtractionAnalysisTests
         Assert.IsInstanceOfType<VBIntegerType>(plan.Locals.Single(local => local.Name == "t").Type);
     }
 
-    // the second review's 2a-1: a write on some paths only leaves what was there before on the others, which is read after the selection.
+    // a write on some paths only leaves what was there before on the others, which is read after the selection.
     [TestMethod]
     public void AConditionalWrite_IsAnInputToo_AndNoReturnValue()
     {
@@ -192,7 +192,7 @@ public sealed class ExtractionAnalysisTests
         Assert.IsTrue(plan.ReadsResult, "Run is still 5 when n <= 0");
     }
 
-    // the second review's 2a-4: a Dim gives no initial value again (MS-VBAL §2.3, procedure extent), so a variable declared in a selection that runs again
+    // a Dim gives no initial value again (MS-VBAL §2.3, procedure extent), so a variable declared in a selection that runs again
     // keeps the value of the run before - which the new procedure, whose locals start over, has to be given.
     [TestMethod]
     public void AVariableDeclaredInASelectionThatRunsAgain_IsAnInput_AndItsDeclarationStays()
@@ -210,7 +210,7 @@ public sealed class ExtractionAnalysisTests
     public void AVariableDeclaredInASelectionThatRunsOnce_StartsWithItsInitialValue()
         => Assert.IsFalse(Plan("Dim k As Long\nk = k + n\nDebug.Print k", 0, 1).Parameters.Single(parameter => parameter.Name == "k").IsInput);
 
-    // the second review's 2a-3: a Const is no variable: it is declared again, never passed.
+    // a Const is no variable: it is declared again, never passed.
     [TestMethod]
     public void AConstantTheSelectionReads_IsDeclaredByTheNewProcedure_AndNotPassed()
     {
@@ -286,7 +286,7 @@ public sealed class ExtractionAnalysisTests
         Assert.AreEqual(name, plan.WithTarget.Name);
         Assert.AreEqual(passing, plan.WithTarget.Passing);
         Assert.IsTrue(plan.IsExtractable);
-        Assert.IsFalse(plan.Parameters.Any(parameter => parameter.Name == name), "the second review's 2a-8: given once, as the block's target");
+        Assert.IsFalse(plan.Parameters.Any(parameter => parameter.Name == name), "given once, as the block's target");
     }
 
     [TestMethod]

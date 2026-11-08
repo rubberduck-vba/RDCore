@@ -157,7 +157,7 @@ internal static class ExtractionControlFlow
         if (resumingNext is [true])
         {
             // the On Error Resume Next the new procedure starts with clears Err, which the selection reads of an error before it: a call does not, an On Error
-            // statement does (oracle s55 E01-E08).
+            // statement does (MS-VBA, Excel-verified).
             if (readsErr)
             {
                 changes.Add(new ExtractionBehaviourChange(ExtractionBehaviourChangeKind.ErrClearedOnEntry, [], [], IsNote: false));

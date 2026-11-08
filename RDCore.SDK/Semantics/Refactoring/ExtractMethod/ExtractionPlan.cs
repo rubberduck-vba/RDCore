@@ -11,10 +11,14 @@ namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
 /// </summary>
 public enum ExtractionPassing
 {
-    /// <summary>Its value is passed: the new procedure reads it, and what it writes to it stays its own.</summary>
+    /// <summary>
+    /// Its value is passed: the new procedure reads it, and what it writes to it stays its own.
+    /// </summary>
     ByVal,
 
-    /// <summary>The variable is passed: what the new procedure writes to it is the caller's.</summary>
+    /// <summary>
+    /// The variable is passed: what the new procedure writes to it is the caller's.
+    /// </summary>
     ByRef,
 }
 
@@ -23,25 +27,39 @@ public enum ExtractionPassing
 /// </summary>
 public enum ExtractionPassingReason
 {
-    /// <summary>The selection reads a value given before it, and gives it no value that is read after it.</summary>
+    /// <summary>
+    /// The selection reads a value given before it, and gives it no value that is read after it.
+    /// </summary>
     ReadOnly,
 
-    /// <summary>The selection reads a value given before it, and gives it one that is read after it - on a later iteration of a loop, too.</summary>
+    /// <summary>
+    /// The selection reads a value given before it, and gives it one that is read after it - on a later iteration of a loop, too.
+    /// </summary>
     ReadAndWritten,
 
-    /// <summary>The selection gives it a value that is read after it, and reads none given before: it may be the new procedure's return value instead.</summary>
+    /// <summary>
+    /// The selection gives it a value that is read after it, and reads none given before: it may be the new procedure's return value instead.
+    /// </summary>
     WrittenOnly,
 
-    /// <summary>An array, which VBA passes by reference only.</summary>
+    /// <summary>
+    /// An array, which VBA passes by reference only.
+    /// </summary>
     Array,
 
-    /// <summary>A variable of a <c>Type</c>, which VBA passes by reference only.</summary>
+    /// <summary>
+    /// A variable of a <c>Type</c>, which VBA passes by reference only.
+    /// </summary>
     UserDefinedType,
 
-    /// <summary>A fixed-length string, which is passed as a <c>String</c> by reference, so that what is written to it comes back.</summary>
+    /// <summary>
+    /// A fixed-length string, which is passed as a <c>String</c> by reference, so that what is written to it comes back.
+    /// </summary>
     FixedLengthString,
 
-    /// <summary>A <c>Static</c> local, which belongs to the source procedure's lifetime: it is never moved into the new one.</summary>
+    /// <summary>
+    /// A <c>Static</c> local, which belongs to the source procedure's lifetime: it is never moved into the new one.
+    /// </summary>
     Static,
 
     /// <summary>
@@ -113,13 +131,19 @@ public enum ExtractionRefusalKind
 /// </summary>
 public enum ExtractionExitKind
 {
-    /// <summary>An <c>Exit Sub</c>, <c>Exit Function</c> or <c>Exit Property</c>: the caller exits too.</summary>
+    /// <summary>
+    /// An <c>Exit Sub</c>, <c>Exit Function</c> or <c>Exit Property</c>: the caller exits too.
+    /// </summary>
     Procedure,
 
-    /// <summary>An <c>Exit For</c> or <c>Exit Do</c> of a loop the selection is inside of.</summary>
+    /// <summary>
+    /// An <c>Exit For</c> or <c>Exit Do</c> of a loop the selection is inside of.
+    /// </summary>
     Loop,
 
-    /// <summary>A <c>GoTo</c> (or <c>On…GoTo</c>, or a <c>Resume</c> of a label) to a label outside the selection.</summary>
+    /// <summary>
+    /// A <c>GoTo</c> (or <c>On…GoTo</c>, or a <c>Resume</c> of a label) to a label outside the selection.
+    /// </summary>
     Label,
 }
 
@@ -162,8 +186,8 @@ public enum ExtractionBehaviourChangeKind
 
     /// <summary>
     /// The selection runs under <c>On Error Resume Next</c> and reads <c>Err</c> or <c>Erl</c>, which may be about an error raised before it: the
-    /// <c>On Error Resume Next</c> the new procedure starts with clears them. The call does not (MS-VBA, measured: oracle s55 E01-E08); any <c>On Error</c> statement
-    /// that runs does (E02, E03, E06, E07).
+    /// <c>On Error Resume Next</c> the new procedure starts with clears them. The call does not, and any <c>On Error</c> statement that runs
+    /// does (MS-VBA, Excel-verified).
     /// </summary>
     ErrClearedOnEntry,
 }
@@ -209,8 +233,8 @@ public sealed record class ExtractionWithTarget(WithStatementNode With, Semantic
 /// <param name="MayBeMissing">
 /// Whether it is a parameter of the source procedure that can be missing - an <c>Optional</c> <c>Variant</c> with no default value, or a <c>ParamArray</c> - so that
 /// <c>IsMissing</c> of it means something: it is passed as a <c>Variant</c> (<strong>Extract Method §3.3</strong>). A missing argument passed on stays missing in the
-/// new procedure, by value or by reference, <c>Optional</c> or not - and a default value given to the new parameter is not applied to it (MS-VBA, measured: oracle
-/// s54 M01-M07). So the parameter is a plain <c>Variant</c>, never <c>Optional</c>.
+/// new procedure, by value or by reference, <c>Optional</c> or not - and a default value given to the new parameter is not applied to it (MS-VBA,
+/// Excel-verified). So the parameter is a plain <c>Variant</c>, never <c>Optional</c>.
 /// </param>
 /// <param name="IsUndeclared">Whether it is declared by being named, with no <c>Option Explicit</c>: the new procedure declares the parameter, of the type its DefType gives it.</param>
 public sealed record class ExtractionParameter(
@@ -268,7 +292,9 @@ public sealed record class ExtractionPlan(
     bool StartsWithResumeNext,
     ImmutableArray<ExtractionBehaviourChange> BehaviourChanges)
 {
-    /// <summary>Whether the selection is extracted: nothing refuses it.</summary>
+    /// <summary>
+    /// Whether the selection is extracted: nothing refuses it.
+    /// </summary>
     public bool IsExtractable => Refusals.IsEmpty;
 
     /// <summary>

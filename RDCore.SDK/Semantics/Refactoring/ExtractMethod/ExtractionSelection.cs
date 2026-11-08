@@ -11,10 +11,14 @@ namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
 /// </summary>
 public enum ExtractionSelectionRefusal
 {
-    /// <summary>The selection holds no whole statement of the procedure's body: it is on the header, or in no procedure, or holds only blank lines and comments.</summary>
+    /// <summary>
+    /// The selection holds no whole statement of the procedure's body: it is on the header, or in no procedure, or holds only blank lines and comments.
+    /// </summary>
     NoStatement,
 
-    /// <summary>The selection cuts a block statement: it starts or ends inside the body of one it does not hold whole (half an <c>If…End If</c>).</summary>
+    /// <summary>
+    /// The selection cuts a block statement: it starts or ends inside the body of one it does not hold whole (half an <c>If…End If</c>).
+    /// </summary>
     CutsABlock,
 }
 

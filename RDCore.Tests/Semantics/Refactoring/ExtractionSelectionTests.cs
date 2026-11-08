@@ -69,7 +69,7 @@ public sealed class ExtractionSelectionTests
         Assert.AreEqual(0, selection.Range.Start.Character);
     }
 
-    // the second review's 2a-10: an editor selects whole lines up to the start of the next one, which is not in the selection.
+    // an editor selects whole lines up to the start of the next one, which is not in the selection.
     [TestMethod]
     public void AnEndAtTheStartOfALine_EndsOnTheLineBefore()
         => CollectionAssert.AreEqual(new[] { "x = 1" }, TextOf(Snapped(2, 0, 3, 0)));

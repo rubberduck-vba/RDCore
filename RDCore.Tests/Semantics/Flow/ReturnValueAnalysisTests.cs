@@ -56,7 +56,7 @@ public sealed class ReturnValueAnalysisTests
     [DataRow("On Error GoTo Handler\nF = G()\nExit Function\nHandler:\nF = -1", DisplayName = "the handler assigns too")]
     [DataRow("On Error GoTo Handler\nF = G()\nExit Function\nHandler:\nF = -1\nResume Done\nDone:", DisplayName = "the handler assigns, then resumes at a label")]
     [DataRow("F = 0\nOn Error GoTo Handler\nF = G()\nExit Function\nHandler:\nDebug.Print \"failed\"", DisplayName = "assigned before the error handler is in effect")]
-    // the second review's false positive: a literal the result's type holds cannot fail, Resume Next or not.
+    // a literal the result's type holds cannot fail, Resume Next or not.
     [DataRow("On Error Resume Next\nF = 1", DisplayName = "a literal under Resume Next")]
     public async Task ErrorHandlers_AreCodePathsToo(string body)
         => await AssertAsync(body, ReturnValueAssignment.Always);
