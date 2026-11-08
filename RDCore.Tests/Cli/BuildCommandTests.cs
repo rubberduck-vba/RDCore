@@ -243,8 +243,53 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(ProgramRunner.Failed, run.Exit);
         CollectionAssert.AreEqual(new[] { "before" }, run.Output, "what it printed before the error is written");
-        Assert.Contains("5", run.Error);
+        Assert.Contains("'5'", run.Error, "the VBA error number is in the message");
         Assert.Contains("Main:5", run.Error, "where it stopped: the line of the Err.Raise");
+    }
+
+    // an exit code is a byte on Linux: an error number is said on standard error, and the exit code is 1 whatever it is.
+    private static readonly string RaisesAnObjectError = Module("Program",
+        "Public Sub Main()",
+        "    Err.Raise vbObjectError + 513, , \"Out of widgets\"",
+        "End Sub");
+
+    [TestMethod]
+    public async Task Run_OfAnErrorWhoseNumberIsNoByte_ExitsWith1_ItsNumberAndDescriptionOnStandardError()
+    {
+        var fileSystem = Files(("Program.bas", RaisesAnObjectError));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(ProgramRunner.Failed, run.Exit);
+        Assert.Contains("'-2147220991'", run.Error);
+        Assert.Contains("Out of widgets", run.Error);
+    }
+
+    [TestMethod]
+    public async Task TheBuiltProgram_OfAnErrorWhoseNumberIsNoByte_ExitsWith1_AsRunDoes()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", RaisesAnObjectError));
+        var (command, messages) = Command(fileSystem);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
+            var error = new StringWriter();
+
+            var exit = await BuiltProgram.RunAsync(assembly, [], new StringWriter(), error, CancellationToken.None);
+
+            Assert.AreEqual(ProgramRunner.Failed, exit);
+            Assert.Contains("'-2147220991'", error.ToString());
+            Assert.Contains("Out of widgets", error.ToString());
+        }
+        finally
+        {
+            context.Unload();
+        }
     }
 
     private static readonly string Echo = Module("Program",

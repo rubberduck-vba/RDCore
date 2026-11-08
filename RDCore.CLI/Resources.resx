@@ -646,6 +646,10 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Run_Summary" xml:space="preserve">
     <value>Runs a workspace's program, and exits with its exit code: 0 when it ends, 1 on a run-time error, 2 when it cannot start.</value>
   </data>
+  <data name="Run_RuntimeError" xml:space="preserve">
+    <value>{0} '{1}': {2} ({3})</value>
+    <comment>The unhandled error that stopped a program, on standard error. {0}: the error's title (Run-time error); {1}: its VBA number; {2}: its description; {3}: its diagnostic code.</comment>
+  </data>
   <data name="Compilation_Compiled" xml:space="preserve">
     <value>compiled</value>
   </data>
