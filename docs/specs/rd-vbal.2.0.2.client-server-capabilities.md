@@ -400,9 +400,17 @@ What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.
 |A member's attribute (`Attribute Value.VB_UserMemId`)|The member.|
 |The key of a dictionary access (`c!key`)|Nothing: it is a string.|
 
-The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) that has the symbol's name is not known to refer to it, so the rename is refused (see the table below).
+The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together.
 
-A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A client that takes change annotations is sent them annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: it is sent the edits with the strings, the edits without them, or nothing when the user chooses neither. A string left as it is names nothing the call can find, and the call fails only when the code runs.
+A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A string left as it is names nothing the call can find, and the call fails only when the code runs.
+
+A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's name is renamed too, when the symbol is a member of a class that code outside the class can call (not `Private`). Which member the access calls is only known when the code runs (**MS-VBAL §5.6.12**), so the user confirms these edits as well. What is known of the classes the object may hold decides which accesses are proposed ([`PossibleClasses`](../api/RDCore.SDK.Semantics.Static.PossibleClasses.html)):
+
+- An object may hold any class, unless something knows them all. An access on it is proposed.
+- The code knows them all for a local or a `Private` variable of the module, when every `Set` of it names its class (`New Class1`, a variable `As Class1`, `CreateObject` of a class the project resolves, `Nothing`), and the variable is never the variable of a `For Each` loop or a whole argument of a call. An access on it is proposed only when one of those classes is the symbol's.
+- What else knows the classes (a runtime, an extension) can say so too ([`IPossibleClassesSource`](../api/RDCore.SDK.Semantics.Static.IPossibleClassesSource.html)).
+
+A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`, once for the strings and once for the late-bound accesses. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) has nobody to ask: it is sent the rest of the rename, without the late-bound edits.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 
