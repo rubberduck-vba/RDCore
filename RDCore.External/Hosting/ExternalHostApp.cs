@@ -42,6 +42,9 @@ public sealed class ExternalHostApp(
     ILogger<ExternalHostApp> logger)
     : RDCoreServerApp(options, serverStateProvider, healthCheckService, transportLayer, logger)
 {
+    // the options the base is given too: the pipe the calls go over is named after the platform's, once the process runs.
+    private readonly IOptions<SdkAppOptions> _options = options;
+
     private CallChannel? _calls;
 
     /// <inheritdoc/>
@@ -62,7 +65,7 @@ public sealed class ExternalHostApp(
     protected override Task BeforeRunAsync(string[] args)
     {
         var pipe = new NamedPipeServerStream(
-            ExternalProtocol.CallsPipeName(options.Value.Platform.Transport.PipeConfig.PipeName), PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
+            ExternalProtocol.CallsPipeName(_options.Value.Platform.Transport.PipeConfig.PipeName), PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
             PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
         _ = AcceptCallsAsync(pipe);
         return base.BeforeRunAsync(args);

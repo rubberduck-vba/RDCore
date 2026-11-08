@@ -1,4 +1,3 @@
-using RDCore.CLI.Themes;
 using RDCore.SDK.ConsoleIO.Model;
 
 namespace RDCore.CLI.App.Repl.Commands;
@@ -19,7 +18,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// parameter each argument is given to, and <c>As Variant</c> after a declaration that states no type. They are asked once for the whole listing.
 /// </para>
 /// </remarks>
-internal sealed class ListReplCommand(IAppThemeService Themes) : IReplCommand
+internal sealed class ListReplCommand : IReplCommand
 {
     public string Name => ReplCommandNames.List;
     public IReadOnlyList<string> Aliases => [];
