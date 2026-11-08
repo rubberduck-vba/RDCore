@@ -74,7 +74,11 @@ Compiled code does a `Set` of such a variable or field, or of the result of a fu
 variable again after each:
 
 - one whose object does not Set-coerce, an object of another class: the interpreter raises the error there;
-- one that lets go of the last reference to an object: the interpreter runs its `Class_Terminate` there;
+- one that lets go of the last reference to an object: the interpreter runs its `Class_Terminate` there.
+
+The interpreter runs these `Set`s as a call that compiled code makes (see What compiled code does itself, below), and compiled code reads every variable
+again after each:
+
 - one of a `WithEvents` field: the interpreter detaches its handlers from the object it held and attaches them to the one it is given;
 - one of a parameter passed `ByRef`, or to anything else, such as `New`, a call or a member of an object.
 
@@ -143,6 +147,13 @@ fixed-length `String`, an object other than as above, a field or a `Static` that
 compiled code does not do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.
+
+A call statement that compiled code does not make (`Err.Clear`, `C.Add 1` with `C` a `Collection`, a call given a late-bound argument) and a `Set` it
+does not do (see Objects, above) are different. The interpreter runs each as a call that compiled code makes: compiled code writes its variables into the
+frame, the interpreter runs the statement, and compiled code reads the variables back after it, as after any call it makes. An error the statement raises
+reaches the activation's handler as an error a callee raises does (see Error handling, below). Such a statement never keeps a procedure in the
+interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the interpreter runs it on its own, as
+above.
 
 A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
 address from then on. Bytes a debugger writes at that address while the program waits are the variable's, and compiled code reads them when it goes on. If
