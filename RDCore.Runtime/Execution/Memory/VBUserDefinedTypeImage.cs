@@ -176,7 +176,7 @@ public static class VBUserDefinedTypeImage
             }
             else if (HasImage(array.ItemType))
             {
-                array.TrySetElementAt(element, new Values.Bindings.ValueBindingHandle(Decoded(array.ItemType, bytes, pointerWidth).RuntimeValue));
+                array.TrySetElementAt(element, new ValueBindingHandle(Decoded(array.ItemType, bytes, pointerWidth).RuntimeValue));
             }
         }
     }
