@@ -12,7 +12,7 @@ namespace RDCore.Tests.Cli;
 public sealed class DivisionByZeroTests
 {
     // the program of a case: P writes what it is given, as a Variant, and what was written is printed at the end.
-    private static string Run(string body)
+    private static async Task<string> Run(string body)
     {
         string[] lines =
         [
@@ -26,7 +26,7 @@ public sealed class DivisionByZeroTests
             "    Debug.Print acc",
             "End Sub",
         ];
-        return string.Join("/", RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], string.Join("\r\n", lines) + "\r\n"));
     }
 
     [TestMethod]
@@ -48,8 +48,8 @@ public sealed class DivisionByZeroTests
     [DataRow("Dim x As Double ;; x = 5 ;; x = 0 / 0 ;; P Err.Number ;; P x", "6|-nan(ind)|", DisplayName = "Double = literal 0 / literal 0")]
     [DataRow("Dim x As Double ;; x = 5 ;; x = 0# / 0# ;; P Err.Number ;; P x", "6|-nan(ind)|", DisplayName = "Double = Double literal 0 / Double literal 0")]
     [DataRow("Dim x As Double, z As Double ;; x = 5 ;; z = 0 ;; x = z / z ;; P Err.Number ;; P x", "6|-nan(ind)|", DisplayName = "Double = Double 0 / Double 0")]
-    public void AFloatingPointDivisionByZero_AssignsASingleOrDoubleTargetWhatItMade_ThenRaises(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AFloatingPointDivisionByZero_AssignsASingleOrDoubleTargetWhatItMade_ThenRaises(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     [DataRow("Dim x As Double, z As Variant ;; x = 5 ;; z = 0 ;; x = 1 / z ;; P Err.Number ;; P x", "11|5|", DisplayName = "Double = literal / Variant 0")]
@@ -62,8 +62,8 @@ public sealed class DivisionByZeroTests
     [DataRow("Dim l As Long, z As Double ;; l = 5 ;; z = 0 ;; l = 1 / z ;; P Err.Number ;; P l", "11|5|", DisplayName = "Long = literal / Double 0")]
     [DataRow("Dim s As String ;; s = \"s\" ;; s = 1 / 0 ;; P Err.Number ;; P s", "11|s|", DisplayName = "String = literal / literal 0")]
     [DataRow("Dim s As String, z As Double ;; s = \"s\" ;; z = 0 ;; s = \"x=\" & 1 / z ;; P Err.Number ;; P s", "11|s|", DisplayName = "String = text & literal / Double 0")]
-    public void ADivisionByZero_OfAVariantOperand_OrAssignedToAnythingButASingleOrDouble_LeavesTheTargetAsItWas(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task ADivisionByZero_OfAVariantOperand_OrAssignedToAnythingButASingleOrDouble_LeavesTheTargetAsItWas(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     [DataRow("Dim x As Double ;; x = 5 ;; x = 1 \\ 0 ;; P Err.Number ;; P x", "11|5|", DisplayName = "Double = literal \\ literal 0")]
@@ -74,18 +74,18 @@ public sealed class DivisionByZeroTests
     [DataRow("Dim x As Variant, z As Variant ;; x = 5 ;; z = 0 ;; x = 1 Mod z ;; P Err.Number ;; P x", "11|5|", DisplayName = "Variant = literal Mod Variant 0")]
     [DataRow("Dim l As Long, z As Long ;; l = 5 ;; z = 0 ;; l = 1 \\ z ;; P Err.Number ;; P l", "11|5|", DisplayName = "Long = literal \\ Long 0")]
     [DataRow("Dim l As Long, z As Long ;; l = 5 ;; z = 0 ;; l = 1 Mod z ;; P Err.Number ;; P l", "11|5|", DisplayName = "Long = literal Mod Long 0")]
-    public void AnIntegralDivisionOrModByZero_Raises11_AndAssignsNothing(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AnIntegralDivisionOrModByZero_Raises11_AndAssignsNothing(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
     [DataRow("P 1 / 0 ;; P Err.Number", "11|", DisplayName = "an argument: literal / literal 0")]
     [DataRow("Dim z As Double ;; z = 0 ;; P CStr(1 / z) ;; P Err.Number", "11|", DisplayName = "CStr of literal / Double 0")]
-    public void ADivisionByZero_GivenAsAnArgument_RaisesBeforeTheCall(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task ADivisionByZero_GivenAsAnArgument_RaisesBeforeTheCall(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // an infinity and a NaN a Double holds, as text: as MS-VBA writes them, and not MS-VBAL §5.5.1.2.4's 1.#INF and -1.#IND.
     [TestMethod]
-    public void AnInfiniteOrNaNDouble_AsText_IsInfMinusInfOrMinusNanInd()
+    public async Task AnInfiniteOrNaNDouble_AsText_IsInfMinusInfOrMinusNanInd()
         => Assert.AreEqual("x=inf|x=-inf|x=-nan(ind)|",
-            Run("Dim x As Double, z As Double ;; z = 0 ;; x = 1 / z ;; P \"x=\" & x ;; x = -1 / z ;; P \"x=\" & x ;; x = z / z ;; P \"x=\" & x"));
+            await Run("Dim x As Double, z As Double ;; z = 0 ;; x = 1 / z ;; P \"x=\" & x ;; x = -1 / z ;; P \"x=\" & x ;; x = z / z ;; P \"x=\" & x"));
 }

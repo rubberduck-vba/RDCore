@@ -2,7 +2,6 @@ using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
-using RDCore.CLI.Themes;
 using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
@@ -40,20 +39,13 @@ public sealed class ReplFoldTests
         _context = new ReplCommandContext(_program, _console, _platform, new ReplDocument(_program, _platform, workspace), []);
     }
 
-    private static IAppThemeService Themes()
-    {
-        var themes = Substitute.For<IAppThemeService>();
-        themes.Theme.Returns(new AppTheme(new ThemeDocument()));
-        return themes;
-    }
-
     private Task FoldAsync(string arguments) => new FoldReplCommand().ExecuteAsync(_context, arguments, CancellationToken.None);
 
     // what the listing wrote: each line's margin lanes, and its text.
     private async Task<List<(IReadOnlyList<ReplTextRun> Margin, IReadOnlyList<ReplTextRun> Runs)>> ListAsync()
     {
         _console.ClearReceivedCalls();
-        await new ListReplCommand(Themes()).ExecuteAsync(_context, "", CancellationToken.None);
+        await new ListReplCommand().ExecuteAsync(_context, "", CancellationToken.None);
         return [.. _console.ReceivedCalls()
             .Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteListingLine))
             .Select(call => ((IReadOnlyList<ReplTextRun>)call.GetArguments()[0]!, (IReadOnlyList<ReplTextRun>)call.GetArguments()[1]!))];

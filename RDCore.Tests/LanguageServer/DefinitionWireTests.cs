@@ -75,7 +75,7 @@ public sealed class DefinitionWireTests
         => AskAsync(linkSupport, (document, position) => new DefinitionParams { TextDocument = document, Position = position }, positions);
 
     private static async Task<LocationOrLocationLinks?[]> AskAsync(
-        bool linkSupport, Func<TextDocumentIdentifier, Position, IRequest<LocationOrLocationLinks>> request, params Position[] positions)
+        bool linkSupport, Func<TextDocumentIdentifier, Position, IRequest<LocationOrLocationLinks?>> request, params Position[] positions)
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));

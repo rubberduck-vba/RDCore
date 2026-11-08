@@ -221,9 +221,9 @@ public sealed class LiveSettings(IEnumerable<LiveSettingsTarget> targets, Settin
 
     /// <inheritdoc/>
     public Task<bool> ApplyAsync(IReadOnlyDictionary<string, string> said, IReadOnlyDictionary<string, string> adopted, Func<bool> isCurrent)
-        => Apply(said, adopted, isCurrent, out var told) ? Told(told) : Task.FromResult(false);
+        => Apply(said, adopted, isCurrent, out var told) ? ToldAsync(told) : Task.FromResult(false);
 
-    private static async Task<bool> Told(Task told)
+    private static async Task<bool> ToldAsync(Task told)
     {
         await told;
         return true;

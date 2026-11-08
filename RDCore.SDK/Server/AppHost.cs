@@ -266,7 +266,7 @@ public abstract class AppHost<TApp>() : IDisposable
         catch (Exception exception)
         {
             // something went wrong:
-            (WritesToConsole ? Console.Out : Console.Error).WriteLine(exception.ToString());
+            await (WritesToConsole ? Console.Out : Console.Error).WriteLineAsync(exception.ToString());
             return -1;
         }
         finally

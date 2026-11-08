@@ -164,7 +164,7 @@ public sealed class SemanticModelStore
     public async Task WhenEvaluatedAsync(Uri module, CancellationToken token = default)
     {
         var key = module.AbsoluteUri;
-        while (PendingOf(key) is { } pending)
+        while (PendingEvaluationAsync(key) is { } pending)
         {
             await pending.WaitAsync(token).ConfigureAwait(false);
         }
@@ -194,7 +194,7 @@ public sealed class SemanticModelStore
     }
 
     // the evaluation of a module that is still running; one that has finished has taken itself out.
-    private Task? PendingOf(string key)
+    private Task? PendingEvaluationAsync(string key)
     {
         lock (_storing)
         {

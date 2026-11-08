@@ -35,11 +35,10 @@ public sealed class PayloadDocumentsTests
     }
 
     [TestMethod]
-    public void APayloadOfTwoModules_IsReadBackTheSame()
+    public async Task APayloadOfTwoModules_IsReadBackTheSame()
     {
         // two modules, so that the document changes along the payload, and back.
-        var payload = ModuleWorkspace.SemanticsAsync([], Program(), modules: [("Other", ModuleWorkspace.StandardModule("Other", "Public Function G() As Long", "    G = F1(1)", "End Function"))])
-            .GetAwaiter().GetResult();
+        var payload = await ModuleWorkspace.SemanticsAsync([], Program(), modules: [("Other", ModuleWorkspace.StandardModule("Other", "Public Function G() As Long", "    G = F1(1)", "End Function"))]);
 
         var back = PlatformJson.Deserialize<SemanticsPayload>(PlatformJson.Serialize(payload));
 

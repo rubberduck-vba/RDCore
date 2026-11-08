@@ -11,7 +11,7 @@ namespace RDCore.Tests.Cli;
 public sealed class ExtendedIntermediateTests
 {
     // the program of a case: its declarations, P - which writes what it is given, as a Variant - and Bits, which writes the 8 bytes of a Double in hex.
-    private static string Run(string declarations, string body)
+    private static async Task<string> Run(string declarations, string body)
     {
         string[] lines =
         [
@@ -34,7 +34,7 @@ public sealed class ExtendedIntermediateTests
             "    Debug.Print acc",
             "End Sub",
         ];
-        return string.Join("/", RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], string.Join("\r\n", lines) + "\r\n"));
     }
     // An intermediate past the range of a Double overflows only where it is stored as one; one past the extended range overflows where it is computed; a division by zero is error 11, before an overflow.
     [TestMethod]
@@ -54,8 +54,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim d As Double, i As Integer ;; d = 1E+308 ;; i = 5 ;; i = d * 10 / 1E+308 ;; P Err.Number ;; P i", "0|10|", DisplayName = "A42")]
     [DataRow("", "Dim d As Double, z As Double, e As Double ;; d = 1E+308 ;; z = 0 ;; e = CDbl(d * 10) + 1 / z ;; P Err.Number ;; P e", "11|inf|", DisplayName = "C07")]
     [DataRow("", "Dim d As Double, e As Double ;; d = 1E-300 ;; e = d * 1E-10 ;; P Err.Number ;; P Bits(e)", "0|000012688B70E62B|", DisplayName = "C41")]
-    public void AnIntermediatePastADouble_OverflowsOnlyWhereItIsStored(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task AnIntermediatePastADouble_OverflowsOnlyWhereItIsStored(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // Abs, Int, Fix and Sgn compute on the extended value; CDbl rounds it to a Double, CSng to a Double and then to 24 bits, in the range of a Double; Sqr, Log and Atn are given it stored, and raise at once.
     [TestMethod]
@@ -81,8 +81,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim s As Single, e As Double ;; s = 3E+38 ;; e = Int(s * 10) ;; P Err.Number ;; P e", "0|3.00000000549776E+39|", DisplayName = "D10")]
     [DataRow("", "Dim s As Single, e As Double ;; s = 3E+38 ;; e = Abs(s * 10) ;; P Err.Number ;; P e", "0|3.00000000549776E+39|", DisplayName = "D11")]
     [DataRow("", "Dim s As Single, l As Long ;; s = 16777216 ;; l = Fix(s + 1) ;; P l", "16777217|", DisplayName = "D27")]
-    public void TheFunctionsOfANumber_ComputeOnTheExtendedValue_OrAreGivenItStored(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task TheFunctionsOfANumber_ComputeOnTheExtendedValue_OrAreGivenItStored(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // Each operation is rounded to 64 bits - a Single's too - and the value again where it is stored: twice.
     [TestMethod]
@@ -108,8 +108,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim l As Long, d As Double, e As Double ;; l = 3 ;; d = 0.1 ;; e = l * d - 0.3 ;; P e", "2.77555756156289E-17|", DisplayName = "C56")]
     [DataRow("", "Dim a As Double, b As Double, e As Double ;; a = 1E+16 ;; b = 1 ;; e = (a + b) - a ;; P e", "1|", DisplayName = "C57")]
     [DataRow("", "Dim s As Single, e As Double ;; s = 0.1 ;; e = s + 0.5 ;; P e", "0.600000001490116|", DisplayName = "D36")]
-    public void EachOperation_IsRoundedToSixtyFourBits_AndTheValueAgainWhereItIsStored(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task EachOperation_IsRoundedToSixtyFourBits_AndTheValueAgainWhereItIsStored(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // Let-coerced to a numeric type - a variable, an element, a field, a For bound, a subscript, a ReDim bound, an operand of \, Mod, And, Or, Not - the value is converted from its 80 bits; written as a String, made a Decimal or held by a Variant, it is stored as its own type first.
     [TestMethod]
@@ -144,8 +144,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim d As Double, t As Double ;; d = 2.5 ;; t = 1 / 2 ^ 60 ;; P Mid$(\"abcdef\", d + t)", "cdef|", DisplayName = "E09")]
     [DataRow("", "Dim d As Double, t As Double, l As Long ;; d = 2.5 ;; t = 1 / 2 ^ 60 ;; l = (d + t) Or 0 ;; P l", "3|", DisplayName = "E13")]
     [DataRow("", "Dim d As Double, t As Double ;; d = 2.5 ;; t = 1 / 2 ^ 60 ;; P Left$(\"abcdef\", d + t)", "abc|", DisplayName = "E14")]
-    public void LetCoercedToANumericType_TheValueIsConvertedFromItsEightyBits(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task LetCoercedToANumericType_TheValueIsConvertedFromItsEightyBits(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // A parameter of a numeric type, ByVal or ByRef, is given the value converted to its type; a Variant parameter, stored as the expression's.
     [TestMethod]
@@ -161,8 +161,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("Private Function F2(ByVal s As Single) As Double ;; F2 = s * 10 ;; End Function", "P F2(3E+38) ;; P Err.Number", "3.00000000549776E+39|0|", DisplayName = "D04")]
     [DataRow("Private Sub Q(ByRef x As Double) ;; P x ;; End Sub", "Dim s As Single ;; s = 16777216 ;; Q s + 1", "16777217|", DisplayName = "D28")]
     [DataRow("", "Dim d As Double, t As Double ;; d = 2.5 ;; t = 1 / 2 ^ 60 ;; P Round(d + t)", "2|", DisplayName = "E10")]
-    public void AnArgument_IsConvertedToItsParametersType(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task AnArgument_IsConvertedToItsParametersType(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // A comparison rounds each operand to the precision of its effective type, in the extended range, and raises what is pending; a Select Case selector is stored.
     [TestMethod]
@@ -189,8 +189,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim d As Double, t As Double ;; d = 1 ;; t = 1 / 2 ^ 60 ;; P (d + t > d) And True", "False|", DisplayName = "E16")]
     [DataRow("", "Dim d As Double ;; d = 1E+308 ;; P IIf(d * 10 > 0, \"gt\", \"ng\") ;; P Err.Number", "gt|0|", DisplayName = "E17")]
     [DataRow("", "Dim s As Single, i As Integer ;; s = 16777216 ;; i = 1 ;; If s + i = 16777217 Then P \"eq\" Else P \"ne\"", "eq|", DisplayName = "E18")]
-    public void AComparison_RoundsToThePrecisionOfItsType_InTheExtendedRange(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task AComparison_RoundsToThePrecisionOfItsType_InTheExtendedRange(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // An operation with a Variant operand is the Variant arithmetic, which rounds each result to its type: a typed operand is stored as its type for it.
     [TestMethod]
@@ -204,8 +204,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim d As Double, t As Double, v As Variant ;; d = 1 ;; t = 1 / 2 ^ 60 ;; v = d + t ;; P v - d", "0|", DisplayName = "C42")]
     [DataRow("", "Dim v As Variant, s As Single, e As Double ;; v = 1 ;; s = 16777216 ;; e = (s + 1) + v ;; P e", "16777216|", DisplayName = "D09")]
     [DataRow("", "Dim s As Single, v As Variant, e As Double ;; s = 3E+38 ;; v = 0 ;; e = s * 10 + v ;; P Err.Number ;; P e", "6|0|", DisplayName = "E06")]
-    public void AVariantOperation_RoundsEachResult(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task AVariantOperation_RoundsEachResult(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // The operands of ^ are converted to Doubles from their 80 bits, and raise at once; its result is a Double, which the expression goes on with.
     [TestMethod]
@@ -218,8 +218,8 @@ public sealed class ExtendedIntermediateTests
     [DataRow("", "Dim s As Single ;; s = 16777216 ;; P TypeName(s + 1 + 0.5)", "Double|", DisplayName = "D35")]
     [DataRow("", "Dim d As Double, e As Double, i As Integer ;; d = 1E+308 ;; i = 2 ;; e = d * 10 / 10 ^ i ;; P Err.Number ;; P e", "0|1E+307|", DisplayName = "C54")]
     [DataRow("", "Dim d As Double, e As Double ;; d = 1E+308 ;; e = (d * 10) / (5 + 5) ;; P Err.Number ;; P e", "0|1E+308|", DisplayName = "C55")]
-    public void TheOperandsOfAnotherOperator_AreConvertedFromTheirEightyBits(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task TheOperandsOfAnotherOperator_AreConvertedFromTheirEightyBits(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 
     // A constant expression - of a Const, or of literals - is computed in the extended format too.
     [TestMethod]
@@ -228,6 +228,6 @@ public sealed class ExtendedIntermediateTests
     [DataRow("Const K = 1E+308 * 10 / 10", "P K ;; P Err.Number", "1E+308|0|", DisplayName = "C26")]
     [DataRow("Const K = 0.1 + 0.2 - 0.3", "P K", "2.77555756156289E-17|", DisplayName = "C27")]
 
-    public void AConstantExpression_IsComputedInTheExtendedFormat(string declarations, string body, string printed)
-        => Assert.AreEqual(printed, Run(declarations, body));
+    public async Task AConstantExpression_IsComputedInTheExtendedFormat(string declarations, string body, string printed)
+        => Assert.AreEqual(printed, await Run(declarations, body));
 }

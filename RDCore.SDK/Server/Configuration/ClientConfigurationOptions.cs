@@ -7,6 +7,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using OmniSharp.Extensions.LanguageServer.Server;
+using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.SDK.Server.Configuration;
 
@@ -35,7 +36,7 @@ internal static class ClientConfigurationOptions
     /// Whether a client answers <c>workspace/configuration</c>: it says <c>workspace.configuration</c> is <see langword="true"/>. OmniSharp reads a
     /// <c>false</c> as a capability that is declared, with the value <see langword="false"/>.
     /// </summary>
-    internal static bool Answers(ClientCapabilities? capabilities) => capabilities?.Workspace?.Configuration is { IsSupported: true, Value: true };
+    internal static bool Answers([NotNullWhen(true)] ClientCapabilities? capabilities) => capabilities?.Workspace?.Configuration is { IsSupported: true, Value: true };
 }
 
 // a client that answers workspace/configuration says its configuration changed: the server asks, whatever settings the notification carries - an empty object,

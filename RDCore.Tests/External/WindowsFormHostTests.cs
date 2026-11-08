@@ -5,6 +5,7 @@ using RDCore.External.Windows.Forms;
 using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace RDCore.Tests.External;
@@ -19,6 +20,8 @@ namespace RDCore.Tests.External;
 [TestCategory("External host")]
 [TestCategory("MSForms")]
 [DoNotParallelize]
+// Windows only past Host(), which is inconclusive on any other platform.
+[SupportedOSPlatform("windows")]
 public sealed class WindowsFormHostTests
 {
     private const uint WM_CLOSE = 0x0010;

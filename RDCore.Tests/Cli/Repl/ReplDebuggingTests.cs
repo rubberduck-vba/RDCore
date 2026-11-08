@@ -224,8 +224,8 @@ public sealed class ReplDebuggingTests
 
         Received.InOrder(() =>
         {
-            _platform.GotoAsync("30", Arg.Any<CancellationToken>());
-            _platform.ResumeAsync(null, Arg.Any<CancellationToken>());
+            _ = _platform.GotoAsync("30", Arg.Any<CancellationToken>());
+            _ = _platform.ResumeAsync(null, Arg.Any<CancellationToken>());
         });
     }
 
@@ -887,25 +887,11 @@ public sealed class ReplDebuggingTests
         throw new AssertFailedException($"line {number} was not listed");
     }
 
-    private IAppThemeService GetMockThemeService()
-    {
-        var themeService = Substitute.For<IAppThemeService>();
-        var theme = new AppTheme(new ThemeDocument
-        {
-            Debug = new()
-            {
-                BreakpointGlyph = "red",
-            }
-        });
-        themeService.Theme.Returns(theme);
-        return themeService;
-    }
-
     [TestMethod]
     public async Task AListing_HasAMarginOfOneCharacter_AndAMarkInItForABreakpoint()
     {
         await CommandAsync(new BreakReplCommand(), "20");
-        await CommandAsync(new ListReplCommand(GetMockThemeService()));
+        await CommandAsync(new ListReplCommand());
 
         var plain = Listed(10);
         Assert.AreEqual(" ", plain.Margin.Text);
@@ -924,7 +910,7 @@ public sealed class ReplDebuggingTests
         await CommandAsync(new BreakReplCommand(), "TOGGLE 20");
         await CommandAsync(new BreakReplCommand(), "10 X > 1");
         await CommandAsync(new BreakReplCommand(), "TOGGLE 10");
-        await CommandAsync(new ListReplCommand(GetMockThemeService()));
+        await CommandAsync(new ListReplCommand());
 
         foreach (var number in new[] { 10, 20 })
         {
@@ -941,7 +927,7 @@ public sealed class ReplDebuggingTests
         await RunAsync();
         _console.ClearReceivedCalls();
 
-        await CommandAsync(new ListReplCommand(GetMockThemeService()));
+        await CommandAsync(new ListReplCommand());
 
         Assert.AreEqual(ReplLineStyle.CurrentStatement, Listed(20).Style);
         Assert.AreEqual(ReplLineStyle.Plain, Listed(10).Style);
@@ -955,7 +941,7 @@ public sealed class ReplDebuggingTests
         await CommandAsync(new BreakReplCommand(), "20");
         _console.ClearReceivedCalls();
 
-        await CommandAsync(new ListReplCommand(GetMockThemeService()));
+        await CommandAsync(new ListReplCommand());
 
         var line = Listed(20);
         Assert.AreEqual("●", line.Margin.Text);
@@ -971,7 +957,7 @@ public sealed class ReplDebuggingTests
         await CommandAsync(new ContReplCommand());
         _console.ClearReceivedCalls();
 
-        await CommandAsync(new ListReplCommand(GetMockThemeService()));
+        await CommandAsync(new ListReplCommand());
 
         Assert.AreEqual(ReplLineStyle.Plain, Listed(20).Style);
     }

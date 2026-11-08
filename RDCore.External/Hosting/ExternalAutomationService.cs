@@ -90,7 +90,21 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         public object? Invoke(SessionObjectCall call) => service.CallSession(call);
 
         public void Release(string sessionObject, int crossings)
-            => _ = service.ReleaseOnClient?.Invoke(new SessionReleaseParams { SessionObject = sessionObject, Crossings = crossings });
+        {
+            if (service.ReleaseOnClient is { } release)
+            {
+                _ = release(new SessionReleaseParams { SessionObject = sessionObject, Crossings = crossings });
+            }
+        }
+    }
+
+    // the answer to what was sent, once Serve has returned: null when the reply failed. Serve returns once the reply is complete, so it is read here, and never
+    // waited for.
+    private static T? Answer<T>(Task<T> reply) where T : class
+    {
+#pragma warning disable VSTHRD002 // the reply is complete: Result reads it, and does not wait.
+        return reply.IsCompletedSuccessfully ? reply.Result : null;
+#pragma warning restore VSTHRD002
     }
 
     // sends a call to the environment host, and waits for the answer on the thread the server called the stand-in on.
@@ -118,23 +132,23 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
             });
 
             waiting.Serve(reply, call.IsSynchronous ? null : call.Serve);
-            if (!reply.IsCompletedSuccessfully)
+            if (Answer(reply) is not { } result)
             {
                 throw new AutomationException(unchecked((int)0x80004005), "The environment host did not answer the call.");
             }
 
-            if (reply.Result.Failure is { } failure)
+            if (result.Failure is { } failure)
             {
                 throw failure.ToException();
             }
 
-            var answered = reply.Result.Arguments;
+            var answered = result.Arguments;
             for (var index = 0; index < answered.Length && index < call.Arguments.Length; index++)
             {
                 call.Arguments[index] = ExternalValues.FromWire(answered[index], _handles.ObjectOf, SessionObjectOf);
             }
 
-            return ExternalValues.FromWire(reply.Result.Returned, _handles.ObjectOf, SessionObjectOf);
+            return ExternalValues.FromWire(result.Returned, _handles.ObjectOf, SessionObjectOf);
         }
         finally
         {
@@ -317,13 +331,13 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
             });
 
             waiting.Serve(reply, raised.IsSynchronous ? null : raised.Serve);
-            if (!reply.IsCompletedSuccessfully || reply.Result.Failure is not null)
+            if (Answer(reply) is not { Failure: null } result)
             {
                 return;
             }
 
             // what the handlers left in the arguments is what the server finds in the ones it passed by reference.
-            var answered = reply.Result.Arguments;
+            var answered = result.Arguments;
             for (var index = 0; index < answered.Length && index < raised.Arguments.Length; index++)
             {
                 raised.Arguments[index] = ExternalValues.FromWire(answered[index], _handles.ObjectOf, SessionObjectOf);

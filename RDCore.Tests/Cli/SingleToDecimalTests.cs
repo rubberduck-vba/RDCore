@@ -10,7 +10,7 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class SingleToDecimalTests
 {
-    private static string Run(string body)
+    private static async Task<string> Run(string body)
     {
         string[] lines =
         [
@@ -24,7 +24,7 @@ public sealed class SingleToDecimalTests
             "    Debug.Print acc",
             "End Sub",
         ];
-        return string.Join("/", RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], string.Join("\r\n", lines) + "\r\n"));
     }
 
     [TestMethod]
@@ -55,6 +55,6 @@ public sealed class SingleToDecimalTests
     [DataRow("Dim s As Single, c As Currency ;; s = 0.1 ;; c = s ;; P c", "0.1|", DisplayName = "K25")]
     [DataRow("Dim s As Single ;; s = 1.25 ;; P CDec(s) ;; s = 1234.5678 ;; P CDec(s)", "1.25|1234.568|", DisplayName = "K26")]
     [DataRow("P CDec(CSng(12345665)) ;; P CDec(CSng(12345675)) ;; P CDec(CSng(-12345665)) ;; P CDec(CSng(12345645)) ;; P CDec(CSng(1234566.5)) ;; P CDec(CSng(1234567.5)) ;; P CDec(CSng(16777215)) ;; P CDec(CSng(0.0001234565))", "12345660|12345680|-12345660|12345640|1234566|1234568|16777220|0.0001234565|", DisplayName = "J01")]
-    public void ASingleMadeADecimal_IsItsSevenSignificantDigits(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task ASingleMadeADecimal_IsItsSevenSignificantDigits(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 }

@@ -429,7 +429,7 @@ public abstract class RDCoreServerApp(
     // client says it changed - OmniSharp's own pull, for the section it was configured with - and the answer is set on the component's settings.
     private void FollowClientConfiguration(ILanguageServer server)
     {
-        _configurationFollower = ClientConfigurationFollower.Follow(ExternalServices, server, () => OnLiveSettingsChangedAsync(server), message => LogIfEnabled(LogLevel.Information, message));
+        _configurationFollower = ClientConfigurationFollower.StartFollowing(ExternalServices, server, () => OnLiveSettingsChangedAsync(server), message => LogIfEnabled(LogLevel.Information, message));
     }
 
     private ClientConfigurationFollower? _configurationFollower;

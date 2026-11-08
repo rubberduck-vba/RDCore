@@ -656,9 +656,9 @@ public sealed class DocumentDiagnosticsServiceTests
 
         Received.InOrder(() =>
         {
-            _symbols.SyncModuleAsync(name, Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
-            _symbols.LoadModuleCodeAsync(name, Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
-            host.SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
+            _ = _symbols.SyncModuleAsync(name, Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
+            _ = _symbols.LoadModuleCodeAsync(name, Arg.Any<ModuleParseResult>(), Arg.Any<CancellationToken>());
+            _ = host.SendRequestAsync<HostSemanticsParams, HostSemanticsResult>(
                 Arg.Is<HostSemanticsParams>(request => request.ModuleName == name), Arg.Any<CancellationToken>());
         });
         Assert.AreEqual(false, PayloadSentTo(provider).Semantics!.OptionExplicit);

@@ -427,7 +427,10 @@ public sealed class ClientWithoutOmniSharpTests
 
             if (method != DiagnosticRefresh || refreshHeld)
             {
+                // no task is what says the request is not held (Hold): the client answers it at once.
+#pragma warning disable VSTHRD114
                 return null;
+#pragma warning restore VSTHRD114
             }
 
             refreshHeld = true;
@@ -508,7 +511,7 @@ public sealed class ClientWithoutOmniSharpTests
             acted = paused["result"]!["acted"]!.GetValue<bool>();
             if (!acted)
             {
-                Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+                Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? (await running).ToJsonString() : null)}\n{LogOf(platform.Root)}");
             }
         }
         while (!acted);
@@ -678,7 +681,7 @@ public sealed class ClientWithoutOmniSharpTests
             if (await Unhung(Task.WhenAny(connected, exited), "the language server opening its pipe") != connected)
             {
                 await pipe.DisposeAsync();
-                throw new AssertFailedException($"the language server exited with code {exited.Result} before it opened its pipe.\n{LogOf(root)}");
+                throw new AssertFailedException($"the language server exited with code {await exited} before it opened its pipe.\n{LogOf(root)}");
             }
 
             await connected;

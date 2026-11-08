@@ -529,9 +529,9 @@ public sealed class DocumentLifecycleServiceTests
 
         Received.InOrder(() =>
         {
-            _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
-            editStatus.CheckAsync(Arg.Any<CancellationToken>(), true);
-            _diagnostics.GetPhaseAsync(Mod1, AnalysisPhase.Static, Arg.Any<CancellationToken>());
+            _ = _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+            _ = editStatus.CheckAsync(Arg.Any<CancellationToken>(), true);
+            _ = _diagnostics.GetPhaseAsync(Mod1, AnalysisPhase.Static, Arg.Any<CancellationToken>());
         });
     }
 
@@ -613,9 +613,9 @@ public sealed class DocumentLifecycleServiceTests
 
         Received.InOrder(() =>
         {
-            _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
+            _ = _symbols.SyncDocumentAsync(Mod1, Arg.Any<CancellationToken>());
             _publisher.Publish(Mod1, 2, Arg.Any<IReadOnlyList<Diagnostic>>());
-            _symbols.SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
+            _ = _symbols.SyncWorkspaceAsync(Arg.Any<CancellationToken>(), null, true);
             _refresh.Changed();
         });
     }

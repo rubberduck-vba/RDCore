@@ -283,7 +283,7 @@ public sealed class IndenterSettingsOfferingTests
             .WithConfigurationSection(LiveSettingsProtocol.Section)
             .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
             {
-                ClientConfigurationFollower.Follow(services, started, () => Task.CompletedTask, _ => { });
+                ClientConfigurationFollower.StartFollowing(services, started, () => Task.CompletedTask, _ => { });
                 offering.SetResult(new IndenterSettingsOffering(
                     started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { },
                     new ManualClock()));
