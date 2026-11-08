@@ -49,7 +49,7 @@ public record class VBBinaryOperatorExpressionNode : VBOperatorExpression
     /// <remarks>
     /// A diagnostic about the operator is located here, so that each operator of a chain (<c>a + b + c</c>, whose two operations begin at the same
     /// position) has a location of its own. A run-time error of the operation is located at the operation itself. <see langword="null"/> for an operation
-    /// the code does not write (one a statement makes of its own operands) and for a tree written without it.
+    /// the code does not write (one a statement makes of its own operands) and for a node created without one.
     /// </remarks>
     public SourceLocation? OperatorLocation { get; init; }
 

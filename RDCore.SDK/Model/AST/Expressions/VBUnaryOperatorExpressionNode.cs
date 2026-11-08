@@ -31,7 +31,7 @@ public record class VBUnaryOperatorExpressionNode(string Token, SyntaxNodeId Ide
     /// </summary>
     /// <remarks>
     /// A diagnostic about the operator is located here. A run-time error of the operation is located at the operation itself. <see langword="null"/> for
-    /// parentheses, which are two tokens, for an operation the code does not write, and for a tree written without it.
+    /// parentheses, which are two tokens, for an operation the code does not write, and for a node created without one.
     /// </remarks>
     public SourceLocation? OperatorLocation { get; init; }
 
