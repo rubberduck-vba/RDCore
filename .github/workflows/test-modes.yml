@@ -1,0 +1,52 @@
+name: Test Modes
+
+# the suite again in the modes Build and Test does not run: values held boxed, and compiled code handed to the interpreter at random, each on its own
+# runner, so a branch needs none of them run locally.
+on:
+ push:
+  branches: [main]
+ pull_request:
+  branches: [main]
+
+permissions:
+ contents: read
+
+jobs:
+ test-mode:
+  runs-on: ubuntu-latest
+  timeout-minutes: 60
+
+  strategy:
+   fail-fast: false
+   matrix:
+    include:
+     - mode: boxed
+       env: RDCORE_UNBOXED=0
+     - mode: walk-back
+       env: RDCORE_WALKBACK=random
+     - mode: reloads seed 1
+       env: RDCORE_RELOADS=fail-at-random RDCORE_WALKBACK_SEED=1
+     - mode: reloads seed 2
+       env: RDCORE_RELOADS=fail-at-random RDCORE_WALKBACK_SEED=2
+     - mode: reloads seed 3
+       env: RDCORE_RELOADS=fail-at-random RDCORE_WALKBACK_SEED=3
+
+  name: test (${{ matrix.mode }})
+
+  steps:
+   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+     with:
+      persist-credentials: false
+
+   - name: Setup .NET
+     uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+     with:
+      dotnet-version: 10.0
+
+   - name: Build (Debug)
+     run: dotnet build RDCore.slnx --configuration Debug
+
+   - name: Test (Debug, ${{ matrix.mode }})
+     env:
+      MODE_ENV: ${{ matrix.env }}
+     run: env $MODE_ENV dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 10m
