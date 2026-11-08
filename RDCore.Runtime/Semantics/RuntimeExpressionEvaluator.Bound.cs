@@ -242,11 +242,6 @@ public sealed partial class RuntimeExpressionEvaluator
         return RuntimeSemanticsEvaluationResult.Success(coerced);
     }
 
-    private RuntimeSemanticsEvaluationResult EvaluateBoundNode(IRuntimeSession session, BoundNode node, RuntimeEvaluationContext context)
-        => KnownOperands.AnyHeld && TryKnown(session, node, out var known)
-            ? RuntimeSemanticsEvaluationResult.Success(known.Type.CreateValue(new ValueBindingHandle(known.Box())))
-            : EvaluateBoundNodeAnew(session, node, context);
-
     // what compiled code evaluated of the instruction the activation runs, before it handed it to the interpreter in the middle of it: a call it made is not
     // made again, and a variable it read before the call is what it read. A call made meanwhile is the current activation while it runs, so the procedure's
     // own expressions, in the activation of a recursive call, are evaluated anew.
@@ -256,8 +251,9 @@ public sealed partial class RuntimeExpressionEvaluator
         return session.CallStack.Current is CallStackFrame { Known: { } operands } && operands.TryGet(node.Expression, out known);
     }
 
-    private RuntimeSemanticsEvaluationResult EvaluateBoundNodeAnew(IRuntimeSession session, BoundNode node, RuntimeEvaluationContext context) => node switch
+    private RuntimeSemanticsEvaluationResult EvaluateBoundNode(IRuntimeSession session, BoundNode node, RuntimeEvaluationContext context) => node switch
     {
+        _ when KnownOperands.AnyHeld && TryKnown(session, node, out var known) => RuntimeSemanticsEvaluationResult.Success(known.Type.CreateValue(new ValueBindingHandle(known.Box()))),
         BoundLiteral literal => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), literal.Literal),
         BoundVariable variable => ReadBoundVariable(session, variable),
         BoundName name => ReadSymbol(session, context, name.Symbol, nameOfEnclosingFunctionIsItsResult: true),
