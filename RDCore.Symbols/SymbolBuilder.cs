@@ -190,7 +190,7 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// <remarks>
     /// The designer declares it, so no text of the module does: it has no range of its own. A control whose class the designer names by its CLSID only (an
     /// ActiveX control that is not one of the referenced libraries') has a type that is not resolved, as an unknown <c>As</c> type is. The controls of a Visual
-    /// Basic 6.0 control array share one, of the array's type (<see cref="FormControlArray"/>).
+    /// Basic 6.0 control array share one member, of the array's type (<see cref="FormControlArray"/>).
     /// </remarks>
     /// <param name="control">The control, as the form's designer describes it.</param>
     /// <param name="form">The name of the form, which names what hosts it (<see cref="FormObject.TargetOf"/>).</param>

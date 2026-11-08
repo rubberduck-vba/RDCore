@@ -81,6 +81,6 @@
   </data>
   <!-- What a hover says a Visual Basic 6.0 control array is (SymbolHover.ControlArrayOf): {0} is the class of its controls, VB.CommandButton. -->
   <data name="Hover_ControlArrayOf" xml:space="preserve">
-    <value>Groupe de contrôles {0}</value>
+    <value>Groupe de contrôles de type {0}</value>
   </data>
 </root>

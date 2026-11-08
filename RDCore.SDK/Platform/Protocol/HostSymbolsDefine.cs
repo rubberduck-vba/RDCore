@@ -343,8 +343,8 @@ public record class SymbolDescriptor
     public bool IsDesignerControl { get; init; }
 
     /// <summary>
-    /// Whether a form's control is a Visual Basic 6.0 control array, which <see cref="DeclaredTypeName"/> names the class of the controls of: its type is the
-    /// array's (<see cref="Workspace.Forms.FormControlArray.TypeOf"/>), which no name of a library is.
+    /// Whether a form's control is a Visual Basic 6.0 control array. <see cref="DeclaredTypeName"/> then names the class of its controls, and its type is
+    /// the array's (<see cref="Workspace.Forms.FormControlArray.TypeOf"/>), which no library names.
     /// </summary>
     public bool IsDesignerControlArray { get; init; }
 

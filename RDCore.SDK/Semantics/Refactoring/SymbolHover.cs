@@ -52,8 +52,8 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
     }
 
     /// <summary>
-    /// The class of the controls of the Visual Basic 6.0 control array the symbol is (<see cref="FormControlArray"/>): <c>VB.CommandButton</c>, which the hover
-    /// says it is an array of; <see langword="null"/> for any other symbol.
+    /// The class of the controls of the Visual Basic 6.0 control array the symbol is (<see cref="FormControlArray"/>), such as <c>VB.CommandButton</c>, which the
+    /// hover names; <see langword="null"/> for any other symbol.
     /// </summary>
     public string? ControlArrayOf { get; init; }
 
