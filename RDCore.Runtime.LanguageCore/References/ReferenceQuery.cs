@@ -9,8 +9,8 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Refactoring;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using RDCore.SDK.Semantics.References;
 using RDCore.Runtime.LanguageCore.Refactoring;
@@ -85,7 +85,7 @@ public static class ReferenceQuery
         foreach (var occurrence in found.Occurrences)
         {
             // a member of an Object or a Variant is bound when the code runs: what it refers to is not known.
-            if (occurrence is { Binding: null, Kind: OccurrenceKind.Member, Fact: { } fact } && fact.Flags.HasFlag(ValueExpressionSemanticFlags.LateBound))
+            if (SymbolRename.IsLateBound(occurrence))
             {
                 lateBound.Add(occurrence);
                 continue;
@@ -121,14 +121,11 @@ public static class ReferenceQuery
             .Where(occurrence => occurrence.Kind == OccurrenceKind.String
                 ? SymbolRename.IsCalledBy(context, together, occurrence)
                 : occurrence.Kind == OccurrenceKind.Member || together.Any(defined => SymbolRename.ChainIndex(occurrence.Scope, defined) < int.MaxValue))
-            .Concat(IsMemberOfAClass(context, symbol) ? lateBound : [])
+            .Concat(lateBound.Where(occurrence => SymbolRename.MayBeCalledLateBound(context, together, occurrence)))
             .Select(occurrence => ReferenceOf(context, IndexOf(occurrence.Module), occurrence));
         return new SymbolReferences(symbol, [.. symbols], Ordered(references), Ordered(unknown));
     }
 
-    // only a member of a class is a member of an object, which code can access late-bound.
-    private static bool IsMemberOfAClass(RenameContext context, Symbol symbol)
-        => NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri)) is VBClassModuleSymbol;
 
     private static IReadOnlyList<SymbolReference> Ordered(IEnumerable<SymbolReference> references)
         => [.. references

@@ -76,6 +76,9 @@ public sealed class ReferenceQueryTests
         "    Bump c.Field",
         "    Dim o As Object",
         "    o.Value = 1",
+        "    Dim n As Object",
+        "    Set n = Nothing",
+        "    n.Value = 2",
         "    CallByName o, \"Bump\", VbMethod",
         "    CallByName o, \"Other.Bump\", VbMethod",
         "End Sub");
@@ -255,6 +258,18 @@ public sealed class ReferenceQueryTests
         var late = Single(context, unknown, "Program", "o.Value = 1", "Value");
         Assert.AreEqual(ReferenceForm.Member, late.Form);
         Assert.IsNull(late.Symbol);
+    }
+
+    // an object that the code only ever Sets to Nothing is of no class: what is accessed on it is no unknown reference of a class's member.
+    [TestMethod]
+    public void AMemberAccessedLateBound_OnAnObjectOfNoClass_IsNoUnknownReference()
+    {
+        var context = Workspace();
+        var unknown = ReferencesAt(context, "Program", "Debug.Print c.Value", "Value").Unknown;
+
+        var start = Start(context, "Program", "n.Value = 2", "Value");
+        Assert.IsFalse(unknown.Any(reference => reference.Range.Start == start));
+        Assert.IsTrue(unknown.Any(reference => reference.Range.Start == Start(context, "Program", "o.Value = 1", "Value")), "an object of any class still is");
     }
 
     [TestMethod]

@@ -29,6 +29,8 @@ public record class ValueBindingHandle : IKnowledgeBinding
     /// <remarks>
     /// Stores a value that is known: a write that may be of one that is not says so with <see cref="Store"/>.
     /// </remarks>
+    /// <param name="resolver">Unused: the value is held by the handle.</param>
+    /// <param name="value">The value to store.</param>
     public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value) => Store(value, isKnown: true);
 
     /// <inheritdoc/>

@@ -307,7 +307,9 @@ public sealed class BenchCommandTests
     public async Task RunsThatAreNotPositive_AreRefused()
         => Assert.AreEqual(2, await Command(Files()).Command.ExecuteAsync([Root, "--runs", "0"], CancellationToken.None));
 
+    // the session's current directory is the corpus folder while it runs, and the process's: alone, so no other test sees it move.
     [TestMethod]
+    [DoNotParallelize]
     public async Task TheBuiltInCorpus_LoadsWithoutAProblem_AndHasTheCasesThePlanNames()
     {
         // the corpus is extracted to the real file system, as rdc does it.
@@ -316,8 +318,21 @@ public sealed class BenchCommandTests
         var command = new BenchCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem),
             new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
                 new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty)), output);
+        var saved = Directory.GetCurrentDirectory();
+        var corpus = Path.Combine(Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-        Assert.AreEqual(0, await command.ExecuteAsync(["--list"], CancellationToken.None), output.ToString());
+        try
+        {
+            Assert.AreEqual(0, await command.ExecuteAsync(["--list"], CancellationToken.None), output.ToString());
+
+            // the run's session gives the process its directory back before the command deletes the corpus, which Windows refuses while it is current.
+            Assert.AreEqual(saved, Directory.GetCurrentDirectory());
+            Assert.IsFalse(Directory.Exists(corpus), corpus);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(saved);
+        }
 
         var text = output.ToString();
         foreach (var expected in new[]

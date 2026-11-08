@@ -75,6 +75,36 @@
   <data name="Rename_InString_Leave" xml:space="preserve">
     <value>Laisser les chaînes</value>
   </data>
+  <data name="Rename_LateBound_Label" xml:space="preserve">
+    <value>Liaison tardive : l'objet peut contenir un {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Label" xml:space="preserve">
+    <value>Liaison tardive : l'objet contient un {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Description" xml:space="preserve">
+    <value>Ce qu'on sait de l'objet dit qu'il contient un {1}. Le membre qu'appelle un accès en liaison tardive n'est connu qu'à l'exécution. Un accès laissé tel quel ne trouve plus « {0} ».</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_One" xml:space="preserve">
+    <value>On accède à « {0} » en liaison tardive sur un objet qui contient un {3}, à {2}. Le renommer là aussi?</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_Many" xml:space="preserve">
+    <value>On accède à « {0} » en liaison tardive sur des objets qui contiennent un {3}, à {1} endroits, le premier à {2}. Le renommer là aussi?</value>
+  </data>
+  <data name="Rename_LateBound_Description" xml:space="preserve">
+    <value>Le membre qu'appelle un accès en liaison tardive n'est connu qu'à l'exécution. Un accès laissé tel quel ne trouve plus le membre quand l'objet est de la classe de « {0} ».</value>
+  </data>
+  <data name="Rename_LateBound_Question_One" xml:space="preserve">
+    <value>On accède peut-être à « {0} » en liaison tardive sur un objet qui peut contenir un {3}, à {2}. Le renommer là aussi?</value>
+  </data>
+  <data name="Rename_LateBound_Question_Many" xml:space="preserve">
+    <value>On accède peut-être à « {0} » en liaison tardive sur des objets qui peuvent contenir un {3}, à {1} endroits, le premier à {2}. Le renommer là aussi?</value>
+  </data>
+  <data name="Rename_LateBound_Rename" xml:space="preserve">
+    <value>Le renommer là aussi</value>
+  </data>
+  <data name="Rename_LateBound_Leave" xml:space="preserve">
+    <value>Laisser les accès en liaison tardive</value>
+  </data>
   <!-- What a client is told of the references of a symbol (SymbolNavigationTarget.Unresolved): {0} is its name, {1} where the first such name is written. -->
   <data name="References_Incomplete" xml:space="preserve">
     <value>Les références de « {0} » peuvent être incomplètes : ce que « {0} » désigne à {1} n'est pas connu.</value>

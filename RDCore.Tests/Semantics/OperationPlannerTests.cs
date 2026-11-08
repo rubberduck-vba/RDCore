@@ -2,7 +2,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Plans;
 
 namespace RDCore.Tests.Semantics;
 

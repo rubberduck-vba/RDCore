@@ -114,7 +114,7 @@ internal sealed class BenchRunner(
         // whatever implements the environment: --engine is never ignored.
         var profile = options.Engine is { } engine ? SDK.Runtime.RuntimeEnvironmentProfile.Of(environment) with { ExecutionEngine = engine } : environment;
         var load = await LoadAsync(workspace, profile, token);
-        var provider = load.Provider;
+        using var provider = load.Provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): each case is refused with what keeps the modules from loading.
         var refused = load.Problems.Count > 0 ? $"{ExecutionOutcome.SyntaxError} {string.Join("; ", load.Problems)}" : null;
@@ -188,8 +188,9 @@ internal sealed class BenchRunner(
         BenchWorkspace workspace, CancellationToken token = default)
     {
         var load = await LoadAsync(workspace, environment, token);
-        var session = load.Provider.Session;
-        var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, messages, token, outside: load.Provider.Outside);
+        using var provider = load.Provider;
+        var session = provider.Session;
+        var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, messages, token, outside: provider.Outside);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
         foreach (var (module, _) in load.Loaded)
         {
@@ -200,7 +201,7 @@ internal sealed class BenchRunner(
 
             foreach (var procedure in session.Symbols.MembersOf(symbol.Uri).OfType<VBTypeMemberSymbol>().OrderBy(member => member.Range.Start.Line))
             {
-                if (ProcedureCompilation.Of(load.Provider.Image, session, pipeline.Executor, procedure) is { } compilation)
+                if (ProcedureCompilation.Of(provider.Image, session, pipeline.Executor, procedure) is { } compilation)
                 {
                     procedures.Add((module.Name, compilation));
                 }
@@ -214,15 +215,28 @@ internal sealed class BenchRunner(
         EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
         IReadOnlyList<string> Problems);
 
-    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile.
+    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile. The caller disposes the provider: the session's
+    // current directory is the workspace, which the caller may delete.
     private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token)
     {
-        var problems = new List<string>();
         var root = new Uri(workspace.Root);
         var provider = new EnvironmentSessionProvider(
             profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, ExternalWorld.None);
-        provider.Compose(workspace.Project, root);
+        try
+        {
+            provider.Compose(workspace.Project, root);
+            return await LoadAsync(provider, workspace, root, token);
+        }
+        catch
+        {
+            provider.Dispose();
+            throw;
+        }
+    }
 
+    private async Task<LoadedWorkspace> LoadAsync(EnvironmentSessionProvider provider, BenchWorkspace workspace, Uri root, CancellationToken token)
+    {
+        var problems = new List<string>();
         var stopwatch = Stopwatch.StartNew();
         var parsed = new List<(BenchModule Module, Uri Uri, ModuleParseResult Parse)>();
         foreach (var module in workspace.Modules)
