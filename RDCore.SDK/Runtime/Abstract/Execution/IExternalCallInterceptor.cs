@@ -83,6 +83,6 @@ public interface IExternalCallProvider
     /// in the semantics layer.
     /// </summary>
     /// <param name="request">The call to run. <see cref="CanDispatch"/> has already accepted it.</param>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     Shared.RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver);
 }
