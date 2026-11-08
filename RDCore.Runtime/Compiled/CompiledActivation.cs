@@ -485,12 +485,14 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         var parameters = RuntimeProcedureInvoker.GetParameters(member);
-        var returned = ScalarKinds.Of((member as VBFunctionMemberSymbol)?.ResolvedType);
-        if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
+        var returnedType = ProcedureAnalysis.ReturnedType(member);
+        var returned = ScalarKinds.Of(returnedType);
+        if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
+            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult
             || (called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
                 : called.Result is { } read ? returned != read
-                : member is VBFunctionMemberSymbol { ResolvedType: var discarded } && returned is null && discarded is not SDK.Model.Types.VBVariantType))
+                : returnedType is { } discarded && returned is null && discarded is not SDK.Model.Types.VBVariantType))
         {
             return false;
         }
