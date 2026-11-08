@@ -50,7 +50,7 @@ public sealed class FunctionResultVariableTests
         var without = await ModuleWorkspace.LoadErrorsAsync([("Calc", ModuleWorkspace.ClassModule("Calc", ["Option Explicit", .. members]))], program);
         var with = await ModuleWorkspace.LoadErrorsAsync([("Calc", ModuleWorkspace.ClassModule("Calc", [Namesake, "Option Explicit", .. members]))], program);
 
-        StringAssert.Contains(Assert.ContainsSingle(without), RDCore.SDK.Exceptions.VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        StringAssert.Contains(Assert.ContainsSingle(without), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_WrongNumberOfArgumentsOrInvalidPropertyAssignment);
         CollectionAssert.AreEqual(without, with);
     }
 

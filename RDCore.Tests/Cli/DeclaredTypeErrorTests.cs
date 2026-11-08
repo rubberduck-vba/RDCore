@@ -34,8 +34,8 @@ public sealed class DeclaredTypeErrorTests
         var unknownQualifier = await ModuleWorkspace.LoadErrorsAsync([], Program("Public ws As Excel.Worksheet"));
         var knownQualifier = await ModuleWorkspace.LoadErrorsAsync([], Program("Public ws As Program.Worksheet"));
 
-        StringAssert.Contains(unknownQualifier.Single(), string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, "Excel.Worksheet", "Excel"));
-        StringAssert.Contains(knownQualifier.Single(), string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, "Program.Worksheet"),
+        StringAssert.Contains(unknownQualifier.Single(), string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, "Excel.Worksheet", "Excel"));
+        StringAssert.Contains(knownQualifier.Single(), string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, "Program.Worksheet"),
             "Program is a module of the project: it is the type that is not there, and no reference is missing");
     }
 
@@ -72,8 +72,8 @@ public sealed class DeclaredTypeErrorTests
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
         StringAssert.Contains(errors[0], string.Format(name == "Program"
-            ? RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose
-            : RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, name));
+            ? RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose
+            : RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, name));
     }
 
     [TestMethod]
@@ -87,7 +87,7 @@ public sealed class DeclaredTypeErrorTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program(first, second, third));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProject_Verbose, "VBA"));
+        StringAssert.Contains(errors[0], string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeIsAProject_Verbose, "VBA"));
     }
 
     [TestMethod]
@@ -97,7 +97,7 @@ public sealed class DeclaredTypeErrorTests
             [], [("Helpers", ModuleWorkspace.StandardModule("Helpers", "Public Total As Long"))], Program("Public Sub Work()", "Dim h As Helpers", "End Sub"));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, "Helpers"));
+        StringAssert.Contains(errors[0], string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, "Helpers"));
     }
 
     // a standard module Helpers, and Mod2's Enums named like it and like the module Program.
@@ -154,7 +154,7 @@ public sealed class DeclaredTypeErrorTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], HelpersAndItsNamesake, Program("Public Sub Work()", "Dim h As Helpers", "End Sub"));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, "Helpers"));
+        StringAssert.Contains(errors[0], string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeIsAProceduralModule_Verbose, "Helpers"));
     }
 
     [TestMethod]
@@ -163,7 +163,7 @@ public sealed class DeclaredTypeErrorTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([("Widget", ModuleWorkspace.ClassModule("Widget", "Public Event Changed(ByVal s As Strings)"))], Program());
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, "Strings"));
+        StringAssert.Contains(errors[0], string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeIsALibraryModule_Verbose, "Strings"));
     }
 
     [TestMethod]
@@ -173,7 +173,7 @@ public sealed class DeclaredTypeErrorTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program("Public Sub Work()", "Dim o As Object", "Set o = New Strings", "End Sub"));
 
         Assert.HasCount(1, errors, string.Join("; ", errors));
-        StringAssert.Contains(errors[0], $"{RDCore.SDK.Exceptions.VBCompileError_TypeMismatch}: 'Strings' does not reference an instantiable class");
+        StringAssert.Contains(errors[0], $"{RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_TypeMismatch}: 'Strings' does not reference an instantiable class");
     }
 
     private static string Running(string[] declarations, params string[] main)

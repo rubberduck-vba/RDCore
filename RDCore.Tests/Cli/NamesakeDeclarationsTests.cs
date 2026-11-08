@@ -73,7 +73,7 @@ public sealed class NamesakeDeclarationsTests
         // E17: F.One is F called with no argument, which its parameter is not optional for.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(EnumF, FunctionF, "    Debug.Print F.One"));
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ArgumentNotOptional);
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ArgumentNotOptional);
     }
 
     [TestMethod]
@@ -92,7 +92,7 @@ public sealed class NamesakeDeclarationsTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(declarations, string.Empty, main));
 
         Assert.HasCount(main.Split("\r\n").Length, errors, string.Join(" | ", errors));
-        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
     }
 
     [TestMethod]
@@ -104,7 +104,7 @@ public sealed class NamesakeDeclarationsTests
         var errors = await LoadErrorsAsync(sink);
 
         Assert.HasCount(2, errors);
-        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
     }
 
     // Program, and Second, and Globals when it has `globals`: the names of Second and Globals seen from Program (oracle\s66).
@@ -131,7 +131,7 @@ public sealed class NamesakeDeclarationsTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules($"{EnumV}\r\nPublic V As Long"), StandardProgram(string.Empty, string.Empty, main));
 
         Assert.HasCount(main.Split("\r\n").Length, errors, string.Join(" | ", errors));
-        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
     }
 
     [TestMethod]
@@ -140,7 +140,7 @@ public sealed class NamesakeDeclarationsTests
         // s66 X08
         var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules($"{EnumF}\r\n{FunctionFOfNoArgument}"), StandardProgram(string.Empty, string.Empty, "    Debug.Print F.One"));
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]
@@ -152,7 +152,7 @@ public sealed class NamesakeDeclarationsTests
     {
         var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules(second, globals), StandardProgram(string.Empty, string.Empty, main));
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_AmbiguousName.Split('{')[0].TrimEnd());
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_AmbiguousName.Split('{')[0].TrimEnd());
     }
 
     [TestMethod]
@@ -165,7 +165,7 @@ public sealed class NamesakeDeclarationsTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], OtherModules(second), StandardProgram(string.Empty, string.Empty, "    Debug.Print X"));
 
         Assert.HasCount(2, errors, string.Join(" | ", errors));
-        Assert.IsTrue(errors.All(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
+        Assert.IsTrue(errors.All(error => error.Contains(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpectedVariableOrProcedureNotEnumType)), string.Join(" | ", errors));
     }
 
     [TestMethod]
@@ -174,7 +174,7 @@ public sealed class NamesakeDeclarationsTests
         // E24: F takes no argument, and F.One is a member of the Long it returns.
         var errors = await ModuleWorkspace.LoadErrorsAsync([], StandardProgram(EnumF, "Public Function F() As Long\r\n    F = 7\r\nEnd Function", "    Debug.Print F.One"));
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]
@@ -190,7 +190,7 @@ public sealed class NamesakeDeclarationsTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([("Sink", ModuleWorkspace.ClassModule("Sink", ["Option Explicit", .. PlayerType]))],
             Program("    Dim t As PlayerType\r\n    t = PlayerType.ComputerControlled"));
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]
@@ -200,7 +200,7 @@ public sealed class NamesakeDeclarationsTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([("Sink", ModuleWorkspace.ClassModule("Sink", ["Option Explicit", .. PlayerType]))],
             Program("    Debug.Print s.PlayerType.ComputerControlled"));
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]
@@ -209,7 +209,7 @@ public sealed class NamesakeDeclarationsTests
         // E02: in the Get, PlayerType is the Get's result, a value of the Enum, which has no members.
         string[] sink = [.. PlayerType[..4], "Public Property Get PlayerType() As PlayerType", "    PlayerType = PlayerType.ComputerControlled", "End Property"];
 
-        StringAssert.Contains(Assert.ContainsSingle(await LoadErrorsAsync(sink)), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+        StringAssert.Contains(Assert.ContainsSingle(await LoadErrorsAsync(sink)), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]
@@ -223,7 +223,7 @@ public sealed class NamesakeDeclarationsTests
         // E04: in a value, the name is the Get, and not the Enum, wherever it is written in the module.
         string[] sink = [.. PlayerType, "Public Function Other() As Long", "    Other = PlayerType.ComputerControlled", "End Function"];
 
-        StringAssert.Contains(Assert.ContainsSingle(await LoadErrorsAsync(sink)), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+        StringAssert.Contains(Assert.ContainsSingle(await LoadErrorsAsync(sink)), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]

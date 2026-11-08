@@ -180,7 +180,7 @@ public sealed class ExpressionPastTheLimitTests
 
         var errors = await ModuleWorkspace.LoadErrorsWithSyntaxErrorsAsync(program);
 
-        StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
+        StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
     }
 
     // what the parse hands on is no deeper than the limit, whatever it is: the module as pruned, or what is salvaged of it when the prune fails (a holder it
@@ -309,7 +309,7 @@ public sealed class ExpressionPastTheLimitTests
 
         var errors = await ModuleWorkspace.LoadErrorsWithSyntaxErrorsAsync(program);
 
-        StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
+        StringAssert.StartsWith(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpressionNestedTooDeeply, string.Join(" | ", errors));
     }
 
     // what is kept as text is no code: a run of the module is refused before any of it runs, with the error the parser reported.
@@ -329,7 +329,7 @@ public sealed class ExpressionPastTheLimitTests
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
         Assert.IsEmpty(result.Output);
-        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), RDCore.SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply);
+        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ExpressionNestedTooDeeply);
     }
 
     // the static pass recurses once for each level of an expression: what is left of the tree fits the stack of a large-stack thread, which 40,000 levels did not.

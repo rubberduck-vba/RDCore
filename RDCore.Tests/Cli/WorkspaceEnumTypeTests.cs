@@ -84,7 +84,7 @@ public sealed class WorkspaceEnumTypeTests
         // an Enum, oracle\s64 E02).
         var errors = await LoadErrorsAsync([], Program(Colour, "Dim c As Colour", "Debug.Print c.cRed"));
 
-        StringAssert.Contains(errors.Single(), RDCore.SDK.Exceptions.VBCompileError_InvalidQualifier);
+        StringAssert.Contains(errors.Single(), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidQualifier);
     }
 
     [TestMethod]

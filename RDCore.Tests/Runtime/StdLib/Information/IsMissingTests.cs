@@ -132,7 +132,7 @@ public sealed class IsMissingTests
         var errors = await RDCore.Tests.Cli.ModuleWorkspace.LoadErrorsAsync([],
             "Attribute VB_Name = \"Program\"\r\nPrivate Sub Outer(ParamArray p() As Variant)\r\n    Inner p\r\nEnd Sub\r\nPrivate Sub Inner(ByRef a As Variant)\r\nEnd Sub\r\n");
 
-        StringAssert.Contains(Assert.ContainsSingle(errors), SDK.Exceptions.VBCompileError_InvalidParamArrayUse);
+        StringAssert.Contains(Assert.ContainsSingle(errors), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidParamArrayUse);
     }
 
     // a variable declared as a Variant array is passed to IsMissing by reference, as the array it is, and MS-VBA does not read an empty one as missing.
