@@ -172,4 +172,70 @@ public sealed class StackTraceLocationTests
             CollectionAssert.AreEqual(new[] { $"Main@5:{result.ErrorCharacter}" }, Frames(result), engine.ToString());
         }
     }
+
+    // an object whose Class_Terminate raises an error and prints the trace of it.
+    private static readonly (string Name, string Source)[] Raising =
+    [
+        ("Raising", ModuleWorkspace.ClassModule("Raising",
+            "Private Sub Class_Terminate()",
+            "    On Error GoTo Handler",
+            "    Err.Raise 5",
+            "    Exit Sub",
+            "Handler:",
+            "    Debug.Print Err.StackTrace",
+            "End Sub")),
+    ];
+
+    // an object let go of where the activation that holds it ends, or leaves the For Each that held it: the activation is located where it then is - at its
+    // Exit Sub, nowhere past the end of its body, at the statement after the loop, which its Next or its Exit For leads to - and not at the last call it made.
+    [TestMethod]
+    public async Task AnActivationThatLetsGoOfAnObjectWhoseTerminateRaises_IsLocatedWhereItLetsGoOfIt()
+    {
+        var program = CompiledDirectCallTests.Program(
+            "Public Sub Main()",
+            "    Ends 0",
+            "    Ends 1",
+            "    Loops 0",
+            "    Loops 1",
+            "End Sub",
+            "Private Sub Ends(ByVal early As Long)",
+            "    Dim n As Long",
+            "    Dim o As Raising",
+            "    Set o = New Raising",
+            "    n = Twice(early)",
+            "    If early = 1 Then Exit Sub",
+            "    n = n + 1",
+            "End Sub",
+            "Private Sub Loops(ByVal leave As Long)",
+            "    Dim n As Long, v As Variant",
+            "    For Each v In Made()",
+            "        Set v = Nothing",
+            "        n = Twice(1)",
+            "        If leave = 1 Then Exit For",
+            "    Next",
+            "    n = n + 1",
+            "End Sub",
+            "Private Function Made() As Collection",
+            "    Set Made = New Collection",
+            "    Made.Add New Raising",
+            "End Function",
+            "Private Function Twice(ByVal x As Long) As Long",
+            "    Twice = x * 2",
+            "End Function");
+
+        foreach (var (engine, result) in await RunAsync(program, Raising, "Ends", "Loops"))
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, $"{engine}: {result.ErrorMessage}");
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "  at Class_Terminate (8:5)", "  at Ends", "  at Main (2:5)",
+                    "  at Class_Terminate (8:5)", "  at Ends (12:23)", "  at Main (3:5)",
+                    "  at Class_Terminate (8:5)", "  at Loops (22:5)", "  at Main (4:5)",
+                    "  at Class_Terminate (8:5)", "  at Loops (22:5)", "  at Main (5:5)",
+                },
+                string.Join("\r\n", result.Output).Split("\r\n"),
+                $"{engine}: {string.Join(" / ", result.Output.Select(line => line.Replace("\r\n", " + ")))}");
+        }
+    }
 }

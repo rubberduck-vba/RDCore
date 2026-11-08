@@ -1334,8 +1334,10 @@ public sealed partial class CompiledActivation : ILightActivation
             return;
         }
 
+        // the frame says the activation is at pc, as the interpreter's does when it lets go of them: a Class_Terminate that runs of one sees it there.
         foreach (var holder in frame.TakeBlockHoldersOutside(pc))
         {
+            frame.Pc = pc;
             ObjectReferences.Release(_session, holder);
         }
     }
@@ -1455,9 +1457,14 @@ public sealed partial class CompiledActivation : ILightActivation
     // offsets as the one compiled code was compiled from (CallStackFrame.TryRebase).
     private InstructionList Body => _frame?.Body ?? _list;
 
-    /// <summary>What an activation that reached its end, or an <c>Exit</c>, returns.</summary>
-    public RuntimeExecutionOutcome Return()
+    /// <summary>
+    /// What an activation that reached its end, or an <c>Exit</c>, returns. The frame says the activation is at <paramref name="pc"/>, the <c>Exit</c> or the
+    /// end of the body, as the frame of an activation the interpreter runs says when it returns: what lets go of its locals then, and a <c>Class_Terminate</c>
+    /// that runs of it, sees it there, and not at the last call it made.
+    /// </summary>
+    public RuntimeExecutionOutcome Return(int pc)
     {
+        SetPc(pc);
         if (_frame is { } frame)
         {
             frame.RunsCompiled = false;

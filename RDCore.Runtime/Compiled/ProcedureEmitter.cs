@@ -230,7 +230,7 @@ internal sealed partial class ProcedureEmitter
 
         // the end of the body (MS-VBAL §5.4.2.17): as an Exit.
         _il.MarkLabel(_instructions[_analysis.Length]);
-        EmitExit();
+        EmitExit(_analysis.Length);
 
         // a call that fails in a body with an error handler recovers at it (RecoverAt): its label is emitted with the failures, after it.
         EmitFailedCalls();
@@ -374,8 +374,8 @@ internal sealed partial class ProcedureEmitter
                 EmitForNext(next);
                 break;
 
-            case ExitStep:
-                EmitExit();
+            case ExitStep exit:
+                EmitExit(exit.Offset);
                 break;
 
             case CallStep call:
@@ -1136,7 +1136,8 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    private void EmitExit()
+    // the Exit at offset, or the end of the body at its length.
+    private void EmitExit(int offset)
     {
         if (_result is { } result)
         {
@@ -1148,6 +1149,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
         _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Return))!);
         _il.Emit(OpCodes.Ret);
     }
