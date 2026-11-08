@@ -1,3 +1,5 @@
+using RDCore.SDK.Model.Errors;
+
 namespace RDCore.SDK.Platform.Protocol;
 
 /// <summary>
@@ -152,6 +154,15 @@ public record class ExecuteResult
     /// reports. Empty for any other outcome.
     /// </summary>
     public IReadOnlyList<ExecuteStackFrame> StackTrace { get; init; } = [];
+
+    /// <summary>
+    /// What the runtime was doing when it raised the run-time error, as it recorded it: the expression, and the frames of the operation that failed. The client
+    /// formats them its own way. <see langword="null"/> for any other outcome, and for an error the runtime recorded no details of.
+    /// </summary>
+    /// <remarks>
+    /// The location of the expression is in the source the runtime ran, as every position of the error is.
+    /// </remarks>
+    public VBErrorDetails? ErrorDetails { get; init; }
 }
 
 /// <summary>
