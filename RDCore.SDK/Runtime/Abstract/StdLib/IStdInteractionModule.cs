@@ -301,7 +301,7 @@ public interface IStdInteractionModule
     /// <item>The expressions are <strong>evaluated left to right</strong>;</item>
     /// <item>The <em>first element</em> (at index <c>n+0</c>) in the <c>n</c><sup>th</sup> pair of values is the <strong>expression to be evaluated</strong>;</item>
     /// <item>The <em>second element</em> (at index <c>n+1</c>) in the <c>n</c><sup>th</sup> pair of values is the associated <strong>value to return</strong> if the first element evaluates to <c>True</c>;</item>
-    /// <item>💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) if the expressions aren't properly paired.</item>
+    /// <item>💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) if the expressions are not properly paired.</item>
     /// </list>
     /// <br/><br/>
     /// 👉 There seems to be a 🧩<c>VBDeferredValue</c> <em>language core extension</em> opportunity here, too. See: <see cref="IIf"/>

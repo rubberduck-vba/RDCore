@@ -389,7 +389,7 @@ public interface IFileChannels
     /// <summary>
     /// The current directory of a drive (<c>CurDir</c>, <strong>MS-VBAL §6.1.2.5.1.1</strong>).
     /// </summary>
-    /// <param name="drive">The drive, its first letter being what counts; <see langword="null"/> or empty for the current drive.</param>
+    /// <param name="drive">The drive, of which only the first letter is read; <see langword="null"/> or empty for the current drive.</param>
     /// <param name="path">The directory.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>68</c> for a letter that is no drive, <c>5</c> for a drive that is no letter.</returns>
     Extensibility.Diagnostics.RDCoreDiagnosticCode? TryGetCurrentDirectory(string? drive, out string path);
@@ -404,7 +404,7 @@ public interface IFileChannels
     /// <summary>
     /// Changes the current drive (<c>ChDrive</c>, <strong>MS-VBAL §6.1.2.5.2.2</strong>): an empty one changes nothing.
     /// </summary>
-    /// <param name="drive">The drive, its first letter being what counts.</param>
+    /// <param name="drive">The drive, of which only the first letter is read.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>68</c> for a letter that is no drive, <c>5</c> for a drive that is no letter.</returns>
     Extensibility.Diagnostics.RDCoreDiagnosticCode? TryChangeDrive(string drive);
 
