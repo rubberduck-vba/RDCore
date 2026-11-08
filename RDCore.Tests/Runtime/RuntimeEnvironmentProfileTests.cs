@@ -119,7 +119,7 @@ public sealed class RuntimeEnvironmentProfileTests
         // every property of the interface, each a value a profile does not have unless it is given it, behind something that is no RuntimeEnvironmentProfile:
         // a property added to the interface and not to Of differs here, and one added without a value here fails the first assertion.
         var source = new RuntimeEnvironmentProfile(false, 1036, 1250, true, OptionCompare.Binary, VBErlLineNumbering.DocumentLine + 1, false,
-            SDK.Workspace.SupportedLanguages.BASIC, false, true, RegionalSettings.Default with { DecimalSymbol = "," }, VBExecutionEngine.Compiled,
+            SDK.Workspace.SupportedLanguages.BASIC, false, true, RegionalSettings.Default with { DecimalSymbol = "," }, VBExecutionEngine.Interpreter,
             VBBuildConfiguration.Release, true, VBErlAfterErrClear.Kept);
         var baseline = new RuntimeEnvironmentProfile(true, 0, 1252, false);
         var other = System.Reflection.DispatchProxy.Create<IRuntimeEnvironmentProfile, Forwarding>();
