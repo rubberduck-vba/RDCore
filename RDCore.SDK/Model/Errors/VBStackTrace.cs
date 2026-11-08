@@ -8,9 +8,9 @@ namespace RDCore.SDK.Model.Errors;
 /// </summary>
 /// <param name="ProcedureName">The name of the procedure the activation is of.</param>
 /// <param name="Location">
-/// Where in that procedure execution stood, when it is known. Known for the activation the error was
-/// raised in (that is the faulting statement), and not for its callers, whose activation records do
-/// not carry the location of the call they are suspended at.
+/// Where in that procedure execution stood, when it is known. For the activation the error was raised
+/// in, it is the faulting statement or expression. For each of its callers, it is the statement the
+/// caller was suspended at: the one that made the call.
 /// </param>
 /// <param name="GoSubs">
 /// Where the <c>GoSub</c> statements the activation had not <c>Return</c>ed from were, innermost first: how it got to where it was, within the procedure. It is the
@@ -19,8 +19,8 @@ namespace RDCore.SDK.Model.Errors;
 public readonly record struct VBStackTraceFrame(string ProcedureName, SourceLocation? Location, ImmutableArray<SourceLocation> GoSubs = default)
 {
     /// <summary>
-    /// The frame as one line: the procedure's name, and the 1-based line and column of the faulting
-    /// statement when that is known, then the <c>GoSub</c> statements it came from.
+    /// The frame as one line: the procedure's name, and the 1-based line and column of its
+    /// <see cref="Location"/> when that is known, then the <c>GoSub</c> statements it came from.
     /// </summary>
     public override string ToString()
     {

@@ -74,6 +74,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public InstructionList? Body { get; set; }
 
     /// <summary>
+    /// Where the activation stands in its body: the location of the instruction at <see cref="Pc"/>, which is the statement it runs, or the call it is suspended
+    /// at while a procedure it called runs. <see langword="null"/> when <see cref="Pc"/> is past the end of the body, and for an activation that has none.
+    /// </summary>
+    public SourceLocation? CurrentLocation => Body is { } body && Pc >= 0 && Pc < body.Items.Length ? body.Items[Pc].Location : null;
+
+    /// <summary>
     /// The offset the program waited before, and is resumed at: a breakpoint there is not waited at again, once.
     /// </summary>
     public int WaitedAt { get; set; } = -1;
