@@ -143,6 +143,56 @@ public sealed class RDCorePlatformJsonWireTests
         var apply = new RubberduckIndenterSettingsApplyParams { Source = RubberduckIndenterSettingsSource.RubberduckConfig, Settings = new() { ["Formatting.IndentSpaces"] = "2" } };
         yield return (apply, new RubberduckIndenterSettingsApplyRequest(apply));
         yield return Same(new RubberduckIndenterSettingsApplyResult { Applied = 1, Refused = ["Formatting.Nope"] });
+
+        yield return Same(new RefactorPrepareParams { Kind = "refactor.extract.method", Uri = Module, Range = Range });
+        yield return Same(new RefactorPrepareResult
+        {
+            Choices =
+            [
+                new RefactorChoice { Id = "name", Kind = RefactorChoiceKind.Name, Label = "Name", Default = "NewMethod" },
+                new RefactorChoice
+                {
+                    Id = "access", Kind = RefactorChoiceKind.Option, Label = "Access", Description = "Who can call it", Default = "Private",
+                    Options = [new RefactorOption { Value = "Private", Label = "Private", Description = "This module" }],
+                },
+                new RefactorChoice
+                {
+                    Id = "parameters", Kind = RefactorChoiceKind.List, Label = "Parameters", CanReorder = true,
+                    Items =
+                    [
+                        new RefactorItem
+                        {
+                            Id = "total", Label = "ByRef total As Long", Reason = "The selection assigns it",
+                            Choices = [new RefactorChoice { Id = "byRef", Kind = RefactorChoiceKind.Flag, Label = "ByRef", Default = "true" }],
+                        },
+                    ],
+                },
+            ],
+            Notices =
+            [
+                new RefactorNotice
+                {
+                    Code = "extractMethod.writeBack", Kind = RefactorNoticeKind.Change, Message = "m",
+                    Location = new SourceLocation(Module, Range), Related = new SourceLocation(Module, Range),
+                },
+            ],
+        });
+        yield return Same(new RefactorApplyParams
+        {
+            Kind = "refactor.extract.method", Uri = Module, Range = Range,
+            Answers =
+            [
+                new RefactorAnswer { Id = "name", Value = "Total" },
+                new RefactorAnswer { Id = "parameters", Items = [new RefactorItemAnswer { Id = "total", Answers = [new RefactorAnswer { Id = "byRef", Value = "false" }] }] },
+            ],
+            Accepted = ["extractMethod.writeBack"],
+        });
+        yield return Same(new RefactorWorkspaceEdit
+        {
+            Created = [new Uri("file:///c:/workspace/IShape.cls")],
+            Documents = [new RefactorDocumentEdit { Uri = Module, Version = 3, Edits = [new RefactorTextEdit { Range = Range, NewText = "Total = Sum(total)" }] }],
+        });
+        yield return Same(new Refactoring(true));
     }
 
     /// <summary>
@@ -185,8 +235,8 @@ public sealed class RDCorePlatformJsonWireTests
         ("DebugStackResult", """{"frames":[{"id":1,"procedure":"Main","module":"Module1","line":2,"character":3,"handler":"ErrHandler","returnLines":[4]},{"id":2,"procedure":"Other","module":"Module1","line":5,"character":6,"handler":null,"returnLines":[]}]}"""),
         ("DebugVariablesResult", """{"variables":[{"name":"i","value":"1","type":"Integer","reference":0},{"name":"o","value":"Object","type":"Class1","reference":3}],"notListed":2}"""),
         ("DebugEvaluateResult", """{"success":true,"value":"2","type":"Integer","reference":1,"error":"none","output":["x"],"endedTheProgram":true}"""),
-        ("PlatformInitializeParams", """{"expectedComponent":1,"expected":{"parsing":{"parseFullDocument":{"isSupported":true},"parseTokens":{"isSupported":false}},"environmentHost":{"defineSymbols":{"isSupported":true},"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":false},"sessionDiscard":{"isSupported":false},"projectReload":{"isSupported":false},"programDebugging":{"isSupported":false},"semanticAnalysis":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false}},"languageServer":{"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":true},"programDebugging":{"isSupported":false},"sessionDiscard":{"isSupported":false},"sessionAnalyze":{"isSupported":false},"sessionCompletion":{"isSupported":false},"sessionSignatureHelp":{"isSupported":false},"sessionSemanticTokens":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false},"sessionInteraction":{"isSupported":true},"unattended":{"isSupported":true},"rubberduckIndenterSettings":{"isSupported":false}}}}"""),
-        ("PlatformInitializeParams", """{"expectedComponent":1,"expected":{"languageServer":{"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":false},"programDebugging":{"isSupported":false},"sessionDiscard":{"isSupported":false},"sessionAnalyze":{"isSupported":false},"sessionCompletion":{"isSupported":false},"sessionSignatureHelp":{"isSupported":false},"sessionSemanticTokens":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false},"sessionInteraction":{"isSupported":false},"unattended":{"isSupported":false},"rubberduckIndenterSettings":{"isSupported":false}}}}"""),
+        ("PlatformInitializeParams", """{"expectedComponent":1,"expected":{"parsing":{"parseFullDocument":{"isSupported":true},"parseTokens":{"isSupported":false}},"environmentHost":{"defineSymbols":{"isSupported":true},"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":false},"sessionDiscard":{"isSupported":false},"projectReload":{"isSupported":false},"programDebugging":{"isSupported":false},"semanticAnalysis":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false}},"languageServer":{"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":true},"programDebugging":{"isSupported":false},"sessionDiscard":{"isSupported":false},"sessionAnalyze":{"isSupported":false},"sessionCompletion":{"isSupported":false},"sessionSignatureHelp":{"isSupported":false},"sessionSemanticTokens":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false},"sessionInteraction":{"isSupported":true},"unattended":{"isSupported":true},"rubberduckIndenterSettings":{"isSupported":false},"refactoring":{"isSupported":false}}}}"""),
+        ("PlatformInitializeParams", """{"expectedComponent":1,"expected":{"languageServer":{"sessionStatus":{"isSupported":false},"sessionExecute":{"isSupported":false},"programDebugging":{"isSupported":false},"sessionDiscard":{"isSupported":false},"sessionAnalyze":{"isSupported":false},"sessionCompletion":{"isSupported":false},"sessionSignatureHelp":{"isSupported":false},"sessionSemanticTokens":{"isSupported":false},"sessionMemoryAccess":{"isSupported":false},"sessionInteraction":{"isSupported":false},"unattended":{"isSupported":false},"rubberduckIndenterSettings":{"isSupported":false},"refactoring":{"isSupported":false}}}}"""),
         ("PlatformInitializeResult", """{"component":1,"provided":["SessionExecute","SessionStatus"]}"""),
         ("DiagnoseDocument", """{"isSupported":true}"""),
         ("CliCommand", """{"isSupported":true}"""),
@@ -196,6 +246,11 @@ public sealed class RDCorePlatformJsonWireTests
         ("RubberduckIndenterSettingsResult", """{"source":"SmartIndenterRegistry","values":{"IndentProc":"Y","AlignDimCol":15},"tabWidth":4}"""),
         ("RubberduckIndenterSettingsApplyParams", """{"source":"RubberduckConfig","settings":{"Formatting.IndentSpaces":"2"}}"""),
         ("RubberduckIndenterSettingsApplyResult", """{"applied":1,"refused":["Formatting.Nope"]}"""),
+        ("RefactorPrepareParams", """{"kind":"refactor.extract.method","uri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false}}"""),
+        ("RefactorPrepareResult", """{"choices":[{"id":"name","kind":0,"label":"Name","description":null,"default":"NewMethod","options":[],"items":[],"canReorder":false},{"id":"access","kind":1,"label":"Access","description":"Who can call it","default":"Private","options":[{"value":"Private","label":"Private","description":"This module"}],"items":[],"canReorder":false},{"id":"parameters","kind":3,"label":"Parameters","description":null,"default":null,"options":[],"items":[{"id":"total","label":"ByRef total As Long","reason":"The selection assigns it","choices":[{"id":"byRef","kind":2,"label":"ByRef","description":null,"default":"true","options":[],"items":[],"canReorder":false}]}],"canReorder":true}],"notices":[{"code":"extractMethod.writeBack","kind":1,"message":"m","location":{"uri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false}},"related":{"uri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false}}}]}"""),
+        ("RefactorApplyParams", """{"kind":"refactor.extract.method","uri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false},"answers":[{"id":"name","value":"Total","items":[]},{"id":"parameters","value":null,"items":[{"id":"total","answers":[{"id":"byRef","value":"false","items":[]}]}]}],"accepted":["extractMethod.writeBack"]}"""),
+        ("RefactorWorkspaceEdit", """{"created":["file:///c:/workspace/IShape.cls"],"documents":[{"uri":"file:///c:/workspace/Module1.bas","version":3,"edits":[{"range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false},"newText":"Total = Sum(total)"}]}]}"""),
+        ("Refactoring", """{"isSupported":true}"""),
     ];
 
     private static IEnumerable<OmniSharpSerializer> PlatformSerializers() => [new LspSerializer(), new PullDiagnosticsLspSerializer()];
@@ -294,6 +349,8 @@ public sealed class RDCorePlatformJsonWireTests
         ("SessionCommands", "rdcore/session/commands"),
         ("SessionPeek", "rdcore/session/memory/peek"),
         ("SessionPoke", "rdcore/session/memory/poke"),
+        ("RefactorPrepare", "rdcore/refactor/prepare"),
+        ("RefactorApply", "rdcore/refactor/apply"),
     ];
 
     [TestMethod]
