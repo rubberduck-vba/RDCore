@@ -408,9 +408,14 @@ A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's n
 
 - An object may hold any class, unless something knows them all. An access on it is proposed.
 - The code knows them all for a local or a `Private` variable of the module, when every `Set` of it names its class (`New Class1`, a variable or a function `As Class1`, `Me`, `CreateObject` of a class the project resolves, `Nothing`), and the variable is never the variable of a `For Each` loop or a whole argument of a call. An access on it is proposed only when one of those classes is the symbol's.
-- **Extension point:** what else knows the classes (a runtime, an extension) can say so too ([`IPossibleClassesSource`](../api/RDCore.SDK.Semantics.Static.IPossibleClassesSource.html)).
+- **Extension point:** what else knows the classes (an extension) can say so too ([`IPossibleClassesSource`](../api/RDCore.SDK.Semantics.Static.IPossibleClassesSource.html)).
 
-A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`, once for the strings and once for the late-bound accesses. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is not asked about the late-bound accesses: it is sent the rest of the rename, without their edits.
+> [!NOTE]
+> **Not implemented.** The classes an environment-host session saw the object hold while it ran are not a source.
+
+An access on an object whose known classes include the symbol's class is backed by what is known, and labeled so (`Late-bound: the object holds a Class1`). Any other access that is proposed is only possible (`Late-bound: the object may hold a Class1`). Each kind is confirmed on its own.
+
+A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: once for the strings, once for the backed late-bound accesses, and once for the possible ones. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is not asked about the late-bound accesses: it is sent the rest of the rename, without their edits.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 

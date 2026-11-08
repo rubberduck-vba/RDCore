@@ -522,15 +522,16 @@ public sealed class SymbolRenameTests
         "End Sub");
 
     // which member a late-bound access calls is only known when the code runs: where the object may be of the renamed member's class, the access is renamed,
-    // and its edit says so, for the user to confirm.
+    // and its edit says so, for the user to confirm, and whether what the code says of the object backs the member.
     [TestMethod]
-    [DataRow("Public Sub Bar(ByVal o As Object)", "", DisplayName = "a parameter, which the callers assign")]
-    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class1", DisplayName = "a local Set to the class")]
-    [DataRow("Public Sub Bar()", "    Dim o As Variant|    Set o = New Class2|    Set o = New Class1", DisplayName = "a Variant Set to either class")]
-    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = Make()", DisplayName = "a local Set to an Object a function returns")]
-    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class2|    Take o", DisplayName = "a local given to a call, which may Set it")]
-    [DataRow("Public Sub Bar(ByVal items As Collection)", "    Dim o As Object|    For Each o In items|    Next", DisplayName = "the variable of a For Each loop")]
-    public void ALateBoundAccess_OfAnObjectThatMayBeOfTheClass_IsRenamed_AsAnEditToConfirm(string header, string assigned)
+    [DataRow("Public Sub Bar(ByVal o As Object)", "", false, DisplayName = "a parameter, which the callers assign")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class1", true, DisplayName = "a local Set to the class")]
+    [DataRow("Public Sub Bar()", "    Dim o As Variant|    Set o = New Class2|    Set o = New Class1", true, DisplayName = "a Variant Set to either class")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = Make()", false, DisplayName = "a local Set to an Object a function returns")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class2|    Take o", false, DisplayName = "a local given to a call, which may Set it")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class1|    Take o", true, DisplayName = "a local Set to the class, given to a call")]
+    [DataRow("Public Sub Bar(ByVal items As Collection)", "    Dim o As Object|    For Each o In items|    Next", false, DisplayName = "the variable of a For Each loop")]
+    public void ALateBoundAccess_OfAnObjectThatMayBeOfTheClass_IsRenamed_AsAnEditToConfirm(string header, string assigned, bool isBacked)
     {
         var context = Compose(("Class1", Class1), ("Class2", Class2), ("Main", Module("Main",
             [
@@ -553,6 +554,7 @@ public sealed class SymbolRenameTests
         var lateBound = plan.Edits.Where(edit => edit.IsLateBound).ToList();
         Assert.HasCount(2, lateBound, "the access after a '.', and the one in the With block");
         Assert.IsTrue(lateBound.All(edit => SymbolUri.ModuleNameOf(edit.Module) == "Main" && !edit.IsInString));
+        Assert.IsTrue(lateBound.All(edit => edit.IsBacked == isBacked), isBacked ? "the code says the object holds a Class1" : "nothing says what it holds");
         StringAssert.Contains(Renamed(context, plan, "Main"), "    o.Amount = \"x\"");
         StringAssert.Contains(Renamed(context, plan, "Main"), "        Debug.Print .Amount");
         Assert.IsFalse(plan.Edits.Any(edit => SymbolUri.ModuleNameOf(edit.Module) == "Class2"), "Class2's own Value is another member");
@@ -611,13 +613,17 @@ public sealed class SymbolRenameTests
             "    o.Value = \"x\"",
             "End Sub")));
         var class2 = context.Resolver.ResolveType("Class2", RDCore.SDK.Model.Symbols.Abstract.ScopeKind.Local, ModuleUri("Main")).Symbol!.SemanticId;
+        var class1 = context.Resolver.ResolveType("Class1", RDCore.SDK.Model.Symbols.Abstract.ScopeKind.Local, ModuleUri("Main")).Symbol!.SemanticId;
         var known = context with { ClassSources = [new KnownClasses(new PossibleClasses([class2], IsComplete: true))] };
+        var seen = context with { ClassSources = [new KnownClasses(new PossibleClasses([class1], IsComplete: false))] };
 
         var open = Rename(context, "Class1", "Public Property Get Value", "Value", "Amount");
         var closed = Rename(known, "Class1", "Public Property Get Value", "Value", "Amount");
+        var backed = Rename(seen, "Class1", "Public Property Get Value", "Value", "Amount");
 
-        Assert.AreEqual(1, open.Edits.Count(edit => edit.IsLateBound), "the parameter may be of any class");
+        Assert.AreEqual(1, open.Edits.Count(edit => edit.IsLateBound && !edit.IsBacked), "the parameter may be of any class");
         Assert.IsFalse(closed.Edits.Any(edit => edit.IsLateBound), "the source rules Class1 out");
+        Assert.AreEqual(1, backed.Edits.Count(edit => edit.IsLateBound && edit.IsBacked), "the source says the parameter holds a Class1, among others");
     }
 
     // a source that knows the classes of every expression it is asked about.

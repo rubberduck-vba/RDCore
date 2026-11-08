@@ -20,8 +20,9 @@ namespace RDCore.LanguageServer.Refactoring;
 /// </para>
 /// <para>
 /// The edits of the strings a library calls the symbol by (<see cref="RenameWorkspace.InString"/>), and of the members accessed late-bound that may be the
-/// symbol (<see cref="RenameWorkspace.LateBound"/>), are the user's to confirm: a client that takes change annotations asks them itself; any other is asked
-/// for them (<c>window/showMessageRequest</c>), one question for each, before it is answered: with those edits, without them, or nothing at all when the user
+/// symbol (<see cref="RenameWorkspace.LateBoundBacked"/>, <see cref="RenameWorkspace.LateBound"/>), are the user's to confirm: a client that takes change
+/// annotations asks them itself; any other is asked for them (<c>window/showMessageRequest</c>), one question for each annotation, before it is answered:
+/// with those edits, without them, or nothing at all when the user
 /// does not choose.
 /// </para>
 /// <para>
@@ -40,7 +41,7 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
         foreach (var question in answer.Questions ?? [])
         {
             // a late-bound access that no user can confirm is not renamed: which member it calls is only known when the code runs.
-            if (question.Annotation == RenameWorkspace.LateBound && IsUnattended())
+            if (RenameWorkspace.IsLateBound(question.Annotation) && IsUnattended())
             {
                 edit = Without(edit, question.Annotation);
                 continue;

@@ -150,7 +150,12 @@ public sealed record class RenameTarget(string Name, Uri Module, SourceRange Ran
 /// only known when the code runs (<strong>MS-VBAL §5.6.12</strong>), so the user is asked to confirm the edit. An access left as it is no longer finds the
 /// member when the object is of the renamed member's class.
 /// </param>
-public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false);
+/// <param name="IsBacked">
+/// For a late-bound edit (<paramref name="IsLateBound"/>), whether what is known of the object says it may hold an object of the renamed member's class
+/// (<see cref="PossibleClasses.Classes"/>): the member is backed by what is known. One that is not backed is only possible: nothing known rules the class
+/// out.
+/// </param>
+public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false, bool IsBacked = false);
 
 /// <summary>
 /// What a rename would rename, where it was asked for (<see cref="SymbolRename.Prepare"/>): the target, or why there is none.
@@ -186,8 +191,8 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 /// </para>
 /// <para>
 /// A member that code accesses late-bound (on an <c>Object</c> or a <c>Variant</c>) with the name of a member of a class's public interface is renamed, and
-/// its edit says so (<see cref="RenameEdit.IsLateBound"/>), for the user to confirm: which member it is, is only known when the code runs. It is not renamed
-/// where what is known of the object rules the class out (<see cref="PossibleClasses"/>).
+/// its edit says so (<see cref="RenameEdit.IsLateBound"/>), for the user to confirm: which member it is, is only known when the code runs. The edit also
+/// says whether what is known of the object backs the member (<see cref="RenameEdit.IsBacked"/>). It is not renamed where what is known of the object rules the class out (<see cref="PossibleClasses"/>).
 /// </para>
 /// <para>
 /// A string is renamed where a member of a library calls a member of a module by its name in it (<c>CallByName</c>, a host's macro, a control's
@@ -311,7 +316,10 @@ public static class SymbolRename
             }
         }
 
-        var lateBound = old.Occurrences.Where(occurrence => MayBeCalledLateBound(context, symbols, occurrence)).ToList();
+        var lateBound = old.Occurrences
+            .Select(occurrence => (Occurrence: occurrence, Match: LateBoundMatchOf(context, symbols, occurrence)))
+            .Where(site => site.Match != LateBoundMatch.None)
+            .ToList();
         var renamed = old.Occurrences.Where(occurrence => occurrence.Binding is { } binding && targets.Contains(binding)).ToList();
         if (ConflictOf(context, symbols, targets, renamed, newName) is { } conflict)
         {
@@ -327,8 +335,8 @@ public static class SymbolRename
                 .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
                 .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, IsInString: true)))
             .Concat(lateBound
-                .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
-                .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, IsLateBound: true)))
+                .DistinctBy(site => (site.Occurrence.Module.AbsoluteUri, site.Occurrence.Range))
+                .Select(site => new RenameEdit(site.Occurrence.Module, site.Occurrence.Range, newName, IsLateBound: true, IsBacked: site.Match == LateBoundMatch.Backed)))
             .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start);
         return new([.. edits], null);
@@ -348,10 +356,14 @@ public static class SymbolRename
 
     // whether a late-bound access may call one of the symbols: a member of a class that code outside of it can call, on an object that may be of that class.
     internal static bool MayBeCalledLateBound(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence occurrence)
+        => LateBoundMatchOf(context, symbols, occurrence) != LateBoundMatch.None;
+
+    // whether a late-bound access may call one of the symbols, and whether what is known of the object says it may hold the symbol's class.
+    internal static LateBoundMatch LateBoundMatchOf(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence occurrence)
     {
         if (!IsLateBound(occurrence))
         {
-            return false;
+            return LateBoundMatch.None;
         }
 
         var classes = symbols
@@ -360,7 +372,23 @@ public static class SymbolRename
             .OfType<VBClassModuleSymbol>()
             .Select(owner => owner.SemanticId)
             .ToList();
-        return classes.Count > 0 && (PossibleClassesOf(context, occurrence) is not { } possible || classes.Any(possible.MayBe));
+        if (classes.Count == 0)
+        {
+            return LateBoundMatch.None;
+        }
+
+        var possible = PossibleClassesOf(context, occurrence) ?? PossibleClasses.Unknown;
+        return classes.Any(possible.Classes.Contains) ? LateBoundMatch.Backed
+            : classes.Any(possible.MayBe) ? LateBoundMatch.Open
+            : LateBoundMatch.None;
+    }
+
+    // how a late-bound access may call a symbol: not at all, with what is known of the object backing it, or with nothing known that rules it out.
+    internal enum LateBoundMatch
+    {
+        None,
+        Open,
+        Backed,
     }
 
     // what is known of the classes of the object a late-bound member is accessed on: the expression before the '.', or the object of the With block it is in.

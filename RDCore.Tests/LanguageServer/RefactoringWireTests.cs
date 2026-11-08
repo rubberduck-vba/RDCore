@@ -222,19 +222,19 @@ public sealed class RefactoringWireTests
         }
     }
 
-    // a member of a class that may be what a late-bound access calls is renamed there too if the user confirms it, as a string is; a client that can't ask
-    // its user is sent the rest of the rename, and not the late-bound edit.
+    // a member of a class that may be what a late-bound access calls is renamed there too if the user confirms it, as a string is, an access the code backs
+    // apart from one that is only possible; a client that can't ask its user is sent the rest of the rename, and none of the late-bound edits.
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
-    [DataRow("rename", 2, DisplayName = "a client that can't ask, whose user renames the late-bound access too")]
-    [DataRow("leave", 1, DisplayName = "a client that can't ask, whose user leaves it")]
+    [DataRow("rename", 3, DisplayName = "a client that can't ask, whose user renames the late-bound accesses too")]
+    [DataRow("leave", 1, DisplayName = "a client that can't ask, whose user leaves them")]
     [DataRow(null, 0, DisplayName = "a client that can't ask, whose user chooses nothing")]
-    [DataRow("annotations", 2, DisplayName = "a client that takes change annotations")]
+    [DataRow("annotations", 3, DisplayName = "a client that takes change annotations")]
     [DataRow("unattended", 1, DisplayName = "an unattended client, which takes change annotations and has no user to ask")]
     public async Task AMemberAccessedLateBound_IsRenamedThere_AsTheUserConfirms_AndNotWhereNoUserCan(string? answer, int expected)
     {
         const string widget = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Widget\"\r\nPublic Sub Spin()\r\nEnd Sub\r\n";
-        const string main = "Attribute VB_Name = \"Module1\"\r\nPublic Sub Bar(ByVal o As Object)\r\n    o.Spin\r\nEnd Sub\r\n";
+        const string main = "Attribute VB_Name = \"Module1\"\r\nPublic Sub Bar(ByVal o As Object)\r\n    o.Spin\r\n    Dim w As Object\r\n    Set w = New Widget\r\n    w.Spin\r\nEnd Sub\r\n";
         var documents = Substitute.For<IWorkspaceDocumentService>();
         var parsing = Substitute.For<IParsingClientService>();
         documents.WorkspaceRoot.Returns(Root);
@@ -295,7 +295,7 @@ public sealed class RefactoringWireTests
 
         var renamed = await languageClient.SendRequest(new RenameParams { TextDocument = document, Position = new Position(5, 12), NewName = "Turn" }, timeout.Token);
 
-        Assert.HasCount(takesAnnotations ? 0 : 1, asked, "the server asks a client that can't ask its user, and no other");
+        Assert.HasCount(takesAnnotations ? 0 : answer is null ? 1 : 2, asked, "the server asks a client that can't ask its user, once for each annotation, and no other");
         if (expected == 0)
         {
             Assert.IsNull(renamed, "nothing is renamed when the user does not choose");
@@ -308,11 +308,16 @@ public sealed class RefactoringWireTests
         switch (answer)
         {
             case "annotations":
-                var annotated = edits.OfType<AnnotatedTextEdit>().Single();
-                var annotation = renamed.ChangeAnnotations!.Single();
-                Assert.AreEqual(RenameWorkspace.LateBound.Identifier, annotation.Key.Identifier);
-                Assert.AreEqual(annotation.Key.Identifier, annotated.AnnotationId.Identifier, "the edit names the annotation");
-                Assert.IsTrue(annotation.Value.NeedsConfirmation, "the client asks its user");
+                var annotated = edits.OfType<AnnotatedTextEdit>().ToDictionary(edit => edit.Range.Start.Line, edit => edit.AnnotationId.Identifier);
+                Assert.AreEqual(RenameWorkspace.LateBound.Identifier, annotated[2], "nothing says what the parameter holds");
+                Assert.AreEqual(RenameWorkspace.LateBoundBacked.Identifier, annotated[5], "the code says w holds a Widget");
+                var annotations = renamed.ChangeAnnotations!;
+                Assert.HasCount(2, annotations);
+                Assert.IsTrue(annotations.Values.All(annotation => annotation.NeedsConfirmation == true), "the client asks its user");
+                Assert.AreEqual(RefactoringTitles.RenameLateBoundLabel("Widget", isBacked: true),
+                    annotations.Single(annotation => annotation.Key.Identifier == RenameWorkspace.LateBoundBacked.Identifier).Value.Label);
+                Assert.AreEqual(RefactoringTitles.RenameLateBoundLabel("Widget", isBacked: false),
+                    annotations.Single(annotation => annotation.Key.Identifier == RenameWorkspace.LateBound.Identifier).Value.Label);
                 break;
             case "unattended":
                 Assert.IsFalse(edits.Any(edit => edit is AnnotatedTextEdit), "the late-bound edit is not sent");
@@ -320,6 +325,7 @@ public sealed class RefactoringWireTests
                 break;
             default:
                 StringAssert.Contains(asked[0].Message, "Spin");
+                StringAssert.Contains(asked[0].Message, "Widget");
                 Assert.IsFalse(edits.Any(edit => edit is AnnotatedTextEdit), "a client that can't ask is sent no annotation");
                 break;
         }

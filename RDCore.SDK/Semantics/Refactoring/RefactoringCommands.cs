@@ -87,31 +87,40 @@ public static class RefactoringTitles
     public static string RenameInStringLeave(CultureInfo? culture = null) => Say("Rename_InString_Leave", culture);
 
     /// <summary>
-    /// The label of a rename's edits of the members accessed late-bound that may be the symbol (<see cref="RenameEdit.IsLateBound"/>):
-    /// <c>Accessed late-bound</c>. A client that takes change annotations shows it with the edits it asks its user to confirm (<strong>LSP 3.17</strong>
-    /// <c>ChangeAnnotation.label</c>).
+    /// The label of a rename's edits of the members accessed late-bound that may be the symbol (<see cref="RenameEdit.IsLateBound"/>), which a client that
+    /// takes change annotations shows with the edits it asks its user to confirm (<strong>LSP 3.17</strong> <c>ChangeAnnotation.label</c>):
+    /// <c>Late-bound: the object holds a Class1</c> where what is known of the object backs the member (<see cref="RenameEdit.IsBacked"/>),
+    /// <c>Late-bound: the object may hold a Class1</c> where nothing rules it out.
     /// </summary>
+    /// <param name="className">The name of the class the symbol is a member of.</param>
+    /// <param name="isBacked">Whether what is known of the objects backs the member.</param>
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
-    public static string RenameLateBoundLabel(CultureInfo? culture = null) => Say("Rename_LateBound_Label", culture);
+    public static string RenameLateBoundLabel(string className, bool isBacked, CultureInfo? culture = null)
+        => Say(isBacked ? "Rename_LateBound_Backed_Label" : "Rename_LateBound_Label", culture, className);
 
     /// <summary>
     /// What the edits of <see cref="RenameLateBoundLabel"/> are, less prominently than the label (<strong>LSP 3.17</strong> <c>ChangeAnnotation.description</c>):
     /// why the user is asked.
     /// </summary>
     /// <param name="name">The name the symbol is declared with.</param>
+    /// <param name="className">The name of the class the symbol is a member of.</param>
+    /// <param name="isBacked">Whether what is known of the objects backs the member.</param>
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
-    public static string RenameLateBoundDescription(string name, CultureInfo? culture = null) => Say("Rename_LateBound_Description", culture, name);
+    public static string RenameLateBoundDescription(string name, string className, bool isBacked, CultureInfo? culture = null)
+        => Say(isBacked ? "Rename_LateBound_Backed_Description" : "Rename_LateBound_Description", culture, name, className);
 
     /// <summary>
     /// What a client that does not take change annotations asks its user before the rename edits the members accessed late-bound that may be the symbol:
-    /// <c>'Foo' may be accessed late-bound in 2 places, the first at Module1 4:12. Rename it there too?</c>
+    /// <c>'Foo' is accessed late-bound on objects that hold a Class1, in 2 places, the first at Module1 4:12. Rename it there too?</c>
     /// </summary>
     /// <param name="name">The name the symbol is declared with.</param>
+    /// <param name="className">The name of the class the symbol is a member of.</param>
+    /// <param name="isBacked">Whether what is known of the objects backs the member.</param>
     /// <param name="count">How many late-bound accesses the rename edits.</param>
     /// <param name="where">Where the first of them is, as the client names a position.</param>
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
-    public static string RenameLateBoundQuestion(string name, int count, string where, CultureInfo? culture = null)
-        => Say(count == 1 ? "Rename_LateBound_Question_One" : "Rename_LateBound_Question_Many", culture, name, count, where);
+    public static string RenameLateBoundQuestion(string name, string className, bool isBacked, int count, string where, CultureInfo? culture = null)
+        => Say((isBacked ? "Rename_LateBound_Backed_Question_" : "Rename_LateBound_Question_") + (count == 1 ? "One" : "Many"), culture, name, count, where, className);
 
     /// <summary>
     /// The answer to <see cref="RenameLateBoundQuestion"/> that renames the late-bound accesses too.

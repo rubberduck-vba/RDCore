@@ -30,7 +30,11 @@ namespace RDCore.SDK.Semantics.Static;
 /// The sources of the fact are open (<see cref="IPossibleClassesSource"/>): the assignments of the code, and what a runtime or an extension knows of the objects.
 /// </para>
 /// </remarks>
-/// <param name="Classes">The class modules of the classes the expression may hold, each once.</param>
+/// <param name="Classes">
+/// The classes the expression is known to hold an object of, at least some of the time, each once: the <see cref="SemanticId"/> of each class module (a
+/// <see cref="VBClassModuleSymbol"/> of the composed workspace, or of a library it references). A member of one of them that the expression is accessed for is
+/// backed by what is known.
+/// </param>
 /// <param name="IsComplete">
 /// Whether <paramref name="Classes"/> are all the classes it may hold: when they are not, it may hold an object of a class no source names.
 /// </param>
@@ -81,8 +85,21 @@ public sealed record class PossibleClassesQuery(StaticEvaluationContext Context,
 /// (<see cref="AssignedClasses"/>), what a runtime saw, what an extension knows of a library.
 /// </summary>
 /// <remarks>
-/// A source that knows all the classes says so (<see cref="PossibleClasses.IsComplete"/>), and the expression holds no other: a rename does not propose the
-/// late-bound accesses of a member of another class. A source says it knows them all only when nothing it does not see can assign the expression an object.
+/// <para>
+/// What every source says of an expression is put together (<see cref="PossibleClasses.Combine"/>): the classes are those any source names, and they are all
+/// the classes the expression may hold when one source says so. A source is passed in with the workspace (a rename takes its sources in
+/// <see cref="Refactoring.RenameContext.ClassSources"/>), and <see cref="AssignedClasses"/> is always asked.
+/// </para>
+/// <para>
+/// A class a source names backs the members of that class: a rename proposes the late-bound accesses of a member of it as backed, and any other as only
+/// possible. A source that knows all the classes says so (<see cref="PossibleClasses.IsComplete"/>), and the expression holds no other: a rename does not
+/// propose the late-bound accesses of a member of another class. A source says it knows them all only when nothing it does not see can assign the
+/// expression an object: a wrong answer leaves code that calls the renamed member by its old name.
+/// </para>
+/// <para>
+/// A source is asked once for each expression, on whatever thread asks, and may be asked about several expressions at the same time: it answers from what it holds, without
+/// changing it, and without waiting on anything.
+/// </para>
 /// </remarks>
 public interface IPossibleClassesSource
 {
@@ -90,7 +107,10 @@ public interface IPossibleClassesSource
     /// What the source knows of the classes the expression may hold.
     /// </summary>
     /// <param name="query">The expression, and where it is written.</param>
-    /// <returns>What it knows; <see langword="null"/> when it knows nothing of the expression.</returns>
+    /// <returns>
+    /// What it knows; <see langword="null"/> when it knows nothing of the expression, which says the same as an answer of no class that is not complete
+    /// (<see cref="PossibleClasses.Unknown"/>).
+    /// </returns>
     PossibleClasses? ClassesOf(PossibleClassesQuery query);
 }
 

@@ -76,16 +76,28 @@
     <value>Leave the strings</value>
   </data>
   <data name="Rename_LateBound_Label" xml:space="preserve">
-    <value>Accessed late-bound</value>
+    <value>Late-bound: the object may hold a {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Label" xml:space="preserve">
+    <value>Late-bound: the object holds a {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Description" xml:space="preserve">
+    <value>What is known of the object says it holds a {1}. Which member a late-bound access calls is only known when the code runs. An access left as it is no longer finds '{0}'.</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_One" xml:space="preserve">
+    <value>'{0}' is accessed late-bound on an object that holds a {3}, at {2}. Rename it there too?</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_Many" xml:space="preserve">
+    <value>'{0}' is accessed late-bound on objects that hold a {3}, in {1} places, the first at {2}. Rename it there too?</value>
   </data>
   <data name="Rename_LateBound_Description" xml:space="preserve">
     <value>Which member a late-bound access calls is only known when the code runs. An access left as it is no longer finds the member when the object is of the class of '{0}'.</value>
   </data>
   <data name="Rename_LateBound_Question_One" xml:space="preserve">
-    <value>'{0}' may be accessed late-bound, at {2}. Rename it there too?</value>
+    <value>'{0}' may be accessed late-bound on an object that may hold a {3}, at {2}. Rename it there too?</value>
   </data>
   <data name="Rename_LateBound_Question_Many" xml:space="preserve">
-    <value>'{0}' may be accessed late-bound in {1} places, the first at {2}. Rename it there too?</value>
+    <value>'{0}' may be accessed late-bound on objects that may hold a {3}, in {1} places, the first at {2}. Rename it there too?</value>
   </data>
   <data name="Rename_LateBound_Rename" xml:space="preserve">
     <value>Rename it there too</value>
