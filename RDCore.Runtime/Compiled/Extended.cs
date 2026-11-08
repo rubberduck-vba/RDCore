@@ -1,8 +1,8 @@
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.Numerics;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Values.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Compiled;
