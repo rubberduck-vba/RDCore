@@ -351,6 +351,8 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     public VBRuntimeErrorId? TryOpen(
         int fileNumber, string path, VBFileMode mode, VBFileAccessMode access, VBFileLockMode @lock, int recordLength)
     {
+        path = Native(path);
+
         // "An error (number 55, 'File already open') is generated if the <file-number> integer value already
         // has an external file association" (MS-VBAL 5.4.5.1).
         if (_channels.ContainsKey(fileNumber))
@@ -404,6 +406,9 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryRename(string oldPath, string newPath)
     {
+        oldPath = Native(oldPath);
+        newPath = Native(newPath);
+
         // "Name arguments cannot include multiple-character (*) and single-character (?) wildcards."
         if (HasWildcard(oldPath) || HasWildcard(newPath))
         {
@@ -468,6 +473,11 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     }
 
     private static bool HasWildcard(string path) => path.AsSpan().IndexOfAny('*', '?') >= 0;
+
+    // what every path a VBA file function is given goes through first: its \ is a separator on every platform, so VBA written with Windows paths runs
+    // as is where the file system's own separator is /. Where it is, a file whose name holds a \ is out of VBA's reach.
+    private string Native(string path)
+        => fileSystem.Path.DirectorySeparatorChar == '\\' ? path : path.Replace('\\', fileSystem.Path.DirectorySeparatorChar);
 
     // a path with no directory part is in the current directory, which exists.
     private bool ParentExists(string path)

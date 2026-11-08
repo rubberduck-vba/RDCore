@@ -38,6 +38,7 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryChangeDirectory(string path)
     {
+        path = Native(path);
         if (string.IsNullOrEmpty(path) || !fileSystem.Directory.Exists(path))
         {
             return VBRuntimeErrorId.PathNotFound;
@@ -85,6 +86,7 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryFindFirst(string pattern, VBFileAttribute attributes, out string name)
     {
+        pattern = Native(pattern);
         name = string.Empty;
         _search = new Queue<string>();
 
@@ -204,6 +206,8 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryCopy(string source, string destination)
     {
+        source = Native(source);
+        destination = Native(destination);
         if (HasWildcard(source))
         {
             return VBRuntimeErrorId.BadFileNameOrNumber;
@@ -237,6 +241,8 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryDelete(string pattern)
     {
+        pattern = Native(pattern);
+
         // no pattern is no file - not every file of the current directory, which is what it is to Dir.
         if (pattern.Length == 0 || !TrySplit(pattern, out var directory, out var mask) || !fileSystem.Directory.Exists(directory))
         {
@@ -274,6 +280,7 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryCreateDirectory(string path)
     {
+        path = Native(path);
         if (fileSystem.Directory.Exists(path) || fileSystem.File.Exists(path))
         {
             return VBRuntimeErrorId.PathOrFileAccessError;
@@ -291,6 +298,8 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryRemoveDirectory(string path)
     {
+        path = Native(path);
+
         // a file, a pattern, are no directory (M02, M03).
         if (HasWildcard(path) || !fileSystem.Directory.Exists(path))
         {
@@ -308,6 +317,7 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryGetAttributes(string path, out VBFileAttribute attributes)
     {
+        path = Native(path);
         attributes = VBFileAttribute.VBNormal;
         if (TryFind(path) is { } missing)
         {
@@ -326,6 +336,7 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TrySetAttributes(string path, VBFileAttribute attributes)
     {
+        path = Native(path);
         if ((attributes & ~SettableAttributes) != 0)
         {
             return VBRuntimeErrorId.InvalidProcedureCallOrArgument;
@@ -354,6 +365,7 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryGetLength(string path, out long length)
     {
+        path = Native(path);
         length = 0;
         if (TryFind(path) is { } missing)
         {
@@ -380,6 +392,7 @@ internal sealed partial class SessionFileChannels
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryGetLastWriteTime(string path, out DateTime modified)
     {
+        path = Native(path);
         modified = default;
         if (TryFind(path) is { } missing)
         {
