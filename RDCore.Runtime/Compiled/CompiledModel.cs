@@ -326,6 +326,16 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
     public const int NoResult = -2;
 }
 
+// a call of a function of the workspace inside an expression, made as a CallStep makes one, with arguments as a CallStep's: what it returns is of the
+// callee's kind (Kind). Once it is made, the instruction is handed to the interpreter in the middle of it, with what was evaluated of it known
+// (Execution.Frames.KnownOperands): this call by where it is in its statement (Syntax), which the interpreter does not make again.
+internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
+
+// a variable of the activation, or the function result variable, read in an instruction that calls a function inside an expression (CallNode): what was
+// read is what the interpreter is given of it, by where it is in its statement (Syntax), when the instruction is handed to it after a call that may have
+// changed the variable since.
+internal sealed record class KnownNode(PayloadNode Value, int Syntax) : PayloadNode(Value.Kind);
+
 /// <summary>
 /// A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.
 /// </summary>

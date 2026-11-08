@@ -225,6 +225,7 @@ internal sealed partial class ProcedureEmitter
                 EmitPoll(step.Offset);
             }
 
+            BeginKnowing(step.Offset);
             EmitStep(step);
         }
 
@@ -233,6 +234,7 @@ internal sealed partial class ProcedureEmitter
         EmitExit();
 
         // a call that fails in a body with an error handler recovers at it (RecoverAt): its label is emitted with the failures, after it.
+        EmitKnownFailures();
         EmitFailedCalls();
         EmitFailures();
         EmitWalkBack();
@@ -673,12 +675,20 @@ internal sealed partial class ProcedureEmitter
     // the callee; when the program waited, what the debugger may have changed of them is read back after it. A call that does not return - an error, the
     // program stopped, a callee compiled code can't call - is the interpreter's at the call (CompiledActivation.AfterFailedCall). After a call returns, the
     // activation is the interpreter's at the next instruction when the interpreter is wanted, or the symbols it was compiled against were defined again.
+    // A call inside an expression (CallNode) is made the same way, and what it returned is the value of its operand (EmitNestedCall); an argument that calls
+    // one is evaluated before the call it is given to, and what fails after it fails with what was evaluated known (Fail).
     private void EmitCall(CallStep call)
+    {
+        var (integral, floating) = EmitCallOf(call, FailureAt(call.Offset));
+        EmitAfterCall(call, integral, floating);
+    }
+
+    // the call made, what it returned in integral or floating, by its kind.
+    private (LocalBuilder Integral, LocalBuilder Floating) EmitCallOf(CallStep call, Label failure)
     {
         // the arguments, each held where it is - a variable, a constant - or in a local of its own; one that fails fails the instruction before anything is called.
         // A String compiled code reads nothing of - one that ends with a lone byte, or is held in no cell of its own - is the interpreter's: the instruction
         // is run by it alone, as a Let of one is.
-        var failure = FailureAt(call.Offset);
         var arguments = new Operand[call.Arguments.Count];
         for (var i = 0; i < arguments.Length; i++)
         {
@@ -692,7 +702,7 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
             _il.Emit(OpCodes.Ldloc, _objects[receiver]);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
-            _il.Emit(OpCodes.Brfalse, failure);
+            _il.Emit(OpCodes.Brfalse, Fail(failure));
         }
 
         var called = _il.DefineLabel();
@@ -760,7 +770,7 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldloca, integral);
             _il.Emit(OpCodes.Ldloca, floating);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ReturnedDirectly))!);
-            _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
+            _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(call.Offset)));
             _il.Emit(OpCodes.Br, returned);
             _il.MarkLabel(indirect);
         }
@@ -802,8 +812,14 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldloca, integral);
         _il.Emit(OpCodes.Ldloca, floating);
         _il.Emit(OpCodes.Call, Activation.GetMethod(call.Receiver is null ? nameof(CompiledActivation.Call) : nameof(CompiledActivation.CallMember))!);
-        _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
+        _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(call.Offset)));
         _il.MarkLabel(returned);
+        return (integral, floating);
+    }
+
+    // a call statement, or a call whose result is assigned whole: after it, nothing of its instruction but that assignment.
+    private void EmitAfterCall(CallStep call, LocalBuilder integral, LocalBuilder floating)
+    {
 
         // after a wait, a variable compiled code cannot read back (EmitReload): the call's result written into the frame, and the activation the interpreter's
         // from after the call.
@@ -1519,7 +1535,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, cell);
                 _il.Emit(OpCodes.Ldloca, read);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(ScalarKinds.IsIntegral(slot.Kind) ? nameof(CompiledActivation.ReadIntegral) : nameof(CompiledActivation.ReadFloating))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 return new Operand(read, 0, 0);
             }
 
@@ -1562,7 +1578,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloca, integral);
                 _il.Emit(OpCodes.Ldloca, floating);
                 _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.Convert))!);
-                _il.Emit(OpCodes.Brtrue, failure);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
                 return new Operand(ScalarKinds.IsIntegral(convert.Kind) ? integral : floating, 0, 0);
             }
 
@@ -1583,7 +1599,7 @@ internal sealed partial class ProcedureEmitter
                     Tokens.IntegerDivisionOp => nameof(PayloadOperations.IntegerDivide),
                     _ => nameof(PayloadOperations.Modulo),
                 })!);
-                _il.Emit(OpCodes.Brtrue, failure);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
                 return new Operand(result, 0, 0);
             }
 
@@ -1598,7 +1614,7 @@ internal sealed partial class ProcedureEmitter
                 Load(right, logical.Right.Kind);
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.Logical))!);
-                _il.Emit(OpCodes.Brtrue, failure);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
                 return new Operand(result, 0, 0);
             }
 
@@ -1614,7 +1630,7 @@ internal sealed partial class ProcedureEmitter
                 Load(operand, not.Operand.Kind);
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.Not))!);
-                _il.Emit(OpCodes.Brtrue, failure);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
                 return new Operand(result, 0, 0);
             }
 
@@ -1628,7 +1644,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloca, result);
                 var negation = negate.OfAConstantExpression && type == typeof(long) ? nameof(PayloadOperations.NegateConstant) : nameof(PayloadOperations.Negate);
                 _il.Emit(OpCodes.Call, Payloads.GetMethod(negation, [typeof(ScalarKind), type, type.MakeByRefType()])!);
-                _il.Emit(OpCodes.Brtrue, failure);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
                 return new Operand(result, 0, 0);
             }
 
@@ -1645,7 +1661,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldc_I4, (int)store.Kind);
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(integral ? nameof(Compiled.Extended.ToIntegral) : nameof(Compiled.Extended.ToFloating))!);
-                _il.Emit(OpCodes.Brtrue, failure);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
                 return new Operand(result, 0, 0);
             }
 
@@ -1660,7 +1676,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldc_I4, (int)compare.Effective);
                 _il.Emit(OpCodes.Ldloca, isTrue);
                 _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Compiled.Extended.Compare))!);
-                _il.Emit(OpCodes.Brtrue, failure);
+                _il.Emit(OpCodes.Brtrue, Fail(failure));
                 _il.Emit(OpCodes.Ldloc, isTrue);
                 return AsBoolean();
             }
@@ -1784,6 +1800,13 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, isTrue);
                 return AsBoolean();
             }
+
+            // what an instruction that calls inside an expression reads, and calls (ProcedureEmitter.Nested.cs).
+            case KnownNode known:
+                return EmitKnown(known, failure);
+
+            case CallNode call:
+                return EmitNestedCall(call, failure);
 
             default:
                 return EmitArrayPayload(node, failure);
@@ -1983,7 +2006,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, (int)kind);
         _il.Emit(OpCodes.Ldloca, result);
         _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Compiled.Extended.ToFloating))!);
-        _il.Emit(OpCodes.Brtrue, failure);
+        _il.Emit(OpCodes.Brtrue, Fail(failure));
 
         _il.MarkLabel(done);
         return new Operand(result, 0, 0);

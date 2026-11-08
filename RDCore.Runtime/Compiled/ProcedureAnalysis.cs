@@ -555,7 +555,7 @@ internal sealed partial class ProcedureAnalysis
         return _reasons.Count == 0;
     }
 
-    private CompiledStep? AnalyzeInstruction(Instruction instruction)
+    private CompiledStep? AnalyzeStep(Instruction instruction)
     {
         var location = instruction.Node?.SourceLocation;
         switch (instruction.Kind)
@@ -1183,7 +1183,7 @@ internal sealed partial class ProcedureAnalysis
                 return null;
 
             case BoundVariable variable:
-                return SlotOf(variable) is { } slot ? new SlotNode(slot, _slots[slot]) : Unsupported(variable);
+                return SlotOf(variable) is { } slot ? Read(new SlotNode(slot, _slots[slot]), variable) : Unsupported(variable);
 
             case BoundName { Symbol: var symbol } when RuntimeExpressionEvaluator.IsConstant(symbol):
                 return Constant(node, symbol);
@@ -1193,7 +1193,7 @@ internal sealed partial class ProcedureAnalysis
 
             // MS-VBAL §5.3.1: the name of a function in its own body is its function result variable, which compiled code keeps in a local of its own.
             case BoundName { Symbol: var function } when IsOwnFunction(function) && ResultKind is { } result:
-                return new ResultNode(result);
+                return Read(new ResultNode(result), node);
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Payload(enclosed);
@@ -1216,6 +1216,16 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundArrayBound arrayBound:
                 return ArrayBound(arrayBound);
+
+            // a function called inside an expression (ProcedureAnalysis.Nested.cs).
+            case BoundCall { Procedure: VBTypeMemberSymbol function } call when _nesting is not null:
+                return NestedCall(call, function);
+
+            case BoundMember { Member: VBFunctionMemberSymbol function } member when _nesting is not null:
+                return NestedCall(member, function);
+
+            case BoundName { Symbol: VBFunctionMemberSymbol function } name when _nesting is not null && !IsOwnFunction(function):
+                return NestedCall(name, function);
 
             default:
                 return Unsupported(node);

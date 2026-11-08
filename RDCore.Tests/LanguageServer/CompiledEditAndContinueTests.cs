@@ -128,6 +128,30 @@ public sealed class CompiledEditAndContinueTests
         }, debug: true, engine: VBExecutionEngine.Compiled);
     }
 
+    // the same, Outer calling Work inside an expression, after reading s: what Outer goes on with is what it read, and what the edited Work returned.
+    private static readonly string CallingOuterInside = CallingOuter.Replace("    t = Work(s)\r\n", "    t = s + 7 + Work(s) * 2\r\n", StringComparison.Ordinal);
+
+    [TestMethod]
+    public async Task ACallInsideAnExpression_StoppedInTheCallee_EditedAndContinued_GoesOnWithWhatTheEditedCalleeReturned()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectWithModulesAsync([("Worker", Worker)], CallingOuterInside, async (provider, first, runAgain) =>
+        {
+            // Outer finished its statement with s as it read it, and what the edited Work returned: 0 + 7 + 10 * 2, then 1 + 7 + 11 * 2.
+            await BreakEditContinueAsync(provider, first, new() { ["Worker"] = Worker, ["Program"] = CallingOuterInside }, "Worker", LoopLine, ["127", "130"],
+                atBreak: async session =>
+                {
+                    var frames = (await session.SendAsync(new StackTraceArguments { ThreadId = ProgramDebugAdapter.ThreadId })).StackFrames!.ToArray();
+                    CollectionAssert.AreEqual(new[] { "Work", "Outer", "Main" }, frames.Select(frame => frame.Name).ToArray());
+                    if (!CompiledExecution.HandsOverAtRandom)
+                    {
+                        Assert.IsTrue(provider.Session.CallStack.Frames.OfType<CallStackFrame>().ElementAt(1).RunsCompiled,
+                            "Outer is running compiled, in the middle of its statement");
+                    }
+                });
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
     // the program, started by the test and waiting at Main's Stop, debugged through the adapter: continued until Work runs compiled; stopped at a breakpoint
     // set in Work's loop then, at line of workModule; edited there, Work's module saved as Edited; and continued to its end, having printed expected. Work,
     // compiled at its first call, is compiled again - the edited body - at its first call after the edit, and runs compiled.

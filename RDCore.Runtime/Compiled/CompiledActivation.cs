@@ -87,6 +87,7 @@ public sealed partial class CompiledActivation : ILightActivation
         (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
         (_pc, _hasResult, _failed, _unspilled) = (0, false, null, false);
+        _knowns?.Clear();
         _untilPoll = PollInterval;
 
         // the safepoint the activation is handed to the interpreter at, under the random walk-back (CompiledBody.NextRandomSafepoint).
@@ -900,6 +901,7 @@ public sealed partial class CompiledActivation : ILightActivation
 
         var list = Body;
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
+        HandKnowns(frame, list, pc, inside: _failed is null);
         if (_failed is not { } outcome)
         {
             frame.Pc = pc;
@@ -1257,12 +1259,15 @@ public sealed partial class CompiledActivation : ILightActivation
     /// </summary>
     public RuntimeExecutionOutcome Interpret(int pc)
     {
-        // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body.
+        // the procedure edited while the program waited in a callee: the activation goes on after the call, in the edited body - or, handed over in the
+        // middle of an instruction after a call inside it, in that instruction, where it now is (HandKnowns).
         var frame = Frame;
         (frame.Pc, frame.RunsCompiled) = (pc, false);
-        _ = frame.ApplyPendingRebase(atTheCall: false);
+        var inside = HasKnowns;
+        _ = frame.ApplyPendingRebase(atTheCall: inside);
         var list = Body;
         pc = frame.Pc;
+        HandKnowns(frame, list, pc, inside);
         _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
         return _executor.Run(_session, frame, list, _context);
     }
@@ -1297,6 +1302,7 @@ public sealed partial class CompiledActivation : ILightActivation
         var failed = _failed;
         _failed = null;
         var list = Body;
+        HandKnowns(frame, list, pc, inside: failed is null);
         var suspensions = Suspensions;
         var outcome = _executor.Step(_session, frame, list, _context, failed);
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)
