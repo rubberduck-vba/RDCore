@@ -112,6 +112,34 @@ Compiled code remembers where it last found an object's fields, and looks for th
 field for as long as it lives, and a procedure is compiled again when its class is edited. What compiled code remembers never keeps an object alive: once
 nothing else holds the object, it is gone.
 
+### Members of objects and `With` blocks
+
+A `Let` of a member of an object declared as a class is compiled (MS-VBAL §5.4.3.8). The object can be held by one of the procedure's object variables
+or fields (`P.X = 1`), be `Me` (`Me.X = 1`), or be the object of the enclosing `With` block (`.X = 1`). Compiled code evaluates the value, then the
+interpreter assigns it, as it assigns the value of any `Let`. The interpreter evaluates the object after the value, then finds the member on the object:
+
+- a public field is assigned the value, let-coerced to the field's declared type;
+- a `Property Let` is called with the value, let-coerced to the type of its last parameter.
+
+So a call that gives the value runs first, even when it `Set`s the variable the object is read from to another object: the new object's member is
+assigned. A member of `Nothing` raises error 91 after the value is evaluated. Compiled code writes every variable into the frame before the assignment and
+reads them back after it, as around a call, because a `Property Let` runs code of its own. An error the assignment raises goes to the procedure's error
+handler, and the statement is not run again. What the statement held while it ran is let go of when it is over, as in the interpreter.
+
+Compiled code also calls a member of the object of a `With` block (`.Add 1`, `N = .Total()`) as it calls a member of an object variable (see Objects,
+above). The `With` statement and its `End With` are the interpreter's: it evaluates the object and holds it for the block (MS-VBAL §5.4.2.21), and lets
+go of it at the `End With`, or when the procedure is left. Compiled code reads the object where the interpreter holds it, each time it needs it, so a jump
+out of the block and back in finds the same object. A block whose `With` statement did not run (jumped into), or whose object raised an error that
+`On Error Resume Next` went past, has no object, and neither does a block of `Nothing`: a member of it raises error 91, as in the interpreter.
+
+The interpreter keeps the rest:
+
+- a member of an object declared `Object` or `Variant`, which is late-bound;
+- a `With` block whose object is a record;
+- a `Set` of a member, and a `Set` inside a `With` block;
+- a member read inside an expression (`.X + 1`), which is a call inside an expression;
+- a `String` assigned to a member.
+
 ### Arrays
 
 Compiled code handles an array parameter or local array variable of the procedure, except a `Static` array, a `ParamArray` and an array declared
@@ -141,8 +169,8 @@ Compiled code does these itself:
 |---|---|
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, a `Variant` one included, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
-|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar `Static`, or of the function's result, a `Variant` one included; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
-|Calls|A call statement with arguments, a function's result assigned whole, or a function's result assigned to a `Variant` (see Variant function results, above), of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar `Static`, of the function's result, a `Variant` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
+|Calls|A call statement with arguments, a function's result assigned whole, or a function's result assigned to a `Variant` (see Variant function results, above) or to a member of an object, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
