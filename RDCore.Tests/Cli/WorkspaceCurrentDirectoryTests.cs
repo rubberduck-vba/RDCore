@@ -60,7 +60,9 @@ public sealed class WorkspaceCurrentDirectoryTests
     {
         using var provider = Compose(_root);
 
-        var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")", "Debug.Print Dir(\"Sub\\inner.txt\")");
+        // a relative path is written with the separator of the platform the session runs on.
+        var inner = Path.Combine("Sub", "inner.txt");
+        var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")", $"Debug.Print Dir(\"{inner}\")");
 
         CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed, string.Join("|", printed));
     }
