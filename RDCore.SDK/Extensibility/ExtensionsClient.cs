@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
@@ -131,6 +132,7 @@ public class ExtensionsClient(
             Description = effectiveDescription,
             FileHash = fileHash,
             Capabilities = capabilities,
+            DiagnosticPrefix = assembly.GetCustomAttribute<DiagnosticPrefixAttribute>()?.Prefix,
             SdkVersion = sdkVersion,
         }.WithSettingsOf(assembly);
     }
@@ -141,6 +143,11 @@ public class ExtensionsClient(
     /// <returns>
     /// Returns all discovered <strong>valid</strong> extensions.
     /// </returns>
+    /// <remarks>
+    /// The folders are read in the order of their names. One extension is found of a diagnostic prefix (<see cref="ExtensionInfo.DiagnosticPrefix"/>): one that
+    /// declares a prefix an extension found before it declares, one of the language's own (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>), or a prefix that is not three
+    /// letters <c>A</c> to <c>Z</c>, is not.
+    /// </remarks>
     public IEnumerable<ExtensionInfo> Discover()
     {
         var manifestFileName = options.Value.Platform.Extensions.Manifest;
@@ -151,13 +158,27 @@ public class ExtensionsClient(
             yield break;
         }
 
-        foreach (var folder in ExtensionsFolder.EnumerateDirectories())
+        // the language's own codes are the platform's, and no extension reports under them.
+        var prefixes = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [RDCoreDiagnosticCode.CompilePrefix] = nameof(RDCore),
+            [RDCoreDiagnosticCode.RuntimePrefix] = nameof(RDCore),
+            [RDCoreDiagnosticCode.ApplicationPrefix] = nameof(RDCore),
+        };
+
+        // the order of the folders decides which of two extensions of a prefix is found: it is the same on every file system.
+        foreach (var folder in ExtensionsFolder.EnumerateDirectories().OrderBy(folder => folder.Name, StringComparer.OrdinalIgnoreCase))
         {
             var title = folder.Name;
             var manifest = folder.GetFiles(manifestFileName).FirstOrDefault();
             if (manifest is not null && ReadManifest(manifest, title) is ExtensionInfo extensionInfo)
             {
                 var validation = _validation.Validate(extensionInfo);
+                if (validation == ExtensionValidationFlags.NoFlags && !ClaimPrefix(prefixes, extensionInfo))
+                {
+                    continue;
+                }
+
                 if (validation == ExtensionValidationFlags.NoFlags)
                 {
                     _extensions[title] = extensionInfo;
@@ -184,6 +205,36 @@ public class ExtensionsClient(
                 logger.LogWarning("No manifest was found for extension '{title}'.", title);
             }
         }
+    }
+
+    // whether the extension's diagnostic prefix is its own: none, or one no extension found before it declares.
+    private bool ClaimPrefix(Dictionary<string, string> prefixes, ExtensionInfo extension)
+    {
+        if (extension.DiagnosticPrefix is not { } prefix)
+        {
+            return true;
+        }
+
+        if (!RDCoreDiagnosticCode.IsPrefix(prefix))
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+            {
+                logger.LogWarning("🚫 Extension '{title}' declares the diagnostic prefix '{prefix}', which is not three letters A to Z: it is not started.", extension.Title, prefix);
+            }
+            return false;
+        }
+
+        if (prefixes.TryGetValue(prefix, out var owner))
+        {
+            if (logger.IsEnabled(LogLevel.Warning))
+            {
+                logger.LogWarning("🚫 Extension '{title}' declares the diagnostic prefix '{prefix}', which '{owner}' already declares: it is not started.", extension.Title, prefix, owner);
+            }
+            return false;
+        }
+
+        prefixes[prefix] = extension.Title;
+        return true;
     }
 
     // dispose the read stream: a leaked handle blocks a later rewrite (e.g. describe-ext --overwrite).

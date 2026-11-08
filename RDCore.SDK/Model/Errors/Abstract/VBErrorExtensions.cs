@@ -43,7 +43,12 @@ public static class VBErrorExtensions
         /// <em>Core diagnostics</em> are all the diagnostics issued by <c>RDCore.Diagnostics</c> analyzers.<br/>
         /// 🧩 Diagnostics from <strong>other extensions must use a different prefix</strong> to ensure uniqueness and traceability.
         /// </remarks>
-        public string ToDiagnosticCode() => $"RDC{(int)id:00000}";
+        public string ToDiagnosticCode() => id.ToCode().ToString();
+
+        /// <summary>
+        /// Gets the <strong><c>RDC00000</c></strong> code of a RDCore <em>core diagnostic</em>, as the code an <see cref="AnalyzerFinding"/> is reported under.
+        /// </summary>
+        public RDCoreDiagnosticCode ToCode() => new(RDCoreDiagnosticCode.CorePrefix, (int)id);
     }
 
     extension(VBSyntaxErrorInfo info)

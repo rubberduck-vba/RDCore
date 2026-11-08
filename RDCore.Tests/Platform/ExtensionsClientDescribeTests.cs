@@ -60,7 +60,83 @@ public sealed class ExtensionsClientDescribeTests
         Assert.AreEqual(Path.GetFileName(extensionFolder), described.Id, "an extension that declares no id is known by its title");
         Assert.AreEqual(Convert.ToBase64String(System.Security.Cryptography.SHA512.HashData(bytes)), described.FileHash);
         Assert.AreEqual(typeof(ExtensionInfo).Assembly.GetName().Version, described.SdkVersion);
-        Assert.IsNull(described.DiagnosticPrefix);
+        Assert.AreEqual("RDC", described.DiagnosticPrefix, "the core diagnostics are RDC codes");
+    }
+}
+
+[TestClass]
+public sealed class ExtensionsClientDiscoverTests
+{
+    private static readonly string ExtensionsRoot = Path.Combine(Path.GetTempPath(), "rdcore-discover-prefix", "Extensions");
+
+    private static ExtensionInfo Manifest(string title, string? prefix) => new()
+    {
+        Name = $"{title}.exe",
+        Title = title,
+        Version = new Version(1, 0),
+        Publisher = "",
+        PublisherWebUrl = "",
+        Description = "",
+        FileHash = "",
+        Capabilities = [],
+        DiagnosticPrefix = prefix,
+    };
+
+    private static (ExtensionsClient Sut, RecordingLogger Logger) Build(params ExtensionInfo[] manifests)
+    {
+        var fs = new MockFileSystem(manifests.ToDictionary(
+            manifest => Path.Combine(ExtensionsRoot, manifest.Title, "extension.manifest.json"),
+            manifest => new MockFileData(System.Text.Json.JsonSerializer.Serialize(manifest))));
+
+        var environment = Substitute.For<IPlatformEnvironment>();
+        environment.Resolve("Extensions").Returns(ExtensionsRoot);
+
+        var logger = new RecordingLogger();
+        return (new ExtensionsClient(Options.Create(new SdkAppOptions()), Substitute.For<IExtensionManifestValidationService>(), fs, environment, logger), logger);
+    }
+
+    [TestMethod]
+    public void ASecondExtensionOfAPrefix_IsNotFound_AndIsLogged()
+    {
+        var (sut, logger) = Build(Manifest("Beta", "XYZ"), Manifest("Alpha", "XYZ"), Manifest("Gamma", null), Manifest("Delta", "QRS"));
+
+        var found = sut.Discover().Select(extension => extension.Title).ToArray();
+
+        // the folders are read in the order of their names: Alpha has XYZ, and Beta is the second extension of it.
+        CollectionAssert.AreEqual(new[] { "Alpha", "Delta", "Gamma" }, found);
+        var warning = Assert.ContainsSingle(logger.Entries.Where(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning));
+        StringAssert.Contains(warning.Message, "'Beta'");
+        StringAssert.Contains(warning.Message, "'XYZ'");
+        StringAssert.Contains(warning.Message, "'Alpha'");
+    }
+
+    [TestMethod]
+    public void AnExtensionOfOneOfTheLanguagesOwnPrefixes_IsNotFound()
+    {
+        var (sut, _) = Build(Manifest("Compiler", "VBC"), Manifest("Runtime", "VBR"), Manifest("Raised", "VBA"));
+
+        Assert.IsEmpty(sut.Discover().ToArray());
+    }
+
+    [TestMethod]
+    public void AnExtensionOfAPrefixThatIsNotThreeLetters_IsNotFound()
+    {
+        var (sut, _) = Build(Manifest("Short", "XY"), Manifest("Lower", "xyz"), Manifest("Digits", "X1Z"));
+
+        Assert.IsEmpty(sut.Discover().ToArray());
+    }
+
+    private sealed class RecordingLogger : Microsoft.Extensions.Logging.ILogger<ExtensionsClient>
+    {
+        public List<(Microsoft.Extensions.Logging.LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
     }
 }
 
