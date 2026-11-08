@@ -240,12 +240,13 @@ public abstract class AppHost<TApp>() : IDisposable
         }
 
         // the builder reads appsettings.json, then the environment and the command line; what the user set goes between the first and the others. The
-        // deployed file is not added again: added after them, it used to say what a Configuration__ environment variable was meant to override.
+        // deployed file is not added again: added after them, it would say what a Configuration__ environment variable is meant to override. The deployed
+        // file is the one in the application's own folder, wherever the process was started from: the generic host's default is the working directory.
         HostApplicationBuilder? builder = null;
         System.Runtime.ExceptionServices.ExceptionDispatchInfo? unreadable = null;
         try
         {
-            builder = Host.CreateApplicationBuilder();
+            builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { ContentRootPath = AppContext.BaseDirectory });
             builder.Configuration.AddUserSettings(UserSettingsStore.PathIn(PlatformEnvironment.Default), Settings);
 
             // the language of the user interface comes first: everything the application writes is in it, the help a command line asks for included.
