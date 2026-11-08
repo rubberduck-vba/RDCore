@@ -149,15 +149,12 @@ keyword :
      | LENB
      | LIB
      | LIKE
-     | LOAD
      | LONG
      | LONGLONG
      | LONGPTR
      | ME
      | MID
      | MIDB
-     | MIDBTYPESUFFIX
-     | MIDTYPESUFFIX
      | MOD
      | NEW
      | NOT
@@ -189,7 +186,6 @@ keyword :
      | XOR
      | STEP
      | ON_ERROR
-     | RESUME_NEXT
      | ERROR
      | APPEND
      | BINARY

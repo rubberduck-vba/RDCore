@@ -51,8 +51,17 @@ public sealed class BenchCommandTests
         "    Set O = New Tally",
         "    For I = 1 To 3",
         "        O.Add",
+        "        Debug.Print T",
         "        T = T + I",
         "    Next",
+        "End Sub",
+        "Public Sub CountsInACell()",
+        "    Dim I As Long",
+        "    For I = 1 To 2",
+        "        Touched I",
+        "    Next",
+        "End Sub",
+        "Private Sub Touched(ByRef N As Long)",
         "End Sub");
 
     private static readonly string Tally = ClassModule("Tally",
@@ -339,26 +348,33 @@ public sealed class BenchCommandTests
 
         var lines = output.ToString().Split(Environment.NewLine);
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchCount ", StringComparison.Ordinal)), "compiled");
-        var interpreted = lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal));
+        // a loop that counts with a variable passed by reference to a callee, which holds it in a cell, is the interpreter's: the procedure is the
+        // interpreter's whole, and the report says why, and where. A call statement compiled code does not make is a support call the interpreter runs,
+        // as the Raise is.
+        var interpreted = lines.Single(line => line.Contains("Cases.CountsInACell ", StringComparison.Ordinal));
         StringAssert.StartsWith(interpreted, "interpreted");
-        StringAssert.Contains(interpreted, "Raise (line ");
+        StringAssert.Contains(interpreted, ": I (line ");
+        StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal)), "compiled");
 
-        // a member of an object is called by compiled code: the Set that gives the variable its object is the interpreter's, which makes it with New.
+        // a member of an object is called by compiled code, and the Set that gives the variable an object made with New is a support call the interpreter
+        // runs: nothing of the procedure is stepped.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "compiled");
-        StringAssert.Contains(objectCall, "an object made with New: Tally (line ");
+        Assert.IsFalse(objectCall.Contains("run by the interpreter", StringComparison.Ordinal), objectCall);
 
         // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
 
-        // a compiled procedure says what of it the interpreter runs, and where: the call of a member of an Object, bound late, which compiled code does not
-        // make (rd-vbal.3.5.6), counted from 1 in the file.
+        // a compiled procedure says what of it the interpreter runs, and where: the Debug.Print, which compiled code does not do (rd-vbal.3.5.6), counted
+        // from 1 in the file. The call of a member of an Object, bound late, is a support call: it is not stepped.
         var stepping = lines.Single(line => line.Contains("Cases.CallsLateBoundInALoop ", StringComparison.Ordinal));
         StringAssert.StartsWith(stepping, "compiled");
         StringAssert.Contains(stepping, "run by the interpreter: ");
+        var printed = Array.IndexOf(Cases.Split("\r\n"), "        Debug.Print T") + 1;
+        StringAssert.Contains(stepping, $"(line {printed})",
+            $"the Debug.Print at line {printed} is no longer stepped: the case needs a statement compiled code does not do; give it another.");
         var called = Array.IndexOf(Cases.Split("\r\n"), "        O.Add") + 1;
-        StringAssert.Contains(stepping, $"(line {called})",
-            $"the late-bound call at line {called} is no longer stepped: the case needs a statement compiled code does not do; give it another.");
+        Assert.IsFalse(stepping.Contains($"(line {called})", StringComparison.Ordinal), stepping);
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
     }
 

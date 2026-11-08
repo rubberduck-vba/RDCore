@@ -169,12 +169,13 @@ public static class VariantOperations
     }
 
     // the type of each kind, by its number: what a payload of the kind is of.
-    private static readonly SDK.Model.Types.Abstract.VBType?[] TypeOf = TypesOfKinds();
+    private static readonly SDK.Model.Types.Abstract.VBType[] TypeOf = TypesOfKinds();
 
-    private static SDK.Model.Types.Abstract.VBType?[] TypesOfKinds()
+    // the kinds are numbered from 0, one after the other: each element is the type of one.
+    private static SDK.Model.Types.Abstract.VBType[] TypesOfKinds()
     {
         var kinds = Enum.GetValues<ScalarKind>();
-        var types = new SDK.Model.Types.Abstract.VBType?[kinds.Max(kind => (int)kind) + 1];
+        var types = new SDK.Model.Types.Abstract.VBType[kinds.Max(kind => (int)kind) + 1];
         foreach (var kind in kinds)
         {
             types[(int)kind] = ScalarKinds.TypeOf(kind);

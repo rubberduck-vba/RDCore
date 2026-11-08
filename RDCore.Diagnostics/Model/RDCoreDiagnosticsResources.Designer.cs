@@ -77,7 +77,16 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("BitwiseOperator_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True..
+        /// </summary>
+        public static string TrueValueIsNotMinusOne_Message {
+            get {
+                return ResourceManager.GetString("TrueValueIsNotMinusOne_Message", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
         /// </summary>
@@ -785,6 +794,24 @@ namespace RDCore.Diagnostics.Model {
         public static string NewOfAClassNotCreatable_AsNew_Message {
             get {
                 return ResourceManager.GetString("NewOfAClassNotCreatable_AsNew_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is Empty here: MS-VBA empties the control variable of a For Each loop that runs out, where MS-VBAL §5.4.2.4 says it keeps the last element..
+        /// </summary>
+        public static string ForEachControlEmptiedAfterLoop_Empty_Message {
+            get {
+                return ResourceManager.GetString("ForEachControlEmptiedAfterLoop_Empty_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is Nothing here: MS-VBA sets the control variable of a For Each loop that runs out to Nothing, where MS-VBAL §5.4.2.4 says it keeps the last element..
+        /// </summary>
+        public static string ForEachControlEmptiedAfterLoop_Nothing_Message {
+            get {
+                return ResourceManager.GetString("ForEachControlEmptiedAfterLoop_Nothing_Message", resourceCulture);
             }
         }
 

@@ -25,8 +25,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim l As Long, i As Long ;; l = 10 ;; i = 3 ;; l = (l + i) * 2 ;; Debug.Print l", "26", DisplayName = "an expression in parentheses")]
     [DataRow("Dim l As Long ;; l = -17 ;; l = l \\ 5 ;; Debug.Print l", "-3", DisplayName = "a Long integer-divided, truncated")]
     [DataRow("Dim l As Long, d As Double ;; d = 7.5 ;; l = d \\ 2 ;; Debug.Print l", "4", DisplayName = "a Double integer-divided, rounded first (boxed)")]
-    public void WhatIsAssignedOnPayloads_IsWhatTheBoxedEvaluationAssigns(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task WhatIsAssignedOnPayloads_IsWhatTheBoxedEvaluationAssigns(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     // the errors are the boxed evaluation's: the payload evaluation declines what would raise one, and the expression is evaluated again, boxed.
     [TestMethod]
@@ -38,8 +38,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim l As Long ;; l = 7 ;; l = l Mod 0 ;; Debug.Print Err.Number & \" \" & l", "11 7", DisplayName = "a Long Mod zero")]
     [DataRow("Dim l As Long ;; l = 7 ;; l = l \\ 0 ;; Debug.Print Err.Number & \" \" & l", "11 7", DisplayName = "a Long integer-divided by zero")]
     [DataRow("Dim ll As LongLong ;; ll = 9223372036854775807^ ;; ll = ll + 1 ;; Debug.Print Err.Number & \" \" & ll", "6 9223372036854775807", DisplayName = "a LongLong past its range")]
-    public void WhatWouldRaiseAnError_RaisesTheBoxedEvaluationsError(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task WhatWouldRaiseAnError_RaisesTheBoxedEvaluationsError(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     // MS-VBAL §5.4.2.3, stepped on payloads: the counter after the loop is the first value past the end.
     [TestMethod]
@@ -54,8 +54,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim v As Variant, n As Long ;; For v = 10 To 1 Step -3 ;; n = n + v ;; Next ;; Debug.Print n & \" \" & v", "22 -2", DisplayName = "a Variant counter, stepping down")]
     [DataRow("Dim v As Variant, n As Long ;; For v = CByte(250) To CByte(255) ;; n = n + 1 ;; Next ;; Debug.Print n & \" \" & v & \" \" & TypeName(v)", "6 256 Integer", DisplayName = "a Variant Byte counter widened past its end")]
     [DataRow("Dim v As Variant, s As Variant ;; s = 0# ;; For v = 1 To 1000 ;; s = s + v ;; Next ;; Debug.Print s & \" \" & TypeName(s)", "500500 Double", DisplayName = "a Variant sum over a Variant counter")]
-    public void AForLoop_SteppedOnPayloads_IsWhatTheBoxedEvaluationSteps(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task AForLoop_SteppedOnPayloads_IsWhatTheBoxedEvaluationSteps(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     // MS-VBAL §5.6.9.5 and §5.6.9.8 on payloads, a Boolean being -1 or 0 (recorded in Excel).
     [TestMethod]
@@ -73,8 +73,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim b As Boolean, l As Long ;; l = 2 ;; b = l ;; b = Not b ;; Debug.Print b & \" \" & CInt(b)", "False 0", DisplayName = "a Boolean inverted")]
     [DataRow("Dim ll As LongLong, b As Boolean ;; ll = 9007199254740993^ ;; b = ll > 9007199254740992^ ;; Debug.Print b", "True", DisplayName = "two LongLongs no Double tells apart")]
     [DataRow("Dim s As Single, l As Long, b As Boolean ;; s = 16777216 ;; l = 16777217 ;; b = s < l ;; Debug.Print b", "True", DisplayName = "a Single compared with a Long, as Doubles")]
-    public void AComparisonOrALogicalOperation_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task AComparisonOrALogicalOperation_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     // a Currency as its ten-thousandths, a Date as its serial; what would round, or would not be a date, is the boxed evaluation's (recorded in Excel).
     [TestMethod]
@@ -104,8 +104,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim d As Date, n As Long ;; d = #1/1/2020# ;; If d Then n = 1 ;; Debug.Print n", "1", DisplayName = "If a Date")]
     [DataRow("Dim d As Date, x As Double ;; x = 0.5 ;; d = #1/1/2020# + x ;; Debug.Print CDbl(d)", "43831.5", DisplayName = "a Date plus a Double")]
     [DataRow("Dim d As Date ;; d = 1 ;; d = -d ;; Debug.Print CDbl(d)", "-1", DisplayName = "a Date negated")]
-    public void ACurrencyOrADate_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task ACurrencyOrADate_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     // a Variant that holds a scalar, as a payload of its subtype (S1.4): a plan made for what it holds, and whatever overflows widened by the boxed
     // evaluation as MS-VBA widens it (recorded in Excel).
@@ -132,8 +132,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim v As Variant ;; v = CByte(10) ;; v = Not v ;; Debug.Print v & \" \" & TypeName(v)", "245 Byte", DisplayName = "a Variant Byte inverted")]
     [DataRow("Dim v As Variant ;; v = CByte(200) ;; v = v + CByte(100) ;; Debug.Print v & \" \" & TypeName(v)", "300 Integer", DisplayName = "two Variant Bytes added, widened to an Integer")]
     [DataRow("Dim v As Variant ;; v = CSng(3E+38) ;; v = v * CSng(10) ;; Debug.Print TypeName(v) & \" \" & v", "Double 3.00000000549776E+39", DisplayName = "a Variant Single widened to a Double")]
-    public void AVariantHoldingAScalar_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task AVariantHoldingAScalar_OnPayloads_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     // Strings evaluated to the String they are (S1.4b): joined, assigned, compared under the module's comparison mode (recorded in Excel).
     [TestMethod]
@@ -145,8 +145,9 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim s As String * 3 ;; s = \"abcdef\" ;; s = \"a\" & \"b\" ;; Debug.Print s & \"|\"", "ab |", DisplayName = "a fixed-length String assigned (boxed)")]
     [DataRow("Dim s As String, n As Long ;; For n = 1 To 3 ;; s = s & n ;; Next ;; Debug.Print s", "123", DisplayName = "a number joined to a String (boxed)")]
     [DataRow("Dim s As String ;; s = \"x\" ;; Debug.Print s = \"X\"", "False", DisplayName = "Strings that differ in case")]
-    [DataRow("Dim s As String, v As Variant ;; v = \"q\" ;; s = v ;; Debug.Print s", "q", DisplayName = "a Variant String assigned to a String (boxed)")]    public void AString_OnItsText_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    [DataRow("Dim s As String, v As Variant ;; v = \"q\" ;; s = v ;; Debug.Print s", "q", DisplayName = "a Variant String assigned to a String (boxed)")]
+    public async Task AString_OnItsText_IsWhatTheBoxedEvaluationEvaluates(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     private static (string Name, string Source) Class(string name, params string[] body)
         => (name, $"VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"{name}\"\r\nOption Explicit\r\n{string.Join("\r\n", body)}\r\n");
@@ -213,8 +214,8 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Dim i As Integer, n As Long ;; i = 3 ;; Select Case i ;; Case 2.5 To 3.5 ;; n = 1 ;; End Select ;; Debug.Print n", "1", DisplayName = "an Integer selector, a range of Doubles")]
     [DataRow("Dim d As Double, n As Long ;; d = 1 ;; If d / 0 > 1 Then n = 1 ;; Debug.Print Err.Number & \" \" & n", "11 1", DisplayName = "a condition divided by zero")]
     [DataRow("Dim i As Integer, n As Long ;; i = 32767 ;; If i + 1 > 0 Then n = 1 ;; Debug.Print Err.Number & \" \" & n", "6 1", DisplayName = "a condition past the range of an Integer")]
-    public void ACondition_OnPayloads_IsWhatTheBoxedEvaluationDecides(string body, string printed)
-        => Assert.AreEqual(printed, RunAsync([], Program(body.Split(" ;; "))).GetAwaiter().GetResult().Last());
+    public async Task ACondition_OnPayloads_IsWhatTheBoxedEvaluationDecides(string body, string printed)
+        => Assert.AreEqual(printed, (await RunAsync([], Program(body.Split(" ;; ")))).Last());
 
     // a variable a ByRef parameter is an alias of is the caller's: assigned on payloads through the alias, the caller sees it.
     [TestMethod]
@@ -252,13 +253,13 @@ public sealed class UnboxedEvaluationTests
     [DataRow("Function Half2(ByVal A As Long) As Double ;; Half2 = A / 2 ;; End Function", "Debug.Print Half2(2.5) & \" \" & Half2(3.5)", "1 2", DisplayName = "an argument rounded to its parameter (boxed)")]
     [DataRow("Function Dbl(ByVal x As Variant) As Variant ;; Dbl = x * 2 ;; End Function", "Debug.Print Dbl(21) & \" \" & TypeName(Dbl(21))", "42 Integer", DisplayName = "a Variant passed by value and returned")]
     [DataRow("Sub Inc(ByRef x As Variant) ;; x = x + 1 ;; End Sub", "Dim v As Variant ;; v = 1 ;; Inc v ;; Inc v ;; Debug.Print v", "3", DisplayName = "a Variant passed by reference")]
-    public void ACall_OnPayloads_IsWhatTheBoxedEvaluationCalls(string procedures, string body, string printed)
+    public async Task ACall_OnPayloads_IsWhatTheBoxedEvaluationCalls(string procedures, string body, string printed)
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n"
             + "Private Function Twice(ByVal N As Long) As Long\r\nTwice = 2 * N\r\nEnd Function\r\n"
             + (procedures.Length == 0 ? string.Empty : string.Join("\r\n", procedures.Split(" ;; ")) + "\r\n")
             + $"Public Sub Main()\r\nOn Error Resume Next\r\n{string.Join("\r\n", body.Split(" ;; "))}\r\nEnd Sub\r\n";
 
-        Assert.AreEqual(printed, RunAsync([], program).GetAwaiter().GetResult().Last());
+        Assert.AreEqual(printed, (await RunAsync([], program)).Last());
     }
 }

@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Runtime.Libraries;
 using System.IO.Abstractions;
+using System.Runtime.Versioning;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
 namespace RDCore.Tests.Cli;
@@ -11,6 +12,7 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 [TestCategory("RD-VBAL §2.3.1.2 References")]
 [OSCondition(OperatingSystems.Windows)]
+[SupportedOSPlatform("windows")]
 public sealed class AutomationEndToEndTests
 {
     private static WorkspaceLibraries Scripting

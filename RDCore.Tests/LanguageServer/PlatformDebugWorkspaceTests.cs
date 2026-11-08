@@ -163,8 +163,8 @@ public sealed class PlatformDebugWorkspaceTests : IDisposable
 
         Received.InOrder(() =>
         {
-            _reload.ReloadFilesAsync(Arg.Is<IReadOnlyList<Uri>>(files => files.Single().LocalPath == _file), Arg.Any<CancellationToken>());
-            _reload.WhenIdleAsync(Arg.Any<CancellationToken>());
+            _ = _reload.ReloadFilesAsync(Arg.Is<IReadOnlyList<Uri>>(files => files.Single().LocalPath == _file), Arg.Any<CancellationToken>());
+            _ = _reload.WhenIdleAsync(Arg.Any<CancellationToken>());
         });
     }
 

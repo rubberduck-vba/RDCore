@@ -109,6 +109,9 @@ public sealed class ExternalHost : IDisposable
             var pipeName = $"RDCore.{CoreServerComponent.ExternalHost}.Pipe.{Random.Shared.NextInt64()}";
             try
             {
+                // a call of the program into a server waits for the host to come up, as it waits for the server: the connection completes on the thread pool, and
+                // never needs the thread that waits for it.
+#pragma warning disable VSTHRD002
                 connection.ConnectAsync(new ChildConnectionRequest
                 {
                     ServerExecutablePath = _executable,
@@ -120,6 +123,7 @@ public sealed class ExternalHost : IDisposable
                     ConfigureClient = _ => { },
                     OnPeerExited = incarnation.MarkLost,
                 }, CancellationToken.None).GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
 
                 // the calls go over a pipe of their own, which the process opened before it said it was up.
                 var calls = new NamedPipeClientStream(".", ExternalProtocol.CallsPipeName(pipeName), PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
@@ -193,7 +197,10 @@ public sealed class ExternalHost : IDisposable
         {
             stopping.MarkLost();
             stopping.Calls?.Dispose();
+            // disposing is synchronous: the wait is bounded, and the shutdown never needs the thread that waits for it.
+#pragma warning disable VSTHRD002
             _ = stopping.Connection.ShutdownAsync().Wait(TimeSpan.FromSeconds(5));
+#pragma warning restore VSTHRD002
             stopping.Connection.Dispose();
         }
     }

@@ -165,9 +165,10 @@ public record class ExecuteResult
 /// </remarks>
 /// <param name="Procedure">The name of the procedure the activation is of.</param>
 /// <param name="Line">
-/// Zero-based line in the submitted source, or <c>-1</c> when the activation carries no location — true
-/// of every activation but the one the error was raised in, since an activation record does not say
-/// where in itself it is suspended.
+/// Zero-based line in the submitted source, or <c>-1</c> when the activation carries no location. For
+/// the activation the error was raised in, it is the line of the faulting statement or expression. For
+/// each of its callers, it is the line of the call the caller was suspended at: the call expression or
+/// call statement that was running.
 /// </param>
 /// <param name="Character">Zero-based character within <paramref name="Line"/>, or <c>-1</c>.</param>
 /// <param name="ReturnLines">

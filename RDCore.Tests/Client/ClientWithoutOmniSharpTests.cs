@@ -427,7 +427,10 @@ public sealed class ClientWithoutOmniSharpTests
 
             if (method != DiagnosticRefresh || refreshHeld)
             {
+                // no task is what says the request is not held (Hold): the client answers it at once.
+#pragma warning disable VSTHRD114
                 return null;
+#pragma warning restore VSTHRD114
             }
 
             refreshHeld = true;
@@ -508,13 +511,64 @@ public sealed class ClientWithoutOmniSharpTests
             acted = paused["result"]!["acted"]!.GetValue<bool>();
             if (!acted)
             {
-                Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+                Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? (await running).ToJsonString() : null)}\n{LogOf(platform.Root)}");
             }
         }
         while (!acted);
 
         var suspended = await running;
         Assert.AreEqual((int)ExecutionOutcome.Suspended, suspended["result"]!["outcome"]!.GetValue<int>(), $"{suspended.ToJsonString()}\n{LogOf(platform.Root)}");
+
+        var ended = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugTerminate, new JsonObject());
+        Assert.IsTrue(ended["result"]!["acted"]!.GetValue<bool>(), ended.ToJsonString());
+        await platform.ShutdownAsync(id);
+    }
+
+    // a program of the shell, `10 ? "HELLO"` and `20 GOTO 10` - `?` is Debug.Print - as the shell's RUN sends it, run under the debugger and stopped as a break at
+    // the keyboard stops it: a GoTo that goes back for ever is stopped too, and the run says the line it stopped at, which is one of the program's. The workspace
+    // is a VBA one, whose module Program the program is run as.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task TheShellsEndlessGoTo_IsStoppedByABreak_AndSaysALineOfTheProgram()
+    {
+        var program = new RDCore.CLI.App.Repl.ReplProgram();
+        program.Store(10, "Debug.Print \"HELLO\"");
+        program.Store(20, "GoTo 10");
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams(AsHexIdeDeclares));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        Assert.IsNull((await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDebugging)!.AsObject()))["error"]);
+
+        var running = rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = program.ToModuleSource(),
+            ["moduleName"] = RDCore.CLI.App.Repl.ReplProgram.ModuleName,
+            ["entryPoint"] = RDCore.CLI.App.Repl.ReplProgram.EntryPointName,
+            ["debug"] = true,
+        });
+
+        // the shell's break is a pause of a program under the debugger. One that arrives before the program runs acts on nothing, and is sent again until one acts.
+        var id = 4;
+        bool acted;
+        do
+        {
+            var paused = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugPause, new JsonObject());
+            Assert.IsNull(paused["error"], $"{paused.ToJsonString()}\n{LogOf(platform.Root)}");
+            acted = paused["result"]!["acted"]!.GetValue<bool>();
+            if (!acted && running.IsCompleted)
+            {
+                Assert.Fail($"{(await running).ToJsonString()}\n{LogOf(platform.Root)}");
+            }
+        }
+        while (!acted);
+
+        var suspended = await running;
+        var told = $"{suspended.ToJsonString()[..Math.Min(2000, suspended.ToJsonString().Length)]}\n{LogOf(platform.Root)}";
+        Assert.AreEqual((int)ExecutionOutcome.Suspended, suspended["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.Contains(new int?[] { 10, 20 }, program.LineNumberAt(suspended["result"]!["errorLine"]!.GetValue<int>()), told);
 
         var ended = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugTerminate, new JsonObject());
         Assert.IsTrue(ended["result"]!["acted"]!.GetValue<bool>(), ended.ToJsonString());
@@ -548,6 +602,42 @@ public sealed class ClientWithoutOmniSharpTests
         const string Applied = "The client's user interface is in 'fr-CA'.";
         StringAssert.Contains(WholeLogOf(platform.Root), Applied, "the language server: " + LogOf(platform.Root));
         StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Applied, "the parse server it started");
+    }
+
+    // the language the user sets (Environment.Regional.Language) is the language of every component, over the locale of a client in English (an IDE's): the
+    // environment host answers in it, and the language server, the parse server and the environment host say they started in it. How the program writes and
+    // reads numbers and dates is untouched. The logs are read once the platform is shut down.
+    [TestMethod]
+    [Timeout(180_000, CooperativeCancellation = true)]
+    public async Task TheLanguageTheUserSets_IsTheLanguageOfEveryComponent_WhateverTheClientsLocale()
+    {
+        await using var platform = await Platform.StartAsync(others: 1, projectFile: AProjectOfOtherModules, language: "fr");
+        var notFound = await RunAsync(platform, "Progam", sessionModule: false);
+        var told = $"{notFound.ToJsonString()}\n{LogOf(platform.Root)}";
+        Assert.AreEqual((int)ExecutionOutcome.NotFound, notFound["result"]!["outcome"]!.GetValue<int>(), told);
+        StringAssert.Contains(notFound["result"]!["errorMessage"]!.GetValue<string>(), "le module 'Progam' n'est pas défini dans la session", "the environment host: " + told);
+
+        var failed = await platform.Rpc.RequestAsync(4, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = "Public Sub Main()\r\n    Debug.Print CStr(2.5)\r\n    Debug.Print CStr(CDate(\"1/2/2026 13:05\"))\r\n    Debug.Print 1 / 0\r\nEnd Sub\r\n",
+            ["moduleName"] = "Program",
+            ["entryPoint"] = "Main",
+            ["sessionModule"] = true,
+        });
+        told = $"{failed.ToJsonString()}\n{LogOf(platform.Root)}";
+        Assert.AreEqual((int)ExecutionOutcome.RuntimeError, failed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { "2.5", "1/2/2026 1:05:00 PM" }, failed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        Assert.AreEqual(11, failed["result"]!["errorNumber"]!.GetValue<int>(), told);
+
+        await platform.ShutdownAsync(5);
+
+        const string Started = "L'interface est en 'fr' (Environment.Regional.Language).";
+        StringAssert.Contains(WholeLogOf(platform.Root), Started, "the language server, as it started: " + LogOf(platform.Root));
+        StringAssert.Contains(WholeLogOf(platform.Root), "OnLanguageServerInitializedAsync handler complété.", "the language server's own messages: " + LogOf(platform.Root));
+        StringAssert.Contains(WholeLogOf(platform.Root), "The user interface is in 'fr' (Environment.Regional.Language), whatever the client's locale ('en-US').",
+            "the language server, as it was initialized: " + LogOf(platform.Root));
+        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Started, "the parse server it started");
+        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.EnvironmentHost"), Started, "the environment host it started");
     }
 
     // the platform as a deployment has it, with a workspace of one module, and the language server started from it as an IDE starts it.
@@ -594,8 +684,8 @@ public sealed class ClientWithoutOmniSharpTests
         public ConcurrentQueue<string> Asked { get; } = [];
 
         // the workspace has `others` modules besides Program, which the language server parses and composes the session of before it runs anything, and the
-        // project file given, if one is.
-        public static async Task<Platform> StartAsync(int others = 0, string? projectFile = null)
+        // project file given, if one is; and the language of the user interface the user set, if one is.
+        public static async Task<Platform> StartAsync(int others = 0, string? projectFile = null, string? language = null)
         {
             var root = Path.Combine(Path.GetTempPath(), "RDCore", "raw-client", Guid.NewGuid().ToString("N"));
             var workspace = Path.Combine(root, "Workspace");
@@ -619,6 +709,13 @@ public sealed class ClientWithoutOmniSharpTests
             var start = launch.ToProcessStartInfo();
             start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");
             start.Environment[PlatformEnvironment.LogsEnvironmentVariable] = Path.Combine(root, "Logs");
+            if (language is not null)
+            {
+                var user = Directory.CreateDirectory(Path.Combine(root, "User")).FullName;
+                _ = new RDCore.SDK.Server.Configuration.UserSettingsStore(new System.IO.Abstractions.FileSystem(),
+                    Path.Combine(user, RDCore.SDK.Server.Configuration.UserSettingsStore.FileName), RDCore.SDK.Server.Configuration.SettingsSchema.Platform)
+                    .Set("Environment.Regional.Language", language);
+            }
 
             var process = Process.Start(start)!;
             var exited = process.WaitForExitAsync().ContinueWith(_ => process.ExitCode, TaskScheduler.Default);
@@ -627,7 +724,7 @@ public sealed class ClientWithoutOmniSharpTests
             if (await Unhung(Task.WhenAny(connected, exited), "the language server opening its pipe") != connected)
             {
                 await pipe.DisposeAsync();
-                throw new AssertFailedException($"the language server exited with code {exited.Result} before it opened its pipe.\n{LogOf(root)}");
+                throw new AssertFailedException($"the language server exited with code {await exited} before it opened its pipe.\n{LogOf(root)}");
             }
 
             await connected;

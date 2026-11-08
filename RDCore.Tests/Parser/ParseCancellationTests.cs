@@ -121,7 +121,7 @@ public sealed class ParseCancellationTests
     {
         var handler = new ParseFullDocumentHandler(new ModuleParser(), NullLogger<ParseFullDocumentHandler>.Instance, Options.Create(new SdkServerOptions()));
         using var cancelled = new CancellationTokenSource();
-        cancelled.Cancel();
+        await cancelled.CancelAsync();
 
         _ = await Assert.ThrowsAsync<OperationCanceledException>(
             () => handler.Handle(new ParseDocumentParams { DocumentUri = Uri, Fragment = LongModule() }, cancelled.Token));

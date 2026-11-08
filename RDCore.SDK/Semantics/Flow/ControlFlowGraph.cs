@@ -27,12 +27,14 @@ namespace RDCore.SDK.Semantics.Flow;
 public sealed class ControlFlowGraph
 {
     private readonly ImmutableArray<ControlFlowEdge>[] _successors;
+    private readonly IReadOnlySet<int> _raiseFree;
 
-    private ControlFlowGraph(InstructionList instructions, ImmutableArray<ControlFlowEdge>[] successors, ControlFlowImprecision imprecision)
+    private ControlFlowGraph(InstructionList instructions, ImmutableArray<ControlFlowEdge>[] successors, ControlFlowImprecision imprecision, IReadOnlySet<int> raiseFree)
     {
         Instructions = instructions;
         _successors = successors;
         Imprecision = imprecision;
+        _raiseFree = raiseFree;
     }
 
     /// <summary>
@@ -59,7 +61,23 @@ public sealed class ControlFlowGraph
     /// Builds the graph of a procedure body.
     /// </summary>
     /// <param name="instructions">The lowered body of a procedure.</param>
-    public static ControlFlowGraph Of(InstructionList instructions) => new Builder(instructions).Build();
+    /// <param name="model">
+    /// What the static pass found out about the body, which tells of the assignments that cannot raise an error (a literal let-coerced without one); without it,
+    /// every instruction of a kind that can raise one is taken to.
+    /// </param>
+    /// <param name="foldConstants">
+    /// Whether a condition that is a literal (<c>If False</c>, <c>Do While True</c>, <c>For i = 3 To 1</c>) goes only the way it says (<see cref="ConstantFlow"/>), which is
+    /// what runs; otherwise both ways, which is what is written: the code a refactoring moves, and that a later edit of the literal may run.
+    /// </param>
+    public static ControlFlowGraph Of(InstructionList instructions, ProcedureSemanticModel? model = null, bool foldConstants = true)
+        => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model), foldConstants).Build();
+
+    /// <summary>
+    /// Whether the instruction at <paramref name="node"/> can raise an error: one of a kind that can (<see cref="CanRaiseError"/>), and not an assignment the
+    /// static pass tells cannot.
+    /// </summary>
+    /// <param name="node">The offset of an instruction.</param>
+    public bool CanRaise(int node) => node < Instructions.Items.Length && CanRaiseError(Instructions.Items[node].Kind) && !_raiseFree.Contains(node);
 
     /// <summary>
     /// The ways control can pass from <paramref name="node"/> to another.
@@ -117,8 +135,12 @@ public sealed class ControlFlowGraph
         return false;
     }
 
-    private sealed class Builder(InstructionList instructions)
+    private sealed class Builder(InstructionList instructions, IReadOnlySet<int> raiseFree, bool foldConstants)
     {
+        private bool? OutcomeOf(Instruction instruction) => foldConstants ? ConstantFlow.OutcomeOf(instruction) : null;
+
+        private bool? RunsAtLeastOnce(Instruction instruction) => foldConstants ? ConstantFlow.RunsAtLeastOnce(instruction) : null;
+
         private readonly ImmutableArray<Instruction> _items = instructions.Items;
         private readonly List<ControlFlowEdge>[] _edges = [.. Enumerable.Range(0, instructions.Items.Length + 1).Select(_ => new List<ControlFlowEdge>())];
         private ControlFlowImprecision _imprecision;
@@ -135,7 +157,7 @@ public sealed class ControlFlowGraph
             AddReturnEdges();
             AddErrorEdges();
 
-            return new ControlFlowGraph(instructions, [.. _edges.Select(edges => edges.ToImmutableArray())], _imprecision);
+            return new ControlFlowGraph(instructions, [.. _edges.Select(edges => edges.ToImmutableArray())], _imprecision, raiseFree);
         }
 
         private void Add(int from, int to, ControlFlowEdgeKind kind)
@@ -208,7 +230,7 @@ public sealed class ControlFlowGraph
                     break;
 
                 case InstructionKind.LoopBack:
-                    switch (ConstantFlow.OutcomeOf(instruction))
+                    switch (OutcomeOf(instruction))
                     {
                         case true:
                             Branch(instruction, instruction.Target);
@@ -233,7 +255,7 @@ public sealed class ControlFlowGraph
                 case InstructionKind.ForOpener:
                 case InstructionKind.ForEachOpener:
                     // a loop that has nothing to run over is skipped.
-                    var runs = instruction.Kind is InstructionKind.ForOpener ? ConstantFlow.RunsAtLeastOnce(instruction) : null;
+                    var runs = instruction.Kind is InstructionKind.ForOpener ? RunsAtLeastOnce(instruction) : null;
                     if (runs is not false)
                     {
                         Fallthrough(instruction);
@@ -263,7 +285,7 @@ public sealed class ControlFlowGraph
 
         private void AddConditionalEdges(Instruction instruction)
         {
-            var outcome = ConstantFlow.OutcomeOf(instruction);
+            var outcome = OutcomeOf(instruction);
             if (outcome is not false)
             {
                 Fallthrough(instruction);
@@ -299,7 +321,7 @@ public sealed class ControlFlowGraph
             {
                 foreach (var node in ProtectedBy(statement))
                 {
-                    if (CanRaiseError(_items[node].Kind))
+                    if (CanRaiseError(_items[node].Kind) && !raiseFree.Contains(node))
                     {
                         Add(node, statement.Target!.Value, ControlFlowEdgeKind.Error);
                     }
@@ -338,10 +360,32 @@ public sealed class ControlFlowGraph
 
             return protectedNodes;
         }
-
-        private static bool CanRaiseError(InstructionKind kind) => kind is
-            InstructionKind.Simple or InstructionKind.ConditionalBranch or InstructionKind.LoopBack or InstructionKind.ForOpener or InstructionKind.ForNext
-            or InstructionKind.ForEachOpener or InstructionKind.ForEachNext or InstructionKind.With or InstructionKind.Select or InstructionKind.JumpTable
-            or InstructionKind.GoSubTable or InstructionKind.RaiseError;
     }
+
+    /// <summary>
+    /// Whether an instruction of this kind can raise an error: it evaluates something, or is <c>Error n</c>, or is a <c>Return</c> (error 3, with no <c>GoSub</c>) or
+    /// a <c>Resume</c> (error 20, with no active error).
+    /// </summary>
+    /// <param name="kind">The kind of the instruction.</param>
+    internal static bool CanRaiseError(InstructionKind kind) => kind is
+        InstructionKind.Simple or InstructionKind.ConditionalBranch or InstructionKind.LoopBack or InstructionKind.ForOpener or InstructionKind.ForNext
+        or InstructionKind.ForEachOpener or InstructionKind.ForEachNext or InstructionKind.With or InstructionKind.Select or InstructionKind.JumpTable
+        or InstructionKind.GoSubTable or InstructionKind.RaiseError or InstructionKind.Return or InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext
+        or InstructionKind.ResumeLabel;
+
+    /// <summary>
+    /// Where <c>On Error Resume Next</c> goes on after the instruction raised an error: the next instruction, but past the <c>End Select</c> for the expression of a
+    /// <c>Select Case</c>, with no <c>Case</c> run.
+    /// </summary>
+    /// <remarks>
+    /// As observed in Excel: an error in the expression of a <c>Select Case</c> goes on after <c>End Select</c>, the <c>Case Else</c> included; one in a
+    /// <c>Case</c> expression runs that <c>Case</c>'s body, one in an <c>If</c> or <c>ElseIf</c> condition runs that branch, one in a <c>Do While</c>, <c>Do Until</c> or
+    /// <c>While</c> condition runs the body, and one in a <c>Loop Until</c> or <c>Loop While</c> condition leaves the loop. Each is the next instruction for each of
+    /// them as they are lowered. An error in the start, the end or the step of a <c>For</c> goes on at the first statement of the body, with no test of the bounds and
+    /// the counter not assigned: the next instruction too, along whose error edge the counter keeps the value it had. An error in the collection of a
+    /// <c>For Each</c> or in the object of a <c>With</c> goes on at the next instruction, the first statement of the body; MS-VBA's behaviour there is unverified.
+    /// </remarks>
+    /// <param name="instruction">The instruction that raised the error.</param>
+    public static int NextAfterAnError(Instruction instruction)
+        => instruction is { Kind: InstructionKind.Select, End: { } after } ? after : instruction.Offset + 1;
 }

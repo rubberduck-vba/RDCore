@@ -8,9 +8,11 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics.Static;
 using RDCore.SDK.Semantics.Static.Abstract;
+using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 
 namespace RDCore.SDK.Semantics.Refactoring;
@@ -32,6 +34,13 @@ internal enum OccurrenceKind
 
     /// <summary>The member a member's attribute is of (<c>Attribute Foo.VB_UserMemId</c>).</summary>
     Attribute,
+
+    /// <summary>
+    /// A string that a member of a library calls a procedure by: the procedure name of <c>CallByName</c> (<strong>MS-VBAL §6.1.2.8.1.1</strong>), a host's macro
+    /// (<c>Application.Run "Module1.Foo"</c>), the procedure a host calls later (<c>Application.OnTime</c>, <c>OnKey</c>), or the <c>OnAction</c> of a control.
+    /// What it names is only known when the code runs.
+    /// </summary>
+    String,
 }
 
 /// <summary>How a name is used where it is written: what tells the procedures of a property apart (<strong>MS-VBAL §5.3.1.7</strong>).</summary>
@@ -61,7 +70,13 @@ internal enum NameAccess
 /// <param name="Binding">What it refers to; <see langword="null"/> when it is known to refer to nothing the workspace has, a late-bound member among them.</param>
 /// <param name="Kind">How it is written.</param>
 /// <param name="Scope">The scope it is written in.</param>
-internal readonly record struct NameOccurrence(Uri Module, SourceRange Range, SemanticId? Binding, OccurrenceKind Kind, LexicalScope Scope);
+/// <param name="Qualifier">For a name written in a string (<see cref="OccurrenceKind.String"/>), what qualifies it there: <c>Module1</c> of <c>"Module1.Foo"</c>.</param>
+/// <param name="Node">The node that writes the name: the expression, the declaration, the named argument or the attribute; <see langword="null"/> for a name no node writes.</param>
+/// <param name="Fact">What the static pass found of the expression that writes the name, when it evaluated it in a procedure.</param>
+/// <param name="Owner">For a member after a <c>.</c>, what the expression before the <c>.</c> refers to, when the static pass bound it in a procedure.</param>
+internal readonly record struct NameOccurrence(
+    Uri Module, SourceRange Range, SemanticId? Binding, OccurrenceKind Kind, LexicalScope Scope, string? Qualifier = null,
+    SyntaxNode? Node = null, ExpressionFact? Fact = null, SemanticId? Owner = null);
 
 /// <summary>
 /// The places a name is written, found in the syntax trees of the workspace and bound by the static semantics.
@@ -264,6 +279,8 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
                     }
                 }
 
+                unknown.AddRange(NamedByStrings(context, module, node, lines, name));
+
                 if (WrittenName(node, parent, lines) is not { } written || !string.Equals(written.Name, name, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -271,7 +288,9 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
 
                 var scope = ScopeAt(context, module, written.Range.Start);
                 var (binding, known) = BindingOf(context, module, node, parent, facts, scope);
-                var occurrence = new NameOccurrence(module.Module, written.Range, binding, written.Kind, scope);
+                var fact = facts.GetValueOrDefault(node.Identity);
+                var owner = node is MemberAccessExpressionNode { Owner: { } before } ? FactOf(context, before, facts, scope)?.Binding : null;
+                var occurrence = new NameOccurrence(module.Module, written.Range, binding, written.Kind, scope, Node: node, Fact: fact, Owner: owner);
                 (known ? occurrences : unknown).Add(occurrence);
             }
         }
@@ -568,8 +587,106 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
 
-    // every node of the tree with the node that holds it, as it is written.
-    private static IEnumerable<(SyntaxNode Node, SyntaxNode? Parent)> Walk(SyntaxNode root)
+    // the parameters of a library's members that are given the name of a procedure to call: CallByName's, Application.Run's and MacroOptions's, OnTime's and OnKey's.
+    private static readonly IReadOnlySet<string> ProcedureNameParameters = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ProcName", "Macro", "Procedure" };
+
+    // the property of a library's object that is given the name of a procedure to call when its control is clicked.
+    private const string OnActionProperty = "OnAction";
+
+    // the strings written at a node that name `name` to a member of a library that calls a procedure by its name: arguments of a call, or the value of OnAction.
+    private static IEnumerable<NameOccurrence> NamedByStrings(
+        RenameContext context, RenameModule module, SyntaxNode node, IReadOnlyList<string> lines, string name)
+    {
+        var (callee, arguments, isOnAction) = node switch
+        {
+            IndexExpressionNode index => (index.Callee, index.Arguments, false),
+            CallStatementNode call => (call.Callee, call.Arguments, false),
+            AssignmentStatementNode { Target: MemberAccessExpressionNode target } assignment => ((ExpressionNode)target, [assignment.Value], true),
+            _ => (null, default(ImmutableArray<ExpressionNode>), false),
+        };
+
+        if (callee is null || arguments.IsDefaultOrEmpty)
+        {
+            return [];
+        }
+
+        var named = arguments
+            .Select((argument, position) => (Argument: argument, Position: position, Literal: LiteralOf(argument)))
+            .Where(each => each.Literal is { StaticValue: VBStringValue text } && NamesProcedure(text.Value, name))
+            .ToList();
+        if (named.Count == 0)
+        {
+            return [];
+        }
+
+        // what is called, as the static pass finds it for its own checks of the arguments: a procedure of a module, or a member of an object of a class, which
+        // for a library's class is no declaration of the scope tree.
+        var scope = ScopeAt(context, module, node.SourceLocation.Range.Start);
+        var evaluation = new StaticEvaluationContext(context.Resolver, scope, Environment: context.Environment);
+        var called = LargeStackThread.IsCurrent
+            ? ObjectValueStaticSemantics.MemberOfCallee(evaluation, callee)
+            : LargeStackThread.Run(() => ObjectValueStaticSemantics.MemberOfCallee(evaluation, callee));
+        if (called is null || IsDeclaredBy(context, called))
+        {
+            return [];
+        }
+
+        IReadOnlyList<SignatureParameter> parameters = isOnAction ? [] : SignatureDescription.Of(called)?.Parameters ?? [];
+        return named
+            .Where(each => isOnAction
+                ? string.Equals(called.Name, OnActionProperty, StringComparison.OrdinalIgnoreCase)
+                : ParameterNameOf(each.Argument, each.Position, parameters) is { } parameter && ProcedureNameParameters.Contains(parameter))
+            .Select(each => NameInString(module, each.Literal!, lines, name, scope))
+            .OfType<NameOccurrence>()
+            .ToList();
+    }
+
+    // where the name is written in the string, the last part of what it says, and what qualifies it there; none for a string the source writes over lines.
+    private static NameOccurrence? NameInString(RenameModule module, LiteralExpressionNode literal, IReadOnlyList<string> lines, string name, LexicalScope scope)
+    {
+        var range = literal.Location.Range;
+        if (range.Start.Line != range.End.Line || range.Start.Line >= lines.Count || range.End.Character > lines[range.Start.Line].Length)
+        {
+            return null;
+        }
+
+        var written = lines[range.Start.Line][range.Start.Character..range.End.Character];
+        var at = written.LastIndexOf(name, StringComparison.OrdinalIgnoreCase);
+        if (at <= 0)
+        {
+            return null;
+        }
+
+        var procedure = ((VBStringValue)literal.StaticValue).Value;
+        procedure = procedure[(procedure.LastIndexOf('!') + 1)..].Trim();
+        var parts = procedure.Split('.');
+        var start = new SourcePosition(range.Start.Line, range.Start.Character + at);
+        return new NameOccurrence(module.Module, NameRange(start, name), null, OccurrenceKind.String, scope, parts.Length > 1 ? parts[^2] : null);
+    }
+
+    private static LiteralExpressionNode? LiteralOf(ExpressionNode argument) => argument switch
+    {
+        LiteralExpressionNode literal => literal,
+        NamedArgumentNode { Value: LiteralExpressionNode literal } => literal,
+        _ => null,
+    };
+
+    // the parameter an argument is given to: the one it names, or the one at its position.
+    private static string? ParameterNameOf(ExpressionNode argument, int position, IReadOnlyList<SignatureParameter> parameters)
+        => argument is NamedArgumentNode named ? named.Name : position < parameters.Count ? parameters[position].Name : null;
+
+    // whether a procedure's name, as a host is given it, is `name`: bare, qualified by its module, or by its workbook too ("'Book1.xlsm'!Module1.Foo").
+    private static bool NamesProcedure(string text, string name)
+    {
+        var procedure = text[(text.LastIndexOf('!') + 1)..].Trim();
+        return string.Equals(procedure[(procedure.LastIndexOf('.') + 1)..], name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Every node of the tree with the node that holds it, as it is written.
+    /// </summary>
+    /// <param name="root">The node the walk starts from, which no node holds.</param>
+    public static IEnumerable<(SyntaxNode Node, SyntaxNode? Parent)> Walk(SyntaxNode root)
     {
         var pending = new Stack<(SyntaxNode Node, SyntaxNode? Parent)>();
         pending.Push((root, null));

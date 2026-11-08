@@ -572,8 +572,8 @@ public sealed class CompiledDirectCallTests
         }
     }
 
-    // the stack trace of an error is the one captured where it was raised: every activation it unwinds, and the location in the innermost one only - not what
-    // is left of the stack where a handler catches it.
+    // the stack trace of an error is the one captured where it was raised: every activation it unwinds - not what is left of the stack where a handler
+    // catches it.
     [TestMethod]
     public async Task TheStackTraceOfAnError_IsTheOneWhereItWasRaised()
     {
@@ -683,7 +683,7 @@ public sealed class CompiledDirectCallTests
 
     // an error raised in a procedure the interpreter runs, called by the innermost of three activations compiled code made directly: each of the three is
     // given its frame when the procedure's is pushed above it, and the stack trace of the error has every activation, in order, as the interpreter has it: the
-    // location of the innermost only, as for any error (TheStackTraceOfAnError_IsTheOneWhereItWasRaised).
+    // innermost located where the error was raised, and each caller at the call it is suspended at, which the frame it was given says.
     [TestMethod]
     public async Task AnErrorBelowThreeCallsMadeDirectly_IsTracedWithEveryActivationInOrder()
     {
@@ -713,7 +713,7 @@ public sealed class CompiledDirectCallTests
             "End Function");
         var (observed, direct, _) = await AssertAlikeAsync(program, "First", "Second");
 
-        StringAssert.Matches(observed, new System.Text.RegularExpressions.Regex(@"\| Interpreted@\d+:\d+ < Third@-1:-1 < Second@-1:-1 < First@-1:-1 < Main@"));
+        StringAssert.Matches(observed, new System.Text.RegularExpressions.Regex(@"\| Interpreted@21:\d+ < Third@15:8 < Second@10:8 < First@5:8 < Main@1:16$"));
         if (!CompiledExecution.HandsOverAtRandom)
         {
             Assert.AreEqual(2L, direct, "First calls Second, and Second calls Third, through their typed entries");

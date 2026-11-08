@@ -42,9 +42,33 @@ Two settings decide how a program is run, whatever its code says:
 |---|---|
 |`Environment.Configuration`|`Debug` (the default) or `Release`. A release build has no debugger: a `Stop` statement ends the program as `End` does, as in a compiled VB6 executable ([**RD-VBAL §5.4.2.11** Stop Statement](rd-vbal.5.4.2.11.stop-statement.md)). It keeps every `Debug.Print` and `Debug.Assert` call unless `Environment.ReleaseDropsDebugStatements` says otherwise. It is the default of the built-in `DEBUG` conditional-compilation constant (`True` in a debug build, `False` in a release one), and what a release build does follows `DEBUG`: a project's `#Const DEBUG`, or a command-line define, still decides.|
 |`Environment.ReleaseDropsDebugStatements`|`false` (the default) or `true`. When `true`, a release build leaves out every `Debug.Print` and `Debug.Assert` call, its arguments unevaluated: no instruction is left behind. When `false`, a release build runs them as a debug build does. A debug build keeps them either way, and a release build's `Stop` ends the program whatever this says.|
-|`Environment.ExecutionEngine`|`Interpreter` (the default) or `Compiled`: each procedure compiled to IL on its first call when every instruction in it can be, and interpreted otherwise ([**RD-VBAL §3.5.6** Compiled Execution](rd-vbal.3.5.6.compiled-execution.md)).|
+|`Environment.ExecutionEngine`|`Compiled` (the default) or `Interpreter`. `Compiled` compiles each procedure to IL on its first call when compiled code can run it, and interprets it otherwise ([**RD-VBAL §3.5.6** Compiled Execution](rd-vbal.3.5.6.compiled-execution.md)).|
 
 The engine is independent of the other two: a release build lowers the same statements the same way in either engine.
+
+### User Interface Language
+
+`Environment.Regional.Language` is the language of the platform's messages: the shell's, the language server's, the diagnostics', and those of every other
+component ([`UserInterfaceLanguage`](../api/RDCore.SDK.Server.UserInterfaceLanguage.html)). The platform's messages are in English and French.
+
+|Value|The messages are in|Said once, as a component starts|
+|---|---|---|
+|Empty (the default)|The machine's display language.|Nothing.|
+|A culture of English or French (`en`, `fr`, `fr-CA`, `en-US`)|That language.|At `Information`.|
+|A culture of another language (`de`)|English, by .NET's resource fallback.|At `Information`, naming the culture and English.|
+|A name that is no culture (`xx-YY`)|The machine's display language.|A warning.|
+
+Each component applies it as it starts, before it writes anything. A server that has it keeps it over the `locale` its client sends in `initialize`. A server
+without it speaks its client's `locale`, and sends the same `locale` to the components it starts. The shell sends its own language as its `locale`, so a value
+in its `appsettings.json` reaches the servers it starts. A value the user sets (`CONFIG Environment.Regional.Language fr`) reaches every component, whichever client
+started the platform.
+
+It sets the language only. How a number or a date is written and read stays with the other `Environment.Regional` settings
+([**RD-VBAL §5.5.1.2** Regional settings](rd-vbal.5.5.1.2.runtime-semantics.md#regional-settings)), and `Environment.Lcid` still decides how text compares and
+what `Format` writes. Under `fr`, `CStr(2.5)` is `2.5`.
+
+> [!NOTE]
+> **Not implemented.** The description of a run-time error (`Err.Description`) is in English under every language: error 11 is `Division by zero` under `fr`.
 
 ## User Settings
 
@@ -192,4 +216,5 @@ The shell completes the arguments of `CONFIG` a part at a time: the sections, th
 |[`LiveSettings`](../api/RDCore.SDK.Server.Configuration.LiveSettings.html), [`LiveSettingsTarget`](../api/RDCore.SDK.Server.Configuration.LiveSettingsTarget.html)|Sets the live settings a client said on a component's settings objects; what it hands down.|
 |[`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)|The section `rdcore`: what a client answers `workspace/configuration` with, and what a server reads of it.|
 |[`AppHost.Settings`](../api/RDCore.SDK.Server.AppHost-1.html)|The settings of a component: the platform's, combined with the component's own.|
+|[`UserInterfaceLanguage`](../api/RDCore.SDK.Server.UserInterfaceLanguage.html)|Applies `Environment.Regional.Language` as a component starts, and says what came of it.|
 |[`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html)|The settings an extension is configured with, written into its manifest.|

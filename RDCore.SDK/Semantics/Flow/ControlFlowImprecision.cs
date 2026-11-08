@@ -30,5 +30,11 @@ public enum ControlFlowImprecision
     /// The procedure uses <c>Resume</c> or <c>Resume Next</c>, which continue at the statement that raised the error: which one is known only at run time. The graph has no edge
     /// for it, so a path that only exists through one is not in it.
     /// </summary>
+    /// <remarks>
+    /// The data flow analyses do not have this imprecision. <see cref="ErrorHandlingStates"/> finds the instructions that can raise an error into a handler, and the
+    /// edges it is built with (<see cref="FlowEdges"/>) go from a <c>Resume</c> back to each of them, and from a <c>Resume Next</c> to the statement after each of them.
+    /// <see cref="LiveVariables"/> and <see cref="ReachingDefinitions"/> walk those edges. Only a question asked of the graph's own edges, as
+    /// <see cref="ReturnValueAnalysis"/> asks one, misses the paths.
+    /// </remarks>
     Resumption = 1 << 2,
 }

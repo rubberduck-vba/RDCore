@@ -3,7 +3,6 @@ using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
-using RDCore.CLI.Themes;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
@@ -52,9 +51,7 @@ public sealed class ReplFixLaneTests
     private async Task<List<IReadOnlyList<ReplTextRun>>> ListedMarginsAsync()
     {
         _console.ClearReceivedCalls();
-        var themes = Substitute.For<IAppThemeService>();
-        themes.Theme.Returns(new AppTheme(new ThemeDocument()));
-        await new ListReplCommand(themes).ExecuteAsync(_context, "", CancellationToken.None);
+        await new ListReplCommand().ExecuteAsync(_context, "", CancellationToken.None);
         return [.. _console.ReceivedCalls()
             .Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteListingLine))
             .Select(call => (IReadOnlyList<ReplTextRun>)call.GetArguments()[0]!)];

@@ -44,6 +44,8 @@ The current program is the body of an implicit procedure named `Main`, in an imp
 | `VARS`, `STACK` | Shows the variables and the call stack at a stop. |
 | `CONFIG` | Shows and edits your settings, with completion. Formatting changes apply right away. |
 
+`Ctrl+C` stops a running program. At a stop (a `Stop` statement, a breakpoint, or `Ctrl+C`) the shell says `BREAK IN` and the line number, and lists the two lines above it and the two below it, with the stopped line highlighted. `CONFIG CLI.BreakListingLines` sets how many lines are listed on each side, from the next start of the shell; `0` lists none.
+
 At a stop you can type statements as you would in the VBIDE's immediate pane, and edit the program before you go on.
 
 > [!NOTE]
@@ -80,6 +82,7 @@ The shell is fun, but the real work happens in the language server behind it, an
   - a `Declare` statement's library must be a 64-bit DLL;
   - Office automation (`CreateObject("Excel.Application")`) needs the Office application installed.
 - **Your settings** are kept in `%APPDATA%\RDCore`, and the **logs** in `%LOCALAPPDATA%\RDCore\Logs`. Nothing is written into the folder you extracted, so updating means replacing that folder.
+- **RDCore speaks English and French**, and follows your machine's display language. `CONFIG Environment.Regional.Language fr` (or `en`) picks one the next time RDCore starts. It changes no number or date formatting.
 - **Your projects are yours**: the GPLv3 covers RDCore itself, not the code you write or what RDCore builds from it (see [NOTICE.md](https://github.com/rubberduck-vba/RDCore/blob/main/NOTICE.md)).
 - **Want to contribute, or build on the platform?** See [Building on RDCore](building-on-rdcore.md).
 

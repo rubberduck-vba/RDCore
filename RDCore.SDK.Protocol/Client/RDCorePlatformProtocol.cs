@@ -116,4 +116,15 @@ public static class RDCorePlatformProtocol
     /// Writes one byte of the runtime session's memory.
     /// </summary>
     public const string SessionPoke = "rdcore/session/memory/poke";
+
+    /// <summary>
+    /// Asks the language server what a refactoring of a document's range asks its user, and what it refuses or would change, before it is applied: sent by a
+    /// client that expects the <c>Refactoring</c> capability.
+    /// </summary>
+    public const string RefactorPrepare = "rdcore/refactor/prepare";
+
+    /// <summary>
+    /// Asks the language server for the edit a refactoring of a document's range makes with its user's answers, which the client applies.
+    /// </summary>
+    public const string RefactorApply = "rdcore/refactor/apply";
 }

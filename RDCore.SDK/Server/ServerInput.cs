@@ -67,7 +67,7 @@ public sealed class ServerInput : PipeReader
         {
             // the loop is stopped as the server is disposed, by cancelling its read: a read that fails sends the loop to a catch that copies out the buffer of
             // its last read, which it has advanced past. The loop holds no buffer of the pipe while it waits.
-            _received.Reader.Complete();
+            await _received.Reader.CompleteAsync();
             _finished = true;
             return End;
         }
@@ -114,10 +114,10 @@ public sealed class ServerInput : PipeReader
     public override void CancelPendingRead() => _received.Reader.CancelPendingRead();
 
     /// <inheritdoc/>
-    public override void Complete(Exception? exception = null) => _ = CompleteAfterReceiving();
+    public override void Complete(Exception? exception = null) => _ = CompleteAfterReceivingAsync();
 
     /// <inheritdoc/>
-    public override ValueTask CompleteAsync(Exception? exception = null) => new(CompleteAfterReceiving());
+    public override ValueTask CompleteAsync(Exception? exception = null) => new(CompleteAfterReceivingAsync());
 
     // the end of the input, read by the loop with nothing left to parse, completes the pipe it reads: no buffer of it is held.
     private ReadResult Finish(ReadResult read)
@@ -184,11 +184,14 @@ public sealed class ServerInput : PipeReader
 
     // completed once, however many times it is told to: by the exit, by the loop as it stops, and by the server as it is disposed.
     // receiving ends by completing the reader it wraps and the pipe it fills, and never fails: what a completion waits for doesn't fault.
-    private Task CompleteAfterReceiving()
+    // the loop is stopped before Complete returns, as a reader's Complete is: the cancellation is synchronous, and not awaited.
+    private Task CompleteAfterReceivingAsync()
     {
         if (Interlocked.Exchange(ref _completing, 1) == 0)
         {
+#pragma warning disable VSTHRD103
             _ending.Cancel();
+#pragma warning restore VSTHRD103
             _ = _receiving.ContinueWith(_ => _ending.Dispose(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
 

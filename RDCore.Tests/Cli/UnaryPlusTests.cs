@@ -11,7 +11,7 @@ namespace RDCore.Tests.Cli;
 public sealed class UnaryPlusTests
 {
     // the program of a case: P writes what it is given, as a Variant, with its type, and what was written is printed at the end.
-    private static string Run(string body, string declarations = "")
+    private static async Task<string> Run(string body, string declarations = "")
     {
         string[] lines =
         [
@@ -31,7 +31,7 @@ public sealed class UnaryPlusTests
             "    Debug.Print acc",
             "End Sub",
         ];
-        return string.Join("/", RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], string.Join("\r\n", lines) + "\r\n"));
     }
 
     [TestMethod]
@@ -48,12 +48,12 @@ public sealed class UnaryPlusTests
     [DataRow("x = 2 ^ 3 ^ 2 ;; P x", "64 Double|", DisplayName = "the chain of ^ without it")]
     [DataRow("x = -+3 ^ 2 ;; P x", "-9 Double|", DisplayName = "under a negation of a ^, as -3 ^ 2")]
     [DataRow("x = -3 ^ 2 ;; P x", "-9 Double|", DisplayName = "the negation of a ^ without it")]
-    public void AUnaryPlus_LeavesANumberAsItIs(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AUnaryPlus_LeavesANumberAsItIs(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     [TestMethod]
-    public void AUnaryPlus_IsTheValueOfAModuleConstant()
-        => Assert.AreEqual("1 Integer|", Run("P C", "Private Const C = +1"));
+    public async Task AUnaryPlus_IsTheValueOfAModuleConstant()
+        => Assert.AreEqual("1 Integer|", await Run("P C", "Private Const C = +1"));
 
     // no coercion: what the + is written before keeps its type, and Null is Null.
     [TestMethod]
@@ -61,27 +61,27 @@ public sealed class UnaryPlusTests
     [DataRow("x = +True ;; P x", "True Boolean|", DisplayName = "a Boolean")]
     [DataRow("x = +Null ;; P x", "Null|", DisplayName = "Null")]
     [DataRow("x = +\"1\" & \"2\" ;; P x", "12 String|", DisplayName = "a String concatenated")]
-    public void AUnaryPlus_LeavesWhatItIsWrittenBefore_OfItsOwnType(string body, string printed)
-        => Assert.AreEqual(printed, Run(body));
+    public async Task AUnaryPlus_LeavesWhatItIsWrittenBefore_OfItsOwnType(string body, string printed)
+        => Assert.AreEqual(printed, await Run(body));
 
     // a variable after a + is the variable: a call is given its reference, and changes it.
     [TestMethod]
-    public void AUnaryPlus_BeforeAVariable_PassesTheVariableByReference()
-        => Assert.AreEqual("2 Long|", Run("Dim n As Long ;; n = 1 ;; Inc +n ;; P n"));
+    public async Task AUnaryPlus_BeforeAVariable_PassesTheVariableByReference()
+        => Assert.AreEqual("2 Long|", await Run("Dim n As Long ;; n = 1 ;; Inc +n ;; P n"));
 
     // an object after a + is the object: Set assigns it.
     [TestMethod]
-    public void AUnaryPlus_BeforeAnObject_IsTheObjectASetAssigns()
-        => Assert.AreEqual("True Boolean|", Run("Dim c As Collection ;; Set c = New Collection ;; Dim o As Object ;; Set o = +c ;; P o Is c"));
+    public async Task AUnaryPlus_BeforeAnObject_IsTheObjectASetAssigns()
+        => Assert.AreEqual("True Boolean|", await Run("Dim c As Collection ;; Set c = New Collection ;; Dim o As Object ;; Set o = +c ;; P o Is c"));
 
     // a + before TypeOf is before the TypeOf…Is expression: what the expression tests is unchanged.
     [TestMethod]
-    public void AUnaryPlus_BeforeTypeOf_LeavesTheTypeOfIsExpression()
-        => Assert.AreEqual("True Boolean|", Run("Dim c As Collection ;; Set c = New Collection ;; x = +TypeOf c Is Collection ;; P x"));
+    public async Task AUnaryPlus_BeforeTypeOf_LeavesTheTypeOfIsExpression()
+        => Assert.AreEqual("True Boolean|", await Run("Dim c As Collection ;; Set c = New Collection ;; x = +TypeOf c Is Collection ;; P x"));
 
     // a Tab clause, a space, then a + is two items: the + begins the second, and is erased. The file holds 1 printed at the second column.
     [TestMethod]
-    public void AUnaryPlus_AfterATabClauseAndASpace_BeginsTheNextItem_OfAPrintToAFile()
+    public async Task AUnaryPlus_AfterATabClauseAndASpace_BeginsTheNextItem_OfAPrintToAFile()
     {
         var path = Path.Combine(Path.GetTempPath(), $"rdcore-uplus-{Guid.NewGuid():N}.txt");
         try
@@ -103,7 +103,7 @@ public sealed class UnaryPlusTests
                 "End Sub",
             ];
 
-            var output = RunAsync([], string.Join("\r\n", lines) + "\r\n").GetAwaiter().GetResult();
+            var output = await RunAsync([], string.Join("\r\n", lines) + "\r\n");
 
             Assert.AreEqual("[  1 ]", Assert.ContainsSingle(output));
         }

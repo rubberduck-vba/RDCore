@@ -10,11 +10,11 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class VariantStringComparedWithNumberTests
 {
-    private static string Run(string body)
+    private static async Task<string> Run(string body)
     {
         var program = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPrivate Sub P(ByVal v As Variant)\r\nDebug.Print CStr(v)\r\nEnd Sub\r\n"
             + "Public Sub Main()\r\nOn Error Resume Next\r\n" + string.Join("\r\n", body.Split(" ;; ")) + "\r\nEnd Sub\r\n";
-        return string.Join("/", RunAsync([], program).GetAwaiter().GetResult());
+        return string.Join("/", await RunAsync([], program));
     }
 
     [TestMethod]
@@ -37,14 +37,14 @@ public sealed class VariantStringComparedWithNumberTests
     [DataRow("Dim w: w = \"&H3\" ;; P (w < 5) ;; w = \" 3 \" ;; P (w < 5) ;; w = \"3e0\" ;; P (w < 5) ;; w = \"3,0\" ;; P (w < 5) ;; w = \"$3\" ;; P (w < 5) ;; P \"Err \" & Err.Number", "True/True/True/False/True/Err 0", DisplayName = "L01 what reads as a number")]
     [DataRow("Dim w: w = \"abc\" ;; Dim i As Integer: i = 5 ;; P (i < w) ;; P (i > w) ;; P (i <> w) ;; P \"Err \" & Err.Number", "True/False/True/Err 0", DisplayName = "L03 a typed number on the left")]
     [DataRow("Dim w: w = \"(3)\" ;; P (w < 0) ;; w = \"3-\" ;; P (w < 0) ;; w = \"True\" ;; P (w < 5) ;; P \"Err \" & Err.Number", "True/True/False/Err 0", DisplayName = "L04 signs, and \"True\" against a number")]
-    public void AVariantString_ComparedWithANumber(string body, string expected)
-        => Assert.AreEqual(expected, Run(body));
+    public async Task AVariantString_ComparedWithANumber(string body, string expected)
+        => Assert.AreEqual(expected, await Run(body));
 
     [TestMethod]
-    public void AStringDeclaredAsOne_IsATypeMismatch_WhenItIsNoNumber()
-        => Assert.AreEqual("Err 13/True/Err 0", Run("Dim s As String: s = \"abc\" ;; P (s < 5) ;; P \"Err \" & Err.Number ;; Err.Clear ;; s = \"3\" ;; P (s < 5) ;; P \"Err \" & Err.Number"));
+    public async Task AStringDeclaredAsOne_IsATypeMismatch_WhenItIsNoNumber()
+        => Assert.AreEqual("Err 13/True/Err 0", await Run("Dim s As String: s = \"abc\" ;; P (s < 5) ;; P \"Err \" & Err.Number ;; Err.Clear ;; s = \"3\" ;; P (s < 5) ;; P \"Err \" & Err.Number"));
 
     [TestMethod]
-    public void TwoVariants_AreRankedAsBefore()
-        => Assert.AreEqual("True/False/Err 0", Run("Dim w: w = \"abc\" ;; Dim c ;; c = 5 ;; P (w > c) ;; P (w = c) ;; P \"Err \" & Err.Number"));
+    public async Task TwoVariants_AreRankedAsBefore()
+        => Assert.AreEqual("True/False/Err 0", await Run("Dim w: w = \"abc\" ;; Dim c ;; c = 5 ;; P (w > c) ;; P (w = c) ;; P \"Err \" & Err.Number"));
 }

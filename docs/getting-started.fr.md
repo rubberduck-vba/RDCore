@@ -44,6 +44,8 @@ Le programme courant est le corps d'une procédure implicite nommée `Main`, dan
 | `VARS`, `STACK` | Affiche les variables et la pile d'appels lors d'un arrêt. |
 | `CONFIG` | Affiche et modifie vos paramètres, avec complétion. Les changements de mise en forme s'appliquent aussitôt. |
 
+`Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un point d'arrêt ou `Ctrl+C`), le _shell_ affiche `INTERRUPTION À LA LIGNE` et le numéro de ligne, puis liste les deux lignes au-dessus de cette ligne et les deux au-dessous, la ligne de l'arrêt étant mise en évidence. `CONFIG CLI.BreakListingLines` fixe combien de lignes sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune.
+
 Lors d'un arrêt, vous pouvez taper des instructions comme dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
 
 > [!NOTE]
@@ -80,6 +82,7 @@ Le _shell_ est amusant, mais le vrai travail se fait dans le serveur de langage 
   - la bibliothèque d'une instruction `Declare` doit être une DLL 64 bits;
   - l'automatisation d'Office (`CreateObject("Excel.Application")`) requiert que l'application Office soit installée.
 - **Vos paramètres** sont conservés dans `%APPDATA%\RDCore`, et les **journaux** dans `%LOCALAPPDATA%\RDCore\Logs`. Rien n'est écrit dans le dossier extrait : mettre à jour, c'est remplacer ce dossier.
+- **RDCore parle français et anglais**, et suit la langue d'affichage de votre machine. `CONFIG Environment.Regional.Language en` (ou `fr`) en choisit une au prochain démarrage de RDCore. Ce paramètre ne change pas la façon d'écrire les nombres ni les dates.
 - **Vos projets vous appartiennent** : la GPLv3 couvre RDCore lui-même, et non le code que vous écrivez ni ce que RDCore en construit (voir l'[AVIS](https://github.com/rubberduck-vba/RDCore/blob/main/NOTICE.md)).
 - **Vous voulez contribuer, ou bâtir sur la plateforme?** Voyez [Bâtir sur RDCore](building-on-rdcore.fr.md).
 

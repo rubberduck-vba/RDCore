@@ -1,9 +1,11 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Client;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
@@ -86,7 +88,9 @@ public sealed class RefactoringWireTests
             .AddHandler(new DocumentDiagnosticHandler(diagnostics, Substitute.For<IDocumentLifecycleService>(), new WorkProgressReporter(), new IncomingDocumentChanges(),
                 new RDCore.LanguageServer.Runtime.OpenDialogs()))
             .AddHandler(new CodeActionHandler(rename, documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem()))
-            .AddHandler(new RenameHandler(rename))
+            // the rename handler asks the client through the server it is a handler of.
+            .WithServices(services => services.AddSingleton<IRenameService>(rename))
+            .WithHandler<RenameHandler>()
             .AddHandler(new PrepareRenameHandler(rename)), timeout.Token);
         var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer)
             .WithClientCapabilities(new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
@@ -126,6 +130,94 @@ public sealed class RefactoringWireTests
             () => languageClient.SendRequest(new RenameParams { TextDocument = document, Position = new Position(1, 5), NewName = "Next" }, timeout.Token));
         StringAssert.Contains(refused.Message, "Next", "the message of the refusal is the client's to show");
         Assert.AreEqual(-32803, refused.ErrorCode, "RequestFailed: an answer, which a client does not log as a fault");
+    }
+
+    // a procedure a library calls by its name in a string is renamed there too if the user confirms it: a client that takes change annotations is sent the edit
+    // annotated, to ask its user itself; one that does not is asked by the server, and sent what the user chose - or nothing, when they chose nothing.
+    [TestMethod]
+    [Timeout(60_000, CooperativeCancellation = true)]
+    [DataRow("rename", 2, DisplayName = "a client that can't ask, whose user renames the strings too")]
+    [DataRow("leave", 1, DisplayName = "a client that can't ask, whose user leaves them")]
+    [DataRow(null, 0, DisplayName = "a client that can't ask, whose user chooses nothing")]
+    [DataRow("annotations", 2, DisplayName = "a client that takes change annotations")]
+    public async Task AProcedureCalledByItsNameInAString_IsRenamedThere_AsTheUserConfirms(string? answer, int expected)
+    {
+        const string source = "Public Sub Foo()\r\nEnd Sub\r\n\r\nPublic Sub Bar()\r\n    Dim o As Object\r\n    CallByName o, \"Foo\", VbMethod\r\nEnd Sub\r\n";
+        var documents = Substitute.For<IWorkspaceDocumentService>();
+        var parsing = Substitute.For<IParsingClientService>();
+        documents.WorkspaceRoot.Returns(Root);
+        var module = new WorkspaceDocument("Module1.bas", Root, source, version: 4);
+        var uri = module.Id.Uri.ToUri();
+        documents.GetAllDocuments().Returns([module]);
+        parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(module))));
+        var libraries = Substitute.For<IReferencedLibraryService>();
+        libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
+            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
+        var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
+        var rename = new RenameService(documents, parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var toServer = new Pipe();
+        var toClient = new Pipe();
+        var asked = new List<ShowMessageRequestParams>();
+        var serving = OmniSharpLanguageServer.From(server => server
+            .WithInput(toServer.Reader)
+            .WithOutput(toClient.Writer)
+            // as the platform's servers write a change annotation (RDCoreServerApp).
+            .WithSerializer(new PullDiagnosticsLspSerializer())
+            .WithServices(services => services.AddSingleton<IRenameService>(rename))
+            .WithHandler<RenameHandler>(), timeout.Token);
+        var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer)
+            .WithClientCapabilities(new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+            {
+                Workspace = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceClientCapabilities
+                {
+                    WorkspaceEdit = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceEditCapability
+                    {
+                        DocumentChanges = true,
+                        ChangeAnnotationSupport = answer == "annotations"
+                            ? new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceEditSupportCapabilitiesChangeAnnotationSupport()
+                            : null,
+                    },
+                },
+            })
+            .OnShowMessageRequest(request =>
+            {
+                asked.Add(request);
+                var title = answer switch { "rename" => RefactoringTitles.RenameInStringRename(), "leave" => RefactoringTitles.RenameInStringLeave(), _ => null };
+                return Task.FromResult(title is null ? null! : new MessageActionItem { Title = title });
+            }), timeout.Token);
+
+        await Task.WhenAll(serving, connecting);
+        using var server = await serving;
+        using var languageClient = await connecting;
+        var document = new TextDocumentIdentifier(DocumentUri.From(uri));
+
+        var renamed = await languageClient.SendRequest(new RenameParams { TextDocument = document, Position = new Position(0, 12), NewName = "Baz" }, timeout.Token);
+
+        Assert.HasCount(answer == "annotations" ? 0 : 1, asked, "the server asks a client that can't ask its user, and no other");
+        if (expected == 0)
+        {
+            Assert.IsNull(renamed, "nothing is renamed when the user does not choose");
+            return;
+        }
+
+        var edits = renamed!.DocumentChanges!.Single().TextDocumentEdit!.Edits.ToList();
+        Assert.HasCount(expected, edits);
+        Assert.IsTrue(edits.All(edit => edit.NewText == "Baz"));
+        if (answer == "annotations")
+        {
+            var annotated = Assert.IsInstanceOfType<AnnotatedTextEdit>(edits[1], "the string's edit is annotated");
+            var annotation = renamed.ChangeAnnotations!.Single();
+            Assert.AreEqual(RenameWorkspace.InString.Identifier, annotation.Key.Identifier);
+            Assert.AreEqual(annotation.Key.Identifier, annotated.AnnotationId.Identifier, "the edit names the annotation");
+            Assert.IsTrue(annotation.Value.NeedsConfirmation, "the client asks its user");
+        }
+        else
+        {
+            StringAssert.Contains(asked[0].Message, "Foo");
+            Assert.IsFalse(edits.Any(edit => edit is AnnotatedTextEdit), "a client that can't ask is sent no annotation");
+        }
     }
 
     // the edits of the document, in the form the client takes: documentChanges with the version they are edits of, or changes, and not the other.

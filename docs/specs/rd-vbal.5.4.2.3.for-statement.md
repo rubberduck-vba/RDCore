@@ -56,6 +56,24 @@ A `For` loop needs per-activation state. Its opener stores a
 5. Re-test the counter in the same way as `ForOpener`: branch back to the body (`Instruction.Target`) while the counter
    is still in range, and fall through past the loop otherwise.
 
+A `Variant` counter that the body sets to `Null` stays `Null`: `Null` plus the step is `Null`
+([**MS-VBAL §5.6.9.3**](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e070115f-8d40-40cf-ac6d-ab18b9c6c906)),
+and the `Next` assigns it to the counter. The range test then compares `Null` with the end, and the comparison is `Null`
+([**MS-VBAL §5.6.9.5**](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f8acd631-55c1-4199-bc1e-022aaab6d9c8)).
+That result is Let-coerced to `Boolean`, as the condition of an `If` is, and raises error 94. RD-VBA does what MS-VBA
+does, as observed in Excel (64-bit, en-US), counting up or down:
+
+- The `Next` raises the error, after it has assigned the counter `Null`.
+- Under `On Error Resume Next`, or a handler's `Resume Next`, execution goes on after the loop.
+- With `Erl` counting line-number labels (`ErlLineNumbering` set to `LineLabel`), `Erl` is the `Next`'s line number.
+
+Every error a `Next` raises is located at the `Next`, as MS-VBA locates it. That covers this 94, an overflow when it
+steps the counter (6), and a counter that holds no number (13). An overflow leaves the counter as it was, and a `Next`
+that closes two loops (`Next j, i`) raises the outer loop's overflow there too. The position the error reports, the line
+a program waits at when it waits at the error, and `Erl` are all the `Next`'s, whether `Erl` counts document lines or
+line-number labels. Error 92, of a `Next` whose loop was never opened, is located at the `Next` too. An error of the
+`start-value`, the `end-value` or the `step-increment` is the `For` statement's, and is located there.
+
 ### The type a loop counts in
 
 **MS-VBAL §5.4.2.3** checks that the start, the end and the step are "Let-coercible to Double", then proceeds "using
@@ -113,6 +131,7 @@ state for its `Matching` offset, its `ForOpener` never ran in this activation.
 |The addition of `step` to the counter overflows.|6 (Overflow)|
 |The start, the end or the step is no number: `"abc"`, an `Error`, an array, a `String` that is no date in a loop that counts in `Date`.|13 (Type mismatch)|
 |The start, the end or the step is `Null`.|94 (Invalid use of Null)|
+|The counter is a `Variant` that holds `Null` when `Next` tests it.|94 (Invalid use of Null)|
 |The start, the end or the step is out of the range of the type the loop counts in (`For b = 1 To 300` with a `Byte` `b`).|6 (Overflow)|
 
 Run-time error 92 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.ForLoopNotInitialized`

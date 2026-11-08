@@ -81,7 +81,9 @@ public sealed record class Instruction(int Offset, StatementNode? Node, Instruct
     /// block it closes (<see cref="Closes"/>) - where MS-VBA highlights a loop paused at its back edge.
     /// </summary>
     /// <remarks>
-    /// Not where an error it raises is located: a <c>Next</c> is no statement of its own, and its error is at the <c>For</c> it closes.
+    /// It is also where an error a <c>Next</c> raises is located, as MS-VBA locates it (<strong>RD-VBAL §5.4.2.3</strong>): a <c>Next</c> is no statement
+    /// of its own, and what it does to the counter it does at the counter's expression in the <c>For</c> it closes, but an error raised there is the
+    /// <c>Next</c>'s.
     /// </remarks>
     public SourceLocation? Location => Node?.SourceLocation ?? Closes;
 }

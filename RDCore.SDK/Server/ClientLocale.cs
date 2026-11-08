@@ -15,6 +15,9 @@ namespace RDCore.SDK.Server;
 /// The language is the process's default as well as the current one, so that work the server begins later, on other threads - a child process it starts
 /// and initializes, which it tells the same <c>locale</c> - speaks it too.
 /// </para>
+/// <para>
+/// A server whose configuration sets the language of the user interface (<see cref="UserInterfaceLanguage"/>) keeps that one, and does not apply the client's.
+/// </para>
 /// </remarks>
 public static class ClientLocale
 {
@@ -52,7 +55,7 @@ public static class ClientLocale
             : (server.Services.GetService(typeof(Services.InitializeLocale)) as Services.InitializeLocale)?.Locale;
 
     // the culture of a tag, when it is one the platform knows: ICU makes a culture of any well-formed tag, and only a known one is a language it could speak.
-    private static CultureInfo? CultureOf(string? tag)
+    internal static CultureInfo? CultureOf(string? tag)
     {
         if (string.IsNullOrWhiteSpace(tag))
         {

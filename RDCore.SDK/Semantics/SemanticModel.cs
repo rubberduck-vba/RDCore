@@ -42,6 +42,12 @@ public sealed record class ProcedureSemanticModel(SemanticId Procedure, Immutabl
     public Flow.ReturnValueFact? ReturnValue { get; init; }
 
     /// <summary>
+    /// The reads of the procedure's own <c>For Each</c> control variables that see them emptied by the end of the loop (<see cref="Flow.ForEachControlAnalysis"/>),
+    /// in the order they are written in: none when the pass could not tell, which is not to say that there are none.
+    /// </summary>
+    public ImmutableArray<Flow.EmptiedControlReadFact> EmptiedControlReads { get; init; } = [];
+
+    /// <summary>
     /// What the language core states about the conversions and operations of the procedure's code, or <see langword="null"/> when the procedure has not been
     /// evaluated yet: which is not to say that the code has none.
     /// </summary>

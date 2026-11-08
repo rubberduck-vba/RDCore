@@ -40,6 +40,12 @@ public enum IneligibilityKind
     /// <summary>A call: compiled code makes none, and a call is the interpreter's to make.</summary>
     Call,
 
+    /// <summary>
+    /// A variable read in an expression that also passes it by reference to a call, or that passes a parameter by reference that may be the same
+    /// variable: the interpreter decides when the variable is read. Its detail is the variable.
+    /// </summary>
+    OperandPassedByReference,
+
     /// <summary>A member of an object: compiled code holds no object.</summary>
     Member,
 
@@ -208,6 +214,10 @@ internal sealed record class VariantBinaryNode(string Token, VariantNode Left, V
 // a negation or a Not of a Variant operand (VariantOperations.Unary).
 internal sealed record class VariantUnaryNode(string Token, VariantNode Operand, bool OfAConstantExpression) : VariantNode;
 
+// the function result variable of a function of the Variant type, in its own body (MS-VBAL §5.3.1): what its frame holds it as
+// (CompiledActivation.TryReadResultVariant).
+internal sealed record class VariantResultNode : VariantNode;
+
 // a Variant's payload converted to a kind exactly (VariantOperations.Convert).
 internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) : PayloadNode(Kind);
 
@@ -244,12 +254,29 @@ internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(defa
 // the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
+// the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
+// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none. Only an argument of a call;
+// its Kind is not read.
+internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default(ScalarKind));
+
+// the argument of an object parameter passed by reference that is an object variable of the activation of the parameter's very type (MS-VBAL §5.3.1.11):
+// the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+
+// an object parameter of a procedure a compiled body calls: the argument's expression, where an error Set-coercing what it gives is raised, and the
+// parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to.
+internal sealed record class ObjectParameter(SDK.Model.AST.Abstract.ExpressionNode Argument, SDK.Model.Types.Abstract.VBType Type);
+
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
 // a Let of a Variant variable of the activation: the payload written into its cell, of its own subtype - when the cell holds no object,
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
+
+// a Let of the function result variable of a function of the Variant type: the payload assigned where its frame holds it, as the interpreter assigns it
+// (CompiledActivation.TryAssignResultVariant) - unless what it held was an object only it held, which the interpreter's assignment destroys.
+internal sealed record class VariantResultLetStep(int Offset, VariantNode Value) : CompiledStep(Offset);
 
 // the Next of a For whose counter is a Variant: stepped as the interpreter steps it on payloads, with the state its stepped For
 // statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's. Counter: the counter's Variant slot, whose
@@ -320,11 +347,25 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
 // an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
-// slot of the object variable it is made on (Receiver).
+// slot of the object variable it is made on (Receiver), or the offset of the With statement whose block's object it is made on (WithAt).
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
+
+    public int? WithAt { get; init; }
+
+    public bool IsOfAMember => Receiver is not null || WithAt is not null;
 }
+
+// a call of a function of the workspace inside an expression, made as a CallStep makes one, with arguments as a CallStep's: what it returns is of the
+// callee's kind (Kind). Once it is made, the instruction is handed to the interpreter in the middle of it, with what was evaluated of it known
+// (Execution.Frames.KnownOperands): this call by where it is in its statement (Syntax), which the interpreter does not make again.
+internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
+
+// a variable of the activation, or the function result variable, read in an instruction that calls a function inside an expression (CallNode): what was
+// read is what the interpreter is given of it, by where it is in its statement (Syntax), when the instruction is handed to it after a call that may have
+// changed the variable since.
+internal sealed record class KnownNode(PayloadNode Value, int Syntax) : PayloadNode(Value.Kind);
 
 /// <summary>
 /// A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.
@@ -332,7 +373,8 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
-/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>).
+/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), and for an object, whose argument is the object or the variable's address
+/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -341,15 +383,41 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 {
     /// <summary>
     /// Whether the call is made with the arguments as the interpreter gives them (<c>RuntimeProcedureInvoker.Invoke</c>): any parameter is passed by
-    /// reference, or is a <c>String</c>.
+    /// reference, or is a <c>String</c> or an object.
     /// </summary>
     public bool TakesReferences { get; } = ByReference.Contains(true) || Parameters.Contains(null);
+
+    /// <summary>
+    /// Whether what the call returns - a <c>Variant</c>, or a scalar - is assigned by the statement that makes it, as the interpreter assigns the value of its
+    /// expression (<c>StatementRuntimeSemanticsProvider.AssignValue</c>): to a <c>Variant</c>, whatever it holds, once the call returned. <see cref="Result"/>
+    /// is then <see langword="null"/>.
+    /// </summary>
+    public bool AssignsResult { get; init; }
+
+    /// <summary>
+    /// Whether what the call returns is held as a temporary of the statement that makes it until the statement is over (<c>ObjectReferences.HoldTemporarily</c>):
+    /// a <c>Variant</c> its statement discards, or a result its statement assigns. The statement is begun before the call and ended after it
+    /// (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>), as the interpreter begins and ends it.
+    /// </summary>
+    public bool HoldsWhatItReturns { get; init; }
+
+    /// <summary>
+    /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.
+    /// Empty when the call has no object parameter.
+    /// </summary>
+    public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
     /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
     /// </summary>
     public SDK.Semantics.Binding.BoundMember? Site { get; init; }
+
+    /// <summary>
+    /// Where the call expression is: what the activation that makes the call is located at while the callee runs (<c>CallStackFrame.EnterCall</c>), as the
+    /// interpreter locates it.
+    /// </summary>
+    public SourceLocation? CallLocation { get; init; }
 
     /// <summary>
     /// The member other than <see cref="Procedure"/> the call last invoked, of an object of another class, found to be called as

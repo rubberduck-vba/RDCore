@@ -4,6 +4,7 @@ using RDCore.CLI.Libraries;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Runtime.Libraries;
 using System.IO.Abstractions.TestingHelpers;
+using System.Runtime.Versioning;
 
 namespace RDCore.Tests.Cli;
 
@@ -13,6 +14,7 @@ namespace RDCore.Tests.Cli;
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §2.3.1.2 References")]
+[SupportedOSPlatform("windows")]
 public sealed class ExportLibraryTests
 {
     private static readonly string ScriptingFile = Path.Combine(Environment.SystemDirectory, "scrrun.dll");
@@ -201,7 +203,7 @@ public sealed class ExportLibraryTests
     [DataRow("Scripting.json=other;Scripting.scrrun.json=other", @"c:\out\Scripting.scrrun.v1_0.json", DisplayName = "and another of its file's name")]
     [DataRow("Scripting.json=other;Scripting.scrrun.json=other;Scripting.scrrun.v1_0.json=other", @"c:\out\Scripting.scrrun.v1_0.2.json", DisplayName = "and another of its version")]
     [DataRow("Scripting.json=other;Scripting.scrrun.json=own", @"c:\out\Scripting.scrrun.json", DisplayName = "and its own, which is written again")]
-    public void ALibrary_IsWrittenAsTheLibraryOfItsName_UnlessTheFolderHasAnotherOfTheName_AndNeverOverAnother(string before, string expected)
+    public async Task ALibrary_IsWrittenAsTheLibraryOfItsName_UnlessTheFolderHasAnotherOfTheName_AndNeverOverAnother(string before, string expected)
     {
         var files = new MockFileSystem();
         files.AddDirectory(@"c:\out");
@@ -216,7 +218,7 @@ public sealed class ExportLibraryTests
             }
         }
 
-        var exit = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files).ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Result;
+        var exit = await new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files).ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None);
 
         Assert.AreEqual(0, exit);
         Assert.AreEqual("{420B2830-E718-11CF-893D-00A0C9054228}", LibraryJson.Read(files.File.ReadAllText(expected)).Origin?.Guid);
@@ -230,14 +232,14 @@ public sealed class ExportLibraryTests
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public void ALibraryExportedAgain_IsWrittenOverItsOwnDescription()
+    public async Task ALibraryExportedAgain_IsWrittenOverItsOwnDescription()
     {
         var files = new MockFileSystem();
         files.AddDirectory(@"c:\out");
         var command = new ExportLibraryCommand(Substitute.For<IConsoleMessageWriter>(), files);
 
-        command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Wait();
-        command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None).Wait();
+        await command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None);
+        await command.ExecuteAsync([ScriptingFile, "-o", @"c:\out"], CancellationToken.None);
 
         CollectionAssert.AreEqual(new[] { @"c:\out\Scripting.json" }, files.Directory.GetFiles(@"c:\out"));
     }

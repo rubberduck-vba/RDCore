@@ -215,13 +215,15 @@ public record class SdkEnvironmentOptions
     /// <see cref="Runtime.RuntimeEnvironmentProfile"/> made without one.
     /// </summary>
     /// <remarks>
-    /// <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/>. The <c>ExecutionEngine</c> of the platform's <c>RDCore.CLI/appsettings.json</c>
-    /// holds the same value, and a test holds the two to it: a change of the default changes both.
+    /// <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Compiled"/>: a procedure that compiled code cannot run is interpreted, so a program runs in either
+    /// engine alike. The <c>ExecutionEngine</c> of the platform's <c>RDCore.CLI/appsettings.json</c> holds the same value, and a test holds the two to it: a
+    /// change of the default changes both.
     /// </remarks>
-    public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Interpreter;
+    public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Compiled;
 
     /// <summary>
-    /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, <c>#If Win64</c> / <c>#If VBA7</c>).
+    /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, and the <c>Win64</c> or <c>Linux64</c> conditional-compilation constant of the
+    /// operating system the environment runs on).
     /// </summary>
     public bool Is64Bit { get; set; } = true;
     /// <summary>
@@ -322,6 +324,23 @@ public record class SdkEnvironmentOptions
 /// </summary>
 public record class SdkRegionalOptions
 {
+    /// <summary>
+    /// The language of the platform's user interface, as a culture name (<c>en</c>, <c>fr</c>, <c>fr-CA</c>): empty by default, for the machine's.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is the language of every message of every component: the client's, the language server's and those of the components it starts. It is only the
+    /// language: how a number or a date is written and read stays with the other regional settings, and the session's <see cref="SdkEnvironmentOptions.Lcid"/>
+    /// still decides how text compares and what <c>Format</c> writes. It is applied when a component starts (<see cref="UserInterfaceLanguage"/>), and is
+    /// never a part of <see cref="ToSettings"/>.
+    /// </para>
+    /// <para>
+    /// A name that is no culture the platform knows leaves the machine's language, with a warning. The platform's messages are in English and French: a
+    /// culture of another language (<c>de</c>) is shown in English, by .NET's resource fallback, and says so once.
+    /// </para>
+    /// </remarks>
+    public string Language { get; set; } = string.Empty;
+
     /// <summary>
     /// What separates the whole part of a number from its fraction: <c>.</c> by default.
     /// </summary>

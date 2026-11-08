@@ -28,7 +28,7 @@ public record class VBMissingType : VBErrorType
     /// <remarks>
     /// This data type has no declaration semantics and is only indirectly usable as a <c>Variant</c> subtype.
     /// </remarks>
-    public static VBMissingType TypeInfo => _instance.Value;
+    public static new VBMissingType TypeInfo => _instance.Value;
 
     private static readonly Lazy<VBMissingValue> _defaultValue = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public override VBMissingValue DefaultValue => _defaultValue.Value;

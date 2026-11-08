@@ -75,7 +75,11 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
             foreach (var suggestion in fix.Suggestions)
             {
-                if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion).Value is { } edit && ForTheClient(edit) is { } applicable)
+                // a rename whose edits of strings the user confirms is not offered, as an edit, to a client that can't ask them: the rename command, which the
+                // server asks them for, still is.
+                if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion) is { Value: { } edit } answer
+                    && (answer.Question is null || _client.TakesChangeAnnotations())
+                    && ForTheClient(edit) is { } applicable)
                 {
                     actions.Add(new CodeAction
                     {

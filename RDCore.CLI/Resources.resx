@@ -667,6 +667,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>a call: {0}</value>
   </data>
+  <data name="Compilation_Reason_OperandPassedByReference" xml:space="preserve">
+    <value>a variable read in an expression that also passes it by reference to a call: {0}</value>
+  </data>
   <data name="Compilation_Reason_Member" xml:space="preserve">
     <value>a member of an object: {0}</value>
   </data>
@@ -732,6 +735,9 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="CLI_Unattended" xml:space="preserve">
     <value>Whether the console runs programs unattended (--unattended): nobody is there to answer a dialog, and a program that opens one - MsgBox, InputBox, a form shown - fails with VBR50001.</value>
+  </data>
+  <data name="CLI_BreakListingLines" xml:space="preserve">
+    <value>How many lines of the program are listed above and below the line a program stopped at, after BREAK IN. 0 lists none.</value>
   </data>
   <data name="Config_Summary" xml:space="preserve">
     <value>Shows the settings of the platform, and sets them for you</value>

@@ -436,6 +436,12 @@ public sealed record class ReplCommandContext(
     /// What the language server found in the program the last time the shell asked, which a listing marks the lines with a fix by.
     /// </summary>
     public ReplDiagnostics Diagnostics { get; init; } = new();
+
+    /// <summary>
+    /// How many lines of the program a break lists above, and as many below, the line the program stopped at (<see cref="AppOptions.BreakListingLines"/>);
+    /// <c>0</c> lists none.
+    /// </summary>
+    public int BreakListingLines { get; init; } = AppOptions.DefaultBreakListingLines;
 }
 
 /// <summary>

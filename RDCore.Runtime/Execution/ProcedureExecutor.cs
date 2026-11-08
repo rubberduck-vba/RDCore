@@ -187,7 +187,17 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // its own before the next runs, and the last one before the activation returns. A program that was stopped does not unwind (an End runs no
         // Terminate; a break keeps everything as it is), and what it leaves is the session's to clear.
         var temporaries = session.Objects.TemporaryCount;
-        var outcome = RunInstructions(session, frame, list, context, temporaries, once);
+        RuntimeExecutionOutcome outcome;
+        try
+        {
+            outcome = RunInstructions(session, frame, list, context, temporaries, once);
+        }
+        finally
+        {
+            // what compiled code had evaluated of the instruction it handed over is of that instruction alone, however the run of it ended.
+            ((CallStackFrame)frame).Forget();
+        }
+
         if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
         {
             ObjectReferences.ReleaseTemporaries(session, temporaries);
@@ -319,6 +329,10 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // it waited, and after a call it was in the middle of returns. Code run in it that is not its body - a statement typed at the break - is not moved.
         var follows = ReferenceEquals(activation.Body, list);
 
+        // an activation compiled code handed over in the middle of an instruction goes on inside it: what was evaluated of it is known (CallStackFrame.Known),
+        // and what was asked of the program before it - a break, a step, a breakpoint - is for the instruction after it, as it is after a call statement.
+        var inside = activation.Known is not null;
+
         while (activation.Pc < list.Items.Length || (follows && !ReferenceEquals(activation.Body, list)))
         {
             if (follows && !ReferenceEquals(activation.Body, list))
@@ -335,11 +349,18 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 ObjectReferences.Release(session, holder);
             }
 
+            var resumed = inside;
+            inside = false;
+            if (!resumed)
+            {
+                activation.Forget();
+            }
+
             // between instructions, never inside one: a half-executed statement would leave the
             // session in a state no VBA program could have produced. This is what stops a program
             // whose own control flow never would - an empty Do…Loop, a GoTo cycle. It is a break
             // like a Stop is, which is why it is requested of the session the same way.
-            if (cancellation.IsCancellationRequested && !_cancellationAcknowledged)
+            if (!resumed && cancellation.IsCancellationRequested && !_cancellationAcknowledged)
             {
                 var location = list.Items[activation.Pc].Location;
 
@@ -359,7 +380,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
             // a step the program was resumed with ends here, before the instruction it was asked to stop at - and not in a procedure a breakpoint's condition calls,
             // which is the debugger's own evaluation and not the program's.
-            if (_conditionDepth == 0 && session.Halt.TakeStep(session.CallStack.Depth))
+            if (!resumed && _conditionDepth == 0 && session.Halt.TakeStep(session.CallStack.Depth))
             {
                 var stepLocation = list.Items[activation.Pc].Location;
                 if (!session.Halt.TrySuspend(RuntimeHaltKind.Break, stepLocation))
@@ -384,7 +405,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             }
 
             // a breakpoint is waited at before its instruction, once: the program that is resumed from it does not wait there again.
-            var waitedHere = activation.WaitedAt == activation.Pc;
+            var waitedHere = resumed || activation.WaitedAt == activation.Pc;
             activation.WaitedAt = -1;
             if (!waitedHere && _conditionDepth == 0 && session.Halt.Gate is not null && session.Halt.Breakpoints.HasAny && activation.Procedure is { } owner
                 && session.Halt.Breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc, out var breakpointCondition)
@@ -737,7 +758,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // block leaves no stale stack, so this is recomputed fresh every fetch rather than pushed/popped.
     // An instruction of a block whose With statement did not set a target - jumped into, its target in error and resumed past, or past its End With and
     // jumped back into - has Nothing for one: a member with no object before the dot is error 91 (MS-VBA, grid oracle\s16 W02-W07).
-    private static RuntimeEvaluationContext ResolveContext(
+    // Compiled code evaluates a statement of a With block in the context this gives it too (CompiledActivation.ContextAt).
+    internal static RuntimeEvaluationContext ResolveContext(
         RuntimeEvaluationContext outer, CallStackFrame activation, InstructionList list, Instruction instruction)
         => instruction.EnclosingWith is { } openerOffset
             ? outer with
@@ -1070,7 +1092,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return ToFailureOutcome(rangeResult);
         }
 
-        if (((VBBooleanValue)rangeResult.Result!).Value.StoredValue != 0)
+        if (rangeResult.Result is not VBBooleanValue isOutOfRange)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (isOutOfRange.Value.StoredValue != 0)
         {
             // steps 1/2: already out of range - the body never runs at all.
             if (instruction.End is not { } end)
@@ -1117,7 +1144,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             // MS-VBAL §5.4.2.3: a GoTo landed directly on this Next without its own ForOpener ever
             // running this activation - error 92, "For loop not initialized".
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ForLoopNotInitialized,
-                instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
+                instruction.Location ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
         }
 
         // a counter that holds a payload is stepped on payloads (IR lowering S1.2); a step that would raise an error is the boxed path's to raise.
@@ -1141,28 +1168,33 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var counterResult = forLoop.EvaluateOperand(session, state.ControlExpression, context);
         if (!counterResult.IsSuccess)
         {
-            return ToFailureOutcome(counterResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(counterResult));
         }
 
         var sumResult = forLoop.Increment(session, state, counterResult.Result!);
         if (!sumResult.IsSuccess)
         {
-            return ToFailureOutcome(sumResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(sumResult));
         }
 
         var assignResult = forLoop.AssignCounter(session, state, state.ControlExpression, sumResult.Result!, context);
         if (!assignResult.IsSuccess)
         {
-            return ToFailureOutcome(assignResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(assignResult));
         }
 
         var rangeResult = forLoop.IsOutOfRange(session, state, assignResult.Result!);
         if (!rangeResult.IsSuccess)
         {
-            return ToFailureOutcome(rangeResult);
+            return AtTheNext(instruction, state, ToFailureOutcome(rangeResult));
         }
 
-        if (((VBBooleanValue)rangeResult.Result!).Value.StoredValue != 0)
+        if (rangeResult.Result is not VBBooleanValue isOutOfRange)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (isOutOfRange.Value.StoredValue != 0)
         {
             activation.Pc = instruction.Offset + 1; // out of range - the loop ends here.
         }
@@ -1177,6 +1209,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
         return null;
     }
+
+    // MS-VBAL §5.4.2.3: what a Next does - read the counter, add the step to it, assign it the sum, test it with the end - it does at the counter's expression,
+    // the For's, as it has none of its own; an error one of them raises there is the Next's, and is located at it (Instruction.Location), where MS-VBA locates
+    // it. An error raised elsewhere - in a member the counter's value calls - keeps its own location.
+    private static RuntimeExecutionOutcome AtTheNext(Instruction instruction, ForLoopState state, RuntimeExecutionOutcome failure)
+        => failure is { Kind: RuntimeExecutionOutcomeKind.Error, ErrorInfo: { } error } && error.Location == state.ControlExpression.Location
+            && instruction.Location is { } next
+            ? RuntimeExecutionOutcome.Error((IVBRaisableError)(error.AsErrorInfo with { Location = next }))
+            : failure;
 
     // Returns null when the collection was evaluated and stashed successfully and the loop should keep
     // running (activation.Pc set to the body's first instruction, or skipped straight past the whole
@@ -1232,11 +1273,18 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 if (array.Length == 0)
                 {
                     // MS-VBAL §5.4.2.4: "if the array has no elements, execution completes immediately" -
-                    // a real, initialized array whose declared bounds just happen to hold zero elements.
+                    // a real, initialized array whose declared bounds just happen to hold zero elements. It completes with its control variable emptied,
+                    // as one that ran out has it (RD-VBAL §5.4.2.4).
                     if (instruction.End is not { } emptyEnd)
                     {
                         return RuntimeExecutionOutcome.InternalError;
                     }
+
+                    if (EmptyControl(session, control, forEachStatement.ControlExpression) is { } notEmptied)
+                    {
+                        return notEmptied;
+                    }
+
                     activation.Pc = emptyEnd;
                     return null;
                 }
@@ -1312,10 +1360,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         if (!advanced)
         {
-            // a collection with no members: the loop is over before it began, as for an array with no elements.
+            // a collection with no members: the loop is over before it began, as for an array with no elements, and its control variable is emptied.
             if (instruction.End is not { } emptyEnd)
             {
                 return RuntimeExecutionOutcome.InternalError;
+            }
+
+            if (EmptyControl(session, control, forEachStatement.ControlExpression) is { } notEmptied)
+            {
+                return notEmptied;
             }
 
             activation.Pc = emptyEnd;
@@ -1378,8 +1431,17 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     {
         if (instruction.Matching is not { } openerOffset || !activation.TryGetForEachState(openerOffset, out var state))
         {
-            // MS-VBAL §5.4.2.4: a GoTo landed directly on this Next without its own ForEachOpener ever
-            // running this activation - error 92, "For loop not initialized".
+            // MS-VBAL §5.4.2.4: a GoTo landed directly on this Next without its own ForEachOpener ever running this activation, or the opener raised an
+            // error that was resumed past - error 92, "For loop not initialized". MS-VBA empties a Variant control variable first, unless the collection
+            // is declared as an array (RD-VBAL §5.4.2.4).
+            if (instruction.Matching is { } matching && activation.Body?.Items[matching].Node is ForEachStatementNode { ControlExpression: SimpleNameExpressionNode simpleName } opener
+                && session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol is ITypedSymbol unopened
+                && !forEach.KeepsControlWithNoLoopRunning(session, unopened, opener.CollectionExpression, context)
+                && EmptyControl(session, unopened, simpleName) is { } notEmptied)
+            {
+                return notEmptied;
+            }
+
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ForLoopNotInitialized,
                 instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
         }
@@ -1394,7 +1456,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return enumeratedOutcome;
                 }
 
-                activation.Pc = instruction.Offset + 1; // no more members - the loop ends here.
+                // no more members - the loop ends here, with its control variable emptied (RD-VBAL §5.4.2.4).
+                if (EmptyControl(session, state.Control, state.ControlExpression) is { } notEmptied)
+                {
+                    return notEmptied;
+                }
+
+                activation.Pc = instruction.Offset + 1;
                 return null;
             }
 
@@ -1410,7 +1478,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var nextIndex = state.Index + 1;
         if (nextIndex >= state.Array!.Length)
         {
-            activation.Pc = instruction.Offset + 1; // no more elements - the loop ends here.
+            // no more elements - the loop ends here, with its control variable emptied (RD-VBAL §5.4.2.4).
+            if (EmptyControl(session, state.Control, state.ControlExpression) is { } notEmptied)
+            {
+                return notEmptied;
+            }
+
+            activation.Pc = instruction.Offset + 1;
             return null;
         }
 
@@ -1444,6 +1518,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
         activation.Pc = target;
         return null;
+    }
+
+    // MS-VBAL §5.4.2.4 says a loop that has finished leaves its last element in the control variable; MS-VBA empties it (RD-VBAL §5.4.2.4). Null when it was
+    // emptied, and the outcome of the assignment when that failed.
+    private RuntimeExecutionOutcome? EmptyControl(IRuntimeSession session, ITypedSymbol control, ExpressionNode controlExpression)
+    {
+        var emptied = forEach.EmptyControl(session, control, controlExpression);
+        return emptied.IsSuccess ? null : ToFailureOutcome(emptied);
     }
 
     // where the control variable of a For Each is kept, found once for the loop: its slot, when it is a local of the activation.
@@ -1572,12 +1654,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         // an error carries the location of what raised it, and a library member cannot know where it was called from: until its call
         // site is given to it, its error says nowhere. The statement that faulted is where it was raised, as far as anything here knows,
-        // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and the For
-        // it closes is the nearest. The error that propagates is that one: a caller it unwinds into finds it located and leaves it be,
-        // and a debugger that waited at it does not wait at it again.
+        // and the error is given that location once, here, before anything reads it - a Next is no statement of its own, and is where
+        // its closing line is (Instruction.Location). The error that propagates is that one: a caller it unwinds into finds it located
+        // and leaves it be, and a debugger that waited at it does not wait at it again.
         var faulting = list.Items[faultOffset];
-        var node = faulting.Node ?? (faulting.Matching is { } opener ? list.Items.ElementAtOrDefault(opener)?.Node : null);
-        if (outcome.ErrorInfo!.Location is { Uri: null } && node?.SourceLocation is { Uri: not null } statement)
+        var location = faulting.Location ?? (faulting.Matching is { } opener ? list.Items.ElementAtOrDefault(opener)?.Node?.SourceLocation : null);
+        if (outcome.ErrorInfo!.Location is { Uri: null } && location is { Uri: not null } statement)
         {
             outcome = RuntimeExecutionOutcome.Error((IVBRaisableError)(outcome.ErrorInfo.AsErrorInfo with { Location = statement }));
         }

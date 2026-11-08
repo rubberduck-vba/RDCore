@@ -372,4 +372,13 @@
   <data name="NewOfAClassNotCreatable_AsNew_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is declared As New of a class whose objects are never created: each reference to it that would create its object raises run-time error -2147221164 (Class not registered), as MS-VBA does.</value>
   </data>
+  <data name="ForEachControlEmptiedAfterLoop_Empty_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is Empty here: MS-VBA empties the control variable of a For Each loop that runs out, where MS-VBAL §5.4.2.4 says it keeps the last element.</value>
+  </data>
+  <data name="ForEachControlEmptiedAfterLoop_Nothing_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is Nothing here: MS-VBA sets the control variable of a For Each loop that runs out to Nothing, where MS-VBAL §5.4.2.4 says it keeps the last element.</value>
+  </data>
+  <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
+  </data>
 </root>

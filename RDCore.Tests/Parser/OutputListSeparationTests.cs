@@ -189,7 +189,8 @@ public class OutputListSeparationTests
         var result = ParseInProcedure(statement);
 
         Assert.IsEmpty(result.SyntaxErrors, string.Join(" | ", result.SyntaxErrors.Select(error => error.Description)));
-        var assignment = result.SyntaxTree!.Descendants().OfType<AssignmentStatementNode>().Single();
+        Assert.IsNotNull(result.SyntaxTree);
+        var assignment = result.SyntaxTree.Descendants().OfType<AssignmentStatementNode>().Single();
         Assert.IsTrue(assignment.Target.Descendants().Prepend(assignment.Target).OfType<IndexExpressionNode>().Any(index => index.Arguments.Length == 1),
             "the target is F(1)");
         Assert.IsFalse(result.SyntaxTree.Descendants().OfType<CallStatementNode>().Any(call => call.Callee is SimpleNameExpressionNode { IdentifierName: "F" }),

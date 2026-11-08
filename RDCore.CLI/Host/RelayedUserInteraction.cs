@@ -128,7 +128,10 @@ internal sealed class RelayedUserInteraction(IEnvironmentSessionProvider provide
     {
         try
         {
+            // the relay completes on the thread pool, and never needs the program's thread, which waits for it.
+#pragma warning disable VSTHRD002
             return ask().GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

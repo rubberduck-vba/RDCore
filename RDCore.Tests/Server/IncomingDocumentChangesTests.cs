@@ -134,7 +134,7 @@ public sealed class IncomingDocumentChangesTests
 
         var answer = wire.Client.SendRequest(new AboutDocumentParams(new Document(DocumentA)), cancel.Token);
         await wire.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        cancel.Cancel();
+        await cancel.CancelAsync();
         wire.Client.SendNotification(new ChangeParams(new Document(DocumentA)));
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => answer.WaitAsync(TimeSpan.FromSeconds(20)));

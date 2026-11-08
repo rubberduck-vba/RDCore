@@ -17,8 +17,9 @@ namespace RDCore.Runtime.Compiled;
 /// reads and writes its fields there (<see cref="RecordOperations"/>). A record that is a field compiled code reaches - <c>this</c> of a class's
 /// <c>Private this As TState</c>, a record of a standard module - is held by the cell Me or the session holds it in, found where the interpreter finds it
 /// (<see cref="Fields"/>), and its fields read and written there alike: a field of a scalar type, read as a payload of its kind and let-assigned one; a
-/// <c>Variant</c> field, read and let-assigned as a Variant variable is. A field of a record that is a record itself is a field too, through it. What is any
-/// other type - a <c>String</c>, an object, an array, an enumeration - the interpreter reads and writes, and runs each statement that does.
+/// <c>Variant</c> field, read and let-assigned as a Variant variable is; an object field, held in its own cell, which compiled code compares, tests and Sets
+/// there as it does an object variable's (<see cref="ObjectFieldOf"/>). A field of a record that is a record itself is a field too, through it. What is any
+/// other type (a <c>String</c>, an array, an enumeration) the interpreter reads and writes, and runs each statement that does.
 /// </remarks>
 internal sealed partial class ProcedureAnalysis
 {
@@ -98,6 +99,33 @@ internal sealed partial class ProcedureAnalysis
 
         Refuse(field.Type is VBVariantType ? IneligibilityKind.VariantOperand : IneligibilityKind.NotAScalar, member.Access.Member.IdentifierName, member.Expression.Location);
         return null;
+    }
+
+    // an object field of a record of the activation (RecordFieldOf), as compiled code reads and Sets it: in the cell the record holds its object in.
+    private FieldPath? ObjectFieldOf(BoundNode node) => RecordFieldOf(node) is var (path, type) && IsObjectType(type) ? path : null;
+
+    // MS-VBAL §5.4.3.9 with a <member-access-expression> target whose owner is a record, as SetField assigns it: the object field Set-coerced to its
+    // declared type at run time, given what TryObjectSource reads.
+    private CompiledStep? AnalyzeFieldSet(int offset, AssignmentStatementNode assignment, FieldPath field)
+        => TryObjectSource(Bind(assignment.Value), out var source) ? new FieldSetStep(offset, field, source) : null;
+
+    // what a Set compiled code runs is given: an object field of a record, or what TrySetSource reads - an object variable, Me, Nothing (null).
+    private bool TryObjectSource(BoundNode value, out ObjectOperand? read)
+    {
+        if (ObjectFieldOf(value) is { } field)
+        {
+            read = new ObjectFieldNode(field);
+            return true;
+        }
+
+        read = null;
+        if (!TrySetSource(value, out var slot))
+        {
+            return false;
+        }
+
+        read = slot is { } held ? new ObjectSlotOperand(held) : null;
+        return true;
     }
 
     // MS-VBAL §5.4.3.8 with a <member-access-expression> target whose owner is a record, as AssignField assigns it: the value let-coerced to the field's

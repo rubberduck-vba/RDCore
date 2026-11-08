@@ -429,7 +429,7 @@ public abstract class RDCoreServerApp(
     // client says it changed - OmniSharp's own pull, for the section it was configured with - and the answer is set on the component's settings.
     private void FollowClientConfiguration(ILanguageServer server)
     {
-        _configurationFollower = ClientConfigurationFollower.Follow(ExternalServices, server, () => OnLiveSettingsChangedAsync(server), message => LogIfEnabled(LogLevel.Information, message));
+        _configurationFollower = ClientConfigurationFollower.StartFollowing(ExternalServices, server, () => OnLiveSettingsChangedAsync(server), message => LogIfEnabled(LogLevel.Information, message));
     }
 
     private ClientConfigurationFollower? _configurationFollower;
@@ -465,7 +465,13 @@ public abstract class RDCoreServerApp(
         // application brings up in its own handler - the children a language server starts are told the same locale.
         ApplyInitializationOptions(request);
         var locale = ClientLocale.Of(ClientLocale.Said(server, request), ReadInitializationOptions(request.InitializationOptions));
-        if (ClientLocale.Apply(locale) is { } culture)
+        // the platform's own setting is the language of every component, whatever the client shows: a client that is not the platform's (an IDE) says its own.
+        if (UserInterfaceLanguage.Resolve(options.Value.Environment.Regional.Language) is { Overrides: true } setting)
+        {
+            _ = ClientLocale.Apply(setting.Culture.Name);
+            LogIfEnabled(LogLevel.Information, $"🌐 The user interface is in '{setting.Culture.Name}' (Environment.Regional.Language), whatever the client's locale ('{locale}').");
+        }
+        else if (ClientLocale.Apply(locale) is { } culture)
         {
             LogIfEnabled(LogLevel.Information, $"🌐 The client's user interface is in '{culture.Name}'.");
         }
@@ -642,12 +648,4 @@ internal static class LanguageServerOptionsExtensions
         // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
         // registered first, so registering ours here pre-empts it.
         .WithLifecycleReceiver();
-
-    // the receiver; the requests it keeps once the server is initialized, which act on a running program and are handled as they arrive rather than after the
-    // request that runs the program (ArrivalRequests); and the locale of the initialize request it keeps (InitializeLocale).
-    internal static LanguageServerOptions WithLifecycleReceiver(this LanguageServerOptions options)
-        => options.WithServices(services => services
-            .AddSingleton<ArrivalRequests>()
-            .AddSingleton<InitializeLocale>()
-            .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }

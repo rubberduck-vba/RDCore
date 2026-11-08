@@ -54,6 +54,7 @@ internal sealed record class OneLineErrorLog(ILogger Logger);
 
 // around every request's handler: an exception the handler did not foresee is answered on one line, and written whole to the server's log.
 internal sealed class OneLineErrorBehavior<TRequest, TResponse>(OneLineErrorLog log) : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : notnull
 {
     public async Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<TResponse> next)
     {

@@ -111,7 +111,7 @@ public sealed class ServerConnectionTests
         // the loop reports what fails its read before it completes its reader: once it has, all it would report is reported.
         var failure = await loop.LoopEnded.WaitAsync(Hung);
         Assert.IsNull(failure, failure?.ToString());
-        Assert.IsFalse(reported.Task.IsCompleted, reported.Task.IsCompleted ? reported.Task.Result.ToString() : null);
+        Assert.IsFalse(reported.Task.IsCompleted, reported.Task.IsCompleted ? (await reported.Task).ToString() : null);
     }
 
     // OmniSharp completes the server's output before its input as it handles exit: a stream disposed with the output fails the read that waits on it.
@@ -154,7 +154,7 @@ public sealed class ServerConnectionTests
         var input = new ServerInput(received);
         using var stopping = new CancellationTokenSource();
         var waiting = input.ReadAsync(stopping.Token).AsTask();
-        stopping.Cancel();
+        await stopping.CancelAsync();
         Assert.IsTrue((await waiting.WaitAsync(Hung)).IsCompleted, "the end of the input");
 
         await pipe.Writer.WriteAsync("Content-Length: 2\r\n\r\n{}"u8.ToArray());
@@ -170,7 +170,10 @@ public sealed class ServerConnectionTests
         var input = new ServerInput(new ProbedReader(pipe.Reader, failsAsItIsCompleted: new IOException("The pipe is broken.")));
 
         await input.CompleteAsync().AsTask().WaitAsync(Hung);
+        // completed again, the way a pipe is completed synchronously: it is completed once, however it is told to.
+#pragma warning disable VSTHRD103
         input.Complete();
+#pragma warning restore VSTHRD103
 
         var end = await input.ReadAsync().AsTask().WaitAsync(Hung);
         Assert.IsTrue(end.IsCompleted, "the end of the input");

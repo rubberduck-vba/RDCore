@@ -26,7 +26,7 @@ refuses, RD-VBA refuses the same way (recorded in Excel):
 |A project, a module or an Enum type|`For Each v In Strings`, `For Each v In Color`|`VBC09379`|
 
 A `Variant` is iterated as what it holds when the loop runs: one that holds no array and no object is run-time error
-92 (see [Errors](#errors)).
+13, and a `Next` reached after it is run-time error 92 (see [Errors](#errors)).
 
 A [VBCollectionType](../api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) can be efficiently iterated using
 a `For Each...Next` loop. `For Each...Next` enumeration is intended to be used with collections containing objects
@@ -47,9 +47,10 @@ run-time error.
 3. When the collection is a [VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html):
    1. If the array was never initialized (`VBArrayValue.IsInitialized` is false: a `Dim` with no bounds, never
       `ReDim`'d), raise error 92.
-   2. If the array's declared bounds hold zero elements, skip the body entirely by branching to
-      [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.End`, per **MS-VBAL §5.4.2.4**'s
-      "if the array has no elements".
+   2. If the array's declared bounds hold zero elements, empty the control variable (see
+      [The control variable after the loop](#the-control-variable-after-the-loop)) and skip the body entirely by
+      branching to [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.End`, per
+      **MS-VBAL §5.4.2.4**'s "if the array has no elements".
    3. Otherwise, assign the first element to the control variable, store a
       [ForEachState](../api/RDCore.SDK.Runtime.Shared.ForEachState.html), and fall through into the body. The
       assignment is a Set-assignment when the array's item type is `Object`, and a Let-assignment otherwise
@@ -57,8 +58,9 @@ run-time error.
 4. When the collection is `Nothing`, raise error 91: enumerating it would invoke `_NewEnum` on an unset reference.
 5. When the collection is a live object whose class exposes a member with `VB_UserMemId = -4` (commonly `_NewEnum`),
    invoke that member and store a `ForEachState` holding the *enumerator* object it returns (see *Object enumeration*
-   below), then ask the enumerator for its first member as an array's first element is taken, skipping the body when
-   it has none. The member's declared type may be `IUnknown`, `Object` or the enumerator's own class.
+   below), then ask the enumerator for its first member as an array's first element is taken. When it has none, empty
+   the control variable and skip the body. The member's declared type may be `IUnknown`, `Object` or the enumerator's
+   own class.
 6. When the collection is a live object with no such member, raise error 438.
 7. When the collection is anything else (a scalar), raise error 13, `TypeMismatch`.
 
@@ -66,7 +68,7 @@ run-time error.
 
 1. Read the `ForEachState` back via `Instruction.Matching`.
 2. Advance the index (an array), or ask the enumerator for its next member (an object). When the array or the
-   enumerator is exhausted, fall through past the loop.
+   enumerator is exhausted, empty the control variable and fall through past the loop.
 3. Otherwise, assign the next element to the control variable, and branch back to the body's first instruction
    (`Instruction.Target`).
 
@@ -93,12 +95,41 @@ assignment, as it is an `Object`, which is what lets `Property Get NewEnum() As 
 been. The `VB_UserMemId` of a class module's member travels in the symbol descriptor (`SymbolDescriptor.UserMemId`), so
 the host finds the enumeration member and the default member of a workspace class as it does those of the library's.
 
+### The control variable after the loop
+
+**MS-VBAL §5.4.2.4** says that once the loop has finished, the control variable holds the last element of the array or
+the collection. **MS-VBA** does not keep it: a loop that runs out empties its control variable, which is then `Empty`, or
+`Nothing` for an object variable. Neither MS-VBAL nor the MS Learn page of the `For Each...Next` statement mentions
+this. RD-VBA does what MS-VBA does. These are the cases recorded in Excel:
+
+|How the loop ends|The control variable after it|
+|---|---|
+|The array or the collection runs out, in the procedure itself or in a procedure it calls.|`Empty`, or `Nothing` for an object variable.|
+|The array or the collection has no element: `Array()`, `Split("")`, an empty `Collection`.|`Empty`, or `Nothing`.|
+|The body assigns the control variable, then the loop runs out.|`Empty`: the assigned value is lost.|
+|`Exit For`, a `GoTo` out of the loop, `Exit Sub`, an error handled outside the loop or raised to the caller, even on the last element.|The element the loop was at.|
+|A `Next` finds no loop running (error 92), and the control variable is a `Variant`.|`Empty`, unless the collection is declared as an array: then it is left as it was.|
+|A `Next` finds no loop running (error 92), and the control variable is an object variable.|Left as it was.|
+
+A `ByRef` parameter used as the control variable empties the caller's variable. The rule is the same for a module
+variable, a local and a `Static` local, and for a `Variant` declared `As Variant` or with no type.
+
+[RDC11032](../diagnostics/rdc11032.md) warns where the control variable is read after a loop that can only have run
+out ([**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-core-diagnostics.md)).
+
+MS-VBA also refuses a control variable of any type other than `Variant` and `Object`: `For Each s In c`, with `s` a
+`String` and `c` a `Collection`, is the compile error _For Each control variable must be Variant or Object_. MS-VBAL asks
+for a `Variant` only when the collection is declared as an array.
+
+> [!NOTE]
+> **Not implemented.** RD-VBA accepts a control variable of another type, and empties it with a Let-assignment of `Empty`.
+
 ### Errors
 
 |Condition|Run-time error|
 |---|---|
 |The collection is an array that was never initialized (`VBArrayValue.IsInitialized` is false).|92 (For loop not initialized)|
-|`ForEachNext` finds no stored `ForEachState` for its `Matching` offset (a `GoTo` landed directly on the closer).|92 (For loop not initialized)|
+|`ForEachNext` finds no stored `ForEachState` for its `Matching` offset: a `GoTo` landed in the body or on the closer, or the opener raised an error that was resumed past. A `Variant` control variable is emptied first, unless the collection is declared as an array.|92 (For loop not initialized)|
 |The collection is `Nothing`.|91 (Object variable or With block variable not set)|
 |The collection is a live object with no `VB_UserMemId = -4` member, or the enumerator it returns has no `MoveNext` and `Current`.|438 (Object doesn't support this property or method)|
 |The collection is anything else (a scalar).|13 (Type mismatch)|

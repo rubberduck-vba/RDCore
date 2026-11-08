@@ -137,13 +137,16 @@ public sealed class IncomingDocumentChanges
     {
         using var changed = new CancellationTokenSource();
         var watch = (document, changed);
+        bool modified;
         lock (_gate)
         {
             _watches.Add(watch);
-            if (document is null ? _unapplied.Count > 0 : _unapplied.ContainsKey(document))
-            {
-                changed.Cancel();
-            }
+            modified = document is null ? _unapplied.Count > 0 : _unapplied.ContainsKey(document);
+        }
+
+        if (modified)
+        {
+            await changed.CancelAsync();
         }
 
         try

@@ -218,16 +218,30 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
             return valueResult.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(valueResult.ErrorInfo!);
         }
 
+        return AssignValue(session, context, assignment, valueResult.Result!);
+    }
+
+    /// <summary>
+    /// Let-assigns <paramref name="value"/>, the value of <paramref name="assignment"/>'s expression already evaluated, to its target (MS-VBAL §5.4.3.8): what
+    /// the statement does once its expression is evaluated. Compiled code that made the call the expression is gives what the call returned to it.
+    /// </summary>
+    /// <param name="session">The session the statement runs in.</param>
+    /// <param name="context">The context the statement is evaluated in.</param>
+    /// <param name="assignment">The statement.</param>
+    /// <param name="value">The value of its expression.</param>
+    /// <returns>How the statement ended.</returns>
+    internal RuntimeExecutionOutcome AssignValue(IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment, VBTypedValue value)
+    {
         // what a call returned, a scalar, is written to a scalar variable as its payload (S1.3).
-        if (_expressionEvaluator.TryAssignValueUnboxed(session, assignment.Target, valueResult.Result!, context))
+        if (_expressionEvaluator.TryAssignValueUnboxed(session, assignment.Target, value, context))
         {
             return RuntimeExecutionOutcome.Next;
         }
 
-        var outcome = _assignments.Assign(session, context, assignment, assignment.Target, assignment.Value, valueResult.Result!);
+        var outcome = _assignments.Assign(session, context, assignment, assignment.Target, assignment.Value, value);
 
         // a Double past the range of a Single, assigned to one, overflows - and leaves the Single infinite (MS-VBA, grid oracle\s16 D02, F07).
-        if (outcome is { Kind: RuntimeExecutionOutcomeKind.Error, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow } && valueResult.Result is VBDoubleValue { Value: var wide }
+        if (outcome is { Kind: RuntimeExecutionOutcomeKind.Error, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow } && value is VBDoubleValue { Value: var wide }
             && double.IsFinite(wide))
         {
             AssignFloatingPointValue(session, context, assignment, new VBDoubleValue(wide));

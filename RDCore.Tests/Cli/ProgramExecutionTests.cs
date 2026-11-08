@@ -902,13 +902,24 @@ public sealed class ProgramExecutionTests
             return Task.CompletedTask;
         });
 
+    // the error is located at the operation that raised it, its first operand included: not at its operator, which locates a diagnostic about it.
+    [TestMethod]
+    public async Task ARunTimeError_OfAnOperation_IsLocatedAtTheOperation()
+        => await ModuleWorkspace.InspectAsync(NoClasses, Program("Public Sub Main()", "    Dim z As Long", "    Debug.Print 1 + 5 \\ z", "End Sub"), (_, result, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome);
+            var frame = result.StackTrace.Single();
+            Assert.AreEqual((2, 20), (frame.Line, frame.Character));
+            return Task.CompletedTask;
+        });
+
     [TestMethod]
     public async Task ABreakpoint_IsNotWaitedAtByAProgramNotUnderADebugger()
-        => await ModuleWorkspace.InspectAsync(NoClasses, Program("Public Total As Long", "Public Sub Main()", "    Total = 1", "End Sub"), (provider, result, runAgain) =>
+        => await ModuleWorkspace.InspectAsync(NoClasses, Program("Public Total As Long", "Public Sub Main()", "    Total = 1", "End Sub"), async (provider, result, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome);
             provider.Session.Halt.Breakpoints.Set(provider.Session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module) ? module!.Uri.AbsoluteUri : string.Empty, [new RuntimeBreakpoint(2)]);
-            return runAgain().ContinueWith(task => Assert.AreEqual(ExecutionOutcome.Completed, task.Result.Outcome));
+            Assert.AreEqual(ExecutionOutcome.Completed, (await runAgain()).Outcome);
         });
 
     // ---- a statement run while the program waits ----

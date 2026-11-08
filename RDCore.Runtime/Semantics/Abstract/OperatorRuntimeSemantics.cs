@@ -303,7 +303,7 @@ where TFlags : struct, Enum
         // and the Empty it assumes is no fact - the operation is stated, with nothing said of it.
         if (operands.Any(HasUnknownSubtype))
         {
-            return CreateFact(token, expression, null, default, comparison, isValueKnown: false, StatedErrors.Of(result.ErrorInfo));
+            return AtOperator(CreateFact(token, expression, null, default, comparison, isValueKnown: false, StatedErrors.Of(result.ErrorInfo)), expression);
         }
 
         var builder = new SemanticContextFlagsBuilder<TContext, TFlags>();
@@ -312,10 +312,24 @@ where TFlags : struct, Enum
         var effectiveType = DetermineOperatorEffectiveType(
             resolver, new TContext(), expression, new OperatorEvaluationFrame(expression.Identity, [.. operands], VBUnknownType.TypeInfo, comparison)).Result;
 
-        return CreateFact(
-            token, expression, effectiveType, builder.Build().Flags, comparison,
-            isValueKnown: !operands.Any(operand => operand.IsIndeterminate), StatedErrors.Of(result.ErrorInfo));
+        return AtOperator(
+            CreateFact(
+                token, expression, effectiveType, builder.Build().Flags, comparison,
+                isValueKnown: !operands.Any(operand => operand.IsIndeterminate), StatedErrors.Of(result.ErrorInfo)),
+            expression);
     }
+
+    // a diagnostic about the operator is located at its token, which the syntax node keeps; the fact's own location stays the operation's, where a run-time
+    // error of it is.
+    private static OperatorFact? AtOperator(OperatorFact? fact, ExpressionNode expression)
+        => (expression switch
+        {
+            VBBinaryOperatorExpressionNode binary => binary.OperatorLocation,
+            VBUnaryOperatorExpressionNode unary => unary.OperatorLocation,
+            _ => null,
+        }) is { } site && fact is not null
+            ? fact with { OperatorLocation = site }
+            : fact;
 
     /// <summary>
     /// Creates the fact that states an operation of this operator's family.

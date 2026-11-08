@@ -107,6 +107,27 @@ public sealed class ConfigCommandTests
     }
 
     [TestMethod]
+    [DataRow("-1", DisplayName = "fewer than none")]
+    [DataRow("101", DisplayName = "more than the greatest")]
+    public void TheLinesABreakLists_AreRefusedOutsideTheirRange_AndNothingIsWritten(string value)
+    {
+        var refused = Sut.Run($"CLI.BreakListingLines {value}").Single();
+
+        Assert.AreEqual(MessageKind.Error, refused.Kind);
+        Assert.AreEqual(string.Format(Resources.Config_Invalid, value, "CLI.BreakListingLines"), refused.Text);
+        Assert.AreEqual(string.Format(Resources.Config_Values_Integer, 0, AppOptions.MaximumBreakListingLines), refused.Detail);
+        Assert.IsFalse(_fileSystem.File.Exists(UserFile));
+    }
+
+    [TestMethod]
+    public void TheLinesABreakLists_AreSetForTheUser_NoneIncluded()
+    {
+        Assert.AreEqual(MessageKind.Success, Sut.Run("CLI.BreakListingLines 0").Single().Kind);
+
+        Assert.AreEqual("0", UserSettings()["Configuration:CLI:BreakListingLines"]);
+    }
+
+    [TestMethod]
     public void AnInvalidValue_SaysWhatTheSettingCanBe()
         => Assert.AreEqual(string.Format(Resources.Config_Values_Integer, 0, int.MaxValue), Sut.Run("Server.ConnectTimeoutSeconds soon").Single().Detail);
 

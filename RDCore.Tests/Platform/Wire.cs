@@ -20,7 +20,7 @@ internal static class Wire
     /// back relative on Linux. The platform's own are <c>file:</c> URIs (<see cref="FileUri"/>), which are absolute on any platform.
     /// </para>
     /// </remarks>
-    public static T RoundTrip<T>(T payload)
+    public static T RoundTrip<T>(T payload) where T : notnull
         => LspSerializer.Instance.DeserializeObject<T>(LspSerializer.Instance.SerializeObject(payload));
 
     /// <summary>

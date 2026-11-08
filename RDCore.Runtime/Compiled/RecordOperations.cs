@@ -103,6 +103,14 @@ public static class RecordOperations
         return held.TrySetFieldAt(index, VBVariantType.TypeInfo.CreateValue(new ValueBindingHandle(VariantCell.Holding(value.Value.Type, value.Value.Box()))));
     }
 
+    /// <summary>
+    /// The cell the object field at <paramref name="index"/> of <paramref name="record"/> holds its object in: the cell the object is counted as held by, which
+    /// a <c>Set</c> of the field stores in (<c>LetAssignmentEvaluator.SetField</c>), and which <see cref="ObjectOperations"/> reads the reference in.
+    /// <see langword="null"/> when there is no such record.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static object? ObjectField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index)?.Handle;
+
     private static bool TryRead(object? record, int index, ScalarKind kind, out ScalarPayload payload)
     {
         payload = default;

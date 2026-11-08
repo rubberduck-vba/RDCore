@@ -182,7 +182,8 @@ public sealed class GraphicsStatementTests
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{body}\r\nEnd Sub\r\n");
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
-        var line = Assert.ContainsSingle(parse.SyntaxTree!.Descendants().OfType<GraphicsMethodStatementNode>());
+        Assert.IsNotNull(parse.SyntaxTree);
+        var line = Assert.ContainsSingle(parse.SyntaxTree.Descendants().OfType<GraphicsMethodStatementNode>());
         Assert.AreEqual(Tokens.Line, line.Token);
         Assert.AreEqual(0, Number(line.From!.X));
         Assert.AreEqual(1, Number(line.To!.Y));

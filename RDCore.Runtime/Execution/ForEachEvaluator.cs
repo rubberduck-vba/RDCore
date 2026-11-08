@@ -119,6 +119,34 @@ public sealed class ForEachEvaluator(RuntimeExpressionEvaluator expressionEvalua
     }
 
     /// <summary>
+    /// Empties the control variable of a loop that has no element left to assign: a <c>Variant</c> is <c>Empty</c>, an object variable <c>Nothing</c>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>MS-VBAL §5.4.2.4</strong> says the control variable holds the last element once the loop has finished. MS-VBA empties it instead: when the
+    /// collection runs out, when it has no element at all, and when a <c>Next</c> finds no loop running, unless <see cref="KeepsControlWithNoLoopRunning"/>
+    /// (<strong>RD-VBAL §5.4.2.4</strong>). A loop left by <c>Exit For</c>, a jump or an error keeps the element it was at.
+    /// </remarks>
+    /// <param name="session">The session the loop runs in.</param>
+    /// <param name="control">The control variable.</param>
+    /// <param name="locationNode">The control variable's own expression, which the assignment is located at.</param>
+    public RuntimeSemanticsEvaluationResult EmptyControl(IRuntimeSession session, ITypedSymbol control, ExpressionNode locationNode)
+        => control.ResolvedType is VBObjectType or VBClassType
+            ? AssignControl(session, control, locationNode, useSetAssignment: true, VBObjectValue.Nothing)
+            : AssignControl(session, control, locationNode, useSetAssignment: false, VBEmptyValue.Empty);
+
+    /// <summary>
+    /// Whether a <c>Next</c> that finds no loop running (error 92) leaves the control variable of its loop as it is: MS-VBA does when the control variable
+    /// is an object variable, or when the collection expression is declared as an array, as the static pass types it. Otherwise it empties the control
+    /// variable before it raises the error (<strong>RD-VBAL §5.4.2.4</strong>).
+    /// </summary>
+    /// <param name="session">The session the loop runs in.</param>
+    /// <param name="control">The control variable.</param>
+    /// <param name="collection">The collection expression.</param>
+    /// <param name="context">The scope the loop is written in.</param>
+    public bool KeepsControlWithNoLoopRunning(IRuntimeSession session, ITypedSymbol control, ExpressionNode collection, RuntimeEvaluationContext context)
+        => control.ResolvedType is VBObjectType or VBClassType || expressionEvaluator.DeclaredTypeOf(session, collection, context) is VBArrayType;
+
+    /// <summary>
     /// Asks <paramref name="collection"/>, an object, for the enumerator its members are enumerated with: invokes its enumeration member (<c>_NewEnum</c>).
     /// </summary>
     /// <remarks>

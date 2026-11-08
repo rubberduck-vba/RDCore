@@ -137,6 +137,7 @@ This catalogue lists the platform capabilities the SDK defines. Each capability 
 |[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
 |[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/formatting/indenterSettings`, `rdcore/formatting/indenterSettings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcoreformattingindentersettings)).|
 |[`SessionSemanticTokens`](../api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
+|[`Refactoring`](../api/RDCore.SDK.Client.Refactoring.html)|`rdcore/refactor/prepare`, `rdcore/refactor/apply`|`LanguageServer`|Says what a refactoring asks its user, and answers the edit it makes with the user's answers: for a client that shows a dialog of its own before a refactoring is applied (see [below](#rdcorerefactorprepare-and-rdcorerefactorapply)).|
 
 > [!NOTE]
 > The handshake for every capability listed is _informational_ (see [**RD-VBAL §2.0.2.1** The `rdcore/platform/initialize` handshake](#2021-the-rdcoreplatforminitialize-handshake)).
@@ -385,7 +386,7 @@ The interactive shell asks it once for the conditions of all the breakpoints `BR
 
 ### `textDocument/rename` and `textDocument/prepareRename`
 
-The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
+The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed, except a string a library calls the symbol by ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
 
 `textDocument/prepareRename` answers the range of the name at the position and the name the symbol is declared with (`placeholder`). `textDocument/rename` answers a `WorkspaceEdit` of `documentChanges`, one `TextDocumentEdit` per document whose text changes, at the version the server holds, to a client that says it takes them (`workspace.workspaceEdit.documentChanges`); any other client is answered the same edits as `changes`, by document, which name no version (**LSP 3.17** §WorkspaceEdit). An edit whose change annotation asks the user to confirm it is sent only to a client that takes change annotations (`changeAnnotationSupport`); an edit the client could not apply at all is refused, with why. An edit replaces a name only: a type-declaration character after it stays (`s$`).
 
@@ -399,7 +400,9 @@ What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.
 |A member's attribute (`Attribute Value.VB_UserMemId`)|The member.|
 |The key of a dictionary access (`c!key`)|Nothing: it is a string.|
 
-The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to the symbol, and is not renamed.
+The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) that has the symbol's name is not known to refer to it, so the rename is refused (see the table below).
+
+A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A client that takes change annotations is sent them annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: it is sent the edits with the strings, the edits without them, or nothing when the user chooses neither. A string left as it is names nothing the call can find, and the call fails only when the code runs.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 
@@ -526,6 +529,28 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 |[RDC01002](../diagnostics/rdc01002.md): Hungarian notation|A rename to the word after the prefix (`strName` to `Name`), or to a name the user chooses.|
 
 The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document (in a shell attached to a workspace, a program that was neither loaded nor saved) is to be saved first, which `DUCKY` says.
+
+### `rdcore/refactor/prepare` and `rdcore/refactor/apply`
+
+A refactoring is offered to any client as a code action, which completes with its defaults. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](../api/RDCore.SDK.Client.Refactoring.html), and asks with two requests, the same for every refactoring.
+
+> [!NOTE]
+> **Not implemented.** No refactoring is served by these requests, and the language server does not provide the capability.
+
+**`rdcore/refactor/prepare`** ([`RefactorPrepareParams`](../api/RDCore.SDK.Platform.Protocol.RefactorPrepareParams.html)) names the refactoring by the kind of its code action, with the document and the range. It is answered what the refactoring asks its user, each choice with the answer it takes by default, and its notices ([`RefactorPrepareResult`](../api/RDCore.SDK.Platform.Protocol.RefactorPrepareResult.html)):
+
+|A choice of kind|Is answered with|
+|---|---|
+|`Name`|A name. One the code cannot declare there is refused when the refactoring is applied.|
+|`Option`|The `value` of one of its `options`.|
+|`Flag`|`true` or `false`.|
+|`List`|Each item's answers to its own choices, in the order the user puts the items in when `canReorder` is set. An item that is not answered is kept as it is, where it is.|
+
+A notice is a `Refusal`, which no answer changes, or a `Change` of what the code does, which the user accepts by its `code`. It says where (`location`) and, when it concerns another place too, that place (`related`).
+
+**`rdcore/refactor/apply`** ([`RefactorApplyParams`](../api/RDCore.SDK.Platform.Protocol.RefactorApplyParams.html)) sends the same kind, document and range, with the answers and the codes of the changes the user accepts. A choice that is not answered takes its default. It is answered the edit ([`RefactorWorkspaceEdit`](../api/RDCore.SDK.Platform.Protocol.RefactorWorkspaceEdit.html)): the documents it creates, then the text edits of each document, of the version the client has. The client applies it as one change. A refactoring that is refused, or that would make a change the user did not accept, is answered with an error (`RequestFailed`, -32803) whose message says why, in the language of the user interface.
+
+The messages are plain records of `RDCore.SDK.Protocol`, with no OmniSharp type: a client that has only that package writes and reads them.
 
 ### `workspace/executeCommand`
 

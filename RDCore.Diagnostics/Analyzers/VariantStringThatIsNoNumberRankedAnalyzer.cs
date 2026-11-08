@@ -25,7 +25,7 @@ internal sealed class VariantStringThatIsNoNumberRankedAnalyzer : IModuleAnalyze
             .Where(op => op.ComparisonOpSemanticFlags?.HasFlag(ComparisonOperatorSemanticFlags.IsVariantStringThatIsNoValueRanked) ?? false)
             .Select(op => new AnalyzerFinding(
                 RDCoreDiagnosticId.VariantStringThatIsNoNumberRanked,
-                op.Location.Range,
+                (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(
                     RDCoreDiagnosticsResources.VariantStringThatIsNoNumberRanked_Message,

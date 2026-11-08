@@ -1,4 +1,7 @@
+using Microsoft.Extensions.DependencyInjection;
+using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Server;
+using RDCore.SDK.Server.Services;
 
 namespace RDCore.SDK.Server;
 
@@ -33,4 +36,36 @@ public static class ServerRequestScheduling
         options.WithContentModifiedSupport(false);
         return options;
     }
+
+    /// <summary>
+    /// Has the server read what it receives as an RDCore server reads it: an <c>exit</c> notification is let through before the server is initialized,
+    /// and once it is, a request marked <see cref="HandledOnArrivalAttribute"/> is handled as it arrives.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every server built on <see cref="RDCoreServerApp"/> is configured with this. A server that builds its OmniSharp language server by
+    /// itself, and serves requests marked <see cref="HandledOnArrivalAttribute"/>, calls it so that those requests are handled while a request that runs a
+    /// program runs: without it they are scheduled after that request, and a program that never ends can be neither paused nor ended.
+    /// </para>
+    /// <para>
+    /// Before the <c>initialize</c> request completes, a request other than <c>initialize</c> is answered <c>ServerNotInitialized</c> (-32002) and a
+    /// notification other than <c>exit</c> is dropped (<strong>LSP 3.17</strong>, Server lifecycle, Initialize Request). OmniSharp's own reader of
+    /// incoming messages drops an early <c>exit</c> as well, and a client that ends the server before it initializes it waits for a process that does not
+    /// end.
+    /// </para>
+    /// <para>
+    /// The <c>locale</c> of the <c>initialize</c> request (<strong>LSP 3.17</strong> <c>InitializeParams.locale</c>) is kept as it arrives: OmniSharp 0.19.9
+    /// reads the request without it.
+    /// </para>
+    /// <para>
+    /// OmniSharp keeps the first reader of incoming messages it is given: call this before anything else registers one.
+    /// </para>
+    /// </remarks>
+    /// <param name="options">The server's options.</param>
+    /// <returns>The same options.</returns>
+    public static LanguageServerOptions WithLifecycleReceiver(this LanguageServerOptions options)
+        => options.WithServices(services => services
+            .AddSingleton<ArrivalRequests>()
+            .AddSingleton<InitializeLocale>()
+            .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }

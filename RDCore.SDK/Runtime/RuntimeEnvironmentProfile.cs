@@ -22,6 +22,7 @@ namespace RDCore.SDK.Runtime;
 /// <param name="Configuration">Whether a program is built to be debugged or to be run; a debug build unless said otherwise.</param>
 /// <param name="ReleaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; <c>false</c> unless said otherwise.</param>
 /// <param name="ErlAfterErrClear">What <c>Err.Clear</c> does to the line <c>Erl</c> reports; it resets it unless said otherwise.</param>
+/// <param name="OperatingSystem">The operating system the environment runs on; Windows unless said otherwise (<see cref="Running"/> is the one this process runs on).</param>
 public sealed record class RuntimeEnvironmentProfile(
     bool Is64Bit,
     int Lcid,
@@ -37,8 +38,18 @@ public sealed record class RuntimeEnvironmentProfile(
     VBExecutionEngine ExecutionEngine = Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
     VBBuildConfiguration Configuration = VBBuildConfiguration.Debug,
     bool ReleaseDropsDebugStatements = false,
-    VBErlAfterErrClear ErlAfterErrClear = VBErlAfterErrClear.Reset) : IRuntimeEnvironmentProfile
+    VBErlAfterErrClear ErlAfterErrClear = VBErlAfterErrClear.Reset,
+    VBOperatingSystem OperatingSystem = VBOperatingSystem.Windows) : IRuntimeEnvironmentProfile
 {
+    /// <summary>
+    /// The operating system this process runs on: what the environment host's profile says (<see cref="From"/>).
+    /// </summary>
+    public static VBOperatingSystem Running { get; } =
+        global::System.OperatingSystem.IsWindows() ? VBOperatingSystem.Windows
+        : global::System.OperatingSystem.IsMacOS() || global::System.OperatingSystem.IsMacCatalyst() ? VBOperatingSystem.MacOS
+        : global::System.OperatingSystem.IsLinux() ? VBOperatingSystem.Linux
+        : VBOperatingSystem.Other;
+
     /// <inheritdoc/>
     public RegionalSettings Regional => RegionalSettings ?? Runtime.RegionalSettings.Default;
 
@@ -46,8 +57,8 @@ public sealed record class RuntimeEnvironmentProfile(
     public Workspace.SupportedLanguage Language => SourceLanguage ?? Workspace.SupportedLanguages.RDVBA;
 
     /// <summary>
-    /// A 64-bit, invariant-culture, Windows-1252, no-<c>Option Compare Database</c> profile for
-    /// design-time and tests.
+    /// A 64-bit Windows, invariant-culture, Windows-1252, no-<c>Option Compare Database</c> profile for
+    /// design-time and tests, whatever the operating system they run on.
     /// </summary>
     public static IRuntimeEnvironmentProfile Default { get; } = new RuntimeEnvironmentProfile(
         Is64Bit: true,
@@ -55,12 +66,17 @@ public sealed record class RuntimeEnvironmentProfile(
         AnsiCodePage: 1252,
         SupportsOptionCompareDatabase: false);
 
-    /// <summary>Builds a profile from bound <c>appsettings.json</c> options, for code written in <paramref name="language"/>.</summary>
+    /// <summary>
+    /// Builds a profile from bound <c>appsettings.json</c> options, for code written in <paramref name="language"/>, on the operating system this process
+    /// runs on (<see cref="Running"/>).
+    /// </summary>
+    /// <param name="options">The <c>Environment</c> settings of the platform.</param>
+    /// <param name="language">The language the code is written in; RD-VBA when <see langword="null"/>.</param>
     public static RuntimeEnvironmentProfile From(Server.Configuration.SdkEnvironmentOptions options, Workspace.SupportedLanguage? language = null)
         => new(options.Is64Bit, options.Lcid, options.AnsiCodePage, options.SupportsOptionCompareDatabase, options.DatabaseCompare,
             options.ErlLineNumbering, options.AllowDllImports, language, options.AllowAutomation,
             options.LegacyRegistrySettings, options.Regional.ToSettings(), options.ExecutionEngine, options.Configuration,
-            options.ReleaseDropsDebugStatements, options.ErlAfterErrClear);
+            options.ReleaseDropsDebugStatements, options.ErlAfterErrClear, Running);
 
     /// <summary>
     /// The profile <paramref name="environment"/> is, as a <see cref="RuntimeEnvironmentProfile"/>: itself when it is one, and otherwise one with each of its
@@ -72,7 +88,7 @@ public sealed record class RuntimeEnvironmentProfile(
             environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
             environment.ErlLineNumbering, environment.AllowDllImports, environment.Language, environment.AllowAutomation, environment.LegacyRegistrySettings,
             environment.Regional, environment.ExecutionEngine, environment.Configuration, environment.ReleaseDropsDebugStatements,
-            environment.ErlAfterErrClear);
+            environment.ErlAfterErrClear, environment.OperatingSystem);
 
     /// <inheritdoc/>
     public CultureInfo Culture => Lcid == 0 ? CultureInfo.InvariantCulture : CultureInfo.GetCultureInfo(Lcid);

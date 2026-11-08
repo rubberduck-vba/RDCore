@@ -134,7 +134,7 @@ public sealed class ErrorBreakTests
         });
 
     [TestMethod]
-    public async Task AnErrorAtANextNothingCatches_IsWaitedAtTheFor_AndAgainWhenTheNextRunsAgain()
+    public async Task AnErrorAtANextNothingCatches_IsWaitedAtTheNext_AndAgainWhenItRunsAgain()
         => await RunAsync(Program(
             "Public Sub Main()",
             "    Helper",
@@ -148,14 +148,14 @@ public sealed class ErrorBreakTests
             "    Next",
             "End Sub"), ErrorBreakMode.Unhandled, debug: true, async (provider, stopped) =>
         {
-            // a Next is no statement of its own, and its error is at the For it closes.
+            // a Next is no statement of its own, and its error is at its closing line, where MS-VBA locates it.
             Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
             Assert.AreEqual(92, stopped.ErrorNumber);
-            Assert.AreEqual(7, stopped.ErrorLine, "the For");
+            Assert.AreEqual(9, stopped.ErrorLine, "the Next");
 
             var resumed = await ResumeAsync(provider);
 
-            Assert.AreEqual((ExecutionOutcome.Suspended, 92, 7), (resumed.Outcome, resumed.ErrorNumber, resumed.ErrorLine), resumed.ErrorMessage);
+            Assert.AreEqual((ExecutionOutcome.Suspended, 92, 9), (resumed.Outcome, resumed.ErrorNumber, resumed.ErrorLine), resumed.ErrorMessage);
         });
 
     [TestMethod]
