@@ -121,20 +121,19 @@ The stack trace is captured when the error is raised, rather than derived when i
 handler reads it the activations it names have been unwound. It is captured at the interpreter's error-interception
 point, the one place every run-time error passes through ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
-Only the activation the error was raised in carries a location. A caller's activation record does not say where in
-itself it is suspended.
+The activation the error was raised in is located at the statement or the expression that faulted. Each of its
+callers is located at the statement it was suspended at, which is the statement that made the call.
 
 Each activation also lists the `GoSub` statements it had not `Return`ed from when the error was raised, innermost
 first: its GoSub Resumption List at that moment ([**RD-VBAL §5.4.2.14** GoSub Statement](rd-vbal.5.4.2.14.gosub-statement.md)).
 An activation in no `GoSub` lists none.
 
 The value is a `String` with one line per activation, innermost first, separated by `vbCrLf`. A line names the
-procedure, then the line and column of the faulting statement for the innermost activation, then a `from` and the
-line and column of each `GoSub`:
+procedure, then the line and column of its location, then a `from` and the line and column of each `GoSub`:
 
 ```text
   at Inner (12:5) from (8:5)
-  at Outer
+  at Outer (3:5)
 ```
 
 |Condition|`StackTrace`|
