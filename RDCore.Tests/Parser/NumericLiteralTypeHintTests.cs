@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Parser;
 
@@ -105,7 +106,7 @@ public sealed class NumericLiteralTypeHintTests
         var result = new ModuleParser().Parse(TestUri.TestModuleUri(), source);
 
         Assert.IsFalse(result.IsSuccess);
-        var overflow = result.SyntaxErrors.Single(e => e.VBCompileErrorId == SDK.Model.Errors.VBCompileErrorId.NumericLiteralOverflow);
+        var overflow = result.SyntaxErrors.Single(e => e.VBCompileErrorId == RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.NumericLiteralOverflow);
         Assert.AreEqual(TestUri.TestModuleUri(), overflow.Location.Uri);
         Assert.AreNotEqual(SDK.Model.Source.SourceRange.Empty, overflow.Location.Range);
     }

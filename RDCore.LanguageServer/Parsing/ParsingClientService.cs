@@ -11,6 +11,7 @@ using RDCore.SDK.Server.Progress;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.SDK.Platform.Components;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.LanguageServer.Parsing;
 

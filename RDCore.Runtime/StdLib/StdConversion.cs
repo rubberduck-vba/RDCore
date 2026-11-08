@@ -10,6 +10,7 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
 

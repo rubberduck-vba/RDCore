@@ -274,9 +274,9 @@ public interface IStdInteractionModule
     /// </para>
     /// </remarks>
     /// <param name="number">A <see cref="VBLongValue"/> expression containing the <em>value</em> to be evaluated against the <em>range</em>.</param>
-    /// <param name="start">A <see cref="VBLongValue"/> expression containing the <strong>start</strong> of the overall range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than</strong> <c>0</c> 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.</param>
-    /// <param name="stop">A <see cref="VBLongValue"/> expression containing the <strong>end</strong> of the overall range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than or equal to</strong> the <c>start</c> value 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.</param>
-    /// <param name="interval">A <see cref="VBLongValue"/> expression containing the <strong>interval</strong> of each range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than</strong> <c>1</c> 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.</param>
+    /// <param name="start">A <see cref="VBLongValue"/> expression containing the <strong>start</strong> of the overall range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than</strong> <c>0</c> 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>).</param>
+    /// <param name="stop">A <see cref="VBLongValue"/> expression containing the <strong>end</strong> of the overall range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than or equal to</strong> the <c>start</c> value 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>).</param>
+    /// <param name="interval">A <see cref="VBLongValue"/> expression containing the <strong>interval</strong> of each range of numbers.<br/>👉 The numeric value of this parameter <strong>cannot be less than</strong> <c>1</c> 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>).</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBVariantValue> Partition(VBVariantValue number, VBVariantValue start, VBVariantValue stop, VBVariantValue interval);
 
@@ -301,7 +301,7 @@ public interface IStdInteractionModule
     /// <item>The expressions are <strong>evaluated left to right</strong>;</item>
     /// <item>The <em>first element</em> (at index <c>n+0</c>) in the <c>n</c><sup>th</sup> pair of values is the <strong>expression to be evaluated</strong>;</item>
     /// <item>The <em>second element</em> (at index <c>n+1</c>) in the <c>n</c><sup>th</sup> pair of values is the associated <strong>value to return</strong> if the first element evaluates to <c>True</c>;</item>
-    /// <item>💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if the expressions aren't properly paired.</item>
+    /// <item>💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) if the expressions aren't properly paired.</item>
     /// </list>
     /// <br/><br/>
     /// 👉 There seems to be a 🧩<c>VBDeferredValue</c> <em>language core extension</em> opportunity here, too. See: <see cref="IIf"/>

@@ -1,5 +1,6 @@
 using RDCore.Tests.Cli;
 using RDCore.SDK.Model.Errors;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Static;
 

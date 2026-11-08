@@ -61,7 +61,7 @@ where TFlags : struct, Enum
     /// </summary>
     /// <remarks>
     /// 👉 The answer is the whole answer, a type mismatch included: an operator that has a table of effective types has it in the
-    /// <see cref="RDCore.SDK.Semantics.Plans.OperationPlanner"/>, and there is no other table to fall back on.
+    /// <see cref="RDCore.Runtime.LanguageCore.Plans.OperationPlanner"/>, and there is no other table to fall back on.
     /// </remarks>
     /// <param name="resolver">The execution context and memory space to operate in. ⚠️ in most situations this access is restrained to <c>ISymbolResolver</c>.</param>
     /// <param name="expression">The <c>VBUnaryOperatorExpression</c> to be evaluated.</param>

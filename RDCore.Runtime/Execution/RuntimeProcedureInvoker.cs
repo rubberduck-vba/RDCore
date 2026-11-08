@@ -18,8 +18,9 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 
@@ -476,7 +477,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // the invoker lives as long as one execution, and a procedure that is defined again is another symbol. Its layout too (S1.3), which is the symbol's.
     // Its body is not among them: a module loaded again while a program is broken replaces it for the calls made after - the activation remembers the body
     // it found, with the program image it found it in (Body), which is the body as long as the image is the same.
-    private sealed record class Activation(StaticSymbol Symbol, SyntaxNodeId NodeId, ModuleDirectives Directives, SDK.Semantics.Binding.FrameLayout Layout)
+    private sealed record class Activation(StaticSymbol Symbol, SyntaxNodeId NodeId, ModuleDirectives Directives, LanguageCore.Binding.FrameLayout Layout)
     {
         public FoundBody? Body;
     }
@@ -659,7 +660,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         new StaticSymbol(procedure.Name, procedure.Kind, procedure.ResolvedType),
         new SyntaxNodeId(procedure.Uri.AbsolutePath, []),
         DeclaringModuleDirectives(procedure),
-        SDK.Semantics.Binding.FrameLayout.For(procedure));
+        LanguageCore.Binding.FrameLayout.For(procedure));
 
     // the module a procedure is declared in is its symbol's parent, a standard module or a class module. A procedure whose parent is not a module symbol
     // — one the session has no module for — runs under the defaults, which is what every activation used to do.

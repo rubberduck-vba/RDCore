@@ -1,5 +1,5 @@
 using RDCore.SDK.Model;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Plans;
 
 namespace RDCore.Runtime.Compiled;
 

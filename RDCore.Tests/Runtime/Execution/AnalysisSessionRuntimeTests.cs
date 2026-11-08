@@ -16,6 +16,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.Tests.Semantics.Runtime;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Execution;
 
@@ -75,7 +76,7 @@ public sealed class AnalysisSessionRuntimeTests
     {
         var run = Analyze("M = 0", "Y = 1 / M");
 
-        Assert.AreEqual((int)RDCore.SDK.Model.Errors.VBRuntimeErrorId.DivisionByZero, run.Outcome.ErrorInfo?.ErrorId, "M is 0 here, as the code made it");
+        Assert.AreEqual((int)RDCore.Runtime.LanguageCore.Errors.VBRuntimeErrorId.DivisionByZero, run.Outcome.ErrorInfo?.ErrorId, "M is 0 here, as the code made it");
     }
 
     [TestMethod]

@@ -20,6 +20,8 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Instructions;
 

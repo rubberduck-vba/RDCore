@@ -4,6 +4,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.Diagnostics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Diagnostics;
 

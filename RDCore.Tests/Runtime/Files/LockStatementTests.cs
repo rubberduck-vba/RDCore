@@ -2,6 +2,7 @@ using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.IO.Abstractions.TestingHelpers;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Files;
 

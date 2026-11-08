@@ -4,6 +4,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 

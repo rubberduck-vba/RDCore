@@ -15,6 +15,7 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Diagnostics.CodeAnalysis;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Abstract;
 

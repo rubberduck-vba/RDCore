@@ -16,6 +16,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -81,7 +82,7 @@ public sealed class IndeterminateOperandRuntimeTests : LetCoercionRuntimeSemanti
                 {
                     var result = Binary(token, Unknown(left), Unknown(right));
                     var decided = left is not (VBVariantType or VBObjectType) && right is not (VBVariantType or VBObjectType)
-                        && SDK.Semantics.Plans.OperationPlanner.ForValues(token, left, right).IsTypeMismatch;
+                        && RDCore.Runtime.LanguageCore.Plans.OperationPlanner.ForValues(token, left, right).IsTypeMismatch;
                     var expected = decided
                         ? result.ErrorInfo is VBRuntimeErrorInfo { ErrorId: (int)VBRuntimeErrorId.TypeMismatch, IsDecidedByTypes: true }
                         : result.IsSuccess && result.Result!.IsIndeterminate;

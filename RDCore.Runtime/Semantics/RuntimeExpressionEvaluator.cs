@@ -34,12 +34,13 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics;
 
@@ -254,7 +255,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     /// <summary>
     /// The value of a variable, read through its binding: what a name that resolves to a variable evaluates to, whether it is resolved now or was bound
-    /// already (<see cref="SDK.Semantics.Binding.BoundVariable"/>).
+    /// already (<see cref="LanguageCore.Binding.BoundVariable"/>).
     /// </summary>
     /// <param name="session">The session the variable is read in.</param>
     /// <param name="variable">The variable.</param>
@@ -1616,7 +1617,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // `f()()`: a second empty argument list, which MS-VBAL makes invalid, MS-VBA compiles - and when it runs, it is a subscript out of range (Excel-verified,
         // oracle\s53 E07, E08, F07, F08).
-        if (SDK.Semantics.Static.Expressions.IndexExpressionStaticSemantics.IsASecondEmptyArgumentList(indexExpression) && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBArrayType)
+        if (LanguageCore.Static.Expressions.IndexExpressionStaticSemantics.IsASecondEmptyArgumentList(indexExpression) && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBArrayType)
         {
             return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location,
                 Exceptions.VBIndex_SecondEmptyArgumentList_Verbose));

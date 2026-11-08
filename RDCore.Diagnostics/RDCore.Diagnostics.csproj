@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
+    <ProjectReference Include="..\RDCore.Runtime.LanguageCore\RDCore.Runtime.LanguageCore.csproj" />
   </ItemGroup>
 
   <ItemGroup>

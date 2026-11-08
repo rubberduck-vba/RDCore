@@ -37,7 +37,7 @@ public interface IStdCollectionClass
     /// 👉 Object collections want to be <em>enumerated</em>, not indexed. Indexed access within a loop should raise some performance-related semantic flags.
     /// </remarks>
     /// <param name="index">A number from 1 to <see cref="Count"/>, or the key the member was added with.<br/>
-    /// 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if no member is at that position or has that key.</param>
+    /// 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) if no member is at that position or has that key.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     [StdLibMember(UserMemId = WellKnownDispIds.Value)]
     RuntimeSemanticsEvaluationResult<VBVariantValue> Item(VBVariantValue index);
@@ -52,11 +52,11 @@ public interface IStdCollectionClass
     /// </remarks>
     /// <param name="item">An expression of any type that specifies the member to be added to the collection.</param>
     /// <param name="key">A <see cref="VBStringValue"/> that is unique across the keys of the collection, and can be used in place of a <em>positional index</em> to access the member.<br/>
-    /// 💥<see cref="VBRuntimeErrorId.KeyAlreadyAssociatedWithAnElementOfCollection"/> if the specified key is already in use.</param>
+    /// 💥<em>This key is already associated with an element of this collection</em> (<c>VBR00457</c>) if the specified key is already in use.</param>
     /// <param name="before">A position or a key: the member to be added is placed <em>before</em> the member it identifies.<br/>
-    /// 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if <strong>both</strong> <em>before</em> and <em>after</em> are specified, or if either refers to a member that does not exist.</param>
+    /// 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) if <strong>both</strong> <em>before</em> and <em>after</em> are specified, or if either refers to a member that does not exist.</param>
     /// <param name="after">A position or a key: the member to be added is placed <em>after</em> the member it identifies.<br/>
-    /// 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if <strong>both</strong> <em>before</em> and <em>after</em> are specified, or if either refers to a member that does not exist.</param>
+    /// 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) if <strong>both</strong> <em>before</em> and <em>after</em> are specified, or if either refers to a member that does not exist.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult Add(VBVariantValue item, VBVariantValue? key = default, VBVariantValue? before = default, VBVariantValue? after = default);
 
@@ -64,7 +64,7 @@ public interface IStdCollectionClass
     /// Removes a member from the collection.
     /// </summary>
     /// <param name="index">The <em>key</em> or <em>positional index</em> of the member to be removed.<br/>
-    /// 💥<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> if no member is at that position or has that key.</param>
+    /// 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) if no member is at that position or has that key.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult Remove(VBVariantValue index);
     #endregion

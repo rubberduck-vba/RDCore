@@ -1,6 +1,7 @@
 using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.SDK.Client;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
@@ -34,15 +35,23 @@ public record class SemanticsPayload(ImmutableArray<ModuleSemanticsDto> Modules)
 /// <summary>
 /// A compile error, as it travels: what a diagnostics extension needs to say it.
 /// </summary>
-/// <param name="Id">The error.</param>
+/// <param name="Code">The diagnostic code of the error: a <see cref="RDCoreDiagnosticCode.CompilePrefix"/> code.</param>
 /// <param name="Location">Where it is.</param>
+/// <param name="Description">What the error is: its message.</param>
 /// <param name="Verbose">What is wrong, in particular.</param>
-public record class CompileErrorDto(VBCompileErrorId Id, SourceLocation Location, string Verbose)
+public record class CompileErrorDto(RDCoreDiagnosticCode Code, SourceLocation Location, string Description, string Verbose)
 {
+    /// <summary>
+    /// Describes a compile error for the wire.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    public static CompileErrorDto From(VBCompileErrorInfo error)
+        => new(new RDCoreDiagnosticCode(RDCoreDiagnosticCode.CompilePrefix, error.ErrorId), error.Location, error.Description, error.Verbose);
+
     /// <summary>
     /// The compile error.
     /// </summary>
-    public VBCompileErrorInfo ToInfo() => VBCompileErrorInfo.For(Id, Location, Verbose);
+    public VBCompileErrorInfo ToInfo() => new(Code.Number, Location, Description, Verbose);
 }
 
 /// <summary>
@@ -90,8 +99,8 @@ public record class RuntimeErrorDto(int ErrorId, SourceLocation Location, string
     /// The error, as the family it belongs to describes it.
     /// </summary>
     public VBErrorInfo ToInfo() => IsApplicationError
-        ? VBApplicationErrorInfo.Raised(ErrorId, Location, Verbose, Description)
-        : VBRuntimeErrorInfo.For((VBRuntimeErrorId)ErrorId, Location, Verbose);
+        ? new VBApplicationErrorInfo(ErrorId, Location, Description, Verbose)
+        : new VBRuntimeErrorInfo(ErrorId, Location, Description, Verbose);
 }
 
 /// <summary>
@@ -345,5 +354,5 @@ public record class ModuleSemanticsDto(
         model.Class,
         model.Document);
 
-    private static CompileErrorDto ErrorOf(VBCompileErrorInfo error) => new(error.VBCompileErrorId, error.Location, error.Verbose);
+    private static CompileErrorDto ErrorOf(VBCompileErrorInfo error) => CompileErrorDto.From(error);
 }

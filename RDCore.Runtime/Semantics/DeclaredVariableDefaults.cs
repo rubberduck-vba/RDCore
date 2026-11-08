@@ -1,6 +1,6 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics.Statements;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -33,7 +33,7 @@ namespace RDCore.Runtime.Semantics;
 /// </para>
 /// <para>
 /// A bound that cannot be reduced - a non-constant expression, one past the range of a <c>Long</c>, an upper bound below the lower - is a
-/// compile error of the module (<see cref="RDCore.SDK.Semantics.Static.ConstantExpressionStaticSemantics"/>, <see cref="DeclaredSizeStaticSemantics"/>),
+/// compile error of the module (<see cref="RDCore.Runtime.LanguageCore.Static.ConstantExpressionStaticSemantics"/>, <see cref="DeclaredSizeStaticSemantics"/>),
 /// which is then not loaded; were one to reach this all the same, the array is left with no dimensions.
 /// </para>
 /// </remarks>

@@ -1,11 +1,16 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.SDK.Semantics.Flags;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Resources;
@@ -28,7 +33,13 @@ public sealed record class RenameModule(Uri Module, ModuleNode Syntax, string So
 /// <param name="ScopeTree">The scope tree of the composed workspace.</param>
 /// <param name="Modules">Every module of the workspace: a name is renamed wherever it refers to the symbol, and nowhere else.</param>
 /// <param name="Environment">What the environment the code is compiled for decides, when it is stated.</param>
-public sealed record class RenameContext(ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyList<RenameModule> Modules, StaticEnvironment? Environment = null);
+/// <param name="ClassSources">
+/// What else knows the classes of the objects an expression may hold (<see cref="IPossibleClassesSource"/>), beyond the assignments of the code
+/// (<see cref="AssignedClasses"/>), which are always read.
+/// </param>
+public sealed record class RenameContext(
+    ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyList<RenameModule> Modules, StaticEnvironment? Environment = null,
+    IReadOnlyList<IPossibleClassesSource>? ClassSources = null);
 
 /// <summary>
 /// Why a name is not renamed.
@@ -135,7 +146,17 @@ public sealed record class RenameTarget(string Name, Uri Module, SourceRange Ran
 /// <c>OnAction</c> of a control. What a string names is
 /// only known when the code runs, so the user is asked to confirm the edit. A string left as it is names nothing the call can find.
 /// </param>
-public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false);
+/// <param name="IsLateBound">
+/// Whether the name is that of a member accessed late-bound (on an <c>Object</c> or a <c>Variant</c>) that may be the renamed member: which member it is, is
+/// only known when the code runs (<strong>MS-VBAL §5.6.12</strong>), so the user is asked to confirm the edit. An access left as it is does not find the
+/// renamed member when the object is of its class.
+/// </param>
+/// <param name="IsBacked">
+/// For a late-bound edit (<paramref name="IsLateBound"/>), whether what is known of the object says it may hold an object of the renamed member's class
+/// (<see cref="PossibleClasses.Classes"/>): the member is backed by what is known. One that is not backed is only possible: nothing known rules the class
+/// out.
+/// </param>
+public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false, bool IsBacked = false);
 
 /// <summary>
 /// What a rename would rename, where it was asked for (<see cref="SymbolRename.Prepare"/>): the target, or why there is none.
@@ -170,7 +191,9 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 /// code already writes it.
 /// </para>
 /// <para>
-/// A member that code accesses late-bound - on an <c>Object</c> or a <c>Variant</c> - is not known to refer to the symbol, and is not renamed.
+/// A member that code accesses late-bound (on an <c>Object</c> or a <c>Variant</c>) with the name of a member of a class's public interface is renamed, and
+/// its edit says so (<see cref="RenameEdit.IsLateBound"/>), for the user to confirm: which member it is, is only known when the code runs. The edit also
+/// says whether what is known of the object backs the member (<see cref="RenameEdit.IsBacked"/>). It is not renamed where what is known of the object rules the class out (<see cref="PossibleClasses"/>).
 /// </para>
 /// <para>
 /// A string is renamed where a member of a library calls a member of a module by its name in it (<c>CallByName</c>, a host's macro, a control's
@@ -294,6 +317,10 @@ public static class SymbolRename
             }
         }
 
+        var lateBound = old.Occurrences
+            .Select(occurrence => (Occurrence: occurrence, Match: LateBoundMatchOf(context, symbols, occurrence)))
+            .Where(site => site.Match != LateBoundMatch.None)
+            .ToList();
         var renamed = old.Occurrences.Where(occurrence => occurrence.Binding is { } binding && targets.Contains(binding)).ToList();
         if (ConflictOf(context, symbols, targets, renamed, newName) is { } conflict)
         {
@@ -308,6 +335,9 @@ public static class SymbolRename
             .Concat(inStrings
                 .DistinctBy(occurrence => (occurrence.Module.AbsoluteUri, occurrence.Range))
                 .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, IsInString: true)))
+            .Concat(lateBound
+                .DistinctBy(site => (site.Occurrence.Module.AbsoluteUri, site.Occurrence.Range))
+                .Select(site => new RenameEdit(site.Occurrence.Module, site.Occurrence.Range, newName, IsLateBound: true, IsBacked: site.Match == LateBoundMatch.Backed)))
             .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start);
         return new([.. edits], null);
@@ -320,6 +350,72 @@ public static class SymbolRename
             && (named.Qualifier is not { } qualifier
                 || string.Equals(qualifier, module.Name, StringComparison.OrdinalIgnoreCase)
                 || !context.Modules.Any(candidate => string.Equals(SymbolUri.ModuleNameOf(candidate.Module), qualifier, StringComparison.OrdinalIgnoreCase))));
+
+    // a member accessed late-bound, on an Object or a Variant: what it refers to is found when the code runs.
+    internal static bool IsLateBound(NameOccurrence occurrence)
+        => occurrence is { Binding: null, Kind: OccurrenceKind.Member, Fact: { } fact } && fact.Flags.HasFlag(ValueExpressionSemanticFlags.LateBound);
+
+    // whether a late-bound access may call one of the symbols: a member of a class that code outside of it can call, on an object that may be of that class.
+    internal static bool MayBeCalledLateBound(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence occurrence)
+        => LateBoundMatchOf(context, symbols, occurrence) != LateBoundMatch.None;
+
+    // whether a late-bound access may call one of the symbols, and whether what is known of the object says it may hold the symbol's class.
+    internal static LateBoundMatch LateBoundMatchOf(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence occurrence)
+    {
+        if (!IsLateBound(occurrence))
+        {
+            return LateBoundMatch.None;
+        }
+
+        var classes = symbols
+            .Where(symbol => symbol is AccessibleTypedSymbol { AccessModifier: not AccessModifier.Private } or VBTypeMemberSymbol { AccessModifier: not AccessModifier.Private })
+            .Select(symbol => NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri)))
+            .OfType<VBClassModuleSymbol>()
+            .Select(owner => owner.SemanticId)
+            .ToList();
+        if (classes.Count == 0)
+        {
+            return LateBoundMatch.None;
+        }
+
+        var possible = PossibleClassesOf(context, occurrence) ?? PossibleClasses.Unknown;
+        return classes.Any(possible.Classes.Contains) ? LateBoundMatch.Backed
+            : classes.Any(possible.MayBe) ? LateBoundMatch.Open
+            : LateBoundMatch.None;
+    }
+
+    // how a late-bound access may call a symbol: not at all, with what is known of the object backing it, or with nothing known that rules it out.
+    internal enum LateBoundMatch
+    {
+        None,
+        Open,
+        Backed,
+    }
+
+    // what is known of the classes of the object a late-bound member is accessed on: the expression before the '.', or the object of the With block it is in.
+    private static PossibleClasses? PossibleClassesOf(RenameContext context, NameOccurrence occurrence)
+    {
+        if (occurrence.Node is not MemberAccessExpressionNode access
+            || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is not { } module)
+        {
+            return null;
+        }
+
+        var receiver = access.Owner ?? module.Syntax.Descendants().OfType<WithStatementNode>()
+            .Where(with => with.SourceLocation.Range.Start <= access.Location.Range.Start && access.Location.Range.End <= with.SourceLocation.Range.End)
+            .OrderByDescending(with => with.SourceLocation.Range.Start)
+            .FirstOrDefault()?.WithExpression;
+        if (receiver is null)
+        {
+            return null;
+        }
+
+        var query = new PossibleClassesQuery(new StaticEvaluationContext(context.Resolver, occurrence.Scope, Environment: context.Environment), receiver,
+            context.ScopeTree, module.Module, module.Syntax);
+        return PossibleClasses.Combine(((IReadOnlyList<IPossibleClassesSource>)[AssignedClasses.Instance, .. context.ClassSources ?? []])
+            .Select(source => source.ClassesOf(query))
+            .OfType<PossibleClasses>());
+    }
 
     private static RenamePlan Refused(RenameRefusal refusal) => new([], refusal);
 

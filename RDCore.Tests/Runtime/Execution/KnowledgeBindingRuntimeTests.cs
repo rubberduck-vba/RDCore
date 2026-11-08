@@ -13,6 +13,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.Tests.Semantics.Runtime;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Execution;
 

@@ -12,9 +12,10 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Static.Abstract;
-using RDCore.SDK.Semantics.Static.Expressions;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static.Expressions;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Static.Expressions;
 

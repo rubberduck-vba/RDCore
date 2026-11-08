@@ -1,3 +1,5 @@
+using RDCore.Runtime.LanguageCore.Errors;
+
 namespace RDCore.Tests.Cli;
 
 /// <summary>
@@ -99,7 +101,7 @@ public sealed class SplitHeaderRuntimeTests
         CollectionAssert.DoesNotContain(defined.ToArray(), "G");
         Assert.IsEmpty(orphans);
         var errors = await ModuleWorkspace.LoadErrorsAsync([], source);
-        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(SDK.Model.Errors.VBCompileErrorId.SubOrFunctionNotDefined))),
+        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.SubOrFunctionNotDefined))),
             string.Join("; ", errors));
     }
 
@@ -111,7 +113,7 @@ public sealed class SplitHeaderRuntimeTests
             "#If Mac Then", "Private Function F() As Long", "#End If", "    F = 1", "End Function",
             "Public Sub Main()", "End Sub", ""));
 
-        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(SDK.Model.Errors.VBCompileErrorId.InvalidOutsideProcedure))),
+        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.InvalidOutsideProcedure))),
             string.Join("; ", errors));
     }
 
@@ -124,7 +126,7 @@ public sealed class SplitHeaderRuntimeTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], string.Join("\r\n",
             new[] { "#If Mac Then", "Private Function F() As Long", body, "#End If", "End Function", "Public Sub Main()", "End Sub", "" }.Where(line => line.Length > 0 || body.Length > 0)));
 
-        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(SDK.Model.Errors.VBCompileErrorId.InvalidOutsideProcedure))),
+        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.InvalidOutsideProcedure))),
             string.Join("; ", errors));
     }
 
@@ -146,7 +148,7 @@ public sealed class SplitHeaderRuntimeTests
 
     // ---- a name a module declares only in dead branches: it matches nothing, and a procedure declares it ----
 
-    private static readonly string NotDefined = SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(SDK.Model.Errors.VBCompileErrorId.SubOrFunctionNotDefined);
+    private static readonly string NotDefined = SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.SubOrFunctionNotDefined);
 
     [TestMethod]
     public async Task AReDimOfAFieldOnlyADeadBranchDeclares_DeclaresALocalArray()
@@ -261,17 +263,17 @@ public sealed class SplitHeaderRuntimeTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], source);
 
         CollectionAssert.AreEqual(new[] { nameof(SDK.Model.Symbols.VBProject.VBModuleFieldVariableMemberSymbol) }, kinds, "the first stands, and the other is not fused into it");
-        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(SDK.Model.Errors.VBCompileErrorId.AmbiguousName))),
+        Assert.IsTrue(errors.Any(error => error.Contains(SDK.Model.Errors.VBCompileErrorInfo.GetErrorString(RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.AmbiguousName))),
             string.Join("; ", errors));
     }
 
     // ---- what is checked of a procedure is its live header ----
 
     [TestMethod]
-    [DataRow("ByRef a() As Long", "ByVal a() As Long", SDK.Model.Errors.VBCompileErrorId.ArrayArgumentMustBeByRef, DisplayName = "an array parameter passed by value")]
-    [DataRow("Optional ByVal n As Long = 1", "Optional ByVal n As Long = Len", SDK.Model.Errors.VBCompileErrorId.SyntaxError, DisplayName = "a reserved name with no argument list")]
+    [DataRow("ByRef a() As Long", "ByVal a() As Long", RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.ArrayArgumentMustBeByRef, DisplayName = "an array parameter passed by value")]
+    [DataRow("Optional ByVal n As Long = 1", "Optional ByVal n As Long = Len", RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.SyntaxError, DisplayName = "a reserved name with no argument list")]
     public async Task WhatIsWrongWithTheLiveHeader_IsAnErrorOfTheModule_AndWhatIsWrongWithTheDeadOneIsNot(
-        string fine, string wrong, SDK.Model.Errors.VBCompileErrorId expected)
+        string fine, string wrong, RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId expected)
     {
         string[] Module(string first, string second) =>
             ["#If Mac Then", $"Private Function F({first}) As Long", "#Else", $"Private Function F({second}) As Long", "#End If", "    F = 1", "End Function",

@@ -19,10 +19,12 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace.Forms;
+using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 

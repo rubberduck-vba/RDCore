@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.LanguageServer;
 

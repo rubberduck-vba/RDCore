@@ -8,6 +8,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.StdLib;
 

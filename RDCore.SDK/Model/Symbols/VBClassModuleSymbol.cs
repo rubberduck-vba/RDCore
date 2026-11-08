@@ -243,7 +243,7 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// <summary>
     /// Whether this is a document module: the code of a host's document, as the project says (<see cref="Workspace.ModuleKinds.Of(Workspace.RDCoreModule?, string?)"/>),
     /// whether or not RD-VBA knows the host (<see cref="HostClass"/>). Only the host makes its documents, so no program creates an object of this class: a
-    /// <c>New</c> of it is <see cref="Errors.VBCompileErrorId.InvalidUseOfNewKeyword"/>, as MS-VBA has it of a worksheet's.
+    /// <c>New</c> of it is <em>Invalid use of New keyword</em> (<c>VBC09368</c>), as MS-VBA has it of a worksheet's.
     /// </summary>
     public bool IsDocument { get; init; }
 

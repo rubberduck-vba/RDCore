@@ -8,8 +8,8 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Semantics.Plans;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Plans;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Tests.Semantics.Runtime;
 
 namespace RDCore.Tests.Semantics;

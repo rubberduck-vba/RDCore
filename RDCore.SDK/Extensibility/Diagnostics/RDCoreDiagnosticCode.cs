@@ -8,9 +8,13 @@ namespace RDCore.SDK.Extensibility.Diagnostics;
 /// </summary>
 /// <remarks>
 /// The platform issues the <c>VBC</c>, <c>VBR</c> and <c>VBA</c> codes, and its core extension the <c>RDC</c> and <c>RDX</c> codes. An extension of another
-/// publisher reports its own diagnostics under the prefix its manifest declares (<see cref="ExtensionInfo.DiagnosticPrefix"/>), which no other started
-/// extension declares.
+/// publisher reports its own diagnostics under the prefix its manifest declares (<see cref="ExtensionInfo.DiagnosticPrefix"/>), which no other extension of
+/// the platform declares.
+/// <para>
+/// A code is serialized as it is written (<see cref="ToString"/>), and read back with <see cref="TryParse"/>.
+/// </para>
 /// </remarks>
+[System.Text.Json.Serialization.JsonConverter(typeof(RDCoreDiagnosticCodeJsonConverter))]
 public readonly record struct RDCoreDiagnosticCode
 {
     /// <summary>
@@ -34,7 +38,7 @@ public readonly record struct RDCoreDiagnosticCode
     public const string CorePrefix = "RDC";
 
     /// <summary>
-    /// The prefix of the codes of the platform's extension diagnostics, which only the core extension reports.
+    /// The prefix of the codes of the diagnostics of the platform's other first-party extensions.
     /// </summary>
     public const string ExtensionPrefix = "RDX";
 

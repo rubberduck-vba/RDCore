@@ -6,10 +6,11 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Immutable;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.LanguageServer;
 

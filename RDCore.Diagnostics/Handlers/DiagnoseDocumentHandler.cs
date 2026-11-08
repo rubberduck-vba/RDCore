@@ -8,6 +8,7 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Extensibility;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Diagnostics.Handlers;
 
@@ -39,7 +40,7 @@ internal sealed class DiagnoseDocumentHandler(
                 var documentNames = Analyzers.HostedDocumentCodeAnalyzer.References(semantics).Select(fact => fact.Location.Range).ToHashSet();
                 diagnosticList.AddRange(semantics.DeclarationErrors
                     .Concat(semantics.Procedures.SelectMany(procedure => procedure.CompileErrors))
-                    .Where(error => !(error.Id == VBCompileErrorId.VariableNotDefined && documentNames.Contains(error.Location.Range)))
+                    .Where(error => !(error.Code == VBCompileErrorId.VariableNotDefined.ToCode() && documentNames.Contains(error.Location.Range)))
                     .Select(error => diagnostics.FromVBCompileError(error.ToInfo())));
             }
         }

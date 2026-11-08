@@ -4,6 +4,7 @@ using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Compiled;
 

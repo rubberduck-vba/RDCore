@@ -66,7 +66,7 @@ public sealed record class ProcedureSemanticModel(SemanticId Procedure, Immutabl
 /// A module is valid when its declarations are, and every procedure is: a module whose procedures are all valid may still declare a name twice.
 /// </remarks>
 /// <param name="Module">The address of the module the model describes.</param>
-/// <param name="DeclarationErrors">The compile errors of the module's own declarations (<see cref="Static.DeclarationStaticSemanticsEvaluator"/>), which no procedure body shows.</param>
+/// <param name="DeclarationErrors">The compile errors of the module's own declarations (<c>DeclarationStaticSemanticsEvaluator</c>), which no procedure body shows.</param>
 /// <param name="Procedures">The model of each procedure the module declares, in declaration order.</param>
 public sealed record class ModuleSemanticModel(
     Uri Module, ImmutableArray<VBCompileErrorInfo> DeclarationErrors, ImmutableArray<ProcedureSemanticModel> Procedures)
@@ -100,7 +100,7 @@ public sealed record class ModuleSemanticModel(
     public DocumentModuleFact? Document { get; init; }
 
     /// <summary>
-    /// How each declaration of the module is used by the module's own code (<see cref="Static.DeclarationUsage"/>): its variables, constants, parameters,
+    /// How each declaration of the module is used by the module's own code (<c>DeclarationUsage</c>): its variables, constants, parameters,
     /// procedures, properties and events, and the variables that were never declared. Empty when the pass had no workspace to resolve names in.
     /// </summary>
     public ImmutableArray<DeclarationFact> Declarations { get; init; } = [];

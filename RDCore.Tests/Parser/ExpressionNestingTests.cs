@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Parser;
 

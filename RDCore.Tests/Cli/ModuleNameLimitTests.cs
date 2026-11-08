@@ -1,7 +1,8 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 

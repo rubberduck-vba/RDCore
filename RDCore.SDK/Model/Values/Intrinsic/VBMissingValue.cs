@@ -1,5 +1,4 @@
-﻿using RDCore.SDK.Model.Errors;
-using RDCore.SDK.Model.Types;
+﻿using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 
@@ -11,7 +10,7 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// <remarks>
 /// <strong>MS-VBAL §6.1.2.7.1.6</strong> calls it "the Missing data value", and §6.1.2.7.1.12 and §6.1.2.7.1.13 report it the same as
 /// an Error. It is one: the <c>Variant</c> COM passes for an omitted argument is a <c>VT_ERROR</c> carrying <c>DISP_E_PARAMNOTFOUND</c>,
-/// which VBA reads as error <see cref="VBRuntimeErrorId.NamedArgumentNotFound"/> (448) everywhere but in <c>IsMissing</c>:
+/// which VBA reads as error 448 (Named argument not found) everywhere but in <c>IsMissing</c>:
 /// <c>CStr</c> of it is <c>"Error 448"</c>, <c>CLng</c> of it is <c>448</c>, and an operator given it raises Type mismatch. So it is an
 /// <see cref="VBErrorValue"/> with that code, and every operation that handles an error value handles it unchanged.
 /// <para>
@@ -21,8 +20,11 @@ namespace RDCore.SDK.Model.Values.Intrinsic;
 /// </remarks>
 public sealed record class VBMissingValue : VBErrorValue
 {
+    // Named argument not found: what DISP_E_PARAMNOTFOUND is to VBA.
+    private const int NamedArgumentNotFound = 448;
+
     public VBMissingValue()
-        : this(new ValueBindingHandle(new VBRuntimeValue<int>((int)VBRuntimeErrorId.NamedArgumentNotFound)))
+        : this(new ValueBindingHandle(new VBRuntimeValue<int>(NamedArgumentNotFound)))
     {
     }
 
