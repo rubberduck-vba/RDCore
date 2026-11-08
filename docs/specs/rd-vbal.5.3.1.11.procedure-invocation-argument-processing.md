@@ -67,7 +67,10 @@ A procedure invocation runs these steps:
 2. The argument-evaluation loop of `RuntimeExpressionEvaluator` produces one argument per parameter: a
    `ParamArray` collection, an `Optional` parameter's default, a `ByRef` reference, or a Let-coerced copy (see
    [Optional Parameters](#optional-parameters), [ParamArray](#paramarray) and
-   [ByVal and ByRef Binding](#byval-and-byref-binding)).
+   [ByVal and ByRef Binding](#byval-and-byref-binding)). The arguments are evaluated left to right, except a
+   variable given to a `ByVal` parameter, left of an argument that makes a call: it is read after the other
+   arguments, as MS-VBA reads it. With `Bump` adding 1 to the variable it's given by reference, and `a` at `1`,
+   `Sum2(a, Bump(a))` gives `Sum2` the values `2` and `2`.
 3. `RuntimeProcedureInvoker` looks up the callee's own lowered body by symbol.
 4. `RuntimeProcedureInvoker` pushes a fresh [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)
    for the callee. Exceeding the call-depth limit raises run-time error 28.
@@ -79,6 +82,11 @@ A procedure invocation runs these steps:
 8. The callee's body runs through the same `ProcedureExecutor`, with `RuntimeEvaluationContext.Scope` set to the
    procedure's own `Uri`.
 9. `RuntimeProcedureInvoker` reports the callee's outcome back to the caller (see [Return Value](#return-value)).
+
+> [!NOTE]
+> **Not implemented.** MS-VBA also evaluates an argument that makes no call, such as `a + 0` or `(a)`, after the
+> arguments that make calls: `Sum2(a + 0, Bump(a))` gives `Sum2` the values `2` and `2`. RD-VBA evaluates it in
+> its place and gives `1` and `2`.
 
 ### Argument Mapping
 
