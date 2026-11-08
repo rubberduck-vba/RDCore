@@ -37,7 +37,10 @@ jobs:
    - name: Build (Release)
      run: dotnet build RDCore.slnx --configuration Release
 
-   - name: Test (Release)
+   # the Debug run is the platform's default engine, Compiled; the Release run interprets every procedure, so both engines are tested.
+   - name: Test (Release, interpreted)
+     env:
+      RDCORE_ENGINE: Interpreter
      run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
 
    - name: Coverage badge
