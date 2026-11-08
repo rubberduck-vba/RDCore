@@ -203,14 +203,14 @@ The interactive shell renders a run-time error from this result, as:
 The module a client runs is a module of the runtime session. A client can also run a module of its own, which the project does not list, by saying so with
 `sessionModule` ([`SessionExecuteParams.SessionModule`](../api/RDCore.SDK.Platform.Protocol.SessionExecuteParams.html)).
 The interactive shell does this for its program. When the session has no module of that name, the module is defined as a standard module of the runtime session at
-the workspace root, as the code of an Immediate window is, and the project file is not changed. From then on the session has it: a later run finds it, marked or
-not, until the project is reloaded and the session composed again. A module the session doesn't have is not found unless the run is marked.
+the workspace root, as the code of an Immediate window is, and the project file is not changed. From then on the session has it: a later run finds it, with or
+without `sessionModule`, until the project is reloaded and the session composed again. Without `sessionModule`, a module the session does not have is not found.
 
-A module of the client's own can't be named after the project or a library it references. The project, the libraries it references and its procedural modules are
+A module of the client's own cannot be named after the project or a library it references. The project, the libraries it references and its procedural modules are
 matched in one tier (**MS-VBAL §5.6.10**), so the name would match twice, and a name qualified by it, such as `VBA.Len`, would be invalid. Such a run is not found,
 and the result says why.
 
-A workspace whose project file can't be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules. A client
+A workspace whose project file cannot be read loads no project, and the client is told why. What the client runs is still run there, as in a project with no modules. A client
 that opens no folder has no workspace, and what it runs is not found.
 
 ### Documents and their addresses

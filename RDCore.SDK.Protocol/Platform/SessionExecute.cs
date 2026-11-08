@@ -50,11 +50,11 @@ public record class SessionExecuteParams
     /// <summary>
     /// Whether the module is the client's own, of the runtime session and not of the project (<c>sessionModule</c> on the wire): a shell's program, which the project
     /// of a workspace the shell is attached to does not list. When the session has no module of that name, the module is defined as a standard module of the session
-    /// at the workspace root, as the code of an Immediate window is, and the project file is not changed. It is then a module the session has: a later run of it
-    /// finds it whether or not it says so, until the project is reloaded and the session composed again.
+    /// at the workspace root, as the code of an Immediate window is, and the project file is not changed. It is then a module the session has: a later run finds it
+    /// with or without this flag, until the project is reloaded and the session composed again.
     /// </summary>
     /// <remarks>
-    /// Without it, a module the session does not have is not found (<see cref="ExecutionOutcome.NotFound"/>). A module of the client's own can't be named after the
+    /// Without it, a module the session does not have is not found (<see cref="ExecutionOutcome.NotFound"/>). A module of the client's own cannot be named after the
     /// project or a library it references: they and the project's procedural modules are matched in one tier (<strong>MS-VBAL §5.6.10</strong>), so the name would
     /// match twice, and every name qualified by it would be invalid. The run is not found, and the result says why.
     /// </remarks>

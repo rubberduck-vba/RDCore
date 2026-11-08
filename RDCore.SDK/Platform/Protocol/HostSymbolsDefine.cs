@@ -177,7 +177,7 @@ public record class DefineSymbolsParams : IRequest, IRequest<DefineSymbolsResult
 
     /// <summary>
     /// Whether the module is the client's own, of the runtime session and not of the project (<see cref="SessionExecuteParams.SessionModule"/>): when the session
-    /// has no module of <see cref="ModuleName"/>, the host defines it as a standard module at <see cref="WorkspaceRoot"/>, outside the project, before its members,
+    /// has no module of <see cref="ModuleName"/>, the host defines it as a standard module at <see cref="WorkspaceRoot"/>, outside the project, before it defines the module's members,
     /// unless it is named after the project or a library the session references. Without it, the members of a module the session does not have are defined under
     /// no module, and the module is not found.
     /// </summary>
