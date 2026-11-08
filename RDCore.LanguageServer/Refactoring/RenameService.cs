@@ -300,7 +300,8 @@ internal sealed class RenameWorkspace
         => edit.IsInString ? InString : edit.IsLateBound ? edit.IsBacked ? LateBoundBacked : LateBound : null;
 
     /// <summary>
-    /// The change annotation of a rename's edits of the strings a library calls the symbol by (<see cref="RenameEdit.IsInString"/>), which the user confirms.
+    /// The change annotation of a rename's edits of the strings a library calls the symbol by (<see cref="RenameEdit.IsInString"/>), which the user confirms; a
+    /// client that can't ask its user is sent none of them.
     /// </summary>
     internal static readonly ChangeAnnotationIdentifier InString = "rdcore.rename.inString";
 
@@ -316,10 +317,6 @@ internal sealed class RenameWorkspace
     /// </summary>
     internal static readonly ChangeAnnotationIdentifier LateBoundBacked = "rdcore.rename.lateBound.backed";
 
-    /// <summary>
-    /// Whether an annotation is one of a rename's late-bound edits (<see cref="LateBound"/>, <see cref="LateBoundBacked"/>).
-    /// </summary>
-    internal static bool IsLateBound(ChangeAnnotationIdentifier annotation) => annotation == LateBound || annotation == LateBoundBacked;
 
     /// <summary>
     /// What can be renamed in a range of a document (<see cref="SymbolRename.TargetsIn"/>): each name, and where it begins in the text of the document.

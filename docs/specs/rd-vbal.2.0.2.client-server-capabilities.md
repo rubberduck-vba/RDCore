@@ -412,7 +412,7 @@ A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's n
 
 An access on an object whose known classes include the symbol's class is backed by what is known, and labelled so (`Late-bound: the object holds a Class1`). Any other access that is proposed is only possible (`Late-bound: the object may hold a Class1`). The two are confirmed apart.
 
-A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: once for the strings, once for the backed late-bound accesses, and once for the possible ones. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) has nobody to ask: it is sent the rest of the rename, without the late-bound edits.
+A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: once for the strings, once for the backed late-bound accesses, and once for the possible ones. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) has nobody to ask: it is sent the rest of the rename, without the edits of strings and of late-bound accesses.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 

@@ -21,12 +21,11 @@ namespace RDCore.LanguageServer.Refactoring;
 /// <para>
 /// The edits of the strings a library calls the symbol by (<see cref="RenameWorkspace.InString"/>), and of the members accessed late-bound that may be the
 /// symbol (<see cref="RenameWorkspace.LateBoundBacked"/>, <see cref="RenameWorkspace.LateBound"/>), are the user's to confirm: a client that takes change
-/// annotations asks them itself; any other is asked
-/// for them (<c>window/showMessageRequest</c>), one question for each, before it is answered: with them renamed, them left, or nothing at all when the user
-/// does not choose.
+/// annotations asks them itself; any other is asked for them (<c>window/showMessageRequest</c>), one question for each, before it is answered: with them
+/// renamed, them left, or nothing at all when the user does not choose.
 /// </para>
 /// <para>
-/// A client that can't ask its user (<see cref="SDK.Client.Unattended"/>) is sent none of the late-bound edits, and the rest of the rename.
+/// A client that can't ask its user (<see cref="SDK.Client.Unattended"/>) is sent none of the edits that need confirming, and the rest of the rename.
 /// </para>
 /// </remarks>
 internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade server, IServiceProvider services) : RenameHandlerBase
@@ -40,8 +39,8 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
         var edit = answer.ValueOrRefusal();
         foreach (var question in answer.Questions ?? [])
         {
-            // a late-bound access that no user can confirm is not renamed: which member it calls is only known when the code runs.
-            if (RenameWorkspace.IsLateBound(question.Annotation) && IsUnattended())
+            // an edit that no user can confirm is not made: what a string names, and which member a late-bound access calls, are only known when the code runs.
+            if (IsUnattended())
             {
                 edit = Without(edit, question.Annotation);
                 continue;
