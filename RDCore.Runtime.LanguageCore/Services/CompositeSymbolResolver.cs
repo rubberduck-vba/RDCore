@@ -12,7 +12,7 @@ namespace RDCore.Runtime.LanguageCore.Services;
 /// fallback). The result is unbound only when every resolver is unbound.
 /// </summary>
 /// <remarks>
-/// A compile-time composite: it binds names, and holds no storage. Used to layer a workspace's
+/// A compile-time composite: it binds names, and holds no storage. It layers a workspace's
 /// <see cref="ScopeTreeSymbolResolver"/> over an intrinsic type-name resolver, most specific first.
 /// </remarks>
 /// <param name="resolvers">The resolvers to try, in priority order.</param>

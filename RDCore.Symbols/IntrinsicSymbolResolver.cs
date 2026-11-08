@@ -12,7 +12,7 @@ namespace RDCore.Symbols;
 /// their intrinsic <c>VBType</c> (via <see cref="IntrinsicVBTypes"/>), and resolves nothing else.
 /// </summary>
 /// <remarks>
-/// A compile-time type resolver only — it holds no runtime bindings. With it in place the <c>SymbolBuilder</c> binds intrinsic declared types instead of
+/// A compile-time type resolver only: it holds no runtime bindings. With it in place the <c>SymbolBuilder</c> binds intrinsic declared types instead of
 /// leaving every one <c>VBUnknownType</c>; project and library type names still fall through until a
 /// resolver composed with those symbols is available. A reserved data-type name is a type, never a
 /// value, so it binds in the type binding context only.

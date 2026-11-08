@@ -59,6 +59,7 @@ public interface IBindingHandle
     /// <remarks>
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.GetValue"/>.
     /// </remarks>
+    /// <param name="resolver">The running session's symbols and their storage, which a binding that is not self-contained is read through.</param>
     /// <exception cref="NotSupportedException"></exception>
     IRuntimeValue GetValue(IRuntimeSymbolResolver resolver);
     /// <summary>
@@ -67,6 +68,8 @@ public interface IBindingHandle
     /// <remarks>
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.SetValue"/>.
     /// </remarks>
+    /// <param name="resolver">The running session's symbols and their storage, which a binding that is not self-contained is written through.</param>
+    /// <param name="value">The value to assign.</param>
     /// <exception cref="NotSupportedException"></exception>
     void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value);
     /// <summary>
@@ -76,6 +79,8 @@ public interface IBindingHandle
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.Invoke"/>.<br/>
     /// A handle to code that runs on a call stack does not push the frame itself: it hands the call to an <see cref="IProcedureInvoker"/>.
     /// </remarks>
+    /// <param name="resolver">The running session's symbols and their storage, which the call is made in.</param>
+    /// <param name="args">The arguments of the call.</param>
     /// <exception cref="NotSupportedException">The binding does not support <see cref="BindingCapabilities.Invoke"/>.</exception>
     /// <exception cref="Errors.VBRuntimeErrorException">A run-time error was raised by the invoked entity and nothing handled it.</exception>
     IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args);

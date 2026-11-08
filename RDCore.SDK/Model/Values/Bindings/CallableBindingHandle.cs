@@ -81,6 +81,7 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// <summary>
     /// Not supported: a procedure, including a property accessor, is never read as a value - see <see cref="Invoke"/>.
     /// </summary>
+    /// <param name="resolver">Unused.</param>
     /// <exception cref="NotSupportedException">Always.</exception>
     public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver)
         => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it has no value to read.");
@@ -88,6 +89,8 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// <summary>
     /// Not supported: a procedure, including a property accessor, is never assigned as a value - see <see cref="Invoke"/>.
     /// </summary>
+    /// <param name="resolver">Unused.</param>
+    /// <param name="value">Unused.</param>
     /// <exception cref="NotSupportedException">Always.</exception>
     public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value)
         => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it cannot be assigned.");

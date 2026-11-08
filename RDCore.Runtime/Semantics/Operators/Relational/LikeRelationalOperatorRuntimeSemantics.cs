@@ -30,7 +30,7 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
 {
     /// <remarks>
     /// MS-VBAL 5.6.9.6: if either operand's value is Null, the result is Null; otherwise both operands are Let-coerced to String regardless of their own value
-    /// type — unlike the other relational operators, Like has no table of numeric and date effective types (<see cref="RDCore.Runtime.LanguageCore.Plans.OperationPlanner"/>).
+    /// type: unlike the other relational operators, Like has no table of numeric and date effective types (<see cref="RDCore.Runtime.LanguageCore.Plans.OperationPlanner"/>).
     /// </remarks>
     protected override string Operator => Tokens.CompareLikeOp;
 
