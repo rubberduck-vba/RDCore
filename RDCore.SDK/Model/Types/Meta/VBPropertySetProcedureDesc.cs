@@ -25,7 +25,7 @@ public record class VBPropertySetProcedureDesc(string Name, ImmutableArray<VBPar
 /// <remarks>
 /// Encountering a <em>deferred member</em> dring semantic traversal attaches the required semantics to produce a <c>VBInferredTypeMember</c> that can be materialized into a code action.
 /// </remarks>
-public sealed record class VBDeferredPropertySetProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBPropertySetProcedureDesc(Name, Parameters)
+internal sealed record class VBDeferredPropertySetProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBPropertySetProcedureDesc(Name, Parameters)
 {
     private static readonly Lazy<VBDeferredPropertySetProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

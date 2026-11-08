@@ -9,7 +9,7 @@ namespace RDCore.SDK.Model.Types.Complex;
 /// The candidate-type merge and resolution rules an <see cref="IVBInferableType"/> follows, per its
 /// own static-semantics note (<see cref="IVBInferableType"/> xmldoc remarks).
 /// </summary>
-public static class IVBInferableTypeExtensions
+internal static class IVBInferableTypeExtensions
 {
     /// <summary>
     /// Resolves the single data type <paramref name="inferable"/>'s candidates currently agree on, or

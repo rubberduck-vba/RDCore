@@ -27,6 +27,6 @@ public record class VBTypeDescValue(VBType Target) : VBTypedValue(VBTypeDesc.Typ
 /// Creates a new <c>VBTypeDescValue</c> describing the specified <em>deferred type</em> at the specified symbol.
 /// </summary>
 /// <param name="deferredTypeInfo">The described <em>deferred type</em>.</param>
-public record class VBDeferredTypeDescValue(VBDeferredType DeferredTarget) : VBTypeDescValue(DeferredTarget) 
+internal record class VBDeferredTypeDescValue(VBDeferredType DeferredTarget) : VBTypeDescValue(DeferredTarget) 
 {
 }

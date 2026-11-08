@@ -45,7 +45,7 @@ public record class VBStdModuleType(string Name, bool IsHidden = false) : VBType
     ImmutableArray<VBDeferredTypeMemberSymbol> IVBMemberOwnerType.DeferredMembers { get; init; } = [];
 }
 
-public record class VBDeferredModuleType(string Name, Uri Uri) : VBDeferredType(Name, Uri)
+internal record class VBDeferredModuleType(string Name, Uri Uri) : VBDeferredType(Name, Uri)
 {
     private static readonly Lazy<VBVoidValue> _defaultValue = new(() => VBVoidValue.Void, LazyThreadSafetyMode.PublicationOnly);
     public override VBTypedValue DefaultValue => _defaultValue.Value;

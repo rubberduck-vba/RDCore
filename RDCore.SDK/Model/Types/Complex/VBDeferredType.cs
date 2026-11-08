@@ -8,7 +8,7 @@ namespace RDCore.SDK.Model.Types.Complex;
 /// <summary>
 /// Describes a data type that is undeclared but that can be statically inferred from its use.
 /// </summary>
-public interface IVBInferableType
+internal interface IVBInferableType
 {
     /*** RD-VBA Inferable Types
      * 
@@ -47,13 +47,13 @@ public interface IVBInferableType
     IVBInferableType WithCandidateType(VBType vbType);
 }
 
-public interface IVBDeferrableTypeMember : IVBInferableType
+internal interface IVBDeferrableTypeMember : IVBInferableType
 {
     VBType? DeferredVBType { get; init; }
     VBDeferredTypeMemberSymbol WithDeferredVBType(VBType vbType);
 }
 
-public abstract record class VBDeferredType : VBType, IVBInferableType
+internal abstract record class VBDeferredType : VBType, IVBInferableType
 {
     public VBDeferredType(string name, Uri uri)
         : base(typeof(object), name, isHidden: true)
