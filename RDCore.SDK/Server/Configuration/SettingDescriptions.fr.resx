@@ -56,7 +56,7 @@
     <value>Les extensions que charge la plateforme, par leur titre, séparées par des virgules. Une extension exécute son propre code, avec les droits de la plateforme.</value>
   </data>
   <data name="Environment_Is64Bit" xml:space="preserve">
-    <value>Si l'environnement est un environnement 64 bits : la largeur de LongPtr, et ce que dit #If Win64.</value>
+    <value>Si l'environnement est un environnement 64 bits : la largeur de LongPtr, et ce que dit #If Win64 sous Windows et #If Linux64 sous Linux.</value>
   </data>
   <data name="Environment_Lcid" xml:space="preserve">
     <value>L'identificateur de paramètres régionaux de l'environnement; 0 désigne les paramètres invariants.</value>

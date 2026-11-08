@@ -147,4 +147,12 @@ public enum ValueExpressionSemanticFlags
     /// registered</em> whenever it runs (recorded in Excel: <c>oracle\s62</c> X04, X08).
     /// </summary>
     NewAlwaysFails = 1 << 21,
+
+    /// <summary>
+    /// It is an operation (<c>Not</c>, <c>And</c>, <c>Xor</c>, <c>Eqv</c>, <c>Imp</c>, or a comparison with a <c>Boolean</c>) of a constant whose value is a
+    /// number that is not <c>0</c> and not <c>-1</c>, and its truth value can differ from what the truth values of its operands give
+    /// (<see cref="TruthValueOperations"/>): the logical operators work on bits (<strong>MS-VBAL §5.6.9.8</strong>), and only <c>-1</c> has every bit of
+    /// <c>True</c>. <c>Not 1</c> is <c>-2</c>, which is <c>True</c>.
+    /// </summary>
+    TrueValueIsNotMinusOne = 1 << 22,
 }

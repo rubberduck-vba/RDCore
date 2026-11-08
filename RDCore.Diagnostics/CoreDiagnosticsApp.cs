@@ -68,6 +68,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, LikePatternDepartureAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariantStringThatIsNoNumberRankedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, StringComparedWithANumberAsADoubleAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, TrueValueIsNotMinusOneAnalyzer>();
 
         // the ones that read how the module is written.
         services.AddSingleton<IModuleAnalyzer, OptionBaseAnalyzer>();

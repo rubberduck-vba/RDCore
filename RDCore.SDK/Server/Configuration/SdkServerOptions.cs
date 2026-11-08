@@ -222,7 +222,8 @@ public record class SdkEnvironmentOptions
     public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Compiled;
 
     /// <summary>
-    /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, <c>#If Win64</c> / <c>#If VBA7</c>).
+    /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, and the <c>Win64</c> or <c>Linux64</c> conditional-compilation constant of the
+    /// operating system the environment runs on).
     /// </summary>
     public bool Is64Bit { get; set; } = true;
     /// <summary>

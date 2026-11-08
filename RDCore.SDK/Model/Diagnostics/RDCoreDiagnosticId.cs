@@ -109,6 +109,7 @@ public enum RDCoreDiagnosticId
     StringComparedWithANumberAsADouble = 11027, // "2.5" = 2: MS-VBA compares a String with a Byte, an Integer or a Long as Doubles; MS-VBAL in the number's type
     NewOfAClassNotCreatable = 11028, // New ErrObject, As New ErrObject: compiles, and creating the object always raises -2147221164 (Class not registered)
     ObjectVariablePassedLateIsACopy = 11029, // o.Twice b.Count, o an Object: MS-VBA passes a copy of b's public variable to a procedure called late
+    TrueValueIsNotMinusOne = 11031, // #If Not DEV with #Const DEV = 1: a True that is not -1, read through an operator that works on its bits (Not 1 is -2)
     ForEachControlEmptiedAfterLoop = 11032, // For Each c In r ... Next: Debug.Print c.Address - MS-VBAL keeps the last element in c; MS-VBA empties it (Nothing)
 
     /*
