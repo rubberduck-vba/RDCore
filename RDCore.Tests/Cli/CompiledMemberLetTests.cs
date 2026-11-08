@@ -213,7 +213,7 @@ public sealed class CompiledMemberLetTests
             "    Swapped = K * 100",
             "End Function"), "swapped 1;swapped 2;old 0 new 200", ("Assigned", 0, 0), ("Swapped", 3, 0));
 
-    // a jump out of a With block, and back into it, finds the block's object: the block holds it until its End With (MS-VBA, grid oracle\s16 W05). A GoTo
+    // a jump out of a With block, and back into it, finds the block's object: the block holds it until its End With, as in MS-VBA. A GoTo
     // out of a block is not compiled code's, so the procedure is the interpreter's; the Property Let it calls is compiled.
     [TestMethod]
     public async Task AJumpOutOfAWithBlockAndBackIn_FindsItsObject()
@@ -241,7 +241,7 @@ public sealed class CompiledMemberLetTests
             "    GoTo Inside",
             "End Sub"), "x=1;x=2;out;x=9;", ("Let X", 3, 0));
 
-    // a jump into a With block whose With statement did not run: the block has no object, and a member of it is error 91 (MS-VBA, grid oracle\s16 W02).
+    // a jump into a With block whose With statement did not run: the block has no object, and a member of it is error 91, as in MS-VBA.
     // The recoveries are the Set, the GoTo, the End With, and at each pass the error, the assignment of Log and Err.Clear.
     [TestMethod]
     public async Task AJumpIntoAWithBlock_FindsNoObject()
