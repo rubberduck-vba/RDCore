@@ -117,7 +117,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         return before;
     }
 
-    /// <summary>The call <see cref="EnterCall"/> began returned: the activation is making the one it was making before, if any.</summary>
+    /// <summary>
+    /// The call <see cref="EnterCall"/> recorded has returned: the activation is again making the call it was making before, if any.
+    /// </summary>
     /// <param name="before">What <see cref="EnterCall"/> returned.</param>
     public void LeaveCall((SourceLocation? Call, int Pc) before) => (_call, _callPc) = before;
 
