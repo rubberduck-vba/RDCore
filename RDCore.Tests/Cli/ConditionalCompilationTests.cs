@@ -1,3 +1,6 @@
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
+
 namespace RDCore.Tests.Cli;
 
 /// <summary>
@@ -91,6 +94,39 @@ public sealed class ConditionalCompilationTests
         var source = Chosen("#Const Flag = Flag + 1");
 
         CollectionAssert.AreEqual(new[] { "yes" }, await ModuleWorkspace.RunAsync([], source));
+    }
+
+    // the operating system the host runs on decides the constant of each (RD-VBAL §2.3.1.2): a branch is live on its own operating system only, the module's
+    // declarations in it as well as its statements.
+    [TestMethod]
+    [DataRow(VBOperatingSystem.Linux, true, "Linux|Linux64|linux", DisplayName = "64-bit Linux")]
+    [DataRow(VBOperatingSystem.Linux, false, "Linux|linux", DisplayName = "32-bit Linux")]
+    [DataRow(VBOperatingSystem.Windows, true, "Win32|Win64|other", DisplayName = "64-bit Windows")]
+    [DataRow(VBOperatingSystem.Windows, false, "Win32|other", DisplayName = "32-bit Windows")]
+    [DataRow(VBOperatingSystem.MacOS, true, "Mac|other", DisplayName = "macOS")]
+    [DataRow(VBOperatingSystem.Other, true, "other", DisplayName = "another operating system")]
+    public async Task AnOperatingSystemsConstant_IsTrue_OnItsOwnOperatingSystemOnly(VBOperatingSystem os, bool is64Bit, string expected)
+    {
+        var source = Module(
+            "#If Linux Then", "Private Const Os As String = \"linux\"", "#Else", "Private Const Os As String = \"other\"", "#End If",
+            "Public Sub Main()",
+            "#If Win32 Then", "Debug.Print \"Win32\"", "#End If",
+            "#If Win64 Then", "Debug.Print \"Win64\"", "#End If",
+            "#If Mac Then", "Debug.Print \"Mac\"", "#End If",
+            "#If Linux Then", "Debug.Print \"Linux\"", "#End If",
+            "#If Linux64 Then", "Debug.Print \"Linux64\"", "#End If",
+            "Debug.Print Os",
+            "End Sub");
+
+        string[] output = [];
+        await ModuleWorkspace.InspectAsync([], source, (_, run, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Completed, run.Outcome, run.ErrorMessage);
+            output = [.. run.Output.Select(line => line.Trim())];
+            return Task.CompletedTask;
+        }, environment: profile => profile with { OperatingSystem = os, Is64Bit = is64Bit });
+
+        CollectionAssert.AreEqual(expected.Split('|'), output);
     }
 
     [TestMethod]

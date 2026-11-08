@@ -15,10 +15,19 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 public interface IRuntimeEnvironmentProfile
 {
     /// <summary>
-    /// <c>true</c> for a 64-bit environment. Determines <c>LongPtr</c> width and the value of the
-    /// <c>#If Win64</c> / <c>#If VBA7</c> pre-compiler directives.
+    /// <c>true</c> for a 64-bit environment. Determines <c>LongPtr</c> width and, on its own operating system (<see cref="OperatingSystem"/>), the value of
+    /// the <c>Win64</c> and <c>Linux64</c> conditional-compilation constants.
     /// </summary>
     bool Is64Bit { get; }
+
+    /// <summary>
+    /// The operating system the environment runs on. With <see cref="Is64Bit"/>, it decides the built-in <c>Win32</c>, <c>Win64</c>, <c>Mac</c>,
+    /// <c>Linux</c> and <c>Linux64</c> conditional-compilation constants: each is <c>True</c> only on its own operating system.
+    /// </summary>
+    /// <remarks>
+    /// The environment host's is the one it runs on. <see cref="VBOperatingSystem.Windows"/> unless said otherwise.
+    /// </remarks>
+    VBOperatingSystem OperatingSystem { get; }
 
     /// <summary>
     /// The environment locale identifier (LCID). <c>0</c> means the invariant locale.

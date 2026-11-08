@@ -56,7 +56,7 @@
     <value>The extensions the platform loads, by their title, separated by commas. An extension runs code of its own, with the platform's rights.</value>
   </data>
   <data name="Environment_Is64Bit" xml:space="preserve">
-    <value>Whether the environment is a 64-bit one: the width of LongPtr, and what #If Win64 says.</value>
+    <value>Whether the environment is a 64-bit one: the width of LongPtr, and what #If Win64 says on Windows and #If Linux64 on Linux.</value>
   </data>
   <data name="Environment_Lcid" xml:space="preserve">
     <value>The locale identifier of the environment; 0 is the invariant locale.</value>

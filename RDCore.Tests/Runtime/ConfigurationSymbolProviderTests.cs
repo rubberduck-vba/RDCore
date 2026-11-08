@@ -20,17 +20,47 @@ public sealed class ConfigurationSymbolProviderTests
             .Cast<PrecompilerConstantSymbol>()
             .ToDictionary(s => s.Name, s => s, StringComparer.OrdinalIgnoreCase);
 
+    // each operating system's constant is True (-1) on it alone, and defined False (0) on every other; Win32 says the Win32 API is there, as MS-VBA's does
+    // in 64-bit Office too.
     [TestMethod]
-    public void BuiltIns_ReflectBitness()
+    [DataRow(VBOperatingSystem.Windows, true, "Win32 Win64", DisplayName = "64-bit Windows")]
+    [DataRow(VBOperatingSystem.Windows, false, "Win32", DisplayName = "32-bit Windows")]
+    [DataRow(VBOperatingSystem.Linux, true, "Linux Linux64", DisplayName = "64-bit Linux")]
+    [DataRow(VBOperatingSystem.Linux, false, "Linux", DisplayName = "32-bit Linux")]
+    [DataRow(VBOperatingSystem.MacOS, true, "Mac", DisplayName = "macOS")]
+    [DataRow(VBOperatingSystem.Other, true, "", DisplayName = "another operating system")]
+    public void BuiltIns_ReflectTheOperatingSystemAndBitness(VBOperatingSystem os, bool is64, string trueOnes)
     {
-        var x64 = Provide(Env(true), new RDCoreProject());
-        Assert.AreEqual((short)-1, ((VBIntegerValue)x64["Win64"].Value).Value);
-        Assert.AreEqual((short)0, ((VBIntegerValue)x64["Win32"].Value).Value);
-        Assert.AreEqual((short)-1, ((VBIntegerValue)x64["VBA7"].Value).Value);
+        var symbols = Provide(new RuntimeEnvironmentProfile(is64, 0, 1252, false, OperatingSystem: os), new RDCoreProject());
+        var expectedTrue = trueOnes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Append("VBA7").Append("DEBUG").ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var x86 = Provide(Env(false), new RDCoreProject());
-        Assert.AreEqual((short)0, ((VBIntegerValue)x86["Win64"].Value).Value);
-        Assert.AreEqual((short)-1, ((VBIntegerValue)x86["Win32"].Value).Value);
+        foreach (var name in new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7", "DEBUG" })
+        {
+            Assert.AreEqual(expectedTrue.Contains(name) ? (short)-1 : (short)0, ((VBIntegerValue)symbols[name].Value).Value, name);
+        }
+    }
+
+    [TestMethod]
+    public void TheHostsProfile_IsOfTheOperatingSystemItRunsOn()
+    {
+        var expected = OperatingSystem.IsWindows() ? VBOperatingSystem.Windows
+            : OperatingSystem.IsMacOS() ? VBOperatingSystem.MacOS
+            : OperatingSystem.IsLinux() ? VBOperatingSystem.Linux
+            : VBOperatingSystem.Other;
+
+        Assert.AreEqual(expected, RuntimeEnvironmentProfile.From(new RDCore.SDK.Server.Configuration.SdkEnvironmentOptions()).OperatingSystem);
+        Assert.AreEqual(VBOperatingSystem.Windows, RuntimeEnvironmentProfile.Default.OperatingSystem, "design time and tests are Windows, wherever they run");
+    }
+
+    [TestMethod]
+    public void ARdprojConstant_OverridesAnOperatingSystemsConstant()
+    {
+        var project = new RDCoreProject { PrecompilerConstants = { ["Linux"] = "-1", ["Win32"] = "0" } };
+
+        var symbols = Provide(Env(true), project);
+
+        Assert.AreEqual((short)-1, ((VBIntegerValue)symbols["Linux"].Value).Value);
+        Assert.AreEqual((short)0, ((VBIntegerValue)symbols["Win32"].Value).Value);
     }
 
     [TestMethod]
