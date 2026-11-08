@@ -651,7 +651,20 @@ internal class RDCoreConsoleEnvironmentHostApp(
         {
             // a folder with no project file is the project it holds, as the language server makes it up.
             var language = ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace.SupportedLanguage;
-            var project = await projectFileLoader.LoadOrSynthesizeAsync(request.RootUri.GetFileSystemPath(), language);
+            var root = request.RootUri.GetFileSystemPath();
+            ProjectFile project;
+            try
+            {
+                project = await projectFileLoader.LoadOrSynthesizeAsync(root, language);
+            }
+            catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException or IOException or UnauthorizedAccessException)
+            {
+                // a project file that can't be read loads no project, as the language server loads none: what the client runs is still run, in a project
+                // with no modules at the workspace root.
+                LogIfEnabled(LogLevel.Warning, $"⚠️ The project file could not be read; the runtime session has no project modules:\n{exception}");
+                project = new ProjectFile(root, new RDCoreProject { Name = RDCoreProject.DefaultName });
+            }
+
             sessionProvider.Compose(project.ProjectInfo, SymbolUri.Root(project.Uri));
             LogIfEnabled(LogLevel.Information, "✅ Runtime session composed from the workspace project");
         }

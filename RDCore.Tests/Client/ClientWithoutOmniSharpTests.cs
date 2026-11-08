@@ -86,6 +86,110 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(4);
     }
 
+    // the client's own module - rdc's shell's program, which runs `? 1 + 1` - is run in a workspace whose project does not list it, as a module of the session: in a
+    // workspace whose project file can't be read, which loads no project (the client is told why), and in one whose project has other modules. In the first, the
+    // run's module is addressed under the workspace's root although no project was read, and the host composes a session with no modules to run it in.
+    [TestMethod]
+    [DataRow(UnreadableProjectFile, DisplayName = "a project file that can't be read")]
+    [DataRow(AProjectOfOtherModules, DisplayName = "a project that does not list it")]
+    public async Task TheClientsOwnModule_IsRun_InAWorkspaceWhoseProjectDoesNotHaveIt(string projectFile)
+    {
+        await using var platform = await Platform.StartAsync(others: 1, projectFile: projectFile);
+        var executed = await RunAsync(platform, "Program", sessionModule: true);
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", platform.Rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { "2" }, executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        await platform.ShutdownAsync(4);
+    }
+
+    // a module the project does not have, and that the client does not say is its own, is not found: a name mistyped or a module that is no longer the project's
+    // is not made a module of the session.
+    [TestMethod]
+    [DataRow(UnreadableProjectFile, DisplayName = "a project file that can't be read")]
+    [DataRow(AProjectOfOtherModules, DisplayName = "a project that does not list it")]
+    public async Task AModuleTheProjectDoesNotHave_IsNotFound_UnlessItIsTheClientsOwn(string projectFile)
+    {
+        await using var platform = await Platform.StartAsync(others: 1, projectFile: projectFile);
+        var executed = await RunAsync(platform, "Progam", sessionModule: false);
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", platform.Rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.NotFound, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        StringAssert.Contains(executed["result"]!["errorMessage"]!.GetValue<string>(), "'Progam'", told);
+        await platform.ShutdownAsync(4);
+    }
+
+    // a project file of a newer format loads all the same, in the language server and in the environment host the language server composes the session of: a
+    // module it lists is run under the constant it defines. Had the format been refused, the folder would have been a project of its source files, with no
+    // constant, and 0 printed.
+    [TestMethod]
+    public async Task AModuleOfAProjectFileOfANewerFormat_IsRun_UnderTheConstantsItDefines()
+    {
+        await using var platform = await Platform.StartAsync(others: 1, projectFile: AProjectFileOfANewerFormat);
+        var executed = await RunAsync(platform, "Other0", sessionModule: false,
+            source: "Public Sub Main()\r\n#If NEWER Then\r\n    Debug.Print 1 + 1\r\n#Else\r\n    Debug.Print 0\r\n#End If\r\nEnd Sub\r\n");
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", platform.Rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { "2" }, executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        await platform.ShutdownAsync(4);
+    }
+
+    // a client that opens no folder has no workspace to run anything in: what it runs is not found, and is no internal error of the language server.
+    [TestMethod]
+    public async Task AClientThatOpensNoFolder_IsToldThereIsNoWorkspaceToRunIn()
+    {
+        await using var platform = await Platform.StartAsync();
+        var rpc = platform.Rpc;
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams("{}", opensAFolder: false));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        Assert.IsNull(handshake["error"], handshake.ToJsonString());
+
+        var executed = await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = "Public Sub Main()\r\n    Debug.Print 1 + 1\r\nEnd Sub\r\n",
+            ["moduleName"] = "Program",
+            ["entryPoint"] = "Main",
+            ["sessionModule"] = true,
+        });
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.NotFound, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        StringAssert.Contains(executed["result"]!["errorMessage"]!.GetValue<string>(), "no workspace", told);
+        await platform.ShutdownAsync(4);
+    }
+
+    private const string UnreadableProjectFile = "{ \"Version\": \"1.0\", \"ProjectInfo\": { \"Name\": \"Broken\" ";
+    private const string AProjectOfOtherModules = "{ \"ProjectInfo\": { \"Name\": \"Other\", \"Modules\": [ { \"RelativeUri\": \"Other0.bas\" } ] } }";
+    private const string AProjectFileOfANewerFormat =
+        "{ \"Version\": \"100.0.0\", \"ProjectInfo\": { \"Name\": \"Newer\", \"Modules\": [ { \"RelativeUri\": \"Other0.bas\" } ], \"PrecompilerConstants\": { \"NEWER\": \"1\" } } }";
+
+    // the workspace is initialized and handshaken, and `Debug.Print 1 + 1`, or the source given, is run as Main of the module.
+    private static async Task<JsonObject> RunAsync(Platform platform, string moduleName, bool sessionModule, string? source = null)
+    {
+        var rpc = platform.Rpc;
+        var initialize = await rpc.RequestAsync(1, "initialize", platform.InitializeParams("{}"));
+        Assert.IsNull(initialize["error"], initialize.ToJsonString());
+        await rpc.NotifyAsync("initialized", new JsonObject());
+
+        var handshake = await rpc.RequestAsync(2, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
+        Assert.IsNull(handshake["error"], handshake.ToJsonString());
+
+        return await rpc.RequestAsync(3, RDCorePlatformProtocol.SessionExecute, new JsonObject
+        {
+            ["source"] = source ?? "Public Sub Main()\r\n    Debug.Print 1 + 1\r\nEnd Sub\r\n",
+            ["moduleName"] = moduleName,
+            ["entryPoint"] = "Main",
+            ["sessionModule"] = sessionModule,
+        });
+    }
+
     // the order HexIDE's add-in sent its messages in (C:\Dev\Claude\hexide-msgbox-wire-2026-10-30.txt): the document opened and its diagnostics asked for before the
     // platform handshake, which is sent without waiting for them; its requests numbered from 2, so that the handshake is 4, as the language server's msgBox is.
     [TestMethod]
@@ -489,13 +593,18 @@ public sealed class ClientWithoutOmniSharpTests
 
         public ConcurrentQueue<string> Asked { get; } = [];
 
-        // the workspace has `others` modules besides Program, which the language server parses and composes the session of before it runs anything.
-        public static async Task<Platform> StartAsync(int others = 0)
+        // the workspace has `others` modules besides Program, which the language server parses and composes the session of before it runs anything, and the
+        // project file given, if one is.
+        public static async Task<Platform> StartAsync(int others = 0, string? projectFile = null)
         {
             var root = Path.Combine(Path.GetTempPath(), "RDCore", "raw-client", Guid.NewGuid().ToString("N"));
             var workspace = Path.Combine(root, "Workspace");
             Directory.CreateDirectory(workspace);
             File.WriteAllText(Path.Combine(workspace, "Program.bas"), ModuleText);
+            if (projectFile is not null)
+            {
+                File.WriteAllText(Path.Combine(workspace, RDCore.SDK.Workspace.ProjectFile.FileName), projectFile);
+            }
             for (var index = 0; index < others; index++)
             {
                 File.WriteAllText(Path.Combine(workspace, $"Other{index}.bas"), OtherModule(index));
@@ -525,11 +634,12 @@ public sealed class ClientWithoutOmniSharpTests
             return new Platform(root, workspace, process, exited, pipe);
         }
 
-        public JsonObject InitializeParams(string capabilities) => new()
+        // a client that opens no folder gives no root and no folders (LSP 3.17: rootUri null, workspaceFolders null).
+        public JsonObject InitializeParams(string capabilities, bool opensAFolder = true) => new()
         {
             ["processId"] = Environment.ProcessId,
-            ["rootUri"] = Workspace,
-            ["workspaceFolders"] = new JsonArray(new JsonObject { ["uri"] = Workspace, ["name"] = "Workspace" }),
+            ["rootUri"] = opensAFolder ? Workspace : null,
+            ["workspaceFolders"] = opensAFolder ? new JsonArray(new JsonObject { ["uri"] = Workspace, ["name"] = "Workspace" }) : null,
             ["trace"] = "off",
             ["locale"] = "en-US",
             ["capabilities"] = JsonNode.Parse(capabilities),

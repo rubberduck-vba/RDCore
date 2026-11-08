@@ -8,15 +8,9 @@
     <AssemblyName>rdc</AssemblyName>
     <StartupObject>RDCore.CLI.Program</StartupObject>
     <AssemblyTitle>RDCore CLI</AssemblyTitle>
+    <Description>The RDCore command line: an interactive RD-VBA shell and a language client of the platform, and the host of the RD-VBA runtime environment.</Description>
     <ApplicationIcon>logo.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Title>RD-VBA CLI</Title>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 9562-7303 Québec inc.</Copyright>
-    <Product>RDCore</Product>
-    <PackageProjectUrl>https://rubberduckvba.ca</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/rubberduck-vba/rdcore</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
   </PropertyGroup>
 

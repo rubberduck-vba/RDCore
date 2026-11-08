@@ -26,6 +26,12 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
             });
         }
 
+        // nothing of the project runs while a module of it does not load: an expression evaluated at the stop, which can call its code, either.
+        if (HeldDefinitions.FailedToLoad(sessionProvider.Session) is { Count: > 0 } failed)
+        {
+            return Task.FromResult(new DebugEvaluateResult { Error = string.Join(Environment.NewLine, failed) });
+        }
+
         ExpressionNode expression;
         try
         {

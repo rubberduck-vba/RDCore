@@ -10,7 +10,7 @@
 Ce dépôt contient différents projets **en cours de développement** produisant diverses bibliothèques et exécutables, sous un modèle de licence relativement simple :
 
 - **Les bibliothèques RDCore.SDK et RDCore.SDK.Protocol** (incluant leur documentation) sont sous licence **⚖️MIT**;
-- **Tout le reste** construit autour d'elle est sous licence **⚖️GPLv3**.
+- **Tout le reste** construit autour d'elle est sous licence **⚖️GPLv3 ou toute version ultérieure**.
 - **Vos projets vous appartiennent :** le code VBA et RD-VBA que vous écrivez, et tout ce que RDCore en construit, sont à vous, sous la licence de votre choix (voir [NOTICE.md](NOTICE.md)).
 
 Cet arrangement protège les contributeurs historiques et actuels tout en permettant l'avenir : **l'implémentation du runtime RDCore demeurera open-source**.
@@ -55,6 +55,9 @@ _declaration_, _type definition_ et _implementation_, _references_ et _highlight
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [RD-VBAL](https://rubberduck-vba.github.io/RDCore/specs/rd-vbal.1.0.introduction.html)
+- [RDCore.SDK](https://github.com/rubberduck-vba/RDCore.SDK) : le modèle du langage et l'infrastructure commune sur lesquels reposent tous les composants et extensions de RDCore
+- [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE) : le module d'extension qui intègre RDCore à HexIDE
+- [HexIDE](https://github.com/hexide-io/HexIDE) : l'IDE conçu pour les développeurs VB, que RDCore.HexIDE étend
 
 
 > [!NOTE]

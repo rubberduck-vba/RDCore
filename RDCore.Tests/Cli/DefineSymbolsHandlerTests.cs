@@ -93,6 +93,78 @@ public sealed class DefineSymbolsHandlerTests
         Assert.AreEqual(0, result.Skipped.Count);
     }
 
+    // the client's own module (DefineSymbolsParams.SessionModule) is a standard module of the session when the project does not list it; a module the project
+    // does not list that is not the client's own is no module of the session, and its run is not found.
+    [TestMethod]
+    [DataRow(true, true, DisplayName = "the client's own module")]
+    [DataRow(false, false, DisplayName = "a module the client does not say is its own")]
+    public async Task AModuleTheProjectDoesNotList_IsAModuleOfTheSession_OnlyWhenItIsTheClientsOwn(bool sessionModule, bool expected)
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }] }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+
+        await handler.Handle(Request(Procedure("Main")) with { ModuleName = "Program", SessionModule = sessionModule }, CancellationToken.None);
+
+        Assert.AreEqual(expected, provider.Session.Symbols.TryGetModule("Program", out var module));
+        if (expected)
+        {
+            Assert.IsInstanceOfType<RDCore.SDK.Model.Symbols.VBStandardModuleSymbol>(module);
+            Assert.IsTrue(provider.Session.Symbols.DeclaredIn(module!.Uri).Any(symbol => symbol.Name == "Main"), "Main is a procedure of the module that was defined");
+            Assert.IsTrue(provider.Session.Symbols.TryGetModule("Mod1", out _), "the project's own module is still the session's");
+        }
+    }
+
+    // a module the project does list is the project's, the client's own or not: nothing is defined beside it, and its members are its own.
+    [TestMethod]
+    [DataRow("src/Program.bas", DisplayName = "a standard module of the project")]
+    [DataRow("src/Program.cls", DisplayName = "a class module of the project")]
+    public async Task AModuleTheProjectLists_IsTheProjects_WhenTheClientSaysItIsItsOwn(string relativeUri)
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject { Modules = [new RDCoreModule { RelativeUri = relativeUri }] }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        Assert.IsTrue(provider.Session.Symbols.TryGetModule("Program", out var projects));
+
+        await handler.Handle(Request(Procedure("Main")) with { ModuleName = "Program", SessionModule = true }, CancellationToken.None);
+
+        Assert.IsTrue(provider.Session.Symbols.TryGetModule("Program", out var module));
+        Assert.AreSame(projects, module, "the project's module, and no other");
+        Assert.AreEqual(projects.GetType(), module.GetType());
+        Assert.IsTrue(provider.Session.Symbols.DeclaredIn(module.Uri).Any(symbol => symbol.Name == "Main"), "Main is a procedure of the project's module");
+    }
+
+    // the project, the libraries it references and its procedural modules are matched in one tier (MS-VBAL §5.6.10): a module of the client's own named after one
+    // would make the name match twice.
+    [TestMethod]
+    [DataRow("VBA", DisplayName = "the standard library")]
+    [DataRow("Scripting", DisplayName = "a library the project references")]
+    [DataRow("Project1", DisplayName = "the project")]
+    public async Task AModuleOfTheClientsOwn_NamedAfterALibraryOrTheProject_IsNotDefined(string name)
+    {
+        var provider = new EnvironmentSessionProvider(
+            new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false),
+            new MockFileSystem(),
+            NullLogger<EnvironmentSessionProvider>.Instance);
+        provider.Compose(new RDCoreProject
+        {
+            Name = "Project1",
+            Modules = [new RDCoreModule { RelativeUri = "src/Mod1.bas" }],
+            References = [new RDCoreReference { Name = "Scripting" }],
+        }, WorkspaceRoot);
+        var handler = new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+
+        await handler.Handle(Request(Procedure("Main")) with { ModuleName = name, SessionModule = true }, CancellationToken.None);
+
+        Assert.IsFalse(provider.Session.Symbols.TryGetModule(name, out _));
+    }
+
     [TestMethod]
     public async Task BeforeSessionComposed_IsANoOp()
     {

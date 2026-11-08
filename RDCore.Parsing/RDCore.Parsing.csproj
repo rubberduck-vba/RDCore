@@ -5,9 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 $(Authors)</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore Parsing</AssemblyTitle>
+    <Description>The VBA and RD-VBA parser of the RDCore platform: its grammars, lexer and syntax tree.</Description>
   </PropertyGroup>
 
   <ItemGroup>

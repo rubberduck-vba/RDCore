@@ -43,7 +43,7 @@ public sealed class RDCorePlatformJsonWireTests
             ReferenceCount = 2,
             Memory = new SessionMemoryStatus { ReservedBytes = 1, AvailableBytes = 2, AllocatedBytes = 3, FreeBytes = 4, CommittedBytes = 5, LargestFreeBlock = 6 },
         });
-        yield return Same(new SessionExecuteParams { Source = "Debug.Print 1", ModuleName = "Module1", EntryPoint = "Main", Debug = true, Immediate = true });
+        yield return Same(new SessionExecuteParams { Source = "Debug.Print 1", ModuleName = "Module1", EntryPoint = "Main", Debug = true, Immediate = true, SessionModule = true });
         yield return Same(new ExecuteResult
         {
             Outcome = ExecutionOutcome.Suspended,
@@ -153,7 +153,7 @@ public sealed class RDCorePlatformJsonWireTests
     [
         ("SessionStatusParams", """{"waitMilliseconds":250}"""),
         ("SessionStatusResult", """{"isComposed":true,"projectName":"VBAProject","moduleCount":3,"referenceCount":2,"memory":{"reservedBytes":1,"availableBytes":2,"allocatedBytes":3,"freeBytes":4,"committedBytes":5,"largestFreeBlock":6}}"""),
-        ("SessionExecuteParams", """{"source":"Debug.Print 1","moduleName":"Module1","entryPoint":"Main","debug":true,"immediate":true}"""),
+        ("SessionExecuteParams", """{"source":"Debug.Print 1","moduleName":"Module1","entryPoint":"Main","debug":true,"immediate":true,"sessionModule":true}"""),
         ("ExecuteResult", """{"outcome":7,"output":["1"],"streamedLines":7,"diagnostics":["RDC00001"],"errorNumber":13,"errorMessage":"Type mismatch","errorCode":"VBR00013","errorTitle":"Type mismatch","errorSource":"VBAProject","errorLine":3,"errorCharacter":4,"errorLineNumber":100,"conditionError":"x","stackTrace":[{"procedure":"Main","line":1,"character":2,"returnLines":[5,6]}]}"""),
         ("SessionDiscardParams", """{"moduleName":"Module1","endProgram":true}"""),
         ("DiscardResult", """{"discarded":2}"""),

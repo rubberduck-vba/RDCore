@@ -16,9 +16,11 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// </remarks>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of this node.</param>
+/// <param name="Children">The child syntax nodes. A <c>default</c> array is empty.</param>
 [JsonPolymorphic]
 [JsonDerivedType(typeof(AnnotationTriviaNode), "AnnotationTrivia")]
 [JsonDerivedType(typeof(CommentTriviaNode), "CommentTrivia")]
+[JsonDerivedType(typeof(ErasedPlusTriviaNode), "ErasedPlusTrivia")]
 [JsonDerivedType(typeof(ModuleHeaderTriviaNode), "ModuleHeaderTrivia")]
 [JsonDerivedType(typeof(PrecompilerTriviaNode), "PrecompilerTrivia")]
 [JsonDerivedType(typeof(UnbuiltExpressionTriviaNode), "UnbuiltExpressionTrivia")]

@@ -185,6 +185,24 @@ namespace RDCore.LanguageServer.Debugging {
                 return ResourceManager.GetString("NoRuntimeEnvironment", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to no folder is open: there is no workspace to run in.
+        /// </summary>
+        internal static string NoWorkspaceToRunIn {
+            get {
+                return ResourceManager.GetString("NoWorkspaceToRunIn", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to a module of the client&apos;s own can&apos;t be named &apos;{0}&apos;: it is the name of the project, or of a library it references.
+        /// </summary>
+        internal static string SessionModuleNameIsTaken {
+            get {
+                return ResourceManager.GetString("SessionModuleNameIsTaken", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to no statement begins on this line.

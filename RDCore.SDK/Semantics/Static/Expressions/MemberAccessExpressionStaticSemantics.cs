@@ -55,7 +55,9 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
             throw new ArgumentException($"Expected a {nameof(MemberAccessExpressionNode)}.", nameof(expression));
         }
 
+        // a type a library names before it reads it (a member that returns the class being read) is the type of that name, resolved where it is used.
         var owner = operandDeclaredTypes[(int)InputIndex.MemberAccessOwner];
+        owner = owner is VBUnresolvedType ? CurrentTypes.Of(context.Resolver, owner) : owner;
         if (owner is VBVariantType or VBObjectType)
         {
             // late-bound: static semantics cannot know what the run-time object actually supports.
@@ -79,7 +81,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
         var found = named.OfType<VBPropertyGetMemberSymbol>().FirstOrDefault() ?? named.FirstOrDefault();
         if (found is not null)
         {
-            return StaticSemanticsEvaluationResult.Success(found.ResolvedType);
+            return StaticSemanticsEvaluationResult.Success(found.ResolvedType is VBUnresolvedType ? CurrentTypes.Of(context.Resolver, found.ResolvedType) : found.ResolvedType);
         }
 
         // an extensible class can have members its declaration does not: a library's, whose host adds members to its objects (`Excel.Application.XLookup`,

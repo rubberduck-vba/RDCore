@@ -249,6 +249,18 @@ internal sealed class ProgramEdits
             }
         }
 
+        // a module whose code failed to load since - a syntax error refuses it - was not loaded at all: the code it had is still loaded, or none, if it is new,
+        // and resuming would run that, or call what is not there. Nothing of the project runs while it does not load.
+        foreach (var (failed, errors) in HeldDefinitions.ModulesThatFailedToLoad(session))
+        {
+            if (!edits.Any(edit => edit.Kind is ProgramEditKind.DoesNotCompile && string.Equals(edit.Name, failed, StringComparison.OrdinalIgnoreCase)))
+            {
+                var module = now._modules.Keys.FirstOrDefault(key => string.Equals(NameOf(key), failed, StringComparison.OrdinalIgnoreCase));
+                edits.Add(new ProgramEdit(failed, ProgramEditKind.DoesNotCompile, string.Format(Resources.Host_Edit_DoesNotCompile, errors.FirstOrDefault() ?? string.Empty),
+                    module is null ? null : new Uri(module)));
+            }
+        }
+
         // in the order they are in the code, whatever order the declarations were found in.
         return [.. edits.OrderBy(edit => edit.Module?.AbsoluteUri, StringComparer.Ordinal).ThenBy(edit => edit.Range?.Start.Line ?? -1)
             .ThenBy(edit => edit.Name, StringComparer.Ordinal)];

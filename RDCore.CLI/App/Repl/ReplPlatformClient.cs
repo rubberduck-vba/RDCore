@@ -168,7 +168,7 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
 
     /// <inheritdoc/>
     public Task<ExecuteResult> ExecuteAsync(string source, string moduleName, string entryPoint, CancellationToken token)
-        => Platform.ExecuteAsync(new SessionExecuteParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint }, token);
+        => Platform.ExecuteAsync(new SessionExecuteParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint, SessionModule = IsProgram(moduleName) }, token);
 
     /// <inheritdoc/>
     public Task<DiscardResult> DiscardAsync(string moduleName, CancellationToken token)
@@ -180,7 +180,13 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
 
     /// <inheritdoc/>
     public Task<ExecuteResult> ExecuteAsync(string source, string moduleName, string entryPoint, bool debug, bool immediate, CancellationToken token)
-        => Platform.ExecuteAsync(new SessionExecuteParams { Source = source, ModuleName = moduleName, EntryPoint = entryPoint, Debug = debug, Immediate = immediate }, token);
+        => Platform.ExecuteAsync(new SessionExecuteParams
+        {
+            Source = source, ModuleName = moduleName, EntryPoint = entryPoint, Debug = debug, Immediate = immediate, SessionModule = IsProgram(moduleName),
+        }, token);
+
+    // the shell's program is its own module, of the session: the project of a workspace the shell is attached to does not list it (SessionExecuteParams.SessionModule).
+    private static bool IsProgram(string moduleName) => string.Equals(moduleName, ReplProgram.ModuleName, StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc/>
     public Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token)

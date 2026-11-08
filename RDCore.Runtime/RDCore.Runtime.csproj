@@ -5,9 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 $(Authors)</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore Runtime</AssemblyTitle>
+    <Description>The RD-VBA runtime: the run-time semantics of MS-VBAL, the interpreter and compiled execution, and the VBA standard library.</Description>
   </PropertyGroup>
 
   <ItemGroup>

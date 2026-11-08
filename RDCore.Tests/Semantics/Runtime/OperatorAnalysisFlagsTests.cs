@@ -133,7 +133,6 @@ public sealed class OperatorAnalysisFlagsTests : LetCoercionRuntimeSemanticsTest
     public static IEnumerable<object[]> UnaryArithmeticOperators()
     {
         yield return [new UnaryNegationOperatorRuntimeSemantics(Provider(), Formatter())];
-        yield return [new UnaryPlusOperatorRuntimeSemantics(Provider(), Formatter())];
     }
 
     [TestMethod]

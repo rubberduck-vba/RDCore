@@ -128,7 +128,7 @@ public sealed class CompiledMemberCallTests
             "    Bumped = N",
             "End Function"), "Bumped", recoveries: 1, direct: 5);
 
-    // two objects of one class: each call is made on the object its variable refers to, which is Set again in the loop.
+    // two objects of one class: each call is made on the object its variable refers to, which compiled code Sets again in the loop.
     [TestMethod]
     public async Task EachCall_IsMadeOnTheObjectItsVariableRefersTo()
         => await AssertCalledAsync(Program(
@@ -151,7 +151,7 @@ public sealed class CompiledMemberCallTests
             "    Next",
             "    V = B.Total()",
             "    Twice = Twice + V",
-            "End Function"), "Twice", recoveries: 8, direct: 13);
+            "End Function"), "Twice", recoveries: 2, direct: 13);
 
     // a variable declared as an interface: the member called is the one the object's class implements it with, of one class then of another.
     [TestMethod]

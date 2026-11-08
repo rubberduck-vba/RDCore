@@ -674,6 +674,9 @@
   <data name="Compilation_Reason_LateBound" xml:space="preserve">
     <value>un nom résolu au moment de son évaluation : {0}</value>
   </data>
+  <data name="Compilation_Reason_New" xml:space="preserve">
+    <value>un objet créé avec New : {0}</value>
+  </data>
   <data name="Compilation_Reason_VariantOperand" xml:space="preserve">
     <value>un opérande Variant ou objet : {0}</value>
   </data>

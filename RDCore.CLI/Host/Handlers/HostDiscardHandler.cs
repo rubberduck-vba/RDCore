@@ -47,6 +47,7 @@ internal sealed class HostDiscardHandler(
         // the activations of a program that was stopped belong to code that is going: they would be looking at symbols that are no longer there.
         SessionWipe.Abandon(session);
         var discarded = new ModuleUnloader(session, sessionProvider.Image).Unload(request.ModuleUri);
+        HeldDefinitions.Discarded(session, request.ModuleName);
 
         // what the module held is released, and was allocated after the rest of the program's: the free memory at the end of the space is unused again.
         session.Memory.Reclaim();

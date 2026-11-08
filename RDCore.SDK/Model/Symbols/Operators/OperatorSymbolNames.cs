@@ -39,7 +39,6 @@ public static class OperatorSymbolNames
     public const string BinaryMemberAccessOp = "__bma_op";
     public const string BinaryStringConcatOp = "__cat_op";
 
-    public const string UnaryArithmeticAdditionOp = "__ad1_op";
     public const string UnaryArithmeticNegationOp = "__ng1_op";
     public const string UnaryArithmeticPrecedenceOp = "__p()_op";
 

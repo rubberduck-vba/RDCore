@@ -8,22 +8,15 @@ namespace RDCore.SDK.Workspace;
 /// <c>annotation</c> / <c>annotationName</c>), read here as plain text rather than off the AST.
 /// </summary>
 /// <remarks>
-/// This is a first cut: a source-text scan, not a parser-built <c>AnnotationTriviaNode</c>: the
-/// grammar rule exists, but nothing yet builds or attaches the node it would produce, and a general
-/// annotation-to-AST wiring is a bigger, cross-cutting change (annotations nest inside
-/// <c>endOfStatement</c>, reachable from nearly every rule). A real, <em>supported</em> grammar-level
-/// <c>Option Strict</c> token is future work; for now the annotation is a comment as far as MS-VBA (or
-/// any real VBA host) is concerned: a workspace stays import/export-compatible with the VBIDE.
 /// <para>
-/// 📌 A static class hard-coding one annotation's name does not scale: the annotation vocabulary is
-/// open-ended by design (an extension's shape is "annotation-semantics provider + analyzers + …", e.g.
-/// the planned <c>RDCore.UnitTesting</c> extension owning <c>@TestMethod</c>, or the planned
-/// <c>RDCore.DimensionalAnalysis</c> extension owning <c>@Unit</c>), and nothing here should force an
-/// extension to modify the SDK to claim an annotation name. <c>Option Strict</c> is core-owned, not
-/// extension-owned, so this type is fine as the one-off it is <em>today</em>, but once a real
-/// annotation-semantics-provider mechanism exists, this should very likely become one of its
-/// consumers instead of staying a bespoke regex. Noted, not a blocker:
-/// <c>C:\Dev\Claude\rdcore-annotation-semantic-provider-ticket.md</c>.
+/// The annotation is read from the source text: the parser builds no node for an annotation, which
+/// can be written at the end of nearly any statement. To MS-VBA and any other VBA host the annotation
+/// is a comment, so a workspace stays import- and export-compatible with the VBIDE.
+/// </para>
+/// <para>
+/// The annotation vocabulary is open-ended: an extension can own annotations of its own, such as
+/// <c>@TestMethod</c> for a unit-testing extension, without a change to the SDK. <c>Option Strict</c>
+/// is owned by the core, and this type reads its annotation with a regular expression of its own.
 /// </para>
 /// </remarks>
 public static partial class ModuleAnnotations
