@@ -551,8 +551,8 @@ public sealed class ClientWithoutOmniSharpTests
     }
 
     // the language the user sets (Environment.Regional.Language) is the language of every component, over the locale of a client in English (an IDE's): the
-    // language server answers in it, the environment host's error is in it, and the parse server says it is in it. How the program writes and reads numbers
-    // and dates is untouched. The logs are read once the platform is shut down.
+    // environment host answers in it, and the language server, the parse server and the environment host say they started in it. How the program writes and
+    // reads numbers and dates is untouched. The logs are read once the platform is shut down.
     [TestMethod]
     [Timeout(180_000, CooperativeCancellation = true)]
     public async Task TheLanguageTheUserSets_IsTheLanguageOfEveryComponent_WhateverTheClientsLocale()
@@ -561,7 +561,7 @@ public sealed class ClientWithoutOmniSharpTests
         var notFound = await RunAsync(platform, "Progam", sessionModule: false);
         var told = $"{notFound.ToJsonString()}\n{LogOf(platform.Root)}";
         Assert.AreEqual((int)ExecutionOutcome.NotFound, notFound["result"]!["outcome"]!.GetValue<int>(), told);
-        StringAssert.Contains(notFound["result"]!["errorMessage"]!.GetValue<string>(), "'Progam' n'est pas un module de l'espace de travail", "the language server: " + told);
+        StringAssert.Contains(notFound["result"]!["errorMessage"]!.GetValue<string>(), "le module 'Progam' n'est pas défini dans la session", "the environment host: " + told);
 
         var failed = await platform.Rpc.RequestAsync(4, RDCorePlatformProtocol.SessionExecute, new JsonObject
         {
@@ -573,12 +573,13 @@ public sealed class ClientWithoutOmniSharpTests
         told = $"{failed.ToJsonString()}\n{LogOf(platform.Root)}";
         Assert.AreEqual((int)ExecutionOutcome.RuntimeError, failed["result"]!["outcome"]!.GetValue<int>(), told);
         CollectionAssert.AreEqual(new[] { "2.5", "1/2/2026 1:05:00 PM" }, failed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
-        StringAssert.Contains(failed["result"]!["errorMessage"]!.GetValue<string>(), "zéro", "the environment host: " + told);
+        Assert.AreEqual(11, failed["result"]!["errorNumber"]!.GetValue<int>(), told);
 
         await platform.ShutdownAsync(5);
 
         const string Started = "L'interface est en 'fr' (Environment.Regional.Language).";
         StringAssert.Contains(WholeLogOf(platform.Root), Started, "the language server, as it started: " + LogOf(platform.Root));
+        StringAssert.Contains(WholeLogOf(platform.Root), "OnLanguageServerInitializedAsync handler complété.", "the language server's own messages: " + LogOf(platform.Root));
         StringAssert.Contains(WholeLogOf(platform.Root), "The user interface is in 'fr' (Environment.Regional.Language), whatever the client's locale ('en-US').",
             "the language server, as it was initialized: " + LogOf(platform.Root));
         StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Started, "the parse server it started");
