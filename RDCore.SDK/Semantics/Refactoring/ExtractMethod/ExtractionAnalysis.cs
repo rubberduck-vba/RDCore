@@ -13,13 +13,13 @@ namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
 
 /// <summary>
 /// Plans the extraction of a selection: which of the source procedure's variables the new procedure is given, which it gives back, and which it declares as its
-/// own - from the definitions and uses on the code paths, never from where the names are on the page (<strong>Extract Method §3.2, §3.3</strong>).
+/// own. The plan follows the definitions and uses on the code paths, not where the names are written.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A variable the selection reads, on a path where its value comes from outside the selection, is an <em>input</em>; one the selection writes, whose value is read
-/// after it on some path - a later iteration of the loop the selection is in included - is an <em>output</em>; one that is both is passed <c>ByRef</c>. This is
-/// what legacy Rubberduck got wrong: it looked at where the names were written, and passed by value a variable that the loop around the selection read again.
+/// after it on some path (a later iteration of the loop the selection is in included), is an <em>output</em>; one that is both is passed <c>ByRef</c>. So a
+/// variable that the loop around the selection reads again is passed <c>ByRef</c>.
 /// </para>
 /// <para>
 /// The variables are the source procedure's own: its locals and parameters, and its result. A field or a global is the same variable in the new procedure, and is

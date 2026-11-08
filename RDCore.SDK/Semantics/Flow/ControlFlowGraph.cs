@@ -67,7 +67,7 @@ public sealed class ControlFlowGraph
     /// </param>
     /// <param name="foldConstants">
     /// Whether a condition that is a literal (<c>If False</c>, <c>Do While True</c>, <c>For i = 3 To 1</c>) goes only the way it says (<see cref="ConstantFlow"/>), which is
-    /// what runs; otherwise both ways, which is what is written - the code a refactoring moves, and a later edit of the literal may run.
+    /// what runs; otherwise both ways, which is what is written: the code a refactoring moves, and that a later edit of the literal may run.
     /// </param>
     public static ControlFlowGraph Of(InstructionList instructions, ProcedureSemanticModel? model = null, bool foldConstants = true)
         => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model), foldConstants).Build();

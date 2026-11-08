@@ -5,8 +5,7 @@ using RDCore.SDK.Semantics.Instructions;
 namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
 
 /// <summary>
-/// The edges of a selection: which jumps into it and out of it are refused, and where control leaves it for, which the new procedure routes its caller to
-/// (<strong>Extract Method §3.1</strong>).
+/// The edges of a selection: which jumps into it and out of it are refused, and where control leaves it for, which the new procedure routes its caller to.
 /// </summary>
 /// <remarks>
 /// A selection is a region with one entry, its first instruction, and one fall-through exit, the instruction after its last. An edge between two instructions of it
@@ -88,7 +87,7 @@ internal static class ExtractionControlFlow
     }
 
     /// <summary>
-    /// What extracting the selection changes of its error handling (<strong>Extract Method §3.4</strong>): an error raised in the new procedure, which has no
+    /// What extracting the selection changes of its error handling: an error raised in the new procedure, which has no
     /// handler of its own, is raised to its caller at the call.
     /// </summary>
     /// <param name="region">The instructions of the selection.</param>

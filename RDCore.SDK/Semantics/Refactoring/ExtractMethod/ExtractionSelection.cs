@@ -23,7 +23,7 @@ public enum ExtractionSelectionRefusal
 }
 
 /// <summary>
-/// The statements a selection is extracted as: the smallest whole run of statements of one statement list that holds it (<strong>RD-VBAL Extract Method §2</strong>).
+/// The statements a selection is extracted as: the smallest whole run of statements of one statement list that holds it.
 /// </summary>
 /// <param name="Range">Where the run is: from the start of its first statement or declaration to the end of its last, which is what the editor shows will move.</param>
 /// <param name="Statements">The statements, in order: siblings of one block.</param>

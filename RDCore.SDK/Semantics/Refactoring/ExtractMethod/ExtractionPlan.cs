@@ -33,7 +33,7 @@ public enum ExtractionPassingReason
     ReadOnly,
 
     /// <summary>
-    /// The selection reads a value given before it, and gives it one that is read after it - on a later iteration of a loop, too.
+    /// The selection reads a value given before it, and gives it one that is read after it, on a later iteration of a loop included.
     /// </summary>
     ReadAndWritten,
 
@@ -63,8 +63,8 @@ public enum ExtractionPassingReason
     Static,
 
     /// <summary>
-    /// The source procedure's <c>ParamArray</c>, which the selection only reads: it is passed as a <c>Variant</c> that holds the array of its elements (<strong>Extract
-    /// Method §3.3</strong>). A selection that writes its elements is refused (<see cref="ExtractionRefusalKind.ParamArrayWritten"/>).
+    /// The source procedure's <c>ParamArray</c>, which the selection only reads: it is passed as a <c>Variant</c> that holds the array of its elements.
+    /// A selection that writes its elements is refused (<see cref="ExtractionRefusalKind.ParamArrayWritten"/>).
     /// </summary>
     ParamArray,
 }
@@ -93,24 +93,24 @@ public enum ExtractionRefusalKind
     ConstantUsedAfter,
 
     /// <summary>
-    /// A jump from outside the selection lands in it - a <c>GoTo</c>, a <c>Resume</c> to a label, an error into a handler written in it - or control enters it other
-    /// than at its first statement (<strong>Extract Method §3.1</strong>). The labels move with the code, and a procedure's labels are its own.
+    /// A jump from outside the selection lands in it (a <c>GoTo</c>, a <c>Resume</c> to a label, an error into a handler written in it), or control enters it other
+    /// than at its first statement. The labels move with the code, and a procedure's labels are its own.
     /// </summary>
     JumpIntoTheSelection,
 
     /// <summary>
-    /// A <c>GoSub</c> in the selection to a routine outside it (<strong>Extract Method §3.1</strong>). The routine can be converted to a procedure first (§7).
+    /// A <c>GoSub</c> in the selection to a routine outside it. The routine can be converted to a procedure first.
     /// </summary>
     GoSubToOutside,
 
     /// <summary>
-    /// A <c>Return</c> in the selection whose <c>GoSub</c> is outside it: the selection is part of a <c>GoSub</c> routine (<strong>Extract Method §3.1</strong>),
-    /// which can be converted to a procedure first (§7).
+    /// A <c>Return</c> in the selection whose <c>GoSub</c> is outside it: the selection is part of a <c>GoSub</c> routine,
+    /// which can be converted to a procedure first.
     /// </summary>
     ReturnOfAGoSubOutside,
 
     /// <summary>
-    /// An <c>On Error</c> in the selection leaves the error handling of the source procedure other than the selection found it (<strong>Extract Method §3.4</strong>):
+    /// An <c>On Error</c> in the selection leaves the error handling of the source procedure other than the selection found it:
     /// in the new procedure it would be the new procedure's, and the code after the call would run as it did before the selection.
     /// </summary>
     ErrorHandlingChanged,
@@ -121,7 +121,7 @@ public enum ExtractionRefusalKind
     HandlerOutsideTheSelection,
 
     /// <summary>
-    /// A <c>Resume</c> in the selection, about an error raised before it (<strong>Extract Method §3.4</strong>): the new procedure has no error of its own to resume.
+    /// A <c>Resume</c> in the selection, about an error raised before it: the new procedure has no error of its own to resume.
     /// </summary>
     ResumeOfAnErrorBefore,
 }
@@ -148,8 +148,7 @@ public enum ExtractionExitKind
 }
 
 /// <summary>
-/// A place outside the selection that control leaves it for, which the new procedure tells its caller to go to: one exit code each (<strong>Extract Method §3.1,
-/// §4.3</strong>).
+/// A place outside the selection that control leaves it for, which the new procedure tells its caller to go to: one exit code each.
 /// </summary>
 /// <param name="Kind">What leaves.</param>
 /// <param name="Target">The offset of the instruction control goes to; the graph's exit for <see cref="ExtractionExitKind.Procedure"/>.</param>
@@ -158,7 +157,7 @@ public enum ExtractionExitKind
 public sealed record class ExtractionExit(ExtractionExitKind Kind, int Target, string? Label, ImmutableArray<SourceLocation> From);
 
 /// <summary>
-/// What the extracted code would do differently, which the user accepts or cancels: never silent (<strong>Extract Method §3.4</strong>).
+/// What the extracted code would do differently, which the user accepts or cancels: never silent.
 /// </summary>
 public enum ExtractionBehaviourChangeKind
 {
@@ -179,15 +178,15 @@ public enum ExtractionBehaviourChangeKind
     ResumeNextOnSomePaths,
 
     /// <summary>
-    /// The selection has line numbers, and a handler of the source procedure can catch an error of it: <c>Erl</c> reports the call's line, as far as is known. To be
-    /// measured in Excel for an error raised in a callee.
+    /// The selection has line numbers, and a handler of the source procedure can catch an error of it: <c>Erl</c> reports the call's line. MS-VBA's
+    /// <c>Erl</c> for an error raised in a callee is unverified.
     /// </summary>
     ErlReportsTheCall,
 
     /// <summary>
     /// The selection runs under <c>On Error Resume Next</c> and reads <c>Err</c> or <c>Erl</c>, which may be about an error raised before it: the
     /// <c>On Error Resume Next</c> the new procedure starts with clears them. The call does not, and any <c>On Error</c> statement that runs
-    /// does (MS-VBA, Excel-verified).
+    /// does (observed in Excel).
     /// </summary>
     ErrClearedOnEntry,
 }
@@ -211,7 +210,7 @@ public sealed record class ExtractionRefusal(ExtractionRefusalKind Kind, SourceL
 
 /// <summary>
 /// The object of the <c>With</c> block the selection is inside of, which the selection uses a member of, relative to the block (<c>.Name</c>): the new procedure is
-/// given it, and wraps the extracted code in a <c>With</c> block of its own (<strong>Extract Method §3.3</strong>).
+/// given it, and wraps the extracted code in a <c>With</c> block of its own.
 /// </summary>
 /// <param name="With">The block.</param>
 /// <param name="Variable">The variable the block names.</param>
@@ -231,10 +230,10 @@ public sealed record class ExtractionWithTarget(WithStatementNode With, Semantic
 /// <param name="IsInput">Whether the selection reads a value given before it.</param>
 /// <param name="IsOutput">Whether the selection gives it a value that is read after it.</param>
 /// <param name="MayBeMissing">
-/// Whether it is a parameter of the source procedure that can be missing - an <c>Optional</c> <c>Variant</c> with no default value, or a <c>ParamArray</c> - so that
-/// <c>IsMissing</c> of it means something: it is passed as a <c>Variant</c> (<strong>Extract Method §3.3</strong>). A missing argument passed on stays missing in the
-/// new procedure, by value or by reference, <c>Optional</c> or not - and a default value given to the new parameter is not applied to it (MS-VBA,
-/// Excel-verified). So the parameter is a plain <c>Variant</c>, never <c>Optional</c>.
+/// Whether it is a parameter of the source procedure that can be missing (an <c>Optional</c> <c>Variant</c> with no default value, or a <c>ParamArray</c>), so that
+/// <c>IsMissing</c> of it means something: it is passed as a <c>Variant</c>. A missing argument passed on stays missing in the
+/// new procedure, by value or by reference, <c>Optional</c> or not, and a default value given to the new parameter is not applied to it (observed in
+/// Excel). So the parameter is a plain <c>Variant</c>, never <c>Optional</c>.
 /// </param>
 /// <param name="IsUndeclared">Whether it is declared by being named, with no <c>Option Explicit</c>: the new procedure declares the parameter, of the type its DefType gives it.</param>
 public sealed record class ExtractionParameter(
@@ -253,12 +252,12 @@ public sealed record class ExtractionParameter(
 /// </param>
 /// <param name="IsUndeclared">
 /// Whether it is declared by being named, with no <c>Option Explicit</c>: the new procedure declares it explicitly, as a <c>Variant</c>, one step towards
-/// <c>Option Explicit</c> (<strong>Extract Method §3.2</strong>).
+/// <c>Option Explicit</c>.
 /// </param>
 public sealed record class ExtractionLocal(SemanticId Variable, string Name, VBType? Type, bool MovesDeclaration, bool IsUndeclared = false);
 
 /// <summary>
-/// What extracting a selection as a procedure takes: what it is given, what it gives back, and what moves (<strong>Extract Method §3.2, §3.3</strong>).
+/// What extracting a selection as a procedure takes: what it is given, what it gives back, and what moves.
 /// </summary>
 /// <param name="Selection">The statements extracted.</param>
 /// <param name="Parameters">The variables the new procedure is given, in the order the selection first touches them.</param>
@@ -273,12 +272,11 @@ public sealed record class ExtractionLocal(SemanticId Variable, string Name, VBT
 /// </param>
 /// <param name="WithTarget">The object of the <c>With</c> block the selection is inside of and uses a member of; <see langword="null"/> when there is none.</param>
 /// <param name="Refusals">Why the selection is not extracted; empty when it is.</param>
-/// <param name="Exits">Where control leaves the selection for, other than the statement after it (<strong>Extract Method §3.1</strong>).</param>
+/// <param name="Exits">Where control leaves the selection for, other than the statement after it.</param>
 /// <param name="StartsWithResumeNext">
-/// Whether the selection runs with <c>On Error Resume Next</c> on every path, which the new procedure starts with: an error resumes inside it, as it does inline
-/// (<strong>Extract Method §3.4</strong>).
+/// Whether the selection runs with <c>On Error Resume Next</c> on every path, which the new procedure starts with: an error resumes inside it, as it does inline.
 /// </param>
-/// <param name="BehaviourChanges">What the extracted code would do differently, and the notes (<strong>Extract Method §3.4</strong>).</param>
+/// <param name="BehaviourChanges">What the extracted code would do differently, and the notes.</param>
 public sealed record class ExtractionPlan(
     ExtractionSelection Selection,
     ImmutableArray<ExtractionParameter> Parameters,
@@ -299,7 +297,7 @@ public sealed record class ExtractionPlan(
 
     /// <summary>
     /// The local constants of the source procedure that the selection reads and does not declare: the new procedure declares each as the source does. A constant
-    /// is never passed - it is no variable - and its value is the same in both.
+    /// is never passed (it is no variable), and its value is the same in both.
     /// </summary>
     public ImmutableArray<SemanticId> Constants { get; init; } = [];
 
