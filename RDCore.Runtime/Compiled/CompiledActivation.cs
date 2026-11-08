@@ -407,7 +407,6 @@ public sealed partial class CompiledActivation : ILightActivation
         (integral, floating) = (0, 0);
         SetPc(pc);
         _failed = null;
-        _temporariesBeforeCall = _session.Objects.TemporaryCount;
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
         if (_executor.Expressions.ScalarInvokerOf(called.Procedure) is not { } invoker)
@@ -500,7 +499,6 @@ public sealed partial class CompiledActivation : ILightActivation
     {
         SetPc(pc);
         _failed = null;
-        _temporariesBeforeCall = _session.Objects.TemporaryCount;
         _body.CountIndirectCall();
         var called = _body.Callees[callee];
         var (member, receiver) = (_member!, _receiver!);
@@ -523,13 +521,13 @@ public sealed partial class CompiledActivation : ILightActivation
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
-            ReleaseAfterError(_failed.Value);
+            EndStatementAfter(called, _failed.Value);
             return false;
         }
 
         if (called.Result is null)
         {
-            return EndCallStatement(called, result.Result);
+            return AssignReturned(called, result.Result);
         }
 
         // a function of a scalar type returns a known value of it.
@@ -608,7 +606,6 @@ public sealed partial class CompiledActivation : ILightActivation
 
         SetPc(pc);
         _failed = null;
-        _temporariesBeforeCall = _session.Objects.TemporaryCount;
 
         // under a debugger, which may look at the stack while the program waits in it, the callee's frame is made as it is called; any other is on the stack
         // without one until something is to see it (IR lowering S2.3b2), in the activation that last left its place of the stack, begun again, when that
@@ -680,7 +677,6 @@ public sealed partial class CompiledActivation : ILightActivation
 
         SetPc(pc);
         _failed = null;
-        _temporariesBeforeCall = _session.Objects.TemporaryCount;
         CompiledActivation activation;
         if (entry.Body.EntersWithoutFrame && _halt.Gate is null && _stack is not null && UnboxedEvaluation.IsEnabled)
         {
@@ -783,7 +779,7 @@ public sealed partial class CompiledActivation : ILightActivation
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
             _failed = outcome.Kind is RuntimeExecutionOutcomeKind.Error ? outcome : RuntimeExecutionOutcome.InternalError;
-            ReleaseAfterError(_failed.Value);
+            EndStatementAfter(_body.Callees[call], outcome);
             return false;
         }
 
@@ -792,7 +788,7 @@ public sealed partial class CompiledActivation : ILightActivation
         var called = _body.Callees[call];
         if (called.Result is null)
         {
-            return EndCallStatement(called, called.AssignsResult ? ReturnedBy(callee) : null);
+            return AssignReturned(called, called.AssignsResult ? ReturnedBy(callee) : null);
         }
 
         // a function of a scalar type returns a payload of it: its compiled code assigned it when it returned, and so did the interpreter it was handed to.

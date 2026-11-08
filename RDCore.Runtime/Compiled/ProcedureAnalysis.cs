@@ -827,7 +827,7 @@ internal sealed partial class ProcedureAnalysis
     {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar or a Variant: what the Variant holds is let go of when the statement is over, as the interpreter
-        // lets go of it (CompiledActivation.ReleaseTemporaries); an object, or a String, it returned otherwise would be held by the statement until it ends. A
+        // lets go of it (CompiledActivation.EndStatement); an object, or a String, it returned otherwise would be held by the statement until it ends. A
         // call whose result the statement assigns returns a Variant or a scalar.
         if (assigns ? !ReturnsAssignable(procedure)
             : resultKind is { } read ? procedure is not VBFunctionMemberSymbol { ResolvedType: var returned } || ScalarKinds.Of(returned) != read
@@ -872,7 +872,12 @@ internal sealed partial class ProcedureAnalysis
 
         // the variables passed by reference are held in cells from the start of the activation, which the call is made with.
         _cellSlots.UnionWith(escaping);
-        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference) { Site = site, AssignsResult = assigns });
+        Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference)
+        {
+            Site = site,
+            AssignsResult = assigns,
+            HoldsWhatItReturns = assigns || resultKind is null && procedure is VBFunctionMemberSymbol { ResolvedType: VBVariantType },
+        });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }
 

@@ -361,6 +361,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public bool AssignsResult { get; init; }
 
     /// <summary>
+    /// Whether what the call returns is held as a temporary of the statement that makes it until the statement is over (<c>ObjectReferences.HoldTemporarily</c>):
+    /// a <c>Variant</c> its statement discards, or a result its statement assigns. The statement is begun before the call and ended after it
+    /// (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>), as the interpreter begins and ends it.
+    /// </summary>
+    public bool HoldsWhatItReturns { get; init; }
+
+    /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
     /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
     /// </summary>

@@ -61,42 +61,54 @@ public sealed partial class CompiledActivation
         return true;
     }
 
-    // the temporaries of the session when the call compiled code is making was made: what the call returned is held from then until the statement that made
-    // it is over (ObjectReferences.HoldTemporarily), as the interpreter holds it.
-    private int _temporariesBeforeCall;
+    // the temporaries of the session when the statement compiled code is running began (BeginStatement): what its calls return is held from then until
+    // the statement is over (ObjectReferences.HoldTemporarily), as the interpreter holds it.
+    private int _statementTemporaries;
 
-    // the end of the statement of a call that returned: what the call returned assigned, when the statement assigns it (CompiledCallee.AssignsResult), as the
-    // interpreter assigns the value of a statement's expression (StatementRuntimeSemanticsProvider.AssignValue) - to a Variant, whatever it holds; then
-    // what the call returned let go of, as the interpreter lets go of a statement's temporaries when it is over, which is where an object only it held is
-    // destroyed. An error the assignment raises is the statement's, which the interpreter is given at the call (AfterFailedCall): the call is not made again.
-    private bool EndCallStatement(CompiledCallee called, VBTypedValue? returned)
+    /// <summary>
+    /// Begins a statement whose calls return what the session holds as its temporaries (<see cref="CompiledCallee.HoldsWhatItReturns"/>), before its
+    /// first call: what they return is held until <see cref="EndStatement"/>, as the interpreter holds a statement's temporaries.
+    /// </summary>
+    public void BeginStatement() => _statementTemporaries = _session.Objects.TemporaryCount;
+
+    /// <summary>
+    /// Ends the statement <see cref="BeginStatement"/> began, once it assigned what it assigns: what its calls returned is let go of, as the interpreter
+    /// lets go of a statement's temporaries before the next instruction, which is where an object only they held is destroyed.
+    /// </summary>
+    public void EndStatement() => ObjectReferences.ReleaseTemporaries(_session, _statementTemporaries);
+
+    // the statement of a call that raised an error, or whose result's assignment did, ends as the interpreter ends it (ProcedureExecutor.RunInstructions):
+    // what it held is let go of before the error is handled - unless the program stopped, which lets go of nothing.
+    private void EndStatementAfter(CompiledCallee called, RuntimeExecutionOutcome failed)
     {
-        var outcome = RuntimeExecutionOutcome.Next;
-        if (called.AssignsResult)
+        if (called.HoldsWhatItReturns && failed.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
         {
-            outcome = returned is not null && _executor.Statements is StatementRuntimeSemanticsProvider statements
-                && _list.Items[_frame?.Pc ?? _pc].Node is AssignmentStatementNode assignment
-                    ? statements.AssignValue(_session, _context, assignment, returned)
-                    : RuntimeExecutionOutcome.InternalError;
+            EndStatement();
+        }
+    }
+
+    // what a call returned, assigned when its statement assigns it (CompiledCallee.AssignsResult), as the interpreter assigns the value of a statement's
+    // expression (StatementRuntimeSemanticsProvider.AssignValue) - to a Variant, whatever it holds - before the statement ends. An error the assignment
+    // raises is the statement's, which the interpreter is given at the call (AfterFailedCall): the call is not made again.
+    private bool AssignReturned(CompiledCallee called, VBTypedValue? returned)
+    {
+        if (!called.AssignsResult)
+        {
+            return true;
         }
 
-        ObjectReferences.ReleaseTemporaries(_session, _temporariesBeforeCall);
+        var outcome = returned is not null && _executor.Statements is StatementRuntimeSemanticsProvider statements
+            && _list.Items[_frame?.Pc ?? _pc].Node is AssignmentStatementNode assignment
+                ? statements.AssignValue(_session, _context, assignment, returned)
+                : RuntimeExecutionOutcome.InternalError;
         if (outcome.Kind is RuntimeExecutionOutcomeKind.Next)
         {
             return true;
         }
 
+        EndStatementAfter(called, outcome);
         _failed = outcome;
         return false;
-    }
-
-    // a call that raised an error ends its statement, as the interpreter ends it: what the statement held is let go of before the error is handled.
-    private void ReleaseAfterError(RuntimeExecutionOutcome failed)
-    {
-        if (failed.Kind is RuntimeExecutionOutcomeKind.Error)
-        {
-            ObjectReferences.ReleaseTemporaries(_session, _temporariesBeforeCall);
-        }
     }
 
     // what an activation a call entered directly returned (ReturnedDirectly): the frame's function result, or the payload the activation holds it as while it
