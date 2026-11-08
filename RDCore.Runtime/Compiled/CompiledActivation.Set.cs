@@ -22,9 +22,22 @@ public sealed partial class CompiledActivation
     /// (MS-VBAL §5.3.1.10).
     /// </returns>
     public bool TrySet(int offset, int slot, object? target, object? source, bool nothing)
+        => !FailsAccessAtRandom() && target is ValueBindingHandle holder && TrySetIn(offset, holder, ((ITypedSymbol)_body.SlotSymbols[slot]).ResolvedType, source, nothing);
+
+    /// <summary>
+    /// <c>Set</c> of the object field at <paramref name="index"/> of <paramref name="record"/> to the object held in <paramref name="source"/>, or to
+    /// <c>Nothing</c> (MS-VBAL §5.4.3.9): as <c>LetAssignmentEvaluator.SetField</c> assigns it, the value Set-coerced to the field's declared type, stored in the
+    /// field's cell, then counted there, and what the field held before let go of.
+    /// </summary>
+    /// <returns><see langword="false"/> when the interpreter runs the statement, as <see cref="TrySet"/>: and when there is no record, or no such field.</returns>
+    public bool TrySetField(int offset, object? record, int index, object? source, bool nothing)
+        => !FailsAccessAtRandom() && record is VBUserDefinedTypeValue held && index < held.Fields.Length && held.Fields[index].ResolvedType is { } declared
+            && RecordOperations.ObjectField(held, index) is ValueBindingHandle cell && TrySetIn(offset, cell, declared, source, nothing);
+
+    // the Set at offset of what holder holds to source's object, or Nothing, Set-coerced to declared: stored, counted, and what it held before let go of.
+    private bool TrySetIn(int offset, ValueBindingHandle holder, VBType declared, object? source, bool nothing)
     {
-        if (FailsAccessAtRandom() || target is not ValueBindingHandle holder
-            || Coerced(offset, source, nothing, ((ITypedSymbol)_body.SlotSymbols[slot]).ResolvedType) is not { } coerced)
+        if (Coerced(offset, source, nothing, declared) is not { } coerced)
         {
             return false;
         }

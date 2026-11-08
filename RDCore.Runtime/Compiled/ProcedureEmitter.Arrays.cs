@@ -199,6 +199,9 @@ internal sealed partial class ProcedureEmitter
             case ObjectElementNode element:
                 return EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.ObjectElement), null, failure, orNone: true);
 
+            case ObjectFieldNode field:
+                return EmitObjectFieldCell(field);
+
             default:
                 throw new InvalidOperationException($"No IL for {operand.GetType().Name}.");
         }

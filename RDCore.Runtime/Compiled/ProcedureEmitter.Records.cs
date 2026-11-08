@@ -107,6 +107,40 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, failure);
     }
 
+    // the cell an object field of a record holds its object in, in a local: none when there is no record, which ObjectOperations reads no reference in.
+    private LocalBuilder EmitObjectFieldCell(ObjectFieldNode field)
+    {
+        var cell = _il.DeclareLocal(typeof(object));
+        LoadRecordOf(field.Field);
+        _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.ObjectField))!);
+        _il.Emit(OpCodes.Stloc, cell);
+        return cell;
+    }
+
+    // CompiledActivation.TrySetField of the record that holds the field, given the cell of what it is Set to, or Nothing: a Set it declines is the
+    // interpreter's alone, and compiled code goes on after it, as after a Set of a variable (EmitSet).
+    private void EmitFieldSet(FieldSetStep set)
+    {
+        var failure = RecoverAt(set.Offset);
+        var source = set.Source is { } given ? EmitObjectOperand(given, failure) : null;
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, set.Offset);
+        LoadRecordOf(set.Field);
+        if (source is not null)
+        {
+            _il.Emit(OpCodes.Ldloc, source);
+            _il.Emit(OpCodes.Ldc_I4_0);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldnull);
+            _il.Emit(OpCodes.Ldc_I4_1);
+        }
+
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TrySetField))!);
+        _il.Emit(OpCodes.Brfalse, failure);
+    }
+
     // a Let of a Variant field: what the Variant held decides it, as a Variant variable's (VariantLetStep) - over an object, the interpreter runs it alone.
     private void EmitVariantFieldLet(VariantFieldLetStep let)
     {

@@ -18,6 +18,11 @@ internal sealed partial class ProcedureAnalysis
     // variable has its handlers detached and attached again by the Set, which is the interpreter's, as is any other Set.
     private CompiledStep? AnalyzeSet(int offset, AssignmentStatementNode assignment)
     {
+        if (assignment.Target is MemberAccessExpressionNode && ObjectFieldOf(Bind(assignment.Target)) is { } field)
+        {
+            return AnalyzeFieldSet(offset, assignment, field);
+        }
+
         if (assignment.Target is not SimpleNameExpressionNode name)
         {
             Refuse(IneligibilityKind.AssignmentTarget, assignment.Target.GetType().Name, assignment.SourceLocation);
