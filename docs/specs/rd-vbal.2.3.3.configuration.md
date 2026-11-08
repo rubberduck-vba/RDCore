@@ -65,7 +65,10 @@ started the platform.
 
 It sets the language only. How a number or a date is written and read stays with the other `Environment.Regional` settings
 ([**RD-VBAL §5.5.1.2** Regional settings](rd-vbal.5.5.1.2.runtime-semantics.md#regional-settings)), and `Environment.Lcid` still decides how text compares and
-what `Format` writes. Under `fr`, `CStr(2.5)` is `2.5`, and the `Err.Description` of error 11 is `Division par zéro`.
+what `Format` writes. Under `fr`, `CStr(2.5)` is `2.5`.
+
+> [!NOTE]
+> **Not implemented.** The description of a run-time error (`Err.Description`) is in English under every language: error 11 is `Division by zero` under `fr`.
 
 ## User Settings
 
