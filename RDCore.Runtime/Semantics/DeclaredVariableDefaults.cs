@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Runtime.Semantics;
@@ -82,13 +83,9 @@ public sealed class DeclaredVariableDefaults(IRuntimeSession session, ArrayBound
 
     /// <inheritdoc/>
     /// <remarks>
-    /// An element of a scalar type is kept in a cell that holds it as a payload (IR lowering S1.6), as a scalar variable is: an expression of it is
-    /// evaluated on the payload, and an assignment to it writes one, with no value made of it either way.
+    /// The cells of <see cref="ElementCells"/>, which the copy an assignment makes of an array is given too.
     /// </remarks>
-    public Func<IBindingHandle>? ElementCellOf(VBType itemType)
-        => UnboxedEvaluation.IsEnabled && ScalarPayload.TryOf(itemType, itemType.DefaultValue.RuntimeValue, out var initial)
-            ? () => ScalarCell.Of(initial)
-            : null;
+    public Func<IBindingHandle>? ElementCellOf(VBType itemType) => ElementCells.Of(itemType);
 
     private (int, int)[]? TryReduce(Symbol variable, IReadOnlyList<ArrayDimensionBound> declared)
     {

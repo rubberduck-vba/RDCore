@@ -119,7 +119,7 @@ internal sealed class ArrayBlock
             return true;
         }
 
-        return array.TrySetElementAt(index, new ValueBindingHandle(VBUserDefinedTypeImage.Decode(array.ItemType, bytes).RuntimeValue));
+        return array.TrySetElementAt(index, new ValueBindingHandle(VBUserDefinedTypeImage.Decode(array.ItemType, bytes, _pointerWidth).RuntimeValue));
     }
 
     /// <summary>

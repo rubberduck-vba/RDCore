@@ -211,6 +211,16 @@ public record class SdkAppOptions
 public record class SdkEnvironmentOptions
 {
     /// <summary>
+    /// The engine a program runs with when its configuration names none: the default of <see cref="ExecutionEngine"/>, and of a
+    /// <see cref="Runtime.RuntimeEnvironmentProfile"/> made without one.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/>. The <c>ExecutionEngine</c> of the platform's <c>RDCore.CLI/appsettings.json</c>
+    /// holds the same value, and a test holds the two to it: a change of the default changes both.
+    /// </remarks>
+    public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Interpreter;
+
+    /// <summary>
     /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, <c>#If Win64</c> / <c>#If VBA7</c>).
     /// </summary>
     public bool Is64Bit { get; set; } = true;
@@ -289,10 +299,10 @@ public record class SdkEnvironmentOptions
     public SdkRegionalOptions Regional { get; set; } = new();
 
     /// <summary>
-    /// 🎯 What runs the code of a program: <c>Interpreter</c> (the default) or <c>Compiled</c> (IL where every instruction of a procedure can be compiled, the
-    /// interpreter elsewhere).
+    /// 🎯 What runs the code of a program: <c>Interpreter</c> or <c>Compiled</c> (IL where every instruction of a procedure can be compiled, the interpreter
+    /// elsewhere); <see cref="DefaultExecutionEngine"/> unless said otherwise.
     /// </summary>
-    public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; }
+    public Runtime.Abstract.Execution.VBExecutionEngine ExecutionEngine { get; set; } = DefaultExecutionEngine;
 
     /// <summary>
     /// 🎯 Whether a program is built to be debugged or to be run: <c>Debug</c> (the default) or <c>Release</c>, in which a <c>Stop</c> statement ends the

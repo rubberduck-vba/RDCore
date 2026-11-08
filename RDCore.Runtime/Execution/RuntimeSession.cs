@@ -498,6 +498,17 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     private CallStackAwareSymbolResolver? _bindingsField;
     private CallStackAwareSymbolResolver Bindings => _bindingsField ??= new CallStackAwareSymbolResolver(callStack, SessionBindings, this);
 
+    /// <summary>
+    /// The cell the session holds a variable of a module, or a <c>Static</c> variable of a procedure of a standard module, in: where the resolver finds it
+    /// for an activation that is a call on no object, whatever activation is current.
+    /// </summary>
+    /// <returns><see langword="false"/> when the session holds no storage for it.</returns>
+    internal bool TryGetSessionCell(Symbol variable, [NotNullWhen(true)] out IBindingHandle? cell)
+    {
+        cell = null;
+        return SessionBindings.TryGetAddress(variable, out var address) && SessionBindings.TryRead(address, out cell) && cell is not null;
+    }
+
     // a module is defined again by one request while a program that waits is asked what was edited by another.
     private readonly Lock _resetLock = new();
     private ImmutableArray<Symbol> _valuesReset = [];
@@ -771,6 +782,10 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             && type.Members.Zip(edited.Members).All(pair => string.Equals(pair.First.Name, pair.Second.Name, StringComparison.OrdinalIgnoreCase)
                 && IsSameType(pair.First.ResolvedType, pair.Second.ResolvedType));
 
+    // the Static variables a procedure declares.
+    private static IEnumerable<VBLocalVariableSymbol> StaticsOf(VBTypeMemberSymbol member)
+        => RuntimeProcedureInvoker.GetLocals(member).OfType<VBLocalVariableSymbol>().Where(local => local.IsStatic);
+
     // the Statics held as they were while a program is in progress, by identity: each as it was declared when it was given its storage.
     private ImmutableDictionary<SemanticId, VBLocalVariableSymbol> _heldStatics = ImmutableDictionary<SemanticId, VBLocalVariableSymbol>.Empty;
 
@@ -779,9 +794,6 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
     // program is in progress, that is held until the program is over (ApplyHeldDefinitions), and the Static declared as it was again takes it back.
     private void RetireStatics(VBTypeMemberSymbol procedure, VBTypeMemberSymbol edited)
     {
-        static IEnumerable<VBLocalVariableSymbol> StaticsOf(VBTypeMemberSymbol member)
-            => RuntimeProcedureInvoker.GetLocals(member).OfType<VBLocalVariableSymbol>().Where(local => local.IsStatic);
-
         var declared = StaticsOf(edited).ToDictionary(local => local.SemanticId);
         foreach (var current in StaticsOf(procedure))
         {
@@ -954,9 +966,10 @@ internal sealed class SessionSymbols(ISessionStorage storage, RuntimeCallStack c
             _ = SessionBindings.TryAllocate(variable, DefaultValueOf(variable), out _);
         }
 
-        // a Static local is allocated by its procedure's first call, and so starts from nothing: the call that comes next allocates it again.
-        var statics = table.LocalSymbols.OfType<VBLocalVariableSymbol>()
-            .Where(symbol => symbol.IsStatic && SessionBindings.TryGetAddress(symbol, out _))
+        // a Static local is allocated by its procedure's first call, and so starts from nothing: the call that comes next allocates it again. It is no symbol of
+        // the table - the call gives it its storage (RuntimeProcedureInvoker.HoistLocals) - so it is found among the locals of each procedure.
+        var statics = table.All().OfType<VBTypeMemberSymbol>().SelectMany(StaticsOf)
+            .Where(symbol => SessionBindings.TryGetAddress(symbol, out _))
             .ToList();
         foreach (var local in statics)
         {

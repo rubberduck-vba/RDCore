@@ -35,6 +35,9 @@ internal sealed partial class ProcedureEmitter
     private readonly Dictionary<int, LocalBuilder> _cells = [];
     private readonly Dictionary<int, int> _cellNumbers = [];
 
+    // the number of each field's slot (ProcedureAnalysis.Fields), which CompiledActivation.FieldCellOf finds its cell by.
+    private readonly Dictionary<int, int> _fieldNumbers = [];
+
     // the Variant slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _variants = [];
     private static readonly Type Variants = typeof(VariantOperations);
@@ -145,6 +148,11 @@ internal sealed partial class ProcedureEmitter
             _cellNumbers[cellSlots[i]] = i;
         }
 
+        for (var i = 0; i < _analysis.Fields.Count; i++)
+        {
+            _fieldNumbers[_analysis.Fields[i].Slot] = i;
+        }
+
         foreach (var (slot, kind) in _analysis.Slots)
         {
             if (!_cells.ContainsKey(slot))
@@ -163,7 +171,10 @@ internal sealed partial class ProcedureEmitter
             _objects[slot] = _il.DeclareLocal(typeof(object));
         }
 
+        DeclareRecords();
+
         DeclareTextCells();
+        DeclareArrays();
 
         foreach (var next in _analysis.Steps.OfType<VariantForNextStep>())
         {
@@ -285,23 +296,23 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Stloc, cell);
         }
 
-        // each object's cell, as each Variant's is.
+        // each object's cell, as each Variant's is: a field's where the interpreter finds it (CompiledActivation.FieldCellOf).
         foreach (var (slot, cell) in _objects)
         {
-            _il.Emit(OpCodes.Ldarg_0);
-            _il.Emit(OpCodes.Ldc_I4, slot);
-            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.ObjectCellOf))!);
-            _il.Emit(OpCodes.Stloc, cell);
+            EmitObjectCell(slot, cell, nameof(CompiledActivation.FieldCellOf));
         }
 
+        EmitRecordCells();
+
         EmitTextCells();
+        EmitArrayEntry();
     }
 
-    // the cell of a field of Me, found by the activation's object; none goes to orElse.
+    // the cell of a field, found where the interpreter finds it; none goes to orElse.
     private void EmitFieldCell(int slot, Label orElse, string find)
     {
         _il.Emit(OpCodes.Ldarg_0);
-        _il.Emit(OpCodes.Ldc_I4, _cellNumbers[slot]);
+        _il.Emit(OpCodes.Ldc_I4, _fieldNumbers[slot]);
         _il.Emit(OpCodes.Call, Activation.GetMethod(find)!);
         _il.Emit(OpCodes.Stloc, _cells[slot]);
         _il.Emit(OpCodes.Ldloc, _cells[slot]);
@@ -413,6 +424,10 @@ internal sealed partial class ProcedureEmitter
                 EmitStepped(stepped.Offset);
                 break;
 
+            case SetStep set:
+                EmitSet(set);
+                break;
+
             case SelectStep select:
             {
                 var locals = _selects[select.Select];
@@ -468,8 +483,20 @@ internal sealed partial class ProcedureEmitter
                 EmitVariantForNext(variantNext);
                 break;
 
+            case FieldLetStep fieldLet:
+                EmitFieldLet(fieldLet);
+                break;
+
+            case VariantFieldLetStep variantFieldLet:
+                EmitVariantFieldLet(variantFieldLet);
+                break;
+
             case TextLetStep textLet:
                 EmitTextLet(textLet);
+                break;
+
+            case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
+                EmitArrayStep(step);
                 break;
         }
     }
@@ -905,11 +932,15 @@ internal sealed partial class ProcedureEmitter
         }
 
         // each field's cell, found again (FieldCellOf): the body's cache gives the cell of the same object as it is, and finds it again on the object when a
-        // callee ran the body on another object meanwhile, and the cache is that object's. An edit made while the program waited hands the activation to the
-        // interpreter, so no edit is read here.
+        // callee ran the body on another object meanwhile, and the cache is that object's; a field of the session's is found again in its storage when that
+        // bound anything since. An edit made while the program waited hands the activation to the interpreter, so no edit is read here. An object field's
+        // is found again with the other objects'.
         foreach (var slot in _analysis.FieldSlots)
         {
-            EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
+            if (_cells.ContainsKey(slot))
+            {
+                EmitFieldCell(slot, unread, nameof(CompiledActivation.ReloadFieldCell));
+            }
         }
 
         // each Variant's cell, found again. Nothing the interpreter runs binds a Variant's slot to another cell: a ReDim keeps the Variant in its cell, and
@@ -925,9 +956,16 @@ internal sealed partial class ProcedureEmitter
         }
 
         // each object's cell, found again as each Variant's is. A Set the interpreter ran stores the reference into the cell the slot holds, so this finds
-        // the same cell; it is read from the frame again rather than assumed kept.
+        // the same cell; it is read from the frame again rather than assumed kept. A field's is found again where the interpreter finds it, as a scalar
+        // field's is; none is a cell compiled code reads nothing of, as at the entry.
         foreach (var (slot, cell) in _objects)
         {
+            if (_fieldNumbers.ContainsKey(slot))
+            {
+                EmitObjectCell(slot, cell, nameof(CompiledActivation.ReloadFieldCell));
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, slot);
             _il.Emit(OpCodes.Ldloca, cell);
@@ -935,7 +973,10 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, unread);
         }
 
+        EmitReloadRecordCells(unread);
+
         EmitReloadTextCells(unread);
+        EmitArrayReload(unread);
 
         // the function result variable too, which the spill before the call wrote.
         if (_result is { } result)
@@ -1485,6 +1526,9 @@ internal sealed partial class ProcedureEmitter
             case SlotNode slot:
                 return new Operand(_slots[slot.Slot], 0, 0);
 
+            case FieldNode field:
+                return EmitField(field, failure);
+
             case OperandNode evaluated:
                 return evaluated.Operand;
 
@@ -1742,7 +1786,7 @@ internal sealed partial class ProcedureEmitter
             }
 
             default:
-                throw new InvalidOperationException($"No IL for {node.GetType().Name}.");
+                return EmitArrayPayload(node, failure);
         }
     }
 
@@ -1852,6 +1896,10 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 break;
 
+            case VariantFieldNode field:
+                EmitVariantField(field, result, failure);
+                break;
+
             case VariantOfNode of:
             {
                 var value = EmitPayload(of.Value, failure);
@@ -1886,6 +1934,10 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 break;
             }
+
+            default:
+                EmitArrayVariantInto(node, result, failure);
+                break;
         }
     }
 

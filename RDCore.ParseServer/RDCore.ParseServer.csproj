@@ -6,10 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 $(Authors)</Copyright>
-    <Product>RDCore</Product>
     <AssemblyName>RDCore.ParseServer</AssemblyName>
+    <AssemblyTitle>RDCore Parse Server</AssemblyTitle>
+    <Description>The RDCore parsing server: parses VBA and RD-VBA source into syntax trees for the language server, holding no state between requests.</Description>
   </PropertyGroup>
 
   <ItemGroup>

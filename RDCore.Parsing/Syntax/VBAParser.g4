@@ -324,6 +324,9 @@ declareStmt : (visibility whiteSpace)? DECLARE whiteSpace (PTRSAFE whiteSpace)? 
 
 argList : LPAREN (whiteSpace? arg (whiteSpace? COMMA whiteSpace? arg)*)? whiteSpace? RPAREN;
 
+// MS-VBAL 5.3.1.5: a parameter's name is a name (IDENTIFIER, TYPED-NAME), as a variable's is, and no reserved identifier: `ByVal Mod As Long` names nothing.
+// The rule reads a reserved identifier there all the same, and the parse reports it as a syntax error at the name (ModuleParser.ReportReservedParameterNames):
+// read as no name, it leaves the words before it (ByVal) to be read as the name, and the procedure's header ends there.
 arg : (OPTIONAL whiteSpace)? ((BYVAL | BYREF) whiteSpace)? (PARAMARRAY whiteSpace)? unrestrictedIdentifier (whiteSpace? LPAREN whiteSpace? RPAREN)? (whiteSpace? asTypeClause)? (whiteSpace? argDefaultValue)?;
 
 argDefaultValue : EQ whiteSpace? expression;
@@ -351,18 +354,16 @@ universalLetterRange : {EqualsString(TextOf(TokenAtRelativePosition(1)),"A") && 
 letterRange : singleLetter MINUS singleLetter;
 
 
+// a Do with no condition and a Do with its condition after Loop are one alternative: as two, they would be told apart only past the body, after Loop, and a
+// syntax error in the body would leave the parse no alternative to read the Do with.
 doLoopStmt :
-    DO endOfStatement 
+    DO endOfStatement
     block
-    statementLabelDefinition? whiteSpace? LOOP
+    statementLabelDefinition? whiteSpace? LOOP (whiteSpace (WHILE | UNTIL) whiteSpace expression)?
     |
     DO whiteSpace (WHILE | UNTIL) whiteSpace expression endOfStatement
     block
     statementLabelDefinition? whiteSpace? LOOP
-    | 
-    DO endOfStatement
-    block
-    statementLabelDefinition? whiteSpace? LOOP whiteSpace (WHILE | UNTIL) whiteSpace expression
 ;
 
 enumerationStmt: 
@@ -618,7 +619,10 @@ pSetSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? PSET (whiteSpace 
 tuple : LPAREN whiteSpace? expression whiteSpace? COMMA whiteSpace? expression whiteSpace? RPAREN;
 lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition(1)),"b","bf")}? unrestrictedIdentifier;
 
-unrestrictedIdentifier : identifier | statementKeyword | markerKeyword;
+unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier;
+// MS-VBAL 3.3.5.2: an operator-identifier is a reserved-identifier, which is no name: it names a member (`x.And`, `d!Mod`), as any keyword does, and
+// nothing else. `Debug.Print 1 Mod` is the operator with no right operand, and not two items, the second a variable named Mod.
+operatorIdentifier : ADDRESSOF | AND | EQV | IMP | IS | LIKE | MOD | NEW | NOT | OR | TYPEOF | XOR;
 legalLabelIdentifier : { !IsTokenType(TokenTypeAtRelativePosition(1),DOEVENTS,END,CLOSE,ELSE,LOOP,NEXT,RANDOMIZE,REM,RESUME,RETURN,STOP,WEND)}? identifier | markerKeyword;
 //The predicate in the following rule has been introduced to lessen the problem that VBA uses the same characters used as type hints in other syntactical constructs, 
 //e.g. in the bang notation (see withDictionaryAccessExpr). Generally, it is not legal to have an identifier or opening bracket follow immediately after a type hint.
@@ -684,6 +688,7 @@ expression :
     | TYPEOF whiteSpace expression                                                                  # typeofexpr // To make the grammar SLL, the type-of-is-expression is actually the child of an IS relational op.
     | HASH expression                                                                               # markedFileNumberExpr // Added to support special forms such as Input(file1, #file1)
     | NEW whiteSpace expression                                                                     # newExpr
+    | PLUS whiteSpace? expression                                                                   # unaryPlusOp // no operator, and the module's trivia: it binds tightest, so the tree is the one of the code the VBE keeps without it
     | expression whiteSpace? POW whiteSpace? expression                                             # powOp
     | MINUS whiteSpace? expression                                                                  # unaryMinusOp
     | expression whiteSpace? (MULT | DIV) whiteSpace? expression                                    # multOp
@@ -775,9 +780,7 @@ addressOfExpression : ADDRESSOF whiteSpace expression;
 
 keyword : 
       ABS
-    | ADDRESSOF
     | ALIAS
-    | AND
     | ANY
     | ARRAY
     | ATTRIBUTE
@@ -810,35 +813,27 @@ keyword :
     | DOUBLE
     | END
     | ENDPROPERTY
-    | EQV
     | FALSE
     | FIX
-    | IMP
     | IN
     | INPUTB
     | INT
     | INTEGER
-    | IS
     | LBOUND
     | LEN
     | LEN
     | LENB
     | LIB
-    | LIKE
     | LONG
     | LONGLONG
     | LONGPTR
     | ME
     | MID
     | MIDB
-    | MOD
-    | NEW
-    | NOT
     | NOTHING
     | NULL
     | OBJECT
     | OPTIONAL
-    | OR
     | PARAMARRAY
     | PRESERVE
     | PSET
@@ -852,13 +847,11 @@ keyword :
     | THEN
     | TO
     | TRUE
-    | TYPEOF
     | UBOUND
     | UNTIL
     | VARIANT
     | VERSION
     | WITHEVENTS
-    | XOR
     | STEP
     | ON_ERROR
     | ERROR

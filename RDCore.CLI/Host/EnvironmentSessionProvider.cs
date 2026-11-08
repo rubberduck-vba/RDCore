@@ -231,8 +231,8 @@ public sealed class EnvironmentSessionProvider(
         if (logger.IsEnabled(LogLevel.Information))
         {
             logger.LogInformation(
-                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included).",
-                project.Modules.Length, _session.References.Count, configuration.ProvideSymbols().Count());
+                "🧠 Runtime session composed: {modules} module(s), {references} reference(s), {constants} precompiler constant(s) (built-ins included); engine {engine}, {configuration} build.",
+                project.Modules.Length, _session.References.Count, configuration.ProvideSymbols().Count(), environment.ExecutionEngine, environment.Configuration);
         }
 
         return _session;

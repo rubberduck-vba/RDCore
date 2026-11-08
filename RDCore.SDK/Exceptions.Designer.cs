@@ -1126,6 +1126,13 @@ namespace RDCore.SDK {
                 return ResourceManager.GetString("VBCompileError_ConstDirectiveExpression_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>Looks up a localized string similar to Expected: identifier. &apos;{0}&apos; is a reserved word and cannot name a parameter.</summary>
+        public static string VBCompileError_ReservedParameterName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ReservedParameterName_Verbose", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses..
@@ -1605,6 +1612,15 @@ namespace RDCore.SDK {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to A block opened in a #If branch is not closed in it..
+        /// </summary>
+        public static string VBCompileError_BlockNotClosedInItsBranch_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_BlockNotClosedInItsBranch_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Every header of this procedure is in a #If branch that is not compiled, so this statement is outside any procedure..
         /// </summary>
         public static string VBCompileError_HeaderInDeadBranchesOnly_Verbose {
@@ -1987,6 +2003,24 @@ namespace RDCore.SDK {
         public static string VBMemberAccess_ObjectVariableNotSet_Verbose {
             get {
                 return ResourceManager.GetString("VBMemberAccess_ObjectVariableNotSet_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to LSet reads an object field from bytes that are not an object&apos;s address: the number there is not what ObjPtr returned for an object that still exists, and is not 0 for Nothing. Nothing was copied..
+        /// </summary>
+        public static string VBLSet_NoObjectAtAddress_Verbose {
+            get {
+                return ResourceManager.GetString("VBLSet_NoObjectAtAddress_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to LSet gives an object field the object of another class: a field declared as a class holds only an object of that class, or of a class that implements it, as Set would require. Nothing was copied..
+        /// </summary>
+        public static string VBLSet_ObjectOfAnotherClass_Verbose {
+            get {
+                return ResourceManager.GetString("VBLSet_ObjectOfAnotherClass_Verbose", resourceCulture);
             }
         }
 

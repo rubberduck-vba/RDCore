@@ -26,6 +26,15 @@ public sealed class EndAndStopTests
         return Convert.ToInt64(session.Symbols.Resolver.GetValue(total!).Value.BoxedValue);
     }
 
+    // whether the program is past its first statement, which gave Total 3: in the cell the interpreter and compiled code both write it in. Not the frame's
+    // Pc, which compiled code does not keep while it runs: a frame says where the program is once it has stopped, which is when the debugger reads it.
+    private static bool GaveTotalThree(EnvironmentSessionProvider provider)
+    {
+        var symbols = provider.Session.Symbols;
+        return symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module) && symbols.TryResolveValue("Total", module!, out var total)
+            && Convert.ToInt64(symbols.Resolver.GetValue(total!).Value.BoxedValue) == 3;
+    }
+
     private static async Task<(ExecuteResult Result, long Total, ExecuteResult Again, long TotalAgain)> RunTwiceAsync(string program)
     {
         ExecuteResult? first = null, second = null;
@@ -95,6 +104,27 @@ public sealed class EndAndStopTests
         Assert.AreEqual(0, run.Total, "the variable is what it was defined as");
         CollectionAssert.AreEqual(new[] { "0" }, run.Again.Output.Select(line => line.Trim()).ToArray(), "and so it is to the program that runs next");
         Assert.AreEqual(ExecutionOutcome.Halted, run.Again.Outcome);
+    }
+
+    // a Static variable is given its storage by its procedure's first call, not by the definition of its module: End lets go of it all the same, and the
+    // next run's first call gives it storage again, from nothing.
+    [TestMethod]
+    public async Task End_LeavesNoStaticOfTheProgram_SoTheNextRunCountsFromTheStart()
+    {
+        var run = await RunTwiceAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print Counted(); Counted()",
+            "    End",
+            "End Sub",
+            "Private Function Counted() As Long",
+            "    Static Seen As Long",
+            "    Seen = Seen + 1",
+            "    Counted = Seen",
+            "End Function"));
+
+        CollectionAssert.AreEqual(new[] { "1  2" }, run.Result.Output.Select(line => line.Trim()).ToArray());
+        CollectionAssert.AreEqual(new[] { "1  2" }, run.Again.Output.Select(line => line.Trim()).ToArray(), "the Static starts from nothing again");
     }
 
     [TestMethod]
@@ -413,7 +443,7 @@ public sealed class EndAndStopTests
         {
             result = outcome;
             return Task.CompletedTask;
-        }, cancelWhen: provider => provider.Session.CallStack.Current is RDCore.Runtime.Execution.Frames.CallStackFrame { Pc: > 0 });
+        }, cancelWhen: GaveTotalThree);
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result!.Outcome, result.ErrorMessage);
         Assert.IsGreaterThanOrEqualTo(3, result.ErrorLine, "it stopped in the loop, and says which line it was on");

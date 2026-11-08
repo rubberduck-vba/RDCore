@@ -60,11 +60,12 @@ internal interface ISymbolSyncService
     /// <param name="moduleName">The module's programmatic name.</param>
     /// <param name="parseResult">The parsed module.</param>
     /// <param name="token">A token that cancels the request.</param>
+    /// <param name="sessionModule">Whether the module is the client's own, of the session and not of the project (<see cref="DefineSymbolsParams.SessionModule"/>).</param>
     /// <returns>
     /// The module URI the symbols were defined under — derived here, from the workspace's own root, so
     /// that a caller cannot address the same module differently than the workspace sync does.
     /// </returns>
-    Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token);
+    Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token, bool sessionModule = false);
 
     /// <summary>
     /// Has the environment host load the code of a module whose symbols it has been sent (<see cref="SyncModuleAsync"/>), so that the semantic analysis pass runs
@@ -205,7 +206,7 @@ internal sealed class SymbolSyncService(
         }
     }
 
-    public async Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token)
+    public async Task<Uri> SyncModuleAsync(string moduleName, ModuleParseResult parseResult, CancellationToken token, bool sessionModule = false)
     {
         // what the client supplies is bound among the workspace's modules, which the host is given first. A caller that holds the hold waited for them already.
         await WorkspaceDefinedAsync(token);
@@ -234,7 +235,7 @@ internal sealed class SymbolSyncService(
         // run it, not with this one.
         await DefineModuleSymbolsAsync(
             workspaceRoot, moduleUri, moduleName, ModuleType.StdModule, parseResult, workspaceResolver, replace: true,
-            withCode: false, token);
+            withCode: false, token, sessionModule: sessionModule);
         return moduleUri;
     }
 
@@ -379,7 +380,7 @@ internal sealed class SymbolSyncService(
 
     private async Task<int> DefineModuleSymbolsAsync(
         Uri workspaceRoot, Uri moduleUri, string moduleName, ModuleType moduleType, ModuleParseResult parseResult,
-        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false)
+        ISymbolResolver workspaceResolver, bool replace, bool withCode, CancellationToken token, bool declareTypesOnly = false, bool sessionModule = false)
     {
         var symbols = new SyntaxTreeSymbolProvider(
             workspaceRoot, moduleUri, moduleType, parseResult, workspaceResolver,
@@ -406,6 +407,7 @@ internal sealed class SymbolSyncService(
                 PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parseResult),
                 Replace = replace,
                 DeclareTypesOnly = declareTypesOnly,
+                SessionModule = sessionModule,
             }, token);
 
         if (logger.IsEnabled(LogLevel.Information))

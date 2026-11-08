@@ -16,7 +16,7 @@ public static class TestUserData
     public static string LogsDirectory { get; } = Path.Combine(Path.GetTempPath(), "rdcore-tests-logs-" + Environment.ProcessId);
 
     [AssemblyInitialize]
-    public static void Initialize(TestContext _)
+    public static void Initialize(TestContext context)
     {
         Environment.SetEnvironmentVariable(PlatformEnvironment.UserDataEnvironmentVariable, Directory);
         Environment.SetEnvironmentVariable(PlatformEnvironment.LogsEnvironmentVariable, LogsDirectory);
@@ -38,6 +38,33 @@ public static class TestUserData
         if (int.TryParse(Environment.GetEnvironmentVariable("RDCORE_WALKBACK_SEED"), out var seed))
         {
             RDCore.Runtime.Compiled.CompiledExecution.WalkBackSeed = seed;
+        }
+
+        // the run says how it ran, beside its results: what runs a program whose test does not ask for an engine, how values are held, and what hands compiled
+        // code to the interpreter where nothing asks it to. A message below a warning is not shown at the console's default verbosity.
+        context.DisplayMessage(MessageLevel.Warning, $"RDCore.Tests: {Mode}");
+    }
+
+    /// <summary>
+    /// How the suite runs, as the environment variables it reads say: what a run's results are the results of.
+    /// </summary>
+    public static string Mode
+    {
+        get
+        {
+            var engine = RDCore.Runtime.Compiled.CompiledExecution.Engine is { } forced
+                ? $"{forced} (RDCORE_ENGINE)"
+                : $"{RDCore.SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine} (the platform's default)";
+            var values = RDCore.Runtime.Execution.Frames.UnboxedEvaluation.IsEnabled ? "unboxed" : "boxed (RDCORE_UNBOXED=0)";
+            var handOvers = (RDCore.Runtime.Compiled.CompiledExecution.WalksBackAtRandom, RDCore.Runtime.Compiled.CompiledExecution.FailsReloadsAtRandom) switch
+            {
+                (false, false) => "when asked",
+                (true, false) => "walk-back at random",
+                (false, true) => "failed reloads at random",
+                _ => "walk-back and failed reloads at random",
+            };
+            var seed = RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom ? $", seed {RDCore.Runtime.Compiled.CompiledExecution.WalkBackSeed}" : string.Empty;
+            return $"engine {engine}, values {values}, hand-overs {handOvers}{seed}; a test that asks for an engine runs with it";
         }
     }
 }

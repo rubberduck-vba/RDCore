@@ -188,6 +188,159 @@ public sealed class CompletionCandidatesTests
         CollectionAssert.Contains(Labels(CompletionCandidates.TypesOf(tree, vba, creatable: true)), "Collection");
     }
 
+    // a word matches a label it starts, or the label's humps, a part of the word to the start of each hump in turn: never letters spread anywhere in the label.
+    [TestMethod]
+    [DataRow("Print", "Pr", true, DisplayName = "a prefix")]
+    [DataRow("Print", "pR", true, DisplayName = "a prefix in any case")]
+    [DataRow("CLngPtr", "Pr", false, DisplayName = "letters inside the label")]
+    [DataRow("DatePart", "Pr", false, DisplayName = "letters in two humps, the first not the label's")]
+    [DataRow("NPer", "Pr", false, DisplayName = "letters after the first hump")]
+    [DataRow("MultiPlayer", "MP", true, DisplayName = "the first letter of each hump")]
+    [DataRow("MultiPlayer", "mp", true, DisplayName = "humps in any case")]
+    [DataRow("MultiPlayer", "MuPl", true, DisplayName = "the first letters of each hump")]
+    [DataRow("MultiPlayer", "MuuP", false, DisplayName = "a letter the hump does not start with")]
+    [DataRow("MultiPlayer", "Player", false, DisplayName = "a hump that is not the first")]
+    [DataRow("MultiPlayer", "MPx", false, DisplayName = "more than the humps have")]
+    [DataRow("LoadPicture", "LoPi", true, DisplayName = "two letters of each hump")]
+    [DataRow("LoadPicture", "LoadPc", false, DisplayName = "a whole hump, then a letter the next does not start with")]
+    [DataRow("vbKeyEscape", "vbKEs", true, DisplayName = "a lowercase prefix is a hump")]
+    [DataRow("vbKeyEscape", "vKE", true, DisplayName = "a part of the lowercase prefix")]
+    [DataRow("vbKeyEscape", "KE", false, DisplayName = "the lowercase prefix left out")]
+    [DataRow("vbKeyEscape", "vbE", false, DisplayName = "a hump skipped")]
+    [DataRow("CLngPtr", "CLP", true, DisplayName = "a capital before a hump is a hump of its own")]
+    [DataRow("CLngPtr", "CLnP", true, DisplayName = "a part of the hump after the capital")]
+    [DataRow("CLngPtr", "LP", false, DisplayName = "the capital left out")]
+    [DataRow("ADODBRecordset", "ADR", true, DisplayName = "a run of capitals is one hump")]
+    [DataRow("ADODBRecordset", "AR", true, DisplayName = "a part of a run of capitals")]
+    [DataRow("ADODBRecordset", "DR", false, DisplayName = "the run of capitals started inside")]
+    [DataRow("IOError", "IE", true, DisplayName = "a run of two capitals")]
+    [DataRow("IOError", "OE", false, DisplayName = "a run of two capitals started inside")]
+    [DataRow("VBA", "VA", false, DisplayName = "capitals alone are one hump")]
+    [DataRow("DDEInitiate", "DI", true, DisplayName = "a run of capitals ends before the capital of a word")]
+    [DataRow("Win32Api", "W32A", true, DisplayName = "digits are a hump")]
+    [DataRow("Win32Api", "W3A", true, DisplayName = "a part of the digits")]
+    [DataRow("Win32Api", "WA", false, DisplayName = "the digits skipped")]
+    [DataRow("Class_Initialize", "CI", true, DisplayName = "an underscore separates humps")]
+    [DataRow("Class_Initialize", "C_I", true, DisplayName = "an underscore typed separates as well")]
+    [DataRow("Class_Initialize", "Class_I", true, DisplayName = "a prefix with its underscore")]
+    [DataRow("Class_Initialize", "CsI", false, DisplayName = "a letter not at the start of a hump")]
+    [DataRow("Class_Initialize", "Cl_ass", false, DisplayName = "an underscore typed ends a part: what follows it starts the next hump")]
+    [DataRow("ClassModule", "Cla_ss", false, DisplayName = "an underscore typed ends a part, in a label with none")]
+    [DataRow("Class_Initialize", "C_", true, DisplayName = "a part ended by an underscore, and nothing after it")]
+    [DataRow("Class_Initialize", "C__I", true, DisplayName = "underscores typed in a row are one separator")]
+    [DataRow("cmd_Click", "c_C", true, DisplayName = "a lowercase hump, an underscore, a capital")]
+    [DataRow("xyz", "_x", false, DisplayName = "a word that starts with an underscore, a label that does not")]
+    [DataRow("_NewEnum", "_NEn", true, DisplayName = "a word that starts with an underscore, a label that does")]
+    [DataRow("_NewEnum", "NE", true, DisplayName = "a label's leading underscore is of no hump")]
+    [DataRow("_private", "__", true, DisplayName = "underscores alone, a label that starts with one")]
+    [DataRow("Class_Initialize", "__", false, DisplayName = "underscores alone, a label that does not start with one")]
+    public void AWord_MatchesALabelItStarts_OrTheLabelsHumps(string label, string word, bool matches)
+        => Assert.AreEqual(matches, CompletionCandidates.MatchOf(label, word) != CompletionMatch.None);
+
+    // a client narrows the list of a word by the same rule as the word grows: what a longer word matches, the word matches too.
+    [TestMethod]
+    public void EveryLabelALongerWordMatches_TheWordMatchesToo()
+    {
+        string[] labels = ["Class_Initialize", "ClassModule", "cmd_Click", "_NewEnum", "xyz", "_xyz", "__init", "MultiPlayer", "vbKeyEscape", "CLngPtr", "Win32Api", "IOError", "x_y_z"];
+        string[] words = ["C_I", "Cl_ass", "c_C", "_NEn", "_x", "__x", "__N", "___i", "MuPl", "vbKEs", "CLnP", "W32A", "IOE", "x_y_z", "C__I", "x__z"];
+        foreach (var word in words)
+        {
+            for (var length = 1; length < word.Length; length++)
+            {
+                foreach (var label in labels.Where(label => CompletionCandidates.MatchOf(label, word[..(length + 1)]) != CompletionMatch.None))
+                {
+                    Assert.AreNotEqual(CompletionMatch.None, CompletionCandidates.MatchOf(label, word[..length]), $"{label}: '{word[..(length + 1)]}' but not '{word[..length]}'");
+                }
+            }
+        }
+    }
+
+    [TestMethod]
+    public void TheLabelsAWordStarts_ComeBeforeTheOnesItMatchesTheHumpsOf_WhateverTheirRank()
+    {
+        CompletionCandidate[] candidates = [new("MultiPlayer", CompletionItemKind.Variable, Rank: 0), new("MPEG", CompletionItemKind.Constant, Rank: 3)];
+
+        CollectionAssert.AreEqual(new[] { "MPEG", "MultiPlayer" }, CompletionCandidates.ListOf("MP", [], candidates).Items.Select(item => item.Label).ToArray());
+    }
+
+    [TestMethod]
+    public void AnItemThatDoesNotMatch_RanksAfterTheOnesThatDo()
+    {
+        var candidate = new CompletionCandidate("Total", CompletionItemKind.Variable);
+
+        Assert.IsTrue(string.CompareOrdinal(candidate.ToCompletionItem(CompletionMatch.Humps).SortText, candidate.ToCompletionItem(CompletionMatch.None).SortText) < 0);
+        Assert.IsTrue(string.CompareOrdinal(candidate.ToCompletionItem(CompletionMatch.Prefix).SortText, candidate.ToCompletionItem(CompletionMatch.Humps).SortText) < 0);
+    }
+
+    // the candidates most likely to be written are a tier of their own: the word's best match among them is preselected, though another name it starts is not.
+    [TestMethod]
+    public void TheFirstCandidates_RankBeforeTheOthers_ThoughOnlyTheirHumpsMatch_AndTheBestOfThemIsPreselected()
+    {
+        CompletionCandidate[] constants = [new("DarkRed", CompletionItemKind.EnumMember), new("DeepRed", CompletionItemKind.EnumMember), new("DRed", CompletionItemKind.EnumMember)];
+        var items = CompletionCandidates.ListOf("DR", [new(constants)], [new("Drum", CompletionItemKind.Function), new("DarkRed", CompletionItemKind.Variable)]).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "DRed", "DarkRed", "DeepRed", "Drum" }, items.Select(item => item.Label).ToArray(),
+            string.Join(", ", items.Select(item => item.Label + "/" + item.SortText)));
+        Assert.IsTrue(items[0].Preselect);
+        Assert.AreEqual(1, items.Count(item => item.Preselect));
+    }
+
+    // each group is a tier, in its order; in each tier the labels the word starts come before the ones whose humps it matches.
+    [TestMethod]
+    public void EachGroupIsATier_InWhichWhatTheWordStartsComesFirst()
+    {
+        CompletionCandidate[] constants = [new("SmallCaps", CompletionItemKind.EnumMember), new("ScSmall", CompletionItemKind.EnumMember)];
+        CompletionCandidate[] names = [new("SubCaption:=", CompletionItemKind.Variable), new("Sc:=", CompletionItemKind.Variable)];
+        CompletionCandidate[] others = [new("StyleCount", CompletionItemKind.Function), new("Scale", CompletionItemKind.Function)];
+
+        var items = CompletionCandidates.ListOf("Sc", [new(constants), new(names, IsSelectedWhenNothingIsTyped: false)], others).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "ScSmall", "SmallCaps", "Sc:=", "SubCaption:=", "Scale", "StyleCount" }, items.Select(item => item.Label).ToArray(),
+            string.Join(", ", items.Select(item => item.Label + "/" + item.SortText)));
+        Assert.AreEqual("ScSmall", items.Single(item => item.Preselect).Label);
+    }
+
+    // a label the word is, in any case, is what the user means to write: it is selected, wherever it ranks, and the tiers keep their order.
+    [TestMethod]
+    public void ALabelTheWordIs_IsSelected_ThoughTheTiersBeforeItKeepTheirOrder()
+    {
+        CompletionCandidate[] constants = [new("ScSmall", CompletionItemKind.EnumMember)];
+        CompletionCandidate[] names = [new("SubCaption:=", CompletionItemKind.Variable), new("Sc:=", CompletionItemKind.Variable)];
+        CompletionCandidate[] others = [new("Scale", CompletionItemKind.Function), new("sc", CompletionItemKind.Variable)];
+
+        var items = CompletionCandidates.ListOf("SC", [new(constants), new(names, IsSelectedWhenNothingIsTyped: false)], others).Items.ToList();
+
+        CollectionAssert.AreEqual(new[] { "ScSmall", "Sc:=", "SubCaption:=", "sc", "Scale" }, items.Select(item => item.Label).ToArray(),
+            string.Join(", ", items.Select(item => item.Label + "/" + item.SortText)));
+        Assert.AreEqual("sc", items.Single(item => item.Preselect).Label);
+    }
+
+    // a group as large as a workspace's names keeps its order past the thousandth.
+    [TestMethod]
+    public void ALargeGroup_KeepsItsOrder()
+    {
+        CompletionCandidate[] group = [.. Enumerable.Range(0, 1_500).Select(index => new CompletionCandidate($"Item{1_500 - index}", CompletionItemKind.Variable))];
+
+        var items = CompletionCandidates.ListOf(string.Empty, [new(group)], []).Items.ToList();
+
+        CollectionAssert.AreEqual(group.Select(candidate => candidate.Label).ToArray(), items.Select(item => item.Label).ToArray());
+    }
+
+    // where nothing is typed, a group that is not selected then is skipped: the first item that can be selected is.
+    [TestMethod]
+    [DataRow("", "Scale", DisplayName = "nothing typed")]
+    [DataRow("S", "SubTitle:=", DisplayName = "a word typed")]
+    public void AGroupNotSelectedWhereNothingIsTyped_IsSelectedOnceAWordIs(string word, string selected)
+    {
+        CompletionCandidate[] names = [new("SubTitle:=", CompletionItemKind.Variable)];
+        CompletionCandidate[] others = [new("Scale", CompletionItemKind.Function)];
+
+        var items = CompletionCandidates.ListOf(word, [new([]), new(names, IsSelectedWhenNothingIsTyped: false)], others).Items.ToList();
+
+        Assert.AreEqual("SubTitle:=", items[0].Label);
+        Assert.AreEqual(selected, items.Single(item => item.Preselect).Label);
+    }
+
     [TestMethod]
     public void TheItems_RankWhatIsNearerFirst()
     {

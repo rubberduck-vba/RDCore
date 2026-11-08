@@ -117,6 +117,12 @@ internal sealed class SymbolAddressTable(ISessionStorage storage)
         _ => value.Handle.Value,
     };
 
+    // a record let to a cell that holds a record of its type is written into that record, where it is (VBUserDefinedTypeValue.TryLetFrom): a ByRef
+    // parameter given one of its fields is bound to the field's cell (MS-VBAL §5.3.1.11). A record not known, or let to one that is not, is stored as it is.
+    internal static bool TryLetRecordInPlace(IBindingHandle cell, VBTypedValue value)
+        => value is VBUserDefinedTypeValue { IsIndeterminate: false } record && cell is not (IndeterminateBindingHandle or IKnowledgeBinding { IsKnown: false })
+            && cell.Value is VBRuntimeValue<VBRuntimeUserDefinedTypeValue> { StoredValue.UserDefinedType: { IsIndeterminate: false } held } && held.TryLetFrom(record);
+
     internal static IBindingHandle FreshBinding(VBTypedValue value)
     {
         var cell = FreshCell(value);

@@ -53,19 +53,35 @@ public static class ArrayBoundRuntimeSemantics
             requested = number.Value;
         }
 
-        // a dynamic array that has not been sized has no dimensions to ask about, and neither does an array the
-        // subscript is not a dimension of. A dimension with no elements is still a dimension: Array() is one, and its upper
-        // bound is the one below its lower.
-        if (!held.IsInitialized || requested < 1 || requested > held.Rank)
+        if (!TryBoundOf(held, node.Kind, requested, out var bound))
         {
             return Fail(node, VBRuntimeErrorId.SubscriptOutOfRange, held.IsInitialized
                 ? $"{keyword}: the array has {held.Rank} dimension(s), not {requested}."
                 : $"{keyword}: the array has no dimensions yet.");
         }
 
-        var bounds = held.Dimensions[requested - 1];
-        return RuntimeSemanticsEvaluationResult.Success(
-            new VBLongValue(node.Kind == ArrayBoundKind.Lower ? bounds.LowerBound : bounds.UpperBound));
+        return RuntimeSemanticsEvaluationResult.Success(new VBLongValue(bound));
+    }
+
+    /// <summary>
+    /// The lower or the upper bound of the dimension <paramref name="requested"/> of <paramref name="array"/>, counted from 1: what <see cref="Evaluate"/>
+    /// reads, and compiled code too.
+    /// </summary>
+    /// <returns><see langword="false"/> when the array has no such dimension: error 9.</returns>
+    internal static bool TryBoundOf(VBArrayValue array, ArrayBoundKind kind, int requested, out int bound)
+    {
+        // a dynamic array that has not been sized has no dimensions to ask about, and neither does an array the
+        // subscript is not a dimension of. A dimension with no elements is still a dimension: Array() is one, and its upper
+        // bound is the one below its lower.
+        if (!array.IsInitialized || requested < 1 || requested > array.Rank)
+        {
+            bound = 0;
+            return false;
+        }
+
+        var bounds = array.Dimensions[requested - 1];
+        bound = kind == ArrayBoundKind.Lower ? bounds.LowerBound : bounds.UpperBound;
+        return true;
     }
 
     // a Variant holds whatever it was given, another Variant included, so this goes all the way down.

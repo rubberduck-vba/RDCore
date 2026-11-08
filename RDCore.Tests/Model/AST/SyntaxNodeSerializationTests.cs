@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Platform.Protocol;
@@ -240,6 +241,20 @@ public sealed class SyntaxNodeSerializationTests
         Assert.AreEqual("$", back.TypeHint);
         Assert.AreEqual(json, JsonSerializer.Serialize<SyntaxNode>(back, Options));
         Assert.AreEqual(JsonSerializer.Serialize<SyntaxNode>(name, VerboseOptions), JsonSerializer.Serialize<SyntaxNode>(back, VerboseOptions));
+    }
+
+    [TestMethod]
+    public void AnErasedPlus_RoundTripsWhereItIsWritten()
+    {
+        // the parse server's trivia reaches the language server as this JSON, and a + that lost its place on the way could not be written back.
+        var plus = new ErasedPlusTriviaNode(new("file:///t.bas", [0]),
+            new SourceLocation(new Uri("file:///t.bas"), new SourceRange(new SourcePosition(1, 4), new SourcePosition(1, 5))));
+
+        var json = JsonSerializer.Serialize<SyntaxNode>(plus, Options);
+        var back = Assert.IsInstanceOfType<ErasedPlusTriviaNode>(JsonSerializer.Deserialize<SyntaxNode>(json, Options));
+
+        Assert.AreEqual(plus.SourceLocation, back.SourceLocation);
+        Assert.AreEqual(json, JsonSerializer.Serialize<SyntaxNode>(back, Options));
     }
 
     [TestMethod]

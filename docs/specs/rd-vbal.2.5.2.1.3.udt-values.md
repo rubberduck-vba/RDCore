@@ -84,7 +84,8 @@ The MS-VBAL warning that "Len might not be able to determine the actual number o
 The pointer width of a UDT layout is a parameter of `VBUserDefinedTypeLayout`, and it defaults to 32-bit:
 
 - On a 64-bit host, a pointer field (a variable-length `String`, an object, a resizable array) and a `LongPtr` field are 8 bytes, and a `Variant` field is 24 instead of 16, as MS-VBA lays them out (recorded in Excel, 64-bit).
-- `Len` and `LenB` lay a record out for the environment's own pointer width.
+- `Len` and `LenB` lay a record out for the environment's own pointer width, and so does a record's memory image
+  (`LSet`, `VarPtr`).
 
 > [!NOTE]
-> **Not implemented.** `VBUserDefinedTypeValue.Size` and a record's memory image still lay a UDT out for a 32-bit pointer.
+> **Not implemented.** `VBUserDefinedTypeValue.Size` lays a UDT out for a 32-bit pointer.

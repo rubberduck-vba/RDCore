@@ -36,6 +36,152 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
     /// <summary>The name of what is called: <c>Item</c> of <c>o.Item</c>.</summary>
     public string Name => Callee[(SeparatorIndex + 1)..];
 
+    /// <summary>
+    /// The arguments of the call up to the cursor, as they are written: after the opening parenthesis of a call in parentheses, after the name and the space
+    /// of a call statement. The last of them is the one the cursor is in.
+    /// </summary>
+    public string ArgumentsBefore { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether the arguments are in parentheses, which close them; a call statement's arguments go on to the end of the statement.
+    /// </summary>
+    public bool IsParenthesized { get; init; }
+
+    /// <summary>
+    /// The names of the named arguments written before the one the cursor is in, as they are written (<c>Title</c> of <c>Title:="Hi"</c>).
+    /// </summary>
+    public IReadOnlyList<string> NamesBefore => [.. PrecedingArguments.Select(NameOf).OfType<string>()];
+
+    /// <summary>
+    /// How many of the arguments written before the one the cursor is in are positional, an omitted one counted (<c>Foo 1, , |</c> has two): each is mapped to
+    /// the parameter at its position (<strong>MS-VBAL §5.3.1.11</strong>).
+    /// </summary>
+    public int PositionalBefore => PrecedingArguments.Count(argument => NameOf(argument) is null);
+
+    /// <summary>
+    /// Whether the cursor is where an argument starts, with nothing of it written but <paramref name="word"/>: after the opening parenthesis, after a comma,
+    /// after the name of a call statement. Not after the <c>:=</c> of a named argument, nor inside an expression.
+    /// </summary>
+    /// <param name="word">What is typed of the name at the cursor.</param>
+    public bool IsWhereAnArgumentStarts(string word)
+    {
+        ArgumentNullException.ThrowIfNull(word);
+        var current = TopLevelPartsOf(ArgumentsBefore)[^1];
+        return current.EndsWith(word, StringComparison.Ordinal) && current[..^word.Length].Trim().Length == 0;
+    }
+
+    /// <summary>
+    /// Whether the cursor is where the value of an argument starts, with nothing of it written but <paramref name="word"/>: where an argument starts
+    /// (<see cref="IsWhereAnArgumentStarts"/>), or after the <c>:=</c> of a named argument (<c>Weigh Amounts:=|</c>).
+    /// </summary>
+    /// <param name="word">What is written of the value at the cursor.</param>
+    public bool IsWhereAnArgumentsValueStarts(string word)
+    {
+        ArgumentNullException.ThrowIfNull(word);
+        var current = TopLevelPartsOf(ArgumentsBefore)[^1];
+        if (NamedArgument().Match(current) is { Success: true } named)
+        {
+            current = current[named.Length..];
+        }
+
+        return current.EndsWith(word, StringComparison.Ordinal) && current[..^word.Length].Trim().Length == 0;
+    }
+
+    /// <summary>
+    /// The names of the named arguments written after the one the cursor is in, up to the end of the argument list: its closing parenthesis, or the end of the
+    /// call statement (a <c>:</c> that separates statements, a comment, the <c>Else</c> of a single-line <c>If</c> (<strong>MS-VBAL §5.4.2.9</strong>), the end of
+    /// the logical line, <see cref="LogicalLine"/>).
+    /// </summary>
+    /// <param name="after">The text of the logical line from the cursor on.</param>
+    public IReadOnlyList<string> NamesAfter(string after) => [.. ArgumentsAfter(after).Select(NameOf).OfType<string>()];
+
+    /// <summary>
+    /// Whether a positional argument is written after the one the cursor is in, an omitted one counted (<c>Foo 1, |, , 2</c>): it is mapped to the parameter at
+    /// its position, and no named argument comes before it (<strong>MS-VBAL §5.6.13.1</strong>).
+    /// </summary>
+    /// <param name="after">The text of the logical line from the cursor on.</param>
+    public bool IsFollowedByAPositionalArgument(string after) => ArgumentsAfter(after).Any(argument => NameOf(argument) is null);
+
+    // the arguments written after the one the cursor is in, up to the end of the argument list.
+    private List<string> ArgumentsAfter(string after)
+    {
+        ArgumentNullException.ThrowIfNull(after);
+        var end = after.Length;
+        var depth = 0;
+        var inString = false;
+        for (var index = 0; index < after.Length && end == after.Length; index++)
+        {
+            var character = after[index];
+            if (character == '"')
+            {
+                inString = !inString;
+            }
+            else if (!inString)
+            {
+                switch (character)
+                {
+                    case '(':
+                        depth++;
+                        break;
+                    case ')' when depth == 0:
+                        end = index;
+                        break;
+                    case ')':
+                        depth--;
+                        break;
+                    case '\'' when !IsParenthesized:
+                    case ':' when !IsParenthesized && depth == 0 && (index + 1 >= after.Length || after[index + 1] != '='):
+                    case 'E' or 'e' when IsElseAt(after, index):
+                        end = index;
+                        break;
+                }
+            }
+        }
+
+        // the first part is the rest of the argument the cursor is in.
+        return [.. TopLevelPartsOf(after[..end]).Skip(1)];
+    }
+
+    // the Else of a single-line If, which ends the statement of its Then clause (MS-VBAL §5.4.2.9): a reserved word, which no expression has in it.
+    private static bool IsElseAt(string text, int index)
+        => string.Compare(text, index, Tokens.Else, 0, Tokens.Else.Length, StringComparison.OrdinalIgnoreCase) == 0
+            && (index == 0 || !IsNameCharacter(text[index - 1]))
+            && (index + Tokens.Else.Length == text.Length || !IsNameCharacter(text[index + Tokens.Else.Length]));
+
+    // the arguments before the one the cursor is in.
+    private IReadOnlyList<string> PrecedingArguments => TopLevelPartsOf(ArgumentsBefore) is var parts ? parts.GetRange(0, parts.Count - 1) : [];
+
+    // the text cut at each comma that is not in a string literal nor in parentheses.
+    private static List<string> TopLevelPartsOf(string text)
+    {
+        var parts = new List<string>();
+        var depth = 0;
+        var inString = false;
+        var start = 0;
+        for (var index = 0; index < text.Length; index++)
+        {
+            switch (text[index])
+            {
+                case '"':
+                    inString = !inString;
+                    break;
+                case '(' when !inString:
+                    depth++;
+                    break;
+                case ')' when !inString:
+                    depth--;
+                    break;
+                case ',' when !inString && depth == 0:
+                    parts.Add(text[start..index]);
+                    start = index + 1;
+                    break;
+            }
+        }
+
+        parts.Add(text[start..]);
+        return parts;
+    }
+
     // the last `.` or `!` of the callee that is not in an argument list of it.
     private int SeparatorIndex
     {
@@ -75,8 +221,6 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
 
         var open = new List<ArgumentList>();
         var statementStart = 0;
-        var commas = 0;
-        var argumentStart = -1;
         var inString = false;
         for (var index = 0; index < text.Length; index++)
         {
@@ -104,12 +248,8 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
                     open[^1].Commas++;
                     open[^1].ArgumentStart = index + 1;
                     break;
-                case ',':
-                    commas++;
-                    argumentStart = index + 1;
-                    break;
                 case ':' when open.Count == 0 && (index + 1 >= text.Length || text[index + 1] != '='):
-                    (statementStart, commas, argumentStart) = (index + 1, 0, -1);
+                    statementStart = index + 1;
                     break;
             }
         }
@@ -120,7 +260,7 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
             var list = open[index];
             if (CompletionSite.QualifierBefore(text, list.Opening) is { Length: > 0 } callee && !char.IsAsciiDigit(callee[0]))
             {
-                return new SignatureSite(callee, list.Commas, NameOf(text[list.ArgumentStart..]));
+                return new SignatureSite(callee, list.Commas, NameOf(text[list.ArgumentStart..])) { ArgumentsBefore = text[(list.Opening + 1)..], IsParenthesized = true };
             }
         }
 
@@ -136,8 +276,9 @@ public sealed partial record class SignatureSite(string Callee, int ArgumentInde
             return null;
         }
 
-        var arguments = argumentStart < 0 ? call.Groups["arguments"].Value : text[argumentStart..];
-        return new SignatureSite(call.Groups["callee"].Value, commas, NameOf(arguments));
+        // the arguments are counted from the call's name, not from the start of the line: `If a Then Send "x", 1 Else Send |` is at Send's first.
+        var arguments = TopLevelPartsOf(call.Groups["arguments"].Value);
+        return new SignatureSite(call.Groups["callee"].Value, arguments.Count - 1, NameOf(arguments[^1])) { ArgumentsBefore = call.Groups["arguments"].Value };
     }
 
     /// <summary>

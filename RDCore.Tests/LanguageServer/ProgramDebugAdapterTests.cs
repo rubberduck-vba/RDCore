@@ -11,7 +11,6 @@ using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -30,7 +29,8 @@ public sealed class ProgramDebugAdapterTests
 
     private sealed class Session : IAsyncDisposable
     {
-        private readonly ConcurrentQueue<object> _events = new();
+        private readonly Lock _eventsLock = new();
+        private readonly List<object> _events = [];
         private readonly SemaphoreSlim _arrived = new(0);
         private readonly TaskCompletionSource<string> _lost = new();
         private readonly WireTap _wire = new();
@@ -111,7 +111,11 @@ public sealed class ProgramDebugAdapterTests
         // each event the client is told of is kept, and whoever waits for one looks again.
         private void Arrived(object @event)
         {
-            _events.Enqueue(@event);
+            lock (_eventsLock)
+            {
+                _events.Add(@event);
+            }
+
             _arrived.Release();
         }
 
@@ -121,26 +125,17 @@ public sealed class ProgramDebugAdapterTests
             using var hangGuard = new CancellationTokenSource(Patience);
             while (true)
             {
-                var kept = new List<object>();
-                TEvent? found = default;
-                var hit = false;
-                while (_events.TryDequeue(out var next))
+                // the event is taken out where it is, under the lock an event that arrives is added under: what was not asked for stays for who does, in the
+                // order it came.
+                lock (_eventsLock)
                 {
-                    if (!hit && next is TEvent typed && (where?.Invoke(typed) ?? true))
+                    var at = _events.FindIndex(next => next is TEvent typed && (where?.Invoke(typed) ?? true));
+                    if (at >= 0)
                     {
-                        (found, hit) = (typed, true);
+                        var found = (TEvent)_events[at];
+                        _events.RemoveAt(at);
+                        return found;
                     }
-                    else
-                    {
-                        kept.Add(next);
-                    }
-                }
-
-                // what was not asked for stays for who does.
-                kept.ForEach(_events.Enqueue);
-                if (hit)
-                {
-                    return found!;
                 }
 
                 // an event that came since the queue was looked at has released the semaphore already: it is not missed.
@@ -156,7 +151,13 @@ public sealed class ProgramDebugAdapterTests
         }
 
         /// <summary>Everything that was said and not asked for yet, of one kind.</summary>
-        public IReadOnlyList<TEvent> Pending<TEvent>() => [.. _events.OfType<TEvent>()];
+        public IReadOnlyList<TEvent> Pending<TEvent>()
+        {
+            lock (_eventsLock)
+            {
+                return [.. _events.OfType<TEvent>()];
+            }
+        }
 
         /// <summary>
         /// How many events of a kind the adapter wrote since the session started, read off the wire as they were written, whether the client was told of them
@@ -796,6 +797,29 @@ public sealed class ProgramDebugAdapterTests
     }
 
     // ---- the end of the program ----
+
+    // a module with a syntax error is not run: what the host refused it with is the program's error output, and the program is over with exit code 1.
+    [TestMethod]
+    public async Task AProgramRefusedForASyntaxError_IsSaidToHaveEnded_WithTheErrors()
+    {
+        await using var session = new Session();
+        session.Workspace.StartAsync(default!, default!, default).ReturnsForAnyArgs(Task.FromResult(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.SyntaxError,
+            Diagnostics = ["Syntax error: Expected: expression", "Output items not separated"],
+        }));
+        await session.StartAsync();
+        await session.LaunchAsync();
+        _ = await session.SendAsync(new SetBreakpointsArguments { Source = new Source { Path = Path }, Breakpoints = new Container<SourceBreakpoint>() });
+
+        _ = await session.SendAsync(new ConfigurationDoneArguments());
+
+        var output = await session.NextAsync<OutputEvent>();
+        Assert.AreEqual("Syntax error: Expected: expression\nOutput items not separated\n", output.Output);
+        Assert.AreEqual(OutputEventCategory.StandardError, output.Category);
+        Assert.AreEqual(1, (await session.NextAsync<ExitedEvent>()).ExitCode);
+        _ = await session.NextAsync<TerminatedEvent>();
+    }
 
     [TestMethod]
     public async Task AProgramThatRaisesAnError_IsSaidToHaveEnded_WithTheErrorWhereItWas()

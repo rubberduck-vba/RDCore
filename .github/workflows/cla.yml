@@ -1,21 +1,17 @@
-# Rubberduck Core — CLA enforcement (DRAFT / starting point)
+# Contributor License Agreement check, shared by every RDCore repository (RDCore, RDCore.SDK, RDCore.HexIDE).
 #
-# Uses CLA Assistant Lite (https://github.com/contributor-assistant/github-action) to require
-# every contributor to sign CLA.md before their pull request can be merged. The bot:
-#   1. Comments on each PR asking unsigned contributors to sign.
-#   2. Records a signature when the contributor comments the exact sign phrase below.
-#   3. Stores signatures as JSON committed to a dedicated branch (see `branch:` / `path-to-signatures:`).
+# CLA Assistant Lite (https://github.com/contributor-assistant/github-action) asks each contributor to sign
+# the CLA by posting a comment on their pull request, in French or in English.
+# The action recognizes a single sign phrase per step, so the job has two steps: the French step records
+# the French phrase, the English step the English one, and the English step also runs the check itself.
+# Both steps write to the same signature file, in rubberduck-vba/RDCore-CLA. A signature is recorded by
+# GitHub user id, so it counts in every repository that uses this file, whichever language it was given in.
 #
-# ── One-time setup before this works ──────────────────────────────────────────────────────
-#   • Confirm the repository's default branch name (this file assumes `main`).
-#   • Either let the action create the `cla-signatures` branch in THIS repo (default below),
-#     OR store signatures in a separate private repo via `remote-organization-name` /
-#     `remote-repository-name` + a `PERSONAL_ACCESS_TOKEN` secret (recommended so signatures
-#     aren't world-readable). See the action README.
-#   • Add real maintainer/bot handles to `allowlist`.
-#   • Settings → Actions → General → Workflow permissions: allow read/write (or rely on the
-#     `permissions:` block below).
-# ──────────────────────────────────────────────────────────────────────────────────────────
+# After a signature, the action re-runs the pull request's failed check, so the PR turns green.
+# The sign phrases must stay identical in both steps' `if`, in `custom-pr-sign-comment`, in both
+# not-signed comments, and in the Acceptance section of CLA.md and CLA.fr.md.
+# The `if`s test the start of the comment, not its content: the bot's own request quotes both phrases,
+# and its comments start workflows, because they are posted with a personal access token.
 
 name: "CLA Assistant"
 
@@ -26,8 +22,8 @@ on:
     types: [opened, closed, synchronize]
 
 permissions:
-  actions: write
-  contents: write          # write signature file to the signatures branch (or use a remote repo)
+  actions: write          # re-run the pull request's failed check after a signature
+  contents: write
   pull-requests: write
   statuses: write
 
@@ -35,12 +31,42 @@ jobs:
   cla:
     runs-on: ubuntu-latest
     steps:
-      - name: "CLA Assistant"
+      - name: "CLA (français)"
         if: >
-          (github.event.comment.body == 'recheck' ||
-           github.event.comment.body == 'I have read and agreed with the CLA terms and conditions and I hereby sign the CLA' ||
-           github.event.comment.body == 'J''ai lu et j''accepte les termes et conditions de la CLA et ce message constitue ma signature') ||
-           github.event_name == 'pull_request_target'
+          github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+          startsWith(github.event.comment.body, 'Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente')
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RDCORECLA_BOT }}
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.RDCORECLA_SIGNATURES }}
+        with:
+          path-to-document: "https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md"
+          path-to-signatures: "signatures/v0.1a/cla-signatures.json"
+          branch: "main"
+          allowlist: "RubberduckAdmin,rubberduck-dev01,dependabot[bot],*[bot]"
+          remote-organization-name: "rubberduck-vba"
+          remote-repository-name: "RDCore-CLA"
+          suggest-recheck: "false"
+          custom-pr-sign-comment: "Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente"
+          # the action adds the French phrase after this text, so the French request comes last here.
+          custom-notsigned-prcomment: >-
+            Thank you for your contribution! Before it can be merged, please read our
+            **[Contributor License Agreement](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.md)**,
+            then sign it by posting this exact comment on this pull request:<br/>
+            <br/>`I have read and agreed with the CLA terms and conditions and I hereby sign the CLA`<br/>
+            <br/>To run the check again, comment `recheck`.<br/><hr/>
+            Merci de votre contribution! Avant qu'elle puisse être fusionnée, veuillez lire notre
+            **[Entente de licence de contributeur (CLA)](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md)**.
+            Pour relancer la vérification, commentez `recheck`.
+            Pour signer, publiez ce commentaire, tel quel, sur cette demande de tirage (_pull request_) :<br/>
+          custom-allsigned-prcomment: "✅ Tous les contributeurs ont signé la CLA. Merci!<br/>✅ All contributors have signed the CLA. Thank you!<br/><hr/>V I V A T 🤝 C U C U M I S ™"
+
+      - name: "CLA (English)"
+        if: >
+          github.event_name == 'pull_request_target' ||
+          (github.event.issue.pull_request &&
+           (github.event.comment.body == 'recheck' ||
+            startsWith(github.event.comment.body, 'I have read and agreed with the CLA terms and conditions and I hereby sign the CLA')))
         uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.RDCORECLA_BOT }}
@@ -49,14 +75,20 @@ jobs:
           path-to-document: "https://github.com/rubberduck-vba/RDCore/blob/main/CLA.md"
           path-to-signatures: "signatures/v0.1a/cla-signatures.json"
           branch: "main"
-
-          # People who never need to sign (maintainers, bots). Add the rest of the core team.
           allowlist: "RubberduckAdmin,rubberduck-dev01,dependabot[bot],*[bot]"
-
           remote-organization-name: "rubberduck-vba"
           remote-repository-name: "RDCore-CLA"
-
-          custom-notsigned-prcomment: '> Merci de votre contribution ! Avant de pouvoir fusionner votre travail, veuillez s''il vous plaît lire notre **[Entente de Licence Contributeur (CLA)](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md)** puis la signer en répondant avec le texte exact du commentaire suivant sur cette _pull request_ :<br/><hr/><br/>Thank you for your contribution! In order for it to be merged, please read our **[Contributor License Agreement](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.md)** and sign it by replying with the following comment on this _pull request_:<br> >'
-
-          custom-pr-sign-comment: 'I have read and agreed with the CLA terms and conditions and I hereby sign the CLA'  
-          custom-allsigned-prcomment: '✅ Tous les contributeurs ont signé la CLA. Merci !<br/>✅ All contributors have signed the CLA. Thank you!<br/><hr/>V I V A T 🤝 C U C U M I S ™'
+          suggest-recheck: "false"
+          custom-pr-sign-comment: "I have read and agreed with the CLA terms and conditions and I hereby sign the CLA"
+          # the action adds the English phrase after this text, so the French request comes first here.
+          custom-notsigned-prcomment: >-
+            Merci de votre contribution! Avant qu'elle puisse être fusionnée, veuillez lire notre
+            **[Entente de licence de contributeur (CLA)](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.fr.md)**,
+            puis la signer en publiant ce commentaire, tel quel, sur cette demande de tirage (_pull request_) :<br/>
+            <br/>`Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente`<br/>
+            <br/>Pour relancer la vérification, commentez `recheck`.<br/><hr/>
+            Thank you for your contribution! Before it can be merged, please read our
+            **[Contributor License Agreement](https://github.com/rubberduck-vba/RDCore/blob/main/CLA.md)**.
+            To run the check again, comment `recheck`.
+            To sign, post this exact comment on this pull request:<br/>
+          custom-allsigned-prcomment: "✅ Tous les contributeurs ont signé la CLA. Merci!<br/>✅ All contributors have signed the CLA. Thank you!<br/><hr/>V I V A T 🤝 C U C U M I S ™"

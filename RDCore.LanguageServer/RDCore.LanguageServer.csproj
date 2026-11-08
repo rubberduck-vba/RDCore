@@ -7,10 +7,8 @@
     <Nullable>enable</Nullable>
     <StartupObject>RDCore.LanguageServer.Program</StartupObject>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <AssemblyTitle>RDCore.LanguageServer</AssemblyTitle>
-    <Authors>9562-7303 Québec inc.</Authors>
-    <Copyright>Copyright © 2026 9562-7303 Québec inc.</Copyright>
-    <Product>RDCore</Product>
+    <AssemblyTitle>RDCore Language Server</AssemblyTitle>
+    <Description>The RDCore language server: assembles the platform from its manifest, coordinates its processes, and serves the Language Server Protocol to editors.</Description>
     <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
   </PropertyGroup>
 

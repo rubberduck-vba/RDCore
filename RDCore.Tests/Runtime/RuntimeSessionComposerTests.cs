@@ -68,7 +68,7 @@ public sealed class RuntimeSessionComposerTests
 
         Assert.AreEqual(VBExecutionEngine.Compiled, profile.ExecutionEngine);
         Assert.AreEqual(VBBuildConfiguration.Release, profile.Configuration);
-        Assert.AreEqual(VBExecutionEngine.Interpreter, RuntimeEnvironmentProfile.Default.ExecutionEngine);
+        Assert.AreEqual(SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine, RuntimeEnvironmentProfile.Default.ExecutionEngine);
         Assert.AreEqual(VBBuildConfiguration.Debug, RuntimeEnvironmentProfile.Default.Configuration);
     }
 

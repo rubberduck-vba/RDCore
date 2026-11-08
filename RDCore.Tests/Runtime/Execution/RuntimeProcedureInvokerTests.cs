@@ -99,7 +99,7 @@ public sealed class RuntimeProcedureInvokerTests
         var assignments = new LetAssignmentEvaluator(letCoercion, operators, expressionEvaluator);
         var statements = new StatementRuntimeSemanticsProvider(expressionEvaluator, assignments, new SetCoercionRuntimeSemantics(formatter), print, new ConditionEvaluator(expressionEvaluator, letCoercion),
             new FileStatementRuntimeSemantics(expressionEvaluator, print, new WriteOutputEvaluator(expressionEvaluator), letCoercion, assignments, new InputListEvaluator(assignments)),
-            new FixedAssignmentRuntimeSemantics(expressionEvaluator, letCoercion, assignments),
+            new FixedAssignmentRuntimeSemantics(expressionEvaluator, letCoercion, assignments, new SetCoercionRuntimeSemantics(formatter)),
             new ArrayStatementRuntimeSemantics(expressionEvaluator, letCoercion, assignments),
             new MidStatementRuntimeSemantics(expressionEvaluator, letCoercion, assignments));
         var conditions = new ConditionEvaluator(expressionEvaluator, letCoercion);

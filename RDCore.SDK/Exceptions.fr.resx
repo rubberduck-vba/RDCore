@@ -267,6 +267,12 @@
   <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>L'objet sur lequel ce membre est accédé est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet pour porter le membre.</value>
   </data>
+  <data name="VBLSet_NoObjectAtAddress_Verbose" xml:space="preserve">
+    <value>LSet lit un champ objet dans des octets qui ne sont l'adresse d'aucun objet : le nombre qui s'y trouve n'est pas ce qu'ObjPtr a renvoyé pour un objet qui existe encore, ni 0 pour Nothing. Rien n'a été copié.</value>
+  </data>
+  <data name="VBLSet_ObjectOfAnotherClass_Verbose" xml:space="preserve">
+    <value>LSet donne à un champ objet l'objet d'une autre classe : un champ déclaré d'une classe ne contient qu'un objet de cette classe, ou d'une classe qui l'implémente, comme Set l'exigerait. Rien n'a été copié.</value>
+  </data>
   <data name="VBTypeOf_ObjectVariableNotSet_Verbose" xml:space="preserve">
     <value>Ce que TypeOf teste est Nothing : une variable objet qui n'a jamais été définie, ou qui a été définie à Nothing, n'a aucun objet dont le type pourrait être testé. Testez-la d'abord avec 'Is Nothing'.</value>
   </data>
@@ -771,6 +777,9 @@
   <data name="VBCompileError_ConstDirectiveExpression_Verbose" xml:space="preserve">
     <value>Attendu : expression. La valeur d&apos;une directive #Const est une expression constante de littéraux, de constantes de compilation conditionnelle et d&apos;opérateurs.</value>
   </data>
+  <data name="VBCompileError_ReservedParameterName_Verbose" xml:space="preserve">
+    <value>Attendu : identificateur. &apos;{0}&apos; est un mot réservé et ne peut pas nommer un paramètre.</value>
+  </data>
   <data name="VBCompileError_ReservedNameArguments_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; s&apos;écrit avec le(s) {1} argument(s) qu&apos;il prend, entre parenthèses.</value>
   </data>
@@ -923,6 +932,9 @@
   </data>
   <data name="VBCompileError_TooManyLineContinuations_Verbose" xml:space="preserve">
     <value>Trop de continuations de ligne : une ligne logique joint au plus 25 lignes physiques, avec 24 continuations de ligne.</value>
+  </data>
+  <data name="VBCompileError_BlockNotClosedInItsBranch_Verbose" xml:space="preserve">
+    <value>Un bloc ouvert dans une branche #If n'y est pas fermé.</value>
   </data>
   <data name="VBCompileError_HeaderInDeadBranchesOnly_Verbose" xml:space="preserve">
     <value>Chaque en-tête de cette procédure est dans une branche #If qui n'est pas compilée : cette instruction est donc hors de toute procédure.</value>

@@ -136,7 +136,7 @@ public static class OperationPlanner
 
     private static VBType? UnaryEffectiveType(string @operator, VBType operand) => @operator switch
     {
-        Tokens.NegationOp or Tokens.AdditionOp => UnaryArithmeticEffectiveType(operand),
+        Tokens.NegationOp => UnaryArithmeticEffectiveType(operand),
         Tokens.LogicalNotOp => NotEffectiveType(operand),
         _ => throw new NotSupportedException($"The unary operator '{@operator}' is not planned."),
     };
@@ -236,7 +236,7 @@ public static class OperationPlanner
             : null;
 
     // MS-VBAL 5.6.9.3.1: the negation of a Byte is an Integer, as a Byte has no negative values; anything else is its own type, as the table of the unary
-    // arithmetic operators has it. Unary '+' is RD-VBAL's, and has the same table: what it does to its operand is the conversion to it.
+    // arithmetic operators has it.
     private static VBType? UnaryArithmeticEffectiveType(VBType operand) => operand switch
     {
         VBByteType => VBIntegerType.TypeInfo,

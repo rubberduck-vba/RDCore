@@ -676,6 +676,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Reason_LateBound" xml:space="preserve">
     <value>a name resolved when it is evaluated: {0}</value>
   </data>
+  <data name="Compilation_Reason_New" xml:space="preserve">
+    <value>an object made with New: {0}</value>
+  </data>
   <data name="Compilation_Reason_VariantOperand" xml:space="preserve">
     <value>an operand of a Variant or an object: {0}</value>
   </data>

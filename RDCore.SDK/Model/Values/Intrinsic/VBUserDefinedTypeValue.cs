@@ -192,6 +192,124 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
     }
 
     /// <summary>
+    /// Let-assigns <paramref name="value"/> to the field at <paramref name="index"/> in declaration order, in place (MS-VBAL §5.4.3.8): a <c>ByRef</c>
+    /// parameter given the field (<see cref="GetFieldHandle"/>, MS-VBAL §5.3.1.11) reads the value assigned, and the field reads what the parameter is
+    /// assigned.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A field of a scalar type, and a field that holds an object, is written in its own cell, the cell a <c>ByRef</c> parameter given the field is bound
+    /// to. A field declared as a record is let <paramref name="value"/> field by field (<see cref="TryLetFrom"/>), and a fixed-size array field element by
+    /// element (<see cref="VBArrayValue.TryLetFrom"/>): the record holds its elements itself.
+    /// </para>
+    /// <para>
+    /// A field that holds a <c>Variant</c> or a resizable array is replaced by <paramref name="value"/>, as <see cref="TrySetFieldAt"/> replaces it. A
+    /// <c>ByRef</c> parameter given a <c>Variant</c> field is bound to the record and the field's position, so it reads the value that replaced it. A field
+    /// is replaced the same way when <paramref name="value"/> cannot be written where the field is: a value of another kind than the field holds, a record
+    /// that is not known, or a fixed-size array that is not known or has other bounds.
+    /// </para>
+    /// <para>
+    /// <paramref name="value"/> is of the field's declared type, which the assignment let-coerced it to, and shares no cell with anything else: a record or
+    /// an array in it becomes the field's own.
+    /// </para>
+    /// </remarks>
+    /// <param name="index">The field's position in declaration order.</param>
+    /// <param name="value">The value to assign, of the field's declared type.</param>
+    /// <returns><see langword="false"/> when there is no field at <paramref name="index"/>.</returns>
+    public bool TryLetFieldAt(int index, VBTypedValue value)
+    {
+        if (index < 0 || index >= _fields.Length)
+        {
+            return false;
+        }
+
+        switch (_fields[index])
+        {
+            case { Handle: IKnowledgeBinding cell } held when IsWrittenInItsCell(held, value):
+                cell.Store(value.RuntimeValue, isKnown: !value.IsIndeterminate);
+                return true;
+            case VBUserDefinedTypeValue nested when value is VBUserDefinedTypeValue { IsIndeterminate: false } record && nested.TryLetFrom(record):
+                return true;
+            case VBFixedSizeArrayValue elements when value is VBFixedSizeArrayValue { IsIndeterminate: false } array && elements.TryLetFrom(array):
+                return true;
+            default:
+                _fields[index] = value;
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Let-assigns <paramref name="source"/> to this record in place (MS-VBAL §5.4.3.8), each field from the same field of <paramref name="source"/>
+    /// (<see cref="TryLetFieldAt"/>): a <c>ByRef</c> parameter given a field of this record (MS-VBAL §5.3.1.11) reads the value assigned.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="source"/> is the copy the assignment made (<see cref="DataCopy"/>), which shares no cell with anything else: a value of it that
+    /// replaces a field (an object, a <c>Variant</c> or a resizable array) becomes this record's own.
+    /// </remarks>
+    /// <param name="source">The record assigned, of this record's type.</param>
+    /// <returns><see langword="false"/> when <paramref name="source"/> is of another type, and nothing is written.</returns>
+    public bool TryLetFrom(VBUserDefinedTypeValue source)
+    {
+        if (!Equals(TypeInfo, source.TypeInfo) || source._fields.Length != _fields.Length)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < _fields.Length; index++)
+        {
+            _ = TryLetFieldAt(index, source._fields[index]);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resets the field at <paramref name="index"/> in declaration order to the default value of its declared type, as a new record holds it. The field
+    /// is written in place wherever <see cref="TryLetFieldAt"/> writes in place.
+    /// </summary>
+    /// <remarks>
+    /// A field declared as a record has each of its own fields reset, and a fixed-size array field each of its elements
+    /// (<see cref="VBArrayValue.ResetElements"/>), which keeps its bounds. Any other field is let a copy of the type's default value, in a cell of its own:
+    /// the default value of a type is one value every caller shares, and a field that held it would share its cell with every other.
+    /// </remarks>
+    /// <param name="index">The field's position in declaration order.</param>
+    /// <returns><see langword="false"/> when there is no field at <paramref name="index"/>.</returns>
+    public bool TryResetFieldAt(int index)
+    {
+        if (index < 0 || index >= _fields.Length)
+        {
+            return false;
+        }
+
+        switch (_fields[index])
+        {
+            case VBUserDefinedTypeValue nested:
+                for (var field = 0; field < nested._fields.Length; field++)
+                {
+                    _ = nested.TryResetFieldAt(field);
+                }
+
+                return true;
+            case VBFixedSizeArrayValue elements:
+                elements.ResetElements();
+                return true;
+            default:
+                return TryLetFieldAt(index, DataValues.Copy(Fields[index].ResolvedType?.DefaultValue ?? VBEmptyValue.Empty));
+        }
+    }
+
+    // a field of a scalar type is written where it is, and so is a field that holds an object, given an object: the cell of each is the one a ByRef parameter
+    // given the field is bound to. A field of another kind is replaced, as a value of another type would have to be. The test for the one Nothing every
+    // caller shares is defensive: a field starts in a cell of its own (Fresh), and a write that puts the shared one there would make every Nothing in the
+    // session what the next write to the field holds.
+    private static bool IsWrittenInItsCell(VBTypedValue held, VBTypedValue value) => held switch
+    {
+        VBObjectValue => value is VBObjectValue && !ReferenceEquals(held.Handle, VBObjectValue.Nothing.Handle),
+        VBVariantValue or VBArrayValue or VBUserDefinedTypeValue => false,
+        _ => held.GetType() == value.GetType() && Equals(held.TypeInfo, value.TypeInfo),
+    };
+
+    /// <summary>
     /// The binding of the field named <paramref name="name"/>, or <c>null</c> when there is no such field.
     /// </summary>
     /// <remarks>
@@ -205,9 +323,11 @@ public record class VBUserDefinedTypeValue : VBTypedValue,
 
     /// <summary>
     /// Reserves storage sized for this UDT through <paramref name="storage"/>, and returns a copy of
-    /// this value bound to the resulting address — a UDT's identity <em>is</em> its address, so the
-    /// allocated copy self-reports the very address it was allocated at.
+    /// this value bound to the resulting address. A UDT's identity is its address, so the allocated
+    /// copy reports the address it was allocated at.
     /// </summary>
+    /// <param name="storage">The session storage the record is given an address in.</param>
+    /// <param name="allocated">The copy of this record bound to its address; <c>null</c> when none was reserved.</param>
     /// <returns><c>false</c> if the underlying memory space is exhausted.</returns>
     public bool TryAllocateIn(ISessionStorage storage, [NotNullWhen(true)] out VBUserDefinedTypeValue? allocated)
     {

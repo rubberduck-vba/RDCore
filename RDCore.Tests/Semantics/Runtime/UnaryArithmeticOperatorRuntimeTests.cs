@@ -14,7 +14,6 @@ namespace RDCore.Tests.Semantics.Runtime;
 public sealed class UnaryArithmeticOperatorRuntimeTests : OperatorArithmeticRuntimeSemanticsTests
 {
     private UnaryNegationOperatorRuntimeSemantics Neg() => new(FakeProvider(), Formatter());
-    private UnaryPlusOperatorRuntimeSemantics Plus() => new(FakeProvider(), Formatter());
 
     [TestMethod]
     [TestCategory("MS-VBAL 5.6.9.3.1 Unary '-' Operator")]
@@ -67,37 +66,6 @@ public sealed class UnaryArithmeticOperatorRuntimeTests : OperatorArithmeticRunt
     {
         // a Variant holding Null used to reach the Null effective type and fall out of it as an internal error.
         var result = Evaluate(Neg(), new VBVariantValue(VBNullValue.Null));
-        Assert.IsNull(result.ErrorInfo);
-        Assert.IsInstanceOfType<VBNullValue>(result.Result);
-    }
-
-    [TestMethod]
-    [TestCategory("RD-VBAL 5.6.9.3.1.1 Unary '+' Operator")]
-    public void Plus_Long_IsIdentity()
-        => AssertResult<VBLongValue>(
-            Evaluate(Plus(), new VBLongValue(5)), 5);
-
-    [TestMethod]
-    [TestCategory("RD-VBAL 5.6.9.3.1.1 Unary '+' Operator")]
-    public void Plus_Double_IsIdentity()
-        => AssertResult<VBDoubleValue>(
-            Evaluate(Plus(), new VBDoubleValue(-2.5)), -2.5d);
-
-    [TestMethod]
-    [TestCategory("RD-VBAL 5.6.9.3.1.1 Unary '+' Operator")]
-    public void Plus_Null_IsNull()
-    {
-        var result = Evaluate(Plus(), VBNullValue.Null);
-        Assert.IsNull(result.ErrorInfo);
-        Assert.IsInstanceOfType<VBNullValue>(result.Result);
-    }
-
-    [TestMethod]
-    [TestCategory("RD-VBAL 5.6.9.3.1.1 Unary '+' Operator")]
-    public void Plus_VariantHoldingNull_IsNull()
-    {
-        // a Variant holding Null used to reach the Null effective type and fall out of it as an internal error.
-        var result = Evaluate(Plus(), new VBVariantValue(VBNullValue.Null));
         Assert.IsNull(result.ErrorInfo);
         Assert.IsInstanceOfType<VBNullValue>(result.Result);
     }
