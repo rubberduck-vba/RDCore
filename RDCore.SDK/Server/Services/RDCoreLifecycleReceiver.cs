@@ -32,6 +32,9 @@ namespace RDCore.SDK.Server.Services;
 /// It also keeps the <c>locale</c> of the <c>initialize</c> request (<see cref="InitializeLocale"/>), which OmniSharp reads the request without.
 /// </para>
 /// </remarks>
+/// <param name="logger">Logs each request the receiver rejects, and each notification it drops, before the server is initialized.</param>
+/// <param name="arrivals">Handles the marked requests as they arrive; <see langword="null"/> when none are, and every request is scheduled.</param>
+/// <param name="initializeLocale">Keeps the <c>locale</c> of the <c>initialize</c> request; <see langword="null"/> when it is not kept.</param>
 internal sealed class RDCoreLifecycleReceiver(ILogger<RDCoreLifecycleReceiver> logger, ArrivalRequests? arrivals = null, InitializeLocale? initializeLocale = null) : Receiver
 {
     public override (IEnumerable<Renor> results, bool hasResponse) GetRequests(JToken container)
