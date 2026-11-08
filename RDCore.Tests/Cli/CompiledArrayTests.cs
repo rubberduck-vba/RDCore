@@ -100,7 +100,7 @@ public sealed class CompiledArrayTests
             "End Function"), "Grid", recoveries: 0);
 
     // a subscript outside its dimension is error 9, raised by the interpreter at the statement, which Resume Next goes past: a read and a write each
-    // recovered once at each end of the array - and Err.Number and Err.Clear, the interpreter's, at each of the 7 times round.
+    // recovered once at each end of the array - and Err.Number, the interpreter's, at each of the 7 times round; Err.Clear is a support call.
     [TestMethod]
     public async Task ASubscriptOutOfRange_UnderResumeNext_IsGonePast()
         => await AssertAlikeAsync(Program(
@@ -117,7 +117,7 @@ public sealed class CompiledArrayTests
             "        Ranged = Ranged + Err.Number",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Ranged", recoveries: 4 + 7 * 2);
+            "End Function"), "Ranged", recoveries: 4 + 7);
 
     // a subscript outside its dimension with no handler: error 9, at the statement, with the stack the interpreter gives it - in the middle of the loop,
     // after the 6 Debug.Print the interpreter ran.
@@ -157,7 +157,8 @@ public sealed class CompiledArrayTests
             "    Based = Based + Err.Number * 100000",
             "End Function"), "Based", recoveries: 1 + 1);
 
-    // LBound and UBound of a dimension the array doesn't have, 0 and 3: error 9, the interpreter's - as Err.Number and Err.Clear are, 4 times round.
+    // LBound and UBound of a dimension the array doesn't have, 0 and 3: error 9, the interpreter's - as Err.Number is, 4 times round; Err.Clear is a
+    // support call.
     [TestMethod]
     public async Task ABoundOfADimensionTheArrayHasNot_IsTheInterpretersError()
         => await AssertAlikeAsync(Program(
@@ -173,7 +174,7 @@ public sealed class CompiledArrayTests
             "        Bounded = Bounded + Err.Number * 1000",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Bounded", recoveries: 2 + 4 * 2);
+            "End Function"), "Bounded", recoveries: 2 + 4);
 
     // a ReDim Preserve inside a loop over the array grows it as the loop goes: compiled code finds each element in the array the cell holds after it.
     [TestMethod]
@@ -202,7 +203,7 @@ public sealed class CompiledArrayTests
             "End Function"), "Grown", recoveries: 0);
 
     // an element of an array Erase emptied, and a ReDim to bounds the program can't have, and UBound of the array it left
-    // erased: the interpreter's errors, given to the handler - and the two Err.Number and two Err.Clear.
+    // erased: the interpreter's errors, given to the handler - and the two Err.Number. The two Err.Clear are support calls.
     [TestMethod]
     public async Task AnErasedArray_AndAReDimThatFails_AreTheInterpretersErrors()
         => await AssertAlikeAsync(Program(
@@ -224,7 +225,7 @@ public sealed class CompiledArrayTests
             "    Emptied = Emptied * 100 + Err.Number",
             "    Err.Clear",
             "    Emptied = Emptied * 100 + UBound(V)",
-            "End Function"), "Emptied", recoveries: 3 + 4);
+            "End Function"), "Emptied", recoveries: 3 + 2);
 
     // an array passed by reference whole - to a callee compiled code runs, which writes its elements, and to one the interpreter runs, whose loop counts
     // with a parameter passed by reference - and an element passed by reference, which the interpreter passes: what each callee writes is in the caller's
@@ -399,8 +400,9 @@ public sealed class CompiledArrayTests
             "End Function"), "Assigned", recoveries: 1 + 3);
 
     // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
-    // the interpreter's to read - and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 6 statements
-    // the interpreter runs (the String, Len, the Set, the member, the prints).
+    // the interpreter's to read - and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 5 statements
+    // the interpreter runs (the String, Len, the member, the prints). The Set of an element to a New object is a support call the interpreter runs, no
+    // recovery.
     [TestMethod]
     public async Task AnElementOfAVariantArray_IsReadAndWrittenInItsVariantsCell()
         => await AssertAlikeAsync(Program(
@@ -427,12 +429,12 @@ public sealed class CompiledArrayTests
             "    V(2) = 4",
             "    Debug.Print \"let go\"",
             "    Mixed = Mixed + V(2)",
-            "End Function"), "Mixed", recoveries: 6 + 1, classes: Noisy);
+            "End Function"), "Mixed", recoveries: 5 + 1, classes: Noisy);
 
     // an element of an array of objects compared with Nothing and with another, and tested with TypeOf, in compiled code: an element no object was ever Set
-    // to holds Nothing. Each Set of an element is the interpreter's, and so is the Set of O to one; the Set of O to Nothing, which lets go of no last
-    // reference, is compiled. The object two elements held is let go of at the second Set of an element to Nothing, which prints there: the 9 statements the
-    // interpreter runs are those Sets, the member and the prints, none of the loop.
+    // to holds Nothing. Each Set of an element, and the Set of O to one, is a support call the interpreter runs, no recovery; the Set of O to Nothing, which
+    // lets go of no last reference, is compiled. The object two elements held is let go of at the second Set of an element to Nothing, which prints there:
+    // the 4 statements the interpreter runs are the member and the prints, none of the loop.
     [TestMethod]
     public async Task AnElementOfAnObjectArray_IsComparedInCompiledCode_AndLetGoOfWhereTheInterpreterSetsIt()
         => await AssertAlikeAsync(Program(
@@ -462,5 +464,5 @@ public sealed class CompiledArrayTests
             "    Held = Held + (A(1) Is Nothing) + (A(2) Is Nothing)",
             "    Set A(2) = Nothing",
             "    Debug.Print \"after\"",
-            "End Function"), "Held", recoveries: 9, classes: Noisy);
+            "End Function"), "Held", recoveries: 4, classes: Noisy);
 }

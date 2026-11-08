@@ -6,17 +6,27 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Semantics.Binding;
+using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.Compiled;
 
 // what compiled code does of a Set statement.
 internal sealed partial class ProcedureAnalysis
 {
-    // MS-VBAL §5.4.3.9, as ExecuteSetAssignment assigns: an object variable of the activation - neither Me nor a parameter passed by reference, whose cell is
-    // its caller's - or an object field it reaches, or the function result variable of a function returning an object, given an object variable or field,
-    // Me, or Nothing. What it is given is Set-coerced to the declared type of what it is assigned to, at run time (CompiledActivation.TrySet). A WithEvents
-    // variable has its handlers detached and attached again by the Set, which is the interpreter's, as is any other Set.
-    private CompiledStep? AnalyzeSet(int offset, AssignmentStatementNode assignment)
+    // MS-VBAL §5.4.3.9: a Set compiled code assigns (SetStep), or else the interpreter's statement, run as a support call (SupportCallStep) - what is
+    // given is a call, a member of an object, New, or anything else the interpreter evaluates, or what is assigned is a WithEvents variable, a parameter
+    // passed by reference, or anything else the interpreter assigns.
+    private CompiledStep? AnalyzeSet(Instruction instruction, AssignmentStatementNode assignment)
+    {
+        var mark = _reasons.Count;
+        return SetOf(instruction.Offset, assignment) is { } set ? set : SupportCallOf(instruction, mark);
+    }
+
+    // a Set compiled code assigns, as ExecuteSetAssignment assigns: an object variable of the activation - neither Me nor a parameter passed by reference,
+    // whose cell is its caller's - or an object field it reaches, or the function result variable of a function returning an object, given an object
+    // variable or field, Me, or Nothing. What it is given is Set-coerced to the declared type of what it is assigned to, at run time
+    // (CompiledActivation.TrySet). A WithEvents variable has its handlers detached and attached again by the Set, which is the interpreter's.
+    private SetStep? SetOf(int offset, AssignmentStatementNode assignment)
     {
         if (assignment.Target is not SimpleNameExpressionNode name)
         {

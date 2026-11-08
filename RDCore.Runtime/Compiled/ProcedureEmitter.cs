@@ -509,6 +509,10 @@ internal sealed partial class ProcedureEmitter
                 EmitTextLet(textLet);
                 break;
 
+            case SupportCallStep support:
+                EmitSupportCall(support);
+                break;
+
             case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
                 EmitArrayStep(step);
                 break;
@@ -731,9 +735,10 @@ internal sealed partial class ProcedureEmitter
 
         // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
-        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has.
+        // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has. A member given an object is called
+        // through its binding, which gives the object to its parameter as the interpreter gives it.
         var direct = _directs[call.Callee];
-        if (direct is not null || call.Receiver is not null)
+        if (direct is not null || call.Receiver is not null && _analysis.Callees[call.Callee].ObjectParameters.Count == 0)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -812,6 +817,35 @@ internal sealed partial class ProcedureEmitter
             {
                 _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetText))!);
+                continue;
+            }
+
+            // an object: the object a slot holds, or Nothing, Set-coerced to the parameter's type; or the address of the variable given by reference. One
+            // compiled code can't give is the interpreter's, which makes the call.
+            if (call.Arguments[i] is ObjectArgumentNode given)
+            {
+                _il.Emit(OpCodes.Ldc_I4, call.Callee);
+                if (given.Slot is { } held)
+                {
+                    _il.Emit(OpCodes.Ldloc, _objects[held]);
+                    _il.Emit(OpCodes.Ldc_I4_0);
+                }
+                else
+                {
+                    _il.Emit(OpCodes.Ldnull);
+                    _il.Emit(OpCodes.Ldc_I4_1);
+                }
+
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObject))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                continue;
+            }
+
+            if (call.Arguments[i] is ObjectReferenceNode variable)
+            {
+                _il.Emit(OpCodes.Ldc_I4, variable.Slot);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObjectReference))!);
+                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
                 continue;
             }
 
@@ -1508,6 +1542,10 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, _texts[reference.Slot]);
                 _il.Emit(OpCodes.Brfalse, failure);
                 return new Operand(_texts[reference.Slot], 0, 0);
+
+            // an object is read from its cell, or given its address, as the call is made (CompiledActivation.SetObject, SetObjectReference).
+            case ObjectArgumentNode or ObjectReferenceNode:
+                return default;
             default:
                 return EmitPayload(node, failure);
         }

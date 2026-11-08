@@ -248,6 +248,19 @@ internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(defa
 // the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
+// the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
+// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none. Only an argument of a call;
+// its Kind is not read.
+internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default(ScalarKind));
+
+// the argument of an object parameter passed by reference that is an object variable of the activation of the parameter's very type (MS-VBAL §5.3.1.11):
+// the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
+internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
+
+// an object parameter of a procedure a compiled body calls: the argument's expression, where an error Set-coercing what it gives is raised, and the
+// parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to.
+internal sealed record class ObjectParameter(SDK.Model.AST.Abstract.ExpressionNode Argument, SDK.Model.Types.Abstract.VBType Type);
+
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
 
@@ -340,7 +353,8 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
 /// <param name="Procedure">The procedure, as the call was bound to it.</param>
 /// <param name="Parameters">
 /// The kind of each parameter, a scalar; <see langword="null"/> for a <c>String</c>, whose argument is its text or its cell
-/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>).
+/// (<see cref="TextArgumentNode"/>, <see cref="TextReferenceNode"/>), and for an object, whose argument is the object or the variable's address
+/// (<see cref="ObjectArgumentNode"/>, <see cref="ObjectReferenceNode"/>).
 /// </param>
 /// <param name="Result">The kind of what it returns; <see langword="null"/> for a <c>Sub</c>, or a call whose result is not read.</param>
 /// <param name="ByReference">Whether each parameter is passed by reference: its argument is then a cell (<see cref="ReferenceNode"/>, <see cref="TemporaryNode"/>).</param>
@@ -349,7 +363,7 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 {
     /// <summary>
     /// Whether the call is made with the arguments as the interpreter gives them (<c>RuntimeProcedureInvoker.Invoke</c>): any parameter is passed by
-    /// reference, or is a <c>String</c>.
+    /// reference, or is a <c>String</c> or an object.
     /// </summary>
     public bool TakesReferences { get; } = ByReference.Contains(true) || Parameters.Contains(null);
 
@@ -366,6 +380,12 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>), as the interpreter begins and ends it.
     /// </summary>
     public bool HoldsWhatItReturns { get; init; }
+
+    /// <summary>
+    /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.
+    /// Empty when the call has no object parameter.
+    /// </summary>
+    public IReadOnlyList<ObjectParameter?> ObjectParameters { get; init; } = [];
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;

@@ -571,14 +571,16 @@ internal sealed partial class ProcedureAnalysis
                 return AnalyzeLet(instruction.Offset, assignment);
 
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.Set } set:
-                return AnalyzeSet(instruction.Offset, set);
+                return AnalyzeSet(instruction, set);
 
+            // a call statement compiled code does not make is the interpreter's, run as a support call (SupportCallOf).
             case InstructionKind.Simple when instruction.Node is CallStatementNode call:
+                var mark = _reasons.Count;
                 return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments)) switch
                 {
                     BoundCall bound when CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made => made,
                     BoundMember member when MemberCallOf(member, CallStep.NoResult, instruction.Offset, resultKind: null) is { } madeOn => madeOn,
-                    _ => RefusedCall(call.Callee, location),
+                    _ => SupportCallOf(instruction, mark) ?? RefusedCall(call.Callee, location),
                 };
 
             case InstructionKind.Simple when ArrayStatementOf(instruction) is { } arrayStatement:
@@ -842,8 +844,26 @@ internal sealed partial class ProcedureAnalysis
         var byReference = new List<bool>(parameters.Length);
         var values = new List<PayloadNode>(parameters.Length);
         var escaping = new List<int>();
+        ObjectParameter?[]? objects = null;
         for (var i = 0; i < parameters.Length; i++)
         {
+            // an object, given the object a variable holds, Me or Nothing, or the address of an object variable of the activation. A call given an object is
+            // never made through a direct entry: the invoker or the member's binding gives the object to the parameter, as the interpreter gives it
+            // (CompiledActivation.SetObject), and counts it for as long as the callee runs.
+            if (parameters[i] is not ParamArrayParameterSymbol && IsObjectType(parameters[i].ResolvedType))
+            {
+                if (ObjectArgumentOf(arguments[i]) is not { } passed)
+                {
+                    return null;
+                }
+
+                (objects ??= new ObjectParameter?[parameters.Length])[i] = new ObjectParameter(arguments[i].Expression!, parameters[i].ResolvedType);
+                kinds.Add(null);
+                byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
+                values.Add(passed);
+                continue;
+            }
+
             // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
             if (parameters[i] is not ParamArrayParameterSymbol && site is null && IsText(parameters[i].ResolvedType))
             {
@@ -880,6 +900,7 @@ internal sealed partial class ProcedureAnalysis
             CallLocation = at,
             AssignsResult = assigns,
             HoldsWhatItReturns = assigns || resultKind is null && procedure is VBFunctionMemberSymbol { ResolvedType: VBVariantType },
+            ObjectParameters = objects ?? [],
         });
         return new CallStep(offset, Callees.Count - 1, values, result, receiver);
     }

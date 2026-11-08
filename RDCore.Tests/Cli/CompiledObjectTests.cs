@@ -5,8 +5,9 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// An object parameter or variable, compiled: held in the cell its frame holds it in, whose reference compiled code reads for <c>Is</c>
-/// (MS-VBAL §5.6.9.7) and <c>TypeOf</c> (MS-VBAL §5.6.7), as the interpreter compares and tests it. A <c>Set</c> is the interpreter's, and compiled code finds
-/// the cell again after it. A program runs the same either way.
+/// (MS-VBAL §5.6.9.7) and <c>TypeOf</c> (MS-VBAL §5.6.7), as the interpreter compares and tests it. A <c>Set</c> of an object variable to another, to
+/// <c>Me</c> or to <c>Nothing</c> is compiled code's; any other is a support call the interpreter runs, and compiled code finds the cell again after it. A
+/// program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledObjectTests
@@ -19,7 +20,8 @@ public sealed class CompiledObjectTests
 
     // each answer a row gives is a bit of the number it prints, in the order they are given: any wrong answer is another number.
 
-    // an object variable compared with Nothing in a loop: the Set that makes it something is the interpreter's, and compiled code reads the reference it stores.
+    // an object variable compared with Nothing in a loop: the Set that makes it something is a support call the interpreter runs, no recovery, and compiled
+    // code reads the reference it stores.
     [TestMethod]
     public async Task AnObjectComparedWithNothing_IsComparedInCompiledCode()
         => await AssertAlikeAsync(Program(
@@ -33,10 +35,10 @@ public sealed class CompiledObjectTests
             "        If T Is Nothing Then Counted = Counted * 2 + 1 Else Counted = Counted * 2",
             "        If I = 3 Then Set T = New Thing",
             "    Next",
-            "End Function"), "Counted", recoveries: 1, classes: Things);
+            "End Function"), "Counted", recoveries: 0, classes: Things);
 
     // two references to one object are the same; Nothing is Nothing; a reference compared with the variable it was copied from, after either is Set again -
-    // by compiled code, to the other, or by the interpreter, to a New one.
+    // by compiled code, to the other, or by the interpreter, to a New one, in a support call: no recovery.
     [TestMethod]
     public async Task TwoObjectVariables_AreTheSame_WhenTheyReferToOneObject()
         => await AssertAlikeAsync(Program(
@@ -53,7 +55,7 @@ public sealed class CompiledObjectTests
             "        If I = 3 Then Set B = A",
             "        If I = 5 Then Set B = New Thing",
             "    Next",
-            "End Function"), "Compared", recoveries: 2, classes: Things);
+            "End Function"), "Compared", recoveries: 0, classes: Things);
 
     // Nothing on the left, in parentheses, under Not, and of an Object variable; Nothing Is Nothing.
     [TestMethod]
@@ -73,7 +75,7 @@ public sealed class CompiledObjectTests
             "        If I = 2 Then Set O = New Other",
             "    Next",
             "    Sides = CStr(N)",
-            "End Function"), "Sides", recoveries: 2, classes: Things);
+            "End Function"), "Sides", recoveries: 1, classes: Things);
 
     // an Is of an operand declared Object is planned when it is evaluated, but is a Boolean all the same: a selector compiled code compares.
     [TestMethod]
@@ -94,7 +96,7 @@ public sealed class CompiledObjectTests
             "        End Select",
             "        If I = 2 Then Set O = New Thing",
             "    Next",
-            "End Function"), "Selected", recoveries: 1, classes: Things);
+            "End Function"), "Selected", recoveries: 0, classes: Things);
 
     // TypeOf tests the class of the object a variable refers to, of a variable declared As Object, against a class it is and one it is not.
     [TestMethod]
@@ -111,11 +113,11 @@ public sealed class CompiledObjectTests
             "        If TypeOf O Is Thing Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
             "        If TypeOf O Is Other Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
             "    Next",
-            "End Function"), "Tested", recoveries: 6, classes: Things);
+            "End Function"), "Tested", recoveries: 0, classes: Things);
 
     // TypeOf tests an interface too (MS-VBAL §5.6.7): an object of a class that implements it is of it, one of a class that does not is not; and so is the
-    // object a variable declared as the interface refers to. The interpreter runs each Set: the one before the loop and the one of each of 4 passes, 5; every
-    // TypeOf is compiled.
+    // object a variable declared as the interface refers to. Each Set, to a New object, is a support call the interpreter runs, no recovery; every TypeOf is
+    // compiled.
     [TestMethod]
     public async Task TypeOf_TestsAnInterfaceTheClassImplements()
         => await AssertAlikeAsync(Program(
@@ -133,7 +135,7 @@ public sealed class CompiledObjectTests
             "        If TypeOf O Is Square Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
             "        If TypeOf S Is IShape Then Tested = Tested * 2 + 1 Else Tested = Tested * 2",
             "    Next",
-            "End Function"), "Tested", recoveries: 5, classes:
+            "End Function"), "Tested", recoveries: 0, classes:
             [
                 .. Things,
                 ("IShape", ModuleWorkspace.ClassModule("IShape", "Option Explicit", "Public Function Area() As Long", "End Function")),
@@ -142,9 +144,9 @@ public sealed class CompiledObjectTests
             ]);
 
     // an object let go of runs its Class_Terminate where the interpreter lets go of it - at the Set that drops its last reference, and at the end of the
-    // procedure - and the Is compared after each sees what is left. The interpreter runs the Set of A to a New object and the assignment of its field at
-    // the 2 passes that make one, the Debug.Print at each of 4 passes, the Set of B that drops the last reference at the 2 others, and the Set of B after the
-    // loop: 2 * 2 + 4 + 2 + 1 = 11. Every Is is compiled, and so is every other Set.
+    // procedure - and the Is compared after each sees what is left. The interpreter steps the assignment of A's field at the 2 passes that make one, the
+    // Debug.Print at each of 4 passes, and the Set of B that drops the last reference at the 2 others: 2 + 4 + 2 = 8. The Sets to a New object, of A in the
+    // loop and of B after it, are support calls, no recovery. Every Is is compiled, and so is every other Set.
     [TestMethod]
     public async Task ClassTerminate_RunsWhereTheLastReferenceGoes_AroundIsComparedInCompiledCode()
         => await AssertAlikeAsync(Program(
@@ -165,10 +167,11 @@ public sealed class CompiledObjectTests
             "    Next",
             "    Set B = New Noisy",
             "    If A Is B Then Watched = Watched * 2 + 1 Else Watched = Watched * 2",
-            "End Function"), "Watched", recoveries: 11, classes:
+            "End Function"), "Watched", recoveries: 8, classes:
             [("Noisy", ModuleWorkspace.ClassModule("Noisy", "Option Explicit", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"gone\"; Id", "End Sub"))]);
 
-    // TypeOf of Nothing raises error 91 (MS-VBAL §5.6.7), which the interpreter raises, and the handler is given.
+    // TypeOf of Nothing raises error 91 (MS-VBAL §5.6.7), which the interpreter raises, and the handler is given. Err.Number is stepped, and
+    // Err.Clear is a support call.
     [TestMethod]
     public async Task TypeOfNothing_IsRaisedByTheInterpreter_ToTheHandler()
         => await AssertAlikeAsync(Program(
@@ -184,7 +187,7 @@ public sealed class CompiledObjectTests
             "        Raised = Raised + Err.Number",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Raised", recoveries: 9, classes: Things);
+            "End Function"), "Raised", recoveries: 6, classes: Things);
 
     // an object parameter passed by reference is its caller's variable: compared where the caller's cell is, after the callee Sets it.
     [TestMethod]
@@ -200,7 +203,7 @@ public sealed class CompiledObjectTests
             "        If T Is Nothing Then Made = Made * 2 + 1 Else Made = Made * 2",
             "        If I = 2 Then Set T = New Thing",
             "    Next",
-            "End Function"), "Made", recoveries: 1, classes: Things);
+            "End Function"), "Made", recoveries: 0, classes: Things);
 
     // a variable declared As New is made when it is read (MS-VBAL §5.2.3.1.4): its Is Nothing is the interpreter's, which makes it, and so is never True.
     [TestMethod]
@@ -216,7 +219,7 @@ public sealed class CompiledObjectTests
             "        If T Is Nothing Then Made = Made + 1 Else Made = Made + 10",
             "        Set T = Nothing",
             "    Next",
-            "End Function"), "Made", recoveries: 6, classes: Things);
+            "End Function"), "Made", recoveries: 3, classes: Things);
 
     // a Variant that holds an object is compared by the interpreter: it is no object variable.
     [TestMethod]
@@ -235,5 +238,5 @@ public sealed class CompiledObjectTests
             "        If I = 2 Then Set V = T",
             "        If V Is T Then Held = Held + 1",
             "    Next",
-            "End Function"), "Held", recoveries: 6, classes: Things);
+            "End Function"), "Held", recoveries: 3, classes: Things);
 }
