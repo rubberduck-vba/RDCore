@@ -246,6 +246,13 @@ public sealed class ForLoopEvaluator(
         var compared = operators.EvaluateBinaryOperator(session,
             state.CountsDown ? Tokens.CompareLessThanOp : Tokens.CompareGreaterThanOp,
             state.ControlExpression, counter, state.End, ConversionSite.LoopBound);
+
+        // the comparison of a Variant counter is declared Variant (MS-VBAL 5.6.9.5), and holds the Boolean the loop is decided by.
+        if (compared is { IsSuccess: true, Result: VBVariantValue { TypedValue: VBBooleanValue held } })
+        {
+            return RuntimeSemanticsEvaluationResult.Success(held);
+        }
+
         if (!compared.IsSuccess || compared.Result is VBBooleanValue)
         {
             return compared;
