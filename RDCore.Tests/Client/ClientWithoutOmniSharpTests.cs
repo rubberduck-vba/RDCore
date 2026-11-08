@@ -558,9 +558,9 @@ public sealed class ClientWithoutOmniSharpTests
             var paused = await rpc.RequestAsync(id++, RDCorePlatformProtocol.SessionDebugPause, new JsonObject());
             Assert.IsNull(paused["error"], $"{paused.ToJsonString()}\n{LogOf(platform.Root)}");
             acted = paused["result"]!["acted"]!.GetValue<bool>();
-            if (!acted)
+            if (!acted && running.IsCompleted)
             {
-                Assert.IsFalse(running.IsCompleted, $"{(running.IsCompleted ? running.Result.ToJsonString() : null)}\n{LogOf(platform.Root)}");
+                Assert.Fail($"{(await running).ToJsonString()}\n{LogOf(platform.Root)}");
             }
         }
         while (!acted);
