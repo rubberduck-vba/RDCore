@@ -13,6 +13,7 @@ namespace RDCore.SDK.Model.Values.Runtime;
 /// structural) equality — which itself reads through this same boxed value — recursing forever. A
 /// plain class's default (reference) equality breaks that cycle.
 /// </remarks>
+/// <param name="array">The wrapped array.</param>
 public sealed class VBRuntimeArrayValue(VBArrayValue array)
 {
     /// <summary>

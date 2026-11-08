@@ -13,6 +13,7 @@ namespace RDCore.SDK.Model.Types;
 /// <remarks>
 /// The <em>managed type</em> of a value of this data type is <c>object[]</c>.
 /// </remarks>
+/// <param name="ItemType">The data type of the elements of the array.</param>
 public abstract record class VBArrayType(VBType ItemType) :
     VBIntrinsicType<object[]>(VBTypeNames.VBArray), IEnumerableType
 {
