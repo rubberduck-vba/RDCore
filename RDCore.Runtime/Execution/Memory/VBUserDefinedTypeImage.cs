@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
@@ -6,9 +7,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
-#pragma warning disable IDE0130 // Namespace does not match folder structure
-namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
+namespace RDCore.Runtime.Execution.Memory;
 
 /// <summary>
 /// The bytes a <see cref="VBUserDefinedTypeValue"/> occupies in memory, laid out by

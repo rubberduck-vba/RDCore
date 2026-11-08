@@ -1,6 +1,4 @@
-#pragma warning disable IDE0130 // Namespace does not match folder structure
-namespace RDCore.SDK.Model.Types;
-#pragma warning restore IDE0130 // Namespace does not match folder structure
+namespace RDCore.Runtime.Execution.Memory;
 
 /// <summary>
 /// What a copy of a record as bytes (<see cref="VBUserDefinedTypeImage.Copy"/>, <c>LSet</c>, <strong>MS-VBAL §5.4.3.6</strong>) did: copied it, or wrote
