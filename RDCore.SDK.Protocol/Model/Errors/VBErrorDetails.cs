@@ -15,11 +15,28 @@ namespace RDCore.SDK.Model.Errors;
 /// <para>
 /// They are recorded only when an error is raised, never on the path of an evaluation that succeeds.
 /// </para>
+/// <para>
+/// The snapshot of the frames is bounded: at most <see cref="MaxFrames"/> frames are recorded, the innermost ones, and <see cref="FramesTruncated"/> says
+/// whether the operation had more. An error raised deep in a recursion carries no more than that bound, on the wire or anywhere else.
+/// </para>
 /// </remarks>
 /// <param name="Message">What the runtime says of the error, beyond its description: why the operation failed, in a sentence.</param>
 /// <param name="Expression">The expression the error was raised at, or <see langword="null"/> when the error was raised at none.</param>
-/// <param name="Frames">The frames of the operation the error was raised in, innermost first. Empty when the operation has none.</param>
-public sealed record class VBErrorDetails(string Message, VBErrorExpression? Expression, IReadOnlyList<VBErrorFrame> Frames);
+/// <param name="Frames">
+/// The frames of the operation the error was raised in, innermost first: at most <see cref="MaxFrames"/> of them. Empty when the operation has none.
+/// </param>
+/// <param name="FramesTruncated">
+/// <see langword="true"/> when the operation had more than <see cref="MaxFrames"/> frames, and only the innermost <see cref="MaxFrames"/> are in
+/// <paramref name="Frames"/>.
+/// </param>
+public sealed record class VBErrorDetails(string Message, VBErrorExpression? Expression, IReadOnlyList<VBErrorFrame> Frames, bool FramesTruncated = false)
+{
+    /// <summary>
+    /// The greatest number of frames the details of an error record: 64. The frames past it, the outermost ones, are left out, and
+    /// <see cref="FramesTruncated"/> is <see langword="true"/>.
+    /// </summary>
+    public const int MaxFrames = 64;
+}
 
 /// <summary>
 /// The expression an error was raised at.

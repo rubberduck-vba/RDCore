@@ -40,6 +40,11 @@ public sealed class ExecuteResultErrorDetailsWireTests
     }
 
     [TestMethod]
+    public void DetailsWhoseFramesWereCutShort_AreReadBackSayingSo()
+        => Assert.IsTrue(Wire.RoundTrip(new ExecuteResult { Outcome = ExecutionOutcome.RuntimeError, ErrorDetails = Details with { FramesTruncated = true } })
+            .ErrorDetails!.FramesTruncated);
+
+    [TestMethod]
     public void AResultWithoutDetails_IsReadBackWithout()
         => Assert.IsNull(Wire.RoundTrip(new ExecuteResult { Outcome = ExecutionOutcome.Completed }).ErrorDetails);
 }

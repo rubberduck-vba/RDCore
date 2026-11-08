@@ -160,7 +160,8 @@ public record class ExecuteResult
     /// formats them its own way. <see langword="null"/> for any other outcome, and for an error the runtime recorded no details of.
     /// </summary>
     /// <remarks>
-    /// The location of the expression is in the source the runtime ran, as every position of the error is.
+    /// The location of the expression is in the source the runtime ran, as every position of the error is. The frames are bounded: at most
+    /// <see cref="VBErrorDetails.MaxFrames"/> of them, the innermost ones, with <see cref="VBErrorDetails.FramesTruncated"/> set when there were more.
     /// </remarks>
     public VBErrorDetails? ErrorDetails { get; init; }
 }

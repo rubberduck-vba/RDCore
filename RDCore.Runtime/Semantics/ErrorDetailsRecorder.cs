@@ -24,13 +24,19 @@ public interface IErrorDetailsRecorder
 
 /// <summary>
 /// Records the details of an error when it is raised, and only then: the expression's kind, identity and location, and each frame's node and inputs, with
-/// the let-coercion a frame is.
+/// the let-coercion a frame is. At most <see cref="VBErrorDetails.MaxFrames"/> frames are recorded, the innermost ones.
 /// </summary>
 public sealed class ErrorDetailsRecorder : IErrorDetailsRecorder
 {
     /// <inheritdoc/>
     public VBErrorDetails Record(string message, ExpressionNode expression, IEnumerable<IStackFrame> frames)
-        => new(message, new VBErrorExpression(expression.GetType().Name, expression.Identity.ToString(), expression.Location), [.. frames.Select(FrameOf)]);
+    {
+        // one frame past the bound says whether there were more, without reading them all.
+        var recorded = frames.Take(VBErrorDetails.MaxFrames + 1).ToList();
+        var truncated = recorded.Count > VBErrorDetails.MaxFrames;
+        return new(message, new VBErrorExpression(expression.GetType().Name, expression.Identity.ToString(), expression.Location),
+            [.. recorded.Take(VBErrorDetails.MaxFrames).Select(FrameOf)], truncated);
+    }
 
     private static VBErrorFrame FrameOf(IStackFrame frame)
         => new(frame.NodeId.ToString(), [.. frame.Inputs.Select(OperandOf)],
