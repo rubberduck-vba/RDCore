@@ -14,16 +14,24 @@ namespace RDCore.CLI.App.Build;
 /// </remarks>
 internal static class AppHost
 {
-    /// <summary>The placeholder the path of the application's assembly is written over.</summary>
+    /// <summary>
+    /// The placeholder the path of the application's assembly is written over.
+    /// </summary>
     internal static readonly byte[] Placeholder = Encoding.UTF8.GetBytes("c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2");
 
-    /// <summary>How long the path written over the placeholder can be, in UTF-8 bytes: the size of the slot.</summary>
+    /// <summary>
+    /// How long the path written over the placeholder can be, in UTF-8 bytes: the size of the slot.
+    /// </summary>
     internal const int SlotLength = 1024;
 
-    /// <summary>The runtime identifier of the platform rdc runs on: what a program is built for unless said otherwise.</summary>
+    /// <summary>
+    /// The runtime identifier of the platform rdc runs on: what a program is built for unless said otherwise.
+    /// </summary>
     public static string CurrentRuntime => RuntimeInformation.RuntimeIdentifier;
 
-    /// <summary>The name of the executable of a program, on the platform of <paramref name="runtime"/>.</summary>
+    /// <summary>
+    /// The name of the executable of a program, on the platform of <paramref name="runtime"/>.
+    /// </summary>
     public static string ExecutableName(string program, string runtime) => IsWindows(runtime) ? $"{program}.exe" : program;
 
     /// <summary>

@@ -26,10 +26,14 @@ namespace RDCore.Runtime.Compiled;
 /// </remarks>
 public sealed class ProgramAssemblyBuilder
 {
-    /// <summary>The key of the assembly's metadata that says which build of the runtime compiled it.</summary>
+    /// <summary>
+    /// The key of the assembly's metadata that says which build of the runtime compiled it.
+    /// </summary>
     internal const string RuntimeKey = "RDCore.Runtime";
 
-    /// <summary>What the key of the assembly's metadata that describes the type a procedure is compiled to begins with; the type's name follows.</summary>
+    /// <summary>
+    /// What the key of the assembly's metadata that describes the type a procedure is compiled to begins with; the type's name follows.
+    /// </summary>
     internal const string ProcedureKeyPrefix = "RDCore.Compiled:";
 
     private readonly PersistedAssemblyBuilder _assembly;
@@ -52,7 +56,9 @@ public sealed class ProgramAssemblyBuilder
         _compiler = new ProcedureCompiler(_target);
     }
 
-    /// <summary>The language the documents of the debugging information are written in: RD-VBA, as the portable PDB knows it.</summary>
+    /// <summary>
+    /// The language the documents of the debugging information are written in: RD-VBA, as the portable PDB knows it.
+    /// </summary>
     public static Guid Language { get; } = new("5d6e0b8c-4f27-4b0a-9c39-7e3b1a6f2d41");
 
     // the algorithm of a document's checksum, as the portable PDB knows it: SHA-256.
@@ -132,7 +138,9 @@ public sealed class ProgramAssemblyBuilder
         return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped };
     }
 
-    /// <summary>How many procedures were compiled into the assembly, those its procedures call directly included.</summary>
+    /// <summary>
+    /// How many procedures were compiled into the assembly, those its procedures call directly included.
+    /// </summary>
     public int Count => _target.Procedures.Count;
 
     /// <summary>
@@ -232,7 +240,9 @@ public sealed class ProgramAssemblyBuilder
         blob.WriteContentTo(stream);
     }
 
-    /// <summary>The build of the runtime: what an assembly compiled by another build of it is told apart by, whose code is compiled again.</summary>
+    /// <summary>
+    /// The build of the runtime: what an assembly compiled by another build of it is told apart by, whose code is compiled again.
+    /// </summary>
     internal static string RuntimeBuild => typeof(ProgramAssemblyBuilder).Assembly.ManifestModule.ModuleVersionId.ToString("N");
 
     private void ThrowIfSaved()
@@ -283,7 +293,9 @@ public static class ProgramAssembly
     }
 }
 
-/// <summary>Where a build's compiler writes the procedures it compiles, and what it says of each.</summary>
+/// <summary>
+/// Where a build's compiler writes the procedures it compiles, and what it says of each.
+/// </summary>
 /// <param name="Module">The module of the assembly the build saves.</param>
 /// <param name="FingerprintOf">The fingerprint of a procedure's body, by the procedure's identity.</param>
 /// <param name="Validate">
@@ -295,7 +307,9 @@ internal sealed record class PersistTarget(ModuleBuilder Module, Func<SemanticId
     Func<IRuntimeSession, Semantics.RuntimeExpressionEvaluator, VBTypeMemberSymbol, InstructionList, CompilationResult> Validate,
     Func<Uri, System.Diagnostics.SymbolStore.ISymbolDocumentWriter?> DocumentOf)
 {
-    /// <summary>Where each instruction of <paramref name="list"/> is written, by its offset: what the debugger maps the code of the body to.</summary>
+    /// <summary>
+    /// Where each instruction of <paramref name="list"/> is written, by its offset: what the debugger maps the code of the body to.
+    /// </summary>
     public IReadOnlyDictionary<int, SourcePoint> LinesOf(InstructionList list)
     {
         var lines = new Dictionary<int, SourcePoint>();
@@ -312,14 +326,20 @@ internal sealed record class PersistTarget(ModuleBuilder Module, Func<SemanticId
 
     private readonly List<PersistedProcedure> _procedures = [];
 
-    /// <summary>Each procedure compiled, in the order it was.</summary>
+    /// <summary>
+    /// Each procedure compiled, in the order it was.
+    /// </summary>
     public IReadOnlyList<PersistedProcedure> Procedures => _procedures;
 
-    /// <summary>Keeps what is said of a procedure that was compiled.</summary>
+    /// <summary>
+    /// Keeps what is said of a procedure that was compiled.
+    /// </summary>
     public void Add(PersistedProcedure procedure) => _procedures.Add(procedure);
 }
 
-/// <summary>What an assembly a build saved says of a type a procedure is compiled to.</summary>
+/// <summary>
+/// What an assembly a build saved says of a type a procedure is compiled to.
+/// </summary>
 /// <param name="Type">The full name of the type.</param>
 /// <param name="Procedure">The identity of the procedure.</param>
 /// <param name="Fingerprint">
@@ -331,7 +351,9 @@ internal sealed record class PersistTarget(ModuleBuilder Module, Func<SemanticId
 /// </param>
 internal sealed record class PersistedProcedure(string Type, string Procedure, string Fingerprint, IReadOnlyList<string> Links);
 
-/// <summary>Where an instruction is written in the source, for the debugger: the document of its module, and its range.</summary>
+/// <summary>
+/// Where an instruction is written in the source, for the debugger: the document of its module, and its range.
+/// </summary>
 /// <param name="Document">The document of the module.</param>
 /// <param name="Range">Where in it the instruction is written.</param>
 internal sealed record class SourcePoint(System.Diagnostics.SymbolStore.ISymbolDocumentWriter Document, SDK.Model.Source.SourceRange Range);
@@ -389,21 +411,29 @@ internal sealed class PrebuiltProcedures
             ? new PrebuiltProcedure(built.Type, built.Persisted.Fingerprint, built.Persisted.Links)
             : null;
 
-    /// <summary>The fingerprint of the body of <paramref name="procedure"/> in the session's image; <see langword="null"/> when it has none there.</summary>
+    /// <summary>
+    /// The fingerprint of the body of <paramref name="procedure"/> in the session's image; <see langword="null"/> when it has none there.
+    /// </summary>
     public string? FingerprintOf(SemanticId procedure) => _fingerprints.Of(procedure);
 }
 
-/// <summary>The fingerprint of each procedure's body in a program image, as it is now (<see cref="ProgramImage.ProcedureFingerprints"/>).</summary>
+/// <summary>
+/// The fingerprint of each procedure's body in a program image, as it is now (<see cref="ProgramImage.ProcedureFingerprints"/>).
+/// </summary>
 internal sealed class ImageFingerprints(ProgramImage image)
 {
     private readonly object _taking = new();
     private ImmutableDictionary<SemanticId, InstructionList>? _of;
     private ImmutableDictionary<string, string> _fingerprints = ImmutableDictionary<string, string>.Empty;
 
-    /// <summary>The image.</summary>
+    /// <summary>
+    /// The image.
+    /// </summary>
     public ProgramImage Image => image;
 
-    /// <summary>The fingerprint of the body of <paramref name="procedure"/>; <see langword="null"/> when it has none in the image.</summary>
+    /// <summary>
+    /// The fingerprint of the body of <paramref name="procedure"/>; <see langword="null"/> when it has none in the image.
+    /// </summary>
     public string? Of(SemanticId procedure)
     {
         lock (_taking)

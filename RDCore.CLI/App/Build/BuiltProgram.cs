@@ -25,13 +25,17 @@ internal sealed record class BuiltEnvironment(
     bool AllowDllImports, bool AllowAutomation, bool LegacyRegistrySettings, VBBuildConfiguration Configuration, bool ReleaseDropsDebugStatements,
     VBErlAfterErrClear ErlAfterErrClear, VBOperatingSystem OperatingSystem)
 {
-    /// <summary>What is kept of <paramref name="environment"/>.</summary>
+    /// <summary>
+    /// What is kept of <paramref name="environment"/>.
+    /// </summary>
     public static BuiltEnvironment Of(IRuntimeEnvironmentProfile environment) => new(
         environment.Is64Bit, environment.Lcid, environment.AnsiCodePage, environment.SupportsOptionCompareDatabase, environment.DatabaseCompare,
         environment.ErlLineNumbering, environment.AllowDllImports, environment.AllowAutomation, environment.LegacyRegistrySettings, environment.Configuration,
         environment.ReleaseDropsDebugStatements, environment.ErlAfterErrClear, environment.OperatingSystem);
 
-    /// <summary>The profile a built program's session is composed for: this environment, its procedures run compiled.</summary>
+    /// <summary>
+    /// The profile a built program's session is composed for: this environment, its procedures run compiled.
+    /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public RuntimeEnvironmentProfile Profile => new(
         Is64Bit, Lcid, AnsiCodePage, SupportsOptionCompareDatabase, DatabaseCompare, ErlLineNumbering, AllowDllImports, AllowAutomation: AllowAutomation,
@@ -52,7 +56,9 @@ internal sealed record class BuiltEnvironment(
 internal sealed record class BuiltProgramImage(
     RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions)
 {
-    /// <summary>The name of the manifest resource of the program's assembly the image is.</summary>
+    /// <summary>
+    /// The name of the manifest resource of the program's assembly the image is.
+    /// </summary>
     public const string ResourceName = "RDCore.Program.json";
 }
 
@@ -79,7 +85,9 @@ public static class BuiltProgram
 #pragma warning restore VSTHRD002
     }
 
-    /// <summary>Runs the program, as <see cref="Run"/> does, writing what it prints to <paramref name="output"/> and its error to <paramref name="error"/>.</summary>
+    /// <summary>
+    /// Runs the program, as <see cref="Run"/> does, writing what it prints to <paramref name="output"/> and its error to <paramref name="error"/>.
+    /// </summary>
     internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token)
     {
         try
@@ -125,7 +133,9 @@ public static class BuiltProgram
         return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, messages, output, error, unattended: false, token);
     }
 
-    /// <summary>The image of the program <paramref name="program"/> is the assembly of.</summary>
+    /// <summary>
+    /// The image of the program <paramref name="program"/> is the assembly of.
+    /// </summary>
     /// <exception cref="InvalidDataException">The assembly is no built program's.</exception>
     internal static BuiltProgramImage ImageOf(Assembly program)
     {

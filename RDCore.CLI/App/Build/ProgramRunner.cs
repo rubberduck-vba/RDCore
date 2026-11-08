@@ -20,7 +20,9 @@ namespace RDCore.CLI.App.Build;
 /// <param name="IsLibrary">Whether the project is a library, which has no entry point.</param>
 internal sealed record class ProjectBuildSettings(string? EntryPoint, bool IsLibrary)
 {
-    /// <summary>The settings of <paramref name="project"/>; none of them when it has no <c>build</c> section.</summary>
+    /// <summary>
+    /// The settings of <paramref name="project"/>; none of them when it has no <c>build</c> section.
+    /// </summary>
     public static ProjectBuildSettings Of(RDCoreProject project)
     {
         if (project.ExtensionData?.TryGetValue("build", out var build) is not true || build.ValueKind is not JsonValueKind.Object)
@@ -41,13 +43,19 @@ internal sealed record class ProjectBuildSettings(string? EntryPoint, bool IsLib
 /// </summary>
 internal static class ProgramRunner
 {
-    /// <summary>The exit code of a program that ran to its end, or to an <c>End</c>.</summary>
+    /// <summary>
+    /// The exit code of a program that ran to its end, or to an <c>End</c>.
+    /// </summary>
     public const int Completed = 0;
 
-    /// <summary>The exit code of a program a run-time error stopped.</summary>
+    /// <summary>
+    /// The exit code of a program a run-time error stopped.
+    /// </summary>
     public const int Failed = 1;
 
-    /// <summary>The exit code of a program that could not be started: no entry point, or code that does not load.</summary>
+    /// <summary>
+    /// The exit code of a program that could not be started: no entry point, or code that does not load.
+    /// </summary>
     public const int Refused = 2;
 
     /// <summary>

@@ -10,13 +10,19 @@ namespace RDCore.CLI.App.Build;
 /// <param name="runtimeFolder">The folder of the runtime the program runs on: rdc's own.</param>
 internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder)
 {
-    /// <summary>The name of rdc's own assembly, whose runtime configuration a built program's is.</summary>
+    /// <summary>
+    /// The name of rdc's own assembly, whose runtime configuration a built program's is.
+    /// </summary>
     private const string RdcName = "rdc";
 
-    /// <summary>The folder of the runtime a program runs on: rdc's own.</summary>
+    /// <summary>
+    /// The folder of the runtime a program runs on: rdc's own.
+    /// </summary>
     public string RuntimeFolder => runtimeFolder;
 
-    /// <summary>Whether <paramref name="program"/> is the name of an assembly of the runtime, which the program's would take the place of.</summary>
+    /// <summary>
+    /// Whether <paramref name="program"/> is the name of an assembly of the runtime, which the program's would take the place of.
+    /// </summary>
     public bool IsTaken(string program)
         => fileSystem.File.Exists(fileSystem.Path.Combine(runtimeFolder, $"{program}.dll")) || string.Equals(program, RdcName, StringComparison.OrdinalIgnoreCase);
 

@@ -52,7 +52,9 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
     /// </summary>
     public void Use(PrebuiltProcedures prebuilt) => _prebuilt = prebuilt;
 
-    /// <summary>How many procedures run the code a build compiled them to (<see cref="Use"/>), rather than code compiled at their first call.</summary>
+    /// <summary>
+    /// How many procedures run the code a build compiled them to (<see cref="Use"/>), rather than code compiled at their first call.
+    /// </summary>
     public int Bound => Volatile.Read(ref _bound);
 
     private readonly ConditionalWeakTable<InstructionList, Entry> _bodies = [];
