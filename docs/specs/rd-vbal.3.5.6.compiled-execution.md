@@ -129,6 +129,10 @@ Every operand of such a statement must be one compiled code keeps as it evaluate
 function's result variable, a call, or an operation of these. The interpreter runs a statement with any other operand on its own, as described below: a
 `Variant`, a `String`, an object, a field or an element of an array. Such an operand would be read a second time after a call that may have changed it.
 
+The interpreter also runs a statement on its own when it reads a variable that it also passes `ByRef` to a call, such as `X = A + Bump(A)`. The same
+goes for a statement that reads a `ByRef` parameter while passing another `ByRef` parameter to a call, since the two may be the same variable of the
+caller. When such a variable is read, before or after the call, is the interpreter's to decide.
+
 When compiled code hands the activation to the interpreter after such a call, it also gives the interpreter what it already evaluated of the statement:
 the result of each call it made, and each variable as it read it. This happens when an operation of the result fails, when the program is to stop, when
 the program waited in the callee, and when the code was edited meanwhile. The interpreter evaluates the rest of the statement with those values, so:
