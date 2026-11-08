@@ -371,8 +371,8 @@ public sealed class CompiledSteppingTests
         await AssertAlikeAsync(program, "Counted", recoveries: 1, classes: Pieces);
     }
 
-    // an object the interpreter makes and calls: the frame's, from one statement to the next. The Add is a support call at each of 3 passes, and the
-    // interpreter steps the Count after the loop: 1.
+    // an object the interpreter makes and calls: the frame's, from one statement to the next. The Add is a support call at each of 3 passes, and compiled
+    // code calls the Count inside the expression after the loop: none is stepped.
     [TestMethod]
     public async Task AnObject_IsTheFrames_FromOneStatementTheInterpreterRunsToTheNext()
         => await AssertAlikeAsync(Program(
@@ -388,7 +388,7 @@ public sealed class CompiledSteppingTests
             "    Next",
             "    N = N + C.Count",
             "    Counted = N * 2",
-            "End Function"), "Counted", recoveries: 1);
+            "End Function"), "Counted", recoveries: 0);
 
     // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled.
     [TestMethod]

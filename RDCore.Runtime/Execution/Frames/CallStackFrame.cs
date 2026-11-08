@@ -128,6 +128,35 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     public int WaitedAt { get; set; } = -1;
 
+    /// <summary>
+    /// What compiled code had evaluated of the instruction at <see cref="Pc"/> when it handed the activation to the interpreter in the middle of it: the
+    /// interpreter runs that instruction with them, and no other.
+    /// </summary>
+    internal KnownOperands? Known { get; private set; }
+
+    /// <summary>
+    /// Gives the activation what compiled code had evaluated of the instruction at <see cref="Pc"/>.
+    /// </summary>
+    /// <param name="known">What compiled code had evaluated.</param>
+    internal void Know(KnownOperands known)
+    {
+        Forget();
+        Known = known;
+        KnownOperands.Count(held: true);
+    }
+
+    /// <summary>
+    /// Lets go of what compiled code had evaluated of an instruction: the interpreter is past it.
+    /// </summary>
+    internal void Forget()
+    {
+        if (Known is not null)
+        {
+            Known = null;
+            KnownOperands.Count(held: false);
+        }
+    }
+
     private bool _moved;
 
     /// <summary>
@@ -443,6 +472,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // callee's header edited - and it goes on in the edited body from the next instruction (CompiledActivation.WantsInterpreterAfterCall).
         if (RunsCompiled)
         {
+            // in the middle of a call a condition or the header of a loop makes, it is refused as an interpreted activation is (below).
+            if (!waits && Pc < before.Items.Length && before.Items[Pc].Kind is not InstructionKind.Simple)
+            {
+                return FrameRebaseRefusal.InTheMiddleOfAHeader;
+            }
+
             if (alignment.IsIdentity)
             {
                 rebased = new Rebasing(Pc, false, WaitedAt, ErrorHandler, new Dictionary<int, int>()) { Stays = true };

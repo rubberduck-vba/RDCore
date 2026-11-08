@@ -37,6 +37,43 @@ let-coerced, even when its `TypeInfo` equals the destination type.
 A `VBVariantValue`'s `TypeInfo` mirrors its wrapped value's; see
 [**RD-VBAL §5.5.1.2.12** Let-coercion to Variant](rd-vbal.5.5.1.2.runtime-semantics.md#551212-let-coercion-to-variant).
 
+## When an operand is read
+
+**MS-VBAL §5.6.9.2** says an operator evaluates its operands. It does not say when an operand that is a variable takes
+its value if a call in the same expression changes that variable. MS-VBA decides by the operand's type, and RD-VBA
+does what MS-VBA does:
+
+- An operand of type `Byte`, `Boolean`, `Integer`, `Long`, `LongLong` or `Currency` is read where it is written:
+  before a call to its right, after a call to its left. This holds for a variable, a field of a record and an element
+  of an array.
+- An operand of type `Single`, `Double`, `Date`, `String` or `Variant` is read when the operation is computed, after
+  the calls on both sides of it. This holds for a variable and an element of an array, whose index is evaluated
+  then too: `v(i) + Poke(v, i)`, where `Poke` adds 1 to `v(k)` and then to `k`, is `v(2)` for a `Double` array, and
+  `v(1)` as it was for a `Long` one.
+
+In these statements, `a` is `1` and `Bump` adds 1 to the variable it is given by reference and returns the new value.
+These are the values measured in MS-VBA:
+
+|Statement|Type of `a`|Result|
+|---|---|---|
+|`x = a + Bump(a)`|`Byte`, `Integer`, `Long`, `LongLong`, `Currency`|`x` is `3`|
+|`x = a + Bump(a)`|`Boolean`, starting `False`|`x` is `-1`|
+|`x = a + Bump(a)`|`Single`, `Double`, `Date`, `Variant`|`x` is `4`|
+|`x = Bump(a) + a`|`Long`|`x` is `4`|
+|`x = Bump(a) + a + Bump(a)`|`Long`|`x` is `7`|
+|`x = (a) + Bump(a)`|`Long`|`x` is `3`|
+|`x = (a) + Bump(a)`|`Double`|`x` is `4`|
+|`If a < Bump(a) Then`|`Long`|the condition is `True`|
+|`If a < Bump(a) Then`|`Double`|the condition is `False`|
+
+A `String` reads the same way: `s & Ap(s)`, where `s` is `"a"` and `Ap` appends `"b"` to it, is `"abab"`.
+
+> [!NOTE]
+> **Not implemented.** MS-VBA computes some operations of a `Double` or `String` operand after the call:
+> `a + 0 + Bump(a)` of a `Double` is `4`, `-a + Bump(a)` is `0` and `Bump(a) + a + Bump(a)` is `8`. RD-VBA computes
+> the operation left of the last call before that call. `s & "" & Ap(s)` is `"aab"` in both. RD-VBA reads a `Double`
+> field of a record where it is written.
+
 ## Computation in the effective type
 
 The evaluation step (step 3) computes an operator's result in the operation's effective type, in that type's own

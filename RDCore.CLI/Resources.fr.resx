@@ -665,6 +665,9 @@
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>un appel : {0}</value>
   </data>
+  <data name="Compilation_Reason_OperandPassedByReference" xml:space="preserve">
+    <value>une variable lue dans une expression qui la passe aussi par référence à un appel : {0}</value>
+  </data>
   <data name="Compilation_Reason_Member" xml:space="preserve">
     <value>un membre d'un objet : {0}</value>
   </data>
