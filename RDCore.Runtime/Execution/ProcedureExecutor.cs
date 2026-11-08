@@ -1232,11 +1232,18 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 if (array.Length == 0)
                 {
                     // MS-VBAL §5.4.2.4: "if the array has no elements, execution completes immediately" -
-                    // a real, initialized array whose declared bounds just happen to hold zero elements.
+                    // a real, initialized array whose declared bounds just happen to hold zero elements. It completes with its control variable emptied,
+                    // as one that ran out has it (RD-VBAL §5.4.2.4).
                     if (instruction.End is not { } emptyEnd)
                     {
                         return RuntimeExecutionOutcome.InternalError;
                     }
+
+                    if (EmptyControl(session, control, forEachStatement.ControlExpression) is { } notEmptied)
+                    {
+                        return notEmptied;
+                    }
+
                     activation.Pc = emptyEnd;
                     return null;
                 }
@@ -1312,10 +1319,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
         if (!advanced)
         {
-            // a collection with no members: the loop is over before it began, as for an array with no elements.
+            // a collection with no members: the loop is over before it began, as for an array with no elements, and its control variable is emptied.
             if (instruction.End is not { } emptyEnd)
             {
                 return RuntimeExecutionOutcome.InternalError;
+            }
+
+            if (EmptyControl(session, control, forEachStatement.ControlExpression) is { } notEmptied)
+            {
+                return notEmptied;
             }
 
             activation.Pc = emptyEnd;
@@ -1378,8 +1390,17 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     {
         if (instruction.Matching is not { } openerOffset || !activation.TryGetForEachState(openerOffset, out var state))
         {
-            // MS-VBAL §5.4.2.4: a GoTo landed directly on this Next without its own ForEachOpener ever
-            // running this activation - error 92, "For loop not initialized".
+            // MS-VBAL §5.4.2.4: a GoTo landed directly on this Next without its own ForEachOpener ever running this activation, or the opener raised an
+            // error that was resumed past - error 92, "For loop not initialized". MS-VBA empties the control variable first, unless the collection is
+            // declared as an array (RD-VBAL §5.4.2.4).
+            if (instruction.Matching is { } matching && activation.Body?.Items[matching].Node is ForEachStatementNode { ControlExpression: SimpleNameExpressionNode simpleName } opener
+                && !forEach.IsDeclaredArray(session, opener.CollectionExpression, context)
+                && session.Symbols.Resolver.ResolveValue(simpleName, ScopeKind.Local, context.Scope).Symbol is ITypedSymbol unopened
+                && EmptyControl(session, unopened, simpleName) is { } notEmptied)
+            {
+                return notEmptied;
+            }
+
             return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ForLoopNotInitialized,
                 instruction.Node?.SourceLocation ?? default, Exceptions.VBForLoopNotInitialized_Verbose));
         }
@@ -1394,7 +1415,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return enumeratedOutcome;
                 }
 
-                activation.Pc = instruction.Offset + 1; // no more members - the loop ends here.
+                // no more members - the loop ends here, with its control variable emptied (RD-VBAL §5.4.2.4).
+                if (EmptyControl(session, state.Control, state.ControlExpression) is { } notEmptied)
+                {
+                    return notEmptied;
+                }
+
+                activation.Pc = instruction.Offset + 1;
                 return null;
             }
 
@@ -1410,7 +1437,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         var nextIndex = state.Index + 1;
         if (nextIndex >= state.Array!.Length)
         {
-            activation.Pc = instruction.Offset + 1; // no more elements - the loop ends here.
+            // no more elements - the loop ends here, with its control variable emptied (RD-VBAL §5.4.2.4).
+            if (EmptyControl(session, state.Control, state.ControlExpression) is { } notEmptied)
+            {
+                return notEmptied;
+            }
+
+            activation.Pc = instruction.Offset + 1;
             return null;
         }
 
@@ -1444,6 +1477,14 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         }
         activation.Pc = target;
         return null;
+    }
+
+    // MS-VBAL §5.4.2.4 says a loop that has finished leaves its last element in the control variable; MS-VBA empties it (RD-VBAL §5.4.2.4). Null when it was
+    // emptied, and the outcome of the assignment when that failed.
+    private RuntimeExecutionOutcome? EmptyControl(IRuntimeSession session, ITypedSymbol control, ExpressionNode controlExpression)
+    {
+        var emptied = forEach.EmptyControl(session, control, controlExpression);
+        return emptied.IsSuccess ? null : ToFailureOutcome(emptied);
     }
 
     // where the control variable of a For Each is kept, found once for the loop: its slot, when it is a local of the activation.
