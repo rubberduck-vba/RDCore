@@ -58,8 +58,8 @@ public interface IFileChannel
     /// <para>
     /// 👉 A caller is expected to have asked whether the statement is valid on this channel first, by
     /// <strong>MS-VBAL §5.4.5.1</strong>'s table of statements, modes and accesses. Writing to one opened for
-    /// reading fails rather than corrupting it, but reporting <em>which</em> statement was wrong is the caller's
-    /// job, not this one's.
+    /// reading fails and leaves it as it was; reporting <em>which</em> statement was wrong is the caller's
+    /// job.
     /// </para>
     /// </remarks>
     IFileChannelOutput Output { get; }

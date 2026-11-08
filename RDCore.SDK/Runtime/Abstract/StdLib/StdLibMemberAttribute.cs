@@ -56,7 +56,7 @@ public sealed class StdLibMemberAttribute(string? name = null) : Attribute
 
     /// <summary>
     /// The member's <c>VB_UserMemId</c>: <see cref="Model.WellKnownDispIds.Value"/> (<c>0</c>) for the default member of its class,
-    /// <see cref="Model.WellKnownDispIds.NewEnum"/> (<c>-4</c>) for its enumeration member. <see cref="NoUserMemId"/> - the default - for neither.
+    /// <see cref="Model.WellKnownDispIds.NewEnum"/> (<c>-4</c>) for its enumeration member. <see cref="NoUserMemId"/>, the default, for neither.
     /// </summary>
     /// <remarks>
     /// The attribute of a workspace class module says the same thing in source (<c>Attribute Item.VB_UserMemId = 0</c>), and is what the symbols of that

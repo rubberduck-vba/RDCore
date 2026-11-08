@@ -6,8 +6,8 @@ The extension manifest is a small text file in a human-readable JSON serialized 
 
 By default, the environment host may restrict capabilities requested by **unsigned or untrusted extensions**. Users may override these default restrictions through configuration or development modes.
 
-> [!IMPORTANT]
-> Extension packages **must** include a **signed manifest** that binds metadata to the distributed artifacts (the *extension server* executable).
+> [!NOTE]
+> **Not implemented.** A manifest is not signed. Its `FileHash` binds it to the extension's executable; nothing binds it to its publisher.
 
 ## 1.1.5.1 Schema
 
@@ -44,6 +44,10 @@ By default, the environment host may restrict capabilities requested by **unsign
 |`SdkVersion`|The version of `RDCore.SDK` the extension was built against, recorded by `rdc.exe describe-ext` from the extension assembly's reference to `RDCore.SDK`. `null` when the manifest does not say.|
 |`Settings`|The settings the extension is configured with ([`SettingDescriptor`](../api/RDCore.SDK.Server.Configuration.SettingDescriptor.html)), recorded by `rdc.exe describe-ext` from the extension's [`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html). A client offers them to a user without starting the extension ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)). Empty for an extension that has none.|
 |`SettingDescriptions`|The description of each setting, by its key, in each language of the platform, by its two-letter name. A description in a language the platform has none in is the first language's (`en`).|
+
+`Name`, `Title`, `Version`, `Publisher`, `PublisherWebUrl`, `Description`, `FileHash` and `Capabilities` are required. A manifest that is not valid JSON,
+or that lacks one of them (such as a manifest that has a `Signature` and no `FileHash`), is logged and describes no extension: the extension is not
+started. `rdc.exe describe-ext --overwrite` writes the manifest again.
 
 An extension declares a capability so that `rdc.exe describe-ext` records it in the extension's manifest:
 

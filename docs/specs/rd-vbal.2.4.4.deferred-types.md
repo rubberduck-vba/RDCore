@@ -98,8 +98,6 @@ RD-VBAL groups the following descriptors under `VBDeferredMemberDesc`:
 |[§2.4.4.4.2](#24442-vbdeferredpropertyletproceduredesc)|`VBDeferredPropertyLetProcedureDesc`|
 |[§2.4.4.4.3](#24443-vbdeferredpropertysetproceduredesc)|`VBDeferredPropertySetProcedureDesc`|
 |[§2.4.4.4.4](#24444-vbdeferredfunctionproceduredesc)|`VBDeferredFunctionProcedureDesc`|
-|[§2.4.4.4.5](#24445-vbdeferredpropertygetproceduredesc)|`VBDeferredPropertyGetProcedureDesc`|
-|[§2.4.4.4.6](#24446-vbdeferredparameterdesc)|`VBDeferredParameterDesc`|
 
 ### 2.4.4.4.1 VBDeferredProcedureMemberDesc
 
@@ -117,13 +115,9 @@ RD-VBAL groups the following descriptors under `VBDeferredMemberDesc`:
 
 `VBDeferredFunctionProcedureDesc` is a descriptor that represents (describes) a deferred `Function` member.
 
-### 2.4.4.4.5 VBDeferredPropertyGetProcedureDesc
+### Deferred Parameters
 
-`VBDeferredPropertyGetProcedureDesc` is a descriptor that represents (describes) a deferred `Property Get` member.
-
-### 2.4.4.4.6 VBDeferredParameterDesc
-
-`VBDeferredParameterDesc` is a descriptor that represents (describes) a single _parameter_ of a deferred member.
+The parameters of a deferred member are [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)s, as the parameters of any member are; see [**RD-VBAL §2.4.3.2** VBMemberDesc](rd-vbal.2.4.3.meta-and-advanced-types.md#2432-vbmemberdesc).
 
 Deferred parameters are inferred from the arguments provided at the call sites of deferred members.
 

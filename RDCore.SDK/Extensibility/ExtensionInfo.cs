@@ -18,7 +18,8 @@ public record class ExtensionInfo
     public required string Name { get; init; }
 
     /// <summary>
-    /// The <em>friendly name</em> / title of the extension. This should also be the name of the folder.
+    /// The <em>friendly name</em>, or title, of the extension: the name of the folder its manifest is in
+    /// (<see cref="ExtensionValidationFlags.LocationMismatch"/>).
     /// </summary>
     public required string Title { get; init; }
 

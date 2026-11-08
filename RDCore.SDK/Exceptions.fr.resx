@@ -223,7 +223,7 @@
     <value>Le nom ('Name') spécifié par les métadonnées (manifest) de cette extension ne pointe pas vers un fichier existant. Le fichier exécutable du serveur a pu être déplacé, renommé, ou supprimé.</value>
   </data>
   <data name="ValidationFlags_FileHashMismatch" xml:space="preserve">
-    <value>Le hachage ('FileHash') spécifié par les métadonnées (manifest) de cette extension ne correspond pas au hachage (SHA-512) du fichier exécutable. L'exécutable a pu avoir été modifié depuis son installation.</value>
+    <value>Le hachage ('FileHash') spécifié par les métadonnées (manifest) de cette extension ne correspond pas au hachage (SHA-512) du fichier exécutable. L'exécutable a peut-être été modifié depuis son installation.</value>
   </data>
   <data name="ValidationFlags_InvalidCertificate" xml:space="preserve">
     <value>Le certificat associé à cette extension est invalide ou expiré.</value>

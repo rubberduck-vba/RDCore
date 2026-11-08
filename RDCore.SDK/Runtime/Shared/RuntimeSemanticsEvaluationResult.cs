@@ -26,10 +26,9 @@ public readonly record struct RuntimeSemanticsEvaluationResult(
     /// </summary>
     /// <remarks>
     /// 👉 This value represents a <strong>specified, consistent state</strong> where program execution resumes in a controlled error state.<br/>
-    /// A result value may or may not have been assigned before the failure: most errors carry none, which is why
-    /// this asks only whether there is an error. It used to require a value too, and so answered <c>false</c> for
-    /// every error raised without one - which is what <see cref="Error(IVBRaisableError, VBTypedValue?)"/>'s
-    /// own default produces.
+    /// A result value may or may not have been assigned before the failure: most errors carry none, so
+    /// this asks only whether there is an error. It is <c>true</c> for an error raised without a value too, which is what
+    /// <see cref="Error(IVBRaisableError, VBTypedValue?)"/>'s own default produces.
     /// </remarks>
     public bool IsError => ErrorInfo is not null;
     /// <summary>

@@ -15,7 +15,6 @@ The meta types are:
 |---|---|
 |[VBTypeDesc](../api/RDCore.SDK.Model.Types.Meta.VBTypeDesc.html)|[§2.4.3.1](#2431-vbtypedesc)|
 |[VBMemberDesc](../api/RDCore.SDK.Model.Types.Meta.VBMemberDesc.html)|[§2.4.3.2](#2432-vbmemberdesc)|
-|`VBParameterDesc`|[§2.4.3.3](#2433-vbparameterdesc)|
 
 ## 2.4.3.1 VBTypeDesc
 
@@ -36,7 +35,7 @@ Both use a `VBTypeDescValue` because their semantics demand knowledge of a _data
 
 ## 2.4.3.2 VBMemberDesc
 
-`VBMemberDesc` is an _abstract_ descriptor that represents (describes) any [VBTypeMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol.html).
+`VBMemberDesc` is an _abstract_ descriptor that represents (describes) any [VBTypeMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol.html). It holds the member's parameters as they are declared, each a [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html).
 
 RD-VBAL groups the following member descriptors under `VBMemberDesc`:
 
@@ -68,16 +67,7 @@ RD-VBAL groups the following descriptors under `VBReturningMemberDesc`:
 |Section|Descriptor|
 |---|---|
 |[§2.4.3.2.4.1](#243241-vbfunctionproceduredesc)|`VBFunctionProcedureDesc`|
-|[§2.4.3.2.4.2](#243242-vbpropertygetproceduredesc)|`VBPropertyGetProcedureDesc`|
 
 #### 2.4.3.2.4.1 VBFunctionProcedureDesc
 
 [VBFunctionProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBFunctionProcedureDesc.html) is a descriptor that represents (describes) a [VBFunctionMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol.html).
-
-#### 2.4.3.2.4.2 VBPropertyGetProcedureDesc
-
-`VBPropertyGetProcedureDesc` is a descriptor that represents (describes) a [VBPropertyGetMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol.html).
-
-## 2.4.3.3 VBParameterDesc
-
-`VBParameterDesc` is a descriptor that represents (describes) a [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html).
