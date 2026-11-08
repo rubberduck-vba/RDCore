@@ -101,7 +101,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         if (RanksVariantNumberBelowString
             && operands.Length == operands.OfType<VBVariantValue>().Count()
             && variantSubTypes.Any(subType => subType is VBStringType)
-            && variantSubTypes.Any(subType => subType is VBNumericType))
+            && variantSubTypes.Any(IsRankedBelowAString))
         {
             builder.AddFlags(ComparisonOperatorSemanticFlags.IsVariantStringNumericException);
         }
@@ -151,6 +151,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     // and ValidateOperand check this, short-circuiting to a synthetic Integer rank (0 = numeric side,
     // 1 = String side) that the existing VBIntegerType evaluation branch below then compares for real,
     // via the concrete operator's own ComparisonOp - no new evaluation code needed.
+    // MS-VBA ranks a Variant Boolean and a Variant Date below a Variant String as it ranks a number, where MS-VBAL 5.6.9.5 says a numeric value type, which
+    // neither is (MS-VBAL 5.5.1.2.1): with A holding "40", A < b is False for b a Variant False, and A2 < d is False for A2 holding "1/1/1990" and d a Variant Date
+    // of 2000 (recorded in Excel: oracle\s81-varops y22-y27).
+    private static bool IsRankedBelowAString(VBType subType) => subType is VBNumericType or VBBooleanType or VBDateType;
+
     private bool IsVariantStringNumericException(OperatorEvaluationFrame frame, out bool leftIsNumeric)
     {
         leftIsNumeric = false;
@@ -163,12 +168,12 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         var leftType = left.TypedValue.TypeInfo;
         var rightType = right.TypedValue.TypeInfo;
 
-        if (leftType is VBStringType && rightType is VBNumericType)
+        if (leftType is VBStringType && IsRankedBelowAString(rightType))
         {
             return true;
         }
 
-        if (leftType is VBNumericType && rightType is VBStringType)
+        if (IsRankedBelowAString(leftType) && rightType is VBStringType)
         {
             leftIsNumeric = true;
             return true;
