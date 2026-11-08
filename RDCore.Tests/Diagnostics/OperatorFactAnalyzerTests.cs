@@ -351,4 +351,73 @@ public sealed class OperatorFactAnalyzerTests
         Assert.AreEqual(RDCoreDiagnosticId.VariantComparedWithStringAsText, (await FindAsync(new VariantComparedWithStringAsTextAnalyzer(), "", body)).Single().Id);
         Assert.IsEmpty(await FindAsync(new StringComparedWithANumberAsADoubleAnalyzer(), "", body));
     }
+
+    // ---- where a finding is: at the operator it is about ----
+
+    private static (int, int, int, int)[] RangesOf(IEnumerable<AnalyzerFinding> findings)
+        => [.. findings.Select(finding => (finding.Range.Start.Line, finding.Range.Start.Character, finding.Range.End.Line, finding.Range.End.Character))];
+
+    // `+` nests to the left: both operations of the chain begin at "a ", and each is located at its own operator.
+    [TestMethod]
+    [DataRow("r = \"a \" + s + \" b\"", 9, 13, DisplayName = "assigned")]
+    [DataRow("Debug.Print \"a \" + s + \" b\"", 17, 21, DisplayName = "printed")]
+    [DataRow("r = (\"a \" + s) + \" b\"", 10, 15, DisplayName = "the first operation in parentheses")]
+    public async Task EachAdditionOfAChainOfStrings_IsReportedAtItsOperator(string statement, int first, int second)
+    {
+        var findings = await FindAsync(new AmbiguousConcatenationAnalyzer(), "ByVal s As String", "Dim r As String", statement);
+
+        CollectionAssert.AreEquivalent(new[] { (4, first, 4, first + 1), (4, second, 4, second + 1) }, RangesOf(findings));
+    }
+
+    [TestMethod]
+    public async Task EachLogicalOperatorOfAChainOfNumbers_IsReportedAtItsOperator()
+    {
+        var findings = await FindAsync(new BitwiseSemanticsAnalyzer(), "ByVal a As Long, ByVal b As Long, ByVal c As Long", "Dim r As Long", "r = a And b And c");
+
+        CollectionAssert.AreEquivalent(new[] { (4, 6, 4, 9), (4, 12, 4, 15) }, RangesOf(findings));
+    }
+
+    [TestMethod]
+    public async Task AnOperatorOnAContinuedLine_IsReportedOnThatLine()
+    {
+        var findings = await FindAsync(new AmbiguousConcatenationAnalyzer(), "ByVal s As String, ByVal t As String", "Dim r As String", "r = s _", "    + t");
+
+        CollectionAssert.AreEqual(new[] { (5, 4, 5, 5) }, RangesOf(findings));
+    }
+
+    [TestMethod]
+    [DataRow("r = a < b", 6, 7, DisplayName = "a comparison")]
+    [DataRow("r = 1 = 1 And a < b", 16, 17, DisplayName = "a comparison that is the right operand")]
+    public async Task AComparison_IsReportedAtItsOperator(string statement, int start, int end)
+    {
+        var findings = await FindAsync(new VariantNumberStringComparisonAnalyzer(), "", "Dim a As Variant, b As Variant, r As Boolean", "a = 5", "b = \"4\"", statement);
+
+        CollectionAssert.AreEqual(new[] { (6, start, 6, end) }, RangesOf(findings));
+    }
+
+    [TestMethod]
+    [TestCategory("MS-VBAL 5.6.9.6 Binary 'Like' Operator")]
+    public async Task ALikePatternDeparture_IsReportedAtTheOperator()
+    {
+        var findings = await FindAsync(new LikePatternDepartureAnalyzer(), "", "Dim r As Variant", "r = \"a\" Like \"[]\"");
+
+        CollectionAssert.AreEqual(new[] { (4, 8, 4, 12) }, RangesOf(findings));
+    }
+
+    // the operator locates a diagnostic; a run-time error of the operation stays located at the operation, where Erl and the stack trace say it is.
+    [TestMethod]
+    public async Task TheErrorOfAnOperation_IsLocatedAtTheOperation_AndItsOperatorAtTheToken()
+    {
+        var source = "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\nPublic Sub Main()\r\nDim z As Long, r As Long\r\nz = 0\r\nr = 1 + 5 \\ z\r\nEnd Sub\r\n";
+        var payload = await ModuleWorkspace.SemanticsAsync([], source);
+
+        var division = payload.Modules.Single().Procedures.Single().Runtime!.Operations.Single(op => op.Operator == RDCore.SDK.Model.Tokens.IntegerDivisionOp);
+
+        Assert.IsNotNull(division.Error);
+        Assert.AreEqual((5, 8, 5, 13), (division.Location.Range.Start.Line, division.Location.Range.Start.Character, division.Location.Range.End.Line, division.Location.Range.End.Character));
+        Assert.AreEqual(division.Location, division.Error.Location);
+        Assert.IsNotNull(division.OperatorLocation);
+        Assert.AreEqual((5, 10, 5, 11), (division.OperatorLocation.Value.Range.Start.Line, division.OperatorLocation.Value.Range.Start.Character,
+            division.OperatorLocation.Value.Range.End.Line, division.OperatorLocation.Value.Range.End.Character));
+    }
 }

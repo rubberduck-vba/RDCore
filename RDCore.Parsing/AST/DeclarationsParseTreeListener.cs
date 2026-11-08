@@ -1957,13 +1957,16 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // leave a bare "1" sitting where the assignment's own capture would silently adopt it as if
     // `a = 1` were the complete, correct statement — the same erasure/misrepresentation shape as
     // New/TypeOf...Is, just one level up (see that fix's remarks).
-    private SyntaxNode BuildUnary(string token, VBABaseParserRuleContext context)
+    private SyntaxNode BuildUnary(string token, VBABaseParserRuleContext context, SourceLocation? operatorLocation = null)
     {
         if (CurrentBuilder.PeekLastChildren(1) is not [ExpressionNode])
         {
             return BuildUnbuiltExpressionTrivia(context, 1);
         }
-        return new VBUnaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(1));
+        return new VBUnaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(1))
+        {
+            OperatorLocation = operatorLocation,
+        };
     }
     private SyntaxNode BuildBinary(string token, VBABaseParserRuleContext context)
     {
@@ -1974,8 +1977,18 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         {
             return BuildUnbuiltExpressionTrivia(context, Math.Min(operands, 2));
         }
-        return new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2));
+        return new VBBinaryOperatorExpressionNode(token, GetCurrentNodeId(), context.GetSourceLocation(_rootUri), CurrentBuilder.PopLastChildren(2))
+        {
+            OperatorLocation = OperatorLocationOf(context),
+        };
     }
+
+    // an operator is one token, and the only one its alternative holds itself: the operands and the whitespace around it are rules. A token the parse made
+    // up to recover from an error is not in the source.
+    private SourceLocation? OperatorLocationOf(VBABaseParserRuleContext context)
+        => context.children?.OfType<ITerminalNode>().FirstOrDefault(node => node is not IErrorNode && node.Symbol.TokenIndex >= 0) is { } op
+            ? new SourceLocation(_rootUri, context.RangeOf(op.Symbol))
+            : null;
     private void AddIfBuilt(SyntaxNode? node)
     {
         if (node is not null)
@@ -2067,7 +2080,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated });
             return;
         }
-        AddIfBuilt(BuildUnary(Tokens.NegationOp, context));
+        AddIfBuilt(BuildUnary(Tokens.NegationOp, context, OperatorLocationOf(context)));
     }
 
     // RD-VBAL §5.6.9.3: a unary + is no operator - the VBE erases it - and builds no node: the operand is the node it is, and every rule reads it as if
@@ -2234,7 +2247,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         // `Not` is unary — one operand.
-        AddIfBuilt(BuildUnary(Tokens.LogicalNotOp, context));
+        AddIfBuilt(BuildUnary(Tokens.LogicalNotOp, context, OperatorLocationOf(context)));
     }
 
     public override void ExitLogicalAndOp([NotNull] VBAParser.LogicalAndOpContext context)

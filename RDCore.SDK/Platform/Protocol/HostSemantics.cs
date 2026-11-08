@@ -191,6 +191,9 @@ public record class ConversionFactDto(
 /// <param name="Comparison">How a comparison compares <c>String</c> values where it is evaluated (<c>Option Compare</c>); <see langword="null"/> for any other operation.</param>
 /// <param name="ComparisonCulture">The name of the culture a <c>Text</c> comparison compares with, when it is not the invariant one.</param>
 /// <param name="Member">The name of the member that is accessed, when it is known (<see cref="MemberAccessFact.Member"/>).</param>
+/// <param name="OperatorLocation">Where the operator token is (<see cref="OperatorFact.OperatorLocation"/>), at which a diagnostic about the operator is
+/// located; <see langword="null"/> when the operation has no token of its own, or a host does not state it, and a diagnostic is then located at
+/// <paramref name="Location"/>.</param>
 public record class OperatorFactDto(
     SyntaxNodeId Node,
     SourceLocation Location,
@@ -205,7 +208,8 @@ public record class OperatorFactDto(
     RuntimeErrorDto? Error,
     OptionCompare? Comparison = null,
     string? ComparisonCulture = null,
-    string? Member = null)
+    string? Member = null,
+    SourceLocation? OperatorLocation = null)
 {
     /// <summary>
     /// Describes an operation for the wire.
@@ -225,7 +229,8 @@ public record class OperatorFactDto(
         Error: fact.Error is null ? null : RuntimeErrorDto.From(fact.Error),
         Comparison: (fact as ComparisonOperatorFact)?.Comparison.Mode,
         ComparisonCulture: (fact as ComparisonOperatorFact)?.Comparison.Culture is { Name.Length: > 0 } culture ? culture.Name : null,
-        Member: (fact as MemberAccessFact)?.Member);
+        Member: (fact as MemberAccessFact)?.Member,
+        OperatorLocation: fact.OperatorLocation);
 }
 
 /// <summary>

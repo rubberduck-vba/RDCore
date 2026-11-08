@@ -25,7 +25,7 @@ internal sealed class VariantComparedWithStringAsTextAnalyzer : IModuleAnalyzer
             .Where(op => op.ComparisonOpSemanticFlags?.HasFlag(ComparisonOperatorSemanticFlags.IsVariantComparedWithStringAsText) ?? false)
             .Select(op => new AnalyzerFinding(
                 RDCoreDiagnosticId.VariantComparedWithStringAsText,
-                op.Location.Range,
+                (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(
                     RDCoreDiagnosticsResources.VariantComparedWithStringAsText_Message,

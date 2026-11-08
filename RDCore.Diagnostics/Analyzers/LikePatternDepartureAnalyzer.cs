@@ -25,14 +25,15 @@ internal sealed class LikePatternDepartureAnalyzer : IModuleAnalyzer
         foreach (var op in (context.Semantics?.Procedures ?? []).SelectMany(procedure => procedure.Runtime?.Operations ?? []))
         {
             var flags = op.ComparisonOpSemanticFlags ?? 0;
+            var range = (op.OperatorLocation ?? op.Location).Range;
             if (flags.HasFlag(ComparisonOperatorSemanticFlags.LikePatternHasEmptyCharList))
             {
-                yield return Finding(op.Location.Range, RDCoreDiagnosticsResources.LikePatternDeparture_EmptyCharList_Message);
+                yield return Finding(range, RDCoreDiagnosticsResources.LikePatternDeparture_EmptyCharList_Message);
             }
 
             if (flags.HasFlag(ComparisonOperatorSemanticFlags.LikePatternIsInvalid))
             {
-                yield return Finding(op.Location.Range, RDCoreDiagnosticsResources.LikePatternDeparture_InvalidPattern_Message);
+                yield return Finding(range, RDCoreDiagnosticsResources.LikePatternDeparture_InvalidPattern_Message);
             }
         }
     }
