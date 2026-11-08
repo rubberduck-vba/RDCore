@@ -58,18 +58,18 @@ A `For` loop needs per-activation state. Its opener stores a
 
 A `Variant` counter that the body sets to `Null` stays `Null`: `Null` plus the step is `Null`
 ([**MS-VBAL §5.6.9.3**](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e070115f-8d40-40cf-ac6d-ab18b9c6c906)),
-and the `Next` assigns it to the counter. The range test then compares `Null` with the end, which is `Null`
+and the `Next` assigns it to the counter. The range test then compares `Null` with the end, and the comparison is `Null`
 ([**MS-VBAL §5.6.9.5**](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f8acd631-55c1-4199-bc1e-022aaab6d9c8)).
 That result is Let-coerced to `Boolean`, as the condition of an `If` is, and raises error 94. RD-VBA does what MS-VBA
 does, as observed in Excel (64-bit, en-US), counting up or down:
 
 - The `Next` raises the error, after it has assigned the counter `Null`.
 - Under `On Error Resume Next`, or a handler's `Resume Next`, execution goes on after the loop.
-- With `Erl` counting line-number labels, `Erl` is the `Next`'s line number.
+- With `Erl` counting line-number labels (`ErlLineNumbering` set to `LineLabel`), `Erl` is the `Next`'s line number.
 
-Every error a `Next` raises is located at the counter of the `For` it closes, because a `Next` has no statement of its
-own. So the position an error reports, and `Erl` when it counts document lines, are the `For` line's. MS-VBA reports the
-`Next` line.
+**RD-VBA differs from MS-VBA:** every error a `Next` raises is located at the counter of the `For` it closes, because a
+`Next` has no statement of its own. So the position an error reports, and `Erl` when it counts document lines, are the
+`For` line's. MS-VBA reports the `Next` line.
 
 ### The type a loop counts in
 
