@@ -52,16 +52,24 @@ public sealed class DefinitionsAndUses
         _usesAt = uses.ToLookup(use => use.Offset);
     }
 
-    /// <summary>The instructions the offsets are of.</summary>
+    /// <summary>
+    /// The instructions the offsets are of.
+    /// </summary>
     public InstructionList Instructions { get; }
 
-    /// <summary>Every definition, those at the start of the activation first.</summary>
+    /// <summary>
+    /// Every definition, those at the start of the activation first.
+    /// </summary>
     public ImmutableArray<VariableDefinition> Definitions { get; }
 
-    /// <summary>Every use.</summary>
+    /// <summary>
+    /// Every use.
+    /// </summary>
     public ImmutableArray<VariableUse> Uses { get; }
 
-    /// <summary>Every variable the body names.</summary>
+    /// <summary>
+    /// Every variable the body names.
+    /// </summary>
     public ImmutableHashSet<SemanticId> Variables { get; }
 
     /// <summary>
@@ -70,11 +78,15 @@ public sealed class DefinitionsAndUses
     /// </summary>
     public ImmutableHashSet<SemanticId> OutliveTheActivation { get; }
 
-    /// <summary>The definitions of the instruction at <paramref name="offset"/>; <c>-1</c> for those at the start of the activation.</summary>
+    /// <summary>
+    /// The definitions of the instruction at <paramref name="offset"/>; <c>-1</c> for those at the start of the activation.
+    /// </summary>
     /// <param name="offset">The offset of an instruction.</param>
     public IEnumerable<VariableDefinition> DefinitionsAt(int offset) => _definitionsAt[offset];
 
-    /// <summary>The uses of the instruction at <paramref name="offset"/>.</summary>
+    /// <summary>
+    /// The uses of the instruction at <paramref name="offset"/>.
+    /// </summary>
     /// <param name="offset">The offset of an instruction.</param>
     public IEnumerable<VariableUse> UsesAt(int offset) => _usesAt[offset];
 

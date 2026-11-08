@@ -127,7 +127,7 @@ public sealed class ErrorHandlingStatesTests
     [TestMethod]
     public void AnOnErrorInAHandler_SetsThePolicyForAfterIt_TheErrorStaysActive()
     {
-        // MS-VBA: an error raised in the handler after On Error GoTo Other is raised to the caller, not caught by Other (oracle\s53 C01).
+        // MS-VBA: an error raised in the handler after On Error GoTo Other is raised to the caller, not caught by Other (Excel-verified).
         var states = States("On Error GoTo Handler\nn = 1\nExit Sub\nHandler:\nOn Error GoTo Other\nn = 2\nExit Sub\nOther:\nDebug.Print \"other\"");
 
         var state = states.At(At(states, 6)).Single();
@@ -139,7 +139,7 @@ public sealed class ErrorHandlingStatesTests
     [TestMethod]
     public void OnErrorGoToMinusOne_EndsTheActiveError_AndKeepsThePolicy()
     {
-        // MS-VBA: after On Error GoTo -1 in the handler, a second error goes to the handler again (oracle\s53 A05).
+        // MS-VBA: after On Error GoTo -1 in the handler, a second error goes to the handler again (Excel-verified).
         var states = States("On Error GoTo Handler\nn = 1\nExit Sub\nHandler:\nOn Error GoTo -1\nn = 2\nExit Sub");
 
         var state = states.At(At(states, 6)).Single();

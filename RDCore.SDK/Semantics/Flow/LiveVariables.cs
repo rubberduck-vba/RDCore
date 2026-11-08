@@ -24,7 +24,7 @@ namespace RDCore.SDK.Semantics.Flow;
 /// </list>
 /// <para>
 /// Where <c>On Error Resume Next</c> goes on after an error in a condition or in the header of a <c>For</c> is as MS-VBA has it
-/// (<see cref="ControlFlowGraph.NextAfterAnError"/>, oracle s54), but for the collection of a <c>For Each</c> and the object of a <c>With</c>, which are still to be
+/// (<see cref="ControlFlowGraph.NextAfterAnError"/>, Excel-verified), but for the collection of a <c>For Each</c> and the object of a <c>With</c>, which are still to be
 /// measured and go on at the next instruction meanwhile: until they are, "not live" holds on the paths of every other statement.
 /// </para>
 /// </remarks>
@@ -40,7 +40,9 @@ public sealed class LiveVariables
         _liveBefore = liveBefore;
     }
 
-    /// <summary>The graph the analysis is of.</summary>
+    /// <summary>
+    /// The graph the analysis is of.
+    /// </summary>
     public ControlFlowGraph Graph { get; }
 
     /// <summary>

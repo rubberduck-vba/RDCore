@@ -148,7 +148,7 @@ public sealed class FlowSoundnessTests
     [TestMethod]
     public void S04_OnErrorGoToMinusOne_KeepsTheHandler_Liveness()
     {
-        // measured (oracle s53 A05): inside handler H, On Error GoTo -1 then a raise goes to H again.
+        // Excel-verified: inside handler H, On Error GoTo -1 then a raise goes to H again.
         var analyzed = Analyze("Dim x As Long\nOn Error GoTo H\nx = G()\nExit Sub\nH:\nDebug.Print x\nOn Error GoTo -1\nx = 1\nx = G()\nExit Sub");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(7, 7)), "x = G() may raise into H, which reads x");
     }
@@ -186,13 +186,13 @@ public sealed class FlowSoundnessTests
     [TestMethod]
     public void S09_AnErrorStatementUnderResumeNext_ReachesTheNextStatement_InTheSameState()
     {
-        // the re-review's A: `Error 5` never completes, so the next statement is reached only by its error edge - and was unreachable.
+        // `Error 5` never completes, so the next statement is reached only by its error edge - and was unreachable.
         var analyzed = Analyze("Dim x As Long\nOn Error Resume Next\nError 5\nx = 1\nx = 10 \\ n\nDebug.Print x");
         Assert.IsNotEmpty(analyzed.States.At(analyzed.Line(3)), "x = 1 is reached");
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(3, 3)), "10 \\ n may fail, and Debug.Print reads x = 1");
     }
 
-    // the re-review's E: a Return with no GoSub raises error 3, a Resume with no active error raises error 20.
+    // a Return with no GoSub raises error 3, a Resume with no active error raises error 20.
     [TestMethod]
     [DataRow("Return", DisplayName = "a Return")]
     [DataRow("Resume Next", DisplayName = "a Resume Next")]
@@ -202,7 +202,7 @@ public sealed class FlowSoundnessTests
         Assert.Contains(analyzed.Variable("x"), analyzed.Live.LiveAfter(analyzed.Lines(2, 2)), $"{statement} raises, and Resume Next goes on to read x");
     }
 
-    // the re-review's D, measured in MS-VBA (oracle s54): an error in the expression of a Select Case goes on after End Select, with no Case run, the Case Else
+    // measured in MS-VBA (Excel-verified): an error in the expression of a Select Case goes on after End Select, with no Case run, the Case Else
     // included - as RD-VBA's runtime does.
     [TestMethod]
     public void S0B_AnErrorInTheExpressionOfASelectCase_UnderResumeNext_GoesOnAtEndSelect()
@@ -212,7 +212,7 @@ public sealed class FlowSoundnessTests
             "the Case Else is skipped, and x is still 0");
     }
 
-    // where Resume Next goes on after an error in a condition, as MS-VBA has it (oracle s54): the line it raises on, and the line it goes on at, zero-based.
+    // where Resume Next goes on after an error in a condition, as MS-VBA has it (Excel-verified): the line it raises on, and the line it goes on at, zero-based.
     [TestMethod]
     [DataRow("Select Case 10 \\ n\nCase 1\nx = 1\nCase Else\nx = 2\nEnd Select\nDebug.Print x", 0, 6, DisplayName = "the expression of a Select Case: after End Select")]
     [DataRow("Select Case n\nCase 10 \\ n\nx = 1\nCase Else\nx = 2\nEnd Select\nDebug.Print x", 1, 2, DisplayName = "a Case expression: that Case's body")]
@@ -234,7 +234,7 @@ public sealed class FlowSoundnessTests
         CollectionAssert.AreEqual(new[] { analyzed.Line(goesOn + 2) }, errors);
     }
 
-    // oracle s54 F01-F07: an error in the header of a For goes on at the first statement of the body, untested, with the counter as it was (F04: i keeps 7).
+    // Excel-verified: an error in the header of a For goes on at the first statement of the body, untested, with the counter as it was (i keeps 7).
     [TestMethod]
     [DataRow("For i = 10 \\ n To 2", DisplayName = "the start")]
     [DataRow("For i = 1 To 10 \\ n", DisplayName = "the end")]
@@ -332,7 +332,7 @@ public sealed class FlowSoundnessTests
         Assert.Contains(analyzed.Variable("field"), analyzed.Live.LiveAfter(analyzed.Lines(0, 0)), "ShowField reads it");
     }
 
-    // the re-review's B: what is written in the argument list of a function that returns an array is an argument, not an index.
+    // what is written in the argument list of a function that returns an array is an argument, not an index.
     [TestMethod]
     public void S22_AnArgumentOfAFunctionThatReturnsAnArray_IsADefinition()
     {
@@ -382,7 +382,7 @@ public sealed class FlowSoundnessTests
         Assert.AreEqual(canRaise, analyzed.Graph.CanRaise(analyzed.Line(1)));
     }
 
-    // the re-review's F: a field named through its module, or through Me, is the field.
+    // a field named through its module, or through Me, is the field.
     [TestMethod]
     [DataRow("field = 1\nDebug.Print Main.field\nfield = 2", DisplayName = "read through the module")]
     public void S23_AFieldReadThroughItsModule_IsAUse(string body)
@@ -486,9 +486,9 @@ public sealed class FlowSoundnessTests
 
     // ---------------- precision ----------------
 
-    // precision, not soundness: an argument counted as a possible definition makes a variable ByRef that could be ByVal (overnight #46, deferred).
+    // precision, not soundness: an argument counted as a possible definition makes a variable ByRef that could be ByVal.
     [TestMethod]
-    [Ignore("Overnight #46: PassedAsArgument does not consult the parameter, so an argument of a ByVal parameter counts as a possible definition")]
+    [Ignore("PassedAsArgument does not consult the parameter, so an argument of a ByVal parameter counts as a possible definition")]
     public void P01_AnArgumentForAByValParameter_IsNoDefinition()
     {
         var analyzed = Analyze("Dim x As Long\nTakesByVal x");
@@ -496,7 +496,7 @@ public sealed class FlowSoundnessTests
     }
 
     [TestMethod]
-    [Ignore("Overnight #46: PassedAsArgument does not consult the parameter, so an argument of a library function taken ByVal counts as a possible definition")]
+    [Ignore("PassedAsArgument does not consult the parameter, so an argument of a library function taken ByVal counts as a possible definition")]
     public void P02_AnArgumentOfAStdlibFunction_IsNoDefinition()
     {
         var analyzed = Analyze("Dim s As String\nDebug.Print Len(s)");

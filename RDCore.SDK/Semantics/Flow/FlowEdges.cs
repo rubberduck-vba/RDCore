@@ -39,7 +39,9 @@ internal sealed class FlowEdges
         _predecessors = [.. predecessors.Select(edges => edges.ToImmutableArray())];
     }
 
-    /// <summary>The number of nodes: every instruction, and the exit.</summary>
+    /// <summary>
+    /// The number of nodes: every instruction, and the exit.
+    /// </summary>
     public int Count => _successors.Length;
 
     public ImmutableArray<ControlFlowEdge> SuccessorsOf(int node) => _successors[node];
