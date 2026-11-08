@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Console;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
@@ -30,7 +31,8 @@ internal sealed class ReplShell(
     ConsolePromptEditor? editor = null,
     ReplProgressDisplay? progress = null,
     ReplServerQuestions? questions = null,
-    IConsoleKeys? keys = null)
+    IConsoleKeys? keys = null,
+    IOptions<AppOptions>? options = null)
 {
     // the progress of the language server's work is drawn while the shell runs: its display is the shell's for as long.
     private readonly ReplProgressDisplay? _progress = progress;
@@ -59,7 +61,10 @@ internal sealed class ReplShell(
     public async Task RunAsync(CancellationToken token)
     {
         using var breakHandler = new ConsoleBreakHandler(OnBreak);
-        var context = new ReplCommandContext(program, console, platform, document, dispatcher.Commands);
+        var context = new ReplCommandContext(program, console, platform, document, dispatcher.Commands)
+        {
+            BreakListingLines = options?.Value.BreakListingLines ?? AppOptions.DefaultBreakListingLines,
+        };
         _debugger = context.Debugger;
 
         await dispatcher.DispatchAsync(context, "SPLASH", string.Empty, CancellationToken.None);

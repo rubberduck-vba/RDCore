@@ -939,6 +939,7 @@ public sealed class ReplDebuggingTests
     {
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
+        _console.ClearReceivedCalls();
 
         await CommandAsync(new ListReplCommand(GetMockThemeService()));
 
@@ -952,6 +953,7 @@ public sealed class ReplDebuggingTests
         ExecuteReturns(SuspendedAt(2));
         await RunAsync();
         await CommandAsync(new BreakReplCommand(), "20");
+        _console.ClearReceivedCalls();
 
         await CommandAsync(new ListReplCommand(GetMockThemeService()));
 
@@ -967,6 +969,7 @@ public sealed class ReplDebuggingTests
         await RunAsync();
         ResumeReturns(new ExecuteResult { Outcome = ExecutionOutcome.Completed });
         await CommandAsync(new ContReplCommand());
+        _console.ClearReceivedCalls();
 
         await CommandAsync(new ListReplCommand(GetMockThemeService()));
 
