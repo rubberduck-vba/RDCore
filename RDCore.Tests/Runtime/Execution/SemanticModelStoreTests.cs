@@ -172,19 +172,33 @@ public sealed class SemanticModelStoreTests
 
     private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
 
+    // work started on a LargeStackThread once one of the threads the test counts is free: a wait the token cancels never runs it.
+    private static async Task StartCountedAsync(SemaphoreSlim threads, Action work, CancellationToken token)
+    {
+        await threads.WaitAsync(token);
+        try
+        {
+            await LargeStackThread.Start(work, token);
+        }
+        finally
+        {
+            threads.Release();
+        }
+    }
+
     // the evaluations run on one thread the test counts itself, and holds: the module's evaluation waits for it, as it waits when every LargeStackThread is busy.
     private static (SemanticModelStore Store, ManualResetEventSlim Release, Task Busy) StoreWithItsOneThreadBusy(SemaphoreSlim threads)
     {
         var release = new ManualResetEventSlim();
         using var running = new ManualResetEventSlim();
-        var busy = LargeStackThread.Start(() =>
+        var busy = StartCountedAsync(threads, () =>
         {
             running.Set();
             release.Wait();
-        }, threads, CancellationToken.None);
+        }, CancellationToken.None);
         Assert.IsTrue(running.Wait(HangGuard));
 
-        return (new SemanticModelStore((work, token) => LargeStackThread.Start(work, threads, token)), release, busy);
+        return (new SemanticModelStore((work, token) => StartCountedAsync(threads, work, token)), release, busy);
     }
 
     [TestMethod]

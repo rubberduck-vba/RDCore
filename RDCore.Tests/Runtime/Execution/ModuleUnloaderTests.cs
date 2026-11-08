@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -121,8 +122,7 @@ public sealed class ModuleUnloaderTests
         var program = Module("Program");
         var main = Variable(program, "Main");
         var (session, image) = Compose(program, main);
-        image.Load(program.Uri, [new KeyValuePair<SemanticId, InstructionList>(main.SemanticId, new InstructionList(
-            [], new Dictionary<string, int>(), new Dictionary<RDCore.SDK.Model.AST.Abstract.SyntaxNodeId, int>()))]);
+        image.Load(program.Uri, [new KeyValuePair<SemanticId, InstructionList>(main.SemanticId, InstructionListLowering.Lower(new StatementBlock([])).InstructionList)]);
         image.Semantics.Store(new ModuleSemanticModel(program.Uri, [], []));
         Assert.IsTrue(image.IsLoaded(program.Uri));
         Assert.IsTrue(image.Semantics.TryGet(program.Uri, out _));

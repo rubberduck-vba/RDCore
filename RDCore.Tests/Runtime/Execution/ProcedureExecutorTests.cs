@@ -392,15 +392,13 @@ public sealed class ProcedureExecutorTests
 
     [TestMethod]
     public void ForNext_WithNoEnclosingForOpener_ReportsForLoopNotInitialized()
-        // MS-VBAL 5.4.2.3: a GoTo landing directly on Next without its own For header ever running is
-        // error 92. Hand-built rather than parsed - the real parser/lowering pair always emits a ForNext
-        // whose own Matching resolves to a real ForOpener, so this simulates the GoTo-bypass scenario
-        // directly against a minimal instruction list.
+        // MS-VBAL 5.4.2.3: a GoTo that lands inside the loop, past its For header, reaches the Next of a
+        // loop that never began: error 92.
     {
-        var forNext = new Instruction(0, null, InstructionKind.ForNext, 0, [], null, null, 999, null);
-        var list = new InstructionList([forNext], new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), new Dictionary<SyntaxNodeId, int>());
-        var session = ComposeSession();
-        var frame = PushFrame(session);
+        var list = Lower("GoTo Inside", "For i = 1 To 3", "Inside:", "Next");
+        var i = Local("i", VBLongType.TypeInfo);
+        var session = ComposeSession(i);
+        var frame = PushFrame(session, (i, new VBLongValue(0)));
 
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 
@@ -602,13 +600,14 @@ public sealed class ProcedureExecutorTests
 
     [TestMethod]
     public void ForEachNext_WithNoEnclosingForEachOpener_ReportsForLoopNotInitialized()
-        // Same shape as ForNext_WithNoEnclosingForOpener_ReportsForLoopNotInitialized - a GoTo landing
-        // directly on the closer without its own opener having run is error 92 for For Each too.
+        // MS-VBAL 5.4.2.4: the same for For Each - a GoTo past the For Each header reaches the Next of a
+        // loop that never began: error 92, however many elements the array has.
     {
-        var forEachNext = new Instruction(0, null, InstructionKind.ForEachNext, 0, [], null, null, 999, null);
-        var list = new InstructionList([forEachNext], new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase), new Dictionary<SyntaxNodeId, int>());
-        var session = ComposeSession();
-        var frame = PushFrame(session);
+        var list = Lower("GoTo Inside", "For Each item In arr", "Inside:", "Next");
+        var item = Local("item", VBLongType.TypeInfo);
+        var arr = Local("arr", new VBFixedSizeArrayType(VBLongType.TypeInfo));
+        var session = ComposeSession(item, arr);
+        var frame = PushFrame(session, (item, new VBLongValue(0)), (arr, LongArray(10, 20)));
 
         var outcome = Executor().Run(session, frame, list, new RuntimeEvaluationContext(ProcedureUri));
 

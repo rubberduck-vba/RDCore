@@ -642,12 +642,4 @@ internal static class LanguageServerOptionsExtensions
         // (see RDCoreLifecycleReceiver). DryIoc's internal registration keeps whichever IReceiver was
         // registered first, so registering ours here pre-empts it.
         .WithLifecycleReceiver();
-
-    // the receiver; the requests it keeps once the server is initialized, which act on a running program and are handled as they arrive rather than after the
-    // request that runs the program (ArrivalRequests); and the locale of the initialize request it keeps (InitializeLocale).
-    internal static LanguageServerOptions WithLifecycleReceiver(this LanguageServerOptions options)
-        => options.WithServices(services => services
-            .AddSingleton<ArrivalRequests>()
-            .AddSingleton<InitializeLocale>()
-            .AddSingleton<IReceiver, RDCoreLifecycleReceiver>());
 }
