@@ -353,7 +353,7 @@ public sealed class FlowSoundnessTests
         Assert.DoesNotContain(analyzed.Variable("n"), analyzed.Accesses.OutliveTheActivation, "a ByVal parameter is not one of them");
     }
 
-    // the second review's 3: a function that returns an array and has no parameters is called with none, and what is written after its name indexes the result.
+    // a function that returns an array and has no parameters is called with none, and what is written after its name indexes the result.
     [TestMethod]
     public void S26_AnIndexOfWhatAParameterlessArrayFunctionReturns_IsNoDefinition()
     {
@@ -362,7 +362,7 @@ public sealed class FlowSoundnessTests
         Assert.IsFalse(analyzed.Defines(2, analyzed.Variable("i")));
     }
 
-    // the second review's 2: an assignment of a literal that converts to the variable's type cannot raise (MS-VBAL §5.5.1.2); anything else may.
+    // an assignment of a literal that converts to the variable's type cannot raise (MS-VBAL §5.5.1.2); anything else may.
     [TestMethod]
     [DataRow("Dim x As Long\nx = 1", false, DisplayName = "a number to a Long")]
     [DataRow("Dim i As Integer\ni = -32768", false, DisplayName = "the least Integer")]
