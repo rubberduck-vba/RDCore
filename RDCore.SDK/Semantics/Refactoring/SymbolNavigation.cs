@@ -27,12 +27,12 @@ public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange
 public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Symbol, IReadOnlyList<SymbolSite> Sites)
 {
     /// <summary>
-    /// Where the symbol's name is written, as a name whose meaning is not known, that could refer to it - a name in an expression nested too deeply to be
-    /// analyzed (<strong>RD-VBAL §2.6.1</strong>), a member of the object of a <c>With</c> block that the analysis of the block did not bind: what
+    /// Where the symbol's name is written, as a name whose meaning is not known, that could refer to it: a name in an expression nested too deeply to be
+    /// analyzed (<strong>RD-VBAL §2.6.1</strong>), or a member of the object of a <c>With</c> block that the analysis of the block did not bind. What
     /// <see cref="SymbolNavigation.ReferencesAt"/> and <see cref="SymbolNavigation.OccurrencesAt"/> find may be incomplete, as a rename of the symbol is
     /// refused (<see cref="RenameRefusalKind.Unresolved"/>). None for any other navigation.
     /// <para>
-    /// A member accessed late-bound - on an <c>Object</c> or a <c>Variant</c> - is left out of both: a rename asks the user to confirm its edit
+    /// A member accessed late-bound (on an <c>Object</c> or a <c>Variant</c>) is not one of these sites: a rename asks the user to confirm its edit
     /// (<see cref="RenameEdit.IsLateBound"/>).
     /// </para>
     /// </summary>

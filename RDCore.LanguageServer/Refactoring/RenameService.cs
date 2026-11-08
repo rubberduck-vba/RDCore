@@ -70,6 +70,7 @@ internal sealed record class RenameAnswer<T>(T? Value, string? Refusal, IReadOnl
     /// <summary>
     /// Whether the user is asked to confirm the edits of an annotation.
     /// </summary>
+    /// <param name="annotation">The annotation of the edits.</param>
     public bool Asks(ChangeAnnotationIdentifier annotation) => Questions?.Any(question => question.Annotation == annotation) == true;
 
     /// <summary>JSON-RPC "Request Failed" (<strong>LSP 3.17</strong> <c>ErrorCodes.RequestFailed</c>): the request was valid, and is refused.</summary>
@@ -299,7 +300,7 @@ internal sealed class RenameWorkspace
 
     /// <summary>
     /// The change annotation of a rename's edits of the members accessed late-bound that may be the symbol (<see cref="RenameEdit.IsLateBound"/>), which the
-    /// user confirms; a client that can't ask its user is sent none of them.
+    /// user confirms; a client with nobody to ask is sent none of them.
     /// </summary>
     internal static readonly ChangeAnnotationIdentifier LateBound = "rdcore.rename.lateBound";
 

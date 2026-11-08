@@ -79,7 +79,7 @@
     <value>Accessed late-bound</value>
   </data>
   <data name="Rename_LateBound_Description" xml:space="preserve">
-    <value>Which member a late-bound access calls is only known when the code runs. If it is left as it is and the object is of the class of '{0}', the call will no longer find it.</value>
+    <value>Which member a late-bound access calls is only known when the code runs. An access left as it is no longer finds the member when the object is of the class of '{0}'.</value>
   </data>
   <data name="Rename_LateBound_Question_One" xml:space="preserve">
     <value>'{0}' may be accessed late-bound, at {2}. Rename it there too?</value>

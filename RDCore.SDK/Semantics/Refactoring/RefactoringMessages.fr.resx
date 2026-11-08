@@ -76,16 +76,16 @@
     <value>Laisser les chaînes</value>
   </data>
   <data name="Rename_LateBound_Label" xml:space="preserve">
-    <value>Accédé en liaison tardive</value>
+    <value>Accès en liaison tardive</value>
   </data>
   <data name="Rename_LateBound_Description" xml:space="preserve">
-    <value>Le membre qu'appelle un accès en liaison tardive n'est connu qu'à l'exécution. S'il reste tel quel et que l'objet est de la classe de « {0} », l'appel ne le trouvera plus.</value>
+    <value>Le membre qu'appelle un accès en liaison tardive n'est connu qu'à l'exécution. Un accès laissé tel quel ne trouve plus le membre quand l'objet est de la classe de « {0} ».</value>
   </data>
   <data name="Rename_LateBound_Question_One" xml:space="preserve">
-    <value>« {0} » est peut-être accédé en liaison tardive, à {2}. Le renommer là aussi?</value>
+    <value>« {0} » fait peut-être l'objet d'un accès en liaison tardive, à {2}. Le renommer là aussi?</value>
   </data>
   <data name="Rename_LateBound_Question_Many" xml:space="preserve">
-    <value>« {0} » est peut-être accédé en liaison tardive à {1} endroits, le premier à {2}. Le renommer là aussi?</value>
+    <value>« {0} » fait peut-être l'objet d'accès en liaison tardive à {1} endroits, le premier à {2}. Le renommer là aussi?</value>
   </data>
   <data name="Rename_LateBound_Rename" xml:space="preserve">
     <value>Le renommer là aussi</value>

@@ -21,11 +21,11 @@ namespace RDCore.LanguageServer.Refactoring;
 /// <para>
 /// The edits of the strings a library calls the symbol by (<see cref="RenameWorkspace.InString"/>), and of the members accessed late-bound that may be the
 /// symbol (<see cref="RenameWorkspace.LateBound"/>), are the user's to confirm: a client that takes change annotations asks them itself; any other is asked
-/// for them (<c>window/showMessageRequest</c>), one question for each, before it is answered: with them renamed, them left, or nothing at all when the user
+/// for them (<c>window/showMessageRequest</c>), one question for each, before it is answered: with those edits, without them, or nothing at all when the user
 /// does not choose.
 /// </para>
 /// <para>
-/// A client that can't ask its user (<see cref="SDK.Client.Unattended"/>) is sent none of the late-bound edits, and the rest of the rename.
+/// A client with nobody to ask (<see cref="SDK.Client.Unattended"/>) is sent the rest of the rename, without the late-bound edits.
 /// </para>
 /// </remarks>
 internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade server, IServiceProvider services) : RenameHandlerBase

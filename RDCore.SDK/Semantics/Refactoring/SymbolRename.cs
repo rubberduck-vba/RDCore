@@ -146,9 +146,9 @@ public sealed record class RenameTarget(string Name, Uri Module, SourceRange Ran
 /// only known when the code runs, so the user is asked to confirm the edit. A string left as it is names nothing the call can find.
 /// </param>
 /// <param name="IsLateBound">
-/// Whether the name is that of a member accessed late-bound - on an <c>Object</c> or a <c>Variant</c> - that may be the renamed member: which member it is, is
-/// only known when the code runs (<strong>MS-VBAL §5.6.12</strong>), so the user is asked to confirm the edit. A member left as it is is not found when it is
-/// called, when the object is of the renamed member's class.
+/// Whether the name is that of a member accessed late-bound (on an <c>Object</c> or a <c>Variant</c>) that may be the renamed member: which member it is, is
+/// only known when the code runs (<strong>MS-VBAL §5.6.12</strong>), so the user is asked to confirm the edit. An access left as it is no longer finds the
+/// member when the object is of the renamed member's class.
 /// </param>
 public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false);
 
@@ -185,7 +185,7 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 /// code already writes it.
 /// </para>
 /// <para>
-/// A member that code accesses late-bound - on an <c>Object</c> or a <c>Variant</c> - with the name of a member of a class's public interface is renamed, and
+/// A member that code accesses late-bound (on an <c>Object</c> or a <c>Variant</c>) with the name of a member of a class's public interface is renamed, and
 /// its edit says so (<see cref="RenameEdit.IsLateBound"/>), for the user to confirm: which member it is, is only known when the code runs. It is not renamed
 /// where what is known of the object rules the class out (<see cref="PossibleClasses"/>).
 /// </para>

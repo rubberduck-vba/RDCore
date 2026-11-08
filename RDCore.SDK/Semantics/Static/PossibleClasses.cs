@@ -22,17 +22,17 @@ namespace RDCore.SDK.Semantics.Static;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A fact for tooling - which late-bound accesses a rename proposes to rename, what a completion list offers after the expression - and for nothing else. It is
+/// A fact for tooling (which late-bound accesses a rename proposes to rename, what a completion list offers after the expression), and for nothing else. It is
 /// never a declaration: a member accessed on the expression is late-bound and found when it is called (<strong>MS-VBAL §5.6.12</strong>,
 /// <strong>§6.1.2.8.1.4</strong>), and nothing that is or is not true of a class it may hold is a compile error.
 /// </para>
 /// <para>
-/// What says it is open (<see cref="IPossibleClassesSource"/>): the assignments of the code, and what a runtime or an extension knows of the objects.
+/// The sources of the fact are open (<see cref="IPossibleClassesSource"/>): the assignments of the code, and what a runtime or an extension knows of the objects.
 /// </para>
 /// </remarks>
 /// <param name="Classes">The class modules of the classes the expression may hold, each once.</param>
 /// <param name="IsComplete">
-/// Whether <paramref name="Classes"/> are all the classes it may hold: when they are not, it may hold an object of a class that nothing says.
+/// Whether <paramref name="Classes"/> are all the classes it may hold: when they are not, it may hold an object of a class no source names.
 /// </param>
 public sealed record class PossibleClasses(ImmutableArray<SemanticId> Classes, bool IsComplete)
 {
@@ -95,12 +95,12 @@ public interface IPossibleClassesSource
 }
 
 /// <summary>
-/// The classes of the objects a variable of no particular class - declared <c>Object</c> or <c>Variant</c> - is <c>Set</c> to, in the module that declares it:
+/// The classes of the objects a variable of no particular class (declared <c>Object</c> or <c>Variant</c>) is <c>Set</c> to, in the module that declares it:
 /// the classes the code says it may hold.
 /// </summary>
 /// <remarks>
 /// <para>
-/// An object of a class the code names - <c>New Class1</c>, a variable or a function declared <c>As Class1</c>, <c>Me</c> - is of that class; one a
+/// An object of a class the code names (<c>New Class1</c>, a variable or a function declared <c>As Class1</c>, <c>Me</c>) is of that class; one a
 /// <c>CreateObject</c> call creates by name is of the class the identifier names (<see cref="ObjectCreationFact"/>), when the project resolves it;
 /// <c>Nothing</c> is of none. Any other object, an <c>Object</c> or a <c>Variant</c>, may be of any class.
 /// </para>
