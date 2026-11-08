@@ -69,7 +69,7 @@ A procedure invocation runs these steps:
    [Optional Parameters](#optional-parameters), [ParamArray](#paramarray) and
    [ByVal and ByRef Binding](#byval-and-byref-binding)). The arguments are evaluated left to right, except a
    variable given to a `ByVal` parameter, left of an argument that makes a call: it is read after the other
-   arguments, as MS-VBA reads it. With `Bump` adding 1 to the variable it's given by reference, and `a` at `1`,
+   arguments, as MS-VBA reads it. With `Bump` adding 1 to the variable it is given by reference, and `a` at `1`,
    `Sum2(a, Bump(a))` gives `Sum2` the values `2` and `2`.
 3. `RuntimeProcedureInvoker` looks up the callee's own lowered body by symbol.
 4. `RuntimeProcedureInvoker` pushes a fresh [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)

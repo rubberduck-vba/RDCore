@@ -20,7 +20,7 @@ public sealed partial class CompiledActivation
         => (_knowns ??= []).Add((syntax, new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating)));
 
     // the frame given what compiled code evaluated of the instruction at pc, which the interpreter runs from the middle (inside); nothing, when it runs the
-    // instruction from its start - with the error of a call, which the activation's handler is given. False when what was evaluated names nothing of the
+    // instruction from its start (with the error of a call), which the activation's handler is given. False when what was evaluated names nothing of the
     // instruction: the interpreter would evaluate it again, and make its calls a second time.
     private bool HandKnowns(CallStackFrame frame, InstructionList list, int pc, bool inside)
     {

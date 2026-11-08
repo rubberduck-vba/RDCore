@@ -87,6 +87,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>
     /// Gives the activation what compiled code had evaluated of the instruction at <see cref="Pc"/>.
     /// </summary>
+    /// <param name="known">What compiled code had evaluated.</param>
     internal void Know(KnownOperands known)
     {
         Forget();

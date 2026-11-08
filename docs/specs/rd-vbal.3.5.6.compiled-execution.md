@@ -134,7 +134,7 @@ A statement can read a variable that a call in it may change: one it also passes
 while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module, which any call
 may change. Compiled code runs such a statement when every operation in it is of
 type `Byte`, `Boolean`, `Integer`, `Long`, `LongLong` or `Currency`, and the variable is an operand, not an argument of a call. It reads the variable
-where it's written, as MS-VBA does ([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)). The interpreter runs
+where it is written, as MS-VBA does ([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)). The interpreter runs
 any other such statement on its own: one that computes a `Single`, a `Double` or a `Date`, and one that gives the variable to a call as an argument.
 
 When compiled code hands the activation to the interpreter after such a call, it also gives the interpreter what it already evaluated of the statement:

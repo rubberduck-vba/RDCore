@@ -4,7 +4,7 @@ namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
 /// What compiled code had evaluated of an instruction when it handed the activation to the interpreter in the middle of it: the value of each expression it
-/// had evaluated - a call it made, a variable it read before the call - which the interpreter takes as it is, and does not evaluate again.
+/// had evaluated (a call it made, a variable it read before the call), which the interpreter takes as it is, and does not evaluate again.
 /// </summary>
 /// <remarks>
 /// An expression is named by where it is in its instruction's statement: its index in the statement's nodes, in the order they are written
@@ -27,11 +27,14 @@ internal sealed class KnownOperands
     /// <summary>
     /// Counts an activation that takes known operands, or one that lets them go.
     /// </summary>
+    /// <param name="held">Whether the activation takes them; <see langword="false"/> when it lets them go.</param>
     public static void Count(bool held) => _ = held ? Interlocked.Increment(ref s_held) : Interlocked.Decrement(ref s_held);
 
     /// <summary>
     /// The known operands of <paramref name="statement"/>, each given by its index in its nodes (<see cref="IndexOf"/>).
     /// </summary>
+    /// <param name="statement">The instruction's statement.</param>
+    /// <param name="known">The index of each expression compiled code evaluated, and its value.</param>
     /// <returns><see langword="null"/> when an index names no node of the statement.</returns>
     public static KnownOperands? Of(SyntaxNode statement, IReadOnlyList<(int Index, ScalarPayload Value)> known)
     {
@@ -53,6 +56,8 @@ internal sealed class KnownOperands
     /// <summary>
     /// The index of <paramref name="node"/> in the nodes of <paramref name="statement"/>, in the order they are written; <c>-1</c> when it is none of them.
     /// </summary>
+    /// <param name="statement">The instruction's statement.</param>
+    /// <param name="node">The expression.</param>
     public static int IndexOf(SyntaxNode statement, SyntaxNode node)
     {
         var index = 0;
@@ -73,11 +78,15 @@ internal sealed class KnownOperands
     /// The node of <paramref name="statement"/> at <paramref name="index"/> in the order they are written (<see cref="IndexOf"/>); <see langword="null"/> when
     /// there is none.
     /// </summary>
+    /// <param name="statement">The instruction's statement.</param>
+    /// <param name="index">The index of the node.</param>
     public static SyntaxNode? At(SyntaxNode statement, int index) => index < 0 ? null : Nodes(statement).Skip(index).FirstOrDefault();
 
     /// <summary>
     /// The value compiled code evaluated <paramref name="node"/> to, if it did.
     /// </summary>
+    /// <param name="node">The expression.</param>
+    /// <param name="value">Its value, when compiled code evaluated it.</param>
     public bool TryGet(SyntaxNode node, out ScalarPayload value) => _values.TryGetValue(node, out value);
 
     // a statement's nodes, the statement first, each before what it is made of; the statements of a block are not the statement's.

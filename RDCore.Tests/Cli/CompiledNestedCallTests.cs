@@ -13,9 +13,9 @@ using RDCore.SDK.Services.VerboseMessages;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A call inside an expression - an operand, a condition, an argument of another call - is made by compiled code: what the program does is what it does
-/// when the interpreter makes it, and so is what a call it is in the middle of goes on with, after the interpreter is handed the instruction there - its
-/// error, a break, a variable a debugger set, an edit.
+/// A call inside an expression (an operand, a condition, an argument of another call) is made by compiled code: what the program does is what it does
+/// when the interpreter makes it, and so is what a call it is in the middle of goes on with, after the interpreter is handed the instruction there (its
+/// error, a break, a variable a debugger set, an edit).
 /// </summary>
 [TestClass]
 public sealed class CompiledNestedCallTests
@@ -138,7 +138,7 @@ public sealed class CompiledNestedCallTests
             "End Function",
             Twice()), "Outer", calls), "| 10 |");
 
-    // a call given the value of another: as an argument of a function whose result is assigned whole, and of a call statement - by value, and by reference.
+    // a call given the value of another: as an argument of a function whose result is assigned whole, and of a call statement, by value and by reference.
     [TestMethod]
     [DataRow("t = t + Twice(Twice(i))", 20, "| 220 |", DisplayName = "a call of a call")]
     [DataRow("t = Twice(Twice(i) + t)", 20, "| 8144 |", DisplayName = "a call of an operation of a call")]
@@ -226,7 +226,7 @@ public sealed class CompiledNestedCallTests
         }
     }
 
-    // an operation that overflows after the call: the interpreter is handed the instruction with the call made, and raises the error - the callee is not
+    // an operation that overflows after the call: the interpreter is handed the instruction with the call made, and raises the error; the callee is not
     // called again.
     private static string Overflowing(params string[] handling) => Program([
         "Private Calls As Long",
@@ -270,7 +270,7 @@ public sealed class CompiledNestedCallTests
             "    k = 1",
             "    Resume"), "Outer", 2, walksBack: false), "| 1001 ; 2 |");
 
-    // an operand of an integral type or of Currency, in an expression that passes it by reference to a call: read where it is written - before the call left
+    // an operand of an integral type or of Currency, in an expression that passes it by reference to a call: read where it is written, before the call left
     // of it, after the call right of it. Compiled code reads it, and makes the call.
     [TestMethod]
     [DataRow("Long", "x = a + Bump(a)", 1, "| 3 ; 2 |", DisplayName = "O01 read before the call")]
@@ -445,7 +445,7 @@ public sealed class CompiledNestedCallTests
         return compiled.Observed;
     }
 
-    // a statement of Outer that reads a and passes it by reference to Bump, which adds 1 to it - or to Sum2, which is given two values by value.
+    // a statement of Outer that reads a and passes it by reference to Bump, which adds 1 to it (or to Sum2, which is given two values by value).
     private static string Changing(string type, string statement, string? result = null, string printed = "a")
         => Ordering(type, "", $"Dim a As {type}, x As {result ?? type}", "a = 1", statement, $"x ;; {printed}");
 
