@@ -68,7 +68,7 @@ public sealed class StringComparisonRulesTests
 
     [TestMethod]
     public void Compare_InBinaryMode_IsATotalOrder()
-        => AssertTotalOrder(Binary.Compare);
+        => AssertTotalOrder((lhs, rhs) => Binary.Compare(lhs, rhs));
 
     [TestMethod]
     public void Compare_InBinaryMode_OrdersCodeUnits_ThenATrailingByte()
@@ -177,7 +177,7 @@ public sealed class StringComparisonRulesTests
 
     [TestMethod]
     public void Compare_InTextMode_IsATotalOrder()
-        => AssertTotalOrder(Text.Compare);
+        => AssertTotalOrder((lhs, rhs) => Text.Compare(lhs, rhs));
 
     [TestMethod]
     public void Compare_InTextMode_ATrailingByteBreaksATie()
