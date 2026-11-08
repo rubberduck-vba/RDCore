@@ -74,7 +74,7 @@ public sealed class CompiledBlockTests
             "        Next",
             "    End With",
             "    Report Held",
-            "End Function"), "Held", recoveries: 3, classes: Noisy);
+            "End Function"), "Held", recoveries: 2, classes: Noisy);
 
     // the element a For Each assigns V each pass is in V's cell, which compiled code reads: the statements of the body are its own.
     [TestMethod]
@@ -246,7 +246,7 @@ public sealed class CompiledBlockTests
             "        End With",
             "    Next",
             "    Report Quit",
-            "End Function"), "Quit", recoveries: 5, classes: Noisy);
+            "End Function"), "Quit", recoveries: 3, classes: Noisy);
 
     // a Select Case of a String selector, and its Cases, are the interpreter's; the loop around it is compiled code's.
     [TestMethod]

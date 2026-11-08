@@ -328,10 +328,14 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
 // an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
-// slot of the object variable it is made on (Receiver).
+// slot of the object variable it is made on (Receiver), or the offset of the With statement whose block's object it is made on (WithAt).
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
+
+    public int? WithAt { get; init; }
+
+    public bool IsOfAMember => Receiver is not null || WithAt is not null;
 }
 
 /// <summary>
