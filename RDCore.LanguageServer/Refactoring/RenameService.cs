@@ -63,7 +63,7 @@ internal interface IRenameService
 /// <param name="Refusal">Why there is none, in the language of the reader.</param>
 /// <param name="Questions">
 /// What a client that does not take change annotations asks its user before it is sent the edits that need confirming, one question for each annotation
-/// (<see cref="RenameWorkspace.InString"/>, <see cref="RenameWorkspace.LateBound"/>); none when there are none.
+/// (<see cref="RenameWorkspace.InString"/>, <see cref="RenameWorkspace.LateBoundBacked"/>, <see cref="RenameWorkspace.LateBound"/>); none when there are none.
 /// </param>
 internal sealed record class RenameAnswer<T>(T? Value, string? Refusal, IReadOnlyList<RenameQuestion>? Questions = null) where T : class
 {
@@ -270,16 +270,22 @@ internal sealed class RenameWorkspace
                 RefactoringTitles.RenameInStringRename(), RefactoringTitles.RenameInStringLeave()));
         }
 
-        if (plan.Edits.Where(edit => edit.IsLateBound).ToList() is [var firstAccess, ..] lateBound)
+        // a late-bound access that what is known of the object backs is told apart from one that is only possible.
+        var className = SymbolUri.ModuleNameOf(target.Symbols[0].Uri);
+        foreach (var (annotation, isBacked) in new[] { (LateBoundBacked, true), (LateBound, false) })
         {
-            annotations[LateBound] = new ChangeAnnotation
+            if (plan.Edits.Where(edit => edit.IsLateBound && edit.IsBacked == isBacked).ToList() is [var firstAccess, ..] lateBound)
             {
-                Label = RefactoringTitles.RenameLateBoundLabel(),
-                Description = RefactoringTitles.RenameLateBoundDescription(target.Name),
-                NeedsConfirmation = true,
-            };
-            questions.Add(new(LateBound, RefactoringTitles.RenameLateBoundQuestion(target.Name, lateBound.Count, locate(firstAccess.Module, firstAccess.Range.Start)),
-                RefactoringTitles.RenameLateBoundRename(), RefactoringTitles.RenameLateBoundLeave()));
+                annotations[annotation] = new ChangeAnnotation
+                {
+                    Label = RefactoringTitles.RenameLateBoundLabel(className, isBacked),
+                    Description = RefactoringTitles.RenameLateBoundDescription(target.Name, className, isBacked),
+                    NeedsConfirmation = true,
+                };
+                var question = RefactoringTitles.RenameLateBoundQuestion(target.Name, className, isBacked, lateBound.Count,
+                    locate(firstAccess.Module, firstAccess.Range.Start));
+                questions.Add(new(annotation, question, RefactoringTitles.RenameLateBoundRename(), RefactoringTitles.RenameLateBoundLeave()));
+            }
         }
 
         var workspaceEdit = new WorkspaceEdit
@@ -290,7 +296,8 @@ internal sealed class RenameWorkspace
         return new(workspaceEdit, null, questions.Count == 0 ? null : questions);
     }
 
-    private static ChangeAnnotationIdentifier? AnnotationOf(RenameEdit edit) => edit.IsInString ? InString : edit.IsLateBound ? LateBound : null;
+    private static ChangeAnnotationIdentifier? AnnotationOf(RenameEdit edit)
+        => edit.IsInString ? InString : edit.IsLateBound ? edit.IsBacked ? LateBoundBacked : LateBound : null;
 
     /// <summary>
     /// The change annotation of a rename's edits of the strings a library calls the symbol by (<see cref="RenameEdit.IsInString"/>), which the user confirms.
@@ -298,10 +305,21 @@ internal sealed class RenameWorkspace
     internal static readonly ChangeAnnotationIdentifier InString = "rdcore.rename.inString";
 
     /// <summary>
-    /// The change annotation of a rename's edits of the members accessed late-bound that may be the symbol (<see cref="RenameEdit.IsLateBound"/>), which the
-    /// user confirms; a client that can't ask its user is sent none of them.
+    /// The change annotation of a rename's edits of the members accessed late-bound that may be the symbol (<see cref="RenameEdit.IsLateBound"/>), where
+    /// nothing known of the object rules the symbol's class out, which the user confirms; a client that can't ask its user is sent none of them.
     /// </summary>
     internal static readonly ChangeAnnotationIdentifier LateBound = "rdcore.rename.lateBound";
+
+    /// <summary>
+    /// The change annotation of a rename's edits of the members accessed late-bound where what is known of the object backs the symbol
+    /// (<see cref="RenameEdit.IsBacked"/>), which the user confirms; a client that can't ask its user is sent none of them.
+    /// </summary>
+    internal static readonly ChangeAnnotationIdentifier LateBoundBacked = "rdcore.rename.lateBound.backed";
+
+    /// <summary>
+    /// Whether an annotation is one of a rename's late-bound edits (<see cref="LateBound"/>, <see cref="LateBoundBacked"/>).
+    /// </summary>
+    internal static bool IsLateBound(ChangeAnnotationIdentifier annotation) => annotation == LateBound || annotation == LateBoundBacked;
 
     /// <summary>
     /// What can be renamed in a range of a document (<see cref="SymbolRename.TargetsIn"/>): each name, and where it begins in the text of the document.

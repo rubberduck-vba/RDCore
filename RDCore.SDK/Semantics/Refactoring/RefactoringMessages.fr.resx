@@ -76,16 +76,28 @@
     <value>Laisser les chaînes</value>
   </data>
   <data name="Rename_LateBound_Label" xml:space="preserve">
-    <value>Accédé en liaison tardive</value>
+    <value>Liaison tardive : l'objet peut contenir un {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Label" xml:space="preserve">
+    <value>Liaison tardive : l'objet contient un {0}</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Description" xml:space="preserve">
+    <value>Ce qu'on sait de l'objet dit qu'il contient un {1}. Le membre qu'appelle un accès en liaison tardive n'est connu qu'à l'exécution. S'il reste tel quel, l'appel ne trouvera plus « {0} ».</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_One" xml:space="preserve">
+    <value>« {0} » est accédé en liaison tardive sur un objet qui contient un {3}, à {2}. Le renommer là aussi?</value>
+  </data>
+  <data name="Rename_LateBound_Backed_Question_Many" xml:space="preserve">
+    <value>« {0} » est accédé en liaison tardive sur des objets qui contiennent un {3}, à {1} endroits, le premier à {2}. Le renommer là aussi?</value>
   </data>
   <data name="Rename_LateBound_Description" xml:space="preserve">
     <value>Le membre qu'appelle un accès en liaison tardive n'est connu qu'à l'exécution. S'il reste tel quel et que l'objet est de la classe de « {0} », l'appel ne le trouvera plus.</value>
   </data>
   <data name="Rename_LateBound_Question_One" xml:space="preserve">
-    <value>« {0} » est peut-être accédé en liaison tardive, à {2}. Le renommer là aussi?</value>
+    <value>« {0} » est peut-être accédé en liaison tardive sur un objet qui peut contenir un {3}, à {2}. Le renommer là aussi?</value>
   </data>
   <data name="Rename_LateBound_Question_Many" xml:space="preserve">
-    <value>« {0} » est peut-être accédé en liaison tardive à {1} endroits, le premier à {2}. Le renommer là aussi?</value>
+    <value>« {0} » est peut-être accédé en liaison tardive sur des objets qui peuvent contenir un {3}, à {1} endroits, le premier à {2}. Le renommer là aussi?</value>
   </data>
   <data name="Rename_LateBound_Rename" xml:space="preserve">
     <value>Le renommer là aussi</value>
