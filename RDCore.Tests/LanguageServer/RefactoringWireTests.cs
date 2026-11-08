@@ -135,13 +135,15 @@ public sealed class RefactoringWireTests
     }
 
     // a procedure a library calls by its name in a string is renamed there too if the user confirms it: a client that takes change annotations is sent the edit
-    // annotated, to ask its user itself; one that does not is asked by the server, and sent what the user chose - or nothing, when they chose nothing.
+    // annotated, to ask its user itself; one that does not is asked by the server, and sent what the user chose - or nothing, when they chose nothing. A client
+    // with no user to ask is sent the rest of the rename.
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     [DataRow("rename", 2, DisplayName = "a client that can't ask, whose user renames the strings too")]
     [DataRow("leave", 1, DisplayName = "a client that can't ask, whose user leaves them")]
     [DataRow(null, 0, DisplayName = "a client that can't ask, whose user chooses nothing")]
     [DataRow("annotations", 2, DisplayName = "a client that takes change annotations")]
+    [DataRow("unattended", 1, DisplayName = "an unattended client, which takes change annotations and has no user to ask")]
     public async Task AProcedureCalledByItsNameInAString_IsRenamedThere_AsTheUserConfirms(string? answer, int expected)
     {
         const string source = "Public Sub Foo()\r\nEnd Sub\r\n\r\nPublic Sub Bar()\r\n    Dim o As Object\r\n    CallByName o, \"Foo\", VbMethod\r\nEnd Sub\r\n";
@@ -157,6 +159,9 @@ public sealed class RefactoringWireTests
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         var rename = new RenameService(documents, parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
+        var expectations = Substitute.For<IPlatformClientCapabilitiesService>();
+        expectations.Expects(Arg.Any<Func<LanguageServerCapabilities, CorePlatformClientCapability>>()).Returns(answer == "unattended");
+        var takesAnnotations = answer is "annotations" or "unattended";
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var toServer = new Pipe();
@@ -167,7 +172,7 @@ public sealed class RefactoringWireTests
             .WithOutput(toClient.Writer)
             // as the platform's servers write a change annotation (RDCoreServerApp).
             .WithSerializer(new PullDiagnosticsLspSerializer())
-            .WithServices(services => services.AddSingleton<IRenameService>(rename))
+            .WithServices(services => services.AddSingleton<IRenameService>(rename).AddSingleton(expectations))
             .WithHandler<RenameHandler>(), timeout.Token);
         var connecting = LanguageClient.From(client => client.WithInput(toClient.Reader).WithOutput(toServer.Writer)
             .WithClientCapabilities(new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
@@ -177,7 +182,7 @@ public sealed class RefactoringWireTests
                     WorkspaceEdit = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceEditCapability
                     {
                         DocumentChanges = true,
-                        ChangeAnnotationSupport = answer == "annotations"
+                        ChangeAnnotationSupport = takesAnnotations
                             ? new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.WorkspaceEditSupportCapabilitiesChangeAnnotationSupport()
                             : null,
                     },
@@ -197,7 +202,7 @@ public sealed class RefactoringWireTests
 
         var renamed = await languageClient.SendRequest(new RenameParams { TextDocument = document, Position = new Position(0, 12), NewName = "Baz" }, timeout.Token);
 
-        Assert.HasCount(answer == "annotations" ? 0 : 1, asked, "the server asks a client that can't ask its user, and no other");
+        Assert.HasCount(takesAnnotations ? 0 : 1, asked, "the server asks a client that can't ask its user, and no other");
         if (expected == 0)
         {
             Assert.IsNull(renamed, "nothing is renamed when the user does not choose");
@@ -207,7 +212,12 @@ public sealed class RefactoringWireTests
         var edits = renamed!.DocumentChanges!.Single().TextDocumentEdit!.Edits.ToList();
         Assert.HasCount(expected, edits);
         Assert.IsTrue(edits.All(edit => edit.NewText == "Baz"));
-        if (answer == "annotations")
+        if (answer == "unattended")
+        {
+            Assert.IsFalse(edits.Any(edit => edit is AnnotatedTextEdit), "the string's edit is not sent");
+            Assert.IsNull(renamed.ChangeAnnotations);
+        }
+        else if (answer == "annotations")
         {
             var annotated = Assert.IsInstanceOfType<AnnotatedTextEdit>(edits[1], "the string's edit is annotated");
             var annotation = renamed.ChangeAnnotations!.Single();

@@ -22,11 +22,10 @@ namespace RDCore.LanguageServer.Refactoring;
 /// The edits of the strings a library calls the symbol by (<see cref="RenameWorkspace.InString"/>), and of the members accessed late-bound that may be the
 /// symbol (<see cref="RenameWorkspace.LateBoundBacked"/>, <see cref="RenameWorkspace.LateBound"/>), are the user's to confirm: a client that takes change
 /// annotations asks them itself; any other is asked for them (<c>window/showMessageRequest</c>), one question for each annotation, before it is answered:
-/// with those edits, without them, or nothing at all when the user
-/// does not choose.
+/// with those edits, without them, or nothing at all when the user does not choose.
 /// </para>
 /// <para>
-/// A client with nobody to ask (<see cref="SDK.Client.Unattended"/>) is sent the rest of the rename, without the late-bound edits.
+/// A client with nobody to ask (<see cref="SDK.Client.Unattended"/>) is sent the rest of the rename, without any of the edits that need confirming.
 /// </para>
 /// </remarks>
 internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade server, IServiceProvider services) : RenameHandlerBase
@@ -40,8 +39,8 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
         var edit = answer.ValueOrRefusal();
         foreach (var question in answer.Questions ?? [])
         {
-            // a late-bound access that no user can confirm is not renamed: which member it calls is only known when the code runs.
-            if (RenameWorkspace.IsLateBound(question.Annotation) && IsUnattended())
+            // an edit that no user can confirm is not made: what a string names, and which member a late-bound access calls, are only known when the code runs.
+            if (IsUnattended())
             {
                 edit = Without(edit, question.Annotation);
                 continue;
