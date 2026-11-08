@@ -1,5 +1,6 @@
 ﻿using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -24,7 +25,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         // what an object's class declares is read from the class as the composition has it now, not as it was when the declaration was bound.
         if (sourceType is VBClassType declaredClass)
         {
-            sourceType = CurrentTypes.Of(context, declaredClass);
+            sourceType = CurrentTypes.Of(context.Resolver, declaredClass);
         }
 
         // MS-VBAL §3.3.5.2: the Empty and Null literals have a declared type of Variant, which is valid to Let-coerce to an array; the value each holds is

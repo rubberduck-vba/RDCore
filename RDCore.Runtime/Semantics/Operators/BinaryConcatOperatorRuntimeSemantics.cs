@@ -44,7 +44,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
         => new ConcatOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags);
 
     protected override ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> Analyze(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<ConcatOperationSemanticContext, ConcatOperationSemanticFlags> builder, 
         ExpressionNode expression, 
@@ -90,7 +90,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
     /// The effective type is the operation's plan (<see cref="OperationPlanner"/>), made once for each pair of value types and kept.
     /// </remarks>
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConcatOperationSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -111,7 +111,7 @@ public record class BinaryConcatOperatorRuntimeSemantics(
     };
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConcatOperationSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) =>

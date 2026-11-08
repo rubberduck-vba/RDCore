@@ -8,7 +8,6 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.StdLib;
-using RDCore.SDK.Semantics.Static;
 
 namespace RDCore.SDK.Model.Symbols.Completion;
 

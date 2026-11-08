@@ -27,7 +27,7 @@ namespace RDCore.Runtime.Execution;
 /// Where the session's live objects are found, for a field of a class: it lives on the object the current activation
 /// is a call on. A resolver with none resolves no instance symbol, which is what it did before there was one.
 /// </param>
-public sealed class CallStackAwareSymbolResolver(ICallStack callStack, ISymbolResolver inner, ISessionSymbols? instances = null) : ISymbolResolver
+public sealed class CallStackAwareSymbolResolver(ICallStack callStack, IRuntimeSymbolResolver inner, ISessionSymbols? instances = null) : IRuntimeSymbolResolver
 {
     // a field of a class is not the session's: it is the storage of the object the current activation is a call on. So is a Static local of a member of
     // the class, which each object has its own of (MS-VBA); a Static local of a standard module's procedure is the session's, for its activation is a

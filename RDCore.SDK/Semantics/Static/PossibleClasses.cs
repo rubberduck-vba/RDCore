@@ -88,7 +88,7 @@ public sealed record class PossibleClassesQuery(StaticEvaluationContext Context,
 /// <para>
 /// What every source says of an expression is put together (<see cref="PossibleClasses.Combine"/>): the classes are those any source names, and they are all
 /// the classes the expression may hold when one source says so. A source is passed in with the workspace (a rename takes its sources in
-/// <see cref="Refactoring.RenameContext.ClassSources"/>), and <see cref="AssignedClasses"/> is always asked.
+/// <c>RenameContext.ClassSources</c>), and <see cref="AssignedClasses"/> is always asked.
 /// </para>
 /// <para>
 /// A class a source names backs the members of that class: a rename proposes the late-bound accesses of a member of it as backed, and any other as only

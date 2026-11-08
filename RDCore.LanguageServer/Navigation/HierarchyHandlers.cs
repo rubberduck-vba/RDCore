@@ -7,6 +7,7 @@ using RDCore.LanguageServer.Refactoring;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.Runtime.LanguageCore.Refactoring;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.LanguageServer.Navigation;

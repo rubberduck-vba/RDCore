@@ -4,7 +4,6 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Static;
 
 namespace RDCore.SDK.Model.Symbols.Completion;
 
@@ -140,7 +139,7 @@ public sealed record class CompletionArrayArgument(VBType? ItemType = null)
             && candidate.Symbol.Kind is SymbolKindExt.Variable or SymbolKindExt.Field or SymbolKindExt.Function or SymbolKindExt.Property;
     }
 
-    private bool IsGiven(VBArrayType array) => ItemType is null || ArgumentListStaticSemantics.SameElementType(ItemType, array.ItemType);
+    private bool IsGiven(VBArrayType array) => ItemType is null || VBArrayType.SameElementType(ItemType, array.ItemType);
 
     // whether a member of a record or an object, or a member of one of its members, is an array the argument can be given. What is found of a type is
     // kept for the depth it was looked into at, by the type's declaration (a Private Type of one name in each of two modules is two types), and a type being

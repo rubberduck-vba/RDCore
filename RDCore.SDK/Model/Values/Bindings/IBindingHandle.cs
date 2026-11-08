@@ -45,7 +45,7 @@ public enum BindingCapabilities
 /// A handle to a binding to a runtime entity.
 /// </summary>
 /// <remarks>
-/// The value operations take <see cref="ISymbolResolver"/> (the read face over the current
+/// The value operations take <see cref="IRuntimeSymbolResolver"/> (the read face over the current
 /// execution context), so a handle that is not self-contained (a reference to another address, a
 /// property- or member-backed binding) can resolve its value through the same read protocol that
 /// produced it. The self-contained literal/value/reference cases ignore it today.
@@ -60,7 +60,7 @@ public interface IBindingHandle
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.GetValue"/>.
     /// </remarks>
     /// <exception cref="NotSupportedException"></exception>
-    IRuntimeValue GetValue(ISymbolResolver resolver);
+    IRuntimeValue GetValue(IRuntimeSymbolResolver resolver);
     /// <summary>
     /// Sets the value associated to this handle.
     /// </summary>
@@ -68,7 +68,7 @@ public interface IBindingHandle
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.SetValue"/>.
     /// </remarks>
     /// <exception cref="NotSupportedException"></exception>
-    void SetValue(ISymbolResolver resolver, IRuntimeValue value);
+    void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value);
     /// <summary>
     /// Invokes the callable entity associated to this handle, and returns the runtime value it yields - an <c>HRESULT</c> (<c>S_OK</c>), for one that yields no value.
     /// </summary>
@@ -78,14 +78,14 @@ public interface IBindingHandle
     /// </remarks>
     /// <exception cref="NotSupportedException">The binding does not support <see cref="BindingCapabilities.Invoke"/>.</exception>
     /// <exception cref="Errors.VBRuntimeErrorException">A run-time error was raised by the invoked entity and nothing handled it.</exception>
-    IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args);
+    IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args);
 
     /// <summary>
     /// The bound runtime value, read without a resolver.
     /// </summary>
     /// <remarks>
     /// 👉 A direct read for the common literal/value cases. Handles that resolve a value lazily
-    /// or via a reference still expose <see cref="GetValue(ISymbolResolver)"/>.
+    /// or via a reference still expose <see cref="GetValue(IRuntimeSymbolResolver)"/>.
     /// </remarks>
     /// <exception cref="NotSupportedException">The binding has no readable value.</exception>
     IRuntimeValue Value { get; }

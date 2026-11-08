@@ -14,8 +14,9 @@ using RDCore.SDK.Semantics.Static.Abstract;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Resources;
+using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.Runtime.LanguageCore.Refactoring;
 
 /// <summary>
 /// A module of the workspace, as a rename reads it: its syntax tree, and the text the tree was parsed from.
@@ -101,7 +102,7 @@ public enum RenameRefusalKind
 /// <param name="Position">Where in <paramref name="Module"/>.</param>
 public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, string? Other = null, Uri? Module = null, SourcePosition Position = default)
 {
-    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RenameRefusal).Assembly);
+    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
 
     /// <summary>
     /// What the refusal says, in the language of the reader.

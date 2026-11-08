@@ -129,7 +129,7 @@ internal static class RuntimeSourceHarness
         public List<ExternalCallRequest> Requests { get; } = [];
 
         /// <inheritdoc/>
-        public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, ISymbolResolver resolver)
+        public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
         {
             Requests.Add(request);
             return inner.Invoke(request, resolver);

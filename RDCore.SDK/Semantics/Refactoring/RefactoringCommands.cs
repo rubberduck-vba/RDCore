@@ -49,7 +49,7 @@ public static class RefactoringTitles
         => Say(count switch { 0 => "CodeLens_References_None", 1 => "CodeLens_References_One", _ => "CodeLens_References_Many" }, culture, count);
 
     /// <summary>
-    /// The label of a rename's edits of the strings a library calls the symbol by (<see cref="RenameEdit.IsInString"/>): <c>Called by its name in a string</c>.
+    /// The label of a rename's edits of the strings a library calls the symbol by (<c>RenameEdit.IsInString</c>): <c>Called by its name in a string</c>.
     /// A client that takes change annotations shows it with the edits it asks its user to confirm (<strong>LSP 3.17</strong> <c>ChangeAnnotation.label</c>).
     /// </summary>
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
@@ -87,9 +87,9 @@ public static class RefactoringTitles
     public static string RenameInStringLeave(CultureInfo? culture = null) => Say("Rename_InString_Leave", culture);
 
     /// <summary>
-    /// The label of a rename's edits of the members accessed late-bound that may be the symbol (<see cref="RenameEdit.IsLateBound"/>), which a client that
+    /// The label of a rename's edits of the members accessed late-bound that may be the symbol (<c>RenameEdit.IsLateBound</c>), which a client that
     /// takes change annotations shows with the edits it asks its user to confirm (<strong>LSP 3.17</strong> <c>ChangeAnnotation.label</c>):
-    /// <c>Late-bound: the object holds a Class1</c> where what is known of the object backs the member (<see cref="RenameEdit.IsBacked"/>),
+    /// <c>Late-bound: the object holds a Class1</c> where what is known of the object backs the member (<c>RenameEdit.IsBacked</c>),
     /// <c>Late-bound: the object may hold a Class1</c> where nothing rules it out.
     /// </summary>
     /// <param name="className">The name of the class the symbol is a member of.</param>

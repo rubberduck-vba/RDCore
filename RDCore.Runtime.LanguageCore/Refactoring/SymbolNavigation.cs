@@ -7,8 +7,9 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using System.Globalization;
 using System.Resources;
+using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.Runtime.LanguageCore.Refactoring;
 
 /// <summary>
 /// One place of a module of the workspace where a symbol is declared.
@@ -38,7 +39,7 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
     /// </summary>
     public IReadOnlyList<SymbolSite> Unresolved { get; init; } = [];
 
-    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(SymbolNavigationTarget).Assembly);
+    private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
 
     /// <summary>
     /// What a reader is told of what was found, when it may be incomplete (<see cref="Unresolved"/>): where the first name whose meaning is not known is

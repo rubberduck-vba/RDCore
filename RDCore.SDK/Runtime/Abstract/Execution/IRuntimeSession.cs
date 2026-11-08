@@ -388,7 +388,7 @@ public interface ISessionSymbols
     /// the currently-defined symbols form (tracks later <see cref="TryDefine"/> calls), and reads the
     /// live run-time binding a defined symbol was allocated, if any.
     /// </summary>
-    ISymbolResolver Resolver { get; }
+    IRuntimeSymbolResolver Resolver { get; }
 
     /// <summary>
     /// Creates a new, empty <see cref="ICallStackFrame"/> for an activation of

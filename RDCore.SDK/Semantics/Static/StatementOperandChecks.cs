@@ -94,7 +94,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
     {
         VBObjectType or VBClassType => true,
         VBUserDefinedType udt when throughUserDefinedTypes
-            => CurrentTypes.Of(context, udt).Fields().Any(field => field.ResolvedType is { } fieldType && IsObject(fieldType, true)),
+            => CurrentTypes.Of(context.Resolver, udt).Fields().Any(field => field.ResolvedType is { } fieldType && IsObject(fieldType, true)),
         _ => false,
     };
 
