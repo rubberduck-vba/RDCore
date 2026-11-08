@@ -97,13 +97,12 @@ public sealed partial class RuntimeExpressionEvaluator
         {
             case BoundBinary binary when PlanOf(binary) is { } plan:
             {
-                var left = EvaluateWideOperand(session, binary.Left, plan, context);
+                var (left, right) = EvaluateWideOperands(session, binary, plan, context);
                 if (left.Failed is not null)
                 {
                     return left;
                 }
 
-                var right = EvaluateWideOperand(session, binary.Right, plan, context);
                 return right.Failed is not null
                     ? right
                     : new WideResult(ExtendedIntermediates.Operate(plan.Operator, left.Value, right.Value, plan.EffectiveType!), null);
@@ -233,32 +232,43 @@ public sealed partial class RuntimeExpressionEvaluator
     {
         if (ExtendedIntermediates.IsComparison(plan.Operator) && ExtendedIntermediates.IsFloating(plan.EffectiveType))
         {
-            var left = EvaluateWideOperand(session, binary.Left, plan, context);
-            if (left.Failed is { } leftFailed)
+            var (left, right) = EvaluateWideOperands(session, binary, plan, context);
+            if ((left.Failed ?? right.Failed) is { } failed)
             {
-                return leftFailed;
-            }
-
-            var right = EvaluateWideOperand(session, binary.Right, plan, context);
-            if (right.Failed is { } rightFailed)
-            {
-                return rightFailed;
+                return failed;
             }
 
             var compared = ExtendedIntermediates.Compare(plan.Operator, left.Value, right.Value, plan.EffectiveType!, out var error);
             return ResultOf(compared is { } isTrue ? ScalarPayload.OfBoolean(isTrue) : null, error, binary);
         }
 
-        var leftResult = EvaluateOperandOf(session, binary.Left, plan.OperandDestination, context);
-        if (!leftResult.IsSuccess)
+        var last = ReadsLeftLast(binary);
+        var firstResult = EvaluateOperandOf(session, last ? binary.Right : binary.Left, plan.OperandDestination, context);
+        if (!firstResult.IsSuccess)
         {
-            return leftResult;
+            return firstResult;
         }
 
-        var rightResult = EvaluateOperandOf(session, binary.Right, plan.OperandDestination, context);
-        return rightResult.IsSuccess
+        var secondResult = EvaluateOperandOf(session, last ? binary.Left : binary.Right, plan.OperandDestination, context);
+        var (leftResult, rightResult) = last ? (secondResult, firstResult) : (firstResult, secondResult);
+        return secondResult.IsSuccess
             ? OperatorProvider.EvaluateBinaryOperator(session, binary.Operation, leftResult.Result!, rightResult.Result!)
-            : rightResult;
+            : secondResult;
+    }
+
+    // the operands of an extended operation or comparison, each evaluated as an extended value: the left one last when ReadsLeftLast says so. When the one
+    // evaluated first raises an error, the other is not evaluated, and both are that error.
+    private (WideResult Left, WideResult Right) EvaluateWideOperands(IRuntimeSession session, BoundBinary binary, OperationPlan plan, RuntimeEvaluationContext context)
+    {
+        var last = ReadsLeftLast(binary);
+        var first = EvaluateWideOperand(session, last ? binary.Right : binary.Left, plan, context);
+        if (first.Failed is not null)
+        {
+            return (first, first);
+        }
+
+        var second = EvaluateWideOperand(session, last ? binary.Left : binary.Right, plan, context);
+        return last ? (second, first) : (first, second);
     }
 
     // an operand of an operation that is not itself an extended one: an extended intermediate is converted to the type the operation coerces its operands

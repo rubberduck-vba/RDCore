@@ -455,11 +455,28 @@ public sealed partial class RuntimeExpressionEvaluator
             return EvaluateWithWideOperand(session, binary, plan, context);
         }
 
+        if (ReadsLeftLast(binary))
+        {
+            var right = EvaluateBoundNode(session, binary.Right, context);
+            if (!right.IsSuccess)
+            {
+                return Unvalued(right);
+            }
+
+            var left = EvaluateBoundNode(session, binary.Left, context);
+            return left.IsSuccess ? OperatorProvider.EvaluateBinaryOperator(session, binary.Operation, left.Result!, right.Result!) : Unvalued(left);
+        }
+
         // an operand that raised an error raises it with no value: a Variant operation of it assigns nothing (MS-VBA: e = s * 10 + v leaves e - s42 E06).
         var leftResult = EvaluateBoundNode(session, binary.Left, context);
         if (!leftResult.IsSuccess)
         {
             return Unvalued(leftResult);
+        }
+
+        if (binary is { Left: BoundVariable or BoundMember or BoundIndex or BoundUnary, Right: not (BoundVariable or BoundLiteral) })
+        {
+            leftResult = ReadWhereWritten(leftResult);
         }
 
         var rightResult = EvaluateBoundNode(session, binary.Right, context);
@@ -469,6 +486,38 @@ public sealed partial class RuntimeExpressionEvaluator
         }
 
         return OperatorProvider.EvaluateBinaryOperator(session, binary.Operation, leftResult.Result!, rightResult.Result!);
+    }
+
+    // a variable, a field of a record or an element of an array is read through a view of where it is held, which an operation takes the value of when it
+    // is computed - after its right operand, which may call a procedure that changes it. MS-VBA reads an operand of an integral type or Currency where it is
+    // written, before such a call; one of another type, when the operation is computed (RD-VBAL §5.6.9.2).
+    // MS-VBA reads an operand of a floating-point type, a Date, a String or a Variant when its operation is computed, after its right operand, which may
+    // call a procedure that changes it (RD-VBAL §5.6.9.2): a variable of one, or an element of an array of one indexed by variables and literals, in
+    // parentheses or not, which reading changes nothing of, is read after its right operand - its index too.
+    private static bool ReadsLeftLast(BoundBinary binary) => binary.Right is not (BoundVariable or BoundLiteral) && IsReadLate(binary.Left);
+
+    private static bool IsReadLate(BoundNode node) => node switch
+    {
+        BoundVariable { Variable: ITypedSymbol { ResolvedType: var type } } => IsOfLateType(type),
+        BoundIndex { Callee: BoundVariable { Variable: ITypedSymbol { ResolvedType: VBArrayType { ItemType: var item } } }, Arguments: var indexes }
+            => IsOfLateType(item) && indexes.All(index => index is BoundVariable or BoundLiteral),
+        BoundUnary { Plan: null, Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }
+            => IsReadLate(enclosed),
+        _ => false,
+    };
+
+    private static bool IsOfLateType(VBType type) => type is VBSingleType or VBDoubleType or VBDateType or VBVariantType or (VBStringType and not VBFixedStringType);
+
+    private static RuntimeSemanticsEvaluationResult ReadWhereWritten(RuntimeSemanticsEvaluationResult read)
+    {
+        if (read.Result is not { TypeInfo: VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBCurrencyType } value
+            || !ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out var payload))
+        {
+            return read;
+        }
+
+        var copy = value.TypeInfo.CreateValue(new ValueBindingHandle(payload.Box()));
+        return RuntimeSemanticsEvaluationResult.Success(value.IsIndeterminate ? copy.AsIndeterminate() : copy);
     }
 
     // what EvaluateIndex does with a callee that resolves to a procedure, its callee resolved once: a function that declares no parameter is not given what

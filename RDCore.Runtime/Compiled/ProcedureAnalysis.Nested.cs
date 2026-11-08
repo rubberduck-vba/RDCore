@@ -174,30 +174,36 @@ internal sealed partial class ProcedureAnalysis
         _ => false,
     };
 
-    // a variable compiled code reads as it is before a call that is given it by reference - or given a parameter passed by reference, which can be the same
-    // variable as one the procedure was given by reference - inside the same expression: when it is read is the interpreter's to say, until compiled code
-    // reads it when the interpreter does.
+    // a variable compiled code reads as it is before a call that may change it - one given it by reference, or given a parameter passed by reference, which
+    // can be the same variable as one the procedure was given by reference, or any call, of a field - inside the same expression, where MS-VBA may read it
+    // after the call: in an argument of a call,
+    // whose value is taken when the call is made, or in an expression that computes anything of a type MS-VBA reads when its operation is computed. When it
+    // is read there is the interpreter's to say.
     private KnownNode? ReadAndPassed(CompiledStep step)
     {
-        var reads = new List<KnownNode>();
-        var passed = new HashSet<int>();
-        foreach (var node in PayloadsOf(step).SelectMany(Within))
+        var nodes = PayloadsOf(step).SelectMany(Within).ToList();
+        // the arguments of each call: of one inside the expression, and of the call of the statement itself - a call statement, a function whose result
+        // is assigned whole.
+        var given = nodes.OfType<CallNode>().Select(call => call.Arguments).ToList();
+        if (step is CallStep statement)
         {
-            switch (node)
-            {
-                case KnownNode { Value: SlotNode } known:
-                    reads.Add(known);
-                    break;
-                case CallNode call:
-                    passed.UnionWith(call.Arguments.OfType<ReferenceNode>().Select(reference => reference.Slot));
-                    break;
-            }
+            given.Add(statement.Arguments);
         }
+
+        var passed = given.SelectMany(list => list.OfType<ReferenceNode>()).Select(reference => reference.Slot).ToHashSet();
+        var arguments = new HashSet<KnownNode>(given.SelectMany(list => list.SelectMany(Within)).OfType<KnownNode>(), ReferenceEqualityComparer.Instance);
+        var early = nodes.All(node => IsReadWhereWritten(node.Kind));
 
         var byReference = Parameters.Where(parameter => parameter.ByReference).Select(parameter => parameter.Slot).ToHashSet();
         var aliased = passed.Overlaps(byReference);
-        return reads.FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (passed.Contains(slot) || aliased && byReference.Contains(slot)));
+        return nodes.OfType<KnownNode>().FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
+            && (passed.Contains(slot) || aliased && byReference.Contains(slot) || FieldSlots.Contains(slot)));
     }
+
+    // the types of an operand MS-VBA reads where it is written, before a call right of it changes it (RD-VBAL §5.6.9.2): what compiled code reads, and the
+    // interpreter. An operand of another type is read when its operation is computed, which compiled code leaves to the interpreter.
+    private static bool IsReadWhereWritten(ScalarKind kind)
+        => kind is ScalarKind.Byte or ScalarKind.Boolean or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong or ScalarKind.Currency;
 
     private static IEnumerable<PayloadNode> PayloadsOf(CompiledStep step) => step switch
     {
