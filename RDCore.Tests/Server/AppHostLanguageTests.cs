@@ -95,7 +95,7 @@ public sealed class AppHostLanguageTests
 
     private sealed class LanguageTestAppHost : AppHost<RecordingApp>
     {
-        protected internal override bool TryAnswerCommandLine(string[] args, out int exitCode)
+        public override bool TryAnswerCommandLine(string[] args, out int exitCode)
         {
             RecordingApp.Seen.Enqueue(("answered", CultureInfo.CurrentUICulture.Name));
             return base.TryAnswerCommandLine(args, out exitCode);
