@@ -1,8 +1,7 @@
-﻿using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Runtime.Abstract.Execution;
+﻿using RDCore.SDK.Model.Errors;
 using System.Text;
 
-namespace RDCore.SDK.Services.VerboseMessages;
+namespace RDCore.CLI.App.VerboseMessages;
 
 public class DefaultStackTraceFormatter : IStackTraceFormatter
 {
@@ -13,16 +12,16 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
         _options = options;
     }
 
-    public void Format(StringBuilder builder, IEnumerable<IStackFrame> stack)
+    public void Format(StringBuilder builder, IEnumerable<VBErrorFrame> stack)
     {
         if (_options.IsEnabled && _options.StackTrace)
         {
             builder
                 .WithIconIf(_options.ShowStackTraceIcon, _options.StackTraceIcon)
-                .Append(Exceptions.Verbose_FrameDetails);
+                .Append(Resources.Verbose_FrameDetails);
 
             var showValues = _options.ShowValues;
-            if (stack.FirstOrDefault() is IStackFrame topFrame)
+            if (stack.FirstOrDefault() is VBErrorFrame topFrame)
             {
                 FormatTopStackFrame(builder, topFrame, showValues);
                 foreach (var frame in stack.Skip(1))
@@ -33,13 +32,13 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
         }
     }
 
-    protected virtual void FormatTopStackFrame(StringBuilder builder, IStackFrame frame, bool withValues = false)
+    protected virtual void FormatTopStackFrame(StringBuilder builder, VBErrorFrame frame, bool withValues = false)
     {
         builder
             .WithIndent(_options.TopStackFrameMarker)
             .WithWhitespace()
-            .Append(frame.NodeId.ToString());
-    
+            .Append(frame.NodeId);
+
         FormatOperands(builder, frame, withValues);
     }
 
@@ -48,16 +47,16 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
     /// </summary>
     /// <remarks>
     /// 🧩 The base implementation appends the <c>Verbose_FrameDetails</c> resource string followed by a whitespace,
-    /// then appends the 
+    /// then appends the
     /// </remarks>
-    protected virtual void FormatStackFrame(StringBuilder builder, IStackFrame frame, bool withValues = false)
+    protected virtual void FormatStackFrame(StringBuilder builder, VBErrorFrame frame, bool withValues = false)
     {
         builder
             .WithIndent(_options.StackFrameMarker)
-            .Append(Exceptions.Verbose_FrameDetails)
+            .Append(Resources.Verbose_FrameDetails)
             .WithWhitespace()
-            .Append(frame.NodeId.ToString());
-    
+            .Append(frame.NodeId);
+
         FormatOperands(builder, frame, withValues);
     }
 
@@ -67,7 +66,7 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
     /// <remarks>
     /// 🧩 The base implementation encloses the <c>FormatFrameInputs</c> content in parentheses.
     /// </remarks>
-    protected virtual void FormatOperands(StringBuilder builder, IStackFrame frame, bool withValues = false) => 
+    protected virtual void FormatOperands(StringBuilder builder, VBErrorFrame frame, bool withValues = false) =>
         builder.WithEnclosed(
             prefix: "(",
             enclosed: sb =>
@@ -83,7 +82,7 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
     /// <remarks>
     /// 🧩 The base implementation appends the values icon if applicable, then iterates the inputs and appends them one by one via <c>FormatFrameInput</c>, separating them by a comma.
     /// </remarks>
-    protected virtual void FormatFrameInputs(StringBuilder builder, IStackFrame frame, bool withValues)
+    protected virtual void FormatFrameInputs(StringBuilder builder, VBErrorFrame frame, bool withValues)
     {
         // values icon is shown independently of whether the runtime values are shown.
         builder.WithIcon(_options.ValuesIcon, _options.ShowValuesIcon);
@@ -98,16 +97,16 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
         }
     }
 
-    private void AddInputSeparatorAsNeeded(StringBuilder builder, IStackFrame frame, int inputs)
+    private void AddInputSeparatorAsNeeded(StringBuilder builder, VBErrorFrame frame, int inputs)
     {
-        if (inputs < frame.Inputs.Length - 1)
+        if (inputs < frame.Inputs.Count - 1)
         {
             FormatInputSeparator(builder);
         }
     }
 
     /// <summary>
-    /// Formats the <em>list separator</em> between any given two <see cref="VBTypedValue"/> <em>stack frame inputs</em>.
+    /// Formats the <em>list separator</em> between any given two <see cref="VBErrorOperand"/> <em>stack frame inputs</em>.
     /// </summary>
     /// <remarks>
     /// 🧩 Base implementation appends a comma followed by a single whitespace character.
@@ -118,13 +117,13 @@ public class DefaultStackTraceFormatter : IStackTraceFormatter
     /// Formats an individual frame input into the provided <em>string builder</em>.
     /// </summary>
     /// <remarks>
-    /// 🧩 Base implementation encloses the <see cref="string"/> repsentation of the operand value inside square brackets followed by a colon 
-    /// if values are shown, then appends the operand's <c>TypeInfo.Name</c>.
+    /// 🧩 Base implementation encloses the <see cref="string"/> repsentation of the operand value inside square brackets followed by a colon
+    /// if values are shown and the operand has one (a type given to an operation has none), then appends the operand's type name.
     /// </remarks>
-    protected virtual void FormatFrameInput(StringBuilder builder, VBTypedValue operand, bool withValues = false)
+    protected virtual void FormatFrameInput(StringBuilder builder, VBErrorOperand operand, bool withValues = false)
     {
         builder
-            .WithEnclosedIf(withValues, "[", sb => sb.Append(operand.RuntimeValue), "]:")
-            .Append(operand.TypeInfo.Name);
+            .WithEnclosedIf(withValues && operand.Value is not null, "[", sb => sb.Append(operand.Value), "]:")
+            .Append(operand.TypeName);
     }
 }

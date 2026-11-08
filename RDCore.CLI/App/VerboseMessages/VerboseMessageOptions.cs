@@ -1,4 +1,4 @@
-﻿namespace RDCore.SDK.Services.VerboseMessages;
+﻿namespace RDCore.CLI.App.VerboseMessages;
 
 /// <summary>
 /// Configures the content of <c>Verbose</c> messages.

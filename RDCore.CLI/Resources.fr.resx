@@ -863,4 +863,7 @@
   <data name="VBRuntimeError_UnusableDialogAnswer_NotRelayed" xml:space="preserve">
     <value>Le {0} du programme n'a pas pu être relayé au client qui affiche ses dialogues ({1}) : l'exécution échoue, plutôt que d'attendre un dialogue que personne ne voit.</value>
   </data>
+  <data name="Verbose_FrameDetails" xml:space="preserve">
+    <value>Détails de la cellule :</value>
+  </data>
 </root>

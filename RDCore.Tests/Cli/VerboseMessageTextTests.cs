@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Options;
+using RDCore.CLI.App.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
@@ -9,14 +11,13 @@ using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Collections.Immutable;
 
 namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// The verbose text of a run-time error, character for character: the message, the expression it was raised at, and the frames of the operation, as each
-/// setting of <c>Configuration:VerboseMessages</c> has it.
+/// setting of <c>Configuration:VerboseMessages</c> has it. The runtime records the details, and the console words them.
 /// </summary>
 [TestClass]
 public sealed class VerboseMessageTextTests
@@ -45,7 +46,7 @@ public sealed class VerboseMessageTextTests
 
     private static string Formatted(VerboseMessageOptions options, string message, ExpressionNode expression, params IStackFrame[] frames)
         => new VerboseMessageBuilder(Options.Create(options), new ExpressionInfoBuilder(options), new DefaultStackTraceFormatter(options))
-            .Format(message, expression, frames);
+            .Format(new ErrorDetailsRecorder().Record(message, expression, frames));
 
     private static string Id(SyntaxNodeId id) => id.ToString();
 
@@ -109,4 +110,25 @@ public sealed class VerboseMessageTextTests
     [TestMethod]
     public void Disabled_IsNoTextAtAll()
         => Assert.AreEqual(string.Empty, Formatted(new VerboseMessageOptions(IsEnabled: false), Message, AtOnePosition, Operands(FrameId)));
+
+    [TestMethod]
+    public void ShowValues_LeavesTheTypeACoercionIsGivenWithoutAValue()
+    {
+        var frame = Coercion();
+        var (source, destination) = (frame.SourceValue.RuntimeValue.ToString(), frame.DestinationTypeDesc.TypeInfo.Name);
+
+        Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}(🚩 [{source}]:Long, {destination})",
+            Formatted(new VerboseMessageOptions(ShowValues: true), Message, AtOnePosition, frame));
+    }
+
+    [TestMethod]
+    public void TheLetCoercionTrace_SaysTheCoercionsSourceAndDestination_AndTheOtherFramesAsAnyOther()
+    {
+        var options = new VerboseMessageOptions();
+        var text = new VerboseMessageBuilder(Options.Create(options), new ExpressionInfoBuilder(options), new LetCoercionTraceFormatter(options))
+            .Format(new ErrorDetailsRecorder().Record(Message, AtOnePosition, [Coercion(), Operands(CallerFrameId)]));
+
+        Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}(Long -> Integer)"
+            + $"    >Frame details: {Id(CallerFrameId)}(🚩 Long, Long)", text);
+    }
 }

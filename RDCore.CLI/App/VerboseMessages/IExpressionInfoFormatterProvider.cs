@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace RDCore.SDK.Services.VerboseMessages;
+namespace RDCore.CLI.App.VerboseMessages;
 
 public interface IExpressionInfoFormatterProvider
 {

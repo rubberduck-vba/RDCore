@@ -866,4 +866,7 @@ Long Live the Cucumber (Latin)</comment>
   <data name="VBRuntimeError_UnusableDialogAnswer_NotRelayed" xml:space="preserve">
     <value>The program's {0} could not be relayed to the client that shows its dialogs ({1}): the run fails, rather than wait on a dialog nobody sees.</value>
   </data>
+  <data name="Verbose_FrameDetails" xml:space="preserve">
+    <value>Frame details:</value>
+  </data>
 </root>

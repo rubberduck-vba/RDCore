@@ -12,6 +12,7 @@ using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
+using RDCore.CLI.App.VerboseMessages;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
@@ -147,6 +148,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
     {
         services
             .Configure<AppOptions>(configuration.GetSection($"{SettingsSchema.Root}:{AppOptions.Section}"))
+            // the details of a run-time error, as the console words them.
+            .Configure<VerboseMessageOptions>(configuration.GetSection("Configuration:VerboseMessages"))
+            .AddVerboseMessages()
             .AddSingleton<IAppThemeService, AppThemeService>()
             .AddSingleton<IAppThemeLoaderService, AppThemeLoaderService>()
             .AddSingleton(Spectre.Console.AnsiConsole.Console)
