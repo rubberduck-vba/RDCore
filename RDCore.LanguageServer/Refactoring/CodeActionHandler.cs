@@ -76,9 +76,9 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
             foreach (var suggestion in fix.Suggestions)
             {
                 // a rename whose edits of strings the user confirms is not offered, as an edit, to a client that can't ask them: the rename command, which the
-                // server asks them for, still is.
+                // server asks them for, still is. Its late-bound edits, which the user confirms too, are left out of the edit such a client is sent.
                 if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion) is { Value: { } edit } answer
-                    && (answer.Question is null || _client.TakesChangeAnnotations())
+                    && (!answer.Asks(RenameWorkspace.InString) || _client.TakesChangeAnnotations())
                     && ForTheClient(edit) is { } applicable)
                 {
                     actions.Add(new CodeAction
