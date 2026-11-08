@@ -144,9 +144,9 @@ public class ExtensionsClient(
     /// Returns all discovered <strong>valid</strong> extensions.
     /// </returns>
     /// <remarks>
-    /// The folders are read in the order of their names. One extension is found of a diagnostic prefix (<see cref="ExtensionInfo.DiagnosticPrefix"/>): one that
-    /// declares a prefix an extension found before it declares, one of the language's own (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>), or a prefix that is not three
-    /// letters <c>A</c> to <c>Z</c>, is not.
+    /// The folders are read in the order of their names, ignoring case. One extension is found per diagnostic prefix
+    /// (<see cref="ExtensionInfo.DiagnosticPrefix"/>). An extension is not found, and a warning is logged, when its prefix is not three letters <c>A</c> to
+    /// <c>Z</c>, is one of the language's own (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>), or is already declared by an extension found earlier.
     /// </remarks>
     public IEnumerable<ExtensionInfo> Discover()
     {

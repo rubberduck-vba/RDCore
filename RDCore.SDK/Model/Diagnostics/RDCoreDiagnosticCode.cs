@@ -7,9 +7,9 @@ namespace RDCore.SDK.Model.Diagnostics;
 /// (<strong>RD-VBAL §1.1.4</strong>).
 /// </summary>
 /// <remarks>
-/// The platform issues the <c>VBC</c>, <c>VBR</c> and <c>VBA</c> codes, and its first-party extensions the <c>RDC</c> and <c>RDX</c> codes, which
-/// <see cref="RDCoreDiagnosticId"/> names. An extension of another publisher reports its own diagnostics under the prefix its manifest declares
-/// (<see cref="Extensibility.ExtensionInfo.DiagnosticPrefix"/>), which no other extension of the platform declares.
+/// The platform issues the <c>VBC</c>, <c>VBR</c> and <c>VBA</c> codes. Its first-party extensions issue the <c>RDC</c> codes, which
+/// <see cref="RDCoreDiagnosticId"/> names, and the <c>RDX</c> codes. An extension of another publisher reports its own diagnostics under the prefix its
+/// manifest declares (<see cref="Extensibility.ExtensionInfo.DiagnosticPrefix"/>), which no other started extension declares.
 /// </remarks>
 public readonly record struct RDCoreDiagnosticCode
 {

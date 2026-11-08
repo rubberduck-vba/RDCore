@@ -23,7 +23,7 @@ public sealed record class ModuleAnalysisContext(Uri Document, ModuleParseResult
 /// <summary>
 /// One thing an analyzer has to say about a module.
 /// </summary>
-/// <param name="Code">The code the diagnostic is reported under: one of the prefix the analyzer's extension declares (<strong>RD-VBAL §1.1.4</strong>).</param>
+/// <param name="Code">The code the diagnostic is reported under, with the prefix the analyzer's extension declares (<strong>RD-VBAL §1.1.4</strong>).</param>
 /// <param name="Range">Where in the document it is.</param>
 /// <param name="Severity">How serious it is.</param>
 /// <param name="Message">What is worth saying about it, in the language of the reader.</param>
