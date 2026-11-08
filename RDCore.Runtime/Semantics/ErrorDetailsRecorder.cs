@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using System.Globalization;
 
 namespace RDCore.Runtime.Semantics;
 
@@ -42,7 +43,9 @@ public sealed class ErrorDetailsRecorder : IErrorDetailsRecorder
         => new(frame.NodeId.ToString(), [.. frame.Inputs.Select(OperandOf)],
             frame is LetCoercionStackFrame coercion ? new VBErrorCoercion(OperandOf(coercion.SourceValue), coercion.DestinationTypeDesc.Target.Name) : null);
 
-    // a type an operation is given holds no value to say.
+    // a type an operation is given holds no value to say. A value is said as the invariant culture writes it: the details are data, read anywhere.
     private static VBErrorOperand OperandOf(VBTypedValue input)
-        => new(input.TypeInfo.Name, input is VBTypeDescValue || input.Handle is InvalidBindingHandle ? null : input.RuntimeValue.ToString());
+        => new(input.TypeInfo.Name, input is VBTypeDescValue || input.Handle is InvalidBindingHandle
+            ? null
+            : Convert.ToString(input.RuntimeValue.BoxedValue, CultureInfo.InvariantCulture));
 }

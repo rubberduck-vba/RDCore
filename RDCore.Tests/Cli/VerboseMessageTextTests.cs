@@ -78,15 +78,11 @@ public sealed class VerboseMessageTextTests
             + $"    >Frame details: {Id(CallerFrameId)}(🚩 Long, Long)",
             Formatted(new VerboseMessageOptions(), Message, AtOnePosition, Operands(FrameId), Operands(CallerFrameId)));
 
+    // the value itself, not the name of the type that holds it at run time, which is what the text said before the runtime recorded the details.
     [TestMethod]
     public void ShowValues_PutsEachInputsValueBeforeItsType()
-    {
-        var frame = Operands(FrameId);
-        var (left, right) = (frame.Inputs[0].RuntimeValue.ToString(), frame.Inputs[1].RuntimeValue.ToString());
-
-        Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}(🚩 [{left}]:Long, [{right}]:Long)",
-            Formatted(new VerboseMessageOptions(ShowValues: true), Message, AtOnePosition, frame));
-    }
+        => Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}(🚩 [40000]:Long, [1]:Long)",
+            Formatted(new VerboseMessageOptions(ShowValues: true), Message, AtOnePosition, Operands(FrameId)));
 
     [TestMethod]
     public void WithoutIcons_EachPartIsWrittenBare()
@@ -115,12 +111,13 @@ public sealed class VerboseMessageTextTests
     public void ShowValues_LeavesTheTypeACoercionIsGivenWithoutAValue()
     {
         var frame = Coercion();
-        var (source, destination) = (frame.SourceValue.RuntimeValue.ToString(), frame.DestinationTypeDesc.TypeInfo.Name);
+        var destination = frame.DestinationTypeDesc.TypeInfo.Name;
 
-        Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}(🚩 [{source}]:Long, {destination})",
+        Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}(🚩 [40000]:Long, {destination})",
             Formatted(new VerboseMessageOptions(ShowValues: true), Message, AtOnePosition, frame));
     }
 
+    // a coercion frame is not enclosed in parentheses, as it never was.
     [TestMethod]
     public void TheLetCoercionTrace_SaysTheCoercionsSourceAndDestination_AndTheOtherFramesAsAnyOther()
     {
@@ -128,7 +125,7 @@ public sealed class VerboseMessageTextTests
         var text = new VerboseMessageBuilder(Options.Create(options), new ExpressionInfoBuilder(options), new LetCoercionTraceFormatter(options))
             .Format(new ErrorDetailsRecorder().Record(Message, AtOnePosition, [Coercion(), Operands(CallerFrameId)]));
 
-        Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}(Long -> Integer)"
+        Assert.AreEqual($"💠 {Message}[VBBinaryOperatorExpressionNode] 🔑 {Id(ExpressionId)}📌 L1C2👉 Frame details:    >💥 {Id(FrameId)}Long -> Integer"
             + $"    >Frame details: {Id(CallerFrameId)}(🚩 Long, Long)", text);
     }
 }
