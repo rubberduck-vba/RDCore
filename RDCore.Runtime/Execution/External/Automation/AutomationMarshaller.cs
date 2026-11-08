@@ -70,7 +70,10 @@ internal static class AutomationMarshaller
             case VBDoubleValue @double:
                 return @double.Value;
             case VBCurrencyValue currency:
+                // CS0618: the late-bound IDispatch marshaller makes a VT_CY of a CurrencyWrapper and of nothing else; .NET has no other way to ask it for one.
+#pragma warning disable CS0618
                 return new CurrencyWrapper(currency.Value.Value);
+#pragma warning restore CS0618
             case VBDecimalValue @decimal:
                 return @decimal.Value;
             case VBDateValue date:

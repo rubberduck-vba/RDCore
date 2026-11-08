@@ -170,7 +170,11 @@ public static class ExternalValues
         float single => Scalar(ExternalValueKind.Single, single.ToString("R", Invariant)),
         double @double => Scalar(ExternalValueKind.Double, @double.ToString("R", Invariant)),
         decimal @decimal => Scalar(ExternalValueKind.Decimal, @decimal.ToString(Invariant)),
+        // CS0618: a CurrencyWrapper is what tells a Currency from a Decimal. The late-bound IDispatch marshaller makes a VT_CY of it and of nothing else,
+        // and .NET has no other way to ask it for one.
+#pragma warning disable CS0618
         CurrencyWrapper currency => Scalar(ExternalValueKind.Currency, ((decimal)currency.WrappedObject).ToString(Invariant)),
+#pragma warning restore CS0618
         // a date is the number of days it is from the epoch of OLE Automation, which is all a VT_DATE ever is.
         DateTime date => Scalar(ExternalValueKind.Date, date.ToOADate().ToString("R", Invariant)),
         string text => Scalar(ExternalValueKind.String, text),
@@ -226,7 +230,10 @@ public static class ExternalValues
         ExternalValueKind.Single => float.Parse(value.Text!, Invariant),
         ExternalValueKind.Double => double.Parse(value.Text!, Invariant),
         ExternalValueKind.Decimal => decimal.Parse(value.Text!, Invariant),
+        // CS0618: a Currency is read back as what it was written from, a CurrencyWrapper (ToWire).
+#pragma warning disable CS0618
         ExternalValueKind.Currency => new CurrencyWrapper(decimal.Parse(value.Text!, Invariant)),
+#pragma warning restore CS0618
         ExternalValueKind.Date => DateTime.FromOADate(double.Parse(value.Text!, Invariant)),
         ExternalValueKind.String => value.Text ?? string.Empty,
         ExternalValueKind.Error => new ErrorWrapper(int.Parse(value.Text!, Invariant)),

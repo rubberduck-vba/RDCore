@@ -51,7 +51,10 @@ public sealed class ExternalValuesTests
     [TestMethod]
     public void ACurrencyAndAnError_KeepWhatTheyAre_WhichTheirNumbersAloneWouldNot()
     {
+        // CS0618: a Currency is a CurrencyWrapper on the wire, as the IDispatch marshaller is given one.
+#pragma warning disable CS0618
         Assert.AreEqual(12.3456m, Assert.IsInstanceOfType<CurrencyWrapper>(RoundTrip(new CurrencyWrapper(12.3456m))).WrappedObject);
+#pragma warning restore CS0618
         Assert.AreEqual(448, Assert.IsInstanceOfType<ErrorWrapper>(RoundTrip(new ErrorWrapper(448))).ErrorCode);
     }
 
@@ -95,12 +98,15 @@ public sealed class ExternalValuesTests
     [TestMethod]
     public void AnArrayOfAnything_IsAnArrayOfAnything_WhoseElementsAreEachWhatTheyAre()
     {
+        // CS0618: a Currency is a CurrencyWrapper on the wire, as the IDispatch marshaller is given one.
+#pragma warning disable CS0618
         var back = Assert.IsInstanceOfType<object?[]>(RoundTrip(new object?[] { 1, "two", null, new CurrencyWrapper(3m) }));
 
         Assert.AreEqual(1, back[0]);
         Assert.AreEqual("two", back[1]);
         Assert.IsNull(back[2]);
         Assert.IsInstanceOfType<CurrencyWrapper>(back[3]);
+#pragma warning restore CS0618
     }
 
     [TestMethod]
