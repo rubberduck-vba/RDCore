@@ -6,8 +6,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Set</c> statement, compiled: of an object variable of the activation, or the function result variable, to an object variable,
 /// <c>Me</c> or <c>Nothing</c>, Set-coerced, stored and counted as the interpreter does it, so that each object's <c>Terminate</c> runs at the instruction
-/// that lets go of it last, which the interpreter runs alone. Any other <c>Set</c> - of what a call, a member or <c>New</c> gives, or of a <c>WithEvents</c>
-/// variable, a parameter passed by reference, an element or a member - is a support call: the interpreter runs the statement, and compiled code goes on
+/// that lets go of it last, which the interpreter runs alone. Any other <c>Set</c> (of what a call, a member or <c>New</c> gives, or of a <c>WithEvents</c>
+/// variable, a parameter passed by reference, an element or a member) is a support call: the interpreter runs the statement, and compiled code goes on
 /// after it; one inside a <c>With</c> block the interpreter steps. A program runs the same either way.
 /// </summary>
 [TestClass]

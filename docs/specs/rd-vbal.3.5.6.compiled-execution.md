@@ -93,7 +93,7 @@ Compiled code gives an object to a procedure or a member it calls as the interpr
 
 - By value, the parameter gets the object held by a variable or field of the procedure, by `Me`, or `Nothing`, Set-coerced to the parameter's declared
   type. The parameter holds and counts the reference while the callee runs, so the object lives at least as long as the call.
-- By reference, the parameter is a second name for an object variable of the procedure of the parameter's very type. Whatever the callee `Set`s it to,
+- By reference, the parameter is a second name for an object variable of the procedure of exactly the parameter's type. Whatever the callee `Set`s it to,
   the variable holds after the call.
 
 A field given by reference, a `WithEvents` variable, and a call, a member or `New` given as an argument are the interpreter's to give, and it makes the
@@ -149,8 +149,8 @@ compiled code does not do. Compiled code first writes its variables into the fra
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.
 
-A call statement that compiled code does not make (`Err.Clear`, `C.Add 1` with `C` a `Collection`, a call given a late-bound argument) and a `Set` it
-does not do (see Objects, above) are different. The interpreter runs each as a call that compiled code makes: compiled code writes its variables into the
+The interpreter runs a call statement that compiled code does not make (`Err.Clear`, `C.Add 1` with `C` a `Collection`, a call given a late-bound
+argument), and a `Set` it does not do (see Objects, above), as a call that compiled code makes: compiled code writes its variables into the
 frame, the interpreter runs the statement, and compiled code reads the variables back after it, as after any call it makes. An error the statement raises
 reaches the activation's handler as an error a callee raises does (see Error handling, below). Such a statement never keeps a procedure in the
 interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the interpreter runs it on its own, as

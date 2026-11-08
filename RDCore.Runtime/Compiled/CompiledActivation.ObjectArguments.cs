@@ -57,7 +57,7 @@ public sealed partial class CompiledActivation
 
     /// <summary>
     /// Gives the argument at <paramref name="index"/> of the call compiled code is about to make, of an object parameter passed by reference given an object
-    /// variable of the activation of its very type: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The parameter is a second name
+    /// variable of the activation of exactly its type: the variable's address, as the interpreter passes it (MS-VBAL §5.3.1.11). The parameter is a second name
     /// for the variable, so what the callee Sets it to is what the variable holds after the call, in the cell compiled code reads it from.
     /// </summary>
     /// <param name="index">The argument's position in the callee's parameter list.</param>
