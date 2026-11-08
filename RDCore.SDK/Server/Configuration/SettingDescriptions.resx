@@ -94,6 +94,9 @@
   <data name="Environment_ReleaseDropsDebugStatements" xml:space="preserve">
     <value>Whether a release build leaves out every Debug.Print and Debug.Assert, their arguments unevaluated. Off by default: a release build keeps them, and they run as in a debug build.</value>
   </data>
+  <data name="Environment_Regional_Language" xml:space="preserve">
+    <value>The language of the platform's messages, as a culture name such as en, fr or fr-CA. Empty by default: the machine's language. It changes no number or date formatting. A language the platform has no translation in is shown in English.</value>
+  </data>
   <data name="Environment_Regional_DecimalSymbol" xml:space="preserve">
     <value>What separates the whole part of a number from its fraction.</value>
   </data>
