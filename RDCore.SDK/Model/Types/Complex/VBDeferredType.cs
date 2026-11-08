@@ -47,45 +47,13 @@ public interface IVBInferableType
     IVBInferableType WithCandidateType(VBType vbType);
 }
 
-/// <summary>
-/// Describes a <em>complex data type</em> that is undeclared but that can be statically inferred and constructed from its use.
-/// </summary>
-public interface IVBDeferrableType : IVBInferableType
-{
-    /*** RD-VBA Deferrable Types
-     * 
-     * The RDCore implementation of MS-VBAL formalizes the concept of a deferrable VBType,
-     * which is an undeclared or otherwise unresolved data type that is also in active symbolic use.
-     * 
-     * This results in a program that is statically illegal in MS-VBA with OPTION EXPLICIT, 
-     * and systematically fails the late binding runtime semantics without OPTION EXPLICIT.
-     * 
-     * Static semantics
-     *  - OPTION STRICT being specified in the declarations section of a module disables these semantics for that module.
-     *  - 
-     *  
-     *  TODO continue this...
-    */
-
-    /// <summary>
-    /// Gets the <em>deferred type</em> that can be materialized from this <em>infered type</em>.
-    /// </summary>
-    IVBMemberOwnerType? DeferredVBTypeInfo { get; init; }
-    /// <summary>
-    /// Gets a copy of this deferrable data type with the specified target <em>deferred type</em>.
-    /// </summary>
-    /// <param name="vbType">Any <c>VBType</c> that can have members.</param>
-    /// <returns></returns>
-    VBDeferredType WithDeferredVBType(IVBMemberOwnerType vbType);
-}
-
 public interface IVBDeferrableTypeMember : IVBInferableType
 {
     VBType? DeferredVBType { get; init; }
     VBDeferredTypeMemberSymbol WithDeferredVBType(VBType vbType);
 }
 
-public abstract record class VBDeferredType : VBType, IVBDeferrableType
+public abstract record class VBDeferredType : VBType, IVBInferableType
 {
     public VBDeferredType(string name, Uri uri)
         : base(typeof(object), name, isHidden: true)
