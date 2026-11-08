@@ -56,9 +56,10 @@ public interface IFileChannel
     /// <c>;</c> - are evaluated once and written wherever they are aimed. A channel counts its own line
     /// position, which is what those rules are relative to.
     /// <para>
-    /// 👉 A caller is expected to have asked <see cref="FileStatementAccess"/> whether the statement is valid
-    /// on this channel first. Writing to one opened for reading fails rather than corrupting it, but reporting
-    /// <em>which</em> statement was wrong is the caller's job, not this one's.
+    /// 👉 A caller is expected to have asked whether the statement is valid on this channel first, by
+    /// <strong>MS-VBAL §5.4.5.1</strong>'s table of statements, modes and accesses. Writing to one opened for
+    /// reading fails rather than corrupting it, but reporting <em>which</em> statement was wrong is the caller's
+    /// job, not this one's.
     /// </para>
     /// </remarks>
     IFileChannelOutput Output { get; }
@@ -71,8 +72,8 @@ public interface IFileChannel
     /// §5.4.5</strong> gives a channel one position and not one per direction, which is what makes an
     /// <c>Append</c> channel able to read back what it appended.
     /// <para>
-    /// 👉 As with <see cref="Output"/>, a caller is expected to have asked <see cref="FileStatementAccess"/>
-    /// whether the statement is valid on this channel first.
+    /// 👉 As with <see cref="Output"/>, a caller is expected to have asked whether the statement is valid on
+    /// this channel first.
     /// </para>
     /// </remarks>
     IFileChannelInput Input { get; }
