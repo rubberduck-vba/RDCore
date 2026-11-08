@@ -1,5 +1,6 @@
 ﻿using NSubstitute;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Diagnostics;
@@ -25,7 +26,7 @@ namespace RDCore.Tests.Semantics.Runtime;
 /// which the session says; <c>Option Compare Database</c> is what the platform says.
 /// </summary>
 /// <remarks>
-/// 👉 Binary mode's other reading, the byte image, is behind <see cref="StringComparisonRules.BinaryModeComparesByteImages"/>: it
+/// 👉 Binary mode's other reading, the byte image, is behind <see cref="StringComparisonRulesExtensions.BinaryModeComparesByteImages"/>: it
 /// orders every string here the same way, these being ASCII or differing only in a trailing byte.
 /// </remarks>
 [TestClass]

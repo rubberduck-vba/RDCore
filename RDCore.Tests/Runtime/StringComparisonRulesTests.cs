@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿using RDCore.Runtime.Semantics;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using System.Globalization;
@@ -6,12 +7,12 @@ using System.Globalization;
 namespace RDCore.Tests.Runtime;
 
 /// <summary>
-/// <see cref="StringComparisonRules"/> is where <c>String</c> values are ordered (<strong>MS-VBAL §5.6.9.5</strong>): binary mode
+/// <see cref="StringComparisonRulesExtensions"/> is where <c>String</c> values are ordered (<strong>MS-VBAL §5.6.9.5</strong>): binary mode
 /// compares their data, a trailing byte included, in the one order binary mode takes; text mode compares their text regardless of
 /// case, and a trailing byte only breaks a tie.
 /// </summary>
 /// <remarks>
-/// Binary mode has two readings, behind the one switch <see cref="StringComparisonRules.BinaryModeComparesByteImages"/>: code units
+/// Binary mode has two readings, behind the one switch <see cref="StringComparisonRulesExtensions.BinaryModeComparesByteImages"/>: code units
 /// then a trailing byte, and the byte image. Both are tested here as they are; the tests of the order binary mode takes pin whichever
 /// the switch selects, and are the ones to change when it changes.
 /// </remarks>
