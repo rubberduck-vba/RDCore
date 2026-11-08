@@ -789,6 +789,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is Empty here: MS-VBA empties the control variable of a For Each loop that runs out, where MS-VBAL §5.4.2.4 says it keeps the last element..
+        /// </summary>
+        public static string ForEachControlEmptiedAfterLoop_Empty_Message {
+            get {
+                return ResourceManager.GetString("ForEachControlEmptiedAfterLoop_Empty_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is Nothing here: MS-VBA sets the control variable of a For Each loop that runs out to Nothing, where MS-VBAL §5.4.2.4 says it keeps the last element..
+        /// </summary>
+        public static string ForEachControlEmptiedAfterLoop_Nothing_Message {
+            get {
+                return ResourceManager.GetString("ForEachControlEmptiedAfterLoop_Nothing_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
         /// </summary>
         public static string NewOfAClassNotCreatable_New_Message {
