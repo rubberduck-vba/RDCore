@@ -80,8 +80,11 @@ internal static class AutomationMarshaller
             case VBErrorValue error:
                 return new ErrorWrapper(error.Value);
             case VBObjectValue { } reference:
+                // CA1416: a wrapper of no object asks nothing of COM; it is how Nothing is given to a server, whatever the platform.
+#pragma warning disable CA1416
                 return reference.IsNothing()
                     ? new DispatchWrapper(null)
+#pragma warning restore CA1416
                     : handleOf(reference.Value) ?? throw new AutomationException(TypeMismatch, "An object that is not a server's cannot be given to one.");
             case VBArrayValue array:
                 return ToAutomation(array, handleOf);

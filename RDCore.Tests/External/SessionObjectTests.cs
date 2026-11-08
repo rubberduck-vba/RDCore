@@ -7,6 +7,7 @@ using RDCore.Tests.Cli;
 using RDCore.Tests.Runtime.Libraries;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace RDCore.Tests.External;
 
@@ -17,6 +18,7 @@ namespace RDCore.Tests.External;
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.5.2 Object References")]
+[SupportedOSPlatform("windows")]
 public sealed class SessionObjectTests
 {
     private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);

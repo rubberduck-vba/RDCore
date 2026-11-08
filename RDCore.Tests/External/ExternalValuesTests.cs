@@ -64,7 +64,10 @@ public sealed class ExternalValuesTests
         var back = RoundTrip(held, handleOf: value => ReferenceEquals(value, held) ? 42 : -1, objectOf: handle => handle == 42 ? other : new object());
 
         Assert.AreSame(other, back);
+        // CA1416: a wrapper of no object asks nothing of COM, and Nothing crosses on every platform.
+#pragma warning disable CA1416
         Assert.IsNull(Assert.IsInstanceOfType<DispatchWrapper>(RoundTrip(new DispatchWrapper(null))).WrappedObject);
+#pragma warning restore CA1416
     }
 
     [TestMethod]

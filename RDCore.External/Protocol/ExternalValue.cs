@@ -152,8 +152,12 @@ public static class ExternalValues
         null => new() { Kind = ExternalValueKind.Empty },
         DBNull => new() { Kind = ExternalValueKind.Null },
         Missing => new() { Kind = ExternalValueKind.Missing },
+        // CA1416: a DispatchWrapper is the neutral value of an object reference on both ends of the wire. Only wrapping an object asks COM for its IDispatch;
+        // reading what a wrapper holds runs on every platform.
+#pragma warning disable CA1416
         DispatchWrapper { WrappedObject: null } => new() { Kind = ExternalValueKind.Nothing },
         DispatchWrapper wrapper => new() { Kind = ExternalValueKind.Object, Handle = handleOf(wrapper.WrappedObject) },
+#pragma warning restore CA1416
         bool boolean => Scalar(ExternalValueKind.Boolean, boolean ? bool.TrueString : bool.FalseString),
         byte @byte => Scalar(ExternalValueKind.Byte, @byte.ToString(Invariant)),
         sbyte @sbyte => Scalar(ExternalValueKind.SByte, @sbyte.ToString(Invariant)),
@@ -206,7 +210,10 @@ public static class ExternalValues
         ExternalValueKind.Empty => null,
         ExternalValueKind.Null => DBNull.Value,
         ExternalValueKind.Missing => Missing.Value,
+        // CA1416: a wrapper of no object asks nothing of COM, and Nothing reads back on every platform.
+#pragma warning disable CA1416
         ExternalValueKind.Nothing => new DispatchWrapper(null),
+#pragma warning restore CA1416
         ExternalValueKind.Boolean => bool.Parse(value.Text!),
         ExternalValueKind.Byte => byte.Parse(value.Text!, Invariant),
         ExternalValueKind.SByte => sbyte.Parse(value.Text!, Invariant),

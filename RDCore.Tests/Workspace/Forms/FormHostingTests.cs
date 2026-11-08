@@ -8,6 +8,7 @@ using RDCore.Tests.Cli;
 using RDCore.Tests.External;
 using RDCore.Tests.Runtime.Libraries;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace RDCore.Tests.Workspace.Forms;
@@ -20,6 +21,8 @@ namespace RDCore.Tests.Workspace.Forms;
 [TestClass]
 [TestCategory("MSForms")]
 [DoNotParallelize]
+// Windows only past RequireMicrosoftForms(), which is inconclusive on any other platform.
+[SupportedOSPlatform("windows")]
 public sealed class FormHostingTests
 {
     private const uint WM_CLOSE = 0x0010;

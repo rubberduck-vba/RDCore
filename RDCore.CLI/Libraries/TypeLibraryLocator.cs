@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Versioning;
 
 namespace RDCore.CLI.Libraries;
 
@@ -21,6 +22,7 @@ internal sealed record LoadedTypeLibrary(ITypeLib Library, string Name, string? 
 /// registry holds for it ("Microsoft Scripting Runtime" is <c>Scripting</c>). The identifier and version of a type library are part of its description
 /// (<see cref="RDCore.SDK.Runtime.Libraries.LibraryOrigin"/>): a reference that gives them finds the description made from that type library, among the ones of its name.
 /// </remarks>
+[SupportedOSPlatform("windows")]
 internal static class TypeLibraryLocator
 {
     private const int RegKindNone = 2;

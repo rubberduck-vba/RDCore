@@ -4,6 +4,7 @@ using RDCore.CLI.Libraries;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Runtime.Libraries;
 using System.IO.Abstractions.TestingHelpers;
+using System.Runtime.Versioning;
 
 namespace RDCore.Tests.Cli;
 
@@ -13,6 +14,7 @@ namespace RDCore.Tests.Cli;
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL §2.3.1.2 References")]
+[SupportedOSPlatform("windows")]
 public sealed class ExportLibraryTests
 {
     private static readonly string ScriptingFile = Path.Combine(Environment.SystemDirectory, "scrrun.dll");

@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Versioning;
 using VarEnum = System.Runtime.InteropServices.VarEnum;
 
 namespace RDCore.CLI.Libraries;
@@ -32,6 +33,7 @@ internal sealed record TypeLibraryExport(LibraryDescription Description, IReadOn
 /// to the library.
 /// </para>
 /// </remarks>
+[SupportedOSPlatform("windows")]
 internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
 {
     private static readonly Guid IUnknown = new("00000000-0000-0000-C000-000000000046");
