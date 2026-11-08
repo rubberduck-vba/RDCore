@@ -15,8 +15,8 @@ public sealed partial class CompiledActivation
     /// <summary>
     /// Assigns the payload <paramref name="value"/>, of its own type, to the member of an object the <c>Let</c> at <paramref name="pc"/> assigns to
     /// (MS-VBAL §5.4.3.8): as the interpreter assigns the value of a statement's expression (<c>StatementRuntimeSemanticsProvider.AssignValue</c>), the
-    /// object evaluated after the value, and the member found on it - a field, which holds the value let-coerced to its declared type, or a
-    /// <c>Property Let</c>, which is called with it - in the context the interpreter evaluates the statement in, the object of its <c>With</c> block included.
+    /// object evaluated after the value, and the member found on it (a field, which holds the value let-coerced to its declared type, or a
+    /// <c>Property Let</c>, which is called with it) in the context the interpreter evaluates the statement in, the object of its <c>With</c> block included.
     /// It is a support call: a <c>Property Let</c> runs user code, and what the statement held while it ran is let go of when it is over, as the interpreter
     /// lets go of it before the next instruction. The frame says the instruction is the one being run, as it does of a call.
     /// </summary>
@@ -57,8 +57,8 @@ public sealed partial class CompiledActivation
     /// <summary>
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object of the <c>With</c> block opened at
     /// <paramref name="opener"/> (MS-VBAL §5.4.2.21), as <see cref="CanCallMember"/> says of a member of the object a variable refers to. The object is the
-    /// one the interpreter holds for the block, where it holds it: a block whose <c>With</c> statement set none - jumped into, or its object in error and
-    /// resumed past - has <c>Nothing</c>, whose member is error 91, which the interpreter raises; so does a block whose object is <c>Nothing</c>.
+    /// one the interpreter holds for the block, where it holds it: a block whose <c>With</c> statement set none (jumped into, or its object in error and
+    /// resumed past) has <c>Nothing</c>, whose member is error 91, which the interpreter raises; so does a block whose object is <c>Nothing</c>.
     /// </summary>
     /// <param name="callee">The number of the call among the body's callees.</param>
     /// <param name="opener">The offset of the <c>With</c> statement of the block.</param>

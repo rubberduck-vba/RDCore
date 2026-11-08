@@ -10,8 +10,8 @@ using RDCore.SDK.Semantics.Instructions;
 namespace RDCore.Runtime.Compiled;
 
 /// <remarks>
-/// A <c>Let</c> of a member of an object declared as a class - an object variable compiled code holds, <c>Me</c>, or the object of the enclosing
-/// <c>With</c> block - is assigned as the interpreter assigns it (<c>CompiledActivation.LetMember</c>): the value is evaluated by compiled code, and the
+/// A <c>Let</c> of a member of an object declared as a class (an object variable compiled code holds, <c>Me</c>, or the object of the enclosing
+/// <c>With</c> block) is assigned as the interpreter assigns it (<c>CompiledActivation.LetMember</c>): the value is evaluated by compiled code, and the
 /// member found on the object and assigned by the interpreter's own assignment, a field or a <c>Property Let</c>. A member of the object of a <c>With</c>
 /// block is called as a member of an object variable is, the object the one the interpreter holds for the block: the <c>With</c> statement and its
 /// <c>End With</c> are the interpreter's, which evaluates, holds and lets go of it.

@@ -5,8 +5,8 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// A <c>Let</c> of a member of an object, compiled: of an object variable, of <c>Me</c>, of the object of a <c>With</c> block - a public field assigned the
-/// value let-coerced to its type, a <c>Property Let</c> called with it (MS-VBAL §5.4.3.8) - as the interpreter assigns it, the value evaluated first; and a
+/// A <c>Let</c> of a member of an object, compiled: of an object variable, of <c>Me</c>, of the object of a <c>With</c> block (a public field assigned the
+/// value let-coerced to its type, a <c>Property Let</c> called with it, MS-VBAL §5.4.3.8), as the interpreter assigns it, the value evaluated first; and a
 /// member of the object of a <c>With</c> block called, the object the one the block holds (MS-VBAL §5.4.2.21), wherever the program goes in and out of the
 /// block. A program runs the same either way.
 /// </summary>
