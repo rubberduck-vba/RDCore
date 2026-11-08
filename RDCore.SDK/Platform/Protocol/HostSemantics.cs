@@ -308,9 +308,12 @@ public record class RuntimeFactsDto(
 /// <param name="Expressions">What it found out about each expression.</param>
 /// <param name="ReturnValue">On how many code paths a function or a property getter assigns its return value, when the pass could tell.</param>
 /// <param name="Runtime">What the language core states about the code, or <see langword="null"/> when the procedure has not been evaluated.</param>
+/// <param name="EmptiedControlReads">
+/// The reads of its own <c>For Each</c> control variables that see them emptied by the end of the loop; <see langword="null"/> when there are none the pass could tell.
+/// </param>
 public record class ProcedureSemanticsDto(
     Uri Procedure, bool IsFullyAnalyzed, ImmutableArray<CompileErrorDto> CompileErrors, ImmutableArray<ExpressionFactDto> Expressions, ReturnValueFact? ReturnValue = null,
-    RuntimeFactsDto? Runtime = null);
+    RuntimeFactsDto? Runtime = null, ImmutableArray<EmptiedControlReadFact>? EmptiedControlReads = null);
 
 /// <summary>
 /// A <see cref="DeclarationFact"/>, as it travels.
@@ -366,7 +369,8 @@ public record class ModuleSemanticsDto(
             [.. procedure.Expressions.Values.Select(fact => new ExpressionFactDto(
                 fact.Node, fact.Location, fact.DeclaredType?.Name, fact.Classification, fact.Binding?.Uri, fact.Flags, fact.Error is null ? null : ErrorOf(fact.Error), fact.Creates))],
             procedure.ReturnValue,
-            procedure.Runtime is null ? null : RuntimeFactsDto.From(procedure.Runtime)))],
+            procedure.Runtime is null ? null : RuntimeFactsDto.From(procedure.Runtime),
+            procedure.EmptiedControlReads.IsDefaultOrEmpty ? null : procedure.EmptiedControlReads))],
         [.. model.Declarations.Select(declaration => new DeclarationFactDto(
             declaration.Symbol.Uri, declaration.Name, declaration.Kind, declaration.Access, declaration.IsImplicit, declaration.Location, declaration.References, declaration.Role,
             declaration.DeclaredBy, declaration.Hides, declaration.AutoInstantiationAlwaysFails))],

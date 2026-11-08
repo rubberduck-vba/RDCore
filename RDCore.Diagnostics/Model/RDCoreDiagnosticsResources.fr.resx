@@ -372,4 +372,10 @@
   <data name="NewOfAClassNotCreatable_AsNew_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est déclaré As New d&apos;une classe dont aucun objet n&apos;est jamais créé : chaque référence qui créerait son objet lève l&apos;erreur d&apos;exécution -2147221164 (Classe non enregistrée), comme dans MS-VBA.</value>
   </data>
+  <data name="ForEachControlEmptiedAfterLoop_Empty_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; vaut Empty ici : MS-VBA vide la variable de contrôle d&apos;une boucle For Each qui arrive au bout, alors que MS-VBAL §5.4.2.4 dit qu&apos;elle garde le dernier élément.</value>
+  </data>
+  <data name="ForEachControlEmptiedAfterLoop_Nothing_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; vaut Nothing ici : MS-VBA met à Nothing la variable de contrôle d&apos;une boucle For Each qui arrive au bout, alors que MS-VBAL §5.4.2.4 dit qu&apos;elle garde le dernier élément.</value>
+  </data>
 </root>

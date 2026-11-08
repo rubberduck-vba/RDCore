@@ -42,8 +42,8 @@ public sealed class StatementPayloadTests
         => Assert.AreEqual(printed, Run("", body));
 
     [TestMethod]
-    [DataRow("Dim a(1 To 4) As Long, v As Variant, s As Long, i As Long ;; For i = 1 To 4 ;; a(i) = i * i ;; Next ;; For Each v In a ;; s = s + v ;; Next ;; Debug.Print s & \"|\" & TypeName(v)",
-        "30|Long", DisplayName = "a Long array")]
+    [DataRow("Dim a(1 To 4) As Long, v As Variant, s As Long, i As Long, t As String ;; For i = 1 To 4 ;; a(i) = i * i ;; Next ;; For Each v In a ;; s = s + v ;; t = TypeName(v) ;; Next ;; Debug.Print s & \"|\" & t & \"|\" & TypeName(v)",
+        "30|Long|Empty", DisplayName = "a Long array")]
     [DataRow("Dim a(1 To 3) As Integer, v As Variant, t As String ;; For Each v In a ;; t = t & TypeName(v) ;; Next ;; Debug.Print t", "IntegerIntegerInteger",
         DisplayName = "an Integer array: the Variant holds Integers")]
     [DataRow("Dim a(1 To 3) As Double, v As Variant, s As Double ;; a(1) = 0.5 ;; a(2) = 1.25 ;; a(3) = 2 ;; For Each v In a ;; s = s + v ;; Next ;; Debug.Print s", "3.75",
@@ -51,7 +51,7 @@ public sealed class StatementPayloadTests
     [DataRow("Dim a(1 To 2) As Boolean, v As Variant, t As String ;; a(2) = True ;; For Each v In a ;; t = t & CStr(v) & \",\" ;; Next ;; Debug.Print t", "False,True,",
         DisplayName = "a Boolean array")]
     [DataRow("Dim a(1 To 3) As Long, v As Variant, c As New Collection, s As Long ;; a(1) = 1 ;; a(2) = 2 ;; a(3) = 3 ;; For Each v In a ;; s = s + v ;; Set v = c ;; Next ;; Debug.Print s & \"|\" & TypeName(v)",
-        "6|Collection", DisplayName = "the control variable holding an object between elements")]
+        "6|Empty", DisplayName = "the control variable holding an object between elements")]
     [DataRow("Dim a(1 To 3) As Variant, v As Variant, t As String ;; a(1) = 1 ;; a(2) = \"b\" ;; a(3) = 2.5 ;; For Each v In a ;; t = t & TypeName(v) & \",\" ;; Next ;; Debug.Print t",
         "Integer,String,Double,", DisplayName = "a Variant array, assigned boxed")]
     [DataRow("Dim a(1 To 2, 1 To 2) As Long, v As Variant, t As String ;; a(1, 1) = 1 ;; a(2, 1) = 2 ;; a(1, 2) = 3 ;; a(2, 2) = 4 ;; For Each v In a ;; t = t & v ;; Next ;; Debug.Print t",

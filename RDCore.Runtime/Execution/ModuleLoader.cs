@@ -135,7 +135,16 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
                     Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }));
 
             // the code paths are those of the lowered body, which only the loader has next to what the static pass found out about it.
-            procedureModels.Add(model with { ReturnValue = ReturnValueAnalysis.Of(declaration, model, lowering.InstructionList) });
+            // the For Each control variables followed are the procedure's automatic locals: what nothing but its own code assigns.
+            IReadOnlySet<SemanticId> automaticLocals = declaration.IsStatic || scope is null
+                ? new HashSet<SemanticId>()
+                : scope.Declarations.OfType<VBLocalVariableSymbol>().Where(local => local is { IsStatic: false } and not VBParameterSymbol)
+                    .Select(local => local.SemanticId).ToHashSet();
+            procedureModels.Add(model with
+            {
+                ReturnValue = ReturnValueAnalysis.Of(declaration, model, lowering.InstructionList),
+                EmptiedControlReads = ForEachControlAnalysis.Of(model, lowering.InstructionList, automaticLocals),
+            });
             procedures.Add(new(procedure.SemanticId, lowering.InstructionList));
             // a declaration that repeats another resolves to the symbol of the first, whose code is the one the session has: the repeat is an error of
             // the declarations, and its code is not evaluated for it.

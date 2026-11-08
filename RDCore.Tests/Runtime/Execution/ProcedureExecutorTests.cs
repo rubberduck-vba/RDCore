@@ -432,7 +432,7 @@ public sealed class ProcedureExecutorTests
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind);
         Assert.AreEqual(60, session.Symbols.Resolver.GetValue(s).Value.BoxedValue);
-        Assert.AreEqual(30, session.Symbols.Resolver.GetValue(item).Value.BoxedValue); // holds the last element
+        Assert.AreEqual(0, session.Symbols.Resolver.GetValue(item).Value.BoxedValue); // emptied when the loop runs out: Empty, let-coerced to a Long
     }
 
     [TestMethod]
