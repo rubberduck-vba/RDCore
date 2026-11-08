@@ -196,6 +196,15 @@ internal class TraceMessages {
     }
     
     /// <summary>
+    ///   Looks up a localized string similar to 🌐 The user interface is in &apos;{0}&apos; (Environment.Regional.Language)..
+    /// </summary>
+    internal static string UserInterfaceLanguage_Applied {
+        get {
+            return ResourceManager.GetString("UserInterfaceLanguage_Applied", resourceCulture);
+        }
+    }
+
+    /// <summary>
     ///   Looks up a localized string similar to The platform has no translation in &apos;{0}&apos; (Environment.Regional.Language): its user interface is in English (&apos;{1}&apos;)..
     /// </summary>
     internal static string UserInterfaceLanguage_NotTranslated {

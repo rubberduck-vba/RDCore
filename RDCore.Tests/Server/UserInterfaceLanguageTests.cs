@@ -68,11 +68,11 @@ public sealed class UserInterfaceLanguageTests
     }
 
     [TestMethod]
-    [DataRow("en-US", "fr", "fr", DisplayName = "fr on an English machine")]
-    [DataRow("en-US", " fr-CA ", "fr-CA", DisplayName = "fr-CA on an English machine, trimmed")]
-    [DataRow("fr-CA", "en", "en", DisplayName = "en on a French machine")]
-    [DataRow("fr-FR", "en-US", "en-US", DisplayName = "en-US on a French machine")]
-    public void ALanguageThePlatformIsTranslatedIn_IsTheLanguageOfTheUserInterface_AndOnlyThat(string machine, string setting, string language)
+    [DataRow("en-US", "fr", "fr", "🌐 L'interface est en 'fr' (Environment.Regional.Language).", DisplayName = "fr on an English machine, said in French")]
+    [DataRow("en-US", " fr-CA ", "fr-CA", "🌐 L'interface est en 'fr-CA' (Environment.Regional.Language).", DisplayName = "fr-CA on an English machine, trimmed")]
+    [DataRow("fr-CA", "en", "en", "🌐 The user interface is in 'en' (Environment.Regional.Language).", DisplayName = "en on a French machine, said in English")]
+    [DataRow("fr-FR", "en-US", "en-US", "🌐 The user interface is in 'en-US' (Environment.Regional.Language).", DisplayName = "en-US on a French machine")]
+    public void ALanguageThePlatformIsTranslatedIn_IsTheLanguageOfTheUserInterface_AndOnlyThat(string machine, string setting, string language, string message)
     {
         OnAMachineIn(machine);
 
@@ -81,6 +81,7 @@ public sealed class UserInterfaceLanguageTests
         Assert.AreEqual(UserInterfaceLanguageOutcome.Applied, applied.Outcome);
         Assert.IsTrue(applied.Overrides);
         Assert.AreEqual(LogLevel.Information, applied.Level);
+        Assert.AreEqual(message, applied.Message, "said in the language it sets");
         Assert.AreEqual(language, CultureInfo.CurrentUICulture.Name);
         Assert.AreEqual(language, CultureInfo.DefaultThreadCurrentUICulture?.Name, "every thread that has not set its own");
         Assert.AreEqual(machine, CultureInfo.CurrentCulture.Name, "how numbers and dates are written is not the language's");

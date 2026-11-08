@@ -65,10 +65,10 @@ public sealed class AppHostLanguageTests
         => new UserSettingsStore(new FileSystem(), UserSettingsStore.PathIn(PlatformEnvironment.Default), SettingsSchema.Platform).Set("Environment.Regional.Language", language);
 
     [TestMethod]
-    [DataRow("fr", "fr", LogLevel.Information, DisplayName = "a language the platform is translated in")]
-    [DataRow("de", "de", LogLevel.Information, DisplayName = "one it is not: English, said at Information")]
-    [DataRow("not-a-culture-at-all-xx", "en-US", LogLevel.Warning, DisplayName = "no culture: the machine's language, with a warning")]
-    public async Task AComponent_StartsInTheLanguageItsUserSet_AndSaysSoOnce(string language, string started, LogLevel level)
+    [DataRow("fr", "fr", LogLevel.Information, "🌐 L'interface est en 'fr'", DisplayName = "a language the platform is translated in: said in it")]
+    [DataRow("de", "de", LogLevel.Information, "The platform has no translation in 'de'", DisplayName = "one it is not: English, said at Information")]
+    [DataRow("not-a-culture-at-all-xx", "en-US", LogLevel.Warning, "'not-a-culture-at-all-xx' is not a culture", DisplayName = "no culture: the machine's language, with a warning")]
+    public async Task AComponent_StartsInTheLanguageItsUserSet_AndSaysSoOnce(string language, string started, LogLevel level, string saying)
     {
         UserSets(language);
 
@@ -78,7 +78,7 @@ public sealed class AppHostLanguageTests
         var said = RecordingApp.Logged.Where(entry => entry.Message.Contains("Environment.Regional.Language", StringComparison.Ordinal)).ToArray();
         Assert.HasCount(1, said, string.Join(" | ", RecordingApp.Logged));
         Assert.AreEqual(level, said[0].Level);
-        StringAssert.Contains(said[0].Message, $"'{language}'");
+        StringAssert.StartsWith(said[0].Message, saying);
         Assert.AreEqual("en-US", CultureInfo.CurrentCulture.Name, "the language is not how numbers and dates are written");
     }
 

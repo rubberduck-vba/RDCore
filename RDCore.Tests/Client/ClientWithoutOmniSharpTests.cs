@@ -577,9 +577,12 @@ public sealed class ClientWithoutOmniSharpTests
 
         await platform.ShutdownAsync(5);
 
+        const string Started = "L'interface est en 'fr' (Environment.Regional.Language).";
+        StringAssert.Contains(WholeLogOf(platform.Root), Started, "the language server, as it started: " + LogOf(platform.Root));
         StringAssert.Contains(WholeLogOf(platform.Root), "The user interface is in 'fr' (Environment.Regional.Language), whatever the client's locale ('en-US').",
-            "the language server: " + LogOf(platform.Root));
-        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), "The user interface is in 'fr' (Environment.Regional.Language)", "the parse server it started");
+            "the language server, as it was initialized: " + LogOf(platform.Root));
+        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.ParseServer"), Started, "the parse server it started");
+        StringAssert.Contains(WholeLogOf(platform.Root, "RDCore.EnvironmentHost"), Started, "the environment host it started");
     }
 
     // the platform as a deployment has it, with a workspace of one module, and the language server started from it as an IDE starts it.

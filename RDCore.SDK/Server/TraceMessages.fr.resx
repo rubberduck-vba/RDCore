@@ -165,6 +165,9 @@
   <data name="ValidExtensionFound" xml:space="preserve">
     <value>🧩 Découverte des extensions: '{$NAME}' est valide.</value>
   </data>
+  <data name="UserInterfaceLanguage_Applied" xml:space="preserve">
+    <value>🌐 L'interface est en '{0}' (Environment.Regional.Language).</value>
+  </data>
   <data name="UserInterfaceLanguage_Unknown" xml:space="preserve">
     <value>'{0}' n'est pas une culture que la plateforme connaît (Environment.Regional.Language) : l'interface reste dans la langue de la machine, '{1}'.</value>
   </data>

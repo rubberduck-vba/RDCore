@@ -38,7 +38,8 @@ public static class UserInterfaceLanguage
         typeof(UserInterfaceLanguage).Assembly.GetCustomAttribute<NeutralResourcesLanguageAttribute>()?.CultureName is { Length: > 0 } name ? name : "en");
 
     /// <summary>
-    /// What the setting comes to, without applying it. The message is in the current language of the user interface.
+    /// What the setting comes to, without applying it. The message is in the language the setting names when the platform is translated in it, and
+    /// otherwise in the current language of the user interface.
     /// </summary>
     /// <param name="setting">The value of the setting: a culture name, or nothing for the machine's language.</param>
     public static UserInterfaceLanguageSetting Resolve(string? setting)
@@ -55,9 +56,9 @@ public static class UserInterfaceLanguage
             return new(UserInterfaceLanguageOutcome.Unknown, asked, current, LogLevel.Warning, MessageOf(nameof(TraceMessages.UserInterfaceLanguage_Unknown), current, asked, current.Name));
         }
 
-        // the message is in the language the user reads now: the one asked for is one the platform has no translation in.
+        // the message is in the language asked for, when the platform speaks it; otherwise in the language the user reads now.
         return IsTranslated(culture)
-            ? new(UserInterfaceLanguageOutcome.Applied, asked, culture, LogLevel.Information, $"🌐 The user interface is in '{culture.Name}' (Environment.Regional.Language).")
+            ? new(UserInterfaceLanguageOutcome.Applied, asked, culture, LogLevel.Information, MessageOf(nameof(TraceMessages.UserInterfaceLanguage_Applied), culture, culture.Name))
             : new(UserInterfaceLanguageOutcome.NotTranslated, asked, culture, LogLevel.Information,
                 MessageOf(nameof(TraceMessages.UserInterfaceLanguage_NotTranslated), current, culture.Name, NeutralLanguage.Name));
     }
@@ -122,8 +123,8 @@ public static class UserInterfaceLanguage
         }
     }
 
-    private static string MessageOf(string name, CultureInfo culture, string first, string second)
-        => string.Format(culture, Translations.GetString(name, culture) ?? name, first, second);
+    private static string MessageOf(string name, CultureInfo culture, params object[] arguments)
+        => string.Format(culture, Translations.GetString(name, culture) ?? name, arguments);
 }
 
 /// <summary>
@@ -160,8 +161,8 @@ public enum UserInterfaceLanguageOutcome
 /// <param name="Culture">The language of the user interface it gives: the culture it names, or the machine's language when it names none the platform knows.</param>
 /// <param name="Level">The level <see cref="Message"/> is logged at: <see cref="LogLevel.Warning"/> for a name that is no culture, otherwise
 /// <see cref="LogLevel.Information"/>; <see cref="LogLevel.None"/> when there is nothing to say.</param>
-/// <param name="Message">What a component logs once when it starts, in the language the user interface was in before the setting was applied;
-/// <see langword="null"/> when the setting is empty.</param>
+/// <param name="Message">What a component logs once when it starts: in the language the setting names when the platform is translated in it, and
+/// otherwise in the language the user interface was in before; <see langword="null"/> when the setting is empty.</param>
 public sealed record class UserInterfaceLanguageSetting(UserInterfaceLanguageOutcome Outcome, string? Setting, CultureInfo Culture, LogLevel Level, string? Message)
 {
     /// <summary>
