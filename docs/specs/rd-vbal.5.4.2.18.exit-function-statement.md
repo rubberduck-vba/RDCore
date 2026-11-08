@@ -20,8 +20,8 @@ An `Exit Function` must be inside the body of a function; in a `Sub`, or in a `P
 
 > [!NOTE]
 > **MS-VBAL §5.4.2.18** says the statement must be in a function, and the platform also accepts it in a `Property Get`, as MS-VBA does.
-> The rule is [ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s. It is applied when the
-> kind of the procedure is known: [StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html)
+> The rule is `ExitStatementStaticSemantics`'s. It is applied when the
+> kind of the procedure is known: `StatementStaticSemanticsEvaluator`
 > and instruction-list lowering are each told it, and check nothing of the kind without it.
 
 ## Runtime Semantics
