@@ -74,11 +74,12 @@ public sealed partial class RuntimeExpressionEvaluator
 
     /// <summary>
     /// The bound tree of an expression written in the body of <paramref name="procedure"/>, its variables bound to the slots of the procedure's layout: what
-    /// compiled code is emitted from, whatever activation is current.
+    /// compiled code is emitted from, whatever activation is current. In a <c>With</c> block, <paramref name="withTarget"/> is the block's expression, which a
+    /// member written with no object before the dot is a member of.
     /// </summary>
-    internal BoundNode BindInProcedure(IRuntimeSession session, ExpressionNode expression, Symbol procedure)
+    internal BoundNode BindInProcedure(IRuntimeSession session, ExpressionNode expression, Symbol procedure, ExpressionNode? withTarget = null)
     {
-        var context = new RuntimeEvaluationContext(procedure.Uri);
+        var context = new RuntimeEvaluationContext(procedure.Uri, EnclosingWithTargetExpression: withTarget);
         if (!session.Symbols.Scopes.TryGetScope(context.Scope, out var scope))
         {
             scope = new LexicalScope(context.Scope, LexicalScopeKind.Procedure, null, []);

@@ -252,6 +252,7 @@ internal sealed partial class ProcedureAnalysis
         foreach (var instruction in list.Items)
         {
             var before = _reasons.Count;
+            EnterBlockOf(list, instruction);
             var step = AnalyzeInstruction(instruction);
 
             // what compiled code does not do of an instruction the interpreter can run alone, the interpreter does (IR lowering S2.5a): the reasons are
@@ -678,7 +679,7 @@ internal sealed partial class ProcedureAnalysis
     {
         if (assignment.Target is MemberAccessExpressionNode)
         {
-            return AnalyzeFieldLet(offset, assignment);
+            return IsMemberOfAnObject(Bind(assignment.Target)) ? MemberLetOf(offset, assignment) : AnalyzeFieldLet(offset, assignment);
         }
 
         if (assignment.Target is IndexExpressionNode)
@@ -799,16 +800,28 @@ internal sealed partial class ProcedureAnalysis
     // a call of a member of an object variable of the activation declared as a class, its parameters after Me taken as CallOf takes a
     // procedure's. The member is the one the class the variable is declared as has: the one the object's class invokes for it is found when the call is
     // made (CompiledActivation.CanCallMember), as the interpreter finds it (EvaluateBoundMember), and the call is made as the interpreter makes it, the
-    // object given as Me.
+    // object given as Me. A member written with no object before the dot is a member of the object of the enclosing With block, declared as a class: the
+    // object is the one the interpreter holds for the block, found when the call is made (CompiledActivation.CanCallMemberOfWith).
     private CallStep? MemberCallOf(BoundMember call, int result, int offset, ScalarKind? resultKind, bool assigns = false)
     {
+        if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol, Owner: null, IsLateBound: false } && _enclosingWith is { } with)
+        {
+            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns) is { } made ? made with { WithAt = with } : null;
+        }
+
         if (call is not { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol, Owner: BoundVariable owner, IsLateBound: false }
             || ObjectSlotOf(owner) is not { } receiver)
         {
             return null;
         }
 
-        var parameters = RuntimeProcedureInvoker.GetParameters(call.Member);
+        return MemberCallWith(call, result, offset, resultKind, receiver, assigns);
+    }
+
+    private CallStep? MemberCallWith(BoundMember call, int result, int offset, ScalarKind? resultKind, int? receiver, bool assigns)
+    {
+
+        var parameters = RuntimeProcedureInvoker.GetParameters(call.Member!);
         if (parameters is not [{ Name: Tokens.Me }, ..])
         {
             return null;
@@ -821,7 +834,7 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return CallWith(call.Member, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver, assigns,
+        return CallWith(call.Member!, parameters.AsSpan()[1..], arguments, result, offset, resultKind, call, receiver, assigns,
             ((SyntaxNode?)call.Arguments ?? call.Access).SourceLocation);
     }
 
@@ -1095,7 +1108,9 @@ internal sealed partial class ProcedureAnalysis
         return new CompareNode(comparison, Converted(selector, destination), Converted(Converted(evaluated, valueKind), destination));
     }
 
-    private BoundNode Bind(ExpressionNode expression) => _evaluator.BindInProcedure(_session, expression, _procedure);
+    // an expression bound as the interpreter binds it where it is written: in a With block, a member with no object before the dot is a member of the
+    // block's object, declared as the block's expression is (ProcedureAnalysis.Members.cs).
+    private BoundNode Bind(ExpressionNode expression) => _evaluator.BindInProcedure(_session, expression, _procedure, _withExpression);
 
     // a scalar variable of the activation, by its slot in the procedure's layout; or a scalar field it reaches (ProcedureAnalysis.Fields.cs).
     private int? SlotOf(BoundVariable variable)

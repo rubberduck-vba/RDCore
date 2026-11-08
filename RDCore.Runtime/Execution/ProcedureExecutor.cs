@@ -737,7 +737,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     // block leaves no stale stack, so this is recomputed fresh every fetch rather than pushed/popped.
     // An instruction of a block whose With statement did not set a target - jumped into, its target in error and resumed past, or past its End With and
     // jumped back into - has Nothing for one: a member with no object before the dot is error 91 (MS-VBA, grid oracle\s16 W02-W07).
-    private static RuntimeEvaluationContext ResolveContext(
+    // Compiled code evaluates a statement of a With block in the context this gives it too (CompiledActivation.ContextAt).
+    internal static RuntimeEvaluationContext ResolveContext(
         RuntimeEvaluationContext outer, CallStackFrame activation, InstructionList list, Instruction instruction)
         => instruction.EnclosingWith is { } openerOffset
             ? outer with

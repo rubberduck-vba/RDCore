@@ -88,8 +88,9 @@ public sealed partial class CompiledActivation
     }
 
     // what a call returned, assigned when its statement assigns it (CompiledCallee.AssignsResult), as the interpreter assigns the value of a statement's
-    // expression (StatementRuntimeSemanticsProvider.AssignValue) - to a Variant, whatever it holds - before the statement ends. An error the assignment
-    // raises is the statement's, which the interpreter is given at the call (AfterFailedCall): the call is not made again.
+    // expression (StatementRuntimeSemanticsProvider.AssignValue) - to a Variant, whatever it holds, or to a member of an object - before the statement
+    // ends, in the context the interpreter evaluates the statement in (ContextAt). An error the assignment raises is the statement's, which the interpreter
+    // is given at the call (AfterFailedCall): the call is not made again.
     private bool AssignReturned(CompiledCallee called, VBTypedValue? returned)
     {
         if (!called.AssignsResult)
@@ -97,9 +98,10 @@ public sealed partial class CompiledActivation
             return true;
         }
 
+        var pc = _frame?.Pc ?? _pc;
         var outcome = returned is not null && _executor.Statements is StatementRuntimeSemanticsProvider statements
-            && _list.Items[_frame?.Pc ?? _pc].Node is AssignmentStatementNode assignment
-                ? statements.AssignValue(_session, _context, assignment, returned)
+            && _list.Items[pc].Node is AssignmentStatementNode assignment
+                ? statements.AssignValue(_session, ContextAt(pc), assignment, returned)
                 : RuntimeExecutionOutcome.InternalError;
         if (outcome.Kind is RuntimeExecutionOutcomeKind.Next)
         {

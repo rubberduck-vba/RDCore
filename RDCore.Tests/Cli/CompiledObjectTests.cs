@@ -144,9 +144,9 @@ public sealed class CompiledObjectTests
             ]);
 
     // an object let go of runs its Class_Terminate where the interpreter lets go of it - at the Set that drops its last reference, and at the end of the
-    // procedure - and the Is compared after each sees what is left. The interpreter steps the assignment of A's field at the 2 passes that make one, the
-    // Debug.Print at each of 4 passes, and the Set of B that drops the last reference at the 2 others: 2 + 4 + 2 = 8. The Sets to a New object, of A in the
-    // loop and of B after it, are support calls, no recovery. Every Is is compiled, and so is every other Set.
+    // procedure - and the Is compared after each sees what is left. The interpreter steps the Debug.Print at each of 4 passes, and the Set of B that drops
+    // the last reference at the 2 others: 4 + 2 = 6. The Sets to a New object, of A in the loop and of B after it, are support calls, no recovery. Every Is
+    // is compiled, and so is every other Set, and the assignment of A's field.
     [TestMethod]
     public async Task ClassTerminate_RunsWhereTheLastReferenceGoes_AroundIsComparedInCompiledCode()
         => await AssertAlikeAsync(Program(
@@ -167,7 +167,7 @@ public sealed class CompiledObjectTests
             "    Next",
             "    Set B = New Noisy",
             "    If A Is B Then Watched = Watched * 2 + 1 Else Watched = Watched * 2",
-            "End Function"), "Watched", recoveries: 8, classes:
+            "End Function"), "Watched", recoveries: 6, classes:
             [("Noisy", ModuleWorkspace.ClassModule("Noisy", "Option Explicit", "Public Id As Long", "Private Sub Class_Terminate()", "    Debug.Print \"gone\"; Id", "End Sub"))]);
 
     // TypeOf of Nothing raises error 91 (MS-VBAL §5.6.7), which the interpreter raises, and the handler is given. Err.Number is stepped, and

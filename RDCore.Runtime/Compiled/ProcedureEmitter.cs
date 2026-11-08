@@ -501,6 +501,10 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            case MemberLetStep memberLet:
+                EmitMemberLet(memberLet);
+                break;
+
             case VariantForNextStep variantNext:
                 EmitVariantForNext(variantNext);
                 break;
@@ -721,6 +725,16 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, failure);
         }
 
+        // a member of the object of a With block: the object the interpreter holds for the block, where it holds it.
+        if (call.WithAt is { } with)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Ldc_I4, with);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMemberOfWith))!);
+            _il.Emit(OpCodes.Brfalse, failure);
+        }
+
         // a statement whose call returns what the session holds as its temporaries is begun before the call, and ended once the call returned and what it
         // returned was assigned, as the interpreter begins and ends it: what it returned is let go of there, before anything else runs.
         var holds = _analysis.Callees[call.Callee].HoldsWhatItReturns;
@@ -746,7 +760,7 @@ internal sealed partial class ProcedureEmitter
         // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has. A member given an object is called
         // through its binding, which gives the object to its parameter as the interpreter gives it.
         var direct = _directs[call.Callee];
-        if (direct is not null || call.Receiver is not null && _analysis.Callees[call.Callee].ObjectParameters.Count == 0)
+        if (direct is not null || call.IsOfAMember && _analysis.Callees[call.Callee].ObjectParameters.Count == 0)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -866,7 +880,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldc_I4, call.Callee);
         _il.Emit(OpCodes.Ldloca, integral);
         _il.Emit(OpCodes.Ldloca, floating);
-        _il.Emit(OpCodes.Call, Activation.GetMethod(call.Receiver is null ? nameof(CompiledActivation.Call) : nameof(CompiledActivation.CallMember))!);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(call.IsOfAMember ? nameof(CompiledActivation.CallMember) : nameof(CompiledActivation.Call))!);
         _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
         _il.MarkLabel(returned);
         if (holds)
