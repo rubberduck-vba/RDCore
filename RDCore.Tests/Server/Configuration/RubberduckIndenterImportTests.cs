@@ -2,7 +2,7 @@ using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Serialization;
 using RDCore.CLI.App.Configuration;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform;

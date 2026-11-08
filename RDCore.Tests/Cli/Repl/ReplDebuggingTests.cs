@@ -4,7 +4,7 @@ using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.Themes;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -124,7 +124,7 @@ public sealed class ReplDebuggingTests
         await RunAsync();
 
         _console.Received().WriteLine(string.Format(Resources.Repl_Break_InLine, 20));
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Warning, string.Format(Resources.Repl_Breakpoint_ConditionFailed, "Division by zero"));
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Warning, string.Format(Resources.Repl_Breakpoint_ConditionFailed, "Division by zero"));
         Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State);
     }
 
@@ -143,7 +143,7 @@ public sealed class ReplDebuggingTests
 
         await RunAsync();
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(),
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(),
             Arg.Is<string>(detail => detail.Contains("Main 30 from 20 from 10")));
     }
 
@@ -237,7 +237,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new ContReplCommand(), "35");
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_UndefinedLine, "35");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_UndefinedLine, "35");
         await _platform.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
         Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State);
     }
@@ -251,7 +251,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new ContReplCommand(), "30");
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "nope");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "nope");
         await _platform.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
     }
 
@@ -260,7 +260,7 @@ public sealed class ReplDebuggingTests
     {
         await CommandAsync(new ContReplCommand());
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, null);
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, null);
         await _platform.DidNotReceiveWithAnyArgs().ResumeAsync(default, default);
     }
 
@@ -286,7 +286,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new ContReplCommand());
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "run it again");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "run it again");
         Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State);
         Assert.AreEqual(20, _context.Debugger.StoppedAt);
     }
@@ -340,7 +340,7 @@ public sealed class ReplDebuggingTests
     {
         await CommandAsync(new BreakReplCommand(), "99");
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_UndefinedLine, "99");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_UndefinedLine, "99");
         Assert.IsEmpty(_context.Debugger.Breakpoints);
     }
 
@@ -476,7 +476,7 @@ public sealed class ReplDebuggingTests
         await CommandAsync(new BreakReplCommand(), "30 X >");
 
         Assert.IsEmpty(_context.Debugger.Breakpoints);
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, string.Format(Resources.Repl_Breakpoint_ConditionRefused, 30, "expected an expression"));
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, string.Format(Resources.Repl_Breakpoint_ConditionRefused, 30, "expected an expression"));
         _console.DidNotReceive().WriteLine(string.Format(Resources.Repl_Breakpoint_Set, 30));
     }
 
@@ -526,7 +526,7 @@ public sealed class ReplDebuggingTests
     {
         await CommandAsync(new BreakReplCommand(), "TOGGLE 99");
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_UndefinedLine, "99");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_UndefinedLine, "99");
         Assert.IsEmpty(_context.Debugger.Breakpoints);
     }
 
@@ -568,7 +568,7 @@ public sealed class ReplDebuggingTests
         await RunAsync();
 
         Assert.IsEmpty(_context.Debugger.Breakpoints);
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, string.Format(Resources.Repl_Breakpoint_ConditionRefused, 30, "expected an expression"));
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, string.Format(Resources.Repl_Breakpoint_ConditionRefused, 30, "expected an expression"));
     }
 
     // ---- clearing the program ----
@@ -659,7 +659,7 @@ public sealed class ReplDebuggingTests
         await CommandAsync(new StackReplCommand());
         await CommandAsync(new VarsReplCommand());
 
-        _console.Received(2).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Warning, Resources.Repl_NotStopped, null);
+        _console.Received(2).WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Warning, Resources.Repl_NotStopped, null);
         await _platform.DidNotReceiveWithAnyArgs().GetStackAsync(default);
     }
 
@@ -717,7 +717,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new FrameReplCommand(), "3");
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "3");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "3");
         Assert.AreEqual(0, _context.Debugger.SelectedFrame);
     }
 
@@ -780,7 +780,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new VarsReplCommand(), "up");
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "up");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "up");
         await _platform.DidNotReceiveWithAnyArgs().GetVariablesAsync(default, default, default, default);
     }
 
@@ -839,7 +839,7 @@ public sealed class ReplDebuggingTests
 
         await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "?nowhere");
 
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, "'nowhere' is not defined");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, "'nowhere' is not defined");
         Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State);
     }
 
@@ -1034,7 +1034,7 @@ public sealed class ReplDebuggingTests
 
     private void SaysTheEditsAreNotApplied(string headline)
     {
-        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, headline, Resources.Repl_EditsNotApplied);
+        _console.Received(1).WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, headline, Resources.Repl_EditsNotApplied);
         foreach (var edit in Pending)
         {
             _console.Received(1).WriteLine($"  {edit.Name}: {edit.Reason}");
@@ -1095,7 +1095,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new ContReplCommand());
 
-        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "the program is running");
+        _console.Received(1).WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "the program is running");
         _console.DidNotReceive().WriteLine(Resources.Repl_RunToStartAgain);
     }
 
@@ -1109,7 +1109,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new ContReplCommand());
 
-        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "Program.Callee changed");
+        _console.Received(1).WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "Program.Callee changed");
     }
 
     [TestMethod]
@@ -1123,7 +1123,7 @@ public sealed class ReplDebuggingTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => CommandAsync(new ContReplCommand()));
         Assert.AreEqual(ReplDebugState.Suspended, _context.Debugger.State, "the program waits where it did, whatever asking failed");
-        _console.DidNotReceive().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "Program.Callee changed");
+        _console.DidNotReceive().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_CantContinue, "Program.Callee changed");
     }
 
     [TestMethod]
@@ -1146,7 +1146,7 @@ public sealed class ReplDebuggingTests
 
         await CommandAsync(new EditsReplCommand());
 
-        _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Warning, Resources.Repl_EditsNotApplied);
+        _console.Received(1).WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Warning, Resources.Repl_EditsNotApplied);
         foreach (var edit in Pending)
         {
             _console.Received(1).WriteLine($"  {edit.Name}: {edit.Reason}");
@@ -1201,7 +1201,7 @@ public sealed class ReplDebuggingTests
 
             await CommandAsync(new ContReplCommand());
 
-            _console.Received(1).WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, "IMPOSSIBLE DE POURSUIVRE",
+            _console.Received(1).WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, "IMPOSSIBLE DE POURSUIVRE",
                 "Des modifications faites pendant que le programme attendait ne lui sont pas appliquées :");
             _console.Received(1).WriteLine("  Program.Main : the code of a procedure the program is in is not applied to a program that waits yet");
             _console.Received(1).WriteLine("RUN pour recommencer.");

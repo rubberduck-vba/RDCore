@@ -18,7 +18,7 @@ internal record class ShowMemoryReplCommand : IReplCommand
         }
         catch (Exception exception)
         {
-            context.Console.WriteMessage(SDK.ConsoleIO.Model.MessageKind.Warning, "The runtime session status could not be read.", exception.Message);
+            context.Console.WriteMessage(ConsoleIO.Model.MessageKind.Warning, "The runtime session status could not be read.", exception.Message);
             status = new SessionStatusResult();
         }
 

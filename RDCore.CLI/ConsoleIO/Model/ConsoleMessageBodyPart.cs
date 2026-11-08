@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>The message text.</summary>
 /// <param name="Body">The body text (may contain <c>{$NAME}</c> placeholder spans).</param>

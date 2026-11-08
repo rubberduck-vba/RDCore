@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Server.Configuration;
 
-namespace RDCore.SDK.ConsoleIO;
+namespace RDCore.CLI.ConsoleIO;
 
 /// <summary>
 /// An <see cref="ILogger"/> that renders structured console messages, plus typed overloads for the

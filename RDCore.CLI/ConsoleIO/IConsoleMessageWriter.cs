@@ -1,6 +1,6 @@
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 
-namespace RDCore.SDK.ConsoleIO;
+namespace RDCore.CLI.ConsoleIO;
 
 /// <summary>
 /// Renders structured console messages. The full form takes a <see cref="ConsoleMessageBuilder"/>;

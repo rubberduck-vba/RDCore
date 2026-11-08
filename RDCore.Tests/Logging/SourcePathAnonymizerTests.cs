@@ -1,6 +1,6 @@
-using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Logging;
 
-namespace RDCore.Tests.ConsoleIO;
+namespace RDCore.Tests.Logging;
 
 [TestClass]
 public sealed class SourcePathAnonymizerTests

@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>
 /// The severity / intent of a console message. Selects the icon and accent style a renderer applies.

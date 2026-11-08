@@ -404,7 +404,7 @@ public sealed class WorkspaceLoaderTests
         var asked = 0;
         var console = Substitute.For<RDCore.CLI.App.Repl.IReplConsole>();
         var told = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        console.When(each => each.WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>()))
+        console.When(each => each.WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Arg.Any<string>(), Arg.Any<string?>()))
             .Do(call => told.TrySetResult(call.ArgAt<string>(1)));
         // the message is sent before initialize is answered, and the shell's handler runs whenever its scheduler gets to it: the handshake that follows
         // initialize is answered once the shell has written it, so that the shell does not read to the end of its input and close the connection first.

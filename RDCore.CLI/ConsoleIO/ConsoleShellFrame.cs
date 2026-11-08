@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace RDCore.SDK.ConsoleIO;
+namespace RDCore.CLI.ConsoleIO;
 
 /// <summary>
 /// Owns the console's <em>frame</em>: the background and foreground the whole shell is painted on,

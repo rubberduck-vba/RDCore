@@ -1,4 +1,4 @@
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Server.Configuration;

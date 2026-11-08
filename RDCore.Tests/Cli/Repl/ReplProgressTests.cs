@@ -83,7 +83,7 @@ public sealed class ReplProgressTests
     {
         var tracker = new WorkProgressTracker();
         var output = new StringWriter();
-        var messages = new PromptAwareMessageWriter(NSubstitute.Substitute.For<RDCore.SDK.ConsoleIO.IConsoleMessageWriter>());
+        var messages = new PromptAwareMessageWriter(NSubstitute.Substitute.For<RDCore.CLI.ConsoleIO.IConsoleMessageWriter>());
         using var display = new ReplProgressDisplay(tracker, output, () => 80, editor: null, messages: messages);
         var (ending, going) = (new Reported(), new Reported());
         tracker.Track("ending", ending);

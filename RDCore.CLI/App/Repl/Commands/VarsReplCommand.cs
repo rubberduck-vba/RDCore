@@ -1,5 +1,5 @@
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.App.Repl.Commands;

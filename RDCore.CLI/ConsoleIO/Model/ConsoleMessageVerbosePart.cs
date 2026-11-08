@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>Additional detail rendered only when verbose output is enabled.</summary>
 /// <param name="Verbose">The verbose text.</param>

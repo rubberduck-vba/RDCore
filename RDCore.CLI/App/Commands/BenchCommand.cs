@@ -1,7 +1,7 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
-using RDCore.SDK.ConsoleIO;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Workspace;
 using System.Diagnostics;

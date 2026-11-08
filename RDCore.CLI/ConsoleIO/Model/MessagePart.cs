@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>
 /// The role a <see cref="ConsoleMessagePart"/> plays within a message. A renderer styles each role

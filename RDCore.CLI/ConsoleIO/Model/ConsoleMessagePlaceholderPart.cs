@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>
 /// A named span whose formatted value is substituted into the body where <see cref="Placeholder"/>

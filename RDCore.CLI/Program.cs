@@ -26,7 +26,7 @@ using RDCore.External.Windows.Native;
 using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform;

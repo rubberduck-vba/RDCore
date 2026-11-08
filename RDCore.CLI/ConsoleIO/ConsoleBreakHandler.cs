@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO;
+namespace RDCore.CLI.ConsoleIO;
 
 /// <summary>
 /// Turns the console's break keys into a callback for as long as it is alive, instead of letting

@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>A short title or diagnostic code shown ahead of the body.</summary>
 /// <param name="Title">The title text.</param>

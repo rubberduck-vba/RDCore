@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>A timestamp shown ahead of the message, formatted <c>[yyyy-MM-dd HH:mm:ss.fff]</c>.</summary>
 /// <param name="Timestamp">The instant to render.</param>

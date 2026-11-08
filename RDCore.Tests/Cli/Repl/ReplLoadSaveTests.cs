@@ -2,7 +2,7 @@ using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Cli.Repl;

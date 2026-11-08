@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>An exception stack trace.</summary>
 /// <param name="Exception">The exception whose <see cref="System.Exception.StackTrace"/> is rendered.</param>

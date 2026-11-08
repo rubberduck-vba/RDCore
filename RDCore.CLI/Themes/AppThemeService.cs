@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using System.IO.Abstractions;
 using System.Reflection;
 using System.Text.Json;

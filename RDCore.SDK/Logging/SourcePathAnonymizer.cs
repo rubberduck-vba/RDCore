@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace RDCore.SDK.ConsoleIO;
+namespace RDCore.SDK.Logging;
 
 /// <summary>
 /// How <see cref="SourcePathAnonymizer.Scrub"/> rewrites a source-file path it finds in error /

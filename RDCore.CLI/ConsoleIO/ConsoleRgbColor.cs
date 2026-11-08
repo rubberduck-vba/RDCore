@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO;
+namespace RDCore.CLI.ConsoleIO;
 
 /// <summary>
 /// A 24-bit console colour, as a shell frame understands it: three channels, no style semantics, no

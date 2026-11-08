@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>How a placeholder value is formatted before it is substituted into the body.</summary>
 public enum PlaceholderKind

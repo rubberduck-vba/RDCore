@@ -1,4 +1,4 @@
-namespace RDCore.SDK.ConsoleIO.Model;
+namespace RDCore.CLI.ConsoleIO.Model;
 
 /// <summary>
 /// One styled component of a console message. Concrete parts (title, body, timestamp, verbose, stack

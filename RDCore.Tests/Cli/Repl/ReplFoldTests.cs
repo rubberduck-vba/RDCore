@@ -2,7 +2,7 @@ using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 
