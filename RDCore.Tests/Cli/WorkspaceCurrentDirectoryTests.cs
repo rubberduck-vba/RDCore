@@ -67,6 +67,18 @@ public sealed class WorkspaceCurrentDirectoryTests
         CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed, string.Join("|", printed));
     }
 
+    // a relative path's \ is a separator on every platform: VBA written with Windows paths finds and makes the workspace's files on Linux too.
+    [TestMethod]
+    public async Task ARelativePathWithABackslash_IsInAFolderOfTheWorkspace_OnEveryPlatform()
+    {
+        using var provider = Compose(_root);
+
+        var printed = await RunAsync(provider, _root, "Debug.Print Dir(\"Sub\\inner.txt\")", "Open \"Sub\\out.txt\" For Output As #1", "Close #1", "Debug.Print Dir(\"Sub\\out.txt\")");
+
+        CollectionAssert.AreEqual(new[] { "inner.txt", "out.txt" }, printed, string.Join("|", printed));
+        Assert.IsTrue(File.Exists(Path.Combine(_root, "Sub", "out.txt")));
+    }
+
     // an LSP client's file: URI may spell the drive in lower case, as OmniSharp's does: CurDir gives the drive as a drive is written, in upper case.
     [TestMethod]
     public void AWorkspaceRootWithALowerCaseDrive_IsTheCurrentDirectory_WithAnUpperCaseDrive()
