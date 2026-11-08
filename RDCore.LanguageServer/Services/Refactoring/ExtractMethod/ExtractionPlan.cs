@@ -4,12 +4,12 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Abstract;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
 /// <summary>
 /// How a variable is passed to the procedure the selection is extracted as.
 /// </summary>
-public enum ExtractionPassing
+internal enum ExtractionPassing
 {
     /// <summary>
     /// Its value is passed: the new procedure reads it, and what it writes to it stays its own.
@@ -25,7 +25,7 @@ public enum ExtractionPassing
 /// <summary>
 /// Why a variable is passed as it is: what the preview says of it ("ByRef: written here, read after").
 /// </summary>
-public enum ExtractionPassingReason
+internal enum ExtractionPassingReason
 {
     /// <summary>
     /// The selection reads a value given before it, and gives it no value that is read after it.
@@ -72,7 +72,7 @@ public enum ExtractionPassingReason
 /// <summary>
 /// Why a selection is not extracted, once what it does is known.
 /// </summary>
-public enum ExtractionRefusalKind
+internal enum ExtractionRefusalKind
 {
     /// <summary>
     /// The selection writes an element of the source procedure's <c>ParamArray</c>, which is a variable of its caller (<strong>MS-VBAL §5.3.1.5</strong>): a copy
@@ -129,7 +129,7 @@ public enum ExtractionRefusalKind
 /// <summary>
 /// Where control leaves the selection other than by falling through to the statement after it.
 /// </summary>
-public enum ExtractionExitKind
+internal enum ExtractionExitKind
 {
     /// <summary>
     /// An <c>Exit Sub</c>, <c>Exit Function</c> or <c>Exit Property</c>: the caller exits too.
@@ -154,12 +154,12 @@ public enum ExtractionExitKind
 /// <param name="Target">The offset of the instruction control goes to; the graph's exit for <see cref="ExtractionExitKind.Procedure"/>.</param>
 /// <param name="Label">The label of the target, for <see cref="ExtractionExitKind.Label"/>.</param>
 /// <param name="From">The statements in the selection that leave for it.</param>
-public sealed record class ExtractionExit(ExtractionExitKind Kind, int Target, string? Label, ImmutableArray<SourceLocation> From);
+internal sealed record class ExtractionExit(ExtractionExitKind Kind, int Target, string? Label, ImmutableArray<SourceLocation> From);
 
 /// <summary>
 /// What the extracted code would do differently, which the user accepts or cancels: never silent.
 /// </summary>
-public enum ExtractionBehaviourChangeKind
+internal enum ExtractionBehaviourChangeKind
 {
     /// <summary>
     /// A handler of the source procedure can catch an error of the selection. Extracted, the error is raised to it at the call: a <c>Resume Next</c> of it skips the
@@ -198,7 +198,7 @@ public enum ExtractionBehaviourChangeKind
 /// <param name="Handlers">The labels of the handlers it is about.</param>
 /// <param name="Resumes">The <c>Resume</c> statements of those handlers.</param>
 /// <param name="IsNote">Whether it is a note rather than a change to accept: what only <c>Erl</c> says.</param>
-public sealed record class ExtractionBehaviourChange(ExtractionBehaviourChangeKind Kind, ImmutableArray<string> Handlers, ImmutableArray<SourceLocation> Resumes, bool IsNote);
+internal sealed record class ExtractionBehaviourChange(ExtractionBehaviourChangeKind Kind, ImmutableArray<string> Handlers, ImmutableArray<SourceLocation> Resumes, bool IsNote);
 
 /// <summary>
 /// A reason the selection is not extracted, and where it is.
@@ -206,7 +206,7 @@ public sealed record class ExtractionBehaviourChange(ExtractionBehaviourChangeKi
 /// <param name="Kind">The reason.</param>
 /// <param name="Location">What causes it: the expression that writes the element, the expression of the <c>With</c> block.</param>
 /// <param name="Name">The name of the variable it is about, when there is one.</param>
-public sealed record class ExtractionRefusal(ExtractionRefusalKind Kind, SourceLocation? Location, string? Name);
+internal sealed record class ExtractionRefusal(ExtractionRefusalKind Kind, SourceLocation? Location, string? Name);
 
 /// <summary>
 /// The object of the <c>With</c> block the selection is inside of, which the selection uses a member of, relative to the block (<c>.Name</c>): the new procedure is
@@ -217,7 +217,7 @@ public sealed record class ExtractionRefusal(ExtractionRefusalKind Kind, SourceL
 /// <param name="Name">Its name.</param>
 /// <param name="Type">Its declared type; <see langword="null"/> when it is not known.</param>
 /// <param name="Passing">How it is passed: by reference for a variable of a <c>Type</c>, whose members the selection may write; by value otherwise, an object.</param>
-public sealed record class ExtractionWithTarget(WithStatementNode With, SemanticId Variable, string Name, VBType? Type, ExtractionPassing Passing);
+internal sealed record class ExtractionWithTarget(WithStatementNode With, SemanticId Variable, string Name, VBType? Type, ExtractionPassing Passing);
 
 /// <summary>
 /// A variable of the source procedure that the new procedure is given.
@@ -236,7 +236,7 @@ public sealed record class ExtractionWithTarget(WithStatementNode With, Semantic
 /// Excel). So the parameter is a plain <c>Variant</c>, never <c>Optional</c>.
 /// </param>
 /// <param name="IsUndeclared">Whether it is declared by being named, with no <c>Option Explicit</c>: the new procedure declares the parameter, of the type its DefType gives it.</param>
-public sealed record class ExtractionParameter(
+internal sealed record class ExtractionParameter(
     SemanticId Variable, string Name, VBType? Type, ExtractionPassing Passing, ExtractionPassingReason Reason, bool IsInput, bool IsOutput, bool MayBeMissing = false,
     bool IsUndeclared = false);
 
@@ -254,7 +254,7 @@ public sealed record class ExtractionParameter(
 /// Whether it is declared by being named, with no <c>Option Explicit</c>: the new procedure declares it explicitly, as a <c>Variant</c>, one step towards
 /// <c>Option Explicit</c>.
 /// </param>
-public sealed record class ExtractionLocal(SemanticId Variable, string Name, VBType? Type, bool MovesDeclaration, bool IsUndeclared = false);
+internal sealed record class ExtractionLocal(SemanticId Variable, string Name, VBType? Type, bool MovesDeclaration, bool IsUndeclared = false);
 
 /// <summary>
 /// What extracting a selection as a procedure takes: what it is given, what it gives back, and what moves.
@@ -277,7 +277,7 @@ public sealed record class ExtractionLocal(SemanticId Variable, string Name, VBT
 /// Whether the selection runs with <c>On Error Resume Next</c> on every path, which the new procedure starts with: an error resumes inside it, as it does inline.
 /// </param>
 /// <param name="BehaviourChanges">What the extracted code would do differently, and the notes.</param>
-public sealed record class ExtractionPlan(
+internal sealed record class ExtractionPlan(
     ExtractionSelection Selection,
     ImmutableArray<ExtractionParameter> Parameters,
     ImmutableArray<ExtractionLocal> Locals,

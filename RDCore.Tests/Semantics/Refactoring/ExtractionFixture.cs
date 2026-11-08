@@ -1,5 +1,5 @@
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.Tests.Semantics.Flow;
 
 namespace RDCore.Tests.Semantics.Refactoring;

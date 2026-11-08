@@ -4,12 +4,12 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
 /// <summary>
 /// Why a selection cannot be extracted as it is, before anything about what it does is asked.
 /// </summary>
-public enum ExtractionSelectionRefusal
+internal enum ExtractionSelectionRefusal
 {
     /// <summary>
     /// The selection holds no whole statement of the procedure's body: it is on the header, or in no procedure, or holds only blank lines and comments.
@@ -32,7 +32,7 @@ public enum ExtractionSelectionRefusal
 /// in the block as statements are, and run no code.
 /// </param>
 /// <param name="Region">The offsets of the instructions the statements were lowered to, the closers of their blocks included: a contiguous run of the procedure's instructions.</param>
-public sealed record class ExtractionSelection(SourceRange Range, ImmutableArray<StatementNode> Statements, ImmutableArray<SyntaxNode> Declarations, IReadOnlySet<int> Region)
+internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArray<StatementNode> Statements, ImmutableArray<SyntaxNode> Declarations, IReadOnlySet<int> Region)
 {
     /// <summary>
     /// The labels and line numbers written in the run, which move with it: a jump from outside to one of them lands in the selection. A label written before the

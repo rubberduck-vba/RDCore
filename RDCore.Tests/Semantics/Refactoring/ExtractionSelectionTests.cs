@@ -3,7 +3,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 

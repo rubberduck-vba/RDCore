@@ -1,4 +1,4 @@
-using RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using static RDCore.Tests.Semantics.Refactoring.ExtractionFixture;
 
 namespace RDCore.Tests.Semantics.Refactoring;
@@ -103,10 +103,10 @@ public sealed class ExtractionControlFlowTests
 
     // an exit a literal condition never takes is still code the new procedure has, and an edit of the literal takes it.
     [TestMethod]
-    [DataRow("If False Then Exit Sub\nDebug.Print n", 0, 0, ExtractionExitKind.Procedure, DisplayName = "behind If False")]
-    [DataRow("Dim i As Long\nDo\nIf False Then Exit Do\ni = i + 1\nLoop While True", 2, 3, ExtractionExitKind.Loop, DisplayName = "out of a loop that never ends")]
-    public void AnExitALiteralConditionNeverTakes_IsAnExitAllTheSame(string body, int first, int last, ExtractionExitKind kind)
-        => Assert.AreEqual(kind, Plan(body, first, last).Exits.Single().Kind);
+    [DataRow("If False Then Exit Sub\nDebug.Print n", 0, 0, (int)ExtractionExitKind.Procedure, DisplayName = "behind If False")]
+    [DataRow("Dim i As Long\nDo\nIf False Then Exit Do\ni = i + 1\nLoop While True", 2, 3, (int)ExtractionExitKind.Loop, DisplayName = "out of a loop that never ends")]
+    public void AnExitALiteralConditionNeverTakes_IsAnExitAllTheSame(string body, int first, int last, int kind)
+        => Assert.AreEqual((ExtractionExitKind)kind, Plan(body, first, last).Exits.Single().Kind);
 
     [TestMethod]
     public void TwoExitsToOneTarget_AreOneExit()

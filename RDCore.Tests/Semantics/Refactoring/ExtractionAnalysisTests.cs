@@ -1,6 +1,6 @@
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.Tests.Semantics.Flow;
 
 namespace RDCore.Tests.Semantics.Refactoring;
@@ -80,17 +80,17 @@ public sealed class ExtractionAnalysisTests
     }
 
     [TestMethod]
-    [DataRow("Dim arr(1 To 3) As Long\narr(1) = n\nDebug.Print arr(1)", "arr", ExtractionPassingReason.Array, DisplayName = "an array")]
-    [DataRow("Dim p As Point\np.X = n\nDebug.Print p.X", "p", ExtractionPassingReason.UserDefinedType, DisplayName = "a variable of a Type")]
-    [DataRow("Dim s As String * 5\ns = \"abc\"\nDebug.Print s", "s", ExtractionPassingReason.FixedLengthString, DisplayName = "a fixed-length string")]
-    [DataRow("Static k As Long\nk = k + n\nDebug.Print k", "k", ExtractionPassingReason.Static, DisplayName = "a Static local")]
-    public void WhatVbaPassesByReferenceOnly_IsPassedByRef(string body, string name, ExtractionPassingReason reason)
+    [DataRow("Dim arr(1 To 3) As Long\narr(1) = n\nDebug.Print arr(1)", "arr", (int)ExtractionPassingReason.Array, DisplayName = "an array")]
+    [DataRow("Dim p As Point\np.X = n\nDebug.Print p.X", "p", (int)ExtractionPassingReason.UserDefinedType, DisplayName = "a variable of a Type")]
+    [DataRow("Dim s As String * 5\ns = \"abc\"\nDebug.Print s", "s", (int)ExtractionPassingReason.FixedLengthString, DisplayName = "a fixed-length string")]
+    [DataRow("Static k As Long\nk = k + n\nDebug.Print k", "k", (int)ExtractionPassingReason.Static, DisplayName = "a Static local")]
+    public void WhatVbaPassesByReferenceOnly_IsPassedByRef(string body, string name, int reason)
     {
         var plan = Plan(body, 1, 1);
 
         var parameter = Parameter(plan, name);
         Assert.AreEqual(ExtractionPassing.ByRef, parameter.Passing);
-        Assert.AreEqual(reason, parameter.Reason);
+        Assert.AreEqual((ExtractionPassingReason)reason, parameter.Reason);
     }
 
     // every local of a Static procedure is Static (MS-VBAL §5.3.1.2), whose value is the procedure's to keep.
@@ -274,9 +274,9 @@ public sealed class ExtractionAnalysisTests
         => Assert.AreEqual(mayBeMissing, Parameter(Plan("Debug.Print IsMissing(v)", 0, 0, header: $"Public Sub Run({parameter})"), "v").MayBeMissing);
 
     [TestMethod]
-    [DataRow("Dim p As Point\nWith p\n.X = n\nEnd With", "p", ExtractionPassing.ByRef, DisplayName = "a variable of a Type, whose members the selection writes")]
-    [DataRow("Dim c As Collection\nSet c = New Collection\nWith c\n.Add n\nEnd With", "c", ExtractionPassing.ByVal, DisplayName = "an object")]
-    public void TheVariableOfTheWithBlockTheSelectionIsInside_IsGivenToTheNewProcedure(string body, string name, ExtractionPassing passing)
+    [DataRow("Dim p As Point\nWith p\n.X = n\nEnd With", "p", (int)ExtractionPassing.ByRef, DisplayName = "a variable of a Type, whose members the selection writes")]
+    [DataRow("Dim c As Collection\nSet c = New Collection\nWith c\n.Add n\nEnd With", "c", (int)ExtractionPassing.ByVal, DisplayName = "an object")]
+    public void TheVariableOfTheWithBlockTheSelectionIsInside_IsGivenToTheNewProcedure(string body, string name, int passing)
     {
         var lines = body.Split('\n');
         var inside = Array.FindIndex(lines, line => line.StartsWith('.'));
@@ -284,7 +284,7 @@ public sealed class ExtractionAnalysisTests
 
         Assert.IsNotNull(plan.WithTarget);
         Assert.AreEqual(name, plan.WithTarget.Name);
-        Assert.AreEqual(passing, plan.WithTarget.Passing);
+        Assert.AreEqual((ExtractionPassing)passing, plan.WithTarget.Passing);
         Assert.IsTrue(plan.IsExtractable);
         Assert.IsFalse(plan.Parameters.Any(parameter => parameter.Name == name), "given once, as the block's target");
     }

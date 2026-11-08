@@ -6,10 +6,12 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Semantics.Instructions;
+using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
-namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
 /// <summary>
 /// Plans the extraction of a selection: which of the source procedure's variables the new procedure is given, which it gives back, and which it declares as its
@@ -26,7 +28,7 @@ namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
 /// not passed.
 /// </para>
 /// </remarks>
-public static class ExtractionAnalysis
+internal static class ExtractionAnalysis
 {
     /// <summary>
     /// Plans the extraction of a selection.
@@ -78,7 +80,7 @@ public static class ExtractionAnalysis
                 continue;
             }
 
-            if (FlowSymbols.SymbolOf(scopes, variable) is not VBLocalVariableSymbol local)
+            if (SymbolOf(scopes, variable) is not VBLocalVariableSymbol local)
             {
                 // a field, a global: the new procedure names the same variable.
                 continue;
@@ -159,8 +161,8 @@ public static class ExtractionAnalysis
             .Select(instruction => instruction.Node).OfType<StatementNode>()
             .SelectMany(OwnExpressionsOf)
             .Select(node => (Node: node, Fact: model.Expressions.TryGetValue(node.Identity, out var fact) ? fact : null))
-            .Where(read => read.Fact is { Classification: Semantics.ExpressionClassification.Constant, Binding: not null })
-            .Select(read => (read.Node, Constant: FlowSymbols.SymbolOf(scopes, read.Fact!.Binding!.Value) as VBLocalConstantSymbol))
+            .Where(read => read.Fact is { Classification: ExpressionClassification.Constant, Binding: not null })
+            .Select(read => (read.Node, Constant: SymbolOf(scopes, read.Fact!.Binding!.Value) as VBLocalConstantSymbol))
             .Where(read => read.Constant is not null)
             .Select(read => (read.Node, read.Constant!));
 
@@ -183,7 +185,7 @@ public static class ExtractionAnalysis
             .OfType<SimpleNameExpressionNode>()
             .Any(name => (name.IdentifierName.Equals("Err", StringComparison.OrdinalIgnoreCase) || name.IdentifierName.Equals("Erl", StringComparison.OrdinalIgnoreCase))
                 && model.Expressions.TryGetValue(name.Identity, out var fact) && fact.Binding is { } binding
-                && FlowSymbols.SymbolOf(scopes, binding)?.GetProperty(SymbolProperties.ExternalTarget) is not null);
+                && SymbolOf(scopes, binding)?.GetProperty(SymbolProperties.ExternalTarget) is not null);
 
     // the expressions of the statement itself, nested ones included: those of the statements of its blocks are theirs.
     private static IEnumerable<SyntaxNode> OwnExpressionsOf(SyntaxNode node)
@@ -279,7 +281,7 @@ public static class ExtractionAnalysis
         }
 
         if (block.WithExpression is not SimpleNameExpressionNode name || !model.Expressions.TryGetValue(name.Identity, out var fact) || fact.Binding is not { } variable
-            || fact.Classification is not Semantics.ExpressionClassification.Variable)
+            || fact.Classification is not ExpressionClassification.Variable)
         {
             refusals.Add(new ExtractionRefusal(ExtractionRefusalKind.WithTargetIsNotAVariable, block.WithExpression.SourceLocation, null));
             return null;
@@ -292,4 +294,10 @@ public static class ExtractionAnalysis
     // a member written relative to a With block (`.Name`), among the expressions of the statement itself: those of the statements of its blocks are theirs.
     private static bool UsesAMemberOfTheBlock(SyntaxNode node)
         => node is MemberAccessExpressionNode { Owner: null } || node.Children.Any(child => child is not StatementNode && UsesAMemberOfTheBlock(child));
+
+    // the symbol a binding of the static pass names, when one of the scopes declares it: what kind of variable it is.
+    private static Symbol? SymbolOf(ScopeTree scopes, SemanticId id)
+        => scopes.TryGetScope(id.Uri, out var scope)
+            ? scope.SelfAndAncestors().SelectMany(outer => outer.Declarations).FirstOrDefault(symbol => symbol.SemanticId == id)
+            : null;
 }

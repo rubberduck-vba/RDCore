@@ -2,7 +2,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Semantics.Instructions;
 
-namespace RDCore.SDK.Semantics.Refactoring.ExtractMethod;
+namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
 /// <summary>
 /// The edges of a selection: which jumps into it and out of it are refused, and where control leaves it for, which the new procedure routes its caller to.
