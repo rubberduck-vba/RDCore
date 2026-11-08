@@ -17,7 +17,7 @@ namespace RDCore.SDK.Semantics.References;
 
 /// <summary>
 /// Finds where the modules of a workspace name a symbol, and how each names it (<see cref="SymbolReference"/>): what a refactoring that rewrites the references
-/// of a symbol - its calls, its assignments, its arguments - works from.
+/// of a symbol (its calls, its assignments, its arguments) works from.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,8 +27,8 @@ namespace RDCore.SDK.Semantics.References;
 /// <see cref="SymbolReference.Use"/>).
 /// </para>
 /// <para>
-/// A name whose meaning is not known where it is written - a member accessed late-bound, a name in an expression nested too deeply to be analyzed, a name in a
-/// string a library calls a procedure by - is no reference, and is in <see cref="SymbolReferences.Unknown"/> where the symbol could be what it means.
+/// A name whose meaning is not known where it is written (a member accessed late-bound, a name in an expression nested too deeply to be analyzed, a name in a
+/// string a library calls a procedure by) is no reference, and is in <see cref="SymbolReferences.Unknown"/> where the symbol could be what it means.
 /// </para>
 /// <para>
 /// The static semantics are evaluated for each module that writes the symbol's name, once for the query, on a large-stack thread.
@@ -211,7 +211,7 @@ public static class ReferenceQuery
     }
 
     // whether the call may write to what the argument names: the static pass flags it passed, and no copy of an object's variable, and the parameter it is
-    // given to - when the procedure called is known - is not ByVal.
+    // given to, when the procedure called is known, is not ByVal.
     private static bool MayBePassedByRef(RenameContext context, NameOccurrence occurrence, Argument argument)
     {
         if (occurrence.Fact is not { } fact || !fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument)

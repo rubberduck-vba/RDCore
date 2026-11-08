@@ -132,7 +132,7 @@ public sealed record class SymbolReference(Uri Module, SourceRange Range, Refere
     /// <summary>
     /// Whether the call the name is an argument of may take it by reference (<strong>MS-VBAL §5.3.1.11</strong>), and write to what it names: an argument not
     /// written with <c>ByVal</c>, nor in parentheses, given to a parameter that is <c>ByRef</c> or a <c>ParamArray</c>, or to a procedure whose parameters are
-    /// not known - a member called late-bound.
+    /// not known (a member called late-bound). A public variable of an object is never taken by reference: MS-VBA passes a copy of it.
     /// </summary>
     public bool MayBePassedByRef { get; init; }
 
@@ -147,12 +147,12 @@ public sealed record class SymbolReference(Uri Module, SourceRange Range, Refere
 /// </summary>
 /// <param name="Symbol">The symbol.</param>
 /// <param name="Symbols">
-/// The symbol and those defined with it, which the references refer to: each procedure of a property - its <c>Property Get</c>, <c>Let</c> and <c>Set</c>.
+/// The symbol and those defined with it, which the references refer to: each procedure of a property (its <c>Property Get</c>, <c>Let</c> and <c>Set</c>).
 /// </param>
 /// <param name="References">Each place that names the symbol, its declarations included, by module and then in the order written.</param>
 /// <param name="Unknown">
-/// Each place that writes the symbol's name, where the symbol could be what it means and what it means is not known: a member accessed late-bound - on an
-/// <c>Object</c> or a <c>Variant</c> - a name in an expression nested too deeply to be analyzed (<strong>RD-VBAL §2.6.1</strong>), and a name in a string a
+/// Each place that writes the symbol's name, where the symbol could be what it means and what it means is not known: a member accessed late-bound (on an
+/// <c>Object</c> or a <c>Variant</c>), a name in an expression nested too deeply to be analyzed (<strong>RD-VBAL §2.6.1</strong>), and a name in a string a
 /// library calls a procedure by (<see cref="ReferenceForm.String"/>). A refactoring that rewrites the references cannot rewrite these with certainty.
 /// </param>
 public sealed record class SymbolReferences(
