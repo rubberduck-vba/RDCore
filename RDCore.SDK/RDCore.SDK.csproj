@@ -9,6 +9,8 @@
     <Description>The RDCore language model and the plumbing every process and extension of the platform shares.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- the documentation file is what the API site is generated from; a public member without an xmldoc (CS1591) is not reported. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
