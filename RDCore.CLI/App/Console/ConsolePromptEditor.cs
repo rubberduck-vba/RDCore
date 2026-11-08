@@ -350,7 +350,10 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                         CloseSignature();
                         (_cursor, _start) = (_text.Length, 0);
                         Draw(entered: true);
+                        // the console is written synchronously, as everything that draws the line writes it (Draw, WriteAbove).
+#pragma warning disable VSTHRD103
                         Output.WriteLine();
+#pragma warning restore VSTHRD103
                         return Text;
                     }
 
@@ -359,11 +362,18 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             }
             finally
             {
-                _asking?.Cancel();
-                _signingCancellation?.Cancel();
+                if (_asking is { } asking)
+                {
+                    await asking.CancelAsync();
+                }
+
+                if (_signingCancellation is { } signing)
+                {
+                    await signing.CancelAsync();
+                }
 
                 // a key the line was still waiting for is not read for a line that is no more; its token is let go of once the read stops.
-                reading.Cancel();
+                await reading.CancelAsync();
                 if (key is { IsCompleted: false } pending)
                 {
                     var stopped = reading;
@@ -385,7 +395,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         private async Task<(Task<ConsoleKeyInfo>? Key, CancellationTokenSource Reading)> InterjectAsync(
             Task<ConsoleKeyInfo> key, CancellationTokenSource reading, CancellationToken token)
         {
-            reading.Cancel();
+            await reading.CancelAsync();
             try
             {
                 await key;
@@ -396,12 +406,15 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             }
 
             var renewed = Renewed();
+            // the console is drawn synchronously, holding Sync, as everything that draws it does.
+#pragma warning disable VSTHRD103
             lock (editor.Sync)
             {
                 Output.Write("\r\u001b[J");
                 Output.Flush();
                 Volatile.Write(ref editor._erased, 1);
             }
+#pragma warning restore VSTHRD103
 
             editor.Interjections!.AskWaiting(editor._keys);
             return (null, renewed);

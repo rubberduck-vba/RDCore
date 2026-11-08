@@ -2,3 +2,17 @@
 
 # SYSLIB1054: Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 dotnet_diagnostic.SYSLIB1054.severity = silent
+
+# VSTHRD003: Avoid awaiting foreign Tasks.
+# The deadlock it guards against is a task started on a JoinableTaskFactory main thread, awaited from that thread. RDCore has no main thread and no
+# JoinableTaskFactory: its processes run on the thread pool with no SynchronizationContext, and awaiting a task another component started (a request in
+# flight, a reply, a completion) is how its components wait for each other.
+dotnet_diagnostic.VSTHRD003.severity = none
+
+[RDCore.Tests/**.cs]
+
+# VSTHRD200: Use "Async" suffix for async methods.
+# The Task-returning methods of the tests are the helpers of their own test class (Run, AssertRows, Resume...), which nothing else calls; a task one of them
+# returns that is not awaited is already an error here (CS4014, RDCore.Tests.csproj), which is what the suffix exists to make visible. Renaming them would
+# rewrite most of the suite's calls under every branch that adds a test.
+dotnet_diagnostic.VSTHRD200.severity = none

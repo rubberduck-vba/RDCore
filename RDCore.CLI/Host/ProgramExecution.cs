@@ -79,7 +79,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     private bool _inTurn;
 
     // a statement or an expression runs alongside the program that waits, in its session and on its stack: nothing else resumes, moves, ends or runs beside the program
-    // until it is done. Set and cleared with the lock held; the code itself runs with nothing locked (OffTheConnection).
+    // until it is done. Set and cleared with the lock held; the code itself runs with nothing locked (OffTheConnectionAsync).
     private bool _alongside;
 
     /// <summary>
@@ -94,7 +94,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// holds fewer than a hundred, and a deeper recursion would be error 28 far sooner than its limit.
     /// </para>
     /// </remarks>
-    internal static Task<T> OffTheConnection<T>(Func<T> run)
+    internal static Task<T> OffTheConnectionAsync<T>(Func<T> run)
     {
         var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = SDK.Platform.LargeStackThread.NewThread(() =>
@@ -180,7 +180,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             if (_state is ProgramState.Suspended && immediate)
             {
                 _alongside = true;
-                return OffTheConnection(() => RunAlongside(session, pipeline, entryPoint, token));
+                return OffTheConnectionAsync(() => RunAlongside(session, pipeline, entryPoint, token));
             }
 
             if (_state is ProgramState.Suspended)
@@ -211,7 +211,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         // an edit made while it runs or waits takes no value from it (HeldDefinitions).
         HeldDefinitions.Hold(session);
 
-        return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : OffTheConnection(() => RunToTheEnd(session, pipeline, entryPoint, token));
+        return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : OffTheConnectionAsync(() => RunToTheEnd(session, pipeline, entryPoint, token));
     }
 
     /// <summary>
@@ -570,7 +570,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     // What it takes to run something in an activation of the program that waits, whichever the something is: the program waits, the activation is on its stack, what the
     // something prints is its own, and whatever it leaves on the call stack - a Stop in a procedure it calls - is let go of. The program is claimed with the lock held
     // (_alongside), and the something runs with nothing locked, so that a request that asks about the program while it runs - while a dialog it opened waits for its
-    // answer - is answered rather than waiting for it. Called on a thread of its own by the handlers (OffTheConnection).
+    // answer - is answered rather than waiting for it. Called on a thread of its own by the handlers (OffTheConnectionAsync).
     private DebugEvaluateResult InFrame(
         int frameId, bool ofAStatement, Func<IRuntimeSession, RuntimeCallStack, CallStackFrame, VBTypeMemberSymbol, (VBTypedValue? Value, string? Failure)> run)
     {
@@ -850,7 +850,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     // Run above the activations of the program that waits, which are the session's and stay as they are. It cannot wait at a Stop of its own (the gate holds only
     // the thread of the program), so it is stopped by one, as a run that is not under a debugger is. An End in it is the end of the program: the one that waits is
-    // ended with the session wiped, which is what End does. Called with _alongside set and nothing locked, on a thread of its own (OffTheConnection): nothing else
+    // ended with the session wiped, which is what End does. Called with _alongside set and nothing locked, on a thread of its own (OffTheConnectionAsync): nothing else
     // resumes or ends the program meanwhile, and a request that asks whether one could is answered while it runs - a dialog it opens included.
     private ExecuteResult RunAlongside(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
     {

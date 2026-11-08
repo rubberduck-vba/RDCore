@@ -113,7 +113,7 @@ public class Program
             // the environment host and the external host are servers, whose standard output is no one's to read (AppHost.WritesToConsole).
             var server = string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(mode, RDCoreServerProcess.HostMode, StringComparison.OrdinalIgnoreCase);
-            (server ? Console.Error : Console.Out).WriteLine(exception);
+            await (server ? Console.Error : Console.Out).WriteLineAsync(exception.ToString());
             return -1;
         }
     }
