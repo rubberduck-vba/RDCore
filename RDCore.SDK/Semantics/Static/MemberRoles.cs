@@ -1,10 +1,13 @@
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace.Forms;
+using System.Collections.Immutable;
 
 namespace RDCore.SDK.Semantics.Static;
 
@@ -18,6 +21,11 @@ namespace RDCore.SDK.Semantics.Static;
 /// <see cref="ClassModuleEventSemantics"/> check the members by. A name that only begins like one, because the interface has no such member or the variable's class
 /// has no such event, is the name of a member like any other. An interface or a class that does not resolve gives no member a role: a role is only stated when it is
 /// known.
+/// <para>
+/// A form handles the events of its controls the same way, and its own events by procedures named for the class its designer hosts
+/// (<see cref="FormClasses.HandlerPrefixOf"/>): <c>UserForm_Initialize</c> for a UserForm, <c>Form_Load</c> for a Visual Basic 6.0 form. The handler of an event
+/// of a control of a Visual Basic 6.0 control array takes the control's index first (<c>Command1_Click(Index As Integer)</c>).
+/// </para>
 /// </remarks>
 public static class MemberRoles
 {
@@ -26,8 +34,10 @@ public static class MemberRoles
     /// </summary>
     /// <param name="module">The class module, with its members.</param>
     /// <param name="resolver">What finds the interface classes and the classes of the <c>WithEvents</c> variables, as they are now.</param>
+    /// <param name="designer">What the module's designer declares when it is a form's (<see cref="Model.AST.ModuleParseResult.Designer"/>); <see langword="null"/>
+    /// for any other class module.</param>
     /// <returns>The role of each procedure and property accessor that implements an interface member or handles an event; a member that has none is not among them.</returns>
-    public static IReadOnlyDictionary<SemanticId, DeclarationRole> Of(VBClassModuleSymbol module, ISymbolResolver resolver)
+    public static IReadOnlyDictionary<SemanticId, DeclarationRole> Of(VBClassModuleSymbol module, ISymbolResolver resolver, FormDescriptor? designer)
     {
         var roles = new Dictionary<SemanticId, DeclarationRole>();
 
@@ -46,9 +56,13 @@ public static class MemberRoles
             }
         }
 
+        // a UserForm's control raises the events of the extender it is wrapped in too (Enter, Exit, BeforeUpdate, AfterUpdate)
+        var extender = designer is null ? null : FormClasses.ExtenderOf(designer, resolver, module.Uri);
         foreach (var variable in module.WithEventsVariables)
         {
-            if (variable.ResolvedType is not VBClassType declared)
+            // the events of a control array are those of its controls' class
+            var array = FormControlArray.ElementOf(variable.ResolvedType);
+            if ((array ?? variable.ResolvedType) is not VBClassType declared)
             {
                 continue;
             }
@@ -59,18 +73,14 @@ public static class MemberRoles
                 continue;
             }
 
-            // a form's control raises the events of the extender it is wrapped in too (Enter, Exit, BeforeUpdate, AfterUpdate)
-            foreach (var handled in FormControlExtender.EventsOf(variable, source, resolver))
+            var isControl = variable.GetProperty(SymbolProperties.DesignerControl);
+            foreach (var handled in FormControlExtender.EventsOf(variable, source, extender))
             {
                 // the handler of an event of a form's control that does not match the event is never called by it: MS-VBA compiles it (oracle\s30 C06)
-                if (variable.GetProperty(SymbolProperties.DesignerControl))
+                if (isControl)
                 {
-                    foreach (var candidate in ClassModuleEventSemantics.HandlersOf(module, variable, handled))
-                    {
-                        roles.TryAdd(candidate.SemanticId,
-                            ClassModuleEventSemantics.Matches(candidate, handled) ? DeclarationRole.EventHandler : DeclarationRole.UnmatchedEventHandler);
-                    }
-
+                    var required = array is not null ? WithIndex(handled) : handled.Parameters;
+                    MarkHandlers(ClassModuleEventSemantics.HandlersOf(module, variable, handled), required, roles);
                     continue;
                 }
 
@@ -78,24 +88,36 @@ public static class MemberRoles
             }
         }
 
-        // a form handles its own events by procedures named UserForm_EventName, whatever its name: those of the Microsoft Forms UserForm it hosts, and those of
-        // the VBA form object (FormObject). One that does not match its event is never called by it, as for a control's.
-        if (module.Members.Any(FormObject.IsDeclaredBy))
+        // a form handles its own events by procedures named for the class its designer hosts, whatever its name: UserForm_EventName for the events of the
+        // Microsoft Forms UserForm and of the VBA form object (FormObject), Form_EventName for those of a Visual Basic 6.0 Form. One that does not match its
+        // event is never called by it, as for a control's.
+        if (designer is not null && FormClasses.HandlerPrefixOf(designer) is { } prefix)
         {
-            var userForm = VBProjectSymbol.ResolveQualifiedType(resolver, FormDesigner.MSFormsLibrary, FormObject.ClassName, module.Uri).Symbol as VBClassModuleSymbol;
-            foreach (var handled in (userForm?.Events ?? []).Concat(FormObject.ClassIn(module.WorkspaceRoot).Events))
+            foreach (var handled in FormClasses.Of(designer, resolver, module.Uri, module.WorkspaceRoot).SelectMany(form => form.Events))
             {
-                foreach (var candidate in module.Members.Where(member => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol
-                    && string.Equals(member.Name, $"{FormObject.ClassName}_{handled.Name}", StringComparison.OrdinalIgnoreCase)))
-                {
-                    roles.TryAdd(candidate.SemanticId,
-                        ClassModuleEventSemantics.Matches(candidate, handled) ? DeclarationRole.EventHandler : DeclarationRole.UnmatchedEventHandler);
-                }
+                MarkHandlers(module.Members.Where(member => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol
+                    && string.Equals(member.Name, $"{prefix}_{handled.Name}", StringComparison.OrdinalIgnoreCase)), handled.Parameters, roles);
             }
         }
 
         return roles;
     }
+
+    private static void MarkHandlers(
+        IEnumerable<VBTypeMemberSymbol> candidates, ImmutableArray<VBParameterSymbol> required, Dictionary<SemanticId, DeclarationRole> roles)
+    {
+        foreach (var candidate in candidates)
+        {
+            roles.TryAdd(candidate.SemanticId,
+                ClassModuleEventSemantics.Matches(candidate, required) ? DeclarationRole.EventHandler : DeclarationRole.UnmatchedEventHandler);
+        }
+    }
+
+    // the controls of a Visual Basic 6.0 control array share one handler of each event, which is told which control raised it by an Index As Integer before
+    // the event's own parameters.
+    private static ImmutableArray<VBParameterSymbol> WithIndex(VBEventMemberSymbol handled)
+        => handled.Parameters.Insert(0, new VBParameterSymbol(
+            handled.WorkspaceRoot, handled.Uri, "Index", SourceRange.Empty, SourceRange.Empty, ParameterKind.ImplicitByRef, VBIntegerType.TypeInfo));
 
     // the accessors of a property are procedures that derive from the subroutine's and the function's symbols.
     private static void Mark(VBClassModuleSymbol module, string name, DeclarationRole role, Dictionary<SemanticId, DeclarationRole> roles)

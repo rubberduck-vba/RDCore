@@ -1222,7 +1222,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -1265,17 +1266,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -1290,7 +1294,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -1402,37 +1407,44 @@
             {
               "name": "Width1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Opcode",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -1491,22 +1503,26 @@
             {
               "name": "X1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -1523,12 +1539,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -1545,12 +1563,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -2771,7 +2791,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -2830,7 +2851,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -2846,17 +2868,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -2867,7 +2892,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -4128,7 +4154,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -4191,7 +4218,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -4207,17 +4235,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -4228,7 +4259,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -5203,7 +5235,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -5239,7 +5272,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -5255,17 +5289,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -5276,7 +5313,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -6331,7 +6369,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -6371,7 +6410,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -6387,17 +6427,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -6408,7 +6451,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -7595,7 +7639,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -7635,7 +7680,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -7651,17 +7697,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -7672,7 +7721,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -8779,7 +8829,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -8819,7 +8870,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -8835,17 +8887,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -8856,7 +8911,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -10108,7 +10164,8 @@
             {
               "name": "Index",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -10138,7 +10195,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -10149,7 +10207,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -10165,17 +10224,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -11365,7 +11427,8 @@
             {
               "name": "Index",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -11395,7 +11458,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -11406,7 +11470,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -11422,17 +11487,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -12249,7 +12317,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -12285,7 +12354,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -12301,17 +12371,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -12322,7 +12395,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -12939,7 +13013,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -12975,7 +13050,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -12991,17 +13067,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -13012,7 +13091,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -13239,7 +13319,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -14045,37 +14126,44 @@
             {
               "name": "Width1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Opcode",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -14117,22 +14205,26 @@
             {
               "name": "X1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -14149,12 +14241,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -14171,12 +14265,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15231,17 +15327,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15256,7 +15355,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15267,12 +15367,14 @@
             {
               "name": "Modal",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "OwnerForm",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15296,22 +15398,26 @@
             {
               "name": "Flags",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "DefaultMenu",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15423,37 +15529,44 @@
             {
               "name": "Width1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Opcode",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15512,22 +15625,26 @@
             {
               "name": "X1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15544,12 +15661,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -15566,12 +15685,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16110,7 +16231,8 @@
             {
               "name": "Format",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16126,7 +16248,8 @@
             {
               "name": "Format",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16138,7 +16261,8 @@
             {
               "name": "Format",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16154,7 +16278,8 @@
             {
               "name": "Format",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16854,7 +16979,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16894,7 +17020,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16910,17 +17037,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -16931,7 +17061,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -17863,7 +17994,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -17903,7 +18035,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -17919,17 +18052,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -17940,7 +18076,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -19104,7 +19241,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -19144,7 +19282,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -19160,17 +19299,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -19181,7 +19323,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -20168,17 +20311,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -20193,7 +20339,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -20204,12 +20351,14 @@
             {
               "name": "Modal",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "OwnerForm",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -20229,22 +20378,26 @@
             {
               "name": "Flags",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "DefaultMenu",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -20925,7 +21078,8 @@
             {
               "name": "EventType",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         }
@@ -21276,7 +21430,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -21308,7 +21463,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -21324,17 +21480,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -21346,7 +21505,8 @@
             {
               "name": "arg1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         }
@@ -21607,7 +21767,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -21639,7 +21800,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -21651,7 +21813,8 @@
             {
               "name": "arg1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         }
@@ -22213,7 +22376,8 @@
             {
               "name": "arg2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -22249,7 +22413,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -22265,17 +22430,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -22286,7 +22454,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -23321,7 +23490,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -23332,7 +23502,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -23348,17 +23519,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -24572,7 +24746,8 @@
             {
               "name": "Position",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -24588,17 +24763,20 @@
             {
               "name": "Top",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -24609,7 +24787,8 @@
             {
               "name": "Action",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -24625,7 +24804,8 @@
             {
               "name": "Class",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -24641,7 +24821,8 @@
             {
               "name": "SourceItem",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -24664,7 +24845,8 @@
             {
               "name": "Verb",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -25961,22 +26143,26 @@
             {
               "name": "Flags",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "DefaultMenu",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -26088,37 +26274,44 @@
             {
               "name": "Width1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Opcode",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -26177,22 +26370,26 @@
             {
               "name": "X1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -26209,12 +26406,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -26231,12 +26430,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -26279,7 +26480,8 @@
             {
               "name": "PropertyName",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -26328,12 +26530,14 @@
             {
               "name": "PropertyName",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "AsyncReadOptions",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -26344,7 +26548,8 @@
             {
               "name": "Property",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         }
@@ -27557,22 +27762,26 @@
             {
               "name": "Flags",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "DefaultMenu",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -27684,37 +27893,44 @@
             {
               "name": "Width1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Opcode",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -27773,22 +27989,26 @@
             {
               "name": "X1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -27805,12 +28025,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -27827,12 +28049,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29115,22 +29339,26 @@
             {
               "name": "Flags",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "DefaultMenu",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29242,37 +29470,44 @@
             {
               "name": "Width1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Width2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Height2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Opcode",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29331,22 +29566,26 @@
             {
               "name": "X1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y1",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "X2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "Y2",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29363,12 +29602,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29385,12 +29626,14 @@
             {
               "name": "FromScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "ToScale",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29433,7 +29676,8 @@
             {
               "name": "PropertyName",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29470,12 +29714,14 @@
             {
               "name": "PropertyName",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             },
             {
               "name": "AsyncReadOptions",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         },
@@ -29486,7 +29732,8 @@
             {
               "name": "Property",
               "type": "Variant",
-              "isByVal": true
+              "isByVal": true,
+              "isOptional": true
             }
           ]
         }

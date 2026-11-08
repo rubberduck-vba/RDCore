@@ -343,6 +343,12 @@ public record class SymbolDescriptor
     public bool IsDesignerControl { get; init; }
 
     /// <summary>
+    /// Whether a form's control is a Visual Basic 6.0 control array. <see cref="DeclaredTypeName"/> then names the class of its controls, and its type is
+    /// the array's (<see cref="Workspace.Forms.FormControlArray.TypeOf"/>), which no library names.
+    /// </summary>
+    public bool IsDesignerControlArray { get; init; }
+
+    /// <summary>
     /// What runs a member whose code is not the module's (<see cref="SymbolProperties.ExternalTarget"/>): a member a form's designer declares on its class - a
     /// control, a member of the form object - is dispatched to whatever hosts the form (<see cref="Workspace.Forms.FormObject.TargetOf"/>).
     /// </summary>

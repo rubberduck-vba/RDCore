@@ -99,4 +99,8 @@
   <data name="Hover_MemberOf" xml:space="preserve">
     <value>Member of {0}</value>
   </data>
+  <!-- What a hover says a Visual Basic 6.0 control array is (SymbolHover.ControlArrayOf): {0} is the class of its controls, VB.CommandButton. -->
+  <data name="Hover_ControlArrayOf" xml:space="preserve">
+    <value>Control array of {0}</value>
+  </data>
 </root>

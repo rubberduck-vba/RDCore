@@ -88,15 +88,17 @@ public static class ClassModuleEventSemantics
     private static VBClassModuleSymbol? CheckWithEventsType(
         VBClassModuleSymbol module, VBTypeMemberSymbol variable, ISymbolResolver? resolver, ImmutableArray<VBCompileErrorInfo>.Builder errors)
     {
-        if (variable.ResolvedType is VBUnknownType)
+        // a form's control array raises the events of its controls' class
+        var type = Workspace.Forms.FormControlArray.ElementOf(variable.ResolvedType) ?? variable.ResolvedType;
+        if (type is VBUnknownType)
         {
             return null;
         }
 
-        if (variable.ResolvedType is not VBClassType declared)
+        if (type is not VBClassType declared)
         {
             errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.InvalidWithEventsType, LocationOf(variable),
-                $"'{variable.Name}' is declared As {variable.ResolvedType.Name}, which is not a specific class (MS-VBAL §5.2.3.1.2)."));
+                $"'{variable.Name}' is declared As {type.Name}, which is not a specific class (MS-VBAL §5.2.3.1.2)."));
             return null;
         }
 
@@ -161,8 +163,18 @@ public static class ClassModuleEventSemantics
     /// Whether <paramref name="candidate"/>, named as the handler of <paramref name="handled"/>, is one the event can call: a subroutine whose parameter list is
     /// compatible with the event's (<strong>MS-VBAL §5.3.1.8</strong>).
     /// </summary>
-    internal static bool Matches(VBTypeMemberSymbol candidate, VBEventMemberSymbol handled)
-        => IsSubroutine(candidate) && ParameterLists.Incompatibility(ParameterLists.Of(candidate), handled.Parameters) is null;
+    /// <param name="candidate">The procedure named as the handler of the event.</param>
+    /// <param name="handled">The event.</param>
+    internal static bool Matches(VBTypeMemberSymbol candidate, VBEventMemberSymbol handled) => Matches(candidate, handled.Parameters);
+
+    /// <summary>
+    /// Whether <paramref name="candidate"/> is a subroutine whose parameter list is compatible with <paramref name="required"/>.
+    /// </summary>
+    /// <param name="candidate">The procedure named as the handler of an event.</param>
+    /// <param name="required">The parameter list the handler must have: the event's, or, for a control of a Visual Basic 6.0 control array, the control's
+    /// index and then the event's.</param>
+    internal static bool Matches(VBTypeMemberSymbol candidate, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> required)
+        => IsSubroutine(candidate) && ParameterLists.Incompatibility(ParameterLists.Of(candidate), required) is null;
 
     private static bool IsProcedure(VBTypeMemberSymbol member) => member is VBProcedureMemberSymbol or VBFunctionMemberSymbol;
 

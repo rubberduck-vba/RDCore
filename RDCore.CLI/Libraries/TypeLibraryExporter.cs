@@ -374,6 +374,13 @@ internal sealed class TypeLibraryExporter(bool includeDescriptions = true)
             });
         }
 
+        // a library may say its last parameters are optional by their count alone, with no flag on any of them: VB6.OLB's Form.Show(Modal, OwnerForm) has
+        // cParamsOpt 2. They are optional Variants, which an argument may be left out of.
+        for (var i = Math.Max(0, parameters.Count - Math.Max(0, (int)function.cParamsOpt)); i < parameters.Count; i++)
+        {
+            parameters[i] = parameters[i] with { IsOptional = true };
+        }
+
         string? returns = null;
         if (function.invkind is INVOKEKIND.INVOKE_FUNC or INVOKEKIND.INVOKE_PROPERTYGET)
         {
