@@ -215,10 +215,11 @@ public record class SdkEnvironmentOptions
     /// <see cref="Runtime.RuntimeEnvironmentProfile"/> made without one.
     /// </summary>
     /// <remarks>
-    /// <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Interpreter"/>. The <c>ExecutionEngine</c> of the platform's <c>RDCore.CLI/appsettings.json</c>
-    /// holds the same value, and a test holds the two to it: a change of the default changes both.
+    /// <see cref="Runtime.Abstract.Execution.VBExecutionEngine.Compiled"/>: a procedure that compiled code can't run is interpreted, so a program runs in either
+    /// engine alike. The <c>ExecutionEngine</c> of the platform's <c>RDCore.CLI/appsettings.json</c> holds the same value, and a test holds the two to it: a
+    /// change of the default changes both.
     /// </remarks>
-    public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Interpreter;
+    public const Runtime.Abstract.Execution.VBExecutionEngine DefaultExecutionEngine = Runtime.Abstract.Execution.VBExecutionEngine.Compiled;
 
     /// <summary>
     /// <c>true</c> for a 64-bit environment (<c>LongPtr</c> width, <c>#If Win64</c> / <c>#If VBA7</c>).
