@@ -43,7 +43,7 @@ public sealed class ErrorHandlingStates
     /// <summary>
     /// The edges a data-flow analysis walks: the graph's normal edges, and those errors and resumptions make, as the states say.
     /// </summary>
-    internal FlowEdges Edges { get; }
+    public FlowEdges Edges { get; }
 
     /// <summary>
     /// The states the instruction at <paramref name="node"/> can run in: before it executes. Empty when control cannot reach it.
