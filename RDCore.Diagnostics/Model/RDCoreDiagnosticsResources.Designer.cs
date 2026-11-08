@@ -77,7 +77,16 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("BitwiseOperator_Message", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to This condition reads a constant that is True with a value other than -1 through &apos;{0}&apos;, which works on its bits: the result is not the truth value it seems to be (Not 1 is -2, which is True). Give the constant the value True or -1..
+        /// </summary>
+        public static string TrueValueIsNotMinusOne_Message {
+            get {
+                return ResourceManager.GetString("TrueValueIsNotMinusOne_Message", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
         /// </summary>

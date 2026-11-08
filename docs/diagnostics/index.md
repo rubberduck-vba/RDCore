@@ -295,6 +295,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11027](rdc11027.md)|String compared with a number as a Double|MS-VBA compares the two as Doubles, where MS-VBAL compares them in the number's type|
 |[RDC11028](rdc11028.md)|New of a class that is never created|`New ErrObject` compiles, and fails with -2147221164 when it runs|
 |[RDC11029](rdc11029.md)|Public variable of an object passed late as a copy|What a procedure called late assigns to it is not written back|
+|[RDC11031](rdc11031.md)|True value that is not -1|`#Const DEV = 1`, then `#If Not DEV`: `Not 1` is `-2`, which is `True`|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 
 ---
