@@ -55,7 +55,7 @@ public sealed class ClientConfigurationFollower : IDisposable
     /// <param name="changed">Called once the settings were set.</param>
     /// <param name="log">Says what happened.</param>
     /// <returns>The follower, already started; <see langword="null"/> when the component has no live settings.</returns>
-    public static ClientConfigurationFollower? Follow(IServiceProvider? services, ILanguageServer server, Func<Task> changed, Action<string> log)
+    public static ClientConfigurationFollower? StartFollowing(IServiceProvider? services, ILanguageServer server, Func<Task> changed, Action<string> log)
     {
         if (services?.GetService<ILiveSettings>() is not { } liveSettings)
         {
