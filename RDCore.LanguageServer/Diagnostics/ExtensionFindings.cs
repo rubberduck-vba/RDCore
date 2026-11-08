@@ -30,7 +30,12 @@ internal static class ExtensionFindings
             }
             else
             {
-                dropped.Add(diagnostic.Code?.ToString() ?? "no code");
+                dropped.Add(diagnostic.Code switch
+                {
+                    { IsString: true, String: { } written } => written,
+                    { IsLong: true, Long: var number } => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    _ => "no code",
+                });
             }
         }
 
