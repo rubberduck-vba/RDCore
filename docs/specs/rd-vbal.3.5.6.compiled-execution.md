@@ -33,6 +33,25 @@ time it runs, compiled code first checks the type the `Variant` holds. When it d
 the type it does hold. That is the case for an `Empty` `Variant` before its first assignment, a `Variant` that came to hold a `String` or `Null`, and a sum
 that has overflowed to a wider type. A wrong guess makes the operation slower; its result is the same.
 
+### Variant function results
+
+The result of a function of the `Variant` type, or declared without a type, stays in its frame like a `Variant` variable. Compiled code assigns it and
+reads it there whenever it holds a value of a scalar type, as above.
+
+A `Let` of what a call returns to a `Variant` variable or to the function's own `Variant` result (`V = F()`, `V = C.Item(K)`) is compiled whatever the
+call returns. Compiled code makes the call, then assigns its result as the interpreter assigns the value of the statement's expression:
+
+- a value of any type is assigned as it is (MS-VBAL §5.5.1.2.12): `Empty` and `Null` stay `Empty` and `Null`, a `String` and an error value keep their
+  type, and an array is copied;
+- for an object, its default member's value is assigned. An object with no default member raises error 438 at that statement, and the procedure's error handler gets
+  the error. The call is not made again.
+
+What the call returned is let go of when its statement is over, as in the interpreter. An object only the result held is destroyed there, and its
+`Class_Terminate` runs before the next statement. A function of the `Variant` type called as a statement (`F 1`) is compiled too, and its result is let
+go of the same way.
+
+A `Variant` result assigned to a variable of a scalar type (`N = F()`) is the interpreter's, and so is a `Set` of a function's `Variant` result.
+
 ### Strings
 
 Compiled code reads and writes a `String` parameter or variable where its frame keeps it, too, unless it is a fixed-length `String`, which pads or truncates
@@ -120,10 +139,10 @@ Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, and parentheses.|
+|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, a `Variant` one included, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
-|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar `Static`, or of the function's result; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
-|Calls|A call statement with arguments, or a function's result assigned whole, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
+|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar `Static`, or of the function's result, a `Variant` one included; `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
+|Calls|A call statement with arguments, a function's result assigned whole, or a function's result assigned to a `Variant` (see Variant function results, above), of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, when every parameter is of a scalar type (`Sub` or `Function`); of a procedure of a standard module, a parameter may also be a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of.|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 

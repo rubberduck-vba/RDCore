@@ -464,7 +464,9 @@ public sealed partial class CompiledActivation : ILightActivation
         var returned = ScalarKinds.Of((member as VBFunctionMemberSymbol)?.ResolvedType);
         if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
-            || (called.Result is { } read ? returned != read : member is VBFunctionMemberSymbol && returned is null))
+            || (called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
+                : called.Result is { } read ? returned != read
+                : member is VBFunctionMemberSymbol { ResolvedType: var discarded } && returned is null && discarded is not SDK.Model.Types.VBVariantType))
         {
             return false;
         }
@@ -519,12 +521,13 @@ public sealed partial class CompiledActivation : ILightActivation
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
+            EndStatementAfter(called, _failed.Value);
             return false;
         }
 
         if (called.Result is null)
         {
-            return true;
+            return AssignReturned(called, result.Result);
         }
 
         // a function of a scalar type returns a known value of it.
@@ -776,13 +779,16 @@ public sealed partial class CompiledActivation : ILightActivation
         {
             // as the invoker answers it (InvokeScalars): an error is the call's, and a call that was stopped has no answer.
             _failed = outcome.Kind is RuntimeExecutionOutcomeKind.Error ? outcome : RuntimeExecutionOutcome.InternalError;
+            EndStatementAfter(_body.Callees[call], outcome);
             return false;
         }
 
-        // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of.
-        if (_body.Callees[call].Result is null)
+        // what the call returns is read only where the call reads it, as Call reads it: a Function called as a statement returns what is let go of, and one
+        // whose statement assigns what it returns is assigned it.
+        var called = _body.Callees[call];
+        if (called.Result is null)
         {
-            return true;
+            return AssignReturned(called, called.AssignsResult ? ReturnedBy(callee) : null);
         }
 
         // a function of a scalar type returns a payload of it: its compiled code assigned it when it returned, and so did the interpreter it was handed to.

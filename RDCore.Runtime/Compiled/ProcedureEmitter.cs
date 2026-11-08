@@ -479,6 +479,20 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            // the result of a function of the Variant type, assigned where its frame holds it: one the interpreter's assignment would let go of an object
+            // to, the interpreter runs alone, and compiled code goes on after it.
+            case VariantResultLetStep resultLet:
+            {
+                var failure = RecoverAt(resultLet.Offset);
+                var value = _il.DeclareLocal(typeof(VariantPayload));
+                EmitVariantInto(resultLet.Value, value, failure);
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldloc, value);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultVariant))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+            }
+
             case VariantForNextStep variantNext:
                 EmitVariantForNext(variantNext);
                 break;
@@ -695,6 +709,15 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, failure);
         }
 
+        // a statement whose call returns what the session holds as its temporaries is begun before the call, and ended once the call returned and what it
+        // returned was assigned, as the interpreter begins and ends it: what it returned is let go of there, before anything else runs.
+        var holds = _analysis.Callees[call.Callee].HoldsWhatItReturns;
+        if (holds)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.BeginStatement))!);
+        }
+
         var called = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.SpillsBeforeCalls))!.GetMethod!);
@@ -804,6 +827,11 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Call, Activation.GetMethod(call.Receiver is null ? nameof(CompiledActivation.Call) : nameof(CompiledActivation.CallMember))!);
         _il.Emit(OpCodes.Brfalse, CallFailedAt(call.Offset));
         _il.MarkLabel(returned);
+        if (holds)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.EndStatement))!);
+        }
 
         // after a wait, a variable compiled code cannot read back (EmitReload): the call's result written into the frame, and the activation the interpreter's
         // from after the call.
@@ -1898,6 +1926,13 @@ internal sealed partial class ProcedureEmitter
 
             case VariantFieldNode field:
                 EmitVariantField(field, result, failure);
+                break;
+
+            case VariantResultNode:
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldloca, result);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReadResultVariant))!);
+                _il.Emit(OpCodes.Brfalse, failure);
                 break;
 
             case VariantOfNode of:

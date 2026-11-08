@@ -208,6 +208,10 @@ internal sealed record class VariantBinaryNode(string Token, VariantNode Left, V
 // a negation or a Not of a Variant operand (VariantOperations.Unary).
 internal sealed record class VariantUnaryNode(string Token, VariantNode Operand, bool OfAConstantExpression) : VariantNode;
 
+// the function result variable of a function of the Variant type, in its own body (MS-VBAL §5.3.1): what its frame holds it as
+// (CompiledActivation.TryReadResultVariant).
+internal sealed record class VariantResultNode : VariantNode;
+
 // a Variant's payload converted to a kind exactly (VariantOperations.Convert).
 internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) : PayloadNode(Kind);
 
@@ -250,6 +254,10 @@ internal abstract record class CompiledStep(int Offset);
 // a Let of a Variant variable of the activation: the payload written into its cell, of its own subtype - when the cell holds no object,
 // which the interpreter's assignment lets go of.
 internal sealed record class VariantLetStep(int Offset, int Slot, VariantNode Value) : CompiledStep(Offset);
+
+// a Let of the function result variable of a function of the Variant type: the payload assigned where its frame holds it, as the interpreter assigns it
+// (CompiledActivation.TryAssignResultVariant) - unless what it held was an object only it held, which the interpreter's assignment destroys.
+internal sealed record class VariantResultLetStep(int Offset, VariantNode Value) : CompiledStep(Offset);
 
 // the Next of a For whose counter is a Variant: stepped as the interpreter steps it on payloads, with the state its stepped For
 // statement gave the frame (CompiledActivation.StepVariantFor); a step it declines is the interpreter's. Counter: the counter's Variant slot, whose
@@ -344,6 +352,20 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// reference, or is a <c>String</c>.
     /// </summary>
     public bool TakesReferences { get; } = ByReference.Contains(true) || Parameters.Contains(null);
+
+    /// <summary>
+    /// Whether what the call returns - a <c>Variant</c>, or a scalar - is assigned by the statement that makes it, as the interpreter assigns the value of its
+    /// expression (<c>StatementRuntimeSemanticsProvider.AssignValue</c>): to a <c>Variant</c>, whatever it holds, once the call returned. <see cref="Result"/>
+    /// is then <see langword="null"/>.
+    /// </summary>
+    public bool AssignsResult { get; init; }
+
+    /// <summary>
+    /// Whether what the call returns is held as a temporary of the statement that makes it until the statement is over (<c>ObjectReferences.HoldTemporarily</c>):
+    /// a <c>Variant</c> its statement discards, or a result its statement assigns. The statement is begun before the call and ended after it
+    /// (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>), as the interpreter begins and ends it.
+    /// </summary>
+    public bool HoldsWhatItReturns { get; init; }
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
