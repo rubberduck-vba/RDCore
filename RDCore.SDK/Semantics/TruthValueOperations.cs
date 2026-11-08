@@ -29,6 +29,12 @@ public enum TruthOperandKind
     /// An operand whose value is not known and could be <c>True</c> or <c>False</c>: a <c>Variant</c>, or a conditional-compilation constant the module does not define.
     /// </summary>
     Unknown,
+
+    /// <summary>
+    /// A predefined conditional-compilation constant (<c>Win64</c>, <c>VBA7</c>, ...): <c>1</c> where it is true and <c>0</c> where it is not, as MS-VBA defines
+    /// them, and which of the two depends on the environment.
+    /// </summary>
+    OneOrZero,
 }
 
 /// <summary>
@@ -55,6 +61,11 @@ public readonly record struct TruthOperand(TruthOperandKind Kind, long? Bits = n
     public static TruthOperand AnyBoolean => new(TruthOperandKind.Boolean);
 
     /// <summary>
+    /// A predefined conditional-compilation constant that can be true: <c>1</c> or <c>0</c> (<see cref="TruthOperandKind.OneOrZero"/>).
+    /// </summary>
+    public static TruthOperand OneOrZero => new(TruthOperandKind.OneOrZero);
+
+    /// <summary>
     /// A constant, from its value: a number or a <c>Boolean</c>, and <see cref="Opaque"/> for any other value (a <c>String</c>, a <c>Date</c>, <c>Null</c>).
     /// </summary>
     /// <param name="value">The value of the constant.</param>
@@ -67,10 +78,11 @@ public readonly record struct TruthOperand(TruthOperandKind Kind, long? Bits = n
     };
 
     /// <summary>
-    /// A constant number that is not a <c>Boolean</c>'s value: not <c>0</c>, and not <c>-1</c>. It is <c>True</c> where a condition tests it, and still not
-    /// <c>True</c> where its bits are what an operator works on.
+    /// A constant number that is not a <c>Boolean</c>'s value: not <c>0</c>, and not <c>-1</c>, or a predefined constant that is <c>1</c> where it is true. It
+    /// is <c>True</c> where a condition tests it, and still not <c>True</c> where its bits are what an operator works on.
     /// </summary>
-    public bool IsTrueOtherThanMinusOne => Kind is TruthOperandKind.Number && Bits is { } bits && bits is not 0 and not -1;
+    public bool IsTrueOtherThanMinusOne
+        => Kind is TruthOperandKind.OneOrZero || (Kind is TruthOperandKind.Number && Bits is { } bits && bits is not 0 and not -1);
 
     /// <summary>
     /// The operand negated, as a unary <c>-</c> before a constant makes it.
@@ -119,8 +131,8 @@ public static class TruthValueOperations
     /// <param name="left">The left operand.</param>
     /// <param name="right">The right operand.</param>
     /// <remarks>
-    /// A comparison is one only of a constant number with a <c>Boolean</c>: <c>DEV = 1</c> compares numbers, as it says, and <c>DEV = True</c> asks whether
-    /// <c>DEV</c> is true, which <c>1 = True</c> answers <c>False</c>.
+    /// A comparison is one only of a constant number with a <c>Boolean</c> or with <c>-1</c>: <c>DEV = 1</c> compares numbers, as it says, and
+    /// <c>DEV = True</c> (or <c>DEV = -1</c>, <c>True</c>'s value) asks whether <c>DEV</c> is true, which <c>1 = True</c> answers <c>False</c>.
     /// </remarks>
     public static bool Misleads(string token, TruthOperand left, TruthOperand right)
     {
@@ -162,7 +174,9 @@ public static class TruthValueOperations
     }
 
     private static bool IsComparedWithABoolean(TruthOperand left, TruthOperand right)
-        => (left.IsTrueOtherThanMinusOne && right.Kind is TruthOperandKind.Boolean) || (right.IsTrueOtherThanMinusOne && left.Kind is TruthOperandKind.Boolean);
+        => (left.IsTrueOtherThanMinusOne && IsABooleansValue(right)) || (right.IsTrueOtherThanMinusOne && IsABooleansValue(left));
+
+    private static bool IsABooleansValue(TruthOperand operand) => operand.Kind is TruthOperandKind.Boolean || operand is { Kind: TruthOperandKind.Number, Bits: -1 };
 
     // what an operand can be, as far as the question goes: its value when it is known, True and False when it could be either, and nothing at all when it
     // holds numbers nobody knows.
@@ -170,6 +184,7 @@ public static class TruthValueOperations
     {
         { Bits: { } bits } => [bits],
         { Kind: TruthOperandKind.Boolean or TruthOperandKind.Unknown } => [-1, 0],
+        { Kind: TruthOperandKind.OneOrZero } => [1, 0],
         _ => [],
     };
 }

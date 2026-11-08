@@ -52,7 +52,7 @@ public sealed class EnvironmentSessionProviderTests
         Assert.AreEqual((short)1, ((VBIntegerValue)((PrecompilerConstantSymbol)rdDebug!).Value).Value);
 
         Assert.IsTrue(session.Symbols.TryResolveConditionalConstant("Win64", GlobalScope, out var win64));
-        Assert.AreEqual((short)-1, ((VBIntegerValue)((PrecompilerConstantSymbol)win64!).Value).Value);
+        Assert.AreEqual((short)1, ((VBIntegerValue)((PrecompilerConstantSymbol)win64!).Value).Value);
     }
 
     [TestMethod]

@@ -129,10 +129,25 @@ public sealed class ConditionalCompilationTests
         CollectionAssert.AreEqual(expected.Split('|'), output);
     }
 
+    // a predefined constant that is true is 1, as MS-VBA's are, so a condition that reads its bits has MS-VBA's outcome (RD-VBAL §2.3.1.2, MS-VBAL §5.6.9.8):
+    // oracle s79 recorded Not Win64 live in 64-bit Excel, and Not 1 = -2 and 1 And 2 = 0; the VBE takes #ElseIf Win64 = 1 over #If Win64 = -1 there.
+    [TestMethod]
+    [DataRow("#If Not Win64 Then ;; Debug.Print \"live\" ;; #Else ;; Debug.Print \"dead\" ;; #End If", "live", DisplayName = "#If Not Win64 is live")]
+    [DataRow("#Const NotWin64 = Not Win64 ;; #If NotWin64 = -2 Then ;; Debug.Print \"-2\" ;; #Else ;; Debug.Print \"other\" ;; #End If", "-2", DisplayName = "Not Win64 is -2")]
+    [DataRow("#If Win64 And 2 Then ;; Debug.Print \"live\" ;; #Else ;; Debug.Print \"dead\" ;; #End If", "dead", DisplayName = "Win64 And 2 is 0")]
+    [DataRow("#If Win64 = -1 Then ;; Debug.Print \"-1\" ;; #ElseIf Win64 = 1 Then ;; Debug.Print \"1\" ;; #Else ;; Debug.Print \"other\" ;; #End If", "1", DisplayName = "Win64 = 1, not -1")]
+    [DataRow("#If Win64 = True Then ;; Debug.Print \"live\" ;; #Else ;; Debug.Print \"dead\" ;; #End If", "dead", DisplayName = "Win64 = True is False")]
+    public async Task APredefinedConstant_IsOne_AndReadThroughItsBits_HasMsVbasOutcome(string lines, string expected)
+    {
+        var source = Module(["Public Sub Main()", .. lines.Split(" ;; "), "End Sub"]);
+
+        CollectionAssert.AreEqual(new[] { expected }, await ModuleWorkspace.RunAsync([], source));
+    }
+
     [TestMethod]
     public async Task AModulesConst_ShadowsTheProjectLevelOneOfTheSameName()
     {
-        // Win64 is -1 in the environment these tests are composed in.
+        // Win64 is 1 in the environment these tests are composed in.
         var source = Module(
             "#Const Win64 = 0", "Public Sub Main()", "#If Win64 Then", "Debug.Print \"project\"", "#Else", "Debug.Print \"module\"", "#End If", "End Sub");
 

@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
 
@@ -21,7 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <para>
 /// Which operations are wrong is <see cref="TruthValueOperations"/>'s to say: in code it is a fact the host states of the operation
 /// (<see cref="ValueExpressionSemanticFlags.TrueValueIsNotMinusOne"/>), from the constants it resolves; in a directive, it is read off the module's own
-/// <c>#Const</c>s, a constant the module does not define being <c>True</c> or <c>False</c> as far as anyone can tell.
+/// <c>#Const</c>s and the predefined constants, which are <c>1</c> where they are true (<see cref="PredefinedConditionalConstants"/>): <c>#If Not Win64</c> is
+/// live on 64-bit Windows. Another constant the module does not define, which the project does, is <c>True</c> or <c>False</c> as far as anyone can tell.
 /// </para>
 /// <para>
 /// Only where the operation's truth value is what is tested: the condition of an <c>If</c>, a loop, a <c>Debug.Assert</c>, a <c>#If</c> or a <c>#ElseIf</c>,
@@ -165,14 +167,17 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
         _ => false,
     };
 
-    // what an operand of a directive is as a truth value: a literal, a #Const of the module whose value is one, or - a constant the module does not define,
-    // which the project or the environment does - True or False as far as the module says.
+    // what an operand of a directive is as a truth value: a literal, a #Const of the module whose value is one, a predefined constant (1 or 0, Win16 always
+    // 0), or - a constant the module does not define, which the project does - True or False as far as the module says.
     private static TruthOperand OperandOf(ExpressionNode operand, Dictionary<string, ExpressionNode> constants, int depth) => operand switch
     {
         LiteralExpressionNode literal => TruthOperand.Of(literal.StaticValue),
         VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp } negation => OperandOf(negation.Operand, constants, depth).Negated,
         PrecompilerNameExpressionNode name when constants.TryGetValue(name.Name, out var value) =>
             depth < ConstantDepth ? OperandOf(value, constants, depth + 1) : TruthOperand.Opaque,
+        PrecompilerNameExpressionNode name when PredefinedConditionalConstants.CanBeTrue(name.Name) => TruthOperand.OneOrZero,
+        PrecompilerNameExpressionNode name when PredefinedConditionalConstants.Names.Contains(name.Name) =>
+            new TruthOperand(TruthOperandKind.Number, PredefinedConditionalConstants.False),
         PrecompilerNameExpressionNode => TruthOperand.Unknown,
         VBBinaryOperatorExpressionNode
         {

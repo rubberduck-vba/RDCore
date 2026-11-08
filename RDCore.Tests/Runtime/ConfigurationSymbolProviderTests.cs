@@ -20,8 +20,8 @@ public sealed class ConfigurationSymbolProviderTests
             .Cast<PrecompilerConstantSymbol>()
             .ToDictionary(s => s.Name, s => s, StringComparer.OrdinalIgnoreCase);
 
-    // each operating system's constant is True (-1) on it alone, and defined False (0) on every other; Win32 says the Win32 API is there, as MS-VBA's does
-    // in 64-bit Office too.
+    // each operating system's constant is 1 on it alone, as MS-VBA's are (oracle s79: Win32, Win64, VBA6 and VBA7 are 1 in 64-bit Excel), and defined 0 on
+    // every other; Win32 says the Win32 API is there, as MS-VBA's does in 64-bit Office too.
     [TestMethod]
     [DataRow(VBOperatingSystem.Windows, true, "Win32 Win64", DisplayName = "64-bit Windows")]
     [DataRow(VBOperatingSystem.Windows, false, "Win32", DisplayName = "32-bit Windows")]
@@ -32,11 +32,11 @@ public sealed class ConfigurationSymbolProviderTests
     public void BuiltIns_ReflectTheOperatingSystemAndBitness(VBOperatingSystem os, bool is64, string trueOnes)
     {
         var symbols = Provide(new RuntimeEnvironmentProfile(is64, 0, 1252, false, OperatingSystem: os), new RDCoreProject());
-        var expectedTrue = trueOnes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Append("VBA7").Append("DEBUG").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var expectedTrue = trueOnes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Append("VBA6").Append("VBA7").Append("DEBUG").ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var name in new[] { "Win16", "Win32", "Win64", "Mac", "Linux", "Linux64", "VBA6", "VBA7", "DEBUG" })
         {
-            Assert.AreEqual(expectedTrue.Contains(name) ? (short)-1 : (short)0, ((VBIntegerValue)symbols[name].Value).Value, name);
+            Assert.AreEqual(expectedTrue.Contains(name) ? (short)1 : (short)0, ((VBIntegerValue)symbols[name].Value).Value, name);
         }
     }
 
