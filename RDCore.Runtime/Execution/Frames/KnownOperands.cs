@@ -70,6 +70,12 @@ internal sealed class KnownOperands
     }
 
     /// <summary>
+    /// The node of <paramref name="statement"/> at <paramref name="index"/> in the order they are written (<see cref="IndexOf"/>); <see langword="null"/> when
+    /// there is none.
+    /// </summary>
+    public static SyntaxNode? At(SyntaxNode statement, int index) => index < 0 ? null : Nodes(statement).Skip(index).FirstOrDefault();
+
+    /// <summary>
     /// The value compiled code evaluated <paramref name="node"/> to, if it did.
     /// </summary>
     public bool TryGet(SyntaxNode node, out ScalarPayload value) => _values.TryGetValue(node, out value);

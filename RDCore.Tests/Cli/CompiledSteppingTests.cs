@@ -386,7 +386,7 @@ public sealed class CompiledSteppingTests
             "    Next",
             "    N = N + C.Count",
             "    Counted = N * 2",
-            "End Function"), "Counted", recoveries: 5);
+            "End Function"), "Counted", recoveries: 4);
 
     // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled.
     [TestMethod]

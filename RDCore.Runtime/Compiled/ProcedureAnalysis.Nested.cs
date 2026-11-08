@@ -33,6 +33,13 @@ internal sealed partial class ProcedureAnalysis
                 return null;
             }
 
+            if (step is not null && _nesting is not null && ReadAndPassed(step) is { } read)
+            {
+                Refuse(IneligibilityKind.OperandPassedByReference, (KnownOperands.At(_nesting, read.Syntax) as SimpleNameExpressionNode)?.IdentifierName ?? string.Empty,
+                    instruction.Node?.SourceLocation);
+                return null;
+            }
+
             return step;
         }
         finally
@@ -165,5 +172,74 @@ internal sealed partial class ProcedureAnalysis
         ExtendedOperationNode operation => Admits(operation.Left) && Admits(operation.Right),
         ExtendedNegateNode negate => Admits(negate.Operand),
         _ => false,
+    };
+
+    // a variable compiled code reads as it is before a call that is given it by reference - or given a parameter passed by reference, which can be the same
+    // variable as one the procedure was given by reference - inside the same expression: when it is read is the interpreter's to say, until compiled code
+    // reads it when the interpreter does.
+    private KnownNode? ReadAndPassed(CompiledStep step)
+    {
+        var reads = new List<KnownNode>();
+        var passed = new HashSet<int>();
+        foreach (var node in PayloadsOf(step).SelectMany(Within))
+        {
+            switch (node)
+            {
+                case KnownNode { Value: SlotNode } known:
+                    reads.Add(known);
+                    break;
+                case CallNode call:
+                    passed.UnionWith(call.Arguments.OfType<ReferenceNode>().Select(reference => reference.Slot));
+                    break;
+            }
+        }
+
+        var byReference = Parameters.Where(parameter => parameter.ByReference).Select(parameter => parameter.Slot).ToHashSet();
+        var aliased = passed.Overlaps(byReference);
+        return reads.FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (passed.Contains(slot) || aliased && byReference.Contains(slot)));
+    }
+
+    private static IEnumerable<PayloadNode> PayloadsOf(CompiledStep step) => step switch
+    {
+        LetStep let => [let.Value],
+        CallStep call => call.Arguments,
+        BranchStep branch => [branch.Condition],
+        LoopBackStep loop => [loop.Condition],
+        _ => [],
+    };
+
+    // a payload and every payload it is made of.
+    private static IEnumerable<PayloadNode> Within(PayloadNode node)
+    {
+        yield return node;
+        var operands = node switch
+        {
+            CallNode call => call.Arguments,
+            KnownNode known => [known.Value],
+            ConvertNode convert => [convert.Operand],
+            IntegralNode integral => [integral.Left, integral.Right],
+            LogicalNode logical => [logical.Left, logical.Right],
+            CompareNode compare => [compare.Left, compare.Right],
+            NotNode not => [not.Operand],
+            NegateNode negate => [negate.Operand],
+            StoreNode store => Within(store.Value),
+            ExtendedCompareNode compare => [.. Within(compare.Left), .. Within(compare.Right)],
+            TemporaryNode temporary => [temporary.Value],
+            _ => (IEnumerable<PayloadNode>)[],
+        };
+
+        foreach (var operand in operands.SelectMany(Within))
+        {
+            yield return operand;
+        }
+    }
+
+    // the payloads an extended operation is made of.
+    private static IEnumerable<PayloadNode> Within(ExtendedNode node) => node switch
+    {
+        WidenNode widen => [widen.Operand],
+        ExtendedOperationNode operation => [.. Within(operation.Left), .. Within(operation.Right)],
+        ExtendedNegateNode negate => Within(negate.Operand),
+        _ => [],
     };
 }

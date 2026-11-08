@@ -270,31 +270,63 @@ public sealed class CompiledNestedCallTests
             "    k = 1",
             "    Resume"), "Outer", 2, walksBack: false), "| 1001 ; 2 |");
 
-    // a variable passed by reference to the call, read before it: what it was read as is the operand, whatever the call made of it.
+    // a variable read in an expression that also passes it by reference to a call: when it is read is the interpreter's to say, which runs the statement
+    // alone, in a caller that runs compiled around it.
     [TestMethod]
-    [DataRow("x = Bump(a) + a", 1, "| 4 ; 2 |", DisplayName = "read after the call")]
-    [DataRow("x = a * 10 + Bump(a) * Bump(a)", 2, "| 16 ; 3 |", DisplayName = "read before two calls")]
-    public async Task AVariableTheCallChanges_IsReadWhereItIsInTheExpression(string statement, long calls, string printed)
-        => StringAssert.Contains(await AssertAlikeAsync(Changing(statement), "Outer", calls), printed);
+    [DataRow("x = a + Bump(a)", "| 4 ; 2 |", DisplayName = "read before the call")]
+    [DataRow("x = Bump(a) + a", "| 4 ; 2 |", DisplayName = "read after the call")]
+    [DataRow("x = a * 10 + Bump(a) * Bump(a)", "| 16 ; 3 |", DisplayName = "read before two calls")]
+    [DataRow("x = Sum2(a, Bump(a))", "| 12 ; 2 |", DisplayName = "an argument beside the call")]
+    [DataRow("If a < Bump(a) Then x = 1 Else x = 2", "| 2 ; 2 |", DisplayName = "a condition")]
+    public async Task AVariableReadInAnExpressionThatPassesItByReference_IsReadByTheInterpreter(string statement, string printed)
+        => StringAssert.Contains(await AssertSteppedAlikeAsync(Changing("Dim a As Long, x As Long", "a = 1", statement), "a"), printed);
 
-    // a bare variable passed by reference to the call, read before it: the interpreter reads it as the call left it, compiled code as it was before the
-    // call; what each engine prints, until both print what MS-VBA prints.
+    // two parameters passed by reference, which may be the same variable of the caller: one read, the other passed by reference inside the same expression.
     [TestMethod]
-    [DataRow("x = a + Bump(a)", "| 4 ; 2 |", "| 3 ; 2 |", DisplayName = "a bare variable read before the call")]
-    public async Task ABareVariableTheCallChanges_ReadBeforeTheCall_IsWhatEachEngineReads(string statement, string interpreted, string compiled)
+    public async Task AParameterReadInAnExpressionThatPassesAnotherByReference_IsReadByTheInterpreter()
+        => StringAssert.Contains(await AssertSteppedAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim a As Long",
+            "    a = 1",
+            "    Outer a, a",
+            "End Sub",
+            "Private Sub Outer(ByRef p As Long, ByRef q As Long)",
+            "    Dim x As Long",
+            "    x = p + Bump(q)",
+            "    x = x * 10",
+            "    Debug.Print x",
+            "    Debug.Print p",
+            "End Sub",
+            "Private Function Bump(ByRef y As Long) As Long",
+            "    y = y + 1",
+            "    Bump = y",
+            "End Function"), "p"), "| 40 ; 2 |");
+
+    // a variable read beside a call given another by reference: compiled code reads it, and makes the call.
+    [TestMethod]
+    public async Task AVariableReadBesideACallGivenAnotherByReference_IsCompiled()
+        => StringAssert.Contains(await AssertAlikeAsync(Changing("Dim a As Long, b As Long, x As Long", "a = 1 : b = 1", "x = a + Bump(b)"), "Outer", 1), "| 3 ; 1 |");
+
+    private static async Task<string> AssertSteppedAlikeAsync(string program, string variable)
     {
         CompiledExecutionTests.RequirePayloads();
-        StringAssert.Contains((await RunAsync(Changing(statement), VBExecutionEngine.Interpreter)).Observed, interpreted);
-        StringAssert.Contains((await RunAsync(Changing(statement), VBExecutionEngine.Compiled)).Observed, compiled);
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter);
+        var compiled = await RunAsync(program, VBExecutionEngine.Compiled);
+        Assert.AreEqual(interpreted.Observed, compiled.Observed);
+        Assert.IsTrue(compiled.Compiled.TryGetValue("Outer", out var result), "Outer was not called");
+        Assert.IsNotNull(result.Body, $"Outer: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");
+        Assert.IsTrue(result.Stepped.Any(reason => reason is { Kind: IneligibilityKind.OperandPassedByReference } && reason.Detail == variable),
+            string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
+        return compiled.Observed;
     }
 
-    private static string Changing(string statement) => Program(
+    private static string Changing(string declared, string assigned, string statement) => Program(
         "Public Sub Main()",
         "    Outer",
         "End Sub",
         "Private Sub Outer()",
-        "    Dim a As Long, x As Long",
-        "    a = 1",
+        $"    {declared}",
+        $"    {assigned}",
         $"    {statement}",
         "    Debug.Print x",
         "    Debug.Print a",
@@ -302,6 +334,9 @@ public sealed class CompiledNestedCallTests
         "Private Function Bump(ByRef y As Long) As Long",
         "    y = y + 1",
         "    Bump = y",
+        "End Function",
+        "Private Function Sum2(ByVal u As Long, ByVal w As Long) As Long",
+        "    Sum2 = u * 10 + w",
         "End Function");
 
     private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)

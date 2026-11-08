@@ -40,6 +40,12 @@ public enum IneligibilityKind
     /// <summary>A call: compiled code makes none, and a call is the interpreter's to make.</summary>
     Call,
 
+    /// <summary>
+    /// A variable read in an expression that also passes it by reference to a call, or that passes a parameter by reference that may be the same
+    /// variable: the interpreter decides when the variable is read. Its detail is the variable.
+    /// </summary>
+    OperandPassedByReference,
+
     /// <summary>A member of an object: compiled code holds no object.</summary>
     Member,
 

@@ -667,6 +667,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Compilation_Reason_Call" xml:space="preserve">
     <value>a call: {0}</value>
   </data>
+  <data name="Compilation_Reason_OperandPassedByReference" xml:space="preserve">
+    <value>a variable read in an expression that also passes it by reference to a call: {0}</value>
+  </data>
   <data name="Compilation_Reason_Member" xml:space="preserve">
     <value>a member of an object: {0}</value>
   </data>
