@@ -848,4 +848,16 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Edits_NoProgram" xml:space="preserve">
     <value>No program is waiting.</value>
   </data>
+  <data name="UnnamedClient" xml:space="preserve">
+    <value>The client</value>
+  </data>
+  <data name="VBRuntimeError_NobodyToAnswer_Declined" xml:space="preserve">
+    <value>{1}, which shows the program's dialogs, declined to answer its {0}: nobody else will, and the run fails.</value>
+  </data>
+  <data name="VBRuntimeError_UnusableDialogAnswer_NoSuchButton" xml:space="preserve">
+    <value>{0} answered the program's MsgBox ({1}) with {2}, which is none of its buttons: the program cannot go on with that answer, and the run fails.</value>
+  </data>
+  <data name="VBRuntimeError_UnusableDialogAnswer_NotRelayed" xml:space="preserve">
+    <value>The program's {0} could not be relayed to the client that shows its dialogs ({1}): the run fails, rather than wait on a dialog nobody sees.</value>
+  </data>
 </root>

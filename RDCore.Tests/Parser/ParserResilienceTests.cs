@@ -445,7 +445,7 @@ public sealed class ParserResilienceTests
         // module, and not with the parse: the trace of the exception that stopped it has a frame for each of the levels it read, and was megabytes long.
         var errors = string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose[..Math.Min(error.Verbose.Length, 200)]));
         var error = Assert.ContainsSingle(result.SyntaxErrors, errors);
-        Assert.AreEqual((VBCompileErrorId.SyntaxError, SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose),
+        Assert.AreEqual((VBCompileErrorId.SyntaxError, RDCore.Parsing.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose),
             ((VBCompileErrorId)error.ErrorId, error.Verbose), errors);
     }
 
@@ -500,8 +500,8 @@ public sealed class ParserResilienceTests
         var result = new ModuleParser { RuleDepthCeiling = RuleDepthCeiling }.Parse(Uri, "Public Const Y = )\r\n" + AConstantNestedPastTheDepthTheParseReads_ThenAProcedure("x = 1"));
 
         var errors = string.Join("; ", result.SyntaxErrors.Select(error => $"{error.ErrorId} {error.Location.Range.Start.Line} {error.Verbose[..Math.Min(error.Verbose.Length, 100)]}"));
-        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Location.Range.Start.Line == 0 && error.Verbose != SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);
-        Assert.AreEqual(SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose, result.SyntaxErrors[^1].Verbose, errors);
+        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Location.Range.Start.Line == 0 && error.Verbose != RDCore.Parsing.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);
+        Assert.AreEqual(RDCore.Parsing.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose, result.SyntaxErrors[^1].Verbose, errors);
     }
 
     [TestMethod]

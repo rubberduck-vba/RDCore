@@ -148,7 +148,7 @@ public class BlankRunLexingTests
             $"#Const L = {new string('-', ModuleParser.MaxExpressionNesting + 1)}1\r\nPublic Const X = {new string('(', ceiling)}1{new string(')', ceiling)}\r\n");
 
         var errors = string.Join(" | ", result.SyntaxErrors.Select(error => $"{error.VBCompileErrorId}@{error.Location.Range.Start.Line}"));
-        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Verbose == SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);
+        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Verbose == RDCore.Parsing.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose), errors);
         Assert.IsTrue(result.SyntaxErrors.Any(error => error.VBCompileErrorId == VBCompileErrorId.ExpressionNestedTooDeeply && error.Location.Range.Start.Line == 0), errors);
         var constant = result.PrecompilerTrivia.SelectMany(node => node.Descendants().Prepend(node)).OfType<PrecompilerConstantDeclarationNode>().Single();
         Assert.IsTrue(constant.Descendants().Any(node => node is UnbuiltExpressionTriviaNode), "the constant's value past the limit is an error node");
