@@ -1065,7 +1065,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return ToFailureOutcome(rangeResult);
         }
 
-        if (((VBBooleanValue)rangeResult.Result!).Value.StoredValue != 0)
+        if (rangeResult.Result is not VBBooleanValue isOutOfRange)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (isOutOfRange.Value.StoredValue != 0)
         {
             // steps 1/2: already out of range - the body never runs at all.
             if (instruction.End is not { } end)
@@ -1157,7 +1162,12 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return ToFailureOutcome(rangeResult);
         }
 
-        if (((VBBooleanValue)rangeResult.Result!).Value.StoredValue != 0)
+        if (rangeResult.Result is not VBBooleanValue isOutOfRange)
+        {
+            return RuntimeExecutionOutcome.InternalError;
+        }
+
+        if (isOutOfRange.Value.StoredValue != 0)
         {
             activation.Pc = instruction.Offset + 1; // out of range - the loop ends here.
         }
