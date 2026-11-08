@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RDCore.SDK;
+using RDCore.SDK.Client;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
