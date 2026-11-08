@@ -86,6 +86,45 @@ public static class RefactoringTitles
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
     public static string RenameInStringLeave(CultureInfo? culture = null) => Say("Rename_InString_Leave", culture);
 
+    /// <summary>
+    /// The label of a rename's edits of the members accessed late-bound that may be the symbol (<see cref="RenameEdit.IsLateBound"/>):
+    /// <c>Accessed late-bound</c>. A client that takes change annotations shows it with the edits it asks its user to confirm (<strong>LSP 3.17</strong>
+    /// <c>ChangeAnnotation.label</c>).
+    /// </summary>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameLateBoundLabel(CultureInfo? culture = null) => Say("Rename_LateBound_Label", culture);
+
+    /// <summary>
+    /// What the edits of <see cref="RenameLateBoundLabel"/> are, less prominently than the label (<strong>LSP 3.17</strong> <c>ChangeAnnotation.description</c>):
+    /// why the user is asked.
+    /// </summary>
+    /// <param name="name">The name the symbol is declared with.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameLateBoundDescription(string name, CultureInfo? culture = null) => Say("Rename_LateBound_Description", culture, name);
+
+    /// <summary>
+    /// What a client that does not take change annotations asks its user before the rename edits the members accessed late-bound that may be the symbol:
+    /// <c>'Foo' may be accessed late-bound in 2 places, the first at Module1 4:12. Rename it there too?</c>
+    /// </summary>
+    /// <param name="name">The name the symbol is declared with.</param>
+    /// <param name="count">How many late-bound accesses the rename edits.</param>
+    /// <param name="where">Where the first of them is, as the client names a position.</param>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameLateBoundQuestion(string name, int count, string where, CultureInfo? culture = null)
+        => Say(count == 1 ? "Rename_LateBound_Question_One" : "Rename_LateBound_Question_Many", culture, name, count, where);
+
+    /// <summary>
+    /// The answer to <see cref="RenameLateBoundQuestion"/> that renames the late-bound accesses too.
+    /// </summary>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameLateBoundRename(CultureInfo? culture = null) => Say("Rename_LateBound_Rename", culture);
+
+    /// <summary>
+    /// The answer to <see cref="RenameLateBoundQuestion"/> that renames the symbol and leaves the late-bound accesses as they are.
+    /// </summary>
+    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
+    public static string RenameLateBoundLeave(CultureInfo? culture = null) => Say("Rename_LateBound_Leave", culture);
+
     private static string Say(string key, CultureInfo? culture, params object[] arguments)
     {
         culture ??= CultureInfo.CurrentUICulture;

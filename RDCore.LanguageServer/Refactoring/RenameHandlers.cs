@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Server.Services;
 
 namespace RDCore.LanguageServer.Refactoring;
 
@@ -18,12 +19,16 @@ namespace RDCore.LanguageServer.Refactoring;
 /// declare - is answered with an error that says why, which a client shows its user.
 /// </para>
 /// <para>
-/// The edits of the strings a library calls the symbol by are the user's to confirm (<see cref="RenameWorkspace.InString"/>): a client that takes change
-/// annotations asks them itself; any other is asked for them (<c>window/showMessageRequest</c>) before it is answered: with the strings renamed, the strings
-/// left, or nothing at all when the user does not choose.
+/// The edits of the strings a library calls the symbol by (<see cref="RenameWorkspace.InString"/>), and of the members accessed late-bound that may be the
+/// symbol (<see cref="RenameWorkspace.LateBound"/>), are the user's to confirm: a client that takes change annotations asks them itself; any other is asked
+/// for them (<c>window/showMessageRequest</c>), one question for each, before it is answered: with them renamed, them left, or nothing at all when the user
+/// does not choose.
+/// </para>
+/// <para>
+/// A client that can't ask its user (<see cref="SDK.Client.Unattended"/>) is sent none of the late-bound edits, and the rest of the rename.
 /// </para>
 /// </remarks>
-internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade server) : RenameHandlerBase
+internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade server, IServiceProvider services) : RenameHandlerBase
 {
     // what the client said it can do, as it initialized: the edits are sent in the form it applies.
     private ClientCapabilities? _client;
@@ -32,21 +37,31 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
     {
         var answer = await rename.RenameAsync(request.TextDocument.Uri.ToUri(), request.Position, request.NewName, cancellationToken);
         var edit = answer.ValueOrRefusal();
-        if (answer.Question is { } question && !_client.TakesChangeAnnotations())
+        foreach (var question in answer.Questions ?? [])
         {
-            var renameThem = RefactoringTitles.RenameInStringRename();
-            var leaveThem = RefactoringTitles.RenameInStringLeave();
+            // a late-bound access that no user can confirm is not renamed: which member it calls is only known when the code runs.
+            if (question.Annotation == RenameWorkspace.LateBound && IsUnattended())
+            {
+                edit = Without(edit, question.Annotation);
+                continue;
+            }
+
+            if (_client.TakesChangeAnnotations())
+            {
+                continue;
+            }
+
             var chosen = await server.Window.ShowMessageRequest(new ShowMessageRequestParams
             {
                 Type = MessageType.Warning,
-                Message = question,
-                Actions = new Container<MessageActionItem>(new MessageActionItem { Title = renameThem }, new MessageActionItem { Title = leaveThem }),
+                Message = question.Message,
+                Actions = new Container<MessageActionItem>(new MessageActionItem { Title = question.Rename }, new MessageActionItem { Title = question.Leave }),
             }, cancellationToken);
-            if (chosen?.Title == renameThem)
+            if (chosen?.Title == question.Rename)
             {
-                edit = Confirmed(edit);
+                edit = Confirmed(edit, question.Annotation);
             }
-            else if (chosen?.Title != leaveThem)
+            else if (chosen?.Title != question.Leave)
             {
                 return null;
             }
@@ -63,10 +78,30 @@ internal sealed class RenameHandler(IRenameService rename, ILanguageServerFacade
         }
     }
 
-    // the edit as the user confirmed it: what needed confirming no longer does, and is sent as the other edits are.
-    private static WorkspaceEdit Confirmed(WorkspaceEdit edit) => edit with
+    // whether the client said it runs with no user to ask (the platform handshake).
+    private bool IsUnattended()
+        => services.GetService(typeof(IPlatformClientCapabilitiesService)) is IPlatformClientCapabilitiesService expected
+            && expected.Expects(capabilities => capabilities.Unattended);
+
+    // the edit as the user confirmed it: the edits of the annotation no longer need confirming, and are sent as the other edits are.
+    private static WorkspaceEdit Confirmed(WorkspaceEdit edit, ChangeAnnotationIdentifier confirmed) => edit with
     {
-        ChangeAnnotations = edit.ChangeAnnotations?.ToDictionary(annotation => annotation.Key, annotation => annotation.Value with { NeedsConfirmation = false }),
+        ChangeAnnotations = edit.ChangeAnnotations?.ToDictionary(annotation => annotation.Key,
+            annotation => annotation.Key == confirmed ? annotation.Value with { NeedsConfirmation = false } : annotation.Value),
+    };
+
+    // the edit without the edits of the annotation, nor the annotation.
+    private static WorkspaceEdit Without(WorkspaceEdit edit, ChangeAnnotationIdentifier left) => edit with
+    {
+        DocumentChanges = edit.DocumentChanges is { } changes
+            ? new Container<WorkspaceEditDocumentChange>(changes.Select(change => change.IsTextDocumentEdit
+                ? new WorkspaceEditDocumentChange(change.TextDocumentEdit! with
+                {
+                    Edits = new TextEditContainer(change.TextDocumentEdit.Edits.Where(each => each is not AnnotatedTextEdit { AnnotationId: var id } || id != left)),
+                })
+                : change))
+            : null,
+        ChangeAnnotations = edit.ChangeAnnotations?.Where(annotation => annotation.Key != left).ToDictionary() is { Count: > 0 } kept ? kept : null,
     };
 
     protected override RenameRegistrationOptions CreateRegistrationOptions(RenameCapability capability, ClientCapabilities clientCapabilities)
