@@ -168,6 +168,33 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     public Task<ExecuteResult> RunAsync(
         RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate = false, bool streamOutput = false,
         bool unattended = false)
+        => StartAsync(pipeline, entryPoint, debug, token, immediate, streamOutput, unattended, started: null);
+
+    /// <summary>
+    /// Runs a program from its entry point to its end as a command line starts one: not under a debugger, with the arguments it was started with, and its output
+    /// said as it is printed.
+    /// </summary>
+    /// <param name="pipeline">What runs it. Composed for this run: the run is cancelled through it.</param>
+    /// <param name="entryPoint">The procedure to run.</param>
+    /// <param name="arguments">
+    /// What the program was started with, which a <c>ParamArray</c> the entry point declares collects
+    /// (<see cref="RuntimeProcedureInvoker.ProgramArguments(VBTypeMemberSymbol, IReadOnlyList{string})"/>).
+    /// </param>
+    /// <param name="printed">Receives each line the program prints, as it is completed. A line the program leaves open is the output of the result.</param>
+    /// <param name="token">The cancellation of the run.</param>
+    /// <param name="unattended">Whether nobody is there to answer a dialog the program opens, which fails the run (<see cref="IRuntimeSession.RunsUnattended"/>).</param>
+    /// <returns>How it ended. A program that is suspended is let go of, and one that is running is refused, as they are for any run.</returns>
+    public Task<ExecuteResult> RunAsync(
+        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, IReadOnlyList<string> arguments, Action<string> printed, CancellationToken token,
+        bool unattended = false)
+        => StartAsync(pipeline, entryPoint, debug: false, token, immediate: false, streamOutput: false, unattended, new ProgramStart(arguments, printed));
+
+    // what a command line starts a program with, and where it says what the program prints.
+    private sealed record class ProgramStart(IReadOnlyList<string> Arguments, Action<string> Printed);
+
+    private Task<ExecuteResult> StartAsync(
+        RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, bool debug, CancellationToken token, bool immediate, bool streamOutput, bool unattended,
+        ProgramStart? started)
     {
         var session = provider.Session;
         lock (_sync)
@@ -211,7 +238,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         // an edit made while it runs or waits takes no value from it (HeldDefinitions).
         HeldDefinitions.Hold(session);
 
-        return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : OffTheConnectionAsync(() => RunToTheEnd(session, pipeline, entryPoint, token));
+        return debug ? RunUnderDebuggerAsync(session, pipeline, entryPoint, token) : OffTheConnectionAsync(() => RunToTheEnd(session, pipeline, entryPoint, token, started));
     }
 
     /// <summary>
@@ -892,15 +919,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     // ---- a run that is not under a debugger ----
 
-    private ExecuteResult RunToTheEnd(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token)
+    private ExecuteResult RunToTheEnd(IRuntimeSession session, RuntimeExecutionPipeline pipeline, VBTypeMemberSymbol entryPoint, CancellationToken token, ProgramStart? started)
     {
         // the session is this host's own and outlives the run; the output buffer and the cancellation
         // are this run's, so the pipeline is composed per run and the output routed for its duration.
-        var output = new RuntimeOutputBuffer();
+        var output = started is null ? new RuntimeOutputBuffer() : new RuntimeOutputBuffer(started.Printed);
         provider.Output.Target = output;
         try
         {
-            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, RuntimeProcedureInvoker.ProgramArguments(entryPoint)), session, output, token);
+            var arguments = started is null
+                ? RuntimeProcedureInvoker.ProgramArguments(entryPoint)
+                : RuntimeProcedureInvoker.ProgramArguments(entryPoint, started.Arguments);
+            return Report(pipeline.Invoker.Invoke(entryPoint, session.Symbols.Resolver, arguments), session, output, token);
         }
         finally
         {
