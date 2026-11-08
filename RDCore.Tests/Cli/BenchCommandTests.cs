@@ -343,10 +343,11 @@ public sealed class BenchCommandTests
         StringAssert.StartsWith(interpreted, "interpreted");
         StringAssert.Contains(interpreted, "Raise (line ");
 
-        // a member of an object is called by compiled code: the Set that gives the variable its object is the interpreter's, which makes it with New.
+        // a member of an object is called by compiled code, and the Set that gives the variable an object made with New is a support call the interpreter
+        // runs: nothing of the procedure is stepped.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "compiled");
-        StringAssert.Contains(objectCall, "an object made with New: Tally (line ");
+        Assert.IsFalse(objectCall.Contains("run by the interpreter", StringComparison.Ordinal), objectCall);
 
         // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");

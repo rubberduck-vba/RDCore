@@ -52,7 +52,7 @@ public sealed class CompiledBlockTests
             "        Next",
             "        Filled = Filled + .Count",
             "    End With",
-            "End Function"), "Filled", recoveries: 7);
+            "End Function"), "Filled", recoveries: 6);
 
         Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(SDK.Semantics.Instructions.InstructionKind.With) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
@@ -94,7 +94,7 @@ public sealed class CompiledBlockTests
             "        I = I + 1",
             "    Next",
             "    Summed = Summed + I",
-            "End Function"), "Summed", recoveries: 10);
+            "End Function"), "Summed", recoveries: 9);
 
     // the array a For Each reads is let go of when the loop ends, at its Next: the element V does not hold is gone before the call compiled code makes next.
     [TestMethod]

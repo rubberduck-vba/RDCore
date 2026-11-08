@@ -59,6 +59,40 @@ public sealed partial class CompiledActivation
         return true;
     }
 
+    /// <summary>
+    /// Runs the <c>Set</c> at <paramref name="pc"/> as the interpreter runs the statement (MS-VBAL §5.4.3.9): a support call, with every variable written into
+    /// the frame. What it is given - a call, a member of an object, <c>New</c> - is evaluated as the interpreter evaluates it, the call made once, and the
+    /// object it returns is Set-coerced after it. What the statement held while it ran is let go of when it is over, as the interpreter lets go of it before
+    /// the next instruction: an object's <c>Terminate</c> runs there. The frame says the instruction is the one being run, as it does of a call.
+    /// </summary>
+    /// <returns>
+    /// Whether the statement completed. When not, the error it raised is the interpreter's to give the activation's handler, as a call's is
+    /// (<see cref="AfterFailedCall"/>): the statement is not run again.
+    /// </returns>
+    public bool RunSetStatement(int pc)
+    {
+        // the frame the statement resolves its names in: an activation without one is given it now.
+        Frame.Pc = pc;
+        _failed = null;
+        _suspensionsBeforeCall = Suspensions;
+        var temporaries = _session.Objects.TemporaryCount;
+        var outcome = _executor.Statements.Execute(_session, _context, Body.Items[pc].Node!);
+
+        // a program that was stopped does not unwind (ProcedureExecutor.Run).
+        if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
+        {
+            ObjectReferences.ReleaseTemporaries(_session, temporaries);
+        }
+
+        if (outcome.Kind is RuntimeExecutionOutcomeKind.Next)
+        {
+            return true;
+        }
+
+        _failed = outcome.Kind is RuntimeExecutionOutcomeKind.Error ? outcome : RuntimeExecutionOutcome.InternalError;
+        return false;
+    }
+
     // the value of the Set at offset Set-coerced to declared (MS-VBAL §5.5.2.2): the object held in source, which is a copy of its reference and not a view of
     // the cell, or Nothing. None when the cell holds no reference compiled code reads, or the value does not Set-coerce.
     private VBTypedValue? Coerced(int offset, object? source, bool nothing, VBType declared)

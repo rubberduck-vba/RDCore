@@ -495,6 +495,10 @@ internal sealed partial class ProcedureEmitter
                 EmitTextLet(textLet);
                 break;
 
+            case SetStatementStep setStatement:
+                EmitSetStatement(setStatement);
+                break;
+
             case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
                 EmitArrayStep(step);
                 break;

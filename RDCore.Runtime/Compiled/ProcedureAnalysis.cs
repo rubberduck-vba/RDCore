@@ -564,7 +564,7 @@ internal sealed partial class ProcedureAnalysis
                 return AnalyzeLet(instruction.Offset, assignment);
 
             case InstructionKind.Simple when instruction.Node is AssignmentStatementNode { Kind: AssignmentKind.Set } set:
-                return AnalyzeSet(instruction.Offset, set);
+                return AnalyzeSet(instruction, set);
 
             case InstructionKind.Simple when instruction.Node is CallStatementNode call:
                 return Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments)) switch
