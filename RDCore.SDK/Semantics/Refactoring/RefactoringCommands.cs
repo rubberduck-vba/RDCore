@@ -49,7 +49,7 @@ public static class RefactoringTitles
         => Say(count switch { 0 => "CodeLens_References_None", 1 => "CodeLens_References_One", _ => "CodeLens_References_Many" }, culture, count);
 
     /// <summary>
-    /// The label of a rename's edits of the strings a library calls the symbol by (<see cref="RenameEdit.IsInString"/>): <c>Called by its name in a string</c>.
+    /// The label of a rename's edits of the strings a library calls the symbol by (<c>RenameEdit.IsInString</c>): <c>Called by its name in a string</c>.
     /// A client that takes change annotations shows it with the edits it asks its user to confirm (<strong>LSP 3.17</strong> <c>ChangeAnnotation.label</c>).
     /// </summary>
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
