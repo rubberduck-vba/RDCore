@@ -147,8 +147,8 @@ public static class StringComparisonRulesExtensions
         /// comparison <c>=</c> makes: it searches the letters of both (<see cref="TextModeCharacters.Letters"/>) - folded to one case, and <c>æ</c>, <c>œ</c>,
         /// <c>ß</c> and <c>þ</c> as the two letters they expand to - and an occurrence may start or end inside a character that is expanded. It is found at the
         /// character it starts in: <c>InStr(1, "xæx", "ex", vbTextCompare)</c> is 2, and so is <c>InStr(1, "xaex", "æ", vbTextCompare)</c>. Nothing is ignored:
-        /// a soft hyphen, a full-width letter or katakana is a character of its own, where <c>=</c> would ignore it (MS-VBA, recorded in Excel: oracle\instr-text
-        /// N01-N06). MS-VBAL says nothing of how a text search matches.
+        /// a soft hyphen, a full-width letter or katakana is a character of its own, where <c>=</c> would ignore it (MS-VBA, observed in Excel).
+        /// MS-VBAL says nothing of how a text search matches.
         /// </remarks>
         /// <param name="source">The characters to search.</param>
         /// <param name="value">The characters to search for.</param>
@@ -176,7 +176,7 @@ public static class StringComparisonRulesExtensions
         /// <remarks>
         /// Text mode searches the letters as <c>TryFind</c> does, and takes an occurrence only where it starts and ends with a character: a part of a
         /// character that is expanded is not replaced, nor split at. <c>Replace("xæx", "a", "-", , , vbTextCompare)</c> is <c>"xæx"</c>, and
-        /// <c>Replace("xaex", "æ", "-", , , vbTextCompare)</c> is <c>"x-x"</c> (MS-VBA, recorded in Excel: oracle\instr-text N07). A zero-length
+        /// <c>Replace("xaex", "æ", "-", , , vbTextCompare)</c> is <c>"x-x"</c> (MS-VBA, observed in Excel). A zero-length
         /// <paramref name="value"/> finds nothing - there is no run to replace or to split at.
         /// </remarks>
         /// <param name="source">The characters to search.</param>

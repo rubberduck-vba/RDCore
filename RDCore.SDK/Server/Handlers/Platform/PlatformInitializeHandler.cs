@@ -19,6 +19,9 @@ public sealed record class PlatformComponentContext(CoreServerComponent Componen
 /// capabilities its entry assembly declares via <c>[assembly: ProvidesCorePlatformClientCapability&lt;T&gt;]</c>,
 /// and records what the caller said it expects of this server.
 /// </summary>
+/// <param name="logger">The handler's logger.</param>
+/// <param name="context">This server's platform component.</param>
+/// <param name="clientCapabilities">Where what the caller expects of this server is recorded.</param>
 [Method(RDCorePlatformProtocol.PlatformInitialize, Direction.ClientToServer)]
 internal class PlatformInitializeHandler(
     ILogger<IJsonRpcHandler> logger,
