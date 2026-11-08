@@ -587,29 +587,4 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     };
 
     private static bool IsByRef(ParameterKind kind) => kind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
-
-    /// <inheritdoc/>
-    public IBindingHandle GetValue(Symbol symbol)
-        => throw new NotSupportedException("The scope-tree resolver binds names only; it holds no run-time bindings.");
-
-    /// <inheritdoc/>
-    public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
-    {
-        value = null;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
-    {
-        address = default;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
-    {
-        address = default;
-        return false;
-    }
 }

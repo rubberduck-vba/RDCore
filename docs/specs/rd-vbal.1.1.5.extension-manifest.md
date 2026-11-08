@@ -70,7 +70,7 @@ An extension manifest discovered under the platform's `./extensions` folder must
 
 The validation flags are documented by [ExtensionValidationFlags](../api/RDCore.SDK.Extensibility.ExtensionValidationFlags.html).
 
-A valid extension is still not started when its `DiagnosticPrefix` is not three letters `A` to `Z`, is one of the language's own (`VBC`, `VBR`, `VBA`), or is already declared by an extension found earlier ([**RD-VBAL §1.1.4** Declaring a Prefix](rd-vbal.1.1.4.core-diagnostics.md#declaring-a-prefix)).
+A valid extension is still not started when its `DiagnosticPrefix` is not its own: not three letters `A` to `Z`, one of the language's own (`VBC`, `VBR`, `VBA`), a first-party prefix (`RDC`, `RDX`) of an extension other than the core extension, or a prefix another extension also declares ([**RD-VBAL §1.1.4** Declaring a Prefix](rd-vbal.1.1.4.core-diagnostics.md#declaring-a-prefix)).
 
 The environment host may prompt to allow discovered extensions that do not appear in the platform extension configuration. Whether the host prompts to allow, or automatically blocks, non-configured extensions depends on the host implementation.
 

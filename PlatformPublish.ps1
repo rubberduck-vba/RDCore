@@ -300,6 +300,8 @@ $Manifest = ConvertTo-ManifestJson ([ordered]@{
     parseServer = "RDCore.Parsing/RDCore.ParseServer.exe"
 
     extensionsDirectory = "Extensions"
+    # the extension the platform bundles: the first-party diagnostic prefixes (RDC, RDX) are its own.
+    coreExtension = "RDCore.Diagnostics"
 })
 
 $ManifestPath = Join-Path $PlatformRoot "rdcore.json"

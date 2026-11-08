@@ -9,7 +9,6 @@ using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -27,6 +26,9 @@ using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
 using System.Globalization;
 using System.IO.Abstractions;
+using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Diagnostics;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Workspace.Forms;
 

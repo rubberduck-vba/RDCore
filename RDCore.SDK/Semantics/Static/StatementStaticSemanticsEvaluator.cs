@@ -1359,7 +1359,7 @@ public static class StatementStaticSemanticsEvaluator
     private static bool SetsThroughWhatItReturns(StaticEvaluationContext context, VBType returned) => returned switch
     {
         VBObjectType or VBVariantType => true,
-        VBClassType { Symbol: var snapshot } declared when CurrentTypes.Of(context, declared) is { DefaultMember: { } defaultMember }
+        VBClassType { Symbol: var snapshot } declared when CurrentTypes.Of(context.Resolver, declared) is { DefaultMember: { } defaultMember }
             => (VBProjectSymbol.ResolveClass(context.Resolver, snapshot) ?? snapshot).Members.Any(member
                 => member is VBPropertySetMemberSymbol && string.Equals(member.Name, defaultMember.Name, StringComparison.OrdinalIgnoreCase)),
         _ => false,

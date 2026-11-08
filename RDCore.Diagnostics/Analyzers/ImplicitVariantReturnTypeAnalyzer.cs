@@ -1,7 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -16,7 +16,7 @@ internal sealed class ImplicitVariantReturnTypeAnalyzer : SyntaxTreeAnalyzer
             .Where(member => member.MemberKind is MemberKind.Function or MemberKind.PropertyGet or MemberKind.ExternalFunction)
             .Where(member => !ImplicitTypes.IsTypeStated(member, member.TypeHint) && ImplicitTypes.IsVariant(module, member.Name))
             .Select(member => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitVariantReturnType,
+                RDCoreDiagnosticId.ImplicitVariantReturnType.ToCode(),
                 member.NameRange ?? member.SourceLocation.Range,
                 DiagnosticSeverity.Information,
                 Say(RDCoreDiagnosticsResources.ImplicitVariantReturnType_Message, member.Name)));

@@ -228,20 +228,13 @@ internal static class ArgumentListStaticSemantics
         var mismatched = given switch
         {
             VBArrayType when argument is VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp } => true,
-            VBArrayType { ItemType: var item } => !SameElementType(expected, item),
+            VBArrayType { ItemType: var item } => !VBArrayType.SameElementType(expected, item),
             VBVariantType => true,
             _ => IsIntrinsic(given),
         };
         return mismatched ? VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatchArrayOrUserDefinedTypeExpected, argument.Location, NameOf(argument)) : null;
     }
 
-    // the same element type, of the same kind and name - an Enum is not mapped to Long, and a String * N is a String of another kind - or two Enums, as the
-    // call binds the parameter to it (RuntimeExpressionEvaluator.IsOfDeclaredType). A type that is not known is not a type that differs. A completion list
-    // offers an array argument by the same rule (CompletionArrayArgument).
-    internal static bool SameElementType(VBType expected, VBType item)
-        => expected is VBUnknownType || item is VBUnknownType
-            || expected is VBEnumType && item is VBEnumType
-            || expected.GetType() == item.GetType() && string.Equals(expected.Name, item.Name, StringComparison.OrdinalIgnoreCase);
 
     private static string NameOf(ExpressionNode argument) => argument switch
     {

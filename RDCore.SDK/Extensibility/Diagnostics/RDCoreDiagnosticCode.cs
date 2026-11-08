@@ -1,15 +1,15 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace RDCore.SDK.Model.Diagnostics;
+namespace RDCore.SDK.Extensibility.Diagnostics;
 
 /// <summary>
 /// The code a diagnostic is reported under: a prefix of three letters that says who issues it, and a number of five digits, as in <c>XYZ00042</c>
 /// (<strong>RD-VBAL §1.1.4</strong>).
 /// </summary>
 /// <remarks>
-/// The platform issues the <c>VBC</c>, <c>VBR</c> and <c>VBA</c> codes. Its first-party extensions issue the <c>RDC</c> codes, which
-/// <see cref="RDCoreDiagnosticId"/> names, and the <c>RDX</c> codes. An extension of another publisher reports its own diagnostics under the prefix its
-/// manifest declares (<see cref="Extensibility.ExtensionInfo.DiagnosticPrefix"/>), which no other started extension declares.
+/// The platform issues the <c>VBC</c>, <c>VBR</c> and <c>VBA</c> codes, and its core extension the <c>RDC</c> and <c>RDX</c> codes. An extension of another
+/// publisher reports its own diagnostics under the prefix its manifest declares (<see cref="ExtensionInfo.DiagnosticPrefix"/>), which no other started
+/// extension declares.
 /// </remarks>
 public readonly record struct RDCoreDiagnosticCode
 {
@@ -29,12 +29,12 @@ public readonly record struct RDCoreDiagnosticCode
     public const string ApplicationPrefix = "VBA";
 
     /// <summary>
-    /// The prefix of the codes of the core diagnostics (<see cref="RDCoreDiagnosticId"/>).
+    /// The prefix of the codes of the core diagnostics, which the core extension reports.
     /// </summary>
     public const string CorePrefix = "RDC";
 
     /// <summary>
-    /// The prefix of the codes of the diagnostics of the platform's other first-party extensions.
+    /// The prefix of the codes of the platform's extension diagnostics, which only the core extension reports.
     /// </summary>
     public const string ExtensionPrefix = "RDX";
 

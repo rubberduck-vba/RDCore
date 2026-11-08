@@ -2,7 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -28,7 +28,7 @@ internal sealed class ObsoleteGlobalModifierAnalyzer : SyntaxTreeAnalyzer
 
         return statements.Concat(members)
             .Select(declaration => new AnalyzerFinding(
-                RDCoreDiagnosticId.ObsoleteGlobalModifier,
+                RDCoreDiagnosticId.ObsoleteGlobalModifier.ToCode(),
                 ModuleLanguage.KeywordAt(declaration.SourceLocation.Range, Keyword.Length),
                 DiagnosticSeverity.Information,
                 RDCoreDiagnosticsResources.ObsoleteGlobalModifier_Message));

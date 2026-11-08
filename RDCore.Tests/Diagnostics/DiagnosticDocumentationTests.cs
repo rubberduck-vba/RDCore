@@ -1,5 +1,5 @@
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors;
+using RDCore.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

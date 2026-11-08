@@ -169,5 +169,5 @@ public interface IExternalDispatcher
     /// </remarks>
     /// <param name="request">The call to run.</param>
     /// <param name="resolver">A read-only interface over the current execution context.</param>
-    RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, ISymbolResolver resolver);
+    RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver);
 }

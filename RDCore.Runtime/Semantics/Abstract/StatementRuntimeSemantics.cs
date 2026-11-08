@@ -26,6 +26,6 @@ public abstract record class StatementRuntimeSemantics<TContext, TFlags> : Runti
     /// <param name="statement">The statement to be evaluated.</param>
     /// <param name="inputs">The inputs of the statement.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> encapsulating the result this statement (including any runtime error diagnostics).</returns>
-    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(ISymbolResolver resolver, StatementNode statement, VBTypedValue[] inputs)
+    protected virtual RuntimeSemanticsEvaluationResult EvaluateSemanticResult(IRuntimeSymbolResolver resolver, StatementNode statement, VBTypedValue[] inputs)
         => RuntimeSemanticsEvaluationResult.InternalError(); // TODO
 }

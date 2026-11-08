@@ -82,33 +82,78 @@ public sealed class ExtensionsClientDiscoverTests
         DiagnosticPrefix = prefix,
     };
 
-    private static (ExtensionsClient Sut, RecordingLogger Logger) Build(params ExtensionInfo[] manifests)
+    private static readonly string PlatformManifestPath = Path.Combine(Path.GetDirectoryName(ExtensionsRoot)!, PlatformManifest.FileName);
+
+    // coreExtension: what the platform manifest names; null for a platform with no manifest.
+    private static (ExtensionsClient Sut, RecordingLogger Logger) Build(string? coreExtension, params ExtensionInfo[] manifests)
     {
-        var fs = new MockFileSystem(manifests.ToDictionary(
+        var files = manifests.ToDictionary(
             manifest => Path.Combine(ExtensionsRoot, manifest.Title, "extension.manifest.json"),
-            manifest => new MockFileData(System.Text.Json.JsonSerializer.Serialize(manifest))));
+            manifest => new MockFileData(System.Text.Json.JsonSerializer.Serialize(manifest)));
+        if (coreExtension is not null)
+        {
+            files[PlatformManifestPath] = new MockFileData($$"""{ "extensionsDirectory": "Extensions", "coreExtension": "{{coreExtension}}" }""");
+        }
 
         var environment = Substitute.For<IPlatformEnvironment>();
         environment.Resolve("Extensions").Returns(ExtensionsRoot);
+        environment.ManifestPath.Returns(PlatformManifestPath);
 
         var logger = new RecordingLogger();
-        return (new ExtensionsClient(Options.Create(new SdkAppOptions()), Substitute.For<IExtensionManifestValidationService>(), fs, environment, logger), logger);
+        return (new ExtensionsClient(Options.Create(new SdkAppOptions()), Substitute.For<IExtensionManifestValidationService>(), new MockFileSystem(files), environment, logger), logger);
     }
 
+    private static (ExtensionsClient Sut, RecordingLogger Logger) Build(params ExtensionInfo[] manifests) => Build("Core", manifests);
+
+    private static IEnumerable<string> Warnings(RecordingLogger logger)
+        => logger.Entries.Where(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning).Select(entry => entry.Message);
+
     [TestMethod]
-    public void ASecondExtensionOfAPrefix_IsNotFound_AndIsLogged()
+    public void TwoExtensionsOfAPrefix_AreNeitherFound_AndEachIsLogged()
     {
         var (sut, logger) = Build(Manifest("Beta", "XYZ"), Manifest("Alpha", "XYZ"), Manifest("Gamma", null), Manifest("Delta", "QRS"));
 
         var found = sut.Discover().Select(extension => extension.Title).ToArray();
 
-        // the folders are read in the order of their names: Alpha has XYZ, and Beta is the second extension of it.
-        CollectionAssert.AreEqual(new[] { "Alpha", "Delta", "Gamma" }, found);
-        var warning = Assert.ContainsSingle(logger.Entries.Where(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning));
-        StringAssert.Contains(warning.Message, "'Beta'");
-        StringAssert.Contains(warning.Message, "'XYZ'");
-        StringAssert.Contains(warning.Message, "'Alpha'");
+        CollectionAssert.AreEqual(new[] { "Delta", "Gamma" }, found);
+        var warnings = Warnings(logger).ToArray();
+        Assert.HasCount(2, warnings);
+        Assert.IsTrue(warnings.Any(warning => warning.Contains("'Alpha'") && warning.Contains("'XYZ'") && warning.Contains("'Beta' also declares")), string.Join("\n", warnings));
+        Assert.IsTrue(warnings.Any(warning => warning.Contains("'Beta'") && warning.Contains("'XYZ'") && warning.Contains("'Alpha' also declares")), string.Join("\n", warnings));
     }
+
+    [TestMethod]
+    [DataRow("RDC")]
+    [DataRow("RDX")]
+    public void AFirstPartyPrefix_IsTheCoreExtensions_WhereverTheFoldersSort(string prefix)
+    {
+        // Aardvark sorts before Core, and Zebra after it: neither is the extension the platform bundles.
+        var (sut, logger) = Build(Manifest("Aardvark", prefix), Manifest("Core", "RDC"), Manifest("Zebra", prefix));
+
+        var found = sut.Discover().ToArray();
+
+        var core = Assert.ContainsSingle(found);
+        Assert.AreEqual("Core", core.Title);
+        Assert.IsTrue(core.IsCoreExtension);
+        var warnings = Warnings(logger).ToArray();
+        Assert.HasCount(2, warnings);
+        Assert.IsTrue(warnings.All(warning => warning.Contains("core extension's ('Core')")), string.Join("\n", warnings));
+    }
+
+    [TestMethod]
+    public void APlatformWithNoManifest_BundlesTheDiagnosticsExtension()
+    {
+        var (sut, _) = Build(coreExtension: null, Manifest("Aardvark", "RDC"), Manifest("RDCore.Diagnostics", "RDC"));
+
+        var core = Assert.ContainsSingle(sut.Discover().ToArray());
+
+        Assert.AreEqual("RDCore.Diagnostics", core.Title);
+        Assert.IsTrue(core.IsCoreExtension);
+    }
+
+    [TestMethod]
+    public void AnExtensionTheManifestDoesNotBundle_IsNotTheCoreExtension()
+        => Assert.IsFalse(Assert.ContainsSingle(Build(Manifest("Vendor", "XYZ")).Sut.Discover().ToArray()).IsCoreExtension);
 
     [TestMethod]
     public void AnExtensionOfOneOfTheLanguagesOwnPrefixes_IsNotFound()

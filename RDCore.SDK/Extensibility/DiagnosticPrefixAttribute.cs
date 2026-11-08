@@ -1,4 +1,4 @@
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.SDK.Extensibility;
 
@@ -7,10 +7,15 @@ namespace RDCore.SDK.Extensibility;
 /// <c>XYZ00042</c> (<strong>RD-VBAL §1.1.4</strong>).
 /// </summary>
 /// <remarks>
+/// <para>
 /// The prefix is written into the extension's manifest when the extension is described (<see cref="IExtensionsProvider.Describe"/>), as
-/// <see cref="ExtensionInfo.DiagnosticPrefix"/>. The language server starts one extension per prefix. It does not start an extension that declares one of
-/// the language's own prefixes (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>), or a prefix that an extension found earlier already declares
-/// (<see cref="ExtensionsClient.Discover"/>).
+/// <see cref="ExtensionInfo.DiagnosticPrefix"/>. The language server starts an extension only when its prefix is its own
+/// (<see cref="IExtensionsProvider.Discover"/>): the first-party prefixes (<c>RDC</c>, <c>RDX</c>) belong to the core extension, the language's
+/// (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>) belong to no extension, and two extensions that declare the same prefix are both left unstarted.
+/// </para>
+/// <para>
+/// A finding the extension reports under another prefix is dropped. A finding under its own prefix is reported under the extension's name.
+/// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
 public sealed class DiagnosticPrefixAttribute : Attribute

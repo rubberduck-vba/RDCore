@@ -4,8 +4,9 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.Runtime.LanguageCore.Refactoring;
 
 /// <summary>
 /// A symbol of a hierarchy - a procedure that calls or is called, a class that implements or is implemented - and where it is declared.

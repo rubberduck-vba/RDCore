@@ -27,7 +27,7 @@ public interface ICallableBinding : IBindingHandle
     /// </summary>
     /// <param name="resolver">A read-only interface over the current execution context.</param>
     /// <param name="args">The arguments of the call, without the receiver, which the binding passes itself.</param>
-    RuntimeSemanticsEvaluationResult Call(ISymbolResolver resolver, IRuntimeValue[] args);
+    RuntimeSemanticsEvaluationResult Call(IRuntimeSymbolResolver resolver, IRuntimeValue[] args);
 }
 
 /// <summary>

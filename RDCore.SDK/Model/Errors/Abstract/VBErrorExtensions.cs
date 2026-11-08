@@ -1,6 +1,4 @@
-﻿using RDCore.SDK.Model.Diagnostics;
-
-namespace RDCore.SDK.Model.Errors.Abstract;
+﻿namespace RDCore.SDK.Model.Errors.Abstract;
 
 /// <summary>
 /// Regroups extensions around <see cref="VBErrorInfo"/> to formalize RDCore <em>language core</em> error diagnostics and the base RDCore <em>extended semantic analytics diagnostics</em> - all are issued in <c>RDCore.Diagnostics</c>.
@@ -32,23 +30,6 @@ public static class VBErrorExtensions
             VBApplicationErrorInfo => Exceptions.ErrorTitle_Application,
             _ => info.ErrorId >= SemanticCompileErrorFloor ? Exceptions.ErrorTitle_Compile : Exceptions.ErrorTitle_Syntax,
         };
-    }
-
-    extension(RDCoreDiagnosticId id)
-    {
-        /// <summary>
-        /// Gets a formalized <strong><c>RDC00000</c></strong> diagnostics code for a RDCore <em>core diagnostic</em>.
-        /// </summary>
-        /// <remarks>
-        /// <em>Core diagnostics</em> are all the diagnostics issued by <c>RDCore.Diagnostics</c> analyzers.<br/>
-        /// 🧩 Diagnostics from <strong>other extensions must use a different prefix</strong> to ensure uniqueness and traceability.
-        /// </remarks>
-        public string ToDiagnosticCode() => id.ToCode().ToString();
-
-        /// <summary>
-        /// Gets the <strong><c>RDC00000</c></strong> code of a RDCore <em>core diagnostic</em>, as the code an <see cref="AnalyzerFinding"/> is reported under.
-        /// </summary>
-        public RDCoreDiagnosticCode ToCode() => new(RDCoreDiagnosticCode.CorePrefix, (int)id);
     }
 
     extension(VBSyntaxErrorInfo info)

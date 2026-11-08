@@ -2,6 +2,8 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 
@@ -73,7 +75,7 @@ public sealed class RDCoreDiagnosticCodeTests
     [TestMethod]
     public void AFindingOfACoreDiagnostic_IsItsId_AndLinksToItsPage()
     {
-        var finding = new AnalyzerFinding(RDCoreDiagnosticId.EditNotApplied, default(SourceRange), DiagnosticSeverity.Warning, "message");
+        var finding = new AnalyzerFinding(RDCoreDiagnosticId.EditNotApplied.ToCode(), default(SourceRange), DiagnosticSeverity.Warning, "message");
 
         var diagnostic = new DiagnosticFactory().FromAnalyzerFinding(finding);
 

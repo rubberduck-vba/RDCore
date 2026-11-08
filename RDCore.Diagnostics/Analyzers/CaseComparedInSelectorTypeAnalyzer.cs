@@ -1,7 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -28,7 +28,7 @@ internal sealed class CaseComparedInSelectorTypeAnalyzer : IModuleAnalyzer
             .Where(statement => statement.CaseClauseFlags is { } flags && (flags & Reported) == Reported)
             .DistinctBy(statement => statement.Node)
             .Select(statement => new AnalyzerFinding(
-                RDCoreDiagnosticId.CaseComparedInSelectorType,
+                RDCoreDiagnosticId.CaseComparedInSelectorType.ToCode(),
                 statement.Location.Range,
                 DiagnosticSeverity.Warning,
                 RDCoreDiagnosticsResources.CaseComparedInSelectorType_Message));

@@ -12,6 +12,7 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Services.States;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics;
 

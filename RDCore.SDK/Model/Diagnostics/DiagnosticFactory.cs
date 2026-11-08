@@ -5,6 +5,7 @@ using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.SDK.Model.Diagnostics;
 

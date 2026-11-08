@@ -1,6 +1,6 @@
 ﻿using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Server;
 using System.Runtime.CompilerServices;
 

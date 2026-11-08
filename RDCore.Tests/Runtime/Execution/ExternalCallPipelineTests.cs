@@ -60,7 +60,7 @@ public sealed class ExternalCallPipelineTests
 
         public bool CanDispatch(ExternalCallRequest request) => true;
 
-        public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+        public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
         {
             Dispatched = true;
             return RuntimeSemanticsEvaluationResult.Success(new VBLongValue(1));
@@ -75,7 +75,7 @@ public sealed class ExternalCallPipelineTests
         params IRuntimeValue[] arguments)
         => ExternalCallPipeline
             .For(session, provider is null ? [] : [provider], interceptor is null ? null : [interceptor])
-            .Invoke(new ExternalCallRequest(member, arguments), Substitute.For<ISymbolResolver>());
+            .Invoke(new ExternalCallRequest(member, arguments), Substitute.For<IRuntimeSymbolResolver>());
 
     [TestMethod]
     public void WithLibraryImportsDisabled_ALibraryCall_IsRefused()

@@ -159,7 +159,7 @@ public sealed class CallStackFrameTests
         Assert.IsTrue(caller.TryGetAddress(argument, out var address));
         callee.PushByRef(parameter, address);
 
-        callee.GetValue(parameter).SetValue(Substitute.For<ISymbolResolver>(), new VBLongValue(999).RuntimeValue);
+        callee.GetValue(parameter).SetValue(Substitute.For<IRuntimeSymbolResolver>(), new VBLongValue(999).RuntimeValue);
 
         Assert.AreEqual(999, caller.GetValue(argument).Value.BoxedValue);
     }

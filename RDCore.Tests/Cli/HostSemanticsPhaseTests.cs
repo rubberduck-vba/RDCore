@@ -1,11 +1,11 @@
 using RDCore.CLI.Host.Handlers;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using System.Collections.Immutable;
 using RDCore.SDK.Platform.Components;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Cli;
 

@@ -3,7 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -19,7 +19,7 @@ internal sealed class ObsoleteOnLocalErrorStatementAnalyzer : SyntaxTreeAnalyzer
         => module.Descendants()
             .Where(node => node is OnErrorGoToStatementNode { IsLocal: true } or OnErrorResumeStatementNode { IsLocal: true })
             .Select(statement => new AnalyzerFinding(
-                RDCoreDiagnosticId.ObsoleteOnLocalErrorStatement,
+                RDCoreDiagnosticId.ObsoleteOnLocalErrorStatement.ToCode(),
                 statement.SourceLocation.Range,
                 DiagnosticSeverity.Information,
                 RDCoreDiagnosticsResources.ObsoleteOnLocalErrorStatement_Message));

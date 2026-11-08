@@ -3,7 +3,6 @@ using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.SDK.Extensibility.Diagnostics;

@@ -35,7 +35,7 @@ public interface ILetCoercionRuntimeSemanticsProvider
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns>A <see cref="LetCoercionResult"/> that encapsulates the outcome of the evaluation.</returns>
     LetCoercionResult EvaluateLetCoercionSemantics(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame);
 
@@ -51,7 +51,7 @@ public interface ILetCoercionRuntimeSemanticsProvider
     /// </remarks>
     /// <returns>A <c>LetCoercionAnalysisContext</c> for the context of this let-coercion operation.</returns>
     LetCoercionAnalysisContext Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         LetCoercionStackFrame frame);
@@ -63,7 +63,7 @@ public interface ILetCoercionRuntimeSemanticsProvider
     /// <param name="resolver">A symbol lookup service.</param>
     /// <param name="expression">The <c>ExpressionNode</c> that is being evaluated.</param>
     /// <param name="frame">The coercion that is asked about.</param>
-    LetCoercionResult EvaluateUnstated(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    LetCoercionResult EvaluateUnstated(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
         => EvaluateLetCoercionSemantics(resolver, expression, frame);
 }
 
@@ -140,7 +140,7 @@ public class LetCoercionRuntimeSemanticsProvider(
             _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose, expression, [frame]));
 
     public LetCoercionAnalysisContext Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
@@ -149,7 +149,7 @@ public class LetCoercionRuntimeSemanticsProvider(
     // the result of the coercion is the evaluation's own when it has been evaluated already, which is what a coercion that is
     // observed has: describing it must not evaluate it twice.
     private LetCoercionAnalysisContext Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         LetCoercionStackFrame frame,
@@ -243,7 +243,7 @@ public class LetCoercionRuntimeSemanticsProvider(
     };
 
     public LetCoercionResult EvaluateLetCoercionSemantics(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
@@ -258,7 +258,7 @@ public class LetCoercionRuntimeSemanticsProvider(
 
     /// <inheritdoc/>
     /// <remarks>A coercion a strategy evaluates for it (a <c>Variant</c>'s value, coerced first) is not stated either.</remarks>
-    public LetCoercionResult EvaluateUnstated(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    public LetCoercionResult EvaluateUnstated(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
     {
         if (observation is null)
         {
@@ -275,7 +275,7 @@ public class LetCoercionRuntimeSemanticsProvider(
     // analysis of the coercion, and the error is the evaluation's own.
     private void Observe(
         AnalysisObservation target,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame,
         LetCoercionResult result)
@@ -310,7 +310,7 @@ public class LetCoercionRuntimeSemanticsProvider(
     }
 
     private LetCoercionResult EvaluateUnobserved(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
@@ -342,7 +342,7 @@ public class LetCoercionRuntimeSemanticsProvider(
             && ConversionPlanner.ForValue(ValueTypeOf(frame.SourceValue), frame.DestinationTypeDesc.Target).IsTypeMismatch;
 
     private LetCoercionResult Coerce(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
