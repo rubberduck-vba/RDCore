@@ -34,14 +34,14 @@ public sealed partial class CompiledActivation
         => !FailsAccessAtRandom() && record is VBUserDefinedTypeValue held && index < held.Fields.Length && held.Fields[index].ResolvedType is { } declared
             && RecordOperations.ObjectField(held, index) is ValueBindingHandle cell && TrySetIn(offset, cell, declared, source, nothing);
 
-    // the Set at offset of what holder holds to source's object, or Nothing, Set-coerced to declared: stored, counted, and what it held before let go of.
+    // the Set at offset of what holder holds to source's object, or Nothing, Set-coerced to declared.
     private bool TrySetIn(int offset, ValueBindingHandle holder, VBType declared, object? source, bool nothing)
-    {
-        if (Coerced(offset, source, nothing, declared) is not { } coerced)
-        {
-            return false;
-        }
+        => ValueOf(source, nothing) is { } value && Coerced(offset, value, declared) is { } coerced && Assign(holder, coerced);
 
+    // a Set-coerced value stored in holder, counted there, and what holder held before let go of (ObjectReferences.Rebind); false, with nothing stored, when
+    // letting go of what it held would destroy an object.
+    private bool Assign(ValueBindingHandle holder, VBTypedValue coerced)
+    {
         var before = ObjectReferences.HeldIn(_session, holder);
         if (Destroys(before))
         {
@@ -62,7 +62,8 @@ public sealed partial class CompiledActivation
     public bool TrySetResult(int offset, object? source, bool nothing)
     {
         if (FailsAccessAtRandom() || Frame is not { Procedure: ITypedSymbol function } frame
-            || Coerced(offset, source, nothing, function.ResolvedType) is not { } coerced
+            || ValueOf(source, nothing) is not { } value
+            || Coerced(offset, value, function.ResolvedType) is not { } coerced
             || Destroys(ObjectReferences.HeldIn(_session, frame.ResultCell)))
         {
             return false;
@@ -72,29 +73,17 @@ public sealed partial class CompiledActivation
         return true;
     }
 
-    // the value of the Set at offset Set-coerced to declared (MS-VBAL §5.5.2.2): the object held in source, which is a copy of its reference and not a view of
-    // the cell, or Nothing. None when the cell holds no reference compiled code reads, or the value does not Set-coerce.
-    private VBTypedValue? Coerced(int offset, object? source, bool nothing, VBType declared)
-    {
-        VBObjectValue value;
-        if (nothing)
-        {
-            value = VBObjectValue.Nothing;
-        }
-        else if (ObjectOperations.TryRead(source, out var instance))
-        {
-            value = new VBObjectValue(instance);
-        }
-        else
-        {
-            return null;
-        }
+    // the object held in source, which is a copy of its reference and not a view of the cell, or Nothing; none when the cell holds no reference compiled
+    // code reads.
+    private static VBObjectValue? ValueOf(object? source, bool nothing)
+        => nothing ? VBObjectValue.Nothing : ObjectOperations.TryRead(source, out var instance) ? new VBObjectValue(instance) : null;
 
-        return _executor.Expressions.SetCoercion is { } coercion
+    // the value of the Set at offset Set-coerced to declared (MS-VBAL §5.5.2.2); none when it does not Set-coerce.
+    private VBTypedValue? Coerced(int offset, VBObjectValue value, VBType declared)
+        => _executor.Expressions.SetCoercion is { } coercion
             && coercion.EvaluateSetCoercion(_session, ((AssignmentStatementNode)_list.Items[offset].Node!).Value, value, declared) is { IsSuccess: true } coerced
                 ? coerced.Result
                 : null;
-    }
 
     // whether letting go of what a cell held destroys an object: the cell is the last that holds it.
     private bool Destroys(ObjectReferences.Held held)
