@@ -218,6 +218,7 @@ public static class ExpressionStaticSemanticsEvaluator
         if (memberAccess.Owner is { } namespaceExpression
             && context.Resolver.NamespaceOf(namespaceExpression, context.Scope.Uri) is { } qualifier)
         {
+            DescribeNamespace(context, namespaceExpression, qualifier);
             return EvaluateNamespaceMember(context, expression, qualifier, memberAccess);
         }
 
@@ -263,6 +264,29 @@ public static class ExpressionStaticSemanticsEvaluator
         }
 
         return MemberAccessExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, ownerType);
+    }
+
+    // the project or the module that qualifies a member is no value, and is not evaluated: what it names is a fact all the same, of every part of it
+    // (`VBA.Strings` and `VBA`), so that the expression the member is written in is analyzed whole - written in another case than it is declared in, too.
+    private static void DescribeNamespace(StaticEvaluationContext context, ExpressionNode qualifierExpression, Symbol qualifier)
+    {
+        if (context.Facts is not { } facts)
+        {
+            return;
+        }
+
+        var written = qualifierExpression switch
+        {
+            SimpleNameExpressionNode name => name.IdentifierName,
+            MemberAccessExpressionNode access => access.Member.IdentifierName,
+            _ => qualifier.Name,
+        };
+        var flags = string.Equals(qualifier.Name, written, StringComparison.Ordinal) ? 0 : ValueExpressionSemanticFlags.CaseMismatch;
+        facts.Record(new ExpressionFact(qualifierExpression.Identity, qualifierExpression.Location, null, ExpressionClassification.Namespace, qualifier.SemanticId, flags));
+        if (qualifierExpression is MemberAccessExpressionNode { Owner: { } outer } && context.Resolver.NamespaceOf(outer, context.Scope.Uri) is { } outerQualifier)
+        {
+            DescribeNamespace(context, outer, outerQualifier);
+        }
     }
 
     // MS-VBAL §5.6.12, an <l-expression> classified as a project or a procedural module: the member access is the
