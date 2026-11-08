@@ -237,10 +237,8 @@ public sealed class ForLoopEvaluator(
     /// one completes when the counter falls below it.
     /// </summary>
     /// <remarks>
-    /// The comparison gives a <c>Boolean</c>, unless the counter is a <c>Variant</c> that holds <c>Null</c>: the comparison is then <c>Null</c>
-    /// (<strong>MS-VBAL §5.6.9.5</strong>), which is let-coerced to <c>Boolean</c> as a condition is (<strong>MS-VBAL §5.5.1.2</strong>), and so raises
-    /// error 94 (Invalid use of Null) at the counter. MS-VBA raises it at the <c>Next</c>, after it assigned the counter <c>Null</c>; under
-    /// <c>On Error Resume Next</c> it goes on after the loop (recorded in Excel).
+    /// A counter that is a <c>Variant</c> holding <c>Null</c> makes the comparison <c>Null</c> (<strong>MS-VBAL §5.6.9.5</strong>); let-coerced to
+    /// <c>Boolean</c> as a condition is (<strong>MS-VBAL §5.5.1.2</strong>), it raises error 94. See <strong>RD-VBAL §5.4.2.3</strong>.
     /// </remarks>
     /// <returns>A <c>Boolean</c>: <c>True</c> when the loop completes.</returns>
     public RuntimeSemanticsEvaluationResult IsOutOfRange(IRuntimeSession session, ForLoopState state, VBTypedValue counter)
