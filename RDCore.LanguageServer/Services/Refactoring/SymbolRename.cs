@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -16,30 +17,7 @@ using System.Globalization;
 using System.Resources;
 using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.Runtime.LanguageCore.Refactoring;
-
-/// <summary>
-/// A module of the workspace, as a rename reads it: its syntax tree, and the text the tree was parsed from.
-/// </summary>
-/// <param name="Module">The address of the module (<c>workspace#Module</c>), as the scope tree has it.</param>
-/// <param name="Syntax">The syntax tree of the module.</param>
-/// <param name="Source">The text of the module, whose lines the positions of <paramref name="Syntax"/> are positions of.</param>
-public sealed record class RenameModule(Uri Module, ModuleNode Syntax, string Source);
-
-/// <summary>
-/// What a rename is worked out in: the workspace, composed, and every module of it.
-/// </summary>
-/// <param name="Resolver">The resolver of the composed workspace, which says what each name means where it is written.</param>
-/// <param name="ScopeTree">The scope tree of the composed workspace.</param>
-/// <param name="Modules">Every module of the workspace: a name is renamed wherever it refers to the symbol, and nowhere else.</param>
-/// <param name="Environment">What the environment the code is compiled for decides, when it is stated.</param>
-/// <param name="ClassSources">
-/// What else knows the classes of the objects an expression may hold (<see cref="IPossibleClassesSource"/>), beyond the assignments of the code
-/// (<see cref="AssignedClasses"/>), which are always read.
-/// </param>
-public sealed record class RenameContext(
-    ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyList<RenameModule> Modules, StaticEnvironment? Environment = null,
-    IReadOnlyList<IPossibleClassesSource>? ClassSources = null);
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 /// <summary>
 /// Why a name is not renamed.
@@ -303,7 +281,7 @@ public static class SymbolRename
         {
             if (unknown.Kind == OccurrenceKind.String)
             {
-                if (IsCalledBy(context, symbols, unknown))
+                if (RenameBinding.IsCalledBy(context, symbols, unknown))
                 {
                     inStrings.Add(unknown);
                 }
@@ -311,15 +289,15 @@ public static class SymbolRename
                 continue;
             }
 
-            if (unknown.Kind == OccurrenceKind.Member || symbols.Any(symbol => ChainIndex(unknown.Scope, symbol) < int.MaxValue))
+            if (unknown.Kind == OccurrenceKind.Member || symbols.Any(symbol => RenameBinding.ChainIndex(unknown.Scope, symbol) < int.MaxValue))
             {
                 return Refused(new(RenameRefusalKind.Unresolved, target.Name, Module: unknown.Module, Position: unknown.Range.Start));
             }
         }
 
         var lateBound = old.Occurrences
-            .Select(occurrence => (Occurrence: occurrence, Match: LateBoundMatchOf(context, symbols, occurrence)))
-            .Where(site => site.Match != LateBoundMatch.None)
+            .Select(occurrence => (Occurrence: occurrence, Match: RenameBinding.LateBoundMatchOf(context, symbols, occurrence)))
+            .Where(site => site.Match != RenameBinding.LateBoundMatch.None)
             .ToList();
         var renamed = old.Occurrences.Where(occurrence => occurrence.Binding is { } binding && targets.Contains(binding)).ToList();
         if (ConflictOf(context, symbols, targets, renamed, newName) is { } conflict)
@@ -337,84 +315,10 @@ public static class SymbolRename
                 .Select(occurrence => new RenameEdit(occurrence.Module, occurrence.Range, newName, IsInString: true)))
             .Concat(lateBound
                 .DistinctBy(site => (site.Occurrence.Module.AbsoluteUri, site.Occurrence.Range))
-                .Select(site => new RenameEdit(site.Occurrence.Module, site.Occurrence.Range, newName, IsLateBound: true, IsBacked: site.Match == LateBoundMatch.Backed)))
+                .Select(site => new RenameEdit(site.Occurrence.Module, site.Occurrence.Range, newName, IsLateBound: true, IsBacked: site.Match == RenameBinding.LateBoundMatch.Backed)))
             .OrderBy(edit => edit.Module.AbsoluteUri, StringComparer.Ordinal)
             .ThenBy(edit => edit.Range.Start);
         return new([.. edits], null);
-    }
-
-    // whether a string a library calls a procedure by may name one of the symbols: only a member of a module is called by its name, and a string that names a
-    // module of the workspace names the member of that one.
-    internal static bool IsCalledBy(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence named)
-        => symbols.Any(symbol => NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri)) is VBModuleSymbol module
-            && (named.Qualifier is not { } qualifier
-                || string.Equals(qualifier, module.Name, StringComparison.OrdinalIgnoreCase)
-                || !context.Modules.Any(candidate => string.Equals(SymbolUri.ModuleNameOf(candidate.Module), qualifier, StringComparison.OrdinalIgnoreCase))));
-
-    // a member accessed late-bound, on an Object or a Variant: what it refers to is found when the code runs.
-    internal static bool IsLateBound(NameOccurrence occurrence)
-        => occurrence is { Binding: null, Kind: OccurrenceKind.Member, Fact: { } fact } && fact.Flags.HasFlag(ValueExpressionSemanticFlags.LateBound);
-
-    // whether a late-bound access may call one of the symbols: a member of a class that code outside of it can call, on an object that may be of that class.
-    internal static bool MayBeCalledLateBound(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence occurrence)
-        => LateBoundMatchOf(context, symbols, occurrence) != LateBoundMatch.None;
-
-    // whether a late-bound access may call one of the symbols, and whether what is known of the object says it may hold the symbol's class.
-    internal static LateBoundMatch LateBoundMatchOf(RenameContext context, IReadOnlyList<Symbol> symbols, NameOccurrence occurrence)
-    {
-        if (!IsLateBound(occurrence))
-        {
-            return LateBoundMatch.None;
-        }
-
-        var classes = symbols
-            .Where(symbol => symbol is AccessibleTypedSymbol { AccessModifier: not AccessModifier.Private } or VBTypeMemberSymbol { AccessModifier: not AccessModifier.Private })
-            .Select(symbol => NameOccurrences.SymbolOf(context, new SemanticId(symbol.ParentUri)))
-            .OfType<VBClassModuleSymbol>()
-            .Select(owner => owner.SemanticId)
-            .ToList();
-        if (classes.Count == 0)
-        {
-            return LateBoundMatch.None;
-        }
-
-        var possible = PossibleClassesOf(context, occurrence) ?? PossibleClasses.Unknown;
-        return classes.Any(possible.Classes.Contains) ? LateBoundMatch.Backed
-            : classes.Any(possible.MayBe) ? LateBoundMatch.Open
-            : LateBoundMatch.None;
-    }
-
-    // how a late-bound access may call a symbol: not at all, with what is known of the object backing it, or with nothing known that rules it out.
-    internal enum LateBoundMatch
-    {
-        None,
-        Open,
-        Backed,
-    }
-
-    // what is known of the classes of the object a late-bound member is accessed on: the expression before the '.', or the object of the With block it is in.
-    private static PossibleClasses? PossibleClassesOf(RenameContext context, NameOccurrence occurrence)
-    {
-        if (occurrence.Node is not MemberAccessExpressionNode access
-            || context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == occurrence.Module.AbsoluteUri) is not { } module)
-        {
-            return null;
-        }
-
-        var receiver = access.Owner ?? module.Syntax.Descendants().OfType<WithStatementNode>()
-            .Where(with => with.SourceLocation.Range.Start <= access.Location.Range.Start && access.Location.Range.End <= with.SourceLocation.Range.End)
-            .OrderByDescending(with => with.SourceLocation.Range.Start)
-            .FirstOrDefault()?.WithExpression;
-        if (receiver is null)
-        {
-            return null;
-        }
-
-        var query = new PossibleClassesQuery(new StaticEvaluationContext(context.Resolver, occurrence.Scope, Environment: context.Environment), receiver,
-            context.ScopeTree, module.Module, module.Syntax);
-        return PossibleClasses.Combine(((IReadOnlyList<IPossibleClassesSource>)[AssignedClasses.Instance, .. context.ClassSources ?? []])
-            .Select(source => source.ClassesOf(query))
-            .OfType<PossibleClasses>());
     }
 
     private static RenamePlan Refused(RenameRefusal refusal) => new([], refusal);
@@ -496,7 +400,7 @@ public static class SymbolRename
         {
             var meant = context.Resolver.ResolveValue(newName, ScopeKind.Local, occurrence.Scope.Uri).Symbol;
             if (meant is not null && !targets.Contains(meant.SemanticId)
-                && ChainIndex(occurrence.Scope, meant) <= symbols.Min(symbol => ChainIndex(occurrence.Scope, symbol)))
+                && RenameBinding.ChainIndex(occurrence.Scope, meant) <= symbols.Min(symbol => RenameBinding.ChainIndex(occurrence.Scope, symbol)))
             {
                 return ConflictWith(newName, meant, occurrence);
             }
@@ -506,14 +410,14 @@ public static class SymbolRename
         var current = NameOccurrences.Find(context, newName, context.Modules);
         foreach (var occurrence in current.Occurrences.Where(occurrence => occurrence.Kind == OccurrenceKind.Name && !(occurrence.Binding is { } binding && targets.Contains(binding))).Concat(current.Unknown))
         {
-            var nearest = symbols.Min(symbol => ChainIndex(occurrence.Scope, symbol));
+            var nearest = symbols.Min(symbol => RenameBinding.ChainIndex(occurrence.Scope, symbol));
             if (nearest == int.MaxValue)
             {
                 continue;
             }
 
             var meant = occurrence.Binding is { } bound ? NameOccurrences.SymbolOf(context, bound) : null;
-            if (meant is null || nearest <= ChainIndex(occurrence.Scope, meant))
+            if (meant is null || nearest <= RenameBinding.ChainIndex(occurrence.Scope, meant))
             {
                 return new(RenameRefusalKind.Conflict, newName, meant is null ? newName : NameOccurrences.Describe(meant), occurrence.Module, occurrence.Range.Start);
             }
@@ -527,23 +431,6 @@ public static class SymbolRename
         var at = where?.Module ?? (other is WorkspaceSymbol declared ? NameOccurrences.ModuleOf(other.Uri) : null);
         var position = where?.Range.Start ?? (other as WorkspaceSymbol)?.PrimarySelectionRange.Start ?? default;
         return new(RenameRefusalKind.Conflict, newName, NameOccurrences.Describe(other), at, position);
-    }
-
-    // how near a symbol is where a name is written: the index of the first scope, from there outward, that declares it; none when no scope there does.
-    internal static int ChainIndex(LexicalScope scope, Symbol symbol)
-    {
-        var index = 0;
-        foreach (var outer in scope.SelfAndAncestors())
-        {
-            if (outer.DeclaredAs(symbol.Name).Any(declared => declared.SemanticId == symbol.SemanticId))
-            {
-                return index;
-            }
-
-            index++;
-        }
-
-        return int.MaxValue;
     }
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;

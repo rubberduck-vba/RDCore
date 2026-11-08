@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -6,7 +7,7 @@ using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.Runtime.LanguageCore.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 /// <summary>
 /// A symbol of a hierarchy - a procedure that calls or is called, a class that implements or is implemented - and where it is declared.
@@ -42,14 +43,14 @@ public static class SymbolHierarchy
     /// </summary>
     /// <returns>The item; <see langword="null"/> for a name that names no procedure the workspace declares.</returns>
     public static HierarchyItem? PrepareCalls(RenameContext context, Uri module, SourcePosition position)
-        => SymbolNavigation.SymbolAt(context, module, position) is { Symbol: var symbol } && IsCallable(context, symbol) ? ItemOf(context, symbol) : null;
+        => RenameBinding.SymbolAt(context, module, position) is { Symbol: var symbol } && IsCallable(context, symbol) ? ItemOf(context, symbol) : null;
 
     /// <summary>
     /// The item of the type hierarchy named at <paramref name="position"/> of <paramref name="module"/>: a class module of the workspace.
     /// </summary>
     /// <returns>The item; <see langword="null"/> for a name that names no class the workspace declares.</returns>
     public static HierarchyItem? PrepareTypes(RenameContext context, Uri module, SourcePosition position)
-        => SymbolNavigation.SymbolAt(context, module, position) is { Symbol: VBClassModuleSymbol type } && NameOccurrences.IsDeclaredBy(context, type)
+        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBClassModuleSymbol type } && NameOccurrences.IsDeclaredBy(context, type)
             ? ItemOf(context, type)
             : null;
 

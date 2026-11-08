@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
@@ -5,7 +6,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 
-namespace RDCore.SDK.Semantics.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 /// <summary>
 /// The type a variable or a parameter has because it is declared without one, shown after its name (<strong>LSP 3.17</strong> §Inlay Hint Request).

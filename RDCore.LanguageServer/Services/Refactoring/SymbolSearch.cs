@@ -1,4 +1,6 @@
-namespace RDCore.SDK.Semantics.Refactoring;
+using RDCore.Runtime.LanguageCore.Refactoring;
+
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 /// <summary>
 /// How a name matches what a search for a symbol asks: from the closest match to the loosest. A name is matched regardless of case, as VBA names are.
