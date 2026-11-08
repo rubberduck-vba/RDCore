@@ -19,10 +19,14 @@ internal sealed class KnownOperands
 
     private KnownOperands(Dictionary<SyntaxNode, ScalarPayload> values) => _values = values;
 
-    /// <summary>Whether any activation holds known operands.</summary>
+    /// <summary>
+    /// Whether any activation holds known operands.
+    /// </summary>
     public static bool AnyHeld => Volatile.Read(ref s_held) != 0;
 
-    /// <summary>Counts an activation that holds known operands, or that no longer does.</summary>
+    /// <summary>
+    /// Counts an activation that takes known operands, or one that lets them go.
+    /// </summary>
     public static void Count(bool held) => _ = held ? Interlocked.Increment(ref s_held) : Interlocked.Decrement(ref s_held);
 
     /// <summary>
@@ -65,7 +69,9 @@ internal sealed class KnownOperands
         return -1;
     }
 
-    /// <summary>The value compiled code evaluated <paramref name="node"/> to, if it did.</summary>
+    /// <summary>
+    /// The value compiled code evaluated <paramref name="node"/> to, if it did.
+    /// </summary>
     public bool TryGet(SyntaxNode node, out ScalarPayload value) => _values.TryGetValue(node, out value);
 
     // a statement's nodes, the statement first, each before what it is made of; the statements of a block are not the statement's.

@@ -84,7 +84,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// </summary>
     internal KnownOperands? Known { get; private set; }
 
-    /// <summary>Gives the activation what compiled code had evaluated of the instruction at <see cref="Pc"/>.</summary>
+    /// <summary>
+    /// Gives the activation what compiled code had evaluated of the instruction at <see cref="Pc"/>.
+    /// </summary>
     internal void Know(KnownOperands known)
     {
         Forget();
@@ -92,7 +94,9 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         KnownOperands.Count(held: true);
     }
 
-    /// <summary>Lets go of what compiled code had evaluated of an instruction: the interpreter is past it.</summary>
+    /// <summary>
+    /// Lets go of what compiled code had evaluated of an instruction: the interpreter is past it.
+    /// </summary>
     internal void Forget()
     {
         if (Known is not null)
