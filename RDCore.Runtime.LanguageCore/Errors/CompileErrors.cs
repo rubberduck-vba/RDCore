@@ -8,94 +8,49 @@ using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.LanguageCore.Errors;
 
-/// <summary>
-/// Creates the compile errors of the language from their <see cref="VBCompileErrorId"/>, with the standard (localized) message of each.
-/// </summary>
 public static class CompileErrors
 {
     extension(VBCompileErrorId errorId)
     {
-        /// <summary>
-        /// The diagnostic code of the error: <c>VBC</c> and its number (<strong>RD-VBAL §2.6.3</strong>).
-        /// </summary>
+        // The diagnostic code of the error: VBC and its number (RD-VBAL §2.6.3).
         public RDCoreDiagnosticCode ToCode() => new(RDCoreDiagnosticCode.CompilePrefix, (int)errorId);
     }
 
     extension(VBCompileErrorInfo)
     {
-        /// <summary>
-        /// Creates a new <see cref="VBCompileErrorInfo"/> describing the specified <see cref="VBCompileErrorId"/> at the specified <see cref="SourceLocation"/>.
-        /// </summary>
-        /// <param name="errorId">The formal <see cref="VBCompileErrorId"/> value for this error.</param>
-        /// <param name="location">The document location of the problematic <em>node</em>.</param>
-        /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
-        /// <returns>A new instance of a <see cref="VBCompileErrorInfo"/> encapsulating the specified error metadata with a localized description string.</returns>
         public static VBCompileErrorInfo For(VBCompileErrorId errorId, SourceLocation location, string verbose)
             => new((int)errorId, location, MessageOf(errorId), verbose);
 
-        /// <summary>
-        /// Gets the standard (localized) error message for the specified <c>errorId</c>.
-        /// </summary>
-        /// <param name="errorId">The formal <see cref="VBCompileErrorId"/> value for this error.</param>
         public static string GetErrorString(VBCompileErrorId errorId) => MessageOf(errorId);
     }
 
     extension(VBCompileErrorInfo error)
     {
-        /// <summary>
-        /// The unique error ID for this compile-time error.
-        /// </summary>
-        /// <remarks>
-        /// 👉 While <em>compilation errors</em> technically encompass <em>syntax errors</em>, RD-VBA separates the two classes such that
-        /// <see cref="VBCompileErrorInfo"/> is reserved for errors that occur <em>after</em> an executable <em>abstract syntax tree</em> (AST) was successfully produced.
-        /// </remarks>
         public VBCompileErrorId VBCompileErrorId => (VBCompileErrorId)error.ErrorId;
     }
 
     extension(CompileErrorDto error)
     {
-        /// <summary>
-        /// The compile error the travelling error is.
-        /// </summary>
         public VBCompileErrorId Id => (VBCompileErrorId)error.Code.Number;
     }
 
     extension(SymbolResolutionResult)
     {
-        /// <summary>
-        /// The name is declared more than once in a single scope
-        /// (<see cref="VBCompileErrorId.DuplicateDeclaration"/>).
-        /// </summary>
         public static SymbolResolutionResult Duplicate(IEnumerable<Symbol> candidates)
             => Unresolved(VBCompileErrorId.DuplicateDeclaration, candidates);
 
-        /// <summary>
-        /// The name resolves in more than one enclosing scope and must be qualified
-        /// (<see cref="VBCompileErrorId.AmbiguousName"/>).
-        /// </summary>
         public static SymbolResolutionResult Ambiguous(IEnumerable<Symbol> candidates)
             => Unresolved(VBCompileErrorId.AmbiguousName, candidates);
 
-        /// <summary>
-        /// The name resolves to a property's <c>Get</c>/<c>Let</c>/<c>Set</c> accessors, but their
-        /// declarations are not a valid property (<see cref="VBCompileErrorId.InconsistentPropertyAccessors"/>).
-        /// </summary>
         public static SymbolResolutionResult InconsistentPropertyAccessors(IEnumerable<Symbol> candidates)
             => Unresolved(VBCompileErrorId.InconsistentPropertyAccessors, candidates);
 
-        /// <summary>
-        /// The name resolves to a <c>Property Let</c> or <c>Property Set</c> with no parameters at all
-        /// (<see cref="VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet"/>).
-        /// </summary>
         public static SymbolResolutionResult ArgumentRequiredForPropertyLetOrSet(IEnumerable<Symbol> candidates)
             => Unresolved(VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet, candidates);
     }
 
     extension(SymbolResolutionResult result)
     {
-        /// <summary>
-        /// The compile-time error the lookup hit, or <c>null</c>.
-        /// </summary>
         public VBCompileErrorId? ErrorId => result.ErrorCode is { } code ? (VBCompileErrorId)code.Number : null;
     }
 

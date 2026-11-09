@@ -4,73 +4,33 @@ using RDCore.SDK.Model.Source;
 
 namespace RDCore.Runtime.LanguageCore.Errors;
 
-/// <summary>
-/// Creates the run-time errors of the language from their <see cref="VBRuntimeErrorId"/>, with the standard message of each.
-/// </summary>
 public static class RuntimeErrors
 {
     extension(VBRuntimeErrorId errorId)
     {
-        /// <summary>
-        /// The diagnostic code of the error: <c>VBR</c> and its number (<strong>RD-VBAL §2.6.3</strong>).
-        /// </summary>
+        // The diagnostic code of the error: VBR and its number (RD-VBAL §2.6.3).
         public RDCoreDiagnosticCode ToCode() => new(RDCoreDiagnosticCode.RuntimePrefix, (int)errorId);
     }
 
     extension(VBRuntimeErrorInfo)
     {
-        /// <summary>
-        /// Creates a new <see cref="VBRuntimeErrorInfo"/> describing the specified <see cref="VBRuntimeErrorId"/> at the specified <see cref="SourceLocation"/>.
-        /// </summary>
-        /// <param name="errorId">The formal <see cref="VBRuntimeErrorId"/> value for this error.</param>
-        /// <param name="location">The document location of the problematic <em>node</em>.</param>
-        /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
-        /// <returns>A new instance of a <see cref="VBRuntimeErrorInfo"/> encapsulating the specified error metadata with a localized description string.</returns>
         public static VBRuntimeErrorInfo For(VBRuntimeErrorId errorId, SourceLocation location, string verbose)
             => new((int)errorId, location, MessageOf(errorId), verbose);
 
-        /// <summary>
-        /// Creates a new <see cref="VBRuntimeErrorInfo"/> describing the run-time error of the specified <c>VBR</c> code at the specified <see cref="SourceLocation"/>.
-        /// </summary>
-        /// <param name="code">The diagnostic code of the error: a <see cref="RDCoreDiagnosticCode.RuntimePrefix"/> code.</param>
-        /// <param name="location">The document location of the problematic <em>node</em>.</param>
-        /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
-        /// <exception cref="ArgumentException"><paramref name="code"/> is not a <see cref="RDCoreDiagnosticCode.RuntimePrefix"/> code.</exception>
         public static VBRuntimeErrorInfo For(RDCoreDiagnosticCode code, SourceLocation location, string verbose)
             => code.Prefix == RDCoreDiagnosticCode.RuntimePrefix
                 ? VBRuntimeErrorInfo.For((VBRuntimeErrorId)code.Number, location, verbose)
                 : throw new ArgumentException($"'{code}' is not the code of a run-time error.", nameof(code));
 
-        /// <summary>
-        /// Gets the standard (localized) error message for the specified <c>errorId</c>.
-        /// </summary>
-        /// <param name="errorId">The formal <see cref="VBRuntimeErrorId"/> value for this error.</param>
         public static string GetErrorString(VBRuntimeErrorId errorId) => MessageOf(errorId);
 
-        /// <summary>
-        /// The Classic-VB runtime error numbers and messages.
-        /// </summary>
-        /// <remarks>
-        /// 👉 The messages are in English only.
-        /// </remarks>
         public static IReadOnlyDictionary<VBRuntimeErrorId, string> VBRuntimeErrors => Messages;
     }
 
     extension(VBApplicationErrorInfo)
     {
-        /// <summary>
-        /// Creates the error an <c>Error</c> statement or an <c>Err.Raise</c> generates.
-        /// </summary>
-        /// <remarks>
-        /// The description is the raiser's own when it supplied one. Unspecified, <strong>MS-VBAL
-        /// §6.1.3.2.1.2</strong> says to use "the String that would be returned by the Error function" for
-        /// <paramref name="errorNumber"/>, or "Application-defined or object-defined error" when it
-        /// corresponds to no VBA error, which is what <c>GetErrorString</c> falls back to.
-        /// </remarks>
-        /// <param name="errorNumber">The error code the workspace raised.</param>
-        /// <param name="location">The document location of the <c>Error</c> statement or <c>Err.Raise</c> invocation.</param>
-        /// <param name="verbose">A detailed message that is optionally appended, depending on the current <em>server trace</em> configuration.</param>
-        /// <param name="description">The description the raiser supplied, or <c>null</c> to derive one from <paramref name="errorNumber"/>.</param>
+        // Unspecified, MS-VBAL §6.1.3.2.1.2 says to use "the String that would be returned by the Error function" for errorNumber, or "Application-defined or
+        // object-defined error" when it corresponds to no VBA error, which is what GetErrorString falls back to.
         public static VBApplicationErrorInfo Raised(int errorNumber, SourceLocation location, string verbose, string? description = null)
             => new(errorNumber, location, description ?? MessageOf((VBRuntimeErrorId)errorNumber), verbose);
     }

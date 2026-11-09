@@ -7,55 +7,30 @@ using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.CLI.ConsoleIO;
 
-/// <summary>
-/// An <see cref="ILogger"/> that renders structured console messages, plus typed overloads for the
-/// RD-VBA error kinds and pre-built <see cref="ConsoleMessageBuilder"/>s.
-/// </summary>
 public interface IRDCoreLogger : ILogger
 {
-    /// <summary>Renders a message at <paramref name="level"/> with an explicit title and verbose text.</summary>
     void Log(LogLevel level, string title, string message, string verbose);
 
-    /// <summary>Renders a syntax error.</summary>
     void Log(VBSyntaxErrorInfo error);
 
-    /// <summary>Renders a compile error.</summary>
     void Log(VBCompileErrorInfo error);
 
-    /// <summary>Renders a runtime error.</summary>
     void Log(VBRuntimeErrorInfo error);
 
-    /// <summary>Renders an application error.</summary>
     void Log(VBApplicationErrorInfo error);
 
-    /// <summary>Renders an exception.</summary>
     void Log(Exception exception);
 }
 
-/// <summary>
-/// An <see cref="ILoggerProvider"/> whose loggers render through an <see cref="IConsoleMessageWriter"/>.
-/// Add it to a host's logging pipeline to route <see cref="ILogger{TCategoryName}"/> output to the
-/// console renderer.
-/// </summary>
-/// <param name="options">Server options: supplies the trace-level floor and the verbose flag.</param>
-/// <param name="writer">The renderer messages are written to.</param>
 public sealed class RDCoreConsoleLoggerProvider(IOptions<SdkServerOptions> options, IConsoleMessageWriter writer) : ILoggerProvider
 {
-    /// <inheritdoc/>
     public ILogger CreateLogger(string categoryName) => new RDCoreConsoleLogger(options, writer);
 
-    /// <inheritdoc/>
     public void Dispose()
     {
     }
 }
 
-/// <summary>
-/// Renders <see cref="ILogger"/> calls as structured console messages through an
-/// <see cref="IConsoleMessageWriter"/>.
-/// </summary>
-/// <param name="options">Server options: supplies the trace-level floor and the verbose flag.</param>
-/// <param name="writer">The renderer messages are written to.</param>
 public class RDCoreConsoleLogger(IOptions<SdkServerOptions> options, IConsoleMessageWriter writer) : IRDCoreLogger
 {
     private sealed class NullScope : IDisposable
@@ -64,22 +39,15 @@ public class RDCoreConsoleLogger(IOptions<SdkServerOptions> options, IConsoleMes
         public void Dispose() { }
     }
 
-    /// <inheritdoc/>
     public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
 
-    /// <summary>
-    /// Enabled when <paramref name="logLevel"/> is at least as severe as the configured
-    /// <see cref="SdkServerOptions.TraceLevel"/> floor (and neither is <see cref="LogLevel.None"/>).
-    /// </summary>
     public bool IsEnabled(LogLevel logLevel)
         => logLevel != LogLevel.None
            && options.Value.TraceLevel != LogLevel.None
            && logLevel >= options.Value.TraceLevel;
 
-    /// <summary>Renders a pre-built message.</summary>
     public void Log(ConsoleMessageBuilder builder) => writer.WriteMessage(builder);
 
-    /// <inheritdoc/>
     public void Log(LogLevel level, string title, string message, string verbose)
     {
         if (!IsEnabled(level))
@@ -130,19 +98,14 @@ public class RDCoreConsoleLogger(IOptions<SdkServerOptions> options, IConsoleMes
         writer.WriteMessage(builder);
     }
 
-    /// <inheritdoc/>
     public void Log(VBSyntaxErrorInfo error) => Log(error, error.ToDiagnosticCode());
 
-    /// <inheritdoc/>
     public void Log(VBCompileErrorInfo error) => Log(error, error.ToDiagnosticCode());
 
-    /// <inheritdoc/>
     public void Log(VBRuntimeErrorInfo error) => Log(error, error.ToDiagnosticCode());
 
-    /// <inheritdoc/>
     public void Log(VBApplicationErrorInfo error) => Log(error, error.ToDiagnosticCode());
 
-    /// <inheritdoc/>
     public void Log(Exception exception)
     {
         if (!IsEnabled(LogLevel.Critical))
@@ -162,7 +125,6 @@ public class RDCoreConsoleLogger(IOptions<SdkServerOptions> options, IConsoleMes
         writer.WriteMessage(builder);
     }
 
-    /// <inheritdoc/>
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
         if (!IsEnabled(logLevel))

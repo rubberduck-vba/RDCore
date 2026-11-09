@@ -1,31 +1,9 @@
 namespace RDCore.CLI.ConsoleIO;
 
-/// <summary>
-/// A 24-bit console colour, as a shell frame understands it: three channels, no style semantics, no
-/// renderer dependency.
-/// </summary>
-/// <remarks>
-/// The platform's themes are authored in 24-bit hex (<c>#0c0a50</c>), but a console frame needs both
-/// that exact value (for the ANSI escape sequences that set the terminal's own default colours) and
-/// its nearest legacy <see cref="ConsoleColor"/> (for a terminal that cannot do either). This type
-/// carries the first and computes the second, so neither the renderer nor the theme layer has to.
-/// </remarks>
-/// <param name="R">The red channel.</param>
-/// <param name="G">The green channel.</param>
-/// <param name="B">The blue channel.</param>
 public readonly record struct ConsoleRgbColor(byte R, byte G, byte B)
 {
-    /// <summary>
-    /// Black: the value <see cref="TryParse"/> yields for an unparseable token.
-    /// </summary>
     public static ConsoleRgbColor Black { get; } = new(0, 0, 0);
 
-    /// <summary>
-    /// Parses a <c>#rrggbb</c> or <c>#rgb</c> token (the leading <c>#</c> is optional).
-    /// </summary>
-    /// <param name="token">The colour token to parse.</param>
-    /// <param name="color">The parsed colour; <see cref="Black"/> when parsing fails.</param>
-    /// <returns><c>true</c> if <paramref name="token"/> is a hexadecimal colour literal.</returns>
     public static bool TryParse(string? token, out ConsoleRgbColor color)
     {
         color = Black;
@@ -70,10 +48,6 @@ public readonly record struct ConsoleRgbColor(byte R, byte G, byte B)
         (ConsoleColor.White, 255, 255, 255),
     ];
 
-    /// <summary>
-    /// The nearest legacy <see cref="ConsoleColor"/>, by squared distance in RGB space: what a
-    /// console that cannot render 24-bit colour gets instead.
-    /// </summary>
     public ConsoleColor ToNearestConsoleColor()
     {
         var best = ConsoleColor.Black;
@@ -93,6 +67,5 @@ public readonly record struct ConsoleRgbColor(byte R, byte G, byte B)
         return best;
     }
 
-    /// <summary>The <c>#rrggbb</c> form.</summary>
     public override string ToString() => $"#{R:x2}{G:x2}{B:x2}";
 }

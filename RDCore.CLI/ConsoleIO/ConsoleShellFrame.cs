@@ -2,61 +2,17 @@ using System.Runtime.InteropServices;
 
 namespace RDCore.CLI.ConsoleIO;
 
-/// <summary>
-/// Owns the console's <em>frame</em>: the background and foreground the whole shell is painted on,
-/// for as long as the process owns the terminal.
-/// </summary>
-/// <remarks>
-/// Setting <see cref="Console.BackgroundColor"/> and clearing is not enough on its own. Every
-/// renderer that emits SGR sequences (Spectre.Console among them) ends a styled span with a reset
-/// (<c>ESC[0m</c>), which returns the cell colours to the <em>terminal's</em> defaults, not to
-/// whatever <see cref="Console.BackgroundColor"/> currently holds; .NET will not re-emit an attribute
-/// it believes is already set, so from the first styled write onwards the frame is silently gone, and
-/// every line that scrolls in afterwards is painted in the terminal's own background. Changing the
-/// terminal's default colours instead (<c>OSC 10</c>/<c>OSC 11</c>) makes the reset land back on the
-/// frame's colours, so the shell stays one solid colour through styled output, scrolling and screen
-/// clears alike.
-/// <para>
-/// A terminal that cannot do this gets the nearest-16 <see cref="ConsoleColor"/> frame instead, which
-/// is what the frame did before; <see cref="Restore"/> puts the terminal back the way it was found,
-/// and must run before the process exits.
-/// </para>
-/// </remarks>
 public interface IConsoleShellFrame
 {
-    /// <summary>
-    /// Whether the console accepts ANSI escape sequences: <c>false</c> when output is redirected or
-    /// the terminal could not be switched into virtual-terminal mode. The frame degrades to the
-    /// legacy 16-colour console attributes when this is <c>false</c>.
-    /// </summary>
     bool IsAnsiEnabled { get; }
 
-    /// <summary>
-    /// Paints the frame: makes <paramref name="background"/>/<paramref name="foreground"/> the
-    /// console's default colours and clears the screen.
-    /// </summary>
-    /// <param name="background">The shell background.</param>
-    /// <param name="foreground">The shell foreground.</param>
     void Apply(ConsoleRgbColor background, ConsoleRgbColor foreground);
 
-    /// <summary>
-    /// Writes pre-formatted art (a splash banner, a program listing) one line at a time in
-    /// <paramref name="color"/>, without any layout, wrapping or re-flowing, and fills the rest of
-    /// each line with the frame's background so a short line does not leave a differently-coloured
-    /// tail behind.
-    /// </summary>
-    /// <param name="art">The pre-formatted text; every line is written as-is.</param>
-    /// <param name="color">The foreground colour to write it in.</param>
     void WriteArt(string art, ConsoleRgbColor color);
 
-    /// <summary>
-    /// Restores the console colours this frame replaced. Safe to call more than once, and a no-op if
-    /// <see cref="Apply"/> never ran.
-    /// </summary>
     void Restore();
 }
 
-/// <inheritdoc cref="IConsoleShellFrame"/>
 public sealed class ConsoleShellFrame : IConsoleShellFrame
 {
     // OSC 10/11 set the terminal's default foreground/background; OSC 110/111 restore them. The
@@ -67,20 +23,14 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
     private const string ResetForeground = "\u001b]110\u0007";
     private const string ResetBackground = "\u001b]111\u0007";
 
-    /// <summary>Erase-in-line: fills from the cursor to the end of the line with the current background.</summary>
     private const string EraseToEndOfLine = "\u001b[K";
 
-    /// <summary>
-    /// Reset every SGR attribute: back to the frame's own colours, once <see cref="Apply"/> has run.
-    /// </summary>
     private const string ResetAttributes = "\u001b[0m";
 
     private bool _applied;
 
-    /// <inheritdoc/>
     public bool IsAnsiEnabled { get; private set; }
 
-    /// <inheritdoc/>
     public void Apply(ConsoleRgbColor background, ConsoleRgbColor foreground)
     {
         IsAnsiEnabled = TryEnableVirtualTerminal();
@@ -112,7 +62,6 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
         }
     }
 
-    /// <inheritdoc/>
     public void WriteArt(string art, ConsoleRgbColor color)
     {
         if (!IsAnsiEnabled)
@@ -148,7 +97,6 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
         }
     }
 
-    /// <inheritdoc/>
     public void Restore()
     {
         if (!_applied)
@@ -172,10 +120,6 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
         }
     }
 
-    /// <summary>
-    /// Whether the console can be written to with escape sequences: not redirected, and (on Windows,
-    /// where it is opt-in per console handle) actually switched into virtual-terminal mode.
-    /// </summary>
     private static bool TryEnableVirtualTerminal()
     {
         if (Console.IsOutputRedirected)
