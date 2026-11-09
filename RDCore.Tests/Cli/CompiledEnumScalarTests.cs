@@ -97,4 +97,45 @@ public sealed class CompiledEnumScalarTests
             "        Flip = Flip * 10 + mState",
             "    Next",
             "End Function"]), "Flip", recoveries: 0, expected: "121212");
+
+    // a field of a record declared as an enumeration, read, written, and added to a Long field, where the record holds it.
+    [TestMethod]
+    public async Task AFieldOfARecord_OfAnEnumeration_IsReadAndWrittenWhereTheRecordHoldsIt()
+        => await AssertAlikeAsync(Program([.. States,
+            "Private Type Square",
+            "    State As GridState",
+            "    Hits As Long",
+            "End Type",
+            "Public Sub Main()",
+            "    Debug.Print Shots(4)",
+            "End Sub",
+            "Private Function Shots(ByVal N As Long) As Long",
+            "    Dim S As Square",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        If S.State = PreviousHit Then S.State = PreviousMiss Else S.State = PreviousHit",
+            "        S.Hits = S.Hits + S.State",
+            "        Shots = Shots * 10 + S.State",
+            "    Next",
+            "    Shots = Shots * 100 + S.Hits",
+            "End Function"]), "Shots", recoveries: 0, expected: "121206");
+
+    // an element of an array declared as an enumeration: the interpreter keeps it in no cell compiled code reads, so the interpreter reads and writes it, and
+    // the program runs the same either way.
+    [TestMethod]
+    public async Task AnElementOfAnArrayOfAnEnumeration_IsTheInterpreters_AndRunsTheSame()
+        => await AssertAlikeAsync(Program([.. States,
+            "Public Sub Main()",
+            "    Debug.Print Marked(5)",
+            "End Sub",
+            "Private Function Marked(ByVal N As Long) As Long",
+            "    Dim A(1 To 5) As GridState",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        If I Mod 2 = 0 Then A(I) = PreviousMiss Else A(I) = PreviousHit",
+            "    Next",
+            "    For I = 1 To N",
+            "        Marked = Marked * 10 + A(I)",
+            "    Next",
+            "End Function"]), expected: "12121");
 }
