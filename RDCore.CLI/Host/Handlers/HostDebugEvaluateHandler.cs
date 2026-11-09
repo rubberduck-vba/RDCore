@@ -2,7 +2,7 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Platform.Protocol;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using SupportResources = RDCore.Runtime.Support.Resources;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -10,7 +10,7 @@ namespace RDCore.CLI.Host.Handlers;
 /// <summary>
 /// Handles <c>rdcore/host/debug/evaluate</c>: the value of an expression in an activation of the program that waits.
 /// </summary>
-internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessionProvider, IVerboseMessageBuilder messages)
+internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessionProvider, IErrorDetailsRecorder errorDetails)
     : RDCoreRequestHandler<HostDebugEvaluateParams, DebugEvaluateResult>
 {
     protected override Task<DebugEvaluateResult> HandleAsync(HostDebugEvaluateParams request, CancellationToken token)
@@ -44,7 +44,7 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
             return Task.FromResult(new DebugEvaluateResult { Error = SupportResources.Host_RequestCarriedNoExpression });
         }
 
-        var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, messages, outside: sessionProvider.Outside);
+        var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, errorDetails, outside: sessionProvider.Outside);
         // what it runs may open a dialog that waits for an answer over this very connection: it runs on a thread of its own, and not on the one that reads it.
         return ProgramExecution.OffTheConnectionAsync(() => sessionProvider.Execution.Evaluate(pipeline, request.FrameId, expression));
     }

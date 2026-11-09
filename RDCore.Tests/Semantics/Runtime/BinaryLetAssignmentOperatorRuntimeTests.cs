@@ -25,7 +25,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -66,7 +66,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         => new(Root, moduleUri, name, ScopeKind.Module, type, R, R, AccessModifier.Implicit);
 
     private static BinaryLetAssignmentOperatorRuntimeSemantics Sut(ILetCoercionRuntimeSemanticsProvider provider)
-        => new(provider, Substitute.For<IVerboseMessageBuilder>());
+        => new(provider, Substitute.For<IErrorDetailsRecorder>());
 
     private static RuntimeSemanticsEvaluationResult Evaluate(
         BinaryLetAssignmentOperatorRuntimeSemantics op, IRuntimeSession session, Symbol target, VBTypedValue source)
@@ -171,7 +171,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
 
     private static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [

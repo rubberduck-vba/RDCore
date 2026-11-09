@@ -1,16 +1,14 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Reflection;
@@ -73,15 +71,11 @@ public static class BuiltProgram
     private static async Task<int> RunImageAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token)
     {
         var image = ImageOf(program);
-        var messages = new ServiceCollection()
-            .AddSingleton(Options.Create(new VerboseMessageOptions()))
-            .AddVerboseMessages()
-            .BuildServiceProvider()
-            .GetRequiredService<IVerboseMessageBuilder>();
+        var errorDetails = new ErrorDetailsRecorder();
 
         using var provider = new EnvironmentSessionProvider(image.Environment.Profile, new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(image.Project, image.Root);
-        var define = new DefineSymbolsHandler(provider, messages, NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(provider, errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
         {
             var defined = await define.Handle(definition, token);
@@ -98,7 +92,7 @@ public static class BuiltProgram
             throw new InvalidDataException(refusal);
         }
 
-        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, messages, output, error, unattended: false, token);
+        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended: false, token);
     }
 
     internal static BuiltProgramImage ImageOf(Assembly program)

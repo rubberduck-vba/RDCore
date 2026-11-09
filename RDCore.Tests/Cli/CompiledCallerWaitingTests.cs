@@ -8,7 +8,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Cli;
 
@@ -41,7 +41,7 @@ public sealed class CompiledCallerWaitingTests
     private static async Task InOuter(EnvironmentSessionProvider provider, string statement)
     {
         var outer = provider.Execution.Stack().Frames.Single(frame => frame.Procedure == "Outer");
-        var made = await new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+        var made = await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
             .Handle(new HostDebugExecuteParams { FrameId = outer.Id, Json = PlatformJson.Serialize(Statement(statement)) }, CancellationToken.None).WaitAsync(Patience);
         Assert.IsTrue(made.Success, made.Error);
     }

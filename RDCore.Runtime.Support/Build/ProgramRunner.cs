@@ -1,11 +1,11 @@
 using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using System.Globalization;
 using System.Text.Json;
@@ -91,10 +91,10 @@ internal static class ProgramRunner
         => string.Join(' ', arguments.Select(argument => argument.Length == 0 || argument.AsSpan().IndexOfAny(' ', '\t') >= 0 ? $"\"{argument}\"" : argument));
 
     public static async Task<int> RunAsync(EnvironmentSessionProvider provider, VBTypeMemberSymbol entryPoint, IReadOnlyList<string> arguments,
-        IVerboseMessageBuilder messages, TextWriter output, TextWriter error, bool unattended, CancellationToken token)
+        IErrorDetailsRecorder errorDetails, TextWriter output, TextWriter error, bool unattended, CancellationToken token)
     {
         var outside = provider.Outside with { CommandLine = CommandLineOf(arguments) };
-        var pipeline = RuntimeExecutionPipeline.Create(provider.Session, provider.Image, messages, token, outside: outside);
+        var pipeline = RuntimeExecutionPipeline.Create(provider.Session, provider.Image, errorDetails, token, outside: outside);
         var result = await provider.Execution.RunAsync(pipeline, entryPoint, arguments, output.WriteLine, token, unattended);
 
         // what it printed last and left open, with no line break after it.

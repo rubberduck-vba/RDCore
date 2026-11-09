@@ -440,7 +440,7 @@ public sealed class CompiledDirectCallTests
     {
         var uri = new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Program" }.Uri;
         var parse = new RDCore.Parsing.ModuleParser().Parse(Wire.FileUri(Path.Combine(ModuleWorkspace.Root, "Program.bas")), source);
-        return new HostExecuteHandler(provider, NSubstitute.Substitute.For<RDCore.SDK.Services.VerboseMessages.IVerboseMessageBuilder>(),
+        return new HostExecuteHandler(provider, NSubstitute.Substitute.For<RDCore.Runtime.Semantics.IErrorDetailsRecorder>(),
                 NullLogger<HostExecuteHandler>.Instance)
             .Handle(new HostExecuteParams
             {

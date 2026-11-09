@@ -13,7 +13,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -26,14 +25,14 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// 5.5.1.2.4 (Let-coercion to and from String), even though that rule is documented in the String
 /// section of the specification.
 /// </remarks>
-/// <param name="FormatterService">Writes the messages of the errors the coercion raises.</param>
+/// <param name="ErrorDetails">Records the details of the errors the coercion raises.</param>
 /// <param name="Provider">The coercions this one is one of.</param>
 /// <param name="Regional">The regional settings a <c>String</c> is read by (MS-VBAL 5.5.1.2.4); en-US when none are given.</param>
 public sealed record class VBNumericLetCoercionTypeRuntimeSemantics(
-    IVerboseMessageBuilder FormatterService,
+    IErrorDetailsRecorder ErrorDetails,
     ILetCoercionRuntimeSemanticsProvider Provider,
     SDK.Runtime.RegionalSettings? Regional = null)
-    : LetCoercionRuntimeSemantics<VBNumericType>(FormatterService)
+    : LetCoercionRuntimeSemantics<VBNumericType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(
         IRuntimeSymbolResolver resolver, ExpressionNode expression,

@@ -2,10 +2,10 @@ using NSubstitute;
 using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
@@ -75,7 +75,7 @@ public sealed class ProgramAssemblyTests
         {
             await provider.Image.Semantics.WhenAllEvaluatedAsync();
             var session = provider.Session;
-            var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, Substitute.For<IVerboseMessageBuilder>());
+            var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, Substitute.For<IErrorDetailsRecorder>());
             Assert.IsTrue(session.Symbols.TryGetModule("Program", out var module));
 
             var builder = new ProgramAssemblyBuilder(new AssemblyName("Built"));

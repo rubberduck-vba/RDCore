@@ -4,11 +4,11 @@ using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
 using RDCore.CLI.App.Commands;
 using RDCore.Runtime.Compiled;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.ConsoleIO.Model;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 using System.Reflection.Metadata;
@@ -86,7 +86,7 @@ public sealed class BuildCommandTests
             var message = call.Arg<ConsoleMessageBuilder>();
             messages.Add((message.Kind, string.Concat(message.Parts.OfType<ConsoleMessageBodyPart>().Select(part => part.Body))));
         });
-        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
             _ => hasHost ? Host : null), messages);
@@ -225,9 +225,9 @@ public sealed class BuildCommandTests
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
-        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IVerboseMessageBuilder>(), output, error);
+        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error);
         var exit = await command.ExecuteAsync(args, CancellationToken.None);
         return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(), error.ToString());
     }
@@ -367,9 +367,9 @@ public sealed class BuildCommandTests
             "    Debug.Print \"open\";",
             "End Sub")));
         var output = new ThreadRecordingWriter();
-        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
-        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IVerboseMessageBuilder>(), output, new StringWriter());
+        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, new StringWriter());
 
         Assert.AreEqual(0, await command.ExecuteAsync([Root], CancellationToken.None));
 

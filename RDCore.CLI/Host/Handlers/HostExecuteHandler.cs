@@ -8,7 +8,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using SupportResources = RDCore.Runtime.Support.Resources;
 
 namespace RDCore.CLI.Host.Handlers;
@@ -29,7 +29,7 @@ namespace RDCore.CLI.Host.Handlers;
 /// </remarks>
 internal sealed class HostExecuteHandler(
     IEnvironmentSessionProvider sessionProvider,
-    IVerboseMessageBuilder messages,
+    IErrorDetailsRecorder errorDetails,
     ILogger<HostExecuteHandler> logger) : RDCoreRequestHandler<HostExecuteParams, ExecuteResult>
 {
     protected override async Task<ExecuteResult> HandleAsync(HostExecuteParams request, CancellationToken token)
@@ -71,7 +71,7 @@ internal sealed class HostExecuteHandler(
 
         // every procedure of the module, lowered and loaded into the session's code under the symbol it belongs to, so a
         // call from one to another - or from one module to another - resolves through the invoker like any other.
-        var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, payload.ParseResult);
+        var errors = new ModuleLoader(session, sessionProvider.Image, errorDetails).Load(module, payload.ParseResult);
         if (errors.Length == 0)
         {
             HeldDefinitions.Loaded(session, request.ModuleName);
@@ -98,7 +98,7 @@ internal sealed class HostExecuteHandler(
 
         // the pipeline is composed per run: the cancellation is this run's own. For a program under a debugger a cancellation is a break and not the end of the
         // run, which the owner of the program sees to.
-        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages, request.Debug ? CancellationToken.None : token, outside: sessionProvider.Outside);
+        var pipeline = RuntimeExecutionPipeline.Create(session, sessionProvider.Image, errorDetails, request.Debug ? CancellationToken.None : token, outside: sessionProvider.Outside);
 
         return await RunAsync(pipeline, entryPoint, request, token);
     }

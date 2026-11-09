@@ -1,7 +1,7 @@
-﻿using RDCore.SDK.Model.AST.Abstract;
+﻿using RDCore.SDK.Model.Errors;
 using System.Text;
 
-namespace RDCore.SDK.Services.VerboseMessages;
+namespace RDCore.CLI.App.VerboseMessages;
 
 public record class ExpressionInfoBuilder: IExpressionInfoFormatter
 {
@@ -12,38 +12,25 @@ public record class ExpressionInfoBuilder: IExpressionInfoFormatter
         _options = options;
     }
 
-    public void Format(StringBuilder builder, ExpressionNode expression)
+    public void Format(StringBuilder builder, VBErrorExpression expression)
     {
         FormatExpressionType(builder, expression);
         FormatSemanticId(builder, expression);
         FormatLocation(builder, expression);
     }
 
-    protected virtual void FormatExpressionType(StringBuilder builder, ExpressionNode expression) 
+    protected virtual void FormatExpressionType(StringBuilder builder, VBErrorExpression expression)
         => builder
-            .WithEnclosedIf(_options.ExpressionType, "[", sb => sb.Append(expression.GetType().Name), "] ");
+            .WithEnclosedIf(_options.ExpressionType, "[", sb => sb.Append(expression.Kind), "] ");
 
-    protected virtual void FormatSemanticId(StringBuilder builder, ExpressionNode expression) 
+    protected virtual void FormatSemanticId(StringBuilder builder, VBErrorExpression expression)
         => builder
             .WithIconIf(_options.ExpressionSemanticId && _options.ShowSemanticIdIcon, _options.SemanticIdIcon)
-            .WithConditional(_options.ExpressionSemanticId, expression.Identity.ToString());
+            .WithConditional(_options.ExpressionSemanticId, expression.SemanticId);
 
-    /// <summary>
-    /// Formats a <c>Uri</c>.
-    /// </summary>
-    /// <remarks>
-    /// 🧩 Base implementation simply dumps the <c>Uri.ToString()</c> representation into the output.
-    /// </remarks>
     protected virtual string FormatUri(Uri uri) => uri.ToString(); // TODO UriFormatter, discrimate by namespace.
 
-    /// <summary>
-    /// Formats the <c>DocumentLocation</c> of the specified expression.
-    /// </summary>
-    /// <remarks>
-    /// 🧩 Base implementation uses <c>&lt;Start&gt;[ ..&lt;End&gt;]</c> <c>L1C1</c> notation 
-    /// where the <c>End</c> coordinates only appear if different than the <c>Start</c> coordinates.
-    /// </remarks>
-    protected virtual void FormatLocation(StringBuilder builder, ExpressionNode expression)
+    protected virtual void FormatLocation(StringBuilder builder, VBErrorExpression expression)
         => builder
             .WithConditional(_options.DocumentLocation, sb1 => sb1
             .WithIconIf(_options.ShowDocumentLocationIcon, _options.DocumentLocationIcon)

@@ -1,10 +1,10 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
@@ -23,7 +23,7 @@ internal sealed class RunCommandOptions
 }
 
 // rdc run [path] [-- args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
-internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IVerboseMessageBuilder messages,
+internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IErrorDetailsRecorder errorDetails,
     TextWriter? output = null, TextWriter? error = null) : ICliCommand
 {
     private TextWriter Output => output ?? global::System.Console.Out;
@@ -79,6 +79,6 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         }
 
         IReadOnlyList<string> arguments = separator < 0 ? [] : [.. args.Skip(separator + 1)];
-        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, arguments, messages, Output, Error, options.Unattended, token);
+        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, arguments, errorDetails, Output, Error, options.Unattended, token);
     }
 }

@@ -10,7 +10,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
@@ -56,7 +56,7 @@ public sealed class ImplementedInterfacesPipelineTests
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), fs, NullLogger<EnvironmentSessionProvider>.Instance);
         sessionProvider.Compose(project.ProjectInfo, new Uri(project.Uri));
 
-        var handler = new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var handler = new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
         var workspaceRoot = new Uri(project.Uri);
         foreach (var name in moduleNamesInOrder)
         {

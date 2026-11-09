@@ -147,6 +147,32 @@ public sealed class ReplDebuggingTests
             Arg.Is<string>(detail => detail.Contains("Main 30 from 20 from 10")));
     }
 
+    // the details the runtime records are not shown yet: an error that carries them is said as one that does not, to the character.
+    [TestMethod]
+    public async Task ARunTimeError_ThatCarriesItsDetails_IsSaidAsBefore()
+    {
+        var location = new SourceLocation(TestUri.TestModuleUri(), new SourceRange(3, 4, 3, 9));
+        ExecuteReturns(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.RuntimeError,
+            ErrorLine = 3,
+            ErrorCode = "VBR00006",
+            ErrorTitle = "Overflow",
+            ErrorMessage = "Overflow",
+            StackTrace = [new ExecuteStackFrame("Main", 3, 0, null)],
+            ErrorDetails = new RDCore.SDK.Model.Errors.VBErrorDetails("40000 is no Integer",
+                new RDCore.SDK.Model.Errors.VBErrorExpression("VBBinaryOperatorExpressionNode", "/Module1.bas#3", location),
+                [new RDCore.SDK.Model.Errors.VBErrorFrame("/Module1.bas#3", [new RDCore.SDK.Model.Errors.VBErrorOperand("Long", "40000")])]),
+        });
+
+        await RunAsync();
+
+        var said = _console.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteMessage)).Select(call => call.GetArguments())
+            .Single(arguments => arguments[0] is RDCore.SDK.ConsoleIO.Model.MessageKind.Error);
+        Assert.AreEqual(string.Format(Resources.Repl_RuntimeError_InLine, "OVERFLOW", 30), said[1]);
+        Assert.AreEqual($"VBR00006  Overflow{Environment.NewLine}  {Resources.Repl_RuntimeError_StackTrace}{Environment.NewLine}    Main 30", said[2]);
+    }
+
     [TestMethod]
     public async Task ARun_ThatStops_WaitsAndSaysWhere()
     {
