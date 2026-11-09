@@ -149,6 +149,11 @@ internal static class ExtractionAnalysis
             [.. exits], startsWithResumeNext, [.. changes])
         {
             Constants = [.. constants],
+            ResultNames = [.. uses.Where(use => use.Variable == procedure).Select(use => use.Expression.SourceLocation.Range)
+                .Concat(definitions.Where(definition => definition.Variable == procedure && definition.Expression is SimpleNameExpressionNode)
+                    .Select(definition => definition.Expression!.SourceLocation.Range))
+                .Distinct()
+                .Order()],
         };
     }
 
@@ -296,7 +301,7 @@ internal static class ExtractionAnalysis
         => node is MemberAccessExpressionNode { Owner: null } || node.Children.Any(child => child is not StatementNode && UsesAMemberOfTheBlock(child));
 
     // the symbol a binding of the static pass names, when one of the scopes declares it: what kind of variable it is.
-    private static Symbol? SymbolOf(ScopeTree scopes, SemanticId id)
+    internal static Symbol? SymbolOf(ScopeTree scopes, SemanticId id)
         => scopes.TryGetScope(id.Uri, out var scope)
             ? scope.SelfAndAncestors().SelectMany(outer => outer.Declarations).FirstOrDefault(symbol => symbol.SemanticId == id)
             : null;

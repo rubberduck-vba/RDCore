@@ -302,6 +302,12 @@ internal sealed record class ExtractionPlan(
     public ImmutableArray<SemanticId> Constants { get; init; } = [];
 
     /// <summary>
+    /// Where the selection names the source procedure's own result, read or written (<see cref="AssignsResult"/>, <see cref="ReadsResult"/>): the new procedure
+    /// cannot name it, and names what it is given for it there instead.
+    /// </summary>
+    public ImmutableArray<SourceRange> ResultNames { get; init; } = [];
+
+    /// <summary>
     /// The parameters the new procedure may return instead: those it only gives a value to, which the call site can assign from it.
     /// </summary>
     public ImmutableArray<ExtractionParameter> ReturnCandidates => [.. Parameters.Where(parameter => parameter.Reason is ExtractionPassingReason.WrittenOnly)];
