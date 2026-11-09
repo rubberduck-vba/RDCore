@@ -230,6 +230,8 @@ A URI is the document's however the client spells it: `file:///c%3A/Work/Module1
 ### Requests while the client edits
 
 An RDCore server answers every request it receives, and runs a notification that changes a document (`textDocument/didOpen`, `didChange`, `didClose`) in order, after the requests already running ([`ServerRequestScheduling.WithEveryRequestAnswered`](../api/RDCore.SDK.Server.ServerRequestScheduling.html)).
+An RDCore client answers every request a server makes in the same way: a `window/showMessageRequest` that waits for its user is still answered when a
+`$/progress` or a `window/workDoneProgress/create` arrives in the meantime ([`RDCoreClientApp`](../api/RDCore.SDK.Client.RDCoreClientApp.html)).
 
 A request that is made of what a document was would make a keystroke wait for it, and the completion a client sends after the keystroke too. So `textDocument/diagnostic` and `textDocument/semanticTokens/full` give way to a change ([`IncomingDocumentChanges`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)):
 
