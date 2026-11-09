@@ -28,7 +28,7 @@ default record length; see [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.
 |Name|Role|
 |---|---|
 |[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)|Holds the numbered channels, each with the mode it was opened under.|
-|[FileStatementAccess](../api/RDCore.SDK.Runtime.Abstract.Execution.FileStatementAccess.html)|Holds **MS-VBAL §5.4.5.1**'s statement/mode/access table.|
+|`FileStatementAccess`|Holds **MS-VBAL §5.4.5.1**'s statement/mode/access table.|
 
 ## 5.4.5.1.1 File Numbers
 

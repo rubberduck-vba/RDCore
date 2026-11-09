@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Workspace.Forms;
 using System.Globalization;
 using System.Resources;
 
@@ -39,22 +40,53 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         {
             container = $"{library}.{container}";
         }
-        return new SymbolHover(DeclarationOf(symbol), container, symbol.GetProperty(SymbolProperties.DocString));
+
+        // the class of a control array has a name no code writes, and is not said: its members are reached through the array, which says what it is.
+        if (symbol.GetProperty(SymbolProperties.Library) == FormControlArray.LibraryName)
+        {
+            container = null;
+        }
+
+        var element = symbol is ITypedSymbol { ResolvedType: var type } ? FormControlArray.ElementOf(type) : null;
+        return new SymbolHover(DeclarationOf(symbol), container, symbol.GetProperty(SymbolProperties.DocString)) { ControlArrayOf = element is null ? null : ClassNameOf(element) };
     }
 
     /// <summary>
-    /// The hover as Markdown: the declaration as a block of VBA, what declares it, and its doc string.
+    /// The class of the controls of the Visual Basic 6.0 control array the symbol is (<see cref="FormControlArray"/>), such as <c>VB.CommandButton</c>, which the
+    /// hover names; <see langword="null"/> for any other symbol.
+    /// </summary>
+    public string? ControlArrayOf { get; init; }
+
+    /// <summary>
+    /// The hover as Markdown: the declaration as a block of VBA, what declares it, the class of the controls of a control array, and its doc string.
     /// </summary>
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
     public string ToMarkdown(CultureInfo? culture = null)
-        => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+        => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
 
     /// <summary>
     /// The hover as plain text, for a client that does not read Markdown.
     /// </summary>
     /// <param name="culture">The language of the reader; the current UI culture by default.</param>
     public string ToPlainText(CultureInfo? culture = null)
-        => string.Join("\n", new[] { Declaration, MemberOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+        => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
+
+    private string? ArrayOf(CultureInfo? culture)
+    {
+        if (ControlArrayOf is null)
+        {
+            return null;
+        }
+
+        culture ??= CultureInfo.CurrentUICulture;
+        return string.Format(culture, Messages.GetString("Hover_ControlArrayOf", culture) ?? "{0}", ControlArrayOf);
+    }
+
+    // a class of a type library by its library's name and its own, as a declaration names it: VB.CommandButton.
+    private static string ClassNameOf(Model.Types.Abstract.VBType type)
+        => type is Model.Types.Complex.VBClassType { Symbol: var symbol } && symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library
+            ? $"{library}.{type.Name}"
+            : type.Name;
 
     private string? MemberOf(CultureInfo? culture)
     {

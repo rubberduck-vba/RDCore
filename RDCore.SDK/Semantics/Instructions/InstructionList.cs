@@ -49,6 +49,7 @@ public sealed class InstructionList
     /// (<strong>MS-VBAL §5.4.1.1</strong>). Case-insensitive, like every VBA identifier.
     /// </summary>
     /// <param name="label">The label name, or a line number's decimal string form.</param>
+    /// <param name="offset">The offset of the instruction the label defines; <c>0</c> when there is no such label.</param>
     /// <returns><c>false</c> when this procedure defines no such label.</returns>
     public bool TryGetLabelOffset(string label, out int offset) => _labels.TryGetValue(label, out offset);
 

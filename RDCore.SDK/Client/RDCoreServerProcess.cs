@@ -17,6 +17,9 @@ public interface IRDCoreServerProcess : IDisposable
     /// <summary>
     /// Runs a server executable with command-line arguments mapping the specified <c>LanguageClientSettings</c>.
     /// </summary>
+    /// <param name="relativePath">The path of the server executable, relative to the platform root.</param>
+    /// <param name="pipeName">The name of the named pipe, passed to the server as <c>-n</c>.</param>
+    /// <param name="tokenSource">The caller's cancellation token source.</param>
     /// <param name="mode">
     /// The mode <c>rdc.exe</c> runs in, set as <c>RDCORE_MODE</c> in the child environment: <see cref="RDCoreServerProcess.HostMode"/> for the environment host,
     /// <see cref="RDCoreServerProcess.ExternalMode"/> for the external host; <see langword="null"/> for a server that is not <c>rdc.exe</c>.
@@ -58,7 +61,8 @@ public interface IRDCoreServerProcess : IDisposable
 /// A <em>language server application</em> is any <c>RDCore.SDK</c> server platform application that can run a sidecar LSP server.
 /// </remarks>
 /// <param name="FileSystem">Provides an abstraction over the file system.</param>
-/// <param name="Configuration">The current <see cref="IConfiguration"/> .</param>
+/// <param name="PlatformEnvironment">The platform environment that resolves a server's path against the platform root.</param>
+/// <param name="Options">The application options that supply the workspace, the language, and the server settings.</param>
 /// <param name="Logger">A standard <see cref="ILogger"/>.</param>
 public class RDCoreServerProcess(
     IFileSystem FileSystem,

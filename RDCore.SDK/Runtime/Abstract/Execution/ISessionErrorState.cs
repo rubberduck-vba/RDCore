@@ -21,6 +21,7 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// </para>
 /// <para>
 /// ⚖️<strong>RDCore</strong> provides an implementation of this interface <strong>licensed under GPLv3</strong>.
+/// </para>
 /// </remarks>
 public interface ISessionErrorState
 {

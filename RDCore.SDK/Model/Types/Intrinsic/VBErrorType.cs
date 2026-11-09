@@ -7,7 +7,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// A <see cref="VBIntrinsicType{int}"/> representing the <c>Error</c> data type.
+/// A <see cref="VBIntrinsicType{T}"/> representing the <c>Error</c> data type.
 /// </summary>
 /// <remarks>
 /// The <em>managed type</em> of a value of this data type is <c>int</c>.<br/>

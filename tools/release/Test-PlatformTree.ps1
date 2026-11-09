@@ -92,7 +92,7 @@ if ($Manifest) {
 }
 
 # (b) every extension as the language server validates it: folder named after the Title, Name present, and the
-# Signature base64(SHA-512) of the exe. describe-ext hashed the exe, so this catches any change made after it.
+# FileHash base64(SHA-512) of the exe. describe-ext hashed the exe, so this catches any change made after it.
 $ExtensionCount = 0
 $ExtensionsRoot = if ($Manifest -and $Manifest.extensionsDirectory) { Join-Path $Root $Manifest.extensionsDirectory }
 if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Container)) {
@@ -117,9 +117,12 @@ if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Conta
         }
         $sha512 = [Security.Cryptography.SHA512]::Create()
         $stream = [IO.File]::OpenRead($executable)
-        try { $signature = [Convert]::ToBase64String($sha512.ComputeHash($stream)) } finally { $stream.Dispose(); $sha512.Dispose() }
-        if ($signature -cne $extension.Signature) {
-            Add-Failure "$relative/extension.manifest.json: Signature does not match base64(SHA-512) of $name; the exe changed after describe-ext."
+        try { $fileHash = [Convert]::ToBase64String($sha512.ComputeHash($stream)) } finally { $stream.Dispose(); $sha512.Dispose() }
+        if (-not $extension.FileHash) {
+            Add-Failure "$relative/extension.manifest.json has no FileHash."
+        }
+        elseif ($fileHash -cne $extension.FileHash) {
+            Add-Failure "$relative/extension.manifest.json: FileHash does not match base64(SHA-512) of $name; the exe changed after describe-ext."
         }
     }
     if ($ExtensionCount -eq 0) { Add-Failure "no extension manifests under $(Get-RelativePath $ExtensionsRoot)." }

@@ -40,7 +40,7 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// This class's default interface (MS-VBAL's own term): the members reachable through a
     /// member-access expression typed against this class, whether through <c>Me</c> or any other
     /// variable declared as this class. A pure function of <see cref="VBModuleSymbol.Members"/>
-    /// (<see cref="Types.Complex.VBClassType.FromClassModule"/> computes it), fixed the moment the
+    /// (<see cref="Types.Complex.VBClassType.FromClassModule(VBClassModuleSymbol)"/> computes it), fixed the moment the
     /// class's own member list is known: populated exactly once, alongside <c>Members</c>, by
     /// <c>WorkspaceSymbolResolver.Compose</c>'s second pass. Consumers (<c>New</c>, <c>As</c>-type
     /// clauses, <c>Me</c>) read this directly rather than recomputing it at resolution time.
@@ -51,7 +51,7 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// The interface names named by this class module's own <c>Implements</c> directives
     /// (<strong>MS-VBAL §5.2.4.2</strong>), exactly as written: unresolved, and not yet checked for
     /// validity (self-reference, duplicates, or a name that doesn't resolve to a class at all).
-    /// Captured directly off the AST, alongside <see cref="Symbols.Abstract.VBModuleSymbol.Directives"/>,
+    /// Captured directly off the AST, alongside <see cref="VBModuleSymbol.Directives"/>,
     /// in <c>WorkspaceSymbolResolver.Compose</c>'s first pass: before any other module's symbol is
     /// known, so resolving these to real <see cref="VBClassModuleSymbol"/> references has to wait for
     /// <see cref="ImplementedInterfaces"/>.
@@ -73,7 +73,7 @@ public record class VBClassModuleSymbol : VBModuleSymbol
     /// than reported: full MS-VBAL §5.2.4.2/§5.3.1.9 validity checking is not modeled yet.
     /// </summary>
     /// <remarks>
-    /// <see cref="Types.Complex.VBClassType.FromClassModule"/> reads this to populate
+    /// <see cref="Types.Complex.VBClassType.FromClassModule(VBClassModuleSymbol)"/> reads this to populate
     /// <see cref="Types.Complex.VBClassType.Supertypes"/>: every consumer of that type gets a correct
     /// <c>Supertypes</c> array for free once this is resolved, with no other code to update.
     /// <para>
@@ -183,7 +183,7 @@ public record class VBClassModuleSymbol : VBModuleSymbol
 
     /// <summary>
     /// Whether this class implements <paramref name="interfaceMember"/> of <paramref name="implemented"/>
-    /// (<strong>MS-VBAL §5.3.1.9</strong>): it has the procedure for it (<see cref="FindImplementation"/>), or the
+    /// (<strong>MS-VBAL §5.3.1.9</strong>): it has the procedure for it (<see cref="FindImplementation(VBClassModuleSymbol, VBTypeMemberSymbol)"/>), or the
     /// member has an implementation of its own (<see cref="SymbolProperties.DefaultImplementation"/>). What a check that
     /// an <c>Implements</c> directive is complete asks, of each member of the interface.
     /// </summary>

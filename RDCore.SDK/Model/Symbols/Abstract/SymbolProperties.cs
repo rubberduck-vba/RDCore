@@ -180,7 +180,7 @@ public static class SymbolProperties
     /// for any parameter that is <c>ByRef</c> (<strong>MS-VBA</strong>, recorded in Excel; RD-VBAL §5.6.13.1).
     /// </summary>
     /// <remarks>
-    /// Set by the standard library's reader. It says nothing of how the argument is passed, which is the parameter's <see cref="VBParameterSymbol.ParameterKind"/>.
+    /// Set by the standard library's reader. It says nothing of how the argument is passed, which is the parameter's <see cref="VBProject.VBParameterSymbol.ParameterKind"/>.
     /// </remarks>
     public static readonly SymbolProperty<bool> TypeLibraryByRef = new(nameof(TypeLibraryByRef));
     /// <summary>

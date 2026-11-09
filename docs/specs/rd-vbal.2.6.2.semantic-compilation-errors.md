@@ -21,10 +21,7 @@ Compilation errors issued from a *language core extension* report a `VBCompileEr
 
 Semantic compilation errors are emitted by the resolver and the static semantic pass.
 
-[ICoreDiagnosticsFactory](../api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html)`.FromVBCompileError` is the projection for semantic compilation errors, the counterpart of `FromVBSyntaxError`, and [SemanticContextBuilder](../api/RDCore.SDK.Semantics.Builders.SemanticContextBuilder-2.html)`.AddDiagnosticOnError` uses it. No production code path calls `AddDiagnosticOnError`, so semantic compilation errors are not currently projected to LSP diagnostics.
-
-> [!NOTE]
-> **Not implemented.** The RDCore.Diagnostics handler for `rdcore/diagnostics/document` projects the syntax errors of the parse result only. Semantic compilation errors do not reach the `textDocument/diagnostic` pull through it; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
+[ICoreDiagnosticsFactory](../api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html)`.FromVBCompileError` is the projection for semantic compilation errors, the counterpart of `FromVBSyntaxError`. The RDCore.Diagnostics handler for `rdcore/diagnostics/document` projects through it the compile errors of the static pass (the module's declaration errors and each procedure's compile errors), beside the syntax errors of the parse result, so they reach the `textDocument/diagnostic` pull; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md). A _Variable not defined_ error at the name of a host's document is left out: [`RDC01005`](../diagnostics/rdc01005.md) says why that name names nothing.
 
 ## Published Codes
 

@@ -9,6 +9,7 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
+/// <param name="Children">The child nodes of the directive.</param>
 public abstract record class DirectiveNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children) 
     : SyntaxNode(Identity, SourceLocation, Children);
 

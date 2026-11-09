@@ -10,6 +10,7 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// An abstract meta-type representing any <c>VBPropertyLetMemberSymbol</c>
 /// </summary>
 /// <param name="Name">The name of the <c>Property Let</c> member</param>
+/// <param name="Parameters">The parameters of the <c>Property Let</c> member.</param>
 public record class VBPropertyLetProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBProcedureMemberDesc(Name, Parameters)
 {
     private static readonly Lazy<VBPropertyLetProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);
@@ -29,7 +30,8 @@ public record class VBPropertyLetProcedureDesc(string Name, ImmutableArray<VBPar
 /// Encountering a <em>deferred member</em> dring semantic traversal attaches the required semantics to produce a <c>VBInferredTypeMember</c> that can be materialized into a code action.
 /// </remarks>
 /// <param name="Name">The name of the deferred <c>Property Let</c> member</param>
-public sealed record class VBDeferredPropertyLetProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBPropertyLetProcedureDesc(Name, Parameters)
+/// <param name="Parameters">The parameters of the deferred member.</param>
+internal sealed record class VBDeferredPropertyLetProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBPropertyLetProcedureDesc(Name, Parameters)
 {
     private static readonly Lazy<VBDeferredPropertyLetProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

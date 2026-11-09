@@ -1,6 +1,3 @@
-using NSubstitute;
-using OmniSharp.Extensions.LanguageServer.Protocol.Models;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Builders;
@@ -13,16 +10,13 @@ namespace RDCore.Tests.Semantics.Builders;
 /// <summary>
 /// The builders every semantic analysis contributes to: flags accumulate, errors ride along, and <c>Build()</c> yields a
 /// context carrying exactly what was contributed. Exercised through the conversion context (the let-coercion analysis'
-/// own), first with the flags-only builder, then with the diagnostics-carrying one.
+/// own) and through the generic builder.
 /// </summary>
 [TestClass]
 public sealed class SemanticContextBuilderTests
 {
     private static VBRuntimeErrorInfo RuntimeError(VBRuntimeErrorId id = VBRuntimeErrorId.TypeMismatch)
         => VBRuntimeErrorInfo.For(id, TestLocations.TestLocation, "verbose");
-
-    private static VBCompileErrorInfo CompileError()
-        => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, TestLocations.TestLocation, "verbose");
 
     #region flags
 
@@ -72,13 +66,12 @@ public sealed class SemanticContextBuilderTests
     }
 
     [TestMethod]
-    public void Build_OfAFreshBuilder_HasNoFlagsErrorsOrDiagnostics()
+    public void Build_OfAFreshBuilder_HasNoFlagsOrErrors()
     {
         var context = new LetCoercionSemanticContextFlagsBuilder().Build();
 
         Assert.AreEqual((ConversionSemanticFlags)0, context.Flags);
         Assert.IsEmpty(context.Errors);
-        Assert.IsEmpty(context.Diagnostics);
     }
 
     #endregion
@@ -152,11 +145,11 @@ public sealed class SemanticContextBuilderTests
     }
 
     [TestMethod]
-    public void AddLetCoercionFlags_OnADiagnosticsBuilder_AreKeptPerOperand_ButNotMixedIntoItsOwnFlags()
-    // a builder for another kind of context (here still conversion-typed, but reached through the diagnostics-carrying
-    // one, which does not fold them in) keeps the operand flags for whoever asks; its own flags stay its own.
+    public void AddLetCoercionFlags_OnAGenericBuilder_AreKeptPerOperand_ButNotMixedIntoItsOwnFlags()
+    // a builder for another kind of context (here still conversion-typed, but through the generic builder, which does
+    // not fold them in) keeps the operand flags for whoever asks; its own flags stay its own.
     {
-        var (builder, _) = WithDiagnostics();
+        var builder = new SemanticContextFlagsBuilder<ConversionOperationSemanticContext, ConversionSemanticFlags>();
 
         builder.AddLetCoercionFlags(ConversionSemanticFlags.Widening, InputIndex.BinaryLeftOperand);
 
@@ -225,99 +218,6 @@ public sealed class SemanticContextBuilderTests
         var context = builder.Build();
 
         Assert.AreEqual(ConversionSemanticFlags.Widening | ConversionSemanticFlags.Narrowing, context.Flags);
-    }
-
-    #endregion
-
-    #region the diagnostics-carrying builder
-
-    private static (SemanticContextBuilder<ConversionOperationSemanticContext, ConversionSemanticFlags> Builder, ICoreDiagnosticsFactory Factory) WithDiagnostics()
-    {
-        var factory = Substitute.For<ICoreDiagnosticsFactory>();
-        factory.FromVBCompileError(default!).ReturnsForAnyArgs(call => new Diagnostic { Message = $"compile:{call.Arg<VBCompileErrorInfo>().Verbose}" });
-        factory.FromVBRuntimeError(default!).ReturnsForAnyArgs(call => new Diagnostic { Message = $"runtime:{call.Arg<VBRuntimeErrorInfo>().Verbose}" });
-        return (new SemanticContextBuilder<ConversionOperationSemanticContext, ConversionSemanticFlags>(factory), factory);
-    }
-
-    [TestMethod]
-    public void Build_OfAFreshDiagnosticsBuilder_IsEmpty()
-    {
-        var context = WithDiagnostics().Builder.Build();
-
-        Assert.AreEqual((ConversionSemanticFlags)0, context.Flags);
-        Assert.IsEmpty(context.Diagnostics);
-    }
-
-    [TestMethod]
-    public void AddDiagnosticOnError_TurnsTheErrorIntoTheFactorysDiagnostic()
-    {
-        var (builder, _) = WithDiagnostics();
-
-        builder.AddDiagnosticOnError(RuntimeError());
-        builder.AddDiagnosticOnError(CompileError());
-        var context = builder.Build();
-
-        CollectionAssert.AreEquivalent(new[] { "runtime:verbose", "compile:verbose" }, context.Diagnostics.Select(diagnostic => diagnostic.Message).ToArray());
-    }
-
-    [TestMethod]
-    public void AddDiagnosticOnError_Null_IsIgnored_AndNeverAsksTheFactory()
-    {
-        var (builder, factory) = WithDiagnostics();
-
-        builder.AddDiagnosticOnError((VBRuntimeErrorInfo?)null);
-        builder.AddDiagnosticOnError((VBCompileErrorInfo?)null);
-
-        Assert.IsEmpty(builder.Build().Diagnostics);
-        factory.DidNotReceiveWithAnyArgs().FromVBRuntimeError(default!);
-        factory.DidNotReceiveWithAnyArgs().FromVBCompileError(default!);
-    }
-
-    [TestMethod]
-    public void AddDiagnosticsOnError_SkipsTheNulls()
-    {
-        var (builder, _) = WithDiagnostics();
-
-        builder.AddDiagnosticsOnError(new VBRuntimeErrorInfo?[] { RuntimeError(), null, RuntimeError(VBRuntimeErrorId.Overflow) });
-
-        Assert.HasCount(1, builder.Build().Diagnostics, "both errors carry the same verbose text, so they are the same diagnostic");
-    }
-
-    [TestMethod]
-    public void AddDiagnostic_TheSameDiagnosticTwice_IsOneDiagnostic()
-    {
-        var (builder, _) = WithDiagnostics();
-        var diagnostic = new Diagnostic { Message = "once" };
-
-        builder.AddDiagnostic(diagnostic);
-        builder.AddDiagnostic(diagnostic);
-
-        Assert.HasCount(1, builder.Build().Diagnostics);
-    }
-
-    [TestMethod]
-    public void Build_CarriesTheFlagsAndTheDiagnosticsTogether()
-    {
-        var (builder, _) = WithDiagnostics();
-        builder.AddFlags(ConversionSemanticFlags.Failed);
-        builder.AddDiagnosticOnError(RuntimeError());
-
-        var context = builder.Build();
-
-        Assert.AreEqual(ConversionSemanticFlags.Failed, context.Flags);
-        Assert.HasCount(1, context.Diagnostics);
-    }
-
-    [TestMethod]
-    public void Build_CarriesTheErrorsAdded()
-    {
-        var (builder, _) = WithDiagnostics();
-        var error = RuntimeError();
-        builder.AddFlags(ConversionSemanticFlags.Failed);
-
-        builder.AddOnError(error);
-
-        Assert.AreSame(error, builder.Build().Errors.Single());
     }
 
     #endregion

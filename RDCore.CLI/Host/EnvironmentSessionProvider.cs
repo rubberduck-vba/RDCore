@@ -3,6 +3,7 @@ using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
 using RDCore.External;
 using RDCore.External.Settings;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
@@ -30,6 +31,7 @@ public interface IEnvironmentSessionProvider
     /// </summary>
     bool IsComposed { get; }
 
+    /// <summary>
     /// The name of the project the session was composed from; an empty string before <see cref="Compose"/>
     /// has run, or when the project declares no name.
     /// </summary>
@@ -93,6 +95,11 @@ public interface IEnvironmentSessionProvider
     /// Composes the session from a loaded project's module structure and precompiler constants.
     /// Replaces any previously composed session.
     /// </summary>
+    /// <remarks>
+    /// The current directory of the session is then the workspace root (RD-VBAL §6.1.2.5), at start-up and after a reload alike; a root that is the shell's
+    /// scratch workspace (<see cref="App.Repl.ReplWorkspace.IsScratch"/>), that is not a full path on this platform, or that is not there, leaves it where it was.
+    /// The session it replaces first gives the process back the directory that session was composed in.
+    /// </remarks>
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
     IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot);
@@ -104,10 +111,13 @@ public sealed class EnvironmentSessionProvider(
     IFileSystem fileSystem,
     ILogger<EnvironmentSessionProvider> logger,
     ILibrarySource? librarySource = null,
-    ExternalWorld? outside = null) : IEnvironmentSessionProvider
+    ExternalWorld? outside = null) : IEnvironmentSessionProvider, IDisposable
 {
     private IRuntimeSession? _session;
     private ExternalWorld? _world;
+
+    // the directory the process was in when the session was composed, given back when the session is replaced or the provider disposed.
+    private string? _directoryBefore;
 
     /// <inheritdoc/>
     public ExternalWorld Outside => _world ?? outside ?? MachineExternal.World;
@@ -186,6 +196,9 @@ public sealed class EnvironmentSessionProvider(
     /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot)
     {
+        // a reload starts where the host did, as at start-up, and not where the session it replaces left the process.
+        LeaveSession();
+
         var configuration = new ConfigurationSymbolProvider(environment, project);
         var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
         // the standard library and the environment's own globals resolve in the session too, so a name
@@ -220,6 +233,8 @@ public sealed class EnvironmentSessionProvider(
         }
 
         ModuleCount = project.Modules.Length;
+        _directoryBefore = CurrentDirectory();
+        EnterWorkspaceRoot(workspaceRoot);
 
         // a project that references a library can make a call to its objects as soon as it runs, and what makes the call is got ready now; one that references none
         // makes no such call, and nothing is started for it.
@@ -237,6 +252,87 @@ public sealed class EnvironmentSessionProvider(
 
         return _session;
     }
+
+    // a program starts in the folder of its workspace, as opening a project in VB6 makes its folder current: a relative path is a file of the workspace. The
+    // directory is the session's, which ChDir moves too; End leaves it where the program put it. The shell's scratch workspace is no folder of the user's.
+    private void EnterWorkspaceRoot(Uri workspaceRoot)
+    {
+        if (!workspaceRoot.IsFile)
+        {
+            return;
+        }
+
+        // a root that is no full path on this platform (file:///C:/... on Linux) is no folder here: resolving it would read the current directory, which may be gone.
+        var root = workspaceRoot.LocalPath;
+        VBRuntimeErrorId? error = VBRuntimeErrorId.PathNotFound;
+        if (Path.IsPathFullyQualified(root))
+        {
+            // a client's file: URI may spell the drive in lower case (file:///c:/...), which CurDir would give back as it was set: a drive is its upper-case letter.
+            root = WorkspacePaths.Normalized(root);
+            if (OperatingSystem.IsWindows() && root.Length >= 2 && root[1] == ':' && char.IsAsciiLetterLower(root[0]))
+            {
+                root = char.ToUpperInvariant(root[0]) + root[1..];
+            }
+
+            if (App.Repl.ReplWorkspace.IsScratch(fileSystem, root))
+            {
+                return;
+            }
+
+            error = _session!.Files.TryChangeDirectory(root);
+        }
+
+        if (error is not null && logger.IsEnabled(LogLevel.Warning))
+        {
+            logger.LogWarning("📂 The workspace root {root} could not be made the current directory ({error}): it is left where it was.", root, error);
+        }
+    }
+
+    // the directory is the process's, so a session that ends gives it back. Otherwise Windows could not delete the folder the process is in, and on Linux,
+    // once that folder is deleted, every later read of the current directory fails. When the directory the session found is gone, the process stays where it is.
+    private void LeaveSession()
+    {
+        if (_session is null || _directoryBefore is not { } before)
+        {
+            return;
+        }
+
+        _directoryBefore = null;
+        if (string.Equals(CurrentDirectory(), before, WorkspacePaths.Comparison))
+        {
+            return;
+        }
+
+        VBRuntimeErrorId? error;
+        try
+        {
+            error = _session.Files.TryChangeDirectory(before);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            error = VBRuntimeErrorId.PathNotFound;
+        }
+
+        if (error is not null && logger.IsEnabled(LogLevel.Warning))
+        {
+            logger.LogWarning("📂 The directory {directory} the session was composed in could not be made the current directory again ({error}).", before, error);
+        }
+    }
+
+    // null when the current directory was deleted, which Linux lets a process's be.
+    private string? CurrentDirectory()
+    {
+        try
+        {
+            return _session!.Files.TryGetCurrentDirectory(null, out var path) is null ? path : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    public void Dispose() => LeaveSession();
 
     // the settings are the workspace's (RD-VBAL 2.1.1), and a dialog is the client's to answer when it shows dialogs, the platform's when it does not.
     private ExternalWorld ComposeWorld(RDCoreProject project, Uri workspaceRoot)

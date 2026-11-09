@@ -240,12 +240,13 @@ public abstract class AppHost<TApp>() : IDisposable
         }
 
         // the builder reads appsettings.json, then the environment and the command line; what the user set goes between the first and the others. The
-        // deployed file is not added again: added after them, it used to say what a Configuration__ environment variable was meant to override.
+        // deployed file is not added again: added after them, it would say what a Configuration__ environment variable is meant to override. The deployed
+        // file is the one in the application's own folder, wherever the process was started from: the generic host's default is the working directory.
         HostApplicationBuilder? builder = null;
         System.Runtime.ExceptionServices.ExceptionDispatchInfo? unreadable = null;
         try
         {
-            builder = Host.CreateApplicationBuilder();
+            builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { ContentRootPath = AppContext.BaseDirectory });
             builder.Configuration.AddUserSettings(UserSettingsStore.PathIn(PlatformEnvironment.Default), Settings);
 
             // the language of the user interface comes first: everything the application writes is in it, the help a command line asks for included.
@@ -306,7 +307,8 @@ public abstract class AppHost<TApp>() : IDisposable
     /// <summary>
     /// Override to supply application-specific <c>IConfiguration</c> configuration.
     /// </summary>
-    /// <param name="builder">An <see cref="IConfigurationBuilder"/> to configure application settings.</param>
+    /// <param name="configuration">An <see cref="IConfigurationBuilder"/> to configure application settings.</param>
+    /// <param name="services">The services of the application host being built, to register the application's own services in.</param>
     /// <param name="args">Any command-line arguments that were supplied to the application, parsed into <see cref="SdkAppOptions"/>.</param>
     /// <remarks>
     /// 🧩 The base implementation binds and configures <c>appsettings.json</c> options, with command-line arguments as overrides.

@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
+using RDCore.SDK.Semantics.Static;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
 using System.Globalization;
@@ -169,6 +170,96 @@ public sealed class SymbolRenameTests
             "Public Sub Two()",
             "    Dim x As Long",
             "    x = 2",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheCounterOfAForLoop_IsRenamedInTheNextThatNamesIt()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Count()",
+            "    Dim x As Integer",
+            "    For x = 1 To 10",
+            "        Debug.Print \"Hello RDCore!\"",
+            "    Next x",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "For x = 1", "x", "tehDuck");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Count()",
+            "    Dim tehDuck As Integer",
+            "    For tehDuck = 1 To 10",
+            "        Debug.Print \"Hello RDCore!\"",
+            "    Next tehDuck",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheElementOfAForEachLoop_IsRenamedInTheNextThatNamesIt()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub List(ByVal items As Collection)",
+            "    Dim item As Variant",
+            "    For Each item In items",
+            "        Debug.Print item",
+            "    Next item",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "For Each item", "item", "entry");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub List(ByVal items As Collection)",
+            "    Dim entry As Variant",
+            "    For Each entry In items",
+            "        Debug.Print entry",
+            "    Next entry",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheCounterOfAnOuterLoop_IsRenamedAfterTheCommaOfANextThatEndsBoth_FromTheNext()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Grid()",
+            "    Dim i As Long, j As Long",
+            "    For i = 1 To 3",
+            "        For j = 1 To 3",
+            "            Debug.Print i * j",
+            "    Next j, i",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "Next j, i", "i", "row");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Grid()",
+            "    Dim row As Long, j As Long",
+            "    For row = 1 To 3",
+            "        For j = 1 To 3",
+            "            Debug.Print row * j",
+            "    Next j, row",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheCounterOfALoop_WhoseNextNamesNoVariable_IsRenamedWhereItIsWritten()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Count()",
+            "    Dim x As Integer",
+            "    For x = 1 To 10",
+            "        Debug.Print x",
+            "    Next",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "For x = 1", "x", "tehDuck");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Count()",
+            "    Dim tehDuck As Integer",
+            "    For tehDuck = 1 To 10",
+            "        Debug.Print tehDuck",
+            "    Next",
             "End Sub"), Renamed(context, plan, "Main"));
     }
 
@@ -506,6 +597,129 @@ public sealed class SymbolRenameTests
             "End Sub"), Renamed(context, plan, "Main"));
         Assert.AreEqual(1, plan.Edits.Count(edit => !edit.IsInString), "the declaration is the only edit that is not in a string");
         Assert.AreEqual(5, plan.Edits.Count(edit => edit.IsInString));
+    }
+
+    // another class with a member of the same name as Class1's.
+    private static readonly string Class2 = Lines(
+        "VERSION 1.0 CLASS",
+        "BEGIN",
+        "  MultiUse = -1  'True",
+        "END",
+        "Attribute VB_Name = \"Class2\"",
+        "Option Explicit",
+        "Public Value As String",
+        "Private Sub Helper()",
+        "End Sub");
+
+    // which member a late-bound access calls is only known when the code runs: where the object may be of the renamed member's class, the access is renamed,
+    // and its edit says so, for the user to confirm, and whether what the code says of the object backs the member.
+    [TestMethod]
+    [DataRow("Public Sub Bar(ByVal o As Object)", "", false, DisplayName = "a parameter, which the callers assign")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class1", true, DisplayName = "a local Set to the class")]
+    [DataRow("Public Sub Bar()", "    Dim o As Variant|    Set o = New Class2|    Set o = New Class1", true, DisplayName = "a Variant Set to either class")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = Make()", false, DisplayName = "a local Set to an Object a function returns")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class2|    Take o", false, DisplayName = "a local given to a call, which may Set it")]
+    [DataRow("Public Sub Bar()", "    Dim o As Object|    Set o = New Class1|    Take o", true, DisplayName = "a local Set to the class, given to a call")]
+    [DataRow("Public Sub Bar(ByVal items As Collection)", "    Dim o As Object|    For Each o In items|    Next", false, DisplayName = "the variable of a For Each loop")]
+    public void ALateBoundAccess_OfAnObjectThatMayBeOfTheClass_IsRenamed_AsAnEditToConfirm(string header, string assigned, bool isBacked)
+    {
+        var context = Compose(("Class1", Class1), ("Class2", Class2), ("Main", Module("Main",
+            [
+                header,
+                .. assigned.Split('|', StringSplitOptions.RemoveEmptyEntries),
+                "    o.Value = \"x\"",
+                "    With o",
+                "        Debug.Print .Value",
+                "    End With",
+                "End Sub",
+                "Public Function Make() As Object",
+                "End Function",
+                "Public Sub Take(ByRef o As Object)",
+                "End Sub",
+            ])));
+
+        var plan = Rename(context, "Class1", "Public Property Get Value", "Value", "Amount");
+
+        Assert.IsTrue(plan.IsValid, plan.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
+        var lateBound = plan.Edits.Where(edit => edit.IsLateBound).ToList();
+        Assert.HasCount(2, lateBound, "the access after a '.', and the one in the With block");
+        Assert.IsTrue(lateBound.All(edit => SymbolUri.ModuleNameOf(edit.Module) == "Main" && !edit.IsInString));
+        Assert.IsTrue(lateBound.All(edit => edit.IsBacked == isBacked), isBacked ? "the code says the object holds a Class1" : "nothing says what it holds");
+        StringAssert.Contains(Renamed(context, plan, "Main"), "    o.Amount = \"x\"");
+        StringAssert.Contains(Renamed(context, plan, "Main"), "        Debug.Print .Amount");
+        Assert.IsFalse(plan.Edits.Any(edit => SymbolUri.ModuleNameOf(edit.Module) == "Class2"), "Class2's own Value is another member");
+    }
+
+    // where the assignments of the code say every class the object may be of, and the renamed member's is not one of them, the access is not renamed.
+    [TestMethod]
+    [DataRow("    Dim o As Object|    Set o = New Class2", DisplayName = "a local Set to another class only")]
+    [DataRow("    Dim o As Object|    Set o = New Class2|    Set o = Nothing", DisplayName = "a local Set to another class, then Nothing")]
+    [DataRow("    Dim o As Object", DisplayName = "a local never Set, which holds Nothing")]
+    [DataRow("    Set o = New Class2", DisplayName = "a Private variable of the module, Set to another class only")]
+    public void ALateBoundAccess_OfAnObjectOfAnotherClassOnly_IsNotRenamed(string assigned)
+    {
+        var context = Compose(("Class1", Class1), ("Class2", Class2), ("Main", Module("Main",
+            [
+                "Option Explicit",
+                "Private o As Object",
+                "Public Sub Bar()",
+                .. assigned.Split('|', StringSplitOptions.RemoveEmptyEntries),
+                "    o.Value = \"x\"",
+                "End Sub",
+            ])));
+
+        var plan = Rename(context, "Class1", "Public Property Get Value", "Value", "Amount");
+
+        Assert.IsTrue(plan.IsValid, plan.Refusal?.ToMessage(culture: CultureInfo.InvariantCulture));
+        Assert.IsFalse(plan.Edits.Any(edit => edit.IsLateBound || SymbolUri.ModuleNameOf(edit.Module) == "Main"));
+    }
+
+    // a member that code outside of its class can't call - a Private one, or one of a standard module - is never what a late-bound access calls.
+    [TestMethod]
+    public void ALateBoundAccess_OfAPrivateMember_OrOfAStandardModulesMember_IsNotRenamed()
+    {
+        var context = Compose(("Class2", Class2), ("Helpers", Module("Helpers",
+                "Public Sub Run()",
+                "End Sub")),
+            ("Main", Module("Main",
+                "Public Sub Bar(ByVal o As Object)",
+                "    o.Helper",
+                "    o.Run",
+                "End Sub")));
+
+        var helper = Rename(context, "Class2", "Private Sub Helper", "Helper", "Assist");
+        var run = Rename(context, "Helpers", "Public Sub Run", "Run", "Go");
+
+        Assert.IsFalse(helper.Edits.Any(edit => edit.IsLateBound), "a Private member is not found late-bound");
+        Assert.IsFalse(run.Edits.Any(edit => edit.IsLateBound), "an object is never a standard module");
+    }
+
+    // what is known of the classes an object may be of is open: a source the workspace is given says what the code does not.
+    [TestMethod]
+    public void ALateBoundAccess_IsNotRenamed_WhereASourceSaysTheObjectIsOfAnotherClassOnly()
+    {
+        var context = Compose(("Class1", Class1), ("Class2", Class2), ("Main", Module("Main",
+            "Public Sub Bar(ByVal o As Object)",
+            "    o.Value = \"x\"",
+            "End Sub")));
+        var class2 = context.Resolver.ResolveType("Class2", RDCore.SDK.Model.Symbols.Abstract.ScopeKind.Local, ModuleUri("Main")).Symbol!.SemanticId;
+        var class1 = context.Resolver.ResolveType("Class1", RDCore.SDK.Model.Symbols.Abstract.ScopeKind.Local, ModuleUri("Main")).Symbol!.SemanticId;
+        var known = context with { ClassSources = [new KnownClasses(new PossibleClasses([class2], IsComplete: true))] };
+        var seen = context with { ClassSources = [new KnownClasses(new PossibleClasses([class1], IsComplete: false))] };
+
+        var open = Rename(context, "Class1", "Public Property Get Value", "Value", "Amount");
+        var closed = Rename(known, "Class1", "Public Property Get Value", "Value", "Amount");
+        var backed = Rename(seen, "Class1", "Public Property Get Value", "Value", "Amount");
+
+        Assert.AreEqual(1, open.Edits.Count(edit => edit.IsLateBound && !edit.IsBacked), "the parameter may be of any class");
+        Assert.IsFalse(closed.Edits.Any(edit => edit.IsLateBound), "the source rules Class1 out");
+        Assert.AreEqual(1, backed.Edits.Count(edit => edit.IsLateBound && edit.IsBacked), "the source says the parameter holds a Class1, among others");
+    }
+
+    // a source that knows the classes of every expression it is asked about.
+    private sealed class KnownClasses(PossibleClasses classes) : IPossibleClassesSource
+    {
+        public PossibleClasses? ClassesOf(PossibleClassesQuery query) => classes;
     }
 
     // a string is renamed only where a library calls a procedure by it: not a message, not the name of a local, not a member of another module.

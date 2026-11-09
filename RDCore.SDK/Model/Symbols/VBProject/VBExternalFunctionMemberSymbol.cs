@@ -16,5 +16,8 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// <param name="SelectionRange">A <c>Range</c> pointing to the document location that should be selected when navigating to this symbol.</param>
 /// <param name="ResolvedType">The resolved <c>VBType</c> of this member. Use <c>VBUnknownType</c> if the type isn't resolved yet.</param>
 /// <param name="AccessModifier">The access modifier specified for this symbol. Use <c>AccessModifier.Implicit</c> if none is specified.</param>
+/// <param name="IsPtrSafe"><see langword="true"/> when the declaration includes a <c>PtrSafe</c> token.</param>
+/// <param name="Lib">The external library named by the <c>Lib</c> clause.</param>
+/// <param name="Alias">The name named by the <c>Alias</c> clause, or <see langword="null"/> when there is none.</param>
 public sealed record class VBExternalFunctionMemberSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, ScopeKind Scope, SymbolKindExt Kind, VBType ResolvedType, SourceRange Range, SourceRange SelectionRange, AccessModifier AccessModifier, bool IsPtrSafe, string Lib, string? Alias)
     : VBFunctionMemberSymbol(WorkspaceRoot, ParentUri, Name, Scope, Kind, ResolvedType, Range, SelectionRange, AccessModifier) { }

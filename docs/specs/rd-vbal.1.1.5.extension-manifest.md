@@ -6,8 +6,8 @@ The extension manifest is a small text file in a human-readable JSON serialized 
 
 By default, the environment host may restrict capabilities requested by **unsigned or untrusted extensions**. Users may override these default restrictions through configuration or development modes.
 
-> [!IMPORTANT]
-> Extension packages **must** include a **signed manifest** that binds metadata to the distributed artifacts (the *extension server* executable).
+> [!NOTE]
+> **Not implemented.** A manifest is not signed. Its `FileHash` binds it to the extension's executable; nothing binds it to its publisher.
 
 ## 1.1.5.1 Schema
 
@@ -15,12 +15,15 @@ By default, the environment host may restrict capabilities requested by **unsign
 {
     "Name": "string",
     "Title": "string",
+    "Id": "string",
     "Version": "version-string",
     "Publisher": "string",
     "PublisherWebUrl": "url-string",
     "Description": "string",
-    "Signature": "string",
+    "FileHash": "string",
     "Capabilities": [ { "Name": "string", "IsSupported": true } ],
+    "DiagnosticPrefix": null,
+    "SdkVersion": "version-string",
     "Settings": [ { "Key": "string", "Kind": 0, "Choices": [], "Minimum": null, "Maximum": null, "Reach": 0, "IsTrustSensitive": false } ],
     "SettingDescriptions": { "en": { "key": "string" }, "fr": { "key": "string" } }
 }
@@ -30,14 +33,21 @@ By default, the environment host may restrict capabilities requested by **unsign
 |---|---|
 |`Name`|The file name of the extension executable (.exe). The executable is located in the same folder as the manifest file.|
 |`Title`|The *friendly name*, or *title*, of the extension. It **must** match the name of the folder the manifest is located in.|
+|`Id`|The stable identifier of the extension. A manifest that has no `Id` takes its `Title`.|
 |`Version`|A *semantic version* string minimally identifying the **Major.Minor.Build** version of the extension. It **must** match the assembly file version of the extension executable (.exe) file.|
 |`Publisher`|The name of the publisher (copyright holder) of the extension.|
 |`PublisherWebUrl`|A reasonably short website URL provided by the publisher.|
 |`Description`|A short description of the extension.|
-|`Signature`|The Base64-encoded `SHA512` file-hash signature of the extension executable (.exe) file. It **must** be identical to the file hash of the discovered extension executable (.exe).|
+|`FileHash`|The Base64-encoded `SHA512` file hash of the extension executable (.exe) file. It **must** be identical to the file hash of the discovered extension executable (.exe).|
 |`Capabilities`|The platform capabilities the extension advertises, recorded by `rdc.exe describe-ext`. Each entry names a capability (`Name`) and whether it is supported (`IsSupported`, `true` by default). The host ignores an entry whose `IsSupported` is `false`.|
+|`DiagnosticPrefix`|The three-letter prefix of the diagnostic codes the extension's publisher issues. `null` for none.|
+|`SdkVersion`|The version of `RDCore.SDK` the extension was built against, recorded by `rdc.exe describe-ext` from the extension assembly's reference to `RDCore.SDK`. `null` when the manifest does not say.|
 |`Settings`|The settings the extension is configured with ([`SettingDescriptor`](../api/RDCore.SDK.Server.Configuration.SettingDescriptor.html)), recorded by `rdc.exe describe-ext` from the extension's [`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html). A client offers them to a user without starting the extension ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)). Empty for an extension that has none.|
 |`SettingDescriptions`|The description of each setting, by its key, in each language of the platform, by its two-letter name. A description in a language the platform has none in is the first language's (`en`).|
+
+`Name`, `Title`, `Version`, `Publisher`, `PublisherWebUrl`, `Description`, `FileHash` and `Capabilities` are required. A manifest that is not valid JSON,
+or that lacks one of them (such as a manifest that has a `Signature` and no `FileHash`), is logged and describes no extension: the extension is not
+started. `rdc.exe describe-ext --overwrite` writes the manifest again.
 
 An extension declares a capability so that `rdc.exe describe-ext` records it in the extension's manifest:
 
@@ -56,7 +66,7 @@ An extension manifest discovered under the platform's `./extensions` folder must
 |The platform extension configuration explicitly lists the extension's `Title` as `Blocked`.|`Blocked`|
 |The `Title` in the extension manifest mismatches the folder location the manifest was discovered in.|`LocationMismatch`|
 |The extension executable (.exe) named in the manifest is not found in the same folder as the manifest file.|`FileNotFound`|
-|The `SHA512` file-hash signature in the manifest mismatches the `SHA512` file-hash signature of the extension executable (.exe).|`SignatureMismatch`|
+|The `FileHash` in the manifest mismatches the `SHA512` file hash of the extension executable (.exe).|`FileHashMismatch`|
 
 The validation flags are documented by [ExtensionValidationFlags](../api/RDCore.SDK.Extensibility.ExtensionValidationFlags.html).
 

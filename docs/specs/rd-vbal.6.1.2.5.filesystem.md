@@ -12,6 +12,19 @@ What a member does to the machine - a directory listed, a file copied or deleted
 an administrator restricts and a test fakes. What the specification leaves to the implementation, and the errors it does not name, are **MS-VBA**'s,
 recorded in Excel; where **MS-VBA** does other than the specification says, RD-VBA does what **MS-VBA** does, and the notes below say so.
 
+## Current directory
+
+MS-VBAL leaves the current directory a program starts in to the host: `CurDir` gives the path of an implementation-defined current drive
+([**MS-VBAL §6.1.2.5.1.1** CurDir](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/8e82dffc-c920-4ed9-9960-cbd9b6613069)),
+`Open` combines a relative path with the current drive and directory in an implementation-defined manner
+([**MS-VBAL §5.4.5.1** Open Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/29a62f38-5bf6-4e08-9dae-0094e377058b)), and the host maps file I/O to the
+platform's storage (**MS-VBAL §2.7.3**). In RD-VBA:
+
+- A session composed for a workspace starts in the workspace root, the folder of its `.rdproj`, when the workspace loads and each time the project is
+  reloaded. A relative path in `Open`, `Dir` or `Kill` is a file of the workspace.
+- `ChDir` and `ChDrive` move it. `End` leaves it where the program put it.
+- The interactive shell started without a workspace runs in a temporary one, and its session stays in the folder the environment host was started in.
+
 
 ## 6.1.2.5.1 Public Functions
 

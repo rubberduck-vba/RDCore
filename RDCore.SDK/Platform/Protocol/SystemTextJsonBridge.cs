@@ -21,7 +21,7 @@ namespace RDCore.SDK.Platform.Protocol;
 /// </para>
 /// </remarks>
 /// <typeparam name="T">The wrapper type.</typeparam>
-public sealed class SystemTextJsonBridge<T> : JsonConverter
+internal sealed class SystemTextJsonBridge<T> : JsonConverter
 {
     /// <inheritdoc/>
     public override bool CanConvert(Type objectType) => typeof(T).IsAssignableFrom(objectType);

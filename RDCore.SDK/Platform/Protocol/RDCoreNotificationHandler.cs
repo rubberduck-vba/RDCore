@@ -27,7 +27,8 @@ public abstract class RDCoreNotificationHandler<TNotification> : IJsonRpcHandler
 /// <summary>
 /// The base class for a platform protocol JSON-RPC request.
 /// </summary>
-/// <typeparam name="TNotification">A serializable type representing the request parameters.</typeparam>
+/// <typeparam name="TRequest">A serializable type representing the request parameters.</typeparam>
+/// <typeparam name="TResponse">A serializable type representing the response.</typeparam>
 /// <remarks>
 /// A <c>[Method]</c> attribute must be specified on the implementing class to map the handler to a specific platform protocol request.
 /// </remarks>

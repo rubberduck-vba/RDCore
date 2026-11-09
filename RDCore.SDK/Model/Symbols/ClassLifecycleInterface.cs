@@ -24,7 +24,7 @@ namespace RDCore.SDK.Model.Symbols;
 /// </para>
 /// <para>
 /// The runtime does not call the handlers by name: it dispatches the interface's member to the implementation the
-/// class has for it (<see cref="VBClassModuleSymbol.FindImplementation"/>), the member's default when there is none,
+/// class has for it (<see cref="VBClassModuleSymbol.FindImplementation(VBClassModuleSymbol, Abstract.VBTypeMemberSymbol)"/>), the member's default when there is none,
 /// which is the same dispatch an explicit <c>Implements</c> needs. And the interface is not a name workspace code can
 /// refer to: nothing declares it to the scope tree, and it is no workspace symbol.
 /// </para>

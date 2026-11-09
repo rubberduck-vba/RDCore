@@ -52,6 +52,15 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>WorkspaceMessages.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <Compile Update="Runtime\RuntimeMessages.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>RuntimeMessages.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Runtime\RuntimeMessages.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>RuntimeMessages.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

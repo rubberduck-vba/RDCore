@@ -45,12 +45,12 @@ public enum ExtensionValidationFlags
     /// </remarks>
     FileNotFound = 1 << 3,
     /// <summary>
-    /// The <c>Signature</c> specified in the extension manifest does not match the signature of the discovered binary executable.
+    /// The <c>FileHash</c> specified in the extension manifest does not match the file hash (base64-encoded SHA-512) of the discovered executable.
     /// </summary>
     /// <remarks>
     /// The server executable may have been tampered with.
     /// </remarks>
-    SignatureMismatch = 1 << 4,
+    FileHashMismatch = 1 << 4,
 
 }
 
@@ -114,7 +114,7 @@ public class ExtensionManifestValidationService(IOptions<SdkAppOptions> options,
             if (flags == ExtensionValidationFlags.NoFlags)
             {// the extension exists in the expected location.
 
-                flags |= FlagSignatureMismatch(manifest);
+                flags |= FlagFileHashMismatch(manifest);
                 // the extension executable matches the file hash specified in the manifest.
             }
         }
@@ -145,15 +145,15 @@ public class ExtensionManifestValidationService(IOptions<SdkAppOptions> options,
                 ? ExtensionValidationFlags.NoFlags
                 : ExtensionValidationFlags.FileNotFound;
 
-    private ExtensionValidationFlags FlagSignatureMismatch(ExtensionInfo manifest)
+    private ExtensionValidationFlags FlagFileHashMismatch(ExtensionInfo manifest)
         => options.Value.Server.UnsafeDevMode || ExtensionsFolder.GetDirectories(manifest.Title, SearchOption.TopDirectoryOnly).Single()
             .GetFiles(manifest.Name, SearchOption.TopDirectoryOnly)
-            .SingleOrDefault(file => GetSignature(file) == manifest.Signature) != default
+            .SingleOrDefault(file => GetFileHash(file) == manifest.FileHash) != default
                 ? ExtensionValidationFlags.NoFlags
-                : ExtensionValidationFlags.SignatureMismatch;
+                : ExtensionValidationFlags.FileHashMismatch;
 
-    // base64(SHA512) — must match how ExtensionsClient.Describe writes the manifest signature.
-    private static string GetSignature(IFileInfo file)
+    // base64(SHA512): must match how ExtensionsClient.Describe writes the manifest's file hash.
+    private static string GetFileHash(IFileInfo file)
     {
         using var stream = file.OpenRead();
         return Convert.ToBase64String(SHA512.HashData(stream));

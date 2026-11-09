@@ -326,7 +326,7 @@ foreach ($extension in $Extensions)
     Push-Location -LiteralPath $extensionFolder
     try
     {
-        # --unsafe-dev-mode only lets describe-ext run without a signing setup. the manifest Signature it
+        # --unsafe-dev-mode only lets describe-ext run without a signing setup. the manifest FileHash it
         # records is base64(SHA-512) of this exact exe, so nothing may modify the exe after this step.
         & $Rdc describe-ext $extension.Executable --description $extension.Description --overwrite --unsafe-dev-mode
         if ($LASTEXITCODE -ne 0)

@@ -66,7 +66,7 @@ internal static partial class DirectiveStructureScanner
                 // a '#' that starts no directive MS-VBA knows: at the word after it, or where one would be.
                 var word = UnknownWordPattern().Match(text);
                 findings.Add(new Finding(RangeOf(lineStarts, index + word.Index, index + word.Index + word.Length), VBCompileErrorId.SyntaxError,
-                    SDK.Exceptions.VBCompileError_DirectiveExpectedKeyword_Verbose));
+                    Exceptions.VBCompileError_DirectiveExpectedKeyword_Verbose));
                 continue;
             }
 
@@ -88,11 +88,11 @@ internal static partial class DirectiveStructureScanner
                     break;
 
                 case Kind.ElseIf when open.Count == 0 || open.Peek().HasElse:
-                    findings.Add(new Finding(range, VBCompileErrorId.ElseIfWithoutIf, SDK.Exceptions.VBCompileError_ElseIfWithoutIf_Verbose));
+                    findings.Add(new Finding(range, VBCompileErrorId.ElseIfWithoutIf, Exceptions.VBCompileError_ElseIfWithoutIf_Verbose));
                     break;
 
                 case Kind.Else when open.Count == 0 || open.Peek().HasElse:
-                    findings.Add(new Finding(range, VBCompileErrorId.HashElseWithoutIf, SDK.Exceptions.VBCompileError_HashElseWithoutIf_Verbose));
+                    findings.Add(new Finding(range, VBCompileErrorId.HashElseWithoutIf, Exceptions.VBCompileError_HashElseWithoutIf_Verbose));
                     break;
 
                 case Kind.Else:
@@ -100,7 +100,7 @@ internal static partial class DirectiveStructureScanner
                     break;
 
                 case Kind.EndIf when open.Count == 0:
-                    findings.Add(new Finding(range, VBCompileErrorId.DirectiveWithoutIf, SDK.Exceptions.VBCompileError_DirectiveWithoutIf_Verbose));
+                    findings.Add(new Finding(range, VBCompileErrorId.DirectiveWithoutIf, Exceptions.VBCompileError_DirectiveWithoutIf_Verbose));
                     break;
 
                 case Kind.EndIf:
@@ -110,7 +110,7 @@ internal static partial class DirectiveStructureScanner
         }
 
         // each block that is still open is never ended: at its #If, where MS-VBA puts the caret at the module's last line.
-        findings.AddRange(open.Reverse().Select(block => new Finding(block.Range, VBCompileErrorId.HashIfWithoutEndIf, SDK.Exceptions.VBCompileError_HashIfWithoutEndIf_Verbose)));
+        findings.AddRange(open.Reverse().Select(block => new Finding(block.Range, VBCompileErrorId.HashIfWithoutEndIf, Exceptions.VBCompileError_HashIfWithoutEndIf_Verbose)));
         return [.. findings.OrderBy(finding => finding.Range.Start)];
     }
 
@@ -147,7 +147,7 @@ internal static partial class DirectiveStructureScanner
 
             // the rule is read, and more is written on the line.
             offending = tokens.Lt(1);
-            return At(offending, text, SDK.Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose);
+            return At(offending, text, Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose);
         }
         catch (ParseCanceledException exception) when (exception.InnerException is RecognitionException { OffendingToken: { } token })
         {
@@ -161,7 +161,7 @@ internal static partial class DirectiveStructureScanner
         {
             Kind.If or Kind.ElseIf => ExpectedInCondition(all, offending, before, text),
             Kind.Const => At(offending, text, ExpectedInConst(all, offending, before)),
-            _ => At(offending, text, SDK.Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose),
+            _ => At(offending, text, Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose),
         };
     }
 
@@ -171,18 +171,18 @@ internal static partial class DirectiveStructureScanner
     {
         if (before?.Type == VBALexer.THEN && offending.Type is VBALexer.NEWLINE or TokenConstants.Eof)
         {
-            return At(before, text, SDK.Exceptions.VBCompileError_DirectiveExpectedExpression_Verbose);
+            return At(before, text, Exceptions.VBCompileError_DirectiveExpectedExpression_Verbose);
         }
 
         var then = tokens.FirstOrDefault(token => token.Type == VBALexer.THEN);
         if (then is not null && offending.TokenIndex > then.TokenIndex)
         {
-            return At(offending, text, SDK.Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose);
+            return At(offending, text, Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose);
         }
 
         return At(offending, text, offending.Type == VBALexer.THEN || before is null || ExpectsAnOperand(before.Type)
-            ? SDK.Exceptions.VBCompileError_DirectiveExpectedExpression_Verbose
-            : SDK.Exceptions.VBCompileError_DirectiveExpectedThen_Verbose);
+            ? Exceptions.VBCompileError_DirectiveExpectedExpression_Verbose
+            : Exceptions.VBCompileError_DirectiveExpectedThen_Verbose);
     }
 
     // a #Const's: right after Const, its name; before its '=', the '='; after it, an expression where an operand is due, and the end of the line after one.
@@ -192,13 +192,13 @@ internal static partial class DirectiveStructureScanner
         if (equals is not null && offending.TokenIndex > equals.TokenIndex)
         {
             return before is null || ExpectsAnOperand(before.Type)
-                ? SDK.Exceptions.VBCompileError_ConstDirectiveExpression_Verbose
-                : SDK.Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose;
+                ? Exceptions.VBCompileError_ConstDirectiveExpression_Verbose
+                : Exceptions.VBCompileError_DirectiveExpectedEndOfStatement_Verbose;
         }
 
         return before?.Type == VBALexer.CONST
-            ? SDK.Exceptions.VBCompileError_ConstDirectiveExpectedName_Verbose
-            : SDK.Exceptions.VBCompileError_ConstDirectiveExpectedEquals_Verbose;
+            ? Exceptions.VBCompileError_ConstDirectiveExpectedName_Verbose
+            : Exceptions.VBCompileError_ConstDirectiveExpectedEquals_Verbose;
     }
 
     // what an expression goes on after: an operator, an opening parenthesis, the keyword that opens the condition.

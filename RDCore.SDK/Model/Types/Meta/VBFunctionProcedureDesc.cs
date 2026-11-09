@@ -10,6 +10,7 @@ namespace RDCore.SDK.Model.Types.Meta;
 /// Describes a <c>Function</c> procedure.
 /// </summary>
 /// <param name="Name">The name of the member.</param>
+/// <param name="Parameters">The parameters of the member.</param>
 public record class VBFunctionProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBReturningMemberDesc(Name, Parameters)
 {
     private static readonly Lazy<VBFunctionProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);
@@ -30,7 +31,8 @@ public record class VBFunctionProcedureDesc(string Name, ImmutableArray<VBParame
 /// Encountering a <em>deferred member</em> dring semantic traversal attaches the required semantics to produce a <c>VBInferredTypeMember</c> that can be materialized into a code action.
 /// </remarks>
 /// <param name="Name">The name of the deferred member</param>
-public record class VBDeferredFunctionProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBFunctionProcedureDesc(Name, Parameters)
+/// <param name="Parameters">The parameters of the deferred member.</param>
+internal record class VBDeferredFunctionProcedureDesc(string Name, ImmutableArray<VBParameterSymbol> Parameters) : VBFunctionProcedureDesc(Name, Parameters)
 {
     private static readonly Lazy<VBDeferredFunctionProcedureDesc> _instance = new(() => new(nameof(VBType), []), LazyThreadSafetyMode.PublicationOnly);
     /// <summary>

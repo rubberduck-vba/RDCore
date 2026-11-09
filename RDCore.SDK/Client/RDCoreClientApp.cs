@@ -91,8 +91,6 @@ public sealed record class WorkDoneTracking(ProgressToken? Token, IDisposable? T
 /// <summary>
 /// A client-side (LSP) RDCore app.
 /// </summary>
-/// <param name="connectionFactory">Creates the <see cref="ChildConnection"/> to the child server.</param>
-/// <param name="logger">A standard logger.</param>
 /// <remarks>
 /// 🧩 Most RDCore apps are server-side, but if you were making an IDE or a CLI app, this would be your LSP app.
 /// </remarks>
@@ -108,6 +106,12 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     private IServiceProvider? _hostServices;
     private bool _disposed;
 
+    /// <summary>
+    /// Creates the app.
+    /// </summary>
+    /// <param name="options">The options of the application.</param>
+    /// <param name="connectionFactory">Creates the <see cref="ChildConnection"/> to the child server.</param>
+    /// <param name="logger">A standard logger.</param>
     protected RDCoreClientApp(
         IOptions<SdkAppOptions> options,
         IChildConnectionFactory connectionFactory,
@@ -203,6 +207,7 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
     /// Bootstraps and starts the application.
     /// </summary>
     /// <param name="provider">An <see cref="IServiceProvider"/> to configure the application.</param>
+    /// <param name="args">The command-line arguments of the application, given to <see cref="BeforeRunAsync"/>.</param>
     public async Task RunAsync(IServiceProvider provider, string[] args)
     {
         _hostServices = provider;
@@ -384,6 +389,11 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             .OnStarted(OnLanguageClientStartedAsync)
             .OnInitialize(HandleLanguageClientInitializeAsync)
             .OnInitialized(HandleLanguageClientInitializedAsync);
+
+        // a request the server makes runs to its end and is answered, as a server's does (ServerRequestScheduling.WithEveryRequestAnswered): by default a
+        // window/showMessageRequest that waits for the user is abandoned when a $/progress or a window/workDoneProgress/create arrives, and OmniSharp 0.19.9
+        // then answers the server nothing.
+        options.WithContentModifiedSupport(false);
 
         // the server asks for the live settings (workspace/configuration).
         OmniSharp.Extensions.LanguageServer.Protocol.Workspace.ConfigurationExtensions.OnConfiguration(options, (request, _) => Task.FromResult(AnswerConfiguration(request)));

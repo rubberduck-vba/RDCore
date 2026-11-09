@@ -59,7 +59,7 @@ public sealed class IncomingDocumentChanges
     /// <summary>
     /// A change to a document has arrived from the client, and is waiting for its turn: the requests about the document that are running are answered
     /// <c>ContentModified</c>, and so is each that starts before the change is applied. A change to a document the server does not serve
-    /// (<see cref="Serve"/>) is nothing.
+    /// (<see cref="Serve(Func{Uri, bool})"/>) is nothing.
     /// </summary>
     /// <param name="document">The document the change is to.</param>
     public void Arrived(Uri document)

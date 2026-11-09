@@ -13,11 +13,22 @@ namespace RDCore.Tests.Platform;
 [TestClass]
 public sealed class ExtensionSettingsTests
 {
+    private static ExtensionInfo Described(string title) => new()
+    {
+        Name = $"{title}.exe",
+        Title = title,
+        Version = new Version(1, 0),
+        Publisher = "",
+        PublisherWebUrl = "",
+        Description = "",
+        FileHash = "",
+        Capabilities = [],
+    };
+
     // the manifest as describe-ext writes it, and as the platform reads it back.
     private static ExtensionInfo Manifest()
     {
-        var described = new ExtensionInfo("RDCore.Diagnostics.exe", "RDCore.Diagnostics", new Version(1, 0), "", "", "", "", [])
-            .WithSettingsOf(typeof(DiagnosticsOptions).Assembly);
+        var described = Described("RDCore.Diagnostics").WithSettingsOf(typeof(DiagnosticsOptions).Assembly);
         return JsonSerializer.Deserialize<ExtensionInfo>(JsonSerializer.Serialize(described))!;
     }
 
@@ -41,7 +52,7 @@ public sealed class ExtensionSettingsTests
     [TestMethod]
     public void AnAssemblyThatSaysNothingOfItsSettings_HasNone()
     {
-        var manifest = new ExtensionInfo("x.exe", "x", new Version(1, 0), "", "", "", "", []).WithSettingsOf(typeof(ExtensionSettingsTests).Assembly);
+        var manifest = Described("x").WithSettingsOf(typeof(ExtensionSettingsTests).Assembly);
 
         Assert.IsEmpty(manifest.Settings);
         Assert.IsEmpty(manifest.SettingsIn(CultureInfo.InvariantCulture).Settings);

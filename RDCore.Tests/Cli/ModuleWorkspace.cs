@@ -136,11 +136,12 @@ internal static class ModuleWorkspace
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync(IReadOnlyList{ValueTuple{string, string}}, string, WorkspaceLibraries)"/>, in a workspace that has forms,
-    /// whose parse has what their designer declares, as the language server's does.
+    /// whose parse has what their designer declares, as the language server's does; in RD-VBA unless <paramref name="language"/> says otherwise.
     /// </summary>
     public static Task<string[]> RunAsync(
-        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)> forms)
-        => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries, forms: forms);
+        IReadOnlyList<(string Name, string Source)> classes, string program, WorkspaceLibraries libraries, IReadOnlyList<(string Name, string Source, FormDescriptor Designer)> forms,
+        SupportedLanguage? language = null)
+        => RunCoreAsync(classes, program, errorsOnly: false, libraries: libraries, forms: forms, language: language);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="RunAsync"/>, in a workspace that has other standard modules besides <c>Program</c>, for a project that

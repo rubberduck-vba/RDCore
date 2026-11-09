@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace RDCore.SDK.Model.Values.Numerics;
+namespace RDCore.Runtime.Numerics;
 
 /// <summary>
 /// The floating-point exceptions an operation of <see cref="Float80"/> values signals: the conditions an x87 floating-point unit records in its status

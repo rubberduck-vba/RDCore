@@ -57,7 +57,7 @@ public static class SyntaxNodeJson
     private static readonly JsonSerializerOptions HeaderShape = WithoutProperties(LocationFreeShape, IsBlock);
 
     /// <summary>
-    /// The options every AST (de)serialization call site should share: <see cref="PlatformJson"/> (the
+    /// The options every AST (de)serialization call site should share: <see cref="RDCore.SDK.Platform.Protocol.PlatformJson"/> (the
     /// live wire path) and tests alike, so what a test exercises matches what actually ships.
     /// </summary>
     /// <remarks>

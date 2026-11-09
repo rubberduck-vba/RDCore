@@ -9,10 +9,6 @@ namespace RDCore.SDK.Model.Errors;
 /// <remarks>
 /// A <em>runtime error</em> occurs while traversing the <em>abstract syntax tree</em> (AST) in the RDCore runtime.
 /// </remarks>
-/// <param name="VBRuntimeErrorId">The formal <c>VBCompileErrorId</c> value for this specific compile-time error.</param>
-/// <param name="Location">The document location of the faulted AST node.</param>
-/// <param name="Description">The error message.</param>
-/// <param name="Verbose">A detailed message identifying the faulted AST node and detailing its semantics.</param>
 public record class VBRuntimeErrorInfo : VBErrorInfo, IVBRaisableError
 {
     /// <inheritdoc/>

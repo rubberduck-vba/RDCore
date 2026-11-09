@@ -10,7 +10,7 @@ namespace RDCore.SDK.Server.Logging;
 /// the <c>workspace/configuration</c> request it makes as it starts, a registration, a progress - and sends it once it has started, and warns of each message it
 /// holds. Nothing is lost: the warning says only that a message waited, and it is written to every component's log at every start.
 /// </remarks>
-public static class DeferredOutputLogging
+internal static class DeferredOutputLogging
 {
     /// <summary>
     /// The category OmniSharp warns under, of a message it holds until the client is initialized.

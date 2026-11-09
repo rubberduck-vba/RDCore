@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Numerics;
-using RDCore.SDK.Model.Values.Numerics;
+using RDCore.Runtime.Numerics;
 
 namespace RDCore.Tests.Model.Values;
 

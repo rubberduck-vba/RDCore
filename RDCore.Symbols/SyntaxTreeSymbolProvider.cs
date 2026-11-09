@@ -218,7 +218,8 @@ public sealed class SyntaxTreeSymbolProvider(
 
         // a form's controls are members of its class that its designer declares, not its code. A name the code declares too is a compile error of the code's
         // declaration (DeclarationStaticSemanticsEvaluator.CheckDesigner); the code's declaration is the symbol of that name, so that each name has one. The
-        // designer declares the form's own members alongside them: the VBA form object's and the Microsoft Forms UserForm's (SymbolBuilder.BuildFormMembers).
+        // designer declares the form's own members alongside them: a UserForm's are the VBA form object's and the Microsoft Forms UserForm's, a VB6 form's are
+        // the VB.Form's (SymbolBuilder.BuildFormMembers).
         if (parseResult.Designer is not { } designer)
         {
             yield break;
@@ -233,13 +234,9 @@ public sealed class SyntaxTreeSymbolProvider(
             }
         }
 
-        // a VB6 form is VB6's, whose runtime is out of scope: only a UserForm has the VBA form object
-        if (designer.Kind == FormDesignerKind.MSForms)
+        foreach (var member in builder.BuildFormMembers(designer, taken))
         {
-            foreach (var member in builder.BuildFormMembers(designer.Name, taken))
-            {
-                yield return member;
-            }
+            yield return member;
         }
     }
 

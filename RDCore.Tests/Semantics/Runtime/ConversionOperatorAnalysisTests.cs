@@ -50,8 +50,8 @@ public sealed class ConversionOperatorAnalysisTests : LetCoercionRuntimeSemantic
         return (session, field);
     }
 
-    private static SemanticContextBuilder<ConversionOperationSemanticContext, ConversionSemanticFlags> Builder()
-        => new(Substitute.For<ICoreDiagnosticsFactory>());
+    private static SemanticContextFlagsBuilder<ConversionOperationSemanticContext, ConversionSemanticFlags> Builder()
+        => new();
 
     private static BinaryLetAssignmentOperatorRuntimeSemantics Assignment()
         => new(LetCoercionAnalysisHarness.BuildProvider(), Formatter());

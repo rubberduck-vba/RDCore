@@ -113,7 +113,7 @@ A user-defined type or a class is no candidate of `ResolveValue` at all: its nam
 MS-VBA permits an implicit `Variant` declaration for an unresolved name (without `Option Explicit`).
 
 RD-VBA defers inferring the type of an unresolved name to a later type-inference pass
-([IVBInferableType](../api/RDCore.SDK.Model.Types.Complex.IVBInferableType.html)), rather than deciding it in the
+(`IVBInferableType`), rather than deciding it in the
 simple-name-expression rule. See [**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md).
 
 ## Runtime Semantics

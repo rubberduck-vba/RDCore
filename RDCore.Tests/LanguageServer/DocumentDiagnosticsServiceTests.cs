@@ -75,12 +75,22 @@ public sealed class DocumentDiagnosticsServiceTests
             Range = new Range(new Position(line, 0), new Position(line, 4)),
         };
 
+    private static ExtensionInfo Manifest(string title, string capability) => new()
+    {
+        Name = $"{title}.exe",
+        Title = title,
+        Version = new Version(1, 0),
+        Publisher = "publisher",
+        PublisherWebUrl = "https://example.test",
+        Description = "desc",
+        FileHash = "hash",
+        Capabilities = [new PlatformExtensionServerCapability(capability)],
+    };
+
     private IRDCoreClientApp Provider(string title, int sourceVersion, params Diagnostic[] diagnostics)
     {
         var app = Substitute.For<IRDCoreClientApp>();
-        app.ExtensionInfo.Returns(new ExtensionInfo(
-            $"{title}.exe", title, new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
-            [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
+        app.ExtensionInfo.Returns(Manifest(title, nameof(DiagnoseDocument)));
         app.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         app.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
             .Returns(new DiagnoseDocumentResult { Diagnostics = diagnostics, SourceVersion = sourceVersion });
@@ -90,9 +100,7 @@ public sealed class DocumentDiagnosticsServiceTests
     private static IRDCoreClientApp NonProvider()
     {
         var app = Substitute.For<IRDCoreClientApp>();
-        app.ExtensionInfo.Returns(new ExtensionInfo(
-            "other.exe", "Other", new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
-            [new PlatformExtensionServerCapability("CliCommand")]));
+        app.ExtensionInfo.Returns(Manifest("Other", "CliCommand"));
         return app;
     }
 
@@ -411,9 +419,7 @@ public sealed class DocumentDiagnosticsServiceTests
         ParseYields();
 
         var failing = Substitute.For<IRDCoreClientApp>();
-        failing.ExtensionInfo.Returns(new ExtensionInfo(
-            "boom.exe", "Boom", new Version(1, 0), "publisher", "https://example.test", "desc", "sig",
-            [new PlatformExtensionServerCapability(nameof(DiagnoseDocument))]));
+        failing.ExtensionInfo.Returns(Manifest("Boom", nameof(DiagnoseDocument)));
         failing.WaitForReadyAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         failing.SendRequestAsync<DiagnoseDocumentParams, DiagnoseDocumentResult>(Arg.Any<DiagnoseDocumentParams>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("boom"));

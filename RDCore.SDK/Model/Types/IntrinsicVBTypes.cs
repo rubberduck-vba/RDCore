@@ -120,8 +120,8 @@ public static class IntrinsicVBTypes
     /// interfaces in <see cref="RDCore.SDK.Runtime.Abstract.StdLib"/> are declared that way.
     /// <para>
     /// The mapping covers exactly the intrinsics a declaration can name, which is the same set
-    /// <see cref="TryResolve"/> resolves by name. The values that have no declarable type - a
-    /// <see cref="VBEmptyValue"/>, a <see cref="VBMissingValue"/>, a <see cref="VBErrorValue"/> - are
+    /// <see cref="TryResolve(string, out VBType)"/> resolves by name. The values that have no declarable type (a
+    /// <see cref="VBEmptyValue"/>, a <see cref="VBMissingValue"/>, a <see cref="VBErrorValue"/>) are
     /// subtypes a <c>Variant</c> holds rather than types anything is declared as, and resolve here no
     /// more than <c>Dim x As Empty</c> compiles. <c>LongPtr</c> is absent for the same reason it is
     /// absent by name: its width depends on the host bitness.

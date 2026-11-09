@@ -165,6 +165,25 @@ public sealed class ExportLibraryTests
         Assert.IsTrue(open.Parameters.Single(parameter => parameter.Name == "FileName").IsByVal);
     }
 
+    // VB6.OLB flags none of its optional parameters: it counts them (FUNCDESC.cParamsOpt), and they are the last ones.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void TheParametersALibraryCountsAsOptional_AreOptional()
+    {
+        var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft Visual Studio", "VB98", "VB6.OLB");
+        if (!File.Exists(file))
+        {
+            Assert.Inconclusive("Visual Basic 6.0 is not installed on this machine.");
+        }
+
+        var form = Export(file).Classes.Single(declared => declared.Name == "Form");
+        var show = form.Members.Single(member => member.Name == "Show");
+        var move = form.Members.Single(member => member.Name == "Move");
+
+        Assert.IsTrue(show.Parameters.All(parameter => parameter.IsOptional), "Show([Modal], [OwnerForm])");
+        CollectionAssert.AreEqual(new[] { false, true, true, true }, move.Parameters.Select(parameter => parameter.IsOptional).ToArray(), "Move(Left, [Top], [Width], [Height])");
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void WhatIsDescribed_IsTheSameEveryTime_AndSurvivesBeingWrittenAndRead()

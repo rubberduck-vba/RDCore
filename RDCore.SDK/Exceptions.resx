@@ -129,12 +129,6 @@
   <data name="LanguageServerNotFoundException_Verbose" xml:space="preserve">
     <value>File '{$LSP_SVR_NAME}' was not found under the configured path: '{$PATH}'.</value>
   </data>
-  <data name="LetCoercionRuntimeErrorExceptionOverflow_Verbose" xml:space="preserve">
-    <value>Source value is outside the range of the determined let-coercion destination data type and cannot be represented.</value>
-  </data>
-  <data name="LikeOperatorRuntimeErrorExceptionInvalidPatternString_Verbose" xml:space="preserve">
-    <value>The pattern string does not form a valid, complete like-pattern-element.</value>
-  </data>
   <data name="VBCompileError" xml:space="preserve">
     <value>Compile error:</value>
   </data>
@@ -146,18 +140,6 @@
   </data>
   <data name="VBRuntimeInternalError_LetCoercionRuntimeSemanticRulesOverlap" xml:space="preserve">
     <value>The let-coercion runtime semantic selectors are overlapping and more than a single rule matched.</value>
-  </data>
-  <data name="VBRuntimeTypeMismatch_OperationEffectiveType_Verbose" xml:space="preserve">
-    <value>No semantics defined an effective type for the specified operator data types ({$OPERANDS}).</value>
-  </data>
-  <data name="VBRuntimeError_ActiveXComponentCantCreateObject_NotAClass_Verbose" xml:space="preserve">
-    <value>'{$TYPENAME}' does not reference an instantiable class and cannot be used with New.</value>
-  </data>
-  <data name="VBRuntimeError_ClassNotRegistered_Description" xml:space="preserve">
-    <value>Class not registered&#xD;&#xA;</value>
-  </data>
-  <data name="VBRuntimeError_ClassNotRegistered_CreationAlwaysFails_Verbose" xml:space="preserve">
-    <value>An object of {0}, a class of the {1} library, is never created: the library says the class can be created, and nothing creates one.</value>
   </data>
   <data name="VBRuntimeInternalError_WrongNumberOfOperands" xml:space="preserve">
     <value>Operator expression runtime semantics did not receive the expected number of operands for operator '{$OP}': VBTypedValue[{$LENGTH}].</value>
@@ -171,53 +153,8 @@
   <data name="LanguageServerProtocolSdkException_ServerNotInitialized" xml:space="preserve">
     <value>Language server was not initialized.</value>
   </data>
-  <data name="LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose" xml:space="preserve">
-    <value>Source value data type could not be let-coerced to the destination declared type during the evaluation of a let-coercion expression.</value>
-  </data>
-  <data name="LetCoercionRuntimeErrorExceptionInvalidUseOfNull_Verbose" xml:space="preserve">
-    <value>Destination data type could only be Null, Variant, or a fixed-sized array.</value>
-  </data>
-  <data name="LetCoercionRuntimeErrorExceptionObjectRequired" xml:space="preserve">
-    <value>The destination data type being an object or class type, the data type of the source value cannot be let-coerced, because an object is required for the source value.</value>
-  </data>
-  <data name="LetCoercionRuntimeErrorExceptionObjectVariableNotSet" xml:space="preserve">
-    <value>Source value 'Nothing' cannot be let-coerced to an object reference. This error usually denotes a missing 'Set' keyword, required for a reference assignment.</value>
-  </data>
-  <data name="LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
-    <value>Source value is outside the standard error code range (0 and 65535, inclusive) representable by the let-coercion destination data type.</value>
-  </data>
-  <data name="LetCoercionRuntimeErrorExceptionObjectDoesntSupportThisPropertyOrMethod_Verbose" xml:space="preserve">
-    <value>Source value is an object with no public default Property Get or Function callable with no arguments, so it has no simple data value that can be let-coerced to the destination declared type.</value>
-  </data>
-  <data name="SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose" xml:space="preserve">
-    <value>The source object's class does not match, and is not implemented by, the destination's declared class.</value>
-  </data>
-  <data name="SetCoercionRuntimeErrorExceptionObjectRequired_Verbose" xml:space="preserve">
-    <value>The source value is not an object reference, and an object is required for Set-coercion to this destination.</value>
-  </data>
-  <data name="VBExponentOp_InvalidProcedureCallOrArgument_Verbose" xml:space="preserve">
-    <value>The result of a negative exponent value cannot be represented with base 0.</value>
-  </data>
   <data name="VBIndex_LongLongSubscript_Verbose" xml:space="preserve">
     <value>A subscript of an array is a Long: a LongLong is not let-coerced to one.</value>
-  </data>
-  <data name="VBExponentOp_NoRealPower_Verbose" xml:space="preserve">
-    <value>A negative number raised to a fractional power has no real result.</value>
-  </data>
-  <data name="VBSgn_NaN_Verbose" xml:space="preserve">
-    <value>A value that is no number (NaN) has no sign.</value>
-  </data>
-  <data name="VBRuntimeInternalError_LetCoercionStrategyWasNotApplicable" xml:space="preserve">
-    <value>Let-coercion evaluation strategy unexpectedly returned a 'NotApplicable' result.</value>
-  </data>
-  <data name="LetCoercionRuntimeErrorExceptionOutOfStackSpace_Verbose" xml:space="preserve">
-    <value>This let-coercion operation is deterministically recursive. See evaluation stack details for more information.</value>
-  </data>
-  <data name="VBRuntimeInternalError_LetCoercionStackCorruption" xml:space="preserve">
-    <value>The internal let-coercion stack has reached an unexpected desynchronized state. Depth: {$DEPTH}.</value>
-  </data>
-  <data name="VBRuntimeInternalError_EvaluateOperatorRuntimeSemanticsNullApplicableResult_Verbose" xml:space="preserve">
-    <value>The evaluation of this expression unexpectedly yields a semantically invalid, unrepresentable result.</value>
   </data>
   <data name="Verbose_FrameDetails" xml:space="preserve">
     <value>Frame details:</value>
@@ -225,98 +162,11 @@
   <data name="Verbose_LetCoercionStackTrace" xml:space="preserve">
     <value>Evaluation stack:</value>
   </data>
-  <data name="VBDivisionOp_DivisionByZero" xml:space="preserve">
-    <value>This operation is dividing by zero. Consider adding a conditional check to avoid this.</value>
-  </data>
-  <data name="VBRuntimeError_ArithmeticOverflow" xml:space="preserve">
-    <value>This operation results in a value that the determined effective type cannot legally represent.</value>
-  </data>
   <data name="VBIntegerDivisionOp_DivisionByZero" xml:space="preserve">
     <value>This operation results in a division by zero, possibly due to Banker's Rounding losing enough precision to bring the operand value to integer value 0.</value>
   </data>
-  <data name="VBIsOp_ObjectRequired" xml:space="preserve">
-    <value>Relational operator 'Is' requires an object in this context.</value>
-  </data>
-  <data name="VBForLoopNotInitialized_Verbose" xml:space="preserve">
-    <value>This For loop's Next statement ran without its own For header ever running in this call - a GoTo jumped directly into the loop body, so the start, end, and step values were never evaluated.</value>
-  </data>
-  <data name="VBForLoopOperandIsNotANumber_Verbose" xml:space="preserve">
-    <value>The start, the end and the step of a For loop are numbers: this one cannot be read as a number (MS-VBAL 5.4.2.3).</value>
-  </data>
-  <data name="VBRuntimeError_NobodyToAnswer_Verbose" xml:space="preserve">
-    <value>{0} in a program run unattended (--unattended): nobody is there to answer it, and the run fails.</value>
-  </data>
-  <data name="VBRuntimeError_NobodyToAnswer_Declined" xml:space="preserve">
-    <value>{1}, which shows the program's dialogs, declined to answer its {0}: nobody else will, and the run fails.</value>
-  </data>
-  <data name="VBRuntimeError_UnusableDialogAnswer_NoSuchButton" xml:space="preserve">
-    <value>{0} answered the program's MsgBox ({1}) with {2}, which is none of its buttons: the program cannot go on with that answer, and the run fails.</value>
-  </data>
-  <data name="VBRuntimeError_UnusableDialogAnswer_NotRelayed" xml:space="preserve">
-    <value>The program's {0} could not be relayed to the client that shows its dialogs ({1}): the run fails, rather than wait on a dialog nobody sees.</value>
-  </data>
-  <data name="UnnamedClient" xml:space="preserve">
-    <value>The client</value>
-  </data>
-  <data name="VBForLoopOperandNotOfLoopType_Verbose" xml:space="preserve">
-    <value>This For loop counts in {0}, and its start, end or step is not a value of that type.</value>
-  </data>
-  <data name="VBForEach_ObjectVariableNotSet_Verbose" xml:space="preserve">
-    <value>This For Each loop's collection expression is Nothing. Enumerating it requires invoking its _NewEnum member, which cannot be done on an object reference that isn't set.</value>
-  </data>
-  <data name="VBMemberAssignment_ReadOnlyProperty_Verbose" xml:space="preserve">
-    <value>The object's {0} property has a Property Get and no Property Let, and what it returns is no object whose default member could be assigned instead.</value>
-  </data>
-  <data name="VBMemberAssignment_NotAssignable_Verbose" xml:space="preserve">
-    <value>The object has no public variable, and no Property Let or Property Set, of this name for the assignment to write to.</value>
-  </data>
-  <data name="VBMemberAccess_ObjectVariableNotSet_Verbose" xml:space="preserve">
-    <value>The object this member is accessed on is Nothing: an object variable that was never set, or that was set to Nothing, has no object to hold the member.</value>
-  </data>
-  <data name="VBLSet_NoObjectAtAddress_Verbose" xml:space="preserve">
-    <value>LSet reads an object field from bytes that are not an object's address: the number there is not what ObjPtr returned for an object that still exists, and is not 0 for Nothing. Nothing was copied.</value>
-  </data>
-  <data name="VBLSet_ObjectOfAnotherClass_Verbose" xml:space="preserve">
-    <value>LSet gives an object field the object of another class: a field declared as a class holds only an object of that class, or of a class that implements it, as Set would require. Nothing was copied.</value>
-  </data>
-  <data name="VBTypeOf_ObjectVariableNotSet_Verbose" xml:space="preserve">
-    <value>What TypeOf tests is Nothing: an object variable that was never set, or that was set to Nothing, has no object whose type could be tested. Test it with 'Is Nothing' first.</value>
-  </data>
-  <data name="VBIndex_SecondEmptyArgumentList_Verbose" xml:space="preserve">
-    <value>The array is given a second empty argument list, f()(): the first is the array itself, and the second selects no element of it.</value>
-  </data>
   <data name="VBIndex_NothingToIndex_Verbose" xml:space="preserve">
     <value>A {0} is neither an array nor an object: there is nothing to index.</value>
-  </data>
-  <data name="VBMemberAccess_NoSuchMember_Verbose" xml:space="preserve">
-    <value>The object has no member named {0}.</value>
-  </data>
-  <data name="VBMemberAccess_ObjectRequired_Verbose" xml:space="preserve">
-    <value>The Variant this member is accessed on holds a {0}, which has no members: only an object, or a record, has.</value>
-  </data>
-  <data name="VBForEach_RequiresEnumerableCollection_Verbose" xml:space="preserve">
-    <value>This For Each loop's collection expression must be an array, or an object exposing an enumeration member (VB_UserMemId = -4, commonly named _NewEnum).</value>
-  </data>
-  <data name="VBForEach_ArrayNotInitialized_Verbose" xml:space="preserve">
-    <value>This For Each loop's collection expression is an array with no dimensions - it was never initialized by a Dim with bounds or a ReDim, so there is nothing to enumerate.</value>
-  </data>
-  <data name="VBReturn_WithoutGoSub_Verbose" xml:space="preserve">
-    <value>This Return statement ran with an empty GoSub Resumption List - no GoSub or On...GoSub call in this activation is still awaiting it.</value>
-  </data>
-  <data name="VBOnGoToGoSub_SelectorOutOfRange_Verbose" xml:space="preserve">
-    <value>An On...GoTo or On...GoSub selector, once Let-coerced to Integer, must be zero or a positive value no greater than 255.</value>
-  </data>
-  <data name="VBResume_WithoutError_Verbose" xml:space="preserve">
-    <value>This Resume statement ran with no active error - there is nothing for it to resume from.</value>
-  </data>
-  <data name="VBErrorStatement_Raised_Verbose" xml:space="preserve">
-    <value>Raised explicitly by an Error statement.</value>
-  </data>
-  <data name="VBProcedureCall_OutOfStackSpace_Verbose" xml:space="preserve">
-    <value>This call would push the session's call stack past its own maximum depth - most likely unbounded recursion.</value>
-  </data>
-  <data name="VBProcedureCall_OutOfMemory_Temporary_Verbose" xml:space="preserve">
-    <value>The session's memory has no room left for the temporary this argument is passed in.</value>
   </data>
   <data name="VBArgument_ArrayToAsAny_Verbose" xml:space="preserve">
     <value>'{0}' is an array, which an As Any parameter does not take: it takes a variable of any other type, or an element of the array.</value>
@@ -332,9 +182,6 @@
   </data>
   <data name="VBArgument_ByValLateBound_Verbose" xml:space="preserve">
     <value>The member is called late-bound: its parameters are not known, and are taken to be ByRef, which takes no argument written ByVal.</value>
-  </data>
-  <data name="VBArgument_NullThroughDispatch_Verbose" xml:space="preserve">
-    <value>The object is called late-bound, through its IDispatch, which converts each argument to the type of its parameter: Null converts to no type but Variant.</value>
   </data>
   <data name="VBArgument_ByValIndex_Verbose" xml:space="preserve">
     <value>An index of an array is never written ByVal.</value>
@@ -375,8 +222,8 @@
   <data name="ValidationFlags_FileNotFound" xml:space="preserve">
     <value>The 'Name' specified in the extension manifest does not point to an existing file. The server executable may have been moved, renamed, or deleted.</value>
   </data>
-  <data name="ValidationFlags_SignatureMismatch" xml:space="preserve">
-    <value>The 'Signature' specified in the extension manifest does not match the signature (file hash) of the server executable. The executable file may have been tampered with.</value>
+  <data name="ValidationFlags_FileHashMismatch" xml:space="preserve">
+    <value>The 'FileHash' specified in the extension manifest does not match the file hash (SHA-512) of the server executable. The executable file may have been tampered with.</value>
   </data>
   <data name="ValidationFlags_InvalidCertificate" xml:space="preserve">
     <value>The certificate associated with this extension is invalid or expired.</value>
@@ -387,9 +234,6 @@
   <data name="VBCompileError_NumericLiteralOverflow" xml:space="preserve">
     <value>Numeric literal overflow</value>
   </data>
-  <data name="VBCompileError_NumericLiteralOverflow_Verbose" xml:space="preserve">
-    <value>The numeric literal's value is outside the range of its type.</value>
-  </data>
   <data name="VBCompileError_DeclaredTypeNotResolved_Verbose" xml:space="preserve">
     <value>The declared type '{0}' could not be resolved.</value>
   </data>
@@ -398,12 +242,6 @@
   </data>
   <data name="VBCompileError_DeclaredTypeIsAProceduralModule_Verbose" xml:space="preserve">
     <value>The declared type '{0}' is a procedural module, not a type.</value>
-  </data>
-  <data name="VBCompileError_RaiseEventByVal_Verbose" xml:space="preserve">
-    <value>A RaiseEvent argument cannot be written with ByVal: the keyword is valid only in the argument list of an external procedure's invocation (MS-VBAL §5.6.13.1).</value>
-  </data>
-  <data name="VBCompileError_CallArgumentsNeedCall_Verbose" xml:space="preserve">
-    <value>A call that is not written with the Call keyword does not have an argument list in parentheses, not even an empty one. Drop the parentheses (Foo 1, 2 or Foo), or write the Call keyword (Call Foo(1, 2) or Call Foo()). The parentheses of a single argument are not an argument list but the grouping of that argument, which is passed by value (MS-VBAL §5.4.2.1).</value>
   </data>
   <data name="VBCompileError_InvalidUseOfObject" xml:space="preserve">
     <value>Invalid use of object</value>
@@ -555,18 +393,6 @@
   <data name="VBCompileError_UnspecifiedError" xml:space="preserve">
     <value>Unspecified error</value>
   </data>
-  <data name="VBNamedArgumentNotFound_UnknownOrDuplicate_Verbose" xml:space="preserve">
-    <value>This named argument does not match any parameter of the called procedure, or a positional or named argument earlier in the same call already mapped to that parameter.</value>
-  </data>
-  <data name="VBNamedArgumentNotFound_MissingRequiredPositional_Verbose" xml:space="preserve">
-    <value>This positional argument's value was omitted, and the parameter it maps to is not declared Optional.</value>
-  </data>
-  <data name="VBArgumentNotOptional_Verbose" xml:space="preserve">
-    <value>A parameter of the called procedure that is not declared Optional has no argument mapped to it.</value>
-  </data>
-  <data name="VBWrongNumberOfArguments_Verbose" xml:space="preserve">
-    <value>This call supplies more positional arguments than the called procedure declares parameters for.</value>
-  </data>
   <data name="ErrorTitle_Syntax" xml:space="preserve">
     <value>Syntax error</value>
   </data>
@@ -584,18 +410,6 @@
   </data>
   <data name="CallChannel_NoSuchMethod" xml:space="preserve">
     <value>The other process has no method '{0}'.</value>
-  </data>
-  <data name="VBDeclare_LibraryNotFound_Verbose" xml:space="preserve">
-    <value>{0} could not be called: the library '{1}' was not found.</value>
-  </data>
-  <data name="VBDeclare_EntryPointNotFound_Verbose" xml:space="preserve">
-    <value>{0} could not be called: the library '{1}' has no entry point '{2}'.</value>
-  </data>
-  <data name="VBDeclare_HostStopped_Verbose" xml:space="preserve">
-    <value>{0} stopped the process that called it: the function is probably declared wrongly - its parameters, their types, or how they are passed.</value>
-  </data>
-  <data name="VBDeclare_ObjectNotPassed_Verbose" xml:space="preserve">
-    <value>An object cannot be passed to or from a function of a native library yet.</value>
   </data>
   <data name="VBCompileError_ExpectedFunctionOrVariable" xml:space="preserve">
     <value>Expected Function or variable</value>
@@ -720,65 +534,20 @@
   <data name="VBCompileError_DirectiveWithoutIf" xml:space="preserve">
     <value>An #ElseIf, #Else, or #EndIf must be preceded by an #If clause</value>
   </data>
-  <data name="VBCompileError_DirectiveWithoutIf_Verbose" xml:space="preserve">
-    <value>This #End If ends no #If block: there is none before it, or the #If before it is not a directive (it needs an expression and Then, and nothing after Then but a comment).</value>
-  </data>
   <data name="VBCompileError_HashElseWithoutIf" xml:space="preserve">
     <value>An #Else clause must be preceded by an #If</value>
-  </data>
-  <data name="VBCompileError_HashElseWithoutIf_Verbose" xml:space="preserve">
-    <value>This #Else belongs to no #If block, or is the second #Else of its block.</value>
   </data>
   <data name="VBCompileError_ElseIfWithoutIf" xml:space="preserve">
     <value>An #ElseIf must be preceded by an #If or #ElseIf and followed by an #Else or #EndIf</value>
   </data>
-  <data name="VBCompileError_ElseIfWithoutIf_Verbose" xml:space="preserve">
-    <value>This #ElseIf belongs to no #If block, or comes after the #Else of its block.</value>
-  </data>
   <data name="VBCompileError_HashIfWithoutEndIf" xml:space="preserve">
     <value>You must terminate the #If block with an #EndIf</value>
-  </data>
-  <data name="VBCompileError_HashIfWithoutEndIf_Verbose" xml:space="preserve">
-    <value>This #If block is not ended: the module ends before its #End If.</value>
   </data>
   <data name="VBCompileError_ExpressionNestedTooDeeply" xml:space="preserve">
     <value>Expression nested too deeply</value>
   </data>
-  <data name="VBCompileError_ExpressionNestedTooDeeply_Verbose" xml:space="preserve">
-    <value>This expression is nested in more than 2,500 others. Write part of it to a variable first.</value>
-  </data>
-  <data name="VBCompileError_ModuleNestedTooDeeplyToRead_Verbose" xml:space="preserve">
-    <value>This module is nested too deeply to be read: an expression or a block in it is nested in many thousands of others. Split its deepest part into smaller ones.</value>
-  </data>
   <data name="VBCompileError_OutputItemsNotSeparated" xml:space="preserve">
     <value>Output items not separated</value>
-  </data>
-  <data name="VBCompileError_OutputItemsNotSeparated_Verbose" xml:space="preserve">
-    <value>This output item is written right after another, with nothing between them. The VBE would write a ; between them, which prints them the same way.</value>
-  </data>
-  <data name="VBCompileError_DirectiveExpectedThen_Verbose" xml:space="preserve">
-    <value>Expected: Then. An #If or #ElseIf directive is written #If expression Then.</value>
-  </data>
-  <data name="VBCompileError_DirectiveExpectedExpression_Verbose" xml:space="preserve">
-    <value>Expected: expression. The condition of an #If or #ElseIf directive is a constant expression of literals, conditional-compilation constants and operators.</value>
-  </data>
-  <data name="VBCompileError_DirectiveExpectedEndOfStatement_Verbose" xml:space="preserve">
-    <value>Expected: end of statement. Nothing but a comment may follow a directive on its line.</value>
-  </data>
-  <data name="VBCompileError_DirectiveExpectedKeyword_Verbose" xml:space="preserve">
-    <value>Expected: If or Else or ElseIf or End or EndIf or Const. A line that starts with # is a directive.</value>
-  </data>
-  <data name="VBCompileError_ConstDirectiveExpectedEquals_Verbose" xml:space="preserve">
-    <value>Expected: =. A #Const directive is written #Const name = expression.</value>
-  </data>
-  <data name="VBCompileError_ConstDirectiveExpectedName_Verbose" xml:space="preserve">
-    <value>Expected: identifier. A #Const directive is written #Const name = expression.</value>
-  </data>
-  <data name="VBCompileError_ConstDirectiveExpression_Verbose" xml:space="preserve">
-    <value>Expected: expression. The value of a #Const directive is a constant expression of literals, conditional-compilation constants and operators.</value>
-  </data>
-  <data name="VBCompileError_ReservedParameterName_Verbose" xml:space="preserve">
-    <value>Expected: identifier. &apos;{0}&apos; is a reserved word and cannot name a parameter.</value>
   </data>
   <data name="VBCompileError_ReservedNameArguments_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; is written with the {1} argument(s) it takes, in parentheses.</value>
@@ -845,15 +614,6 @@
   </data>
   <data name="VBCompileError_InvalidLengthForFixedLengthString" xml:space="preserve">
     <value>Invalid length for fixed-length string</value>
-  </data>
-  <data name="VBCompileError_InvalidLengthForFixedLengthString_Verbose" xml:space="preserve">
-    <value>A fixed-length string is 1 to 65526 characters long: 'String * {0}' is not.</value>
-  </data>
-  <data name="VBCompileError_FixedLengthNotALength_Verbose" xml:space="preserve">
-    <value>'{0}' is no length of a fixed-length string: a length is a whole number up to 65535, or the name of a constant.</value>
-  </data>
-  <data name="VBCompileError_FixedLengthNotAConstant_Verbose" xml:space="preserve">
-    <value>The length of a fixed-length string is known when the code is compiled: '{0}' is not a constant.</value>
   </data>
   <data name="VBCompileError_ArrayBoundOverflow_Verbose" xml:space="preserve">
     <value>A bound of the array '{0}' is past the range of a Long, which every bound is.</value>
@@ -929,15 +689,6 @@
   </data>
   <data name="VBCompileError_TrailingOmittedArgument_Verbose" xml:space="preserve">
     <value>An argument list does not end with an omitted argument: remove the last comma.</value>
-  </data>
-  <data name="VBCompileError_TooManyLineContinuations_Verbose" xml:space="preserve">
-    <value>Too many line continuations: a logical line joins at most 25 physical lines, with 24 line-continuations.</value>
-  </data>
-  <data name="VBCompileError_BlockNotClosedInItsBranch_Verbose" xml:space="preserve">
-    <value>A block opened in a #If branch is not closed in it.</value>
-  </data>
-  <data name="VBCompileError_HeaderInDeadBranchesOnly_Verbose" xml:space="preserve">
-    <value>Every header of this procedure is in a #If branch that is not compiled, so this statement is outside any procedure.</value>
   </data>
   <data name="VBCompileError_NameIsNoVariable_Verbose" xml:space="preserve">
     <value>'{0}' is no variable whose size can be measured: {1}</value>

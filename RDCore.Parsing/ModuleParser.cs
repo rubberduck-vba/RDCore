@@ -242,7 +242,7 @@ public partial class ModuleParser(
 
             // the errors the slow parse found before it stopped are the module's, and so is that it stopped: what is after it was not read.
             var stopped = VBSyntaxErrorInfo.For(VBCompileErrorId.SyntaxError, new(uri, new SourceRange(anchorOffset, anchorOffset)),
-                outOfStack ? SDK.Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub));
+                outOfStack ? Exceptions.VBCompileError_ModuleNestedTooDeeplyToRead_Verbose : SourcePathAnonymizer.Scrub(exception.ToString(), _scrub));
             return new ModuleParseResult
             {
                 SyntaxTree = salvaged,
@@ -774,7 +774,7 @@ public partial class ModuleParser(
             var next = tokens.Get(last.TokenIndex + 1);
             if (OutputClauseStart.Contains(next.Type))
             {
-                findings.ReplaceGrammarErrorAt(next, VBCompileErrorId.OutputItemsNotSeparated, SDK.Exceptions.VBCompileError_OutputItemsNotSeparated_Verbose);
+                findings.ReplaceGrammarErrorAt(next, VBCompileErrorId.OutputItemsNotSeparated, Exceptions.VBCompileError_OutputItemsNotSeparated_Verbose);
             }
         }
     }
@@ -791,7 +791,7 @@ public partial class ModuleParser(
         foreach (var name in names)
         {
             findings.ReplaceGrammarErrorAt(name.Start, VBCompileErrorId.SyntaxError,
-                string.Format(SDK.Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Start.Text));
+                string.Format(Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Start.Text));
         }
     }
 
@@ -865,7 +865,7 @@ public partial class ModuleParser(
                 var at = trimmed.Length - 1;
                 var start = new SourcePosition(line, at).AnchoredAt(anchorOffset);
                 var end = new SourcePosition(line, at + 1).AnchoredAt(anchorOffset);
-                errors.Report(new SourceLocation(uri, new(start, end)), VBCompileErrorId.SyntaxError, SDK.Exceptions.VBCompileError_TooManyLineContinuations_Verbose);
+                errors.Report(new SourceLocation(uri, new(start, end)), VBCompileErrorId.SyntaxError, Exceptions.VBCompileError_TooManyLineContinuations_Verbose);
             }
 
             line++;
@@ -905,7 +905,7 @@ public partial class ModuleParser(
                     // the rest of the outermost expression is no more than this says already.
                     if (reported.Add(outermost))
                     {
-                        errors.Report(expression.SourceLocation, VBCompileErrorId.ExpressionNestedTooDeeply, SDK.Exceptions.VBCompileError_ExpressionNestedTooDeeply_Verbose);
+                        errors.Report(expression.SourceLocation, VBCompileErrorId.ExpressionNestedTooDeeply, Exceptions.VBCompileError_ExpressionNestedTooDeeply_Verbose);
                     }
 
                     // what is held where only a name may be (the member of a member access) is pruned with what holds it.

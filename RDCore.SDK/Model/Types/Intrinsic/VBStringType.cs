@@ -6,7 +6,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.SDK.Model.Types;
 
 /// <summary>
-/// A <see cref="VBIntrinsicType{string?}"/> representing the <c>String</c> data type.
+/// A <see cref="VBIntrinsicType{T}"/> representing the <c>String</c> data type.
 /// </summary>
 /// <remarks>
 /// The <em>managed type</em> of a value of this data type is a <strong>nullable</strong> <c>string</c>.<br/>

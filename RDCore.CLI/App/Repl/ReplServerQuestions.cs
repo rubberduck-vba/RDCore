@@ -8,9 +8,10 @@ namespace RDCore.CLI.App.Repl;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Until the shell reads its first line, a question is asked as it comes: nothing else reads the keys yet, and the server may be waiting for the answer to
-/// answer <c>initialize</c>. From then on a question waits. It is asked before the next prompt is drawn, once the line typed at this one is entered and what
-/// it runs is done (<see cref="AskWaiting"/>), or at once at a prompt where nothing is typed, which draws its line again after it
+/// Until the language server has answered <c>initialize</c>, a question is asked as it comes: nothing else reads the keys yet, and the server waits for the
+/// answer to answer <c>initialize</c>. From then on a question waits (<see cref="Hold"/>), while the shell comes up as well: it is asked once the shell says
+/// it is ready, before its first prompt is drawn. After that, it is asked before the next prompt is drawn, once the line typed at this one is entered and
+/// what it runs is done (<see cref="AskWaiting"/>), or at once at a prompt where nothing is typed, which draws its line again after it
 /// (<see cref="ConsolePromptEditor.Interjections"/>).
 /// </para>
 /// <para>
@@ -74,8 +75,8 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys, PromptAwareMessageW
             return await question.Answer.Task;
         }
 
-        // nothing reads the keys before the shell reads its first line; the shell waits for the question to be answered before it does. One that started
-        // to read them in the meantime has the question wait for it.
+        // nothing reads the keys before initialize is answered; the shell waits for the question to be answered before it reads them. One that started to
+        // read them in the meantime has the question wait for it.
         await _asking.WaitAsync(token);
         try
         {
@@ -127,7 +128,7 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys, PromptAwareMessageW
             _held = true;
         }
 
-        // a question asked before the shell read its first line is answered first.
+        // a question asked before initialize was answered is answered first.
         _asking.Wait();
         try
         {
@@ -139,6 +140,18 @@ internal sealed class ReplServerQuestions(IConsoleKeys keys, PromptAwareMessageW
         finally
         {
             _asking.Release();
+        }
+    }
+
+    /// <summary>
+    /// The language server has answered <c>initialize</c>: from now on a question waits to be asked (<see cref="AskWaiting"/>), and none is asked while the
+    /// shell comes up.
+    /// </summary>
+    public void Hold()
+    {
+        lock (_sync)
+        {
+            _held = true;
         }
     }
 

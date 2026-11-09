@@ -12,8 +12,8 @@ public abstract record class VBNumericType<T>(string Name) : VBNumericType(Name,
 /// <summary>
 /// Represents any <strong>numeric</strong> data type mentioned in the <strong>MS-VBAL</strong> language specifications.
 /// </summary>
-/// <typeparam name="T">The managed type (internal representation) associated with this data type.</typeparam>
 /// <param name="Name">The name (token) of the data type.</param>
+/// <param name="ManagedType">The managed type (internal representation) associated with this data type.</param>
 public abstract record class VBNumericType(string Name, Type ManagedType) : VBIntrinsicType(Name, ManagedType), INumericType
 {
     /// <summary>

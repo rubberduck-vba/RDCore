@@ -1,7 +1,7 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Statements;
 
-namespace RDCore.SDK.Runtime.Abstract.Execution;
+namespace RDCore.Runtime.Semantics.Statements;
 
 /// <summary>
 /// Which file statements a channel opened under a given mode and access may be used by

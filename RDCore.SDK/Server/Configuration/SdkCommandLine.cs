@@ -12,7 +12,7 @@ namespace RDCore.SDK.Server.Configuration;
 /// error and hands back a default instance. Reading that instance as configuration is what made
 /// <c>rdc --help</c> print its help, then a stack trace underneath it, and exit -1.
 /// </remarks>
-public static class SdkCommandLine
+internal static class SdkCommandLine
 {
     /// <summary>
     /// Parses <paramref name="args"/> as <see cref="SdkAppCommandLineArgs"/>.

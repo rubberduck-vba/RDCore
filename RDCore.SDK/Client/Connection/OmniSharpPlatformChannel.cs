@@ -31,7 +31,7 @@ namespace RDCore.SDK.Client.Connection;
 /// Completes when the process the client is connected to exits: a request it has not answered by then fails with a <see cref="ServerProtocolSdkException"/>.
 /// <see langword="null"/> for a client whose peer is not a process of its own.
 /// </param>
-public sealed class OmniSharpPlatformChannel(ILanguageClient client, ILogger? logger = null, string? peer = null, Task? lost = null) : IRDCorePlatformChannel
+internal sealed class OmniSharpPlatformChannel(ILanguageClient client, ILogger? logger = null, string? peer = null, Task? lost = null) : IRDCorePlatformChannel
 {
     private readonly ILogger _logger = logger ?? NullLogger.Instance;
     private readonly HashSet<string> _registered = new(StringComparer.Ordinal);

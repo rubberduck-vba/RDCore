@@ -601,9 +601,11 @@ internal sealed class CompletionService(
             // before it reads it is the class of that name (CurrentTypes).
             type = CurrentTypes.Of(site.Composition.Resolver, type);
 
-            // a form's control is its class and the extender it is wrapped in: Left, SetFocus, Visible (FormControlExtender)
-            return ObjectValueStaticSemantics.DesignerControlOf(context, expression) is not null
-                && FormControlExtender.Of(site.Composition.Resolver, site.ModuleUri) is { } extender
+            // a UserForm's control is its class and the extender it is wrapped in: Left, SetFocus, Visible (FormControlExtender). The form the control is of
+            // says which, whichever module it is reached from.
+            return ObjectValueStaticSemantics.DesignerControlOf(context, expression) is { } control
+                && site.Composition.DesignerOf(control.ParentUri) is { } designer
+                && FormClasses.ExtenderOf(designer, site.Composition.Resolver, site.ModuleUri) is { } extender
                 ? [.. CompletionCandidates.MembersOf(type).Concat(CompletionCandidates.MembersOf(VBClassType.Of(extender)))
                     .DistinctBy(candidate => candidate.Label, StringComparer.OrdinalIgnoreCase)]
                 : CompletionCandidates.MembersOf(type);

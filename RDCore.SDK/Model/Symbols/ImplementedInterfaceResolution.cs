@@ -31,7 +31,7 @@ public static class ImplementedInterfaceResolution
     /// </summary>
     /// <param name="classModules">Every class module the names can refer to.</param>
     /// <returns>
-    /// The class modules that name an interface, resolved, keyed by their <see cref="Symbol.Uri"/> as an absolute URI string - a
+    /// The class modules that name an interface, resolved, keyed by their <see cref="Abstract.Symbol.Uri"/> as an absolute URI string: a
     /// <c>Uri</c>'s own equality ignores the fragment, which is where a symbol's identity lives.
     /// </returns>
     public static IReadOnlyDictionary<string, VBClassModuleSymbol> Resolve(IEnumerable<VBClassModuleSymbol> classModules)

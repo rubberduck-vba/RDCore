@@ -41,8 +41,7 @@ An administrator can restrict or redirect file I/O at the shim. A test can repla
 ## Statement, Mode and Access
 
 **MS-VBAL §5.4.5.1** gives one statement/mode/access table for the file statements.
-[FileStatementAccess](../api/RDCore.SDK.Runtime.Abstract.Execution.FileStatementAccess.html) holds that table in
-one place, so that the twelve file statements do not each restate it.
+`FileStatementAccess` (**RDCore.Runtime**) holds that table in one place, so that the twelve file statements do not each restate it.
 
 ## Channel Surfaces
 

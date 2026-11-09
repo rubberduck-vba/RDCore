@@ -21,7 +21,7 @@ namespace RDCore.SDK.Model.Symbols.VBProject;
 /// The parameter's own <c>&lt;default-value&gt;</c> clause (<strong>MS-VBAL §5.3.1.5</strong>): a
 /// constant expression, exactly as a <c>Const</c> declaration's own is, and reduced to a value the same
 /// way and in the same place. <c>null</c> when <see cref="IsOptional"/> is <c>true</c> but no default
-/// was specified: an unmapped call-site argument then falls back to <see cref="ResolvedType"/>'s own
+/// was specified: an unmapped call-site argument then falls back to <see cref="BoundTypedSymbol.ResolvedType"/>'s own
 /// default value instead (<strong>MS-VBAL §5.3.1.11</strong>).
 /// </param>
 public record VBParameterSymbol(Uri WorkspaceRoot, Uri ParentUri, string Name, SourceRange Range, SourceRange SelectionRange, ParameterKind ParameterKind, VBType ResolvedType, bool IsOptional = false, ExpressionNode? DefaultValue = null)

@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 
 namespace RDCore.Symbols;
@@ -17,7 +18,16 @@ namespace RDCore.Symbols;
 /// </summary>
 /// <param name="Resolver">Binds a workspace name, falling back to the intrinsic type names.</param>
 /// <param name="ScopeTree">The scope tree over the composed workspace's symbols.</param>
-public readonly record struct WorkspaceComposition(ISymbolResolver Resolver, ScopeTree ScopeTree);
+/// <param name="Designers">What the designer of each form module of the workspace declares, by the module's <see cref="Uri.AbsoluteUri"/> (a module's Uri
+/// differs from its siblings' only in the fragment, which Uri equality ignores).</param>
+public readonly record struct WorkspaceComposition(ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyDictionary<string, FormDescriptor>? Designers = null)
+{
+    /// <summary>
+    /// What the designer of the module <paramref name="module"/> declares, or <see langword="null"/> when it is no form module of the workspace.
+    /// </summary>
+    /// <param name="module">The module's Uri.</param>
+    public FormDescriptor? DesignerOf(Uri module) => Designers?.GetValueOrDefault(module.AbsoluteUri);
+}
 
 /// <summary>
 /// Composes an <see cref="ISymbolResolver"/> over a whole parsed workspace, in two passes. The first
@@ -80,7 +90,10 @@ public static class WorkspaceSymbolResolver
 
         var bound = BuildSymbols(workspaceRoot, parsed, declaredResolver, projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
         var scopeTree = ScopeTreeBuilder.Build(bound);
-        return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree);
+        var designers = parsed.Where(module => module.Parse.Designer is not null)
+            .GroupBy(module => module.ModuleUri.AbsoluteUri)
+            .ToDictionary(group => group.Key, group => group.First().Parse.Designer!);
+        return new WorkspaceComposition(new CompositeSymbolResolver(new ScopeTreeSymbolResolver(scopeTree), fallback), scopeTree, designers);
     }
 
     // one extraction pass: every module symbol and member symbol, with each declared type name bound

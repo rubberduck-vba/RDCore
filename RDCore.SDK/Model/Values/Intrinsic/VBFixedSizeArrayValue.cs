@@ -17,7 +17,7 @@ public sealed record class VBFixedSizeArrayValue : VBArrayValue
     /// <param name="itemType">The element type; <see cref="VBVariantType"/> when unspecified.</param>
     /// <param name="elementDefault">What each element starts as, when it is more than the element type's own default value can say.</param>
     /// <param name="elementCell">Makes the cell each element is stored in, when the runtime stores elements of <paramref name="itemType"/> in cells of its
-    /// own (<see cref="Runtime.Abstract.Execution.IVariableDefaults.ElementCellOf"/>).</param>
+    /// own (<see cref="RDCore.SDK.Runtime.Abstract.Execution.IVariableDefaults.ElementCellOf"/>).</param>
     public VBFixedSizeArrayValue((int lBound, int uBound)[] dimensions, VBType? itemType = null, Func<VBTypedValue>? elementDefault = null,
         Func<IBindingHandle>? elementCell = null)
         : base(dimensions, itemType ?? VBVariantType.TypeInfo, elementDefault, elementCell) { }

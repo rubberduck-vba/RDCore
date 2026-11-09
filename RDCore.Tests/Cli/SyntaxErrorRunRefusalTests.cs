@@ -89,7 +89,7 @@ public sealed class SyntaxErrorRunRefusalTests
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
         Assert.IsEmpty(result.Output);
-        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(RDCore.Runtime.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
             string.Join("; ", result.Diagnostics!));
     }
 
@@ -113,8 +113,8 @@ public sealed class SyntaxErrorRunRefusalTests
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
         var said = string.Join("; ", result.Diagnostics!);
-        Assert.IsTrue(result.Diagnostics!.Any(error => !error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)), said);
-        Assert.IsLessThanOrEqualTo(1, result.Diagnostics!.Count(error => error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
+        Assert.IsTrue(result.Diagnostics!.Any(error => !error.Contains(RDCore.Runtime.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)), said);
+        Assert.IsLessThanOrEqualTo(1, result.Diagnostics!.Count(error => error.Contains(RDCore.Runtime.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
             said);
     }
 
@@ -132,7 +132,7 @@ public sealed class SyntaxErrorRunRefusalTests
             "Dim a As Variant, b As Variant", "#If False Then", "If a Then", "#End If", live));
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
-        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(SDK.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(RDCore.Runtime.Exceptions.VBCompileError_BlockNotClosedInItsBranch_Verbose, StringComparison.Ordinal)),
             string.Join("; ", result.Diagnostics!));
     }
 
@@ -429,7 +429,7 @@ public sealed class SyntaxErrorRunRefusalTests
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
         Assert.IsEmpty(result.Output);
-        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(RDCore.SDK.Exceptions.VBCompileError_TooManyLineContinuations_Verbose)),
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.Contains(RDCore.Parsing.Exceptions.VBCompileError_TooManyLineContinuations_Verbose)),
             string.Join("; ", result.Diagnostics!));
     }
 

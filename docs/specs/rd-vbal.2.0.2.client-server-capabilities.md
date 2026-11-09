@@ -36,7 +36,7 @@ An implementation that commands client-side _workspace edits_ must ensure that t
 
 The responding side builds `Provided` by _reflecting_ the `[assembly: ProvidesCorePlatformClientCapability<T>]` attributes ([`ProvidesCorePlatformClientCapabilityAttribute<T>`](../api/RDCore.SDK.Client.ProvidesCorePlatformClientCapabilityAttribute-1.html)) declared on its entry assembly. A component's platform capability set is therefore a compile-time property of the build rather than runtime configuration.
 
-The `rdcore/platform/initialize` method is answered by a handler ([`PlatformInitializeHandler`](../api/RDCore.SDK.Server.Handlers.Platform.PlatformInitializeHandler.html)) that the SDK registers on every RDCore server, alongside the LSP `shutdown`, `exit`, and `$/setTrace` handlers.
+The `rdcore/platform/initialize` method is answered by a handler (`PlatformInitializeHandler`) that the SDK registers on every RDCore server, alongside the LSP `shutdown`, `exit`, and `$/setTrace` handlers.
 
 The handshake is _informational_:
 
@@ -69,7 +69,7 @@ A language the platform does not serve is logged and ignored.
 
 What a server says (the messages of its diagnostics, why a rename is refused, the titles of its code actions, its hovers) is said in the language the
 client's user interface is in: the `locale` of the `initialize` request (**LSP 3.17**), such as `fr-CA` or `en`
-([`ClientLocale`](../api/RDCore.SDK.Server.ClientLocale.html)). Every server of the platform applies it before it builds anything from the request,
+(`ClientLocale`). Every server of the platform applies it before it builds anything from the request,
 and a language server tells the servers it starts the same `locale`, so that the diagnostics an extension finds are in the client's language too. A culture
 reads its own language's messages, or its parent's: `fr-FR` and `fr-CA` read the French ones, and every other culture (`en-GB`, the invariant culture) reads
 the English ones. Only the language of the user interface is the client's: how numbers and dates are written and read does not depend on it. A `locale`
@@ -230,6 +230,8 @@ A URI is the document's however the client spells it: `file:///c%3A/Work/Module1
 ### Requests while the client edits
 
 An RDCore server answers every request it receives, and runs a notification that changes a document (`textDocument/didOpen`, `didChange`, `didClose`) in order, after the requests already running ([`ServerRequestScheduling.WithEveryRequestAnswered`](../api/RDCore.SDK.Server.ServerRequestScheduling.html)).
+An RDCore client answers every request a server makes in the same way: a `window/showMessageRequest` that waits for its user is still answered when a
+`$/progress` or a `window/workDoneProgress/create` arrives in the meantime ([`RDCoreClientApp`](../api/RDCore.SDK.Client.RDCoreClientApp.html)).
 
 A request that is made of what a document was would make a keystroke wait for it, and the completion a client sends after the keystroke too. So `textDocument/diagnostic` and `textDocument/semanticTokens/full` give way to a change ([`IncomingDocumentChanges`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)):
 
@@ -284,7 +286,7 @@ OmniSharp 0.19.9's `SendDiagnosticRefresh`, `SendSemanticTokensRefresh`, `SendIn
 
 ### Requests that fail
 
-A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line. It never carries the stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log ([`ServerErrorAnswers.WithOneLineErrors`](../api/RDCore.SDK.Server.ServerErrorAnswers.html)).
+A request a server refuses is answered `RequestFailed` (-32803), with a message that says why on one line, in the language of the user interface, for the client to show its user: a rename to a name that is taken, a command whose file cannot be written. A request whose handler fails unexpectedly is answered `InternalError` (-32603), with the exception's message on one line. It never carries the stack, nor the paths of the files the platform was built from. The whole of it is written to the server's own log (`ServerErrorAnswers.WithOneLineErrors`).
 
 ### `textDocument/inlayHint`
 
@@ -400,9 +402,22 @@ What a name refers to is what the static semantics resolve it to (**MS-VBAL §5.
 |A member's attribute (`Attribute Value.VB_UserMemId`)|The member.|
 |The key of a dictionary access (`c!key`)|Nothing: it is a string.|
 
-The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together. A member accessed late-bound (on an `Object` or a `Variant`) that has the symbol's name is not known to refer to it, so the rename is refused (see the table below).
+The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed together.
 
-A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A client that takes change annotations is sent them annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: it is sent the edits with the strings, the edits without them, or nothing when the user chooses neither. A string left as it is names nothing the call can find, and the call fails only when the code runs.
+A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A string left as it is names nothing the call can find, and the call fails only when the code runs.
+
+A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's name is renamed too, when the symbol is a member of a class that code outside the class can call (not `Private`). Which member the access calls is only known when the code runs (**MS-VBAL §5.6.12**), so the user confirms these edits as well. What is known of the classes the object may hold decides which accesses are proposed ([`PossibleClasses`](../api/RDCore.SDK.Semantics.Static.PossibleClasses.html)):
+
+- An object may hold any class, unless something knows them all. An access on it is proposed.
+- The code knows them all for a local or a `Private` variable of the module, when every `Set` of it names its class (`New Class1`, a variable or a function `As Class1`, `Me`, `CreateObject` of a class the project resolves, `Nothing`), and the variable is never the variable of a `For Each` loop or a whole argument of a call. An access on it is proposed only when one of those classes is the symbol's.
+- **Extension point:** what else knows the classes (an extension) can say so too ([`IPossibleClassesSource`](../api/RDCore.SDK.Semantics.Static.IPossibleClassesSource.html)).
+
+> [!NOTE]
+> **Not implemented.** The classes an environment-host session saw the object hold while it ran are not a source.
+
+An access on an object whose known classes include the symbol's class is backed by what is known, and labeled so (`Late-bound: the object holds a Class1`). Any other access that is proposed is only possible (`Late-bound: the object may hold a Class1`). Each kind is confirmed on its own.
+
+A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: once for the strings, once for the backed late-bound accesses, and once for the possible ones. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is asked nothing: it is sent the rest of the rename, without the edits of strings and of late-bound accesses.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 

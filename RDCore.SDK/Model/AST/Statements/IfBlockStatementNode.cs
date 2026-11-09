@@ -22,6 +22,7 @@ public record class IfBlockStatementNode(SyntaxNodeId Identity, SourceLocation S
 /// </summary>
 /// <param name="Identity">A unique identifier for this specific syntax node.</param>
 /// <param name="SourceLocation">The document location (<c>Uri</c>+<c>Range</c>) of the bound expression.</param>
+/// <param name="Children">The child nodes of the block.</param>
 public record class PrecompilerIfBlockStatementNode(SyntaxNodeId Identity, SourceLocation SourceLocation, ImmutableArray<SyntaxNode> Children)
     : StatementNode(Identity, SourceLocation, Children);
 

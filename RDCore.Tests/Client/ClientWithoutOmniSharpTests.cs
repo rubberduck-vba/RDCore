@@ -138,6 +138,23 @@ public sealed class ClientWithoutOmniSharpTests
         await platform.ShutdownAsync(4);
     }
 
+    // the environment host is started in its own folder, and the session it composes for the workspace starts in the workspace root: a relative path is a file
+    // of the workspace.
+    [TestMethod]
+    public async Task AProgram_StartsInTheWorkspaceRoot_WhereARelativePathFindsItsFiles()
+    {
+        await using var platform = await Platform.StartAsync();
+        var executed = await RunAsync(platform, "Program", sessionModule: true,
+            source: "Public Sub Main()\r\n    Debug.Print CurDir\r\n    Debug.Print Dir(\"Program.bas\")\r\nEnd Sub\r\n");
+
+        var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", platform.Rpc.Logged)}\n{LogOf(platform.Root)}";
+        Assert.IsNull(executed["error"], told);
+        Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
+        CollectionAssert.AreEqual(new[] { RDCore.SDK.Workspace.WorkspacePaths.Normalized(new Uri(platform.Workspace).LocalPath), "Program.bas" },
+            executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
+        await platform.ShutdownAsync(4);
+    }
+
     // a client that opens no folder has no workspace to run anything in: what it runs is not found, and is no internal error of the language server.
     [TestMethod]
     public async Task AClientThatOpensNoFolder_IsToldThereIsNoWorkspaceToRunIn()
