@@ -102,6 +102,27 @@ internal static class FlowFixture
     }
 
     /// <summary>
+    /// The module whose text is <paramref name="text"/>, its names bound as <see cref="Analyze"/> binds them, analyzed as an extraction analyzes it.
+    /// </summary>
+    /// <param name="text">The module's text: its name is <c>Main</c>.</param>
+    /// <param name="classes">The name and the source of each class module of the workspace beside the module; none when omitted.</param>
+    public static ExtractionModuleAnalysis Module(string text, IReadOnlyList<(string Name, string Source)>? classes = null)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), text);
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            Root, [(ModuleUri("Main"), ModuleType.StdModule, parse), .. ClassesOf(classes)], new IntrinsicSymbolResolver());
+        return ExtractionModuleAnalysis.Of(ModuleUri("Main"), text, parse, composition.Resolver, composition.ScopeTree);
+    }
+
+    private static IEnumerable<(Uri, ModuleType, ModuleParseResult)> ClassesOf(IReadOnlyList<(string Name, string Source)>? classes)
+        => (classes ?? []).Select(module =>
+        {
+            var classParse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{module.Name}.cls"), module.Source);
+            Assert.IsTrue(classParse.IsSuccess, string.Join("; ", classParse.SyntaxErrors.Select(error => error.Verbose)));
+            return (ModuleUri(module.Name), ModuleType.ClassModule, classParse);
+        });
+
+    /// <summary>
     /// Analyzes a procedure <c>Run</c> whose body is <paramref name="body"/>, in a module that declares what <paramref name="declarations"/> says before the rest.
     /// </summary>
     /// <param name="classes">The name and the source of each class module of the workspace beside the module; none when omitted.</param>
@@ -115,14 +136,8 @@ internal static class FlowFixture
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), text);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
-        var others = (classes ?? []).Select(module =>
-        {
-            var classParse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{module.Name}.cls"), module.Source);
-            Assert.IsTrue(classParse.IsSuccess, string.Join("; ", classParse.SyntaxErrors.Select(error => error.Verbose)));
-            return (ModuleUri(module.Name), ModuleType.ClassModule, classParse);
-        });
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(
-            Root, [(ModuleUri("Main"), ModuleType.StdModule, parse), .. others], new IntrinsicSymbolResolver());
+            Root, [(ModuleUri("Main"), ModuleType.StdModule, parse), .. ClassesOf(classes)], new IntrinsicSymbolResolver());
         Assert.IsTrue(composition.ScopeTree.TryGetScope(ModuleUri("Main.Run"), out var scope));
         var run = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single(member => member.Name == "Run");
         var block = new StatementBlock([.. run.Children]);

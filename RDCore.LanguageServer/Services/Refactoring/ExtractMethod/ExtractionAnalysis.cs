@@ -164,6 +164,7 @@ internal static class ExtractionAnalysis
             [.. exits], startsWithResumeNext, [.. changes])
         {
             Constants = [.. constants],
+            LiveAfter = liveAfter,
             ResultNames = [.. uses.Where(use => use.Variable == procedure).Select(use => use.Expression.SourceLocation.Range)
                 .Concat(definitions.Where(definition => definition.Variable == procedure && definition.Expression is SimpleNameExpressionNode)
                     .Select(definition => definition.Expression!.SourceLocation.Range))

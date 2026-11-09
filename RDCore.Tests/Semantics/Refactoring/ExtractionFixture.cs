@@ -58,6 +58,29 @@ internal static class ExtractionFixture
         return (analyzed.Text, edit.ApplyTo(analyzed.Text), edit, plan);
     }
 
+    // The verification of extracting the lines first to last as Extracted, formatted as for a user who set nothing; tamper, when given, changes the edit before it
+    // is verified, as a writer that got it wrong would have written it.
+    public static ExtractionVerificationFailure? Verified(
+        string body, int first, int last, string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
+        bool optionExplicit = true, string declarations = "", Func<ExtractionEdit, ExtractionEdit>? tamper = null)
+    {
+        var extracted = Extracted(body, first, last, returnValue: returnValue, header: header, end: end, optionExplicit: optionExplicit, declarations: declarations,
+            formatting: CodeFormattingOptions.Default);
+        Assert.IsNull(extracted.Edit.Refusal, $"refused: {extracted.Edit.Refusal}");
+        var edit = tamper?.Invoke(extracted.Edit) ?? extracted.Edit;
+        return ExtractionVerification.Verify(extracted.Plan, edit, "Extracted", "Run", FlowFixture.Module(extracted.Original), text => FlowFixture.Module(text));
+    }
+
+    // the edit with the text of its edits of the kind changed from what to what instead.
+    public static ExtractionEdit Replacing(ExtractionEdit edit, ExtractionTextEditKind kind, string what, string instead)
+    {
+        Assert.IsTrue(edit.Edits.Any(change => change.Kind == kind && change.NewText.Contains(what, StringComparison.Ordinal)), $"no {kind} edit writes {what}");
+        return edit with
+        {
+            Edits = [.. edit.Edits.Select(change => change.Kind == kind ? change with { NewText = change.NewText.Replace(what, instead, StringComparison.Ordinal) } : change)],
+        };
+    }
+
     // What a name for the procedure extracted from the lines first to last is checked against.
     public static (ExtractionPlan Plan, ExtractionSource Source, RenameContext Context, Uri Module, FlowFixture.Analyzed Analyzed) Naming(
         string body, int first, int last, string declarations = "", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub")

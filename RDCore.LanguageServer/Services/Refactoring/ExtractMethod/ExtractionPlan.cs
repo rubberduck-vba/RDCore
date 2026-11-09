@@ -326,6 +326,12 @@ internal sealed record class ExtractionPlan(
     public ImmutableArray<SourceRange> ResultNames { get; init; } = [];
 
     /// <summary>
+    /// The variables of the source procedure live after the selection, by every way out of it: what the code after the call still reads of what the selection
+    /// leaves. The edited source procedure has the same ones live after the call.
+    /// </summary>
+    public ImmutableHashSet<SemanticId> LiveAfter { get; init; } = [];
+
+    /// <summary>
     /// The parameters the new procedure may return instead: those it only gives a value to, which the call site can assign from it.
     /// </summary>
     public ImmutableArray<ExtractionParameter> ReturnCandidates => [.. Parameters.Where(parameter => parameter.Reason is ExtractionPassingReason.WrittenOnly)];

@@ -36,6 +36,12 @@ internal sealed class ExtractionText
         return line >= 0 ? line : ~line - 1;
     }
 
+    public SourcePosition PositionOf(int offset)
+    {
+        var line = LineOf(offset);
+        return new SourcePosition(line, offset - _lineStarts[line]);
+    }
+
     public string Of(SourceRange range) => _text[OffsetOf(range.Start)..OffsetOf(range.End)];
 
     // What is written on a line before its first character that is not a space or a tab.
