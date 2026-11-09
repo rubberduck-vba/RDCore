@@ -175,7 +175,7 @@ public sealed class ProgramAssemblyBuilder
         blob.WriteContentTo(stream);
     }
 
-    // an assembly another build of the runtime compiled isn't bound: its IL may name members that changed since.
+    // an assembly another build of the runtime compiled is not bound: its IL may name members that changed since.
     internal static string RuntimeBuild => typeof(ProgramAssemblyBuilder).Assembly.ManifestModule.ModuleVersionId.ToString("N");
 
     private void ThrowIfSaved()
@@ -190,7 +190,7 @@ public sealed class ProgramAssemblyBuilder
         => new(typeof(AssemblyMetadataAttribute).GetConstructor([typeof(string), typeof(string)])!, [key, value]);
 
     // a procedure is written into the assembly only when the run-mode compiler compiles it: one the compiler or the JIT refuses would leave a type the
-    // assembly can't be saved with, and runs in the interpreter instead.
+    // assembly cannot be saved with, and runs in the interpreter instead.
     private CompilationResult Validate(IRuntimeSession session, Semantics.RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol procedure, InstructionList list)
         => (_fingerprints?.Image ?? throw new InvalidOperationException("no image to compile in")).Compiler.Compile(session, evaluator, procedure, list);
 

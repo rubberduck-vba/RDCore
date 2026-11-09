@@ -12,8 +12,8 @@ using System.Text.Json;
 
 namespace RDCore.CLI.App.Build;
 
-// the .rdproj's build section, read from the members the project file doesn't know until it has a typed one. EntryPoint is Module.Procedure or Procedure,
-// null for the implicit Sub Main.
+// the .rdproj's build section, which the project file reads as members it does not know, kept as they were read. EntryPoint is Module.Procedure or
+// Procedure, null for the implicit Sub Main.
 internal sealed record class ProjectBuildSettings(string? EntryPoint, bool IsLibrary)
 {
     public static ProjectBuildSettings Of(RDCoreProject project)
@@ -37,7 +37,7 @@ internal static class ProgramRunner
 
     public const int Failed = 1;
 
-    // no entry point, or code that doesn't load.
+    // no entry point, or code that does not load.
     public const int Refused = 2;
 
     // the procedure the project names, or else the Sub Main of the one standard module that declares one; null, with the reason, otherwise.
