@@ -123,8 +123,8 @@ public sealed class EndStatementDebuggingTests
             Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
         }, debug: true, engine: engine);
 
-    // a breakpoint on a block's closing line is waited at whichever way the block was gone through - a branch that ends with a jump, the last branch falling
-    // through, no branch taken - with t as the block left it. The block is written at line 4, after t = 7.
+    // a breakpoint on a block's closing line is waited at whichever way the block was gone through (a branch that ends with a jump, the last branch falling
+    // through, no branch taken), with t as the block left it. The block is written at line 4, after t = 7.
     [TestMethod]
     [DataRow("If t = 7 Then|    t = 1|Else|    t = 2|End If", 8, "1", DisplayName = "End If, after a Then branch")]
     [DataRow("If t = 0 Then|    t = 1|Else|    t = 2|End If", 8, "2", DisplayName = "End If, after the Else branch")]

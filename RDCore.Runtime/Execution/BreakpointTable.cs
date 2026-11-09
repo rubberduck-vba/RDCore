@@ -86,22 +86,12 @@ public sealed class BreakpointTable : IBreakpointTable
         return offsets.ToImmutable();
     }
 
-    /// <summary>
-    /// Where a program waits before the instruction, as MS-VBA stops there: the line of the block it closes (<see cref="Instruction.Closes"/>), as a
-    /// <c>Next</c>, a <c>Loop</c>, an <c>End If</c> or the procedure's <c>End Sub</c>, or else its statement (<see cref="Instruction.Location"/>).
-    /// </summary>
-    /// <remarks>
-    /// A post-test loop has two instructions with a <see cref="Instruction.Closes"/>. Its entry is on the <c>Do</c> line, where it is stopped on once. Its
-    /// back edge is on the <c>Loop While</c> or <c>Loop Until</c> line, where its test is. That back edge has the whole loop as its statement, so its
-    /// <see cref="Instruction.Location"/> is the <c>Do</c> line.
-    /// </remarks>
-    /// <returns><see langword="null"/> for an instruction that is on no line, as the jump that ends a branch, which a program goes through.</returns>
+    // where a program waits before the instruction, as MS-VBA stops there: its Closes when it has one (a block's closing line, as a Next, an End If or the
+    // procedure's End Sub; a post-test loop's Do line on entry and its Loop While line on each pass), or else its statement. None for the jump that ends a
+    // branch, which a program goes through. Closes comes first because the loop's back edge has the whole loop as its statement, which begins on the Do line.
     public static SourceLocation? LocationOf(Instruction instruction) => instruction.Closes ?? instruction.Location;
 
-    /// <summary>
-    /// The zero-based line a program waits on before the instruction: the line <see cref="LocationOf"/> begins on.
-    /// </summary>
-    /// <returns><see langword="null"/> for an instruction that is on no line.</returns>
+    // the line a program waits on before the instruction: the line LocationOf begins on.
     public static int? LineOf(Instruction instruction) => LocationOf(instruction)?.Range.Start.Line;
 
     /// <summary>
@@ -112,14 +102,7 @@ public sealed class BreakpointTable : IBreakpointTable
     public static bool Verify(IEnumerable<InstructionList> bodies, int line)
         => bodies.Any(body => body.Items.Any(instruction => LineOf(instruction) == line));
 
-    /// <summary>
-    /// The first instruction of the body that is on <paramref name="line"/> (<see cref="LineOf"/>), or else on the first of the lines after it that has one:
-    /// where a move of the program counter to the line lands.
-    /// </summary>
-    /// <param name="body">The body.</param>
-    /// <param name="line">A zero-based line of the source.</param>
-    /// <param name="offset">The offset of that instruction.</param>
-    /// <returns><see langword="false"/> when no instruction of the body is on that line or after it.</returns>
+    // where a move of the program counter to the line lands: the first instruction on it, or else on the first line after it that has one.
     public static bool TryGetOffsetAtLine(InstructionList body, int line, out int offset)
     {
         offset = -1;

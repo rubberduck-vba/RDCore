@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `"Exit Sub"`)|`ExitProcedure`|No resolved target.|
+|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `"Exit Sub"`)|`ExitProcedure`|`Target`: the `End Sub` closer ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md#procedure-exits)).|
 
 `Exit Sub`, `Exit Function` and `Exit Property` all lower to the
 [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `ExitProcedure`
@@ -22,7 +22,9 @@ An `Exit Sub` must be inside the body of a subroutine; in a `Function` or in a p
 
 ## Runtime Semantics
 
-The executor dispatches the `ExitProcedure` instruction, which completes the current activation.
+The executor dispatches the `ExitProcedure` instruction: it goes on at the `End Sub` closer, past which the
+activation completes. A breakpoint on the `End Sub` line is hit, and a step from the `Exit Sub` stops there, before the
+procedure returns.
 
 Reaching the end of the instruction list completes the activation "as if execution had reached the end of the
 body" (the wording of **MS-VBAL §5.4.2.17**). This is the same outcome as an explicit `Exit`

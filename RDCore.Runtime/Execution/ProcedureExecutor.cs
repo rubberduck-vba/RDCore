@@ -356,8 +356,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 activation.Forget();
             }
 
-            // a program waits before an instruction that is on a line - a statement, a block's closer - and never before one that has none, as the jump that
-            // ends a branch: it is gone through to the End If it goes to, which is where the program is shown.
+            // a program waits only before an instruction that is on a line (a statement, a block's closer). The jump that ends a branch is on none: it is
+            // gone through to the End If it goes to, which is where the program is shown.
             var location = BreakpointTable.LocationOf(list.Items[activation.Pc]);
 
             // between instructions, never inside one: a half-executed statement would leave the
