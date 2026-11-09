@@ -21,10 +21,10 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Tests.Semantics.Runtime;
 using System.IO.Abstractions;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime;
 
@@ -129,7 +129,7 @@ internal static class RuntimeSourceHarness
         public List<ExternalCallRequest> Requests { get; } = [];
 
         /// <inheritdoc/>
-        public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, ISymbolResolver resolver)
+        public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
         {
             Requests.Add(request);
             return inner.Invoke(request, resolver);
@@ -320,9 +320,9 @@ internal static class RuntimeSourceHarness
         var bodies = surroundings.Procedures.ToDictionary(p => p.Symbol.SemanticId, p => Lower(Parse(p.Body)));
         var pipeline = surroundings.Analyze
             ? RuntimeExecutionPipeline.CreateForAnalysis(
-                session, bodies, Substitute.For<IVerboseMessageBuilder>(), surroundings.Observer ?? new RecordingAnalysisObserver())
+                session, bodies, Substitute.For<IErrorDetailsRecorder>(), surroundings.Observer ?? new RecordingAnalysisObserver())
             : RuntimeExecutionPipeline.Create(
-                session, bodies, Substitute.For<IVerboseMessageBuilder>(), observer: surroundings.Observer, outside: surroundings.Outside);
+                session, bodies, Substitute.For<IErrorDetailsRecorder>(), observer: surroundings.Observer, outside: surroundings.Outside);
 
         // a call site reaches an external member through the evaluator's bindings, so that is where the spy goes.
         // A default member reached through a Let-coercion still goes straight to the real dispatcher: the object

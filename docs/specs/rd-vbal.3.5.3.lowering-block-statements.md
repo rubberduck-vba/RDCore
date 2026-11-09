@@ -3,8 +3,8 @@
 *Lowering* turns a procedure body's statement tree into the InstructionList/Instruction model
 ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md),
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
-[InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html)`.Lower` does
-it, and returns an [InstructionListLoweringResult](../api/RDCore.SDK.Semantics.Instructions.InstructionListLoweringResult.html).
+`InstructionListLowering.Lower` does
+it, and returns an `InstructionListLoweringResult`.
 
 Lowering is pure: it uses no symbol resolver and no runtime session
 ([**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)). It emits one
@@ -77,8 +77,8 @@ An `Exit For` or `Exit Do` that has no enclosing loop of the matching kind, incl
 that no `Do` loop encloses, is [VBC09313](../diagnostics/vbc09313.md) or [VBC09312](../diagnostics/vbc09312.md), and lowers to no
 instruction. An `Exit Sub`, `Exit Function` or `Exit Property` in the wrong kind of procedure is
 [VBC09332](../diagnostics/vbc09332.md), [VBC09314](../diagnostics/vbc09314.md) or [VBC09315](../diagnostics/vbc09315.md), and lowers to no instruction
-either. The rule is the one [`StatementStaticSemanticsEvaluator`](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) asks
-([ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)); the kind of procedure is a parameter
+either. The rule is the one `StatementStaticSemanticsEvaluator` asks
+(`ExitStatementStaticSemantics`); the kind of procedure is a parameter
 of `Lower`, and is not checked when it is not given.
 
 ## `EnclosingWith` is static

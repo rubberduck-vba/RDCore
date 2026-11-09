@@ -22,16 +22,15 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Plans;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.LanguageCore.Plans;
 using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
 public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryOperatorRuntimeSemantics<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryOperatorRuntimeSemantics<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(LetCoercionSemanticsProvider, ErrorDetails)
 {
     /// <summary>
     /// Compares two operands already let-coerced to <c>String</c>, as <paramref name="rules"/> say: whole values rather than their
@@ -74,7 +73,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         => new ComparisonOperatorFact(expression.Identity, expression.Location, token, effectiveType, isValueKnown, error, flags, comparison);
 
     protected override ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> builder, 
         ExpressionNode expression, 
@@ -199,11 +198,11 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     // oracle\s48 H01-H05, I01-I04, K01-K09, L01-L04). MS-VBAL 5.6.9.5's table, and Microsoft Learn's Comparison operators, make the String's conversion a type
     // mismatch (13): RD-VBA does what MS-VBA does, and the analysis states it (IsVariantStringThatIsNoValueRanked) for RDCore.Diagnostics to report
     // (RDC11020). A String declared as one is no Variant, and raises 13 (L02). Only a type mismatch is a String that is no value: an overflow is raised.
-    private bool IsVariantStringThatIsNoValue(ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, out bool leftIsNumeric)
+    private bool IsVariantStringThatIsNoValue(IRuntimeSymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, out bool leftIsNumeric)
         => IsVariantStringThatIsNoValue(resolver, expression, frame[InputIndex.BinaryLeftOperand], frame[InputIndex.BinaryRightOperand], out leftIsNumeric);
 
     // the String is let-coerced to the type the plan of the operation makes the effective type, without stating it (it is the question, not the operation).
-    private bool IsVariantStringThatIsNoValue(ISymbolResolver resolver, ExpressionNode expression, VBTypedValue left, VBTypedValue right, out bool leftIsNumeric)
+    private bool IsVariantStringThatIsNoValue(IRuntimeSymbolResolver resolver, ExpressionNode expression, VBTypedValue left, VBTypedValue right, out bool leftIsNumeric)
     {
         leftIsNumeric = false;
         if (!RanksVariantNumberBelowString || !ComparesValues
@@ -234,7 +233,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     private static bool IsDeclaredScalar(VBTypedValue operand) => operand is not VBVariantValue && operand.TypeInfo is VBNumericType or VBDateType or VBBooleanType;
 
     protected override LetCoercionResult ValidateOperand(
-        ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex index)
+        IRuntimeSymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex index)
     {
         if (IsVariantStringNumericException(frame, out var leftIsNumeric) || IsVariantStringThatIsNoValue(resolver, expression, frame, out leftIsNumeric))
         {
@@ -267,7 +266,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     }
 
     protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
-        ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex operandIndex)
+        IRuntimeSymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, OperatorEvaluationFrame frame, InputIndex operandIndex)
         => IsTextOfADate(frame, frame[operandIndex])
             ? AnalyzeOperandCoercion(resolver, builder, expression, frame[operandIndex], operandIndex, VBDateType.TypeInfo)
             : base.AnalyzeValidateOperand(resolver, builder, expression, frame, operandIndex);
@@ -289,7 +288,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     /// more than their types (<see cref="RanksVariantNumberBelowString"/>).
     /// </remarks>
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -314,7 +313,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     // either way), nor for a known String compared with a known number for which the two answers are the same. With the number not known, the two answer
     // alike for every number but those next to the String's value: "2.5" is the table's 2, and 2.5 < n is 2 < n for every integer n, where 2.5 > n is not
     // 2 > n for n = 2. Past 2^53, where a Double holds no longer every integer, a LongLong that is not known is not compared alike.
-    private bool IsStringComparedAsADouble(ISymbolResolver resolver, ExpressionNode expression, VBType? effective, VBTypedValue left, VBTypedValue right)
+    private bool IsStringComparedAsADouble(IRuntimeSymbolResolver resolver, ExpressionNode expression, VBType? effective, VBTypedValue left, VBTypedValue right)
     {
         if (!ComparesValues || effective is not VBDoubleType
             || OperationPlanner.SpecifiedRelationalEffectiveType(left.GetTargetType(), right.GetTargetType()) is not { } specified
@@ -402,7 +401,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
         _ => null,
     };
 
-    private LetCoercionResult CoerceUnstated(ISymbolResolver resolver, ExpressionNode expression, VBStringValue text, VBType destination)
+    private LetCoercionResult CoerceUnstated(IRuntimeSymbolResolver resolver, ExpressionNode expression, VBStringValue text, VBType destination)
         => LetCoercionSemanticsProvider.EvaluateUnstated(resolver, expression,
             new LetCoercionStackFrame(expression.Identity, InputIndex.CoercionSourceValue, text, new VBTypeDescValue(destination), ConversionSite.OperatorOperand));
 
@@ -414,7 +413,7 @@ public abstract record class BinaryRelationalOperatorRuntimeSemantics(
             Operator, frame[InputIndex.BinaryLeftOperand].GetTargetType(), frame[InputIndex.BinaryRightOperand].GetTargetType()), expression);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)

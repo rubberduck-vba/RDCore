@@ -20,8 +20,7 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Plans;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.LanguageCore.Plans;
 using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators.Logical;
@@ -33,8 +32,8 @@ namespace RDCore.Runtime.Semantics.Operators.Logical;
 /// </summary>
 public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider, 
-    IVerboseMessageBuilder FormatterService)
-    : BinaryOperatorRuntimeSemantics<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryOperatorRuntimeSemantics<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionSemanticsProvider, ErrorDetails)
 {
     /// <summary>
     /// Evaluates the bitwise result of a binary logical operation in the effective type's own representation.
@@ -118,7 +117,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// evaluated over the -1/0 of its operands, which are let-coerced to Boolean.
     /// </remarks>
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryLogicalOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -126,7 +125,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
             Operator, frame[InputIndex.BinaryLeftOperand].GetTargetType(), frame[InputIndex.BinaryRightOperand].GetTargetType()), expression);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryLogicalOperatorSemanticContext context, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
@@ -157,12 +156,12 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// Base implementation has already handled the case where both operands are <see cref="IIntegralNumericType"/>, and the case where they're both <c>Null</c>.
     /// </remarks>
     protected abstract RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame);
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder,
         ExpressionNode expression,

@@ -11,7 +11,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 
@@ -48,7 +48,7 @@ public sealed class HostExecuteHandlerTests
         sessionProvider.Compose(project.ProjectInfo, workspaceRoot);
 
         var moduleUri = new UriBuilder(workspaceRoot) { Fragment = ModuleName }.Uri;
-        var handler = new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(),
+        var handler = new HostExecuteHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(),
             NullLogger<HostExecuteHandler>.Instance);
 
         return (handler, sessionProvider, workspaceRoot, moduleUri);
@@ -88,7 +88,7 @@ public sealed class HostExecuteHandlerTests
             workspaceRoot, moduleUri, ModuleType.StdModule, parse, workspaceResolver,
             withImplicitDeclarations: true, implicitScope).ProvideSymbols();
 
-        var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

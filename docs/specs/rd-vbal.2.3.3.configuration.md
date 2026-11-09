@@ -34,6 +34,23 @@ A setting that decides what a program may do to the machine it runs on is _trust
 ([`TrustSensitiveSettingAttribute`](../api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)): `Environment.AllowDllImports`,
 `Environment.AllowAutomation`, `Environment.LegacyRegistrySettings`, and `Platform.Extensions.*`. Setting one says so, with a caution callout.
 
+### Run-time Error Details
+
+The `CLI.VerboseMessages` settings (`NextStart`) decide how the console words the details of a run-time error:
+
+|Settings|Decide|
+|---|---|
+|`IsEnabled`|Whether the details are worded at all.|
+|`ExpressionType`, `ExpressionSemanticId`, `DocumentLocation`|Whether the details name the kind of expression the error was raised at, give its semantic identifier, and give its L1C1 location.|
+|`StackTrace`, `StackFrameMarker`, `TopStackFrameMarker`|Whether the details list the frames of the operation that failed, and the marker each frame begins with (the top frame, where the error was raised, has its own).|
+|`ShowValues`|Whether each input of a frame is given with its value, or with its type only.|
+|`ShowMessageIcon`, `MessageIcon`, and the other `Show…Icon` and `…Icon` pairs|Whether each part begins with an icon, and which one.|
+
+`CONFIG CLI.VerboseMessages` lists the settings, with what each does.
+
+> [!NOTE]
+> **Not implemented.** The console does not display the details of a run-time error, so these settings have no visible effect.
+
 ### Build Configuration
 
 Two settings decide how a program is run, whatever its code says:

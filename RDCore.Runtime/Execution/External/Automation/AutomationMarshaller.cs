@@ -1,4 +1,5 @@
 ﻿using RDCore.External.Automation;
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
@@ -31,6 +32,9 @@ internal static class AutomationMarshaller
 {
     private const int TypeMismatch = unchecked((int)0x80020005);
     private const int Overflow = unchecked((int)0x8002000A);
+
+    // VBA's own facility: error 5, Invalid procedure call or argument (AutomationErrors).
+    private const int InvalidProcedureCall = unchecked((int)0x800A0005);
 
     // a Currency has four decimal places and a Decimal up to twenty-eight, and both arrive as a decimal: a value with no more than four is
     // what a Currency is, and one that has more cannot have been one.
@@ -76,8 +80,11 @@ internal static class AutomationMarshaller
 #pragma warning restore CS0618
             case VBDecimalValue @decimal:
                 return @decimal.Value;
+            // a Date that is no day, which only its bytes can make (ValueConversions.TryMomentOf), is no DateTime: error 5, as reading it as a day is.
             case VBDateValue date:
-                return date.Value;
+                return ValueConversions.TryMomentOf(date, out var moment)
+                    ? moment
+                    : throw new AutomationException(InvalidProcedureCall, "A Date that is no day from January 1, 100 to December 31, 9999 cannot be given to a server.");
             case VBStringValue text:
                 return text.Value ?? string.Empty;
             case VBErrorValue error:

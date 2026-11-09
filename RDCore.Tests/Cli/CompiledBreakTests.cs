@@ -8,7 +8,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using static RDCore.Tests.Cli.CompiledDirectCallTests;
 
 namespace RDCore.Tests.Cli;
@@ -55,7 +55,7 @@ public sealed class CompiledBreakTests
             Session.Halt.Clear();
             provider.Output.Target = output;
 
-            var pipeline = RuntimeExecutionPipeline.Create(Session, provider.Image, Substitute.For<IVerboseMessageBuilder>(), cancellation);
+            var pipeline = RuntimeExecutionPipeline.Create(Session, provider.Image, Substitute.For<IErrorDetailsRecorder>(), cancellation);
             Assert.IsTrue(Session.Symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module));
             Assert.IsTrue(Session.Symbols.TryResolveValue("Main", module!, out var main));
             var entry = (VBTypeMemberSymbol)main!;
@@ -90,7 +90,7 @@ public sealed class CompiledBreakTests
         }
 
         var frames = run.Session.CallStack.Frames.Cast<CallStackFrame>()
-            .Select(frame => $"{frame.Procedure!.Name}@{LineOf(frame.Body!.Items[frame.Pc].Location)}");
+            .Select(frame => $"{frame.Procedure!.Name}@{LineOf(InstructionLocations.Of(frame.Body!, frame.Pc))}");
         return $"{stop.Kind} @{LineOf(stop.Location)} | {string.Join(" < ", frames)} | Total {run.Total()}";
     }
 
@@ -246,4 +246,30 @@ public sealed class CompiledBreakTests
             "End Sub"), before: false,
             "Break @16 | Inner@16 < Outer@8 < Main@2 | Total 5",
             "ended | go ; 3000 | Total 3000", "Outer", "Inner");
+
+    // a break asked for while Ping prints, at the fifth call Spin's loop makes of it from the end of an If block's branch; Spin all compiled: it breaks
+    // before the jump that ends the branch, which is no statement of its own, and is shown on the End If, as MS-VBA shows it.
+    [TestMethod]
+    public async Task ABreakAskedForInACallThatEndsAnIfBlocksBranch_IsShownAtItsEndIf()
+        => await AssertBreaksAsync(Program(
+            "Public Total As Long, Pings As Long",
+            "Public Sub Main()",
+            "    Spin 1000",
+            "    Debug.Print Total",
+            "End Sub",
+            "Private Sub Spin(ByVal N As Long)",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Total = Total + 1",
+            "        If I > 0 Then",
+            "            Ping 1",
+            "        End If",
+            "    Next",
+            "End Sub",
+            "Private Sub Ping(ByVal Times As Long)",
+            "    Pings = Pings + Times",
+            "    If Pings = 5 Then Debug.Print \"go\"",
+            "End Sub"), before: false,
+            "Break @11 | Spin@11 < Main@2 | Total 5",
+            "ended | go ; 1000 | Total 1000", "Spin");
 }

@@ -11,7 +11,6 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
-using RDCore.SDK.Services.VerboseMessages;
 
 using RDCore.SDK.Model;
 
@@ -19,15 +18,15 @@ namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 
 public record class BinarySubtractionOperatorRuntimeSematics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, ErrorDetails)
 {
     protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => checked(lhs - rhs);
 
     protected override string Operator => Tokens.SubtractionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch

@@ -16,7 +16,6 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators.Relational;
 
@@ -25,12 +24,12 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// </summary>
 public sealed record class LikeRelationalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, ErrorDetails)
 {
     /// <remarks>
     /// MS-VBAL 5.6.9.6: if either operand's value is Null, the result is Null; otherwise both operands are Let-coerced to String regardless of their own value
-    /// type — unlike the other relational operators, Like has no table of numeric and date effective types (<see cref="RDCore.SDK.Semantics.Plans.OperationPlanner"/>).
+    /// type: unlike the other relational operators, Like has no table of numeric and date effective types (<see cref="RDCore.Runtime.LanguageCore.Plans.OperationPlanner"/>).
     /// </remarks>
     protected override string Operator => Tokens.CompareLikeOp;
 
@@ -41,7 +40,7 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     protected override bool ComparesValues => false;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -77,7 +76,7 @@ public sealed record class LikeRelationalOperatorRuntimeSemantics(
     /// (RD-VBAL §5.6.9.6): neither departure depends on the text it is matched against.
     /// </remarks>
     protected override ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags> builder,
         ExpressionNode expression,

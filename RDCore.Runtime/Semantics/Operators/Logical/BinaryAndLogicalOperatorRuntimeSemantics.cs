@@ -16,7 +16,6 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators.Logical;
 
@@ -25,8 +24,8 @@ namespace RDCore.Runtime.Semantics.Operators.Logical;
 /// </summary>
 public record class BinaryAndLogicalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService) 
-    : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : BinaryLogicalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, ErrorDetails)
 {
     protected override string Operator => Tokens.LogicalAndOp;
 
@@ -40,7 +39,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
         LogicalOperatorSemanticFlags semanticFlags) => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {
@@ -65,7 +64,7 @@ public record class BinaryAndLogicalOperatorRuntimeSemantics(
     }
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder, 
         ExpressionNode expression, 

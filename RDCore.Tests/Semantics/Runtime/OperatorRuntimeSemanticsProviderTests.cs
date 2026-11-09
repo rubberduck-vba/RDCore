@@ -7,7 +7,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -23,7 +23,7 @@ public sealed class OperatorRuntimeSemanticsProviderTests
     private static readonly IRuntimeSession Session = Substitute.For<IRuntimeSession>();
 
     private static IOperatorRuntimeSemanticsProvider Provider()
-        => new OperatorRuntimeSemanticsProvider(Substitute.For<ILetCoercionRuntimeSemanticsProvider>(), Substitute.For<IVerboseMessageBuilder>());
+        => new OperatorRuntimeSemanticsProvider(Substitute.For<ILetCoercionRuntimeSemanticsProvider>(), Substitute.For<IErrorDetailsRecorder>());
 
     private static VBBinaryOperatorExpressionNode Binary(string token)
         => new(token, NodeId, TestLocations.TestLocation, new LiteralExpressionNode(NodeId, TestLocations.TestLocation, new VBLongValue(1)),

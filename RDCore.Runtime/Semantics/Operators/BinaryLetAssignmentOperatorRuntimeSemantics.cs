@@ -21,7 +21,6 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -42,11 +41,11 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </remarks>
 public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryOperatorRuntimeSemantics<ConversionOperationSemanticContext, ConversionSemanticFlags>(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryOperatorRuntimeSemantics<ConversionOperationSemanticContext, ConversionSemanticFlags>(LetCoercionProvider, ErrorDetails)
 {
     protected override ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> builder,
         ExpressionNode expression,
@@ -57,7 +56,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         => builder.AddFlags(coercionContext.Flags);
 
     protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         OperatorEvaluationFrame frame,
@@ -70,7 +69,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
     }
 
     protected override RuntimeSemanticsEvaluationResult EvaluateForAnalysis(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -89,7 +88,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
                 ?? OnRuntimeError(VBRuntimeErrorId.TypeMismatch, expression, Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose));
     }
 
-    private LetCoercionResult CoerceSource(ISymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame)
+    private LetCoercionResult CoerceSource(IRuntimeSymbolResolver resolver, ExpressionNode expression, OperatorEvaluationFrame frame)
         => LetCoercionProvider.EvaluateLetCoercionSemantics(resolver, expression,
             new(NodeId: expression.Identity,
                 OperandIndex: InputIndex.BinaryRightOperand,
@@ -105,7 +104,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         ConversionSemanticFlags semanticFlags) => new(node.Identity, determineOperatorEffectiveTypeResult, coercionResult, evaluationResult, semanticFlags);
 
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -118,7 +117,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
     }
 
     protected override LetCoercionResult ValidateOperand(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex index)
@@ -131,7 +130,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
         => LetCoercionResult.Success(frame[index], []);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -165,7 +164,7 @@ public sealed record class BinaryLetAssignmentOperatorRuntimeSemantics(
                 ? Store(session.Symbols.Resolver, symbol, coerced)
                 : null;
 
-    private static RuntimeSemanticsEvaluationResult Store(ISymbolResolver resolver, Symbol target, VBTypedValue value)
+    private static RuntimeSemanticsEvaluationResult Store(IRuntimeSymbolResolver resolver, Symbol target, VBTypedValue value)
     {
         var handle = resolver.GetValue(target);
         if (!handle.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))

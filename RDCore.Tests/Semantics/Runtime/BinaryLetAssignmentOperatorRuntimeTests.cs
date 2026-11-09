@@ -25,7 +25,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -66,7 +66,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         => new(Root, moduleUri, name, ScopeKind.Module, type, R, R, AccessModifier.Implicit);
 
     private static BinaryLetAssignmentOperatorRuntimeSemantics Sut(ILetCoercionRuntimeSemanticsProvider provider)
-        => new(provider, Substitute.For<IVerboseMessageBuilder>());
+        => new(provider, Substitute.For<IErrorDetailsRecorder>());
 
     private static RuntimeSemanticsEvaluationResult Evaluate(
         BinaryLetAssignmentOperatorRuntimeSemantics op, IRuntimeSession session, Symbol target, VBTypedValue source)
@@ -147,7 +147,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         // point - IsInternalError itself only describes that pre-wrap sentinel, never the public result.
     {
         var target = new VBConstantMemberSymbol(Root, Root, "Pi", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
-        var resolver = Substitute.For<ISymbolResolver>();
+        var resolver = Substitute.For<IRuntimeSymbolResolver>();
         resolver.GetValue(target).Returns(new ConstantBindingHandle(VBLongType.TypeInfo.DefaultValue.RuntimeValue));
         var symbols = Substitute.For<ISessionSymbols>();
         symbols.Resolver.Returns(resolver);
@@ -171,7 +171,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
 
     private static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [
@@ -188,9 +188,9 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.EvaluateLetCoercionSemantics(r, e, f);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.Analyze(r, b, e, f);
     }
 }

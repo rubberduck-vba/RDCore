@@ -12,7 +12,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -33,11 +32,11 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// </remarks>
 public record class VBResizableArrayLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : LetCoercionRuntimeSemantics<VBResizableArrayType>(FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : LetCoercionRuntimeSemantics<VBResizableArrayType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
@@ -70,7 +69,7 @@ public record class VBResizableArrayLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.ArrayTarget);
 

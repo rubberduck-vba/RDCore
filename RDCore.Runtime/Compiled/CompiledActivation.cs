@@ -934,7 +934,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         var list = Body;
-        _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
+        _body.WalkedBack(InstructionLocations.Of(list, pc));
         if (!HandKnowns(frame, list, pc, inside: _failed is null))
         {
             return RuntimeExecutionOutcome.InternalError;
@@ -1128,7 +1128,7 @@ public sealed partial class CompiledActivation : ILightActivation
     {
         var frame = Frame;
         return frame.Procedure is { } procedure
-            && frame.TryReadSlot(new SDK.Semantics.Binding.FrameSlot(SDK.Semantics.Binding.FrameLayout.For(procedure), slot), _body.SlotSymbols[slot], out var cell, out var referenced)
+            && frame.TryReadSlot(new LanguageCore.Binding.FrameSlot(LanguageCore.Binding.FrameLayout.For(procedure), slot), _body.SlotSymbols[slot], out var cell, out var referenced)
             && referenced is null && cell is ValueBindingHandle handle
                 ? handle
                 : null;
@@ -1310,7 +1310,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
+        _body.WalkedBack(InstructionLocations.Of(list, pc));
         return _executor.Run(_session, frame, list, _context);
     }
 

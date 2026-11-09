@@ -13,7 +13,6 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators.Logical;
 
@@ -22,14 +21,14 @@ namespace RDCore.Runtime.Semantics.Operators.Logical;
 /// </summary>
 public record class UnaryNotOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : UnaryLogicalOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : UnaryLogicalOperatorRuntimeSemantics(LetCoercionProvider, ErrorDetails)
 {
     protected override string Operator => Tokens.LogicalNotOp;
 
     protected override T EvaluateBitwiseOp<T>(T operand) => ~operand;
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(ISymbolResolver resolver,
+    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(IRuntimeSymbolResolver resolver,
         UnaryLogicalOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) =>

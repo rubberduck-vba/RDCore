@@ -6,7 +6,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Cli;
 
@@ -66,7 +66,7 @@ public sealed class FrameEvaluationTests
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 
     private static Task<DebugEvaluateResult> Evaluate(EnvironmentSessionProvider provider, int frame, string expression)
-        => new HostDebugEvaluateHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+        => new HostDebugEvaluateHandler(provider, Substitute.For<IErrorDetailsRecorder>())
             .Handle(new HostDebugEvaluateParams { FrameId = frame, Json = Parsed(expression) }, CancellationToken.None).WaitAsync(Patience);
 
     // ---- names ----

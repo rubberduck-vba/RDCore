@@ -18,7 +18,6 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Execution;
 
@@ -79,7 +78,7 @@ public sealed class RuntimeExecutionPipeline
     /// </summary>
     /// <param name="session">The session every part of the pipeline runs against.</param>
     /// <param name="bodies">Every procedure's lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
-    /// <param name="messages">Builds the verbose half of a run-time error message.</param>
+    /// <param name="errorDetails">Records the details of the run-time errors raised.</param>
     /// <param name="cancellation">
     /// Stops the interpreter between instructions. A pipeline is composed per run, so this is that
     /// run's own cancellation — it is what makes a program that will never finish on its own
@@ -98,18 +97,18 @@ public sealed class RuntimeExecutionPipeline
     public static RuntimeExecutionPipeline Create(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
-        IVerboseMessageBuilder messages,
+        IErrorDetailsRecorder errorDetails,
         CancellationToken cancellation = default,
         IAnalysisObserver? observer = null,
         ExternalWorld? outside = null)
-        => Build(session, bodies, messages, cancellation, observer, PipelineMode.Run, outside);
+        => Build(session, bodies, errorDetails, cancellation, observer, PipelineMode.Run, outside);
 
     /// <summary>
     /// Composes the pipeline for <paramref name="session"/>, a session composed to be analyzed (<see cref="RuntimeSessionComposer.ComposeForAnalysis"/>).
     /// </summary>
     /// <param name="session">The session every part of the pipeline runs against.</param>
     /// <param name="bodies">Every procedure's lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
-    /// <param name="messages">Builds the verbose half of a run-time error message.</param>
+    /// <param name="errorDetails">Records the details of the run-time errors raised.</param>
     /// <param name="observer">Told of every conversion and operation the analysis evaluates.</param>
     /// <param name="cancellation">Stops the interpreter between instructions.</param>
     /// <remarks>
@@ -123,10 +122,10 @@ public sealed class RuntimeExecutionPipeline
     public static RuntimeExecutionPipeline CreateForAnalysis(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
-        IVerboseMessageBuilder messages,
+        IErrorDetailsRecorder errorDetails,
         IAnalysisObserver observer,
         CancellationToken cancellation = default)
-        => Build(session, bodies, messages, cancellation, observer, PipelineMode.Analysis);
+        => Build(session, bodies, errorDetails, cancellation, observer, PipelineMode.Analysis);
 
     /// <summary>
     /// Composes the pipeline for <paramref name="session"/>, a session composed to be analyzed (<see cref="RuntimeSessionComposer.ComposeForAnalysis"/>),
@@ -134,7 +133,7 @@ public sealed class RuntimeExecutionPipeline
     /// </summary>
     /// <param name="session">The session every part of the pipeline runs against.</param>
     /// <param name="bodies">Every procedure's lowered body, keyed by its <see cref="Symbol.SemanticId"/>.</param>
-    /// <param name="messages">Builds the verbose half of a run-time error message.</param>
+    /// <param name="errorDetails">Records the details of the run-time errors raised.</param>
     /// <param name="observer">Told of every conversion and operation the sweep evaluates.</param>
     /// <param name="cancellation">Stops the sweep between instructions.</param>
     /// <remarks>
@@ -149,10 +148,10 @@ public sealed class RuntimeExecutionPipeline
     public static RuntimeExecutionPipeline CreateForSweep(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
-        IVerboseMessageBuilder messages,
+        IErrorDetailsRecorder errorDetails,
         IAnalysisObserver observer,
         CancellationToken cancellation = default)
-        => Build(session, bodies, messages, cancellation, observer, PipelineMode.Sweep);
+        => Build(session, bodies, errorDetails, cancellation, observer, PipelineMode.Sweep);
 
     private enum PipelineMode
     {
@@ -166,7 +165,7 @@ public sealed class RuntimeExecutionPipeline
     private static RuntimeExecutionPipeline Build(
         IRuntimeSession session,
         IReadOnlyDictionary<SemanticId, InstructionList> bodies,
-        IVerboseMessageBuilder messages,
+        IErrorDetailsRecorder errorDetails,
         CancellationToken cancellation,
         IAnalysisObserver? observer,
         PipelineMode mode,
@@ -176,32 +175,32 @@ public sealed class RuntimeExecutionPipeline
         // the parts of the pipeline that state facts share one observation, so that describing a fact is not itself observed.
         var observation = observer is null ? null : new AnalysisObservation(observer);
         var handle = new ProviderHandle();
-        var objectCoercion = new VBObjectLetCoercionRuntimeSemantics(handle, messages);
+        var objectCoercion = new VBObjectLetCoercionRuntimeSemantics(handle, errorDetails);
 
         var letCoercion = new LetCoercionRuntimeSemanticsProvider(
             [
                 // a String Let-coerced to a number, a Boolean or a date is read by the platform's regional settings (MS-VBAL 5.5.1.2.4).
-                new VBNumericLetCoercionTypeRuntimeSemantics(messages, handle, session.Environment.Regional),
-                new VBBooleanLetCoercionRuntimeSemantics(handle, messages, session.Environment.Regional),
+                new VBNumericLetCoercionTypeRuntimeSemantics(errorDetails, handle, session.Environment.Regional),
+                new VBBooleanLetCoercionRuntimeSemantics(handle, errorDetails, session.Environment.Regional),
                 // every number and date Let-coerced to String is written in the environment's regional settings.
-                new VBStringLetCoercionRuntimeSemantics(messages, session.Environment.Culture, session.Environment.Regional),
-                new VBDateLetCoercionRuntimeSemantics(handle, messages, session.Environment.Regional),
-                new VBFixedStringLetCoercionRuntimeSemantics(handle, messages),
-                new VBVariantTypeLetCoercionRuntimeSemantics(handle, messages),
-                new VBEmptyTypeLetCoercionRuntimeSemantics(messages),
-                new VBNullTypeLetCoercionRuntimeSemantics(messages),
-                new VBErrorTypeLetCoercionRuntimeSemantics(handle, messages),
+                new VBStringLetCoercionRuntimeSemantics(errorDetails, session.Environment.Culture, session.Environment.Regional),
+                new VBDateLetCoercionRuntimeSemantics(handle, errorDetails, session.Environment.Regional),
+                new VBFixedStringLetCoercionRuntimeSemantics(handle, errorDetails),
+                new VBVariantTypeLetCoercionRuntimeSemantics(handle, errorDetails),
+                new VBEmptyTypeLetCoercionRuntimeSemantics(errorDetails),
+                new VBNullTypeLetCoercionRuntimeSemantics(errorDetails),
+                new VBErrorTypeLetCoercionRuntimeSemantics(handle, errorDetails),
                 objectCoercion,
-                new VBUserDefinedTypeLetCoercionRuntimeSemantics(handle, messages),
-                new VBResizableByteArrayLetCoercionRuntimeSemantics(handle, messages),
-                new VBResizableArrayLetCoercionRuntimeSemantics(handle, messages),
+                new VBUserDefinedTypeLetCoercionRuntimeSemantics(handle, errorDetails),
+                new VBResizableByteArrayLetCoercionRuntimeSemantics(handle, errorDetails),
+                new VBResizableArrayLetCoercionRuntimeSemantics(handle, errorDetails),
             ],
-            messages,
+            errorDetails,
             observation);
         handle.Inner = letCoercion;
 
-        var setCoercion = new SetCoercionRuntimeSemantics(messages);
-        var operators = new OperatorRuntimeSemanticsProvider(letCoercion, messages, observation);
+        var setCoercion = new SetCoercionRuntimeSemantics(errorDetails);
+        var operators = new OperatorRuntimeSemanticsProvider(letCoercion, errorDetails, observation);
         var expressions = new RuntimeExpressionEvaluator(operators);
         var print = new PrintOutputEvaluator(expressions, letCoercion);
         var conditions = new ConditionEvaluator(expressions, letCoercion);
@@ -310,13 +309,13 @@ public sealed class RuntimeExecutionPipeline
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
 
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
 
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
 
-        public LetCoercionResult EvaluateUnstated(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateUnstated(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateUnstated(resolver, expression, frame);
     }
 }

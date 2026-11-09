@@ -23,7 +23,6 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Tests.Runtime.StdLib;
 
@@ -334,7 +333,7 @@ public sealed class StdLibDispatchTests
 
         var result = dispatcher.Dispatch(
             new ExternalCallRequest(rgb, [new VBIntegerValue(1).RuntimeValue, new VBIntegerValue(2).RuntimeValue, new VBIntegerValue(3).RuntimeValue]),
-            Substitute.For<ISymbolResolver>());
+            Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         information.Received().RGB(
@@ -356,7 +355,7 @@ public sealed class StdLibDispatchTests
 
         var result = dispatcher.Dispatch(
             new ExternalCallRequest(monthName, [new VBLongValue(3).RuntimeValue, new VBBooleanValue(abbreviate).RuntimeValue]),
-            Substitute.For<ISymbolResolver>());
+            Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         strings.Received().MonthName(
@@ -375,7 +374,7 @@ public sealed class StdLibDispatchTests
         var dispatcher = new StdLibDispatcher(new Dictionary<Type, object> { [typeof(IStdStringsModule)] = strings });
 
         var result = dispatcher.Dispatch(
-            new ExternalCallRequest(ascB, [VBRuntimeByteStringValue.FromBytes([0x41, 0x00, 0x42])]), Substitute.For<ISymbolResolver>());
+            new ExternalCallRequest(ascB, [VBRuntimeByteStringValue.FromBytes([0x41, 0x00, 0x42])]), Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         strings.Received().AscB(Arg.Is<VBStringValue>(text => text.Value == "A" && text.TrailingByte == 0x42));
@@ -394,7 +393,7 @@ public sealed class StdLibDispatchTests
         var dispatcher = new StdLibDispatcher(new Dictionary<Type, object> { [typeof(IStdStringsModule)] = strings });
 
         var result = dispatcher.Dispatch(
-            new ExternalCallRequest(ascB, [new VBRuntimeValue<string>(null!)]), Substitute.For<ISymbolResolver>());
+            new ExternalCallRequest(ascB, [new VBRuntimeValue<string>(null!)]), Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         strings.Received().AscB(Arg.Is<VBStringValue>(text => text.IsNullString));
@@ -429,7 +428,7 @@ public sealed class StdLibDispatchTests
         var dispatcher = new StdLibDispatcher(new Dictionary<Type, object> { [typeof(IStdMathModule)] = math });
 
         var result = dispatcher.Dispatch(
-            new ExternalCallRequest(atn, [new VBDoubleValue(0.5).RuntimeValue]), Substitute.For<ISymbolResolver>());
+            new ExternalCallRequest(atn, [new VBDoubleValue(0.5).RuntimeValue]), Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         math.Received().Atn(Arg.Is<VBDoubleValue>(number => number.Value == 0.5));
@@ -474,7 +473,7 @@ public sealed class StdLibDispatchTests
         {
             var (dispatcher, implementation, split) = Omittable("Split");
 
-            var result = dispatcher.Dispatch(new ExternalCallRequest(split, arguments), Substitute.For<ISymbolResolver>());
+            var result = dispatcher.Dispatch(new ExternalCallRequest(split, arguments), Substitute.For<IRuntimeSymbolResolver>());
 
             Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
             implementation.Received().Split(
@@ -488,7 +487,7 @@ public sealed class StdLibDispatchTests
         // the member was called with null for it, and failed inside.
         var (dispatcher, implementation, split) = Omittable("Split");
 
-        var result = dispatcher.Dispatch(new ExternalCallRequest(split, []), Substitute.For<ISymbolResolver>());
+        var result = dispatcher.Dispatch(new ExternalCallRequest(split, []), Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsFalse(result.IsSuccess);
         Assert.AreEqual((int)VBRuntimeErrorId.InvalidProcedureCallOrArgument, result.ErrorInfo!.ErrorId);
@@ -501,7 +500,7 @@ public sealed class StdLibDispatchTests
         // what a call from source that passes it nothing collects (MS-VBAL 5.3.1.11: bounds 0 to -1), where the member was given null.
         var (dispatcher, implementation, total) = Omittable("Total");
 
-        var result = dispatcher.Dispatch(new ExternalCallRequest(total, [new VBLongValue(1).RuntimeValue]), Substitute.For<ISymbolResolver>());
+        var result = dispatcher.Dispatch(new ExternalCallRequest(total, [new VBLongValue(1).RuntimeValue]), Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         implementation.Received().Total(Arg.Is<VBLongValue>(first => first.Value == 1), Arg.Is<VBVariantValue[]>(rest => rest != null && rest.Length == 0));
@@ -514,7 +513,7 @@ public sealed class StdLibDispatchTests
         var (dispatcher, implementation, same) = Omittable("Same");
 
         var result = dispatcher.Dispatch(
-            new ExternalCallRequest(same, [new VBStringValue("a").RuntimeValue, new VBStringValue("A").RuntimeValue]), Substitute.For<ISymbolResolver>());
+            new ExternalCallRequest(same, [new VBStringValue("a").RuntimeValue, new VBStringValue("A").RuntimeValue]), Substitute.For<IRuntimeSymbolResolver>());
 
         Assert.IsTrue(result.IsSuccess, result.ErrorInfo?.Verbose);
         Assert.IsTrue(same.Parameters.Last().GetProperty(SymbolProperties.DefaultsToOptionCompare));

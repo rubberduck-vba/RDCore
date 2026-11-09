@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
@@ -11,6 +12,8 @@ using RDCore.SDK.Semantics.References;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
+using RDCore.Runtime.LanguageCore.Refactoring;
+using RDCore.Runtime.LanguageCore.References;
 
 namespace RDCore.Tests.Semantics.References;
 

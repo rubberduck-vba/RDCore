@@ -1,4 +1,4 @@
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Plans;
 
 namespace RDCore.Tests.Semantics;
 

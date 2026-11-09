@@ -1,4 +1,4 @@
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 
 namespace RDCore.Runtime.Execution.Frames;
 

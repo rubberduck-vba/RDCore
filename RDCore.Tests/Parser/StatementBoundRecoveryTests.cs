@@ -100,12 +100,11 @@ public sealed class StatementBoundRecoveryTests
         Assert.HasCount(2, parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
     }
 
-    // a token that ends a block where the parse expects a statement is no statement of its own: the block a statement is missing from, or whose end is
-    // missing, ends at it, the procedure ends at its End Sub, and the next procedure is read on its own.
+    // a token that ends a block around where the parse expects a statement is no statement of its own: the block a statement is missing from, or whose end
+    // is missing, ends at it, the procedure ends at its End Sub, and the next procedure is read on its own.
     [TestMethod]
     [DataRow("Public Sub M()\r\nIf a Then\r\nFor i = 1 To 2\r\nEnd If\r\nEnd Sub", DisplayName = "an End If after a For with no Next")]
     [DataRow("Public Sub M()\r\nNext\r\nEnd Sub", DisplayName = "a Next with no For")]
-    [DataRow("Public Sub M()\r\nWith x\r\nLoop\r\nEnd With\r\nEnd Sub", DisplayName = "a Loop with no Do, in a With")]
     [DataRow("Public Sub M()\r\nDo While x\r\nb = 2\r\nEnd Sub", DisplayName = "a Do with no Loop")]
     [DataRow("Public Sub M()\r\nIf Not x Then\r\nb = 2\r\nEnd Sub", DisplayName = "an If with no End If")]
     [DataRow("Public Sub M()\r\nWith New Collection\r\nb = 2\r\nEnd Sub", DisplayName = "a With with no End With")]
@@ -121,6 +120,94 @@ public sealed class StatementBoundRecoveryTests
         Assert.IsGreaterThanOrEqualTo(next - 1, members[0].SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
         Assert.IsLessThanOrEqualTo(0, members[0].SourceLocation.Range.End.CompareTo(new SourcePosition(next, 0)), "the procedure ends before the next one");
         Assert.IsTrue(members.Any(member => member.SourceLocation.Range.Start.Line == next), "the next procedure is read on its own");
+    }
+
+    // a word that ends a block, where no block around it ends (a Loop with no Do, an End If with no If), is a statement no rule reads: the block goes on
+    // after it, and the procedure ends at its End Sub, not at the next procedure.
+    [TestMethod]
+    [DataRow("Loop", DisplayName = "a Loop with no Do")]
+    [DataRow("With x\r\nLoop\r\nEnd With", DisplayName = "a Loop with no Do, in a With")]
+    [DataRow("With x\r\nEnd If\r\nEnd With", DisplayName = "an End If with no If, in a With")]
+    [DataRow("Wend", DisplayName = "a Wend with no While")]
+    [DataRow("Do\r\nIf a Then\r\nLoop", DisplayName = "a Loop in an If with no End If, in a Do")]
+    public void AWordThatEndsNoBlockAroundIt_IsAStatement_AndTheProcedureEndsAtItsEndSub(string body)
+    {
+        foreach (var after in new[] { "\r\nSub N()\r\nEnd Sub\r\n", "" })
+        {
+            var source = $"Public Sub M()\r\n{body}\r\nb = 2\r\nEnd Sub{after}";
+            var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+            Assert.IsNotEmpty(parse.SyntaxErrors);
+            var lines = source.Split("\r\n").ToList();
+            var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+            Assert.AreEqual(new SourcePosition(lines.IndexOf("End Sub"), "End Sub".Length), members[0].SourceLocation.Range.End, "the procedure ends at its End Sub");
+            Assert.IsTrue(Descendants(members[0]).OfType<StatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"),
+                "the statement after the word is the procedure's");
+            if (after.Length > 0)
+            {
+                var next = Assert.ContainsSingle(members[1..]);
+                Assert.AreEqual(lines.IndexOf("Sub N()"), next.SourceLocation.Range.Start.Line, "the next procedure is read on its own");
+            }
+        }
+    }
+
+    // a procedure with no end ends where the next procedure's header begins, its modifiers included (MS-VBAL §5.3.1): the header is no statement of the
+    // procedure, and the recovery neither deletes it nor skips past it. The next procedure is read on its own, its range its own, and the syntax error is
+    // at its header.
+    [TestMethod]
+    [DataRow("Sub N()", "End Sub", DisplayName = "a Sub")]
+    [DataRow("Public Sub N()", "End Sub", DisplayName = "a Public Sub")]
+    [DataRow("Private Sub N()", "End Sub", DisplayName = "a Private Sub")]
+    [DataRow("Friend Sub N()", "End Sub", DisplayName = "a Friend Sub")]
+    [DataRow("Static Sub N()", "End Sub", DisplayName = "a Static Sub")]
+    [DataRow("Public Static Sub N()", "End Sub", DisplayName = "a Public Static Sub")]
+    [DataRow("Public Function N() As Long", "End Function", DisplayName = "a Public Function")]
+    [DataRow("Property Get N() As Long", "End Property", DisplayName = "a Property Get")]
+    [DataRow("Private Property Let N(ByVal v As Long)", "End Property", DisplayName = "a Private Property Let")]
+    public void AProcedureWithNoEnd_EndsAtTheNextProcedure_WhichIsReadOnItsOwn(string header, string end)
+    {
+        var source = $"Public Sub M()\r\nStatic a As Long\r\na = 1\r\n\r\n{header}\r\nb = 2\r\n{end}\r\n";
+
+        AssertTheNextProcedureIsReadOnItsOwn(source, header, end);
+    }
+
+    // so does one whose last block has no end either: the block ends at the header too.
+    [TestMethod]
+    [DataRow("If a Then", DisplayName = "in an If")]
+    [DataRow("For i = 1 To 2", DisplayName = "in a For")]
+    [DataRow("For Each v In c", DisplayName = "in a For Each")]
+    [DataRow("Do While a", DisplayName = "in a Do")]
+    [DataRow("While a", DisplayName = "in a While")]
+    [DataRow("With x", DisplayName = "in a With")]
+    [DataRow("Select Case a\r\nCase 1", DisplayName = "in a Select Case")]
+    public void AProcedureWithNoEnd_InABlockWithNoEnd_EndsAtTheNextProcedure(string opened)
+    {
+        foreach (var header in new[] { "Sub N()", "Public Sub N()" })
+        {
+            var source = $"Public Sub M()\r\n{opened}\r\na = 1\r\n\r\n{header}\r\nb = 2\r\nEnd Sub\r\n";
+
+            AssertTheNextProcedureIsReadOnItsOwn(source, header, "End Sub");
+        }
+    }
+
+    private static void AssertTheNextProcedureIsReadOnItsOwn(string source, string header, string end)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var lines = source.Split("\r\n").ToList();
+        var at = new SourcePosition(lines.IndexOf(header), 0);
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, members, source);
+        Assert.AreEqual("M", members[0].Name);
+        Assert.AreEqual(at, members[0].SourceLocation.Range.End, "the procedure with no end ends where the next one begins");
+        Assert.AreEqual("N", members[1].Name);
+        Assert.AreEqual(new SourceRange(at, new SourcePosition(lines.IndexOf(end), end.Length)), members[1].SourceLocation.Range, "the next procedure's range");
+        Assert.IsTrue(Descendants(members[1]).OfType<StatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"),
+            "the next procedure's statement is its own");
+
+        var error = parse.SyntaxErrors.First();
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
+        Assert.AreEqual(at, error.Location.Range.Start, "the error is at the header");
     }
 
     // the operation is the last item the statement prints, unbuilt, its left operand in it: an item the parse read before it is the item it is, and a name

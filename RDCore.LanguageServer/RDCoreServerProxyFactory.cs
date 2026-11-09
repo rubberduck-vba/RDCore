@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Runtime;
+using RDCore.LanguageServer.Services.Platform;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
 using RDCore.SDK.Extensibility;

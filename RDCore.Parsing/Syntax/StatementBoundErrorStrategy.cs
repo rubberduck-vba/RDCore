@@ -31,8 +31,12 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
     // what ends a statement, as recovery sees it: the end of a statement, a comment's included, or the end of the module.
     internal static bool EndsAStatement(int type) => BeginsAnEndOfStatement(type) || type == TokenConstants.Eof;
 
+    // a procedure's header is never one token too many either: where End Sub is missing, deleting `Sub` would read the procedure after it as the rest of
+    // this one.
     protected override IToken SingleTokenDeletion(Parser recognizer)
-        => EndsAStatement(((ITokenStream)recognizer.InputStream).La(1)) ? null! : base.SingleTokenDeletion(recognizer);
+        => EndsAStatement(((ITokenStream)recognizer.InputStream).La(1)) || VBABaseParser.BeginsAProcedureHeader((ITokenStream)recognizer.InputStream)
+            ? null!
+            : base.SingleTokenDeletion(recognizer);
 
     // whether the error the parse recovers from is one it reported: no error is reported until a token is read after the one it recovered from.
     private bool _reported;
@@ -121,6 +125,16 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
     public override void Recover(Parser recognizer, RecognitionException e)
     {
         var reported = _reported;
+
+        // a second error at the token of the first, in a rule recovered from there before, makes ANTLR consume the token, so that a loop cannot fail at it
+        // forever. A procedure's header and its End Sub are never that token: the rules the parse returns to read them, the procedure's End Sub and the
+        // module's next procedure, and consuming one would make the procedure run into the next.
+        var stream = (ITokenStream)recognizer.InputStream;
+        if (VBABaseParser.BeginsAProcedureHeader(stream) || stream.La(1) is VBALexer.END_SUB or VBALexer.END_FUNCTION or VBALexer.END_PROPERTY)
+        {
+            lastErrorIndex = -1;
+        }
+
         base.Recover(recognizer, e);
         if (recognizer is not VBAParser { Context: VBAParser.EndOfStatementContext end } parser)
         {
@@ -130,9 +144,8 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         // only an error of the statement's own: one the parse reports, after a statement read to its end, or one it does not report after an error of the same
         // statement, on its line, that it recovered from (Dim For As Long: the name is recovered from before As, and the statement ends there). An error it does
         // not report after an error of an earlier statement - in a block it left at the error, in the procedure before the next one - is followed by no rest of
-        // a statement's line.
-        var stream = (ITokenStream)parser.InputStream;
-        if (!reported && !InTheStatementItEnds(parser, end))
+        // a statement's line, and neither is the next procedure's header.
+        if (!reported && !InTheStatementItEnds(parser, end) || VBABaseParser.BeginsAProcedureHeader(stream))
         {
             return;
         }
@@ -169,10 +182,10 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         }
 
         // the rest of the line of a statement of a For, after an error inside it that the parse recovers from (Dim For As Long): the statement's, as Recover
-        // reads it in a block. The For would otherwise decide on it, and end there.
+        // reads it in a block. The For would otherwise decide on it, and end there. A procedure's header is no statement of the For: it ends the procedure.
         if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } recovering && InErrorRecoveryMode(recovering)
             && BeginsAStatementOfTheFor(recovering.Interpreter.atn.states[recovering.State]) && recovering.Context.children?[^1] is VBAParser.BlockStmtContext
-            && TheLastErrorIsOnThisLine((ITokenStream)recovering.InputStream))
+            && TheLastErrorIsOnThisLine((ITokenStream)recovering.InputStream) && !VBABaseParser.BeginsAProcedureHeader((ITokenStream)recovering.InputStream))
         {
             var stream = (ITokenStream)recovering.InputStream;
             while (!EndsAStatement(stream.La(1)))
@@ -446,15 +459,21 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
     private static bool BeginsAStatementOfTheBlock(ATNState state)
         => state.ruleIndex == VBAParser.RULE_block && state is StarLoopEntryState or StarLoopbackState;
 
-    // whether the next token begins no statement, ends no block, begins no procedure and ends no statement, in this block or any other: a token that ends
-    // the block a statement is missing from (End If after a For with no Next) or begins the procedure after one with no end (Public Sub after a missing
-    // End Sub) is recovered from where it is, as before.
-    private static bool BeginsNoStatement(Parser parser)
+    // whether the next token begins no statement, begins or ends no procedure and ends no statement, and ends no block this one is in: a token that begins the
+    // procedure after one with no end (Public Sub after a missing End Sub) is recovered from where it is, and so is one that ends a block around this one,
+    // whose end this block is missing (End With after a Do with no Loop, a Loop in an If with no End If inside a Do). One that ends no block around it (a Loop
+    // with no Do, in a With) is a statement no rule reads: the block would otherwise end there, and the procedure skip past its End Sub to the next one.
+    private bool BeginsNoStatement(Parser parser)
     {
         var stream = (ITokenStream)parser.InputStream;
         var at = PastALabel(stream, 1);
         var next = stream.La(at);
-        return !EndsAStatement(next) && !BeginsOrEndsAStatementOrABlock.Contains(next) && (at > 1 || !parser.GetExpectedTokens().Contains(next));
+        if (EndsAStatement(next) || BeginsAStatementOfABlock.Contains(next) || BeginsOrEndsAProcedure.Contains(next))
+        {
+            return false;
+        }
+
+        return EndsABlock.Contains(next) ? !GetErrorRecoverySet(parser).Contains(next) : at > 1 || !parser.GetExpectedTokens().Contains(next);
     }
 
     // where the statement at the token begins, past the label at the start of its line, its blanks included (L1: Mod = 1, 20 Mod = 2); at the token when it
@@ -512,22 +531,24 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         return before >= 0 && stream.Get(before).Type is VBALexer.NEWLINE or VBALexer.LINE_CONTINUATION;
     }
 
-    // what a statement of a block begins with, what follows a block in any rule, and what begins a procedure (VBABaseParser.RecoverToProcedureBoundary).
-    private static readonly IntervalSet BeginsOrEndsAStatementOrABlock = TokensAroundAStatementOfABlock();
+    // the words a procedure's header begins with, and the ends of a procedure: a block in a procedure never reads them.
+    private static readonly IntervalSet BeginsOrEndsAProcedure = new(VBALexer.SUB, VBALexer.FUNCTION, VBALexer.PROPERTY_GET, VBALexer.PROPERTY_LET,
+        VBALexer.PROPERTY_SET, VBALexer.PUBLIC, VBALexer.PRIVATE, VBALexer.FRIEND, VBALexer.STATIC, VBALexer.END_SUB, VBALexer.END_FUNCTION, VBALexer.END_PROPERTY);
 
-    private static IntervalSet TokensAroundAStatementOfABlock()
+    private static readonly IntervalSet BeginsAStatementOfABlock = VBAParser._ATN.states
+        .Where(state => state.ruleIndex == VBAParser.RULE_block && state is StarLoopEntryState)
+        .Aggregate(new IntervalSet(), (tokens, state) => { tokens.AddAll(VBAParser._ATN.NextTokens(state)); return tokens; });
+
+    // what follows a block in any rule: the words that end one (End If, Loop, Case, End With...).
+    private static readonly IntervalSet EndsABlock = TokensAfterABlock();
+
+    private static IntervalSet TokensAfterABlock()
     {
         var atn = VBAParser._ATN;
-        var tokens = new IntervalSet(VBALexer.SUB, VBALexer.FUNCTION, VBALexer.PROPERTY_GET, VBALexer.PROPERTY_LET, VBALexer.PROPERTY_SET, VBALexer.PUBLIC,
-            VBALexer.PRIVATE, VBALexer.FRIEND, VBALexer.STATIC);
+        var tokens = new IntervalSet();
         var block = atn.ruleToStartState[VBAParser.RULE_block];
         foreach (var state in atn.states)
         {
-            if (state.ruleIndex == VBAParser.RULE_block && state is StarLoopEntryState)
-            {
-                tokens.AddAll(atn.NextTokens(state));
-            }
-
             for (var i = 0; i < state.NumberOfTransitions; i++)
             {
                 if (state.Transition(i) is RuleTransition transition && transition.target == block)
@@ -539,6 +560,11 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 
         return tokens;
     }
+
+    // what a statement of a block begins with, what follows a block in any rule, and what begins or ends a procedure: after the sets it is made of, which are
+    // initialized in the order they are written.
+    private static readonly IntervalSet BeginsOrEndsAStatementOrABlock = new IntervalSet().AddAll(BeginsOrEndsAProcedure).AddAll(BeginsAStatementOfABlock)
+        .AddAll(EndsABlock);
 
     // the statement is a statement of the block, a mainBlockStmt of the tokens no rule reads - the node of a statement no rule reads - and its end is read
     // after it, as the block reads the end of each of its statements.
@@ -629,10 +655,11 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         return EndsAStatement(stream.La(PastTheBlanks(stream, at + 1))) ? at : null;
     }
 
+    // nor a procedure's header, which begins the next procedure.
     protected override void ConsumeUntil(Parser recognizer, IntervalSet set)
     {
         var stream = (ITokenStream)recognizer.InputStream;
-        for (var type = stream.La(1); !EndsAStatement(type) && !set.Contains(type); type = stream.La(1))
+        for (var type = stream.La(1); !EndsAStatement(type) && !set.Contains(type) && !VBABaseParser.BeginsAProcedureHeader(stream); type = stream.La(1))
         {
             recognizer.Consume();
         }

@@ -16,7 +16,7 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -29,7 +29,7 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
 {
     protected static readonly SyntaxNodeId NodeId = new(TestUri.TestModuleUri().AbsolutePath, [42]);
 
-    protected static IVerboseMessageBuilder Formatter() => Substitute.For<IVerboseMessageBuilder>();
+    protected static IErrorDetailsRecorder Formatter() => Substitute.For<IErrorDetailsRecorder>();
 
     /// <summary>
     /// A minimal fake session for tests exercising pure value-transformation operators that never
@@ -70,7 +70,7 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
     /// </summary>
     protected static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [
@@ -91,9 +91,9 @@ public abstract class OperatorArithmeticRuntimeSemanticsTests
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 

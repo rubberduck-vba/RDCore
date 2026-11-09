@@ -4,6 +4,7 @@ using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Completion;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
@@ -27,6 +28,7 @@ using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
 using System.Globalization;
 using System.IO.Abstractions;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Workspace.Forms;
 

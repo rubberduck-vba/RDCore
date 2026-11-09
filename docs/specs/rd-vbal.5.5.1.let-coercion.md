@@ -8,7 +8,7 @@ required _destination declared type_. Its run-time semantics are specified in
 [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md).
 
 Parentheses that are not around an operand of an operator are an explicit let-coercion operator in the syntax tree
-(`"__c()_op"`, [UnaryLetCoerceOperatorStaticSemantics](../api/RDCore.SDK.Semantics.Static.Operators.UnaryLetCoerceOperatorStaticSemantics.html)):
+(`"__c()_op"`, `UnaryLetCoerceOperatorStaticSemantics`):
 the coercion to a value that MS-VBAL §5.6.6 gives a parenthesized expression is written out, which makes it a language
 core extension ([**RD-VBAL §1.1.2** Language Core Extensions](rd-vbal.1.1.2.language-core-extensions.md)). See
 [**RD-VBAL §3.3.1** Unary Operators](rd-vbal.3.3.1.unary-operators.md).

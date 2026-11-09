@@ -16,7 +16,8 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Runtime.Execution;
 
@@ -111,7 +112,7 @@ public sealed class ImplementsRuntimeTests
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
             [new StdLibSymbolProvider(Root), new Provider([module, shape, disc, title, shapeDraw, shapeArea, ownDraw, implementedDraw, implementedArea, implementedTitle, main])],
             output: output);
-        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IVerboseMessageBuilder>());
+        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IErrorDetailsRecorder>());
 
         var outcome = pipeline.Invoker.Invoke(main, session.Symbols.Resolver, []);
         Assert.IsTrue(outcome.IsSuccess, $"{outcome.ErrorInfo?.Description} (internal error: {outcome.IsInternalError})");

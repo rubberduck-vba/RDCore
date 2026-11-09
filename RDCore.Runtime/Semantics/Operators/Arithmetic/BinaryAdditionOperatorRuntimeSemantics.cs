@@ -12,7 +12,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
-using RDCore.SDK.Services.VerboseMessages;
 
 using RDCore.SDK.Model;
 
@@ -23,15 +22,15 @@ namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 /// </summary>
 public sealed record class BinaryAdditionOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService)
-    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, ErrorDetails)
 {
     protected sealed override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => checked(lhs + rhs);
 
     protected override string Operator => Tokens.AdditionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)

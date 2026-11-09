@@ -10,7 +10,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.IO.Abstractions.TestingHelpers;
@@ -286,8 +286,10 @@ internal static class ModuleWorkspace
     /// <param name="program">The source of the <c>Program</c> standard module.</param>
     /// <param name="inspect">Given the session provider, the result of the first run, and a function that runs the entry point again.</param>
     /// <param name="debug">Whether the program runs under a debugger: a <c>Stop</c> suspends it, and the first run answers that it waits.</param>
-    /// <param name="cancelWhen">When the first run's request is cancelled: as soon as this says the program is where the test wants it (running, in its
-    /// loop, in the procedure it loops in), which is asked of the session as the program runs. Never, when omitted.</param>
+    /// <param name="cancelWhen">When the first run's request is cancelled: given the session before the program starts, a task that completes when the program
+    /// is where the test wants it, as an event of the session says (<see cref="WhenRunning"/>, a dialog the program opens). Never, when omitted. A program that
+    /// ends before it completes fails the test then, saying so.</param>
+    /// <param name="interaction">Who answers the dialogs the program opens, as a client of the language server does; the platform's own when omitted.</param>
     /// <param name="language">The language the workspace is written in; RD-VBA when omitted.</param>
     /// <param name="configuration">Whether the program is built to be debugged or to be run; a debug build when omitted.</param>
     /// <param name="engine">What runs the program, whatever engine the suite runs with (<c>RDCORE_ENGINE</c>); the suite's when omitted.</param>
@@ -296,13 +298,42 @@ internal static class ModuleWorkspace
     /// <param name="environment">What else the environment says, given the profile the other arguments make; that profile when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
-        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, Task>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source)>? modules = null,
-        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IHostInteractionChannel? interaction = null)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
-            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules, environment: environment);
+            configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules, environment: environment,
+            interaction: interaction);
+
+    /// <summary>
+    /// A task that completes once the program runs, as the session's execution says when its state changes: for <c>cancelWhen</c>, a break of a program that runs.
+    /// </summary>
+    /// <param name="provider">The session the program runs in, before it starts.</param>
+    public static Task WhenRunning(EnvironmentSessionProvider provider)
+    {
+        var running = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        provider.Execution.StateChanged += state =>
+        {
+            if (state is ProgramState.Running)
+            {
+                running.TrySetResult();
+            }
+        };
+
+        // a program that already runs has said so before anything listened.
+        if (provider.Execution.State is ProgramState.Running)
+        {
+            running.TrySetResult();
+        }
+
+        return running.Task;
+    }
+
+    // how long a program that was cancelled has to answer the cancel, which it does at its next instruction: the bound past which a program that never
+    // answers fails its test, so that it does not leave the test waiting. A program that answers takes a fraction of it.
+    private static readonly TimeSpan AnswerGuard = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Runs <c>Program.Main</c> like <see cref="InspectAsync"/>, in a workspace that has standard modules beside <c>Program</c>.
@@ -328,13 +359,14 @@ internal static class ModuleWorkspace
     private static async Task<string[]> RunCoreAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program, bool errorsOnly, Func<EnvironmentSessionProvider, Task>? afterLoading = null,
         SupportedLanguage? language = null,
-        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
+        Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task>? inspect = null, Func<EnvironmentSessionProvider, Task>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, IReadOnlyList<(string Name, string Source)>? modules = null,
         IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null, bool programFirst = false,
         VBBuildConfiguration configuration = VBBuildConfiguration.Debug, VBExecutionEngine? engine = null,
         bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source, DocClassType? Super)>? documents = null, bool unattended = false,
-        bool syntaxErrors = false, Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null)
+        bool syntaxErrors = false, Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null,
+        IHostInteractionChannel? interaction = null)
     {
         // the engine a test asks for is the one that runs its program, whichever the suite runs every other with: the program's runs, and what the test does
         // with the session while it waits, are in this flow.
@@ -415,7 +447,7 @@ internal static class ModuleWorkspace
 
         var entry = parsed.Single(module => module.Name == "Program");
         Task<ExecuteResult> Execute(CancellationToken cancellation)
-            => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+            => new HostExecuteHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
                 .Handle(new HostExecuteParams
                 {
                     Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
@@ -425,20 +457,31 @@ internal static class ModuleWorkspace
                     Unattended = unattended,
                 }, cancellation);
 
-        // the first run's request is cancelled once the program is seen where the test wants it, and not after a time, which a slower machine would spend
-        // before the program even started. The run is on a thread of its own: without a debugger, a program runs to its end inside the request.
+        // the first run's request is cancelled once the session says the program is where the test wants it, and not after a time, which a slower machine would
+        // spend before the program even started. The test listens before the program starts, so that nothing it says is missed. The run is on a thread of its own:
+        // without a debugger, a program runs to its end inside the request.
+        sessionProvider.Interaction = interaction;
         using var cancellation = new CancellationTokenSource();
+        var reached = cancelWhen?.Invoke(sessionProvider);
         var running = Task.Run(() => Execute(cancellation.Token));
-        if (cancelWhen is not null)
+        if (reached is not null)
         {
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
-            while (!running.IsCompleted && !cancelWhen(sessionProvider))
+            if (await Task.WhenAny(reached, running) != reached)
             {
-                Assert.IsLessThan(deadline, DateTime.UtcNow, "the program was never seen where the test cancels it");
-                await Task.Delay(5);
+                var ended = await running;
+                Assert.Fail($"the program ended ({ended.Outcome}) before it was where the test cancels it. {ended.ErrorMessage}");
             }
 
+            await reached;
             await cancellation.CancelAsync();
+            try
+            {
+                await running.WaitAsync(AnswerGuard);
+            }
+            catch (TimeoutException)
+            {
+                Assert.Fail("the program never answered the cancel: it was where the test cancels it, and it did not stop.");
+            }
         }
 
         var result = await running;
@@ -528,7 +571,7 @@ internal static class ModuleWorkspace
             foreach (var module in parsed)
             {
                 var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                     .Handle(Wire.RoundTrip(new DefineSymbolsParams
                     {
                         WorkspaceRoot = workspaceRoot,
@@ -548,7 +591,7 @@ internal static class ModuleWorkspace
         var defined = new List<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)>();
         foreach (var module in parsed)
         {
-            var loaded = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            var loaded = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,

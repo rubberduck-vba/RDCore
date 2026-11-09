@@ -15,7 +15,7 @@ namespace RDCore.SDK.Model.Values.Bindings;
 /// <para>
 /// A cell is known unless it is told otherwise, so a session that runs code rather than analyzes it is unchanged by any of this.
 /// Writing through <see cref="IBindingHandle.SetValue"/> states a known value; a write that may be of an unknown one has to say so
-/// (<see cref="BindingKnowledge.Store(IBindingHandle, RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver, Abstract.VBTypedValue)"/>).
+/// (<see cref="BindingKnowledge.Store(IBindingHandle, RDCore.SDK.Runtime.Abstract.Execution.IRuntimeSymbolResolver, Abstract.VBTypedValue)"/>).
 /// </para>
 /// </remarks>
 public interface IKnowledgeBinding : IBindingHandle

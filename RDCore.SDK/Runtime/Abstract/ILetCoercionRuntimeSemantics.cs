@@ -27,7 +27,7 @@ public interface ILetCoercionRuntimeSemantics
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns>An object that encapsulates the result of the operation, including any run-time errors to be thrown.</returns>
     LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame);
 
@@ -45,7 +45,7 @@ public interface ILetCoercionRuntimeSemantics
     /// <returns>An <em>analysis context</em> for this let-coercion operation.</returns>
     LetCoercionAnalysisContext Analyze(
         ILetCoercionSemanticContextBuilder builder, 
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         LetCoercionStackFrame frame,
         LetCoercionResult result);

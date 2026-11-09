@@ -14,7 +14,6 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -29,10 +28,10 @@ internal static class LetCoercionAnalysisHarness
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
 
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
 
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 
@@ -41,7 +40,7 @@ internal static class LetCoercionAnalysisHarness
     /// </summary>
     public static ILetCoercionRuntimeSemanticsProvider BuildProvider(AnalysisObservation? observation = null)
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [

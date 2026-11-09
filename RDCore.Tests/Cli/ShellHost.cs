@@ -13,7 +13,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Platform;
@@ -118,7 +118,7 @@ internal sealed class ShellHost
         var symbols = new SyntaxTreeSymbolProvider(
             _workspaceRoot, _moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true, language).ProvideSymbols();
 
-        await new DefineSymbolsHandler(_provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        await new DefineSymbolsHandler(_provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = _workspaceRoot,
@@ -130,7 +130,7 @@ internal sealed class ShellHost
                 Replace = true,
             }), CancellationToken.None);
 
-        return await new HostExecuteHandler(_provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+        return await new HostExecuteHandler(_provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
             .Handle(new HostExecuteParams
             {
                 Json = PlatformJson.Serialize(new HostExecutePayload(_moduleUri, parse)),

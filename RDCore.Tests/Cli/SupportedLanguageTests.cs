@@ -11,7 +11,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 
@@ -87,7 +87,7 @@ public sealed class SupportedLanguageTests
             workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
 
-        await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,
@@ -98,7 +98,7 @@ public sealed class SupportedLanguageTests
                 Replace = true,
             }, CancellationToken.None);
 
-        return await new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+        return await new HostExecuteHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
             .Handle(new HostExecuteParams
             {
                 Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),

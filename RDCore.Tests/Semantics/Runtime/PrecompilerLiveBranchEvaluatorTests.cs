@@ -17,7 +17,6 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -40,13 +39,13 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
     private static IRuntimeSession ComposeSession(params Symbol[] symbols)
         => RuntimeSessionComposer.Compose(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new Provider(symbols));
 
-    private static RuntimeExpressionEvaluator Evaluator() => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IVerboseMessageBuilder>()));
+    private static RuntimeExpressionEvaluator Evaluator() => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IErrorDetailsRecorder>()));
 
     // The real Numeric/Boolean let-coercion strategies - for operators to determine their effective
     // type for real, rather than the identity passthrough a bare NSubstitute fake would give every operand.
     private static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [
@@ -62,9 +61,9 @@ public sealed class PrecompilerLiveBranchEvaluatorTests
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 

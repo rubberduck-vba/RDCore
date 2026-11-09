@@ -156,9 +156,6 @@
   <data name="VBIndex_LongLongSubscript_Verbose" xml:space="preserve">
     <value>L'indice d'un tableau est un Long : un LongLong n'y est pas converti.</value>
   </data>
-  <data name="Verbose_FrameDetails" xml:space="preserve">
-    <value>Détails de la cellule :</value>
-  </data>
   <data name="Verbose_LetCoercionStackTrace" xml:space="preserve">
     <value>Pile d'évaluation :</value>
   </data>

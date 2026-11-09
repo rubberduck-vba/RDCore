@@ -5,6 +5,7 @@ using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using static RDCore.Tests.Runtime.Libraries.LibraryFixtures;
+using RDCore.Runtime.LanguageCore.Services;
 
 namespace RDCore.Tests.Runtime.Libraries;
 

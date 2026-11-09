@@ -26,7 +26,7 @@ namespace RDCore.Runtime.Execution;
 public sealed class AssumedProcedureInvoker(AnalysisObservation? observation = null) : IProcedureInvoker
 {
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, ISymbolResolver resolver, IRuntimeValue[] arguments)
+    public RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments)
     {
         observation?.Assume();
         return RuntimeSemanticsEvaluationResult.Success(

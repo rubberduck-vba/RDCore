@@ -9,7 +9,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -27,11 +26,11 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// </remarks>
 public record class VBFixedStringLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : LetCoercionRuntimeSemantics<VBFixedStringType>(FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : LetCoercionRuntimeSemantics<VBFixedStringType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
@@ -48,7 +47,7 @@ public record class VBFixedStringLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {
@@ -72,7 +71,7 @@ public record class VBFixedStringLetCoercionRuntimeSemantics(
 
     // the source as a String value, before it is fitted to the destination's length: MS-VBAL 5.5.1.2.5 defines every
     // other source as "Let-coerced to a String value and then Let-coerced to a String * length value".
-    private LetCoercionResult ToText(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    private LetCoercionResult ToText(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
         => frame.SourceValue switch
         {
             VBStringValue source => LetCoercionResult.Success(source),

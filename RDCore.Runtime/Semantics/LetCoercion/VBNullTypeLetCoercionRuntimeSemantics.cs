@@ -7,7 +7,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -15,11 +14,11 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// MS-VBAL 5.5.1.2.10 Let-coercion to and from <c>VBNullType</c>
 /// </summary>
 public record class VBNullTypeLetCoercionRuntimeSemantics(
-    IVerboseMessageBuilder FormatterService)
-    : LetCoercionRuntimeSemantics<VBNullType>(FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : LetCoercionRuntimeSemantics<VBNullType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
@@ -35,7 +34,7 @@ public record class VBNullTypeLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {

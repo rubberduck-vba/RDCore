@@ -12,7 +12,6 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 
@@ -37,8 +36,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </remarks>
 public sealed record class UnaryLetCoerceOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : UnaryOperatorRuntimeSemantics<ConversionOperationSemanticContext, ConversionSemanticFlags>(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : UnaryOperatorRuntimeSemantics<ConversionOperationSemanticContext, ConversionSemanticFlags>(LetCoercionProvider, ErrorDetails)
 {
     protected override ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> AnalyzeOperands(
         ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> builder,
@@ -62,13 +61,13 @@ public sealed record class UnaryLetCoerceOperatorRuntimeSemantics(
     /// a <c>String</c> operand's effective type <c>Double</c>) is never reached.
     /// </summary>
     protected override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
         => DetermineOperatorEffectiveTypeResult.Success(frame[InputIndex.UnaryOperand].TypeInfo);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)

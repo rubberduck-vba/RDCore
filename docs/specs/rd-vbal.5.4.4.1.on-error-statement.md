@@ -118,4 +118,4 @@ scoped to one block.
 |`ErrorHandlerState`|The activation's error-handling mode, handler target, active error and fault-statement offset; while a handler runs (`IsHandling`), the policy after it (`AfterHandling`, `HandlingOver`) (**RDCore.SDK**).|
 |`ErrorHandlingMode`|`Disabled`, `ResumeNext`, `GoTo` (**RDCore.SDK**).|
 |[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ErrorHandler`|Reads the activation's `ErrorHandlerState`; read-only on the SDK interface, and written only by the executor through `CallStackFrame.ErrorHandler`. See [**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md).|
-|[InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html)|Lowers `On Error GoTo 0` as `OnErrorDisable`, `On Error GoTo -1` as `OnErrorReset`, and `On Error GoTo <label>` as `OnErrorGoTo` (**RDCore.SDK**).|
+|`InstructionListLowering`|Lowers `On Error GoTo 0` as `OnErrorDisable`, `On Error GoTo -1` as `OnErrorReset`, and `On Error GoTo <label>` as `OnErrorGoTo` (**RDCore.SDK**).|

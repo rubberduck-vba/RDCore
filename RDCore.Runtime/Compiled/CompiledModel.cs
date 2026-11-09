@@ -411,7 +411,7 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
     /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
     /// </summary>
-    public SDK.Semantics.Binding.BoundMember? Site { get; init; }
+    public LanguageCore.Binding.BoundMember? Site { get; init; }
 
     /// <summary>
     /// Where the call expression is: what the activation that makes the call is located at while the callee runs (<c>CallStackFrame.EnterCall</c>), as the

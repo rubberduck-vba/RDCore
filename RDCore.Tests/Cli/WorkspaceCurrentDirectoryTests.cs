@@ -8,7 +8,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Platform;
@@ -65,6 +65,48 @@ public sealed class WorkspaceCurrentDirectoryTests
         var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")", $"Debug.Print Dir(\"{inner}\")");
 
         CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed, string.Join("|", printed));
+    }
+
+    // a relative path's \ is a separator on every platform: VBA written with Windows paths finds and makes the workspace's files on Linux too.
+    [TestMethod]
+    public async Task ARelativePathWithABackslash_IsInAFolderOfTheWorkspace_OnEveryPlatform()
+    {
+        using var provider = Compose(_root);
+
+        var printed = await RunAsync(provider, _root, "Debug.Print Dir(\"Sub\\inner.txt\")", "Open \"Sub\\out.txt\" For Output As #1", "Close #1", "Debug.Print Dir(\"Sub\\out.txt\")");
+
+        CollectionAssert.AreEqual(new[] { "inner.txt", "out.txt" }, printed, string.Join("|", printed));
+        Assert.IsTrue(File.Exists(Path.Combine(_root, "Sub", "out.txt")));
+    }
+
+    // Linux lets a program delete its own current directory, and every read of it then fails: CurDir, and a relative path in any file function, are error 76,
+    // and a full path still works. Windows refuses to delete it (75), and the directory is there for all of them.
+    [TestMethod]
+    public async Task ADeletedCurrentDirectory_IsPathNotFound_ToWhatReadsIt()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "Gone"));
+        using var provider = Compose(_root);
+
+        var printed = await RunAsync(provider, _root,
+            "On Error Resume Next",
+            "Dim s As String",
+            "ChDir \"Gone\"",
+            "RmDir CurDir",
+            "Debug.Print \"RmDir \" & Err.Number",
+            "Err.Clear: s = CurDir: Debug.Print \"CurDir \" & Err.Number",
+            "Err.Clear: s = Dir(\"*.txt\"): Debug.Print \"Dir \" & Err.Number",
+            "Err.Clear: Open \"x.txt\" For Output As #1: Debug.Print \"Open \" & Err.Number",
+            "Close #1",
+            "Err.Clear: s = FileLen(\"x.txt\"): Debug.Print \"FileLen \" & Err.Number",
+            "Err.Clear: MkDir \"new\": Debug.Print \"MkDir \" & Err.Number",
+            "Err.Clear: ChDir \"..\": Debug.Print \"ChDir \" & Err.Number",
+            $"Err.Clear: ChDir \"{_root}\": Debug.Print \"ChDir root \" & Err.Number",
+            "Debug.Print CurDir",
+            "Debug.Print Dir(\"data.txt\")");
+
+        string[] deleted = ["RmDir 0", "CurDir 76", "Dir 76", "Open 76", "FileLen 76", "MkDir 76", "ChDir 76", "ChDir root 0", _root, "data.txt"];
+        string[] refusedOnWindows = ["RmDir 75", "CurDir 0", "Dir 0", "Open 0", "FileLen 0", "MkDir 0", "ChDir 0", "ChDir root 0", _root, "data.txt"];
+        CollectionAssert.AreEqual(OperatingSystem.IsWindows() ? refusedOnWindows : deleted, printed, string.Join("|", printed));
     }
 
     // an LSP client's file: URI may spell the drive in lower case, as OmniSharp's does: CurDir gives the drive as a drive is written, in upper case.
@@ -233,7 +275,7 @@ public sealed class WorkspaceCurrentDirectoryTests
 
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-        await new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,
@@ -245,7 +287,7 @@ public sealed class WorkspaceCurrentDirectoryTests
                 Replace = true,
             }), CancellationToken.None);
 
-        var result = await new HostExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+        var result = await new HostExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
             .Handle(new HostExecuteParams
             {
                 Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),

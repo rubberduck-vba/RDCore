@@ -13,7 +13,6 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -22,13 +21,13 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </summary>
 public abstract record class UnaryOperatorRuntimeSemantics<TContext, TFlags>(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : OperatorRuntimeSemantics<TContext, TFlags>(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : OperatorRuntimeSemantics<TContext, TFlags>(LetCoercionProvider, ErrorDetails)
 where TContext : SemanticContext<TFlags>, new()
 where TFlags : struct, Enum
 {
     protected sealed override ISemanticContextContributor<TContext, TFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<TContext, TFlags> builder,
         ExpressionNode expression,
@@ -50,7 +49,7 @@ where TFlags : struct, Enum
         DetermineOperatorEffectiveTypeResult context) => builder;
 
     public sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         TContext context, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
@@ -61,13 +60,13 @@ where TFlags : struct, Enum
     /// </summary>
     /// <remarks>
     /// 👉 The answer is the whole answer, a type mismatch included: an operator that has a table of effective types has it in the
-    /// <see cref="RDCore.SDK.Semantics.Plans.OperationPlanner"/>, and there is no other table to fall back on.
+    /// <see cref="RDCore.Runtime.LanguageCore.Plans.OperationPlanner"/>, and there is no other table to fall back on.
     /// </remarks>
     /// <param name="resolver">The execution context and memory space to operate in. ⚠️ in most situations this access is restrained to <c>ISymbolResolver</c>.</param>
     /// <param name="expression">The <c>VBUnaryOperatorExpression</c> to be evaluated.</param>
     /// <param name="frame">The current evaluation frame for this operation.</param>
     protected abstract DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
@@ -82,6 +81,6 @@ where TFlags : struct, Enum
     /// This implementation satifies the specifiations of every defined unary operator with regards to <c>VBNullValue</c> operands.
     /// </remarks>
     /// <returns>An evaluation result containing the value <c>VBNullValue.Null</c>.</returns>
-    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(ISymbolResolver resolver, ExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
+    protected /*virtual*/ RuntimeSemanticsEvaluationResult EvaluateUnaryExpressionResult(IRuntimeSymbolResolver resolver, ExpressionNode expression, VBNullType effectiveType, VBNullValue operand) => 
         RuntimeSemanticsEvaluationResult.Success(VBNullValue.Null);
 }

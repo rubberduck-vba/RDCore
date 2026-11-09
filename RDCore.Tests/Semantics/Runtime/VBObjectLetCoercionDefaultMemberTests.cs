@@ -25,7 +25,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -56,9 +56,9 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 
@@ -81,7 +81,7 @@ public sealed class VBObjectLetCoercionDefaultMemberTests
         IReadOnlyDictionary<SemanticId, InstructionList> bodies, params Symbol[] symbols)
     {
         var session = ComposeSession(symbols);
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, formatter);
         var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle);

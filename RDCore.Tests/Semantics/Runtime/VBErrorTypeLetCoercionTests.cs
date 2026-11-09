@@ -10,7 +10,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -27,7 +27,7 @@ public sealed class VBErrorTypeLetCoercionTests : LetCoercionRuntimeSemanticsTes
     // provider ⇄ strategy cyclic-break pattern used across tonight's operator coverage.
     private static VBErrorTypeLetCoercionRuntimeSemantics Sut()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         var provider = new LetCoercionRuntimeSemanticsProvider([new VBNumericLetCoercionTypeRuntimeSemantics(fmt, handle)], fmt);
         handle.Inner = provider;
@@ -37,9 +37,9 @@ public sealed class VBErrorTypeLetCoercionTests : LetCoercionRuntimeSemanticsTes
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 

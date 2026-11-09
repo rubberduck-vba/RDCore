@@ -20,7 +20,7 @@ public static class BindingKnowledge
     /// <remarks>
     /// 👉 A binding that does not keep whether its value is known is written to as it always was.
     /// </remarks>
-    public static void Store(this IBindingHandle handle, ISymbolResolver resolver, IRuntimeValue value, bool isKnown)
+    public static void Store(this IBindingHandle handle, IRuntimeSymbolResolver resolver, IRuntimeValue value, bool isKnown)
     {
         if (handle is IKnowledgeBinding knowledge)
         {
@@ -38,7 +38,7 @@ public static class BindingKnowledge
     /// <param name="handle">The binding to write to.</param>
     /// <param name="resolver">The resolver the binding writes through.</param>
     /// <param name="source">The value being assigned.</param>
-    public static void Store(this IBindingHandle handle, ISymbolResolver resolver, VBTypedValue source)
+    public static void Store(this IBindingHandle handle, IRuntimeSymbolResolver resolver, VBTypedValue source)
         => handle.Store(resolver, source.RuntimeValue, !source.IsIndeterminate);
 
     /// <summary>

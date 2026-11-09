@@ -12,7 +12,6 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Context.Abstract;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -21,8 +20,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </summary>
 public abstract record class BinaryOperatorRuntimeSemantics<TContext, TFlags>(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : OperatorRuntimeSemantics<TContext, TFlags>(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : OperatorRuntimeSemantics<TContext, TFlags>(LetCoercionSemanticsProvider, ErrorDetails)
 where TContext : SemanticContext<TFlags>, new()
 where TFlags : struct, Enum
 {
@@ -39,26 +38,26 @@ where TFlags : struct, Enum
     /// </remarks>
     /// <returns><see cref="DetermineOperatorEffectiveTypeResult.NotApplicable"/> if no type is statically valid for this operation.</returns>
     protected abstract DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         TContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
     public sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         TContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
         => DetermineBinaryOperatorEffectiveType(resolver, context, expression, frame);
 
     protected abstract RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         TContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame);
 
     protected sealed override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         TContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => EvaluateBinaryOperatorExpressionResult(resolver, context, expression, frame);

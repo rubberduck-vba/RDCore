@@ -20,7 +20,7 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -36,15 +36,15 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.EvaluateLetCoercionSemantics(r, e, f);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.Analyze(r, b, e, f);
     }
 
     private static LetCoercionRuntimeSemanticsProvider BuildProvider()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [
@@ -275,13 +275,13 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
         // a strategy that (however it got there) calls back into the provider with the exact same
         // frame it was given is the one scenario the recursion guard exists for. No production
         // strategy actually does this by design, so a substitute stands in for one that does.
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var strategy = Substitute.For<ILetCoercionRuntimeSemantics>();
         strategy.LetCoercionSpecification.Returns(typeof(VBLongType));
 
         var provider = new LetCoercionRuntimeSemanticsProvider([strategy], fmt);
         strategy.EvaluateLetCoercion(default!, default!, default).ReturnsForAnyArgs(call =>
-            provider.EvaluateLetCoercionSemantics(call.ArgAt<ISymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2)));
+            provider.EvaluateLetCoercionSemantics(call.ArgAt<IRuntimeSymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2)));
 
         var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, new VBLongValue(5), new VBTypeDescValue(VBLongType.TypeInfo));
         var result = provider.EvaluateLetCoercionSemantics(null!, ThrowawayExpression, frame);
@@ -296,7 +296,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
         // deeper") rather than leaving it in a partially-unwound state -- confirm a later, entirely
         // unrelated coercion isn't permanently poisoned by an earlier recursive failure.
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var strategy = Substitute.For<ILetCoercionRuntimeSemantics>();
         strategy.LetCoercionSpecification.Returns(typeof(VBLongType));
 
@@ -309,7 +309,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
                 return LetCoercionResult.Success(new VBLongValue(9));
             }
             recursedOnce = true;
-            return provider.EvaluateLetCoercionSemantics(call.ArgAt<ISymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2));
+            return provider.EvaluateLetCoercionSemantics(call.ArgAt<IRuntimeSymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2));
         });
 
         var recursiveFrame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, new VBLongValue(5), new VBTypeDescValue(VBLongType.TypeInfo));

@@ -11,7 +11,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
 
@@ -20,11 +19,11 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// </summary>
 public record class VBUserDefinedTypeLetCoercionRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider Provider,
-    IVerboseMessageBuilder FormatterService) 
-    : LetCoercionRuntimeSemantics<VBUserDefinedType>(FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : LetCoercionRuntimeSemantics<VBUserDefinedType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         LetCoercionStackFrame frame) => frame.SourceValue switch
         {
@@ -44,7 +43,7 @@ public record class VBUserDefinedTypeLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.UserDefinedTypeTarget);
 }

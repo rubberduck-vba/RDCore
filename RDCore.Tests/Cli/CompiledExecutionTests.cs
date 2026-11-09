@@ -5,6 +5,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection;
 using System.Reflection.Emit;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Cli;
 
@@ -53,8 +54,8 @@ public sealed class CompiledExecutionTests
         }
     }
 
-    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, bool>? cancelWhen = null,
-        (string Name, string Source)[]? classes = null)
+    private static async Task<Run> RunAsync(string program, VBExecutionEngine engine, Func<EnvironmentSessionProvider, Task>? cancelWhen = null,
+        (string Name, string Source)[]? classes = null, IHostInteractionChannel? interaction = null)
     {
         ExecuteResult? result = null;
         IReadOnlyDictionary<string, CompilationResult> compiled = new Dictionary<string, CompilationResult>();
@@ -66,7 +67,7 @@ public sealed class CompiledExecutionTests
             result = run;
             compiled = ByName(provider);
             return Task.CompletedTask;
-        }, cancelWhen, engine: engine);
+        }, cancelWhen, engine: engine, interaction: interaction);
 
         return new Run(result!, compiled);
     }
@@ -455,7 +456,7 @@ public sealed class CompiledExecutionTests
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
-        var list = SDK.Semantics.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
+        var list = RDCore.Runtime.LanguageCore.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
             SDK.Semantics.Instructions.InstructionLoweringOptions.Default, SDK.Model.AST.Declarations.MemberKind.Procedure).InstructionList;
         var compiler = new ProcedureCompiler();
         Exception? reported = null;
@@ -477,7 +478,7 @@ public sealed class CompiledExecutionTests
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
-        var list = SDK.Semantics.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
+        var list = RDCore.Runtime.LanguageCore.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
             SDK.Semantics.Instructions.InstructionLoweringOptions.Default, SDK.Model.AST.Declarations.MemberKind.Procedure).InstructionList;
         var compiler = new ProcedureCompiler();
         var told = 0;
@@ -505,15 +506,18 @@ public sealed class CompiledExecutionTests
             "End Sub",
             "Private Sub Forever()",
             "    Dim I As Long",
+            "    MsgBox \"in\"",
             "    Do",
             "        I = (I + 1) Mod 1000",
             "    Loop",
             "End Sub");
         RequirePayloads();
 
-        // cancelled once the program is in Forever: its activation on the stack, under Main's.
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, provider => provider.Session.CallStack.Depth >= 2);
-        var compiled = await RunAsync(program, VBExecutionEngine.Compiled, provider => provider.Session.CallStack.Depth >= 2);
+        // cancelled once Forever's MsgBox has its answer: from then on, the program is in Forever's loop.
+        var answered = new AnswersOk();
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, _ => answered.Asked, interaction: answered);
+        var answeredAgain = new AnswersOk();
+        var compiled = await RunAsync(program, VBExecutionEngine.Compiled, _ => answeredAgain.Asked, interaction: answeredAgain);
 
         Assert.AreEqual(interpreted.Result.Outcome, compiled.Result.Outcome);
         Assert.IsNotNull(compiled.Compiled["Forever"].Body);

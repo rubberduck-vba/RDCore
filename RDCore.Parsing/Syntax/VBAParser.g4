@@ -137,9 +137,10 @@ moduleBodyElement :
 // `Fin:` was found no viable alternative. The rules that end a block still allow the label too; the block takes it first.
 block : (blockStmt endOfStatement)* (statementLabelDefinition whiteSpace?)?;
 
+// a procedure's header is no statement: it ends the procedure before it, which is missing its end (see IsProcedureHeaderAhead).
 blockStmt :
     statementLabelDefinition whiteSpace? mainBlockStmt?
-    | mainBlockStmt;
+    | {!IsProcedureHeaderAhead()}? mainBlockStmt;
 
 mainBlockStmt :
     fileStmt

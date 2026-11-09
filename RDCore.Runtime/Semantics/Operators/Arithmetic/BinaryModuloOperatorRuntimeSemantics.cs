@@ -1,5 +1,4 @@
 ﻿using RDCore.Runtime.Semantics.LetCoercion;
-using RDCore.SDK.Services.VerboseMessages;
 
 using RDCore.SDK.Model;
 
@@ -10,8 +9,8 @@ namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 /// </summary>
 public sealed record class BinaryModuloOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryIntegerDivisionOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryIntegerDivisionOperatorRuntimeSemantics(LetCoercionProvider, ErrorDetails)
 {
     // the plan and the evaluation pipeline are shared with '\'; only the managed operation differs.
     protected override string Operator => Tokens.ModuloOp;

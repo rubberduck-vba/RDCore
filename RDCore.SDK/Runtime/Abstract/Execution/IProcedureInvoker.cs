@@ -20,7 +20,7 @@ public interface IProcedureInvoker
     /// Runs <paramref name="procedure"/> with the specified arguments, and returns the outcome of the call.
     /// </summary>
     /// <param name="procedure">The <c>Sub</c>, <c>Function</c> or property accessor to run.</param>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     /// <param name="arguments">
     /// The arguments of the call, in the order of the parameter list of the procedure. For a member of a class, the first argument is the
     /// object the member is invoked on, which is the procedure's <c>Me</c> (<strong>RD-VBAL</strong>: <c>Me</c> is the implicit
@@ -30,5 +30,5 @@ public interface IProcedureInvoker
     /// A successful result with the value the procedure returns - the <c>Void</c> value, for a <c>Sub</c> - or the run-time error that was
     /// raised in the procedure, and that nothing handled. Never throws for an error of the running program.
     /// </returns>
-    RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, ISymbolResolver resolver, IRuntimeValue[] arguments);
+    RuntimeSemanticsEvaluationResult Invoke(VBTypeMemberSymbol procedure, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments);
 }

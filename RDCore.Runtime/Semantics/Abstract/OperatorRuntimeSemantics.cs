@@ -22,8 +22,7 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Plans;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.LanguageCore.Plans;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -37,13 +36,13 @@ namespace RDCore.Runtime.Semantics.Abstract;
 /// <typeparam name="TContext">The specific type of <see cref="SemanticContext&lt;TFlags&gt;"/> associated with the operator.</typeparam>
 /// <typeparam name="TFlags">The type of semantic flags being accumulated.</typeparam>
 /// <param name="LetCoercionSemanticsProvider">A service that provides the type-appropriate <em>let-coercion runtime semantics</em> on demand.</param>
-/// <param name="FormatterService">A service that builds the configurable <c>Verbose</c> message string of a <see cref="VBErrorInfo"/>.</param>
+/// <param name="ErrorDetails">Records the details of the errors the operator raises.</param>
 /// <remarks>
 /// Encapsulates the base runtime semantics of <em>operator expressions</em>.
 /// </remarks>
 public abstract record class OperatorRuntimeSemantics<TContext, TFlags>(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider, 
-    IVerboseMessageBuilder FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
     : RuntimeSemantics<TContext, TFlags>
 where TContext : SemanticContext<TFlags>, new()
 where TFlags : struct, Enum
@@ -53,9 +52,9 @@ where TFlags : struct, Enum
     /// </summary>
     protected ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider { get; } = LetCoercionSemanticsProvider;
     /// <summary>
-    /// A service that builds the configurable <c>Verbose</c> message string of a <see cref="VBErrorInfo"/>.
+    /// Records the details of the errors the operator raises.
     /// </summary>
-    protected IVerboseMessageBuilder FormatterService { get; } = FormatterService;
+    protected IErrorDetailsRecorder ErrorDetails { get; } = ErrorDetails;
 
     public sealed override ISemanticContextContributor<TContext, TFlags> Analyze(
         IRuntimeSession session,
@@ -79,7 +78,7 @@ where TFlags : struct, Enum
     /// <param name="comparison">How the operation compares <c>String</c> values where it is analyzed.</param>
     /// <param name="operands">The operands of the <em>operator expression</em>.</param>
     protected ISemanticContextContributor<TContext, TFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ISemanticContextContributor<TContext, TFlags> builder,
         ExpressionNode expression,
         StringComparisonRules comparison,
@@ -167,7 +166,7 @@ where TFlags : struct, Enum
     /// </remarks>
     /// <returns>The <c>builder</c> parameter, or a reference to it returned by one of its methods.</returns>
     protected abstract ISemanticContextContributor<TContext, TFlags> Analyze(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ConversionOperationSemanticContext coercionContext, 
         ISemanticContextContributor<TContext, TFlags> builder,
         ExpressionNode expression, 
@@ -181,7 +180,7 @@ where TFlags : struct, Enum
     /// <param name="node">The <em>expression node</em> to analyze.</param>
     /// <returns><strong>Does not throw exceptions.</strong> Returns <c>DetermineOperatorEffectiveTypeResult.NotApplicable</c> if no type is statically valid.</returns>
     public abstract DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         TContext context, 
         ExpressionNode expression,
         OperatorEvaluationFrame frame);
@@ -367,7 +366,7 @@ where TFlags : struct, Enum
     /// (<see cref="VBRuntimeErrorInfo.IsDecidedByTypes"/>), which is raised whatever the values are.
     /// </remarks>
     protected RuntimeSemanticsEvaluationResult Evaluate(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         TContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -444,7 +443,7 @@ where TFlags : struct, Enum
     }
 
     private (RuntimeSemanticsEvaluationResult Result, VBType? EffectiveType) EvaluateOperation(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         TContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -526,7 +525,7 @@ where TFlags : struct, Enum
     /// <param name="expression">Any <c>ExpressionNode</c> to be evaluated.</param>
     /// <param name="frame">The <see cref="OperatorEvaluationFrame"/> holding the semantic evaluation inputs.</param>
     protected abstract RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         TContext context, ExpressionNode expression, 
         OperatorEvaluationFrame frame);
 
@@ -537,7 +536,7 @@ where TFlags : struct, Enum
     /// <param name="expression">The operator expression being evaluated.</param>
     /// <param name="frame">The operation evaluation frame.</param>
     protected virtual LetCoercionResult ValidateOperand(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex index)
@@ -577,7 +576,7 @@ where TFlags : struct, Enum
     /// 👉 Most operators evaluate to a value and nothing else, and are evaluated as they are; an operator with an effect overrides this.
     /// </remarks>
     protected virtual RuntimeSemanticsEvaluationResult EvaluateForAnalysis(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         TContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -591,7 +590,7 @@ where TFlags : struct, Enum
     /// describes the coercion the operation performs, not another one.
     /// </remarks>
     protected virtual LetCoercionAnalysisContext AnalyzeValidateOperand(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         OperatorEvaluationFrame frame,
@@ -618,7 +617,7 @@ where TFlags : struct, Enum
     /// Describes the let-coercion of <paramref name="operand"/> to <paramref name="destinationType"/>, the way the operation asks for it.
     /// </summary>
     protected LetCoercionAnalysisContext AnalyzeOperandCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         VBTypedValue operand,
@@ -660,7 +659,7 @@ where TFlags : struct, Enum
     /// 👉 The <c>Frame</c> of the returned coercion result is created even when the frame is no-op.
     /// </remarks>
     protected LetCoercionResult LetCoerceNonNullOperand(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex operandIndex)

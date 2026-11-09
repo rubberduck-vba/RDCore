@@ -87,7 +87,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
             : null;
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         var key = request.Member.GetProperty(SymbolProperties.ExternalTarget)!;
         if (key == LoadKey || key == UnloadKey)
@@ -157,7 +157,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     }
 
     // a control the program added is removed, as Microsoft Forms removes it; one the form's designer declares - by its name, or at its position - is not.
-    private RuntimeSemanticsEvaluationResult Remove(ExternalCallRequest request, ISymbolResolver resolver)
+    private RuntimeSemanticsEvaluationResult Remove(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         if (DesignedNamesOf(request) is not { } designed || request.Arguments.Length < 2
             || !session.ExternalObjects.TryGet(((VBRuntimeValue<VBRuntimeObjectId>)request.Arguments[0]).StoredValue, out _, out var controls))
@@ -192,7 +192,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
     // Load, which the reference to its argument has done already, and Unload: QueryClose (vbFormCode), which can cancel it; then Terminate, the form's window,
     // and its default instance, which the next reference makes again (oracle\s41 L10-L19).
-    private RuntimeSemanticsEvaluationResult LoadOrUnload(ExternalCallRequest request, ISymbolResolver resolver, bool unload)
+    private RuntimeSemanticsEvaluationResult LoadOrUnload(ExternalCallRequest request, IRuntimeSymbolResolver resolver, bool unload)
     {
         if (FormArgument(request, resolver) is not { } identity)
         {
@@ -211,7 +211,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     }
 
     // the instance of a form's class the argument is, if it is one.
-    private VBRuntimeObjectId? FormArgument(ExternalCallRequest request, ISymbolResolver resolver)
+    private VBRuntimeObjectId? FormArgument(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         if (request.Arguments is not [var argument, ..])
         {
