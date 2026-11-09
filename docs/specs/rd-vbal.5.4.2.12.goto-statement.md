@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html)|`Jump`|[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.Target` holds the offset of the target label.|
+|[GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html)|`Jump`|`Instruction.Target` holds the offset of the target label.|
 
 A `GoTo` statement's target is an expression naming or numbering a label or line. There is no static link
 between the `GoToStatementNode` and the [LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)
@@ -18,7 +18,7 @@ A bare line-number target in a single-line `If` branch (`If x Then 100`) is not 
 parser synthesizes a `GoToStatementNode` as that branch's statement, typically its only one
 ([**RD-VBAL §5.4.2.9** Single-line If Statement](rd-vbal.5.4.2.9.single-line-if-statement.md)).
 
-`GoTo` lowers to the [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `Jump`
+`GoTo` lowers to the `InstructionKind` `Jump`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
 ## Static Semantics

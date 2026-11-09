@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Symbols;
@@ -12,7 +13,6 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -53,7 +53,7 @@ internal static class StdLibObjects
     /// </summary>
     public static (VBObjectValue Object, IObjectInstance Instance)? New(IRuntimeSession session, string className)
     {
-        if (VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StdLibSymbolProvider.LibraryName, className, StaticSymbol.GlobalUri).Symbol
+        if (VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, className, StaticSymbol.GlobalUri).Symbol
             is not VBClassModuleSymbol classModule)
         {
             return null;

@@ -1,5 +1,6 @@
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
@@ -7,7 +8,6 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.StdLib;
 using RDCore.Symbols;
 
 namespace RDCore.Tests.LanguageServer;

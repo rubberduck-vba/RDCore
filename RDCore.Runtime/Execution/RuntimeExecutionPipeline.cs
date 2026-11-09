@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.External.Automation;
@@ -17,7 +18,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Facts;
-using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.Execution;
 

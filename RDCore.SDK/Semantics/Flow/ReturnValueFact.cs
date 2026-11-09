@@ -30,7 +30,7 @@ public enum ReturnValueAssignment
 /// <remarks>
 /// A function whose return value is not assigned on a code path returns the default value of its declared type on it: <c>0</c>, an empty string, <c>Empty</c> for a
 /// <c>Variant</c>, <c>Nothing</c> for an object. Whether that is a mistake is for an analyzer to say. The fact is stated only for a procedure whose code paths the
-/// pass could tell exactly (<see cref="ReturnValueAnalysis"/>), and is <see langword="null"/> on the model of the others.
+/// pass could tell exactly (<c>ReturnValueAnalysis</c>), and is <see langword="null"/> on the model of the others.
 /// </remarks>
 /// <param name="Assignment">On how many code paths the return value is assigned.</param>
 /// <param name="Name">The name of the procedure.</param>

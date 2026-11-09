@@ -7,10 +7,10 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[OnGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoToStatementNode.html)|`JumpTable`|[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.Targets` holds one offset per label, in source order.|
+|[OnGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoToStatementNode.html)|`JumpTable`|`Instruction.Targets` holds one offset per label, in source order.|
 
 An `On expression GoTo label, ...` statement is represented by `OnGoToStatementNode`, and lowers to the
-[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `JumpTable`
+`InstructionKind` `JumpTable`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
 `OnGoToStatementNode` holds its targets in a `Labels` list. Each target is an expression naming or numbering a

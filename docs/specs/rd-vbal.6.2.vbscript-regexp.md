@@ -9,12 +9,12 @@
 `CreateObject("VBScript.RegExp")` creates the same object on any platform, without asking the machine for a server
 ([**RD-VBAL §6.1.2.8** Interaction](rd-vbal.6.1.2.8.interaction.md)). What follows is what MS-VBA does, recorded in Excel, and what RD-VBA does with it.
 
-|Class|SDK interface|What it is|
+|Class|Interface|What it is|
 |---|---|---|
-|`RegExp`|[IStdRegExpClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdRegExpClass.html)|A pattern and its options: `Pattern` (`""`), `Global`, `IgnoreCase`, `Multiline` (all `False` for a new object); `Test`, `Execute`, `Replace`. It has no default member.|
-|`MatchCollection`|[IStdMatchCollectionClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdMatchCollectionClass.html)|What `Execute` found: `Count`, and `Item`, its default member, from `0`, declared `Object` as MS-VBA's type library declares it. A `For Each` enumerates it.|
-|`Match`|[IStdMatchClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdMatchClass.html)|One match: `Value`, its default member; `FirstIndex`, from `0`; `Length`; `SubMatches`.|
-|`SubMatches`|[IStdSubMatchesClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdSubMatchesClass.html)|What each group matched: `Count`, and `Item`, its default member, from `0` - a `String`, or `Empty` for a group that took no part in the match. A `For Each` enumerates it.|
+|`RegExp`|`IStdRegExpClass`|A pattern and its options: `Pattern` (`""`), `Global`, `IgnoreCase`, `Multiline` (all `False` for a new object); `Test`, `Execute`, `Replace`. It has no default member.|
+|`MatchCollection`|`IStdMatchCollectionClass`|What `Execute` found: `Count`, and `Item`, its default member, from `0`, declared `Object` as MS-VBA's type library declares it. A `For Each` enumerates it.|
+|`Match`|`IStdMatchClass`|One match: `Value`, its default member; `FirstIndex`, from `0`; `Length`; `SubMatches`.|
+|`SubMatches`|`IStdSubMatchesClass`|What each group matched: `Count`, and `Item`, its default member, from `0` - a `String`, or `Empty` for a group that took no part in the match. A `For Each` enumerates it.|
 
 Only `RegExp` can be created. The matches are what was found when `Execute` was called: changing the pattern afterwards changes none of them. A
 position that is not one (`m(5)` of a collection of one match) is error `5`.

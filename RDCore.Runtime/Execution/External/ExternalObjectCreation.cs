@@ -25,7 +25,7 @@ internal static class ExternalObjectCreation
     /// the standard library, whose objects the platform implements itself.
     /// </summary>
     public static bool IsExternal(VBClassModuleSymbol classModule)
-        => classModule.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StdLibSymbolProvider.LibraryName;
+        => classModule.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StandardLibrary.LibraryName;
 
     /// <summary>
     /// Asks the pipeline to create the external object that <paramref name="objectId"/>, a new instance of <paramref name="classModule"/>, stands for.

@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
@@ -18,7 +19,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Binding;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
@@ -407,11 +407,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 activation.WaitedAt = activation.Pc;
             }
 
-            // a breakpoint is waited at before its instruction, once: the program that is resumed from it does not wait there again.
+            // a breakpoint is waited at before its instruction, once: the program that is resumed from it does not wait there again. A table that cannot say
+            // which instructions its lines are has no breakpoint the interpreter can wait at.
             var waitedHere = resumed || activation.WaitedAt == activation.Pc;
             activation.WaitedAt = -1;
-            if (!waitedHere && _conditionDepth == 0 && session.Halt.Gate is not null && session.Halt.Breakpoints.HasAny && activation.Procedure is { } owner
-                && session.Halt.Breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc, out var breakpointCondition)
+            if (!waitedHere && _conditionDepth == 0 && session.Halt.Gate is not null
+                && session.Halt.Breakpoints is IInstructionBreakpointTable { HasAny: true } breakpoints && activation.Procedure is { } owner
+                && breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc, out var breakpointCondition)
                 && IsMet(session, breakpointCondition, owner.Uri, ResolveContext(context, activation, list, list.Items[activation.Pc]), out var conditionFailure))
             {
                 var breakpointLocation = BreakpointTable.LocationOf(list.Items[activation.Pc]);

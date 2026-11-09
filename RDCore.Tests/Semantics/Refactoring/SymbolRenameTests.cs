@@ -52,7 +52,7 @@ public sealed class SymbolRenameTests
     private static RenameContext ComposeWithHost(params (string Name, string Source)[] modules)
         => ComposeReferencing(
             [
-                .. new LibrarySymbolProvider(Root, ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols(),
+                .. new LibrarySymbolProvider(Root, ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols(),
                 .. new LibrarySymbolReader(Root).Read([Host]),
             ], modules);
 

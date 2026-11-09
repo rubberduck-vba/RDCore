@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.Semantics.Expressions;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -31,7 +32,6 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Binding;
@@ -1937,7 +1937,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     // the expression the object a member of the standard library is called on was reached through, which says whether the call is made through the object's
     // IDispatch (AsDispatched). A member of the workspace's is called as its code is, however the object is reached.
     private static ExpressionNode? DispatchedThrough(VBTypeMemberSymbol member, ExpressionNode? reachedThrough)
-        => reachedThrough is not null && SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(member) ? reachedThrough : null;
+        => reachedThrough is not null && SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(member) ? reachedThrough : null;
 
     // the expression the object a member access is on was reached through: the owner written before the dot, the target of the enclosing With block for one
     // that names none.

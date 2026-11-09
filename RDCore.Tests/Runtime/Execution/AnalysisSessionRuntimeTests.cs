@@ -98,7 +98,7 @@ public sealed class AnalysisSessionRuntimeTests
     {
         var declared = Declared(M);
         var analysis = RuntimeSessionComposer.ComposeForAnalysis(declared);
-        _ = RuntimeExecutionPipeline.CreateForAnalysis(analysis, new Dictionary<SemanticId, RDCore.SDK.Semantics.Instructions.InstructionList>(),
+        _ = RuntimeExecutionPipeline.CreateForAnalysis(analysis, new Dictionary<SemanticId, RDCore.Runtime.LanguageCore.Instructions.InstructionList>(),
             NSubstitute.Substitute.For<RDCore.Runtime.Semantics.IErrorDetailsRecorder>(), new RecordingAnalysisObserver());
 
         var inAnalysis = analysis.Symbols.Resolver.GetValue(M);
@@ -130,7 +130,7 @@ public sealed class AnalysisSessionRuntimeTests
     {
         var declared = Declared(M);
         var analysis = RuntimeSessionComposer.ComposeForAnalysis(declared);
-        _ = RuntimeExecutionPipeline.CreateForAnalysis(analysis, new Dictionary<SemanticId, RDCore.SDK.Semantics.Instructions.InstructionList>(),
+        _ = RuntimeExecutionPipeline.CreateForAnalysis(analysis, new Dictionary<SemanticId, RDCore.Runtime.LanguageCore.Instructions.InstructionList>(),
             NSubstitute.Substitute.For<RDCore.Runtime.Semantics.IErrorDetailsRecorder>(), new RecordingAnalysisObserver());
 
         var cell = (IKnowledgeBinding)analysis.Symbols.Resolver.GetValue(M);

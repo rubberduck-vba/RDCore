@@ -9,7 +9,7 @@
 |---|---|---|
 |[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `End`)|`Halt`|No resolved target.|
 
-`End` lowers to the [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `Halt`
+`End` lowers to the `InstructionKind` `Halt`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
 ## Runtime Semantics

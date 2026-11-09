@@ -120,7 +120,7 @@ leaves no stale state to unwind ([**RD-VBAL §5.4.2.21** With Statement](rd-vbal
 
 A dead `#If`/`#ElseIf`/`#Else` branch is never lowered. `Lower` takes the source ranges that
 `RDCore.Runtime.Semantics.Precompiler.PrecompilerLiveBranchEvaluator` found not live, as
-[InstructionLoweringOptions](../api/RDCore.SDK.Semantics.Instructions.InstructionLoweringOptions.html)`.DeadRanges`.
+`InstructionLoweringOptions.DeadRanges`.
 
 A statement or label lexically inside a dead range, at any depth, is skipped entirely: it gets no instruction,
 no `ByNode` entry, and no label definition. The result is the same as if the excluded source were absent, in the

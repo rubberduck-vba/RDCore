@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Flow;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.Runtime.Semantics.Statements;
@@ -17,8 +18,6 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Flow;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Workspace.Forms;

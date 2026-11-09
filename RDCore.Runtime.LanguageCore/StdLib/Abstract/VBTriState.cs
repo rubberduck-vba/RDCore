@@ -1,0 +1,15 @@
+﻿using RDCore.SDK.Runtime.Abstract.StdLib;
+
+namespace RDCore.Runtime.LanguageCore.StdLib.Abstract;
+
+/// <summary>
+/// <strong>MS-VBAL 6.1.1.15 VbTriState</strong>
+/// </summary>
+[StdLibEnum]
+public enum VBTriState
+{
+    VBFalse = 0,
+    VBTrue = -1,
+    VBUseDefault = -2,
+}
+

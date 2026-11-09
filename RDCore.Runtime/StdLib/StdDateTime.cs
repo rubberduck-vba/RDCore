@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values;
@@ -7,7 +8,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using System.Globalization;
-using Intervals = RDCore.SDK.Runtime.Abstract.StdLib.IStdDateTimeModule.Intervals;
+using Intervals = RDCore.Runtime.LanguageCore.StdLib.Abstract.IStdDateTimeModule.Intervals;
 using SystemCalendar = System.Globalization.Calendar;
 using RDCore.Runtime.LanguageCore.Errors;
 

@@ -89,7 +89,7 @@ public sealed partial record class SignatureDescription(string Label, IReadOnlyL
 
         return new SignatureDescription(label.ToString(), parameters, symbol.GetProperty(SymbolProperties.DocString))
         {
-            NamesArePlaceholders = StdLibSymbolProvider.IsLibraryMember(symbol) && parameters.Any(parameter => PlaceholderName().IsMatch(parameter.Name)),
+            NamesArePlaceholders = StandardLibrary.IsLibraryMember(symbol) && parameters.Any(parameter => PlaceholderName().IsMatch(parameter.Name)),
         };
     }
 

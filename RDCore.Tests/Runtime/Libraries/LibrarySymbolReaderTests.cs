@@ -178,7 +178,7 @@ public sealed class LibrarySymbolReaderTests
     [TestMethod]
     public void ThePlatformsStandardLibrary_IsNotRead_ItIsTheirs()
     {
-        var libraries = ReferencedLibraries.Load(new InMemoryLibrarySource(), ["VBA"], [StdLibSymbolProvider.LibraryName]);
+        var libraries = ReferencedLibraries.Load(new InMemoryLibrarySource(), ["VBA"], [StandardLibrary.LibraryName]);
 
         Assert.IsEmpty(new LibrarySymbolProvider(Root, libraries).ProvideSymbols().ToArray());
     }

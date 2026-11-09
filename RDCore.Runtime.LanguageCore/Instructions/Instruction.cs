@@ -1,0 +1,89 @@
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Source;
+using System.Collections.Immutable;
+
+namespace RDCore.Runtime.LanguageCore.Instructions;
+
+/// <summary>
+/// One entry of an <see cref="InstructionList"/> (<strong>RD-VBAL §3.5</strong>). <see cref="Offset"/>
+/// is both the entry's index into <see cref="InstructionList.Items"/> and the program-counter value
+/// that fetches it.
+/// </summary>
+/// <param name="Offset">The entry's index into the owning <see cref="InstructionList.Items"/>.</param>
+/// <param name="Node">
+/// The <see cref="StatementNode"/> this instruction was lowered from, or <c>null</c> for an instruction
+/// lowering synthesized (a block statement's closer, or the unconditional jump a branch's body ends
+/// with), which no source statement corresponds to.
+/// </param>
+/// <param name="Kind">The control-flow shape of this instruction.</param>
+/// <param name="Target">
+/// For <see cref="InstructionKind.Jump"/>, <see cref="InstructionKind.GoSub"/>,
+/// <see cref="InstructionKind.LoopBack"/>, <see cref="InstructionKind.ForNext"/>,
+/// <see cref="InstructionKind.ForEachNext"/>, <see cref="InstructionKind.ExitLoop"/>,
+/// <see cref="InstructionKind.OnErrorGoTo"/>, and <see cref="InstructionKind.ResumeLabel"/>: the
+/// resolved offset to branch to. <c>null</c> for a <see cref="InstructionKind.Jump"/> lowered from
+/// <c>GoTo</c>/<c>On…GoTo</c>, a <see cref="InstructionKind.GoSub"/> lowered from <c>GoSub</c>, or an
+/// <see cref="InstructionKind.OnErrorGoTo"/>/<see cref="InstructionKind.ResumeLabel"/>, whose operand did
+/// not resolve to a label the procedure defines (lowering already reported the
+/// <em>Label not defined</em> (<c>VBC09309</c>) diagnostic for it), or for an
+/// <see cref="InstructionKind.ExitLoop"/> lowering found no matching enclosing loop for. Unused
+/// otherwise.
+/// </param>
+/// <param name="Targets">
+/// For <see cref="InstructionKind.JumpTable"/> and <see cref="InstructionKind.GoSubTable"/>: the
+/// resolved offset for each label in source order, with a <c>null</c> entry wherever the corresponding
+/// label did not resolve. Empty otherwise.
+/// </param>
+/// <param name="Else">
+/// For <see cref="InstructionKind.ConditionalBranch"/>: the offset to branch to when the condition is
+/// false, or the case does not match: the next header in the same <c>If</c>/<c>ElseIf</c>/<c>Case</c>
+/// chain, or the offset right past the whole construct when there is no next branch to try. Unused
+/// otherwise.
+/// </param>
+/// <param name="End">
+/// On a block's own opening instruction (an <c>If</c>'s first header, a pre-test loop's header, a
+/// <see cref="InstructionKind.ForOpener"/>/<see cref="InstructionKind.ForEachOpener"/>/
+/// <see cref="InstructionKind.With"/>/<see cref="InstructionKind.Select"/>): the offset right past the
+/// whole construct. <c>null</c> on every other instruction, including a construct's own inner headers
+/// (an <c>ElseIf</c> or a <c>Case</c>) and constructs with no single opening instruction (a bare
+/// <c>Do…Loop</c>, a post-test loop, an inline <c>If</c>).
+/// </param>
+/// <param name="Matching">
+/// The offset of the enclosing block-opening instruction whose own per-activation hidden state this
+/// instruction reads back. For a <c>Select Case</c> <c>Case</c> header
+/// (<see cref="InstructionKind.ConditionalBranch"/> lowered from a <c>CaseExpressionStatementNode</c>):
+/// the enclosing <see cref="InstructionKind.Select"/> instruction whose hidden selector value this
+/// header's range clauses are matched against (<c>null</c> on a <c>Case Else</c>, which never reads it).
+/// For a <see cref="InstructionKind.ForNext"/>/<see cref="InstructionKind.ForEachNext"/> closer: its own
+/// <see cref="InstructionKind.ForOpener"/>/<see cref="InstructionKind.ForEachOpener"/>, whose stashed
+/// counter/end/step (or enumerator) this closer advances and tests. A <c>GoTo</c> landing directly on
+/// the closer without that opener having run this activation is <strong>MS-VBAL §5.4.2.3</strong> error
+/// 92, "For loop not initialized", detected the same way an unresolved with-target would be: no state
+/// stashed for the offset this instruction names. <c>null</c> on every other instruction kind.
+/// </param>
+/// <param name="EnclosingWith">
+/// The offset of the innermost <see cref="InstructionKind.With"/> instruction lexically enclosing this
+/// one, so a <c>.Member</c>/<c>!member</c> with-expression reads the right hidden target however
+/// control arrived here: a <c>GoTo</c> into or out of a <c>With</c> block leaves no stale stack to
+/// unwind. <c>null</c> when this instruction is not inside any <c>With</c> block.
+/// </param>
+public sealed record class Instruction(int Offset, StatementNode? Node, InstructionKind Kind, int? Target, ImmutableArray<int?> Targets, int? Else, int? End, int? Matching, int? EnclosingWith)
+{
+    /// <summary>
+    /// The line a block's closing instruction is on - the <see cref="InstructionKind.ForNext"/> of a <c>For</c> on its <c>Next</c>, the back edge of a
+    /// <c>While</c> or a <c>Do While</c> on its <c>Wend</c> or <c>Loop</c> - which has no statement of its own (<see cref="Node"/>); <see langword="null"/>
+    /// on every other instruction.
+    /// </summary>
+    public SourceLocation? Closes { get; init; }
+
+    /// <summary>
+    /// Where the instruction is, as a program that waits before it, or is paused at it, is shown there: its statement's location, or the closing line of the
+    /// block it closes (<see cref="Closes"/>) - where MS-VBA highlights a loop paused at its back edge.
+    /// </summary>
+    /// <remarks>
+    /// It is also where an error a <c>Next</c> raises is located, as MS-VBA locates it (<strong>RD-VBAL §5.4.2.3</strong>): a <c>Next</c> is no statement
+    /// of its own, and what it does to the counter it does at the counter's expression in the <c>For</c> it closes, but an error raised there is the
+    /// <c>Next</c>'s.
+    /// </remarks>
+    public SourceLocation? Location => Node?.SourceLocation ?? Closes;
+}

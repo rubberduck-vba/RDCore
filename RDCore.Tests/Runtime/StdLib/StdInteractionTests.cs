@@ -4,6 +4,8 @@ using RDCore.External;
 using RDCore.External.Interaction;
 using RDCore.External.Settings;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -13,7 +15,6 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
-using RDCore.SDK.Runtime.StdLib;
 using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Runtime.StdLib;
@@ -615,7 +616,7 @@ public sealed class StdInteractionTests
 
     private static readonly Uri Root = new("file://rdcore-test");
 
-    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read(typeof(IStdInteractionModule).Assembly);
+    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read();
 
     private static Symbol Member(string name)
     {

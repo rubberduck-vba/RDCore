@@ -1,3 +1,5 @@
+using RDCore.Runtime.LanguageCore.Flow;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
@@ -7,8 +9,6 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Flow;
-using RDCore.SDK.Semantics.Instructions;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;

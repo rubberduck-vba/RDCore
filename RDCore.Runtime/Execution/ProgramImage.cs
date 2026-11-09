@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Immutable;
 using System.Text.Json.Serialization.Metadata;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.Execution;

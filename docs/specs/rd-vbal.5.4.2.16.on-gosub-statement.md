@@ -7,10 +7,10 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[OnGoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoSubStatementNode.html)|`GoSubTable`|Lowering resolves the statement's labels into [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.Targets`.|
+|[OnGoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoSubStatementNode.html)|`GoSubTable`|Lowering resolves the statement's labels into `Instruction.Targets`.|
 
 An `On expression GoSub label, ...` statement is represented by `OnGoSubStatementNode`, and lowers to the
-[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `GoSubTable`
+`InstructionKind` `GoSubTable`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
 `OnGoSubStatementNode` holds its targets in a `Labels` list. Each target is an expression naming or numbering a

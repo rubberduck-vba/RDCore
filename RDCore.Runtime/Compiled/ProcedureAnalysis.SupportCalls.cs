@@ -1,4 +1,4 @@
-using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Runtime.Compiled;
 

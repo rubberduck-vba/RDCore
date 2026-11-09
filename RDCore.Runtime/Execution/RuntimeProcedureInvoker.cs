@@ -1,5 +1,6 @@
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK;
 using System.Collections.Concurrent;
@@ -17,7 +18,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Errors;

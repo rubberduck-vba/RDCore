@@ -1,6 +1,3 @@
-using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Semantics.Instructions;
-
 namespace RDCore.SDK.Runtime.Abstract.Execution;
 
 /// <summary>
@@ -38,23 +35,4 @@ public interface IBreakpointTable
     /// Removes every breakpoint.
     /// </summary>
     void Clear();
-
-    /// <summary>
-    /// Whether the instruction at <paramref name="offset"/> of <paramref name="body"/> is where a breakpoint is.
-    /// </summary>
-    /// <param name="module">The address of the module whose procedure the body is of.</param>
-    /// <param name="body">The body.</param>
-    /// <param name="offset">The offset of the instruction about to run.</param>
-    /// <param name="condition">
-    /// The <see cref="RuntimeBreakpoint.Condition"/> of the breakpoint there, which the interpreter evaluates before it waits; <see langword="null"/> when it has none.
-    /// </param>
-    bool IsAt(string module, InstructionList body, int offset, out ExpressionNode? condition);
-
-    /// <summary>
-    /// Whether a statement of one of the bodies begins on a line. A line that only ends a block is a place a program waits at too, which this does not say.
-    /// </summary>
-    /// <param name="bodies">The bodies of the module's procedures.</param>
-    /// <param name="line">A zero-based line of the source.</param>
-    static bool Verify(IEnumerable<InstructionList> bodies, int line)
-        => bodies.Any(body => body.Items.Any(instruction => instruction.Node is { } node && node.SourceLocation.Range.Start.Line == line));
 }

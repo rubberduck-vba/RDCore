@@ -3,8 +3,8 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.3.2** Err Class](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/7075a4ae-6055-4173-b4b6-e0dab68155e3).
 
-The `Err` class is represented in the SDK by the interface
-[IStdErrClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdErrClass.html). RD-VBA names the class `ErrObject`.
+The `Err` class is represented in the language core by the interface
+`IStdErrClass`. RD-VBA names the class `ErrObject`.
 
 `ErrObject` is implemented in full: the `RDCore.Runtime` class `ErrObject` implements every member of `IStdErrClass`.
 

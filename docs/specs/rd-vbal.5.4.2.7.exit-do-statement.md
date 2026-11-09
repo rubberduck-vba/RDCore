@@ -30,7 +30,7 @@ lowering both ask. Lowering emits no instruction for the statement that is an er
 
 ## Runtime Semantics
 
-1. `ExitLoop` branches to [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.Target`,
+1. `ExitLoop` branches to `Instruction.Target`,
    in the same way as `Jump` ([**RD-VBAL §5.4.2.12** GoTo Statement](rd-vbal.5.4.2.12.goto-statement.md)).
 2. No runtime search is needed: lowering has already resolved `Target` to the offset right past the innermost
    enclosing loop of the matching kind.

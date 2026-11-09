@@ -12,10 +12,10 @@ below. This page describes the loop, how it dispatches, and the state it keeps p
 ## The fetch/decode loop
 
 `ProcedureExecutor.Run` is given a session, an activation, and the activation's
-[InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html). It then:
+`InstructionList`. It then:
 
 1. Reads the instruction at the activation's program counter, `ICallStackFrame.Pc`.
-2. Dispatches the instruction by its [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)
+2. Dispatches the instruction by its `InstructionKind`
    (see [Dispatch by instruction kind](#dispatch-by-instruction-kind)).
 3. Reacts to what running the instruction produced: it continues at the next offset, branches, or stops.
 4. Repeats from step 1.
@@ -60,7 +60,7 @@ to the caller (observed in Excel). It stops on the `End` line only when the proc
 `CallStackFrame` ([**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)).
 
 For every `InstructionKind` other than `Simple`, the control effect is already pre-resolved on the
-[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html) itself. The loop decides whether to
+`Instruction` itself. The loop decides whether to
 branch without any statement semantics needing to know about the program counter; a statement's own runtime
 semantics evaluate operands and return a result, and never mutate control state
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).

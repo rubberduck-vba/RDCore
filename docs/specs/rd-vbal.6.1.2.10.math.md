@@ -3,8 +3,8 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.10** Math](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4f944a0e-59e2-432f-a6ed-8e54311690d1).
 
-The `Math` module is represented in the SDK by the interface
-[IStdMathModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdMathModule.html).
+The `Math` module is represented in the language core by the interface
+`IStdMathModule`.
 
 The `Math` module's declarations follow MS-VBAL's own _Function Declaration_ blocks (**MS-VBAL §6.1.2.10**),
 declaration by declaration, including their return types and their `Optional` parameters.

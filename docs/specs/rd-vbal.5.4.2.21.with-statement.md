@@ -7,11 +7,11 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[WithStatementNode](../api/RDCore.SDK.Model.AST.Statements.WithStatementNode.html)|`With`, `EndWith`|The opener's [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.End` is right past the block, past its `EndWith`.|
+|[WithStatementNode](../api/RDCore.SDK.Model.AST.Statements.WithStatementNode.html)|`With`, `EndWith`|The opener's `Instruction.End` is right past the block, past its `EndWith`.|
 
 `With...End With` is a block statement
 ([**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md)). Its opener lowers to the
-[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `With`, and its `End With` to an
+`InstructionKind` `With`, and its `End With` to an
 `EndWith` whose `Matching` is the opener ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)). The
 `EndWith` is outside the block: it is reached by running through the block, and a jump out of the block, to the
 opener's `End` or beyond, goes past it.
