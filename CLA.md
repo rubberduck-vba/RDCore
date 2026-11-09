@@ -18,7 +18,7 @@ that the Project can stay open source **and** sustain itself commercially under 
 - **You keep the copyright** to everything you contribute. We are *not* asking you to
   assign or give up ownership.
 - **Your contributions stay open source** — under the license of the repository you contribute to:
-  the MIT License (`RDCore.SDK`, `RDCore.Forms`) or the GNU GPL v3 (`RDCore`, `RDCore.HexIDE`).
+  the MIT License (`RDCore.SDK`, `RDCore.Forms`) or the GNU GPL v3 or later (`RDCore`, `RDCore.HexIDE`).
 - **In addition**, you give the Company permission to include your contribution in a
   separately-licensed commercial edition of the Project. Authorized partners could pay
   for a non-GPL license: this is how the Company can fund continued open development.
@@ -54,7 +54,7 @@ Contributions and such derivative works.
 You **additionally** grant the Company the right to license and sublicense Your
 Contributions, and any derivative works thereof, **under any licensing terms whatsoever,
 including both open source licenses (such as the MIT License and the GNU General Public
-License version 3) and proprietary or commercial license terms.** This permits the Company
+License version 3 or later) and proprietary or commercial license terms.** This permits the Company
 to offer the Project — including Your Contributions — under a separate commercial license
 to authorized partners, in addition to the Project's open source license(s), and to
 receive compensation for doing so.
@@ -63,7 +63,7 @@ receive compensation for doing so.
 You acknowledge that the Company intends to continue making the Project, including Your
 accepted Contributions, available to the public under the Project's open source licenses
 (currently the **MIT License** for the `RDCore.SDK` and `RDCore.Forms` repositories and the
-**GNU GPL v3** for the `RDCore` and `RDCore.HexIDE` repositories). The licenses You grant in
+**GNU GPL v3 or later** for the `RDCore` and `RDCore.HexIDE` repositories). The licenses You grant in
 Section 3.1 are **in addition to** the
 Project's open source licensing and **do not remove, restrict, or diminish** any rights
 that You or any other person have under those open source licenses. The Company is not

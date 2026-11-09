@@ -14,7 +14,7 @@ Cette Entente étale les termes sous lesquels vous contribuez au Projet. Elle ex
 ## En Bref (sommaire en langage courant)
 
 - **Vous conservez vos droits d'auteur (copyright)** sur toutes vos contributions. Nous ne vous demandons **pas** d'assigner ou de renoncer à vos droits.
-- **Vos contributions demeureront open-source** : sous la licence du référentiel auquel vous contribuez, soit la licence MIT (`RDCore.SDK`, `RDCore.Forms`) ou la GNU GPL v3 (`RDCore`, `RDCore.HexIDE`).
+- **Vos contributions demeureront open-source** : sous la licence du référentiel auquel vous contribuez, soit la licence MIT (`RDCore.SDK`, `RDCore.Forms`) ou la GNU GPL v3 ou ultérieure (`RDCore`, `RDCore.HexIDE`).
 - **Additionnellement**, vous donnez votre permission à la Société d'inclure vos contributions dans une édition commerciale privée du Projet. Des partenaires authorisés pourraient payer pour une licence non-GPL : c'est ce qui permettra de financer le développement continu de la plateforme logicielle.
 - **Vous confirmez que le travail est le vôtre** et ne contient aucun code propriétaire ou de tierces parties dont vous ne détenez pas le droit de contribuer au Projet; vous pouvez expliquer votre travail, justifier vos décisions, et êtes en mesure d'en effectuer la maintenance.
 
@@ -39,11 +39,11 @@ En vertu de la présente Entente, Vous octroyez à la Société et aux utilisate
 
 
 #### 3.1 Relicenciement et Double Licenciement
-Vous octroyez **additionnellement** à la Société le droit de relicencier et sous-licencer vos Contributions et tout matériel en dérivant sous des termes de **licence propriétaire, commerciale, ou open-source** (MIT ou GPLv3). Ceci permet à la Société d'offrir le Projet (incluant vos Contributions) sous une licence commerciale à des partenaires autorisés, en supplément aux licences open-source du Projet, et de recevoir une compensation en contrepartie.
+Vous octroyez **additionnellement** à la Société le droit de relicencier et sous-licencer vos Contributions et tout matériel en dérivant sous des termes de **licence propriétaire, commerciale, ou open-source** (MIT ou GPLv3 ou ultérieure). Ceci permet à la Société d'offrir le Projet (incluant vos Contributions) sous une licence commerciale à des partenaires autorisés, en supplément aux licences open-source du Projet, et de recevoir une compensation en contrepartie.
 
 
 #### 3.2 Disponibilité Open Source Continuelle
-Vous reconnaissez que la Société a l'intention de continuer d'offrir le Projet, incluant vos Contributions acceptées, disponible au public sous les licences open-source du Projet (référentiels `RDCore.SDK` et `RDCore.Forms` sous MIT, référentiels `RDCore` et `RDCore.HexIDE` sous GPLv3). Les licences que vous octroyez à la section 3.1 sont **en sus** du licenciement open-source du Projet et **ne restreignent, retirent, ni ne diminuent** les droits que Vous ou tout autre contributeur détenez sous ces licences open-source. La Société n'est pas tenue d'utiliser ou d'inclure quelque Contribution que ce soit.
+Vous reconnaissez que la Société a l'intention de continuer d'offrir le Projet, incluant vos Contributions acceptées, disponible au public sous les licences open-source du Projet (référentiels `RDCore.SDK` et `RDCore.Forms` sous MIT, référentiels `RDCore` et `RDCore.HexIDE` sous GPLv3 ou ultérieure). Les licences que vous octroyez à la section 3.1 sont **en sus** du licenciement open-source du Projet et **ne restreignent, retirent, ni ne diminuent** les droits que Vous ou tout autre contributeur détenez sous ces licences open-source. La Société n'est pas tenue d'utiliser ou d'inclure quelque Contribution que ce soit.
 
 
 ### 4. Octroi de Licence de Brevet
