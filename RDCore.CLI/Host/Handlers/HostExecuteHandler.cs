@@ -1,6 +1,6 @@
 using RDCore.SDK.Model.Errors.Abstract;
 using Microsoft.Extensions.Logging;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -8,7 +8,9 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.Semantics;
+using SupportResources = RDCore.Runtime.Support.Resources;
 
 namespace RDCore.CLI.Host.Handlers;
 
@@ -41,7 +43,7 @@ internal sealed class HostExecuteHandler(
         // a program that is running owns the session: nothing of it is loaded, composed or redefined under it.
         if (sessionProvider.Execution.State is ProgramState.Running)
         {
-            return new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = Resources.Host_AProgramIsRunning };
+            return new ExecuteResult { Outcome = ExecutionOutcome.Refused, ErrorMessage = SupportResources.Host_AProgramIsRunning };
         }
 
         var payload = PlatformJson.Deserialize<HostExecutePayload>(request.Json);

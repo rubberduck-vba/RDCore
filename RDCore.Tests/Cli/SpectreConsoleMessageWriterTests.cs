@@ -1,8 +1,8 @@
 using NSubstitute;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.Themes;
-using RDCore.SDK.ConsoleIO;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO;
+using RDCore.CLI.ConsoleIO.Model;
 using Spectre.Console.Testing;
 
 namespace RDCore.Tests.Cli;

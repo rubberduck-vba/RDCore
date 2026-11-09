@@ -2,7 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -21,7 +21,7 @@ internal sealed class MultipleDeclarationsAnalyzer : SyntaxTreeAnalyzer
             .SelectMany(siblings => DeclarationStatements.In(siblings))
             .Where(statement => statement.Count > 1)
             .Select(statement => new AnalyzerFinding(
-                RDCoreDiagnosticId.MultipleDeclarations,
+                RDCoreDiagnosticId.MultipleDeclarations.ToCode(),
                 DeclarationStatements.RangeOf(statement),
                 DiagnosticSeverity.Information,
                 RDCoreDiagnosticsResources.MultipleDeclarations_Message));

@@ -26,6 +26,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Statements;
 

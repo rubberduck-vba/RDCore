@@ -1,5 +1,5 @@
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
@@ -90,7 +90,7 @@ public sealed class CompiledBreakTests
         }
 
         var frames = run.Session.CallStack.Frames.Cast<CallStackFrame>()
-            .Select(frame => $"{frame.Procedure!.Name}@{LineOf(InstructionLocations.Of(frame.Body!, frame.Pc))}");
+            .Select(frame => $"{frame.Procedure!.Name}@{LineOf(BreakpointTable.LocationOf(frame.Body!.Items[frame.Pc]))}");
         return $"{stop.Kind} @{LineOf(stop.Location)} | {string.Join(" < ", frames)} | Total {run.Total()}";
     }
 
@@ -218,7 +218,7 @@ public sealed class CompiledBreakTests
             "ended | go ; 1000 | Total 1000");
 
     // a break asked for while Ping prints, last, at the fifth call Inner's loop makes of it; Inner, called by Outer's loop, and Outer all compiled: it breaks
-    // in Inner, the innermost frame once Ping has returned, before the instruction after its call of Ping, and each frame below is at the call it is making.
+    // at Ping's End Sub, before Ping returns, as MS-VBA stops there, and each frame below is at the call it is making.
     [TestMethod]
     public async Task ABreakAskedForDeepInCompiledCalls_StopsInTheInnermostFrame_EachFrameAtItsCall()
         => await AssertBreaksAsync(Program(
@@ -244,15 +244,15 @@ public sealed class CompiledBreakTests
             "    Pings = Pings + Times",
             "    If Pings = 5 Then Debug.Print \"go\"",
             "End Sub"), before: false,
-            "Break @16 | Inner@16 < Outer@8 < Main@2 | Total 5",
+            "Break @21 | Ping@21 < Inner@15 < Outer@8 < Main@2 | Total 5",
             "ended | go ; 3000 | Total 3000", "Outer", "Inner");
 
-    // a break asked for while Ping prints, at the fifth call Spin's loop makes of it from the end of an If block's branch; Spin all compiled: it breaks
-    // before the jump that ends the branch, which is no statement of its own, and is shown on the End If, as MS-VBA shows it.
+    // a break asked for while Spin prints, last in an If block's branch, at its fifth turn: the jump that ends the branch is on no line and is gone through,
+    // and the program breaks at the End If, as MS-VBA stops there.
     [TestMethod]
-    public async Task ABreakAskedForInACallThatEndsAnIfBlocksBranch_IsShownAtItsEndIf()
+    public async Task ABreakAskedForAtTheEndOfAnIfBlocksBranch_IsAnsweredAtItsEndIf()
         => await AssertBreaksAsync(Program(
-            "Public Total As Long, Pings As Long",
+            "Public Total As Long",
             "Public Sub Main()",
             "    Spin 1000",
             "    Debug.Print Total",
@@ -261,15 +261,11 @@ public sealed class CompiledBreakTests
             "    Dim I As Long",
             "    For I = 1 To N",
             "        Total = Total + 1",
-            "        If I > 0 Then",
-            "            Ping 1",
+            "        If I = 5 Then",
+            "            Debug.Print \"go\"",
             "        End If",
             "    Next",
-            "End Sub",
-            "Private Sub Ping(ByVal Times As Long)",
-            "    Pings = Pings + Times",
-            "    If Pings = 5 Then Debug.Print \"go\"",
             "End Sub"), before: false,
             "Break @11 | Spin@11 < Main@2 | Total 5",
-            "ended | go ; 1000 | Total 1000", "Spin");
+            "ended | go ; 1000 | Total 1000");
 }

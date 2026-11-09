@@ -3,8 +3,8 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -23,7 +23,7 @@ internal sealed class IntegerDataTypeAnalyzer : SyntaxTreeAnalyzer
             .OfType<AsTypeExpressionNode>()
             .Where(IsInteger)
             .Select(asType => new AnalyzerFinding(
-                RDCoreDiagnosticId.IntegerDataTypeDeclaration, asType.Location.Range, DiagnosticSeverity.Information, RDCoreDiagnosticsResources.IntegerDataTypeDeclaration_Message));
+                RDCoreDiagnosticId.IntegerDataTypeDeclaration.ToCode(), asType.Location.Range, DiagnosticSeverity.Information, RDCoreDiagnosticsResources.IntegerDataTypeDeclaration_Message));
 
     // `VBA.Integer` is the same type; any other qualifier names a type of some other library that happens to be called that.
     private static bool IsInteger(AsTypeExpressionNode asType)

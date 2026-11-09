@@ -57,7 +57,7 @@ The let-coercion provider maintains a coercion frame stack (see
 
 A _recursive let-coercion_ is a strategy that must coerce through an intermediate type, e.g.
 `Date → Double → Integer`. The coercion frame stack detects a recursive let-coercion and reports it as
-`OutOfStackSpace` ([VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)) rather than overflowing
+`OutOfStackSpace` (`VBRuntimeErrorId`) rather than overflowing
 the call stack.
 
 A [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html) is used in the implementation of

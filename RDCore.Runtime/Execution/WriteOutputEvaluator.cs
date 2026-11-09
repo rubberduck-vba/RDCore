@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
 using System.Globalization;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 

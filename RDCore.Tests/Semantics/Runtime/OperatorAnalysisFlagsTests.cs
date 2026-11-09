@@ -16,6 +16,7 @@ using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Runtime;
 

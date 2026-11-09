@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using static RDCore.Tests.Cli.CompiledDirectCallTests;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

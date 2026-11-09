@@ -35,7 +35,7 @@ public readonly record struct RuntimeSemanticsEvaluationResult(
     /// <c>true</c> if an evaluation strategy could not be determined.
     /// </summary>
     /// <remarks>
-    /// ⚠️ This value represents an <strong>unspecified, inconsistent</strong> internal state that is ultimately surfaced as an <see cref="VBRuntimeErrorId.InternalError"/> run-time error.
+    /// ⚠️ This value represents an <strong>unspecified, inconsistent</strong> internal state that is ultimately surfaced as an <em>Internal error</em> (<c>VBR00051</c>) run-time error.
     /// </remarks>
     public bool IsInternalError => Result is null && ErrorInfo is null;
 

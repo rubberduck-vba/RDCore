@@ -3,7 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -20,7 +20,7 @@ internal sealed class ObsoleteLetStatementAnalyzer : SyntaxTreeAnalyzer
             .OfType<AssignmentStatementNode>()
             .Where(assignment => assignment.Kind is AssignmentKind.ExplicitLet)
             .Select(assignment => new AnalyzerFinding(
-                RDCoreDiagnosticId.ObsoleteLetStatement,
+                RDCoreDiagnosticId.ObsoleteLetStatement.ToCode(),
                 ModuleLanguage.KeywordAt(assignment.SourceLocation.Range, "Let".Length),
                 DiagnosticSeverity.Information,
                 RDCoreDiagnosticsResources.ObsoleteLetStatement_Message));

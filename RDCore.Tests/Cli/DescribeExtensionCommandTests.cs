@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using RDCore.CLI.App.Commands;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Server.Configuration;
 

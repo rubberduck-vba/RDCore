@@ -14,6 +14,7 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Operators;
 

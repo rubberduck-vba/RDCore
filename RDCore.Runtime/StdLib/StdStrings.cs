@@ -18,6 +18,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
 

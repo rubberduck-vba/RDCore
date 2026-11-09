@@ -7,10 +7,11 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[SelectCaseStatementNode](../api/RDCore.SDK.Model.AST.Statements.SelectCaseStatementNode.html)|`Select`|The `Select Case` opener. Its `End` is right past the block.|
-|[CaseExpressionStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseExpressionStatementNode.html)|`ConditionalBranch`|A `Case` header. Its `Matching` names the offset of its `Select` opener. Its `Else` is the offset to go to on no match: the next header in the chain, the first instruction of the `Case Else` body, or right past the whole construct.|
+|[SelectCaseStatementNode](../api/RDCore.SDK.Model.AST.Statements.SelectCaseStatementNode.html)|`Select`|The `Select Case` opener. Its `End` is the `End Select` closer.|
+|[CaseExpressionStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseExpressionStatementNode.html)|`ConditionalBranch`|A `Case` header. Its `Matching` names the offset of its `Select` opener. Its `Else` is the offset to go to on no match: the next header in the chain, the first instruction of the `Case Else` body, or the `End Select` closer.|
 |[CaseElseClauseStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|None|`Case Else` needs no condition.|
-|None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is right past the whole construct.|
+|None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is the `End Select` closer.|
+|None (synthesized)|`Jump`|The `End Select` closer, on the `End Select` line: a jump to the next instruction. Every `Case` ends there, as does a selector no `Case` matches.|
 
 Each `Case` line's comma-separated conditions form their own node hierarchy under the abstract
 [CaseRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseRangeClauseNode.html). The three condition forms
@@ -50,8 +51,9 @@ condition.
    [The Value of a Clause Is Converted to the Selector's Type](#the-value-of-a-clause-is-converted-to-the-selectors-type)).
    A `Variant` selector is compared as the `Variant` it is.
 4. On a match, fall through into the branch's body. Otherwise, go to the header's `Else` offset: the next header in
-   the chain, the first instruction of the `Case Else` body, or right past the whole construct.
-5. After the branch's body runs, the synthesized trailing `Jump` goes right past the whole construct.
+   the chain, the first instruction of the `Case Else` body, or the `End Select` closer.
+5. After the branch's body runs, the synthesized trailing `Jump` goes to the `End Select` closer, where a step or a
+   breakpoint stops.
 
 **MS-VBAL §5.4.2.10**: "If select-expression is the data value Null, only the case-else-clause is executed". A
 `Null` can reach `Select Case` only through a `Variant` selector: a local declared `Long` can never hold `Null`.

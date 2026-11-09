@@ -20,6 +20,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 
@@ -61,6 +62,29 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         => GetParameters(entryPoint) is [ParamArrayParameterSymbol]
             ? [new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(new VBFixedSizeArrayValue([(0, -1)])))]
             : [];
+
+    /// <summary>
+    /// The arguments a program's entry point is invoked with (<see cref="RDCore.SDK.Workspace.ProgramEntryPoint"/>) when the program is started with
+    /// <paramref name="arguments"/>: a <c>ParamArray</c> it declares collects them, in order, as a 0-based array of <c>Variant</c>s that hold <c>String</c>s,
+    /// as it collects the arguments of a call (<strong>MS-VBAL §5.3.1.11</strong>). An entry point that declares no parameter is invoked with none.
+    /// </summary>
+    /// <param name="entryPoint">The procedure the program starts with.</param>
+    /// <param name="arguments">What the program was started with, one argument each.</param>
+    public static IRuntimeValue[] ProgramArguments(VBTypeMemberSymbol entryPoint, IReadOnlyList<string> arguments)
+    {
+        if (GetParameters(entryPoint) is not [ParamArrayParameterSymbol])
+        {
+            return [];
+        }
+
+        var array = new VBFixedSizeArrayValue([(0, arguments.Count - 1)]);
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            array.TrySetElement(BindingKnowledge.NewCell(new VBVariantValue(new VBStringValue(arguments[i]))), i);
+        }
+
+        return [new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array))];
+    }
 
     /// <summary>
     /// Invokes <paramref name="procedure"/>, every parameter of which is a scalar passed by value, with <paramref name="arguments"/> - payloads of the

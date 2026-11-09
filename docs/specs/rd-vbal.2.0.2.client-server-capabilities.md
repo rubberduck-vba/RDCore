@@ -527,7 +527,7 @@ Names that match alike come by name. An empty query matches every symbol. At mos
 
 The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename` and `source.rdcore.importProject`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
 
-An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCore.SDK.Model.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
+An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
 
 |Offered|Kind|Does|
 |---|---|---|

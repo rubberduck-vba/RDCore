@@ -344,12 +344,12 @@ public sealed class ReplInteractionTests
 
     // what the language server tells the shell's user (window/showMessage) is one of the shell's messages, of the kind its type says.
     [TestMethod]
-    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error, RDCore.SDK.ConsoleIO.Model.MessageKind.Error)]
-    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Warning, RDCore.SDK.ConsoleIO.Model.MessageKind.Warning)]
-    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Info, RDCore.SDK.ConsoleIO.Model.MessageKind.Information)]
-    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Log, RDCore.SDK.ConsoleIO.Model.MessageKind.Trace)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Error, RDCore.CLI.ConsoleIO.Model.MessageKind.Error)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Warning, RDCore.CLI.ConsoleIO.Model.MessageKind.Warning)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Info, RDCore.CLI.ConsoleIO.Model.MessageKind.Information)]
+    [DataRow(OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType.Log, RDCore.CLI.ConsoleIO.Model.MessageKind.Trace)]
     public async Task WhatTheServerTellsTheUser_IsWrittenAsAMessageOfItsKind(
-        OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType type, RDCore.SDK.ConsoleIO.Model.MessageKind kind)
+        OmniSharp.Extensions.LanguageServer.Protocol.Models.MessageType type, RDCore.CLI.ConsoleIO.Model.MessageKind kind)
     {
         var console = Substitute.For<IReplConsole>();
 

@@ -3,8 +3,8 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -20,7 +20,7 @@ internal sealed class ObsoleteWhileWendAnalyzer : SyntaxTreeAnalyzer
         => module.Descendants()
             .OfType<WhileWendStatementNode>()
             .Select(loop => new AnalyzerFinding(
-                RDCoreDiagnosticId.ObsoleteWhileWend,
+                RDCoreDiagnosticId.ObsoleteWhileWend.ToCode(),
                 new SourceRange(loop.SourceLocation.Range.Start, loop.ConditionExpression.Location.Range.End),
                 DiagnosticSeverity.Information,
                 RDCoreDiagnosticsResources.ObsoleteWhileWend_Message));

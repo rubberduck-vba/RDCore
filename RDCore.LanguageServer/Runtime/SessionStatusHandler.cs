@@ -4,6 +4,7 @@ using RDCore.SDK.Platform.Protocol;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
 using RDCore.SDK.Server.Services;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.LanguageServer.Runtime;
 

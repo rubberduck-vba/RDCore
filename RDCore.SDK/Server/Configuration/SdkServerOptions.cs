@@ -1,7 +1,7 @@
 ﻿using CommandLine;
 using Microsoft.Extensions.Logging;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Logging;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model;
 using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;

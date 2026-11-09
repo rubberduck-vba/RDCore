@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using System.Collections.Immutable;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.SDK.Platform.Protocol;
 

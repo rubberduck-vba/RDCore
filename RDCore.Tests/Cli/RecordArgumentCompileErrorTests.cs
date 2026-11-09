@@ -1,12 +1,13 @@
 using static RDCore.Tests.Cli.ModuleWorkspace;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A record of a user-defined type is passed by reference, to a parameter of its type: MS-VBA refuses a parameter of one declared <c>ByVal</c>
-/// (<see cref="SDK.Model.Errors.VBCompileErrorId.UserDefinedTypeMayNotBePassedByVal"/>), a record given to a <c>Variant</c>
-/// (<see cref="SDK.Model.Errors.VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant"/>), and one given in parentheses, which is a value and no variable to pass
-/// (<see cref="SDK.Model.Errors.VBCompileErrorId.VariableRequired"/>). Each expectation is what MS-VBA reported compiling the same code, recorded in Excel
+/// (<see cref="RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.UserDefinedTypeMayNotBePassedByVal"/>), a record given to a <c>Variant</c>
+/// (<see cref="RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant"/>), and one given in parentheses, which is a value and no variable to pass
+/// (<see cref="RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.VariableRequired"/>). Each expectation is what MS-VBA reported compiling the same code, recorded in Excel
 /// (oracle\s56 I10-I13, C06-C15, D05-D17, E01-E07), where RD-VBA crashed or ran. An event's record parameter is the one MS-VBA compiles <c>ByVal</c>.
 /// </summary>
 [TestClass]

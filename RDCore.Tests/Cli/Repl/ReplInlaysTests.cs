@@ -91,7 +91,7 @@ public sealed class ReplInlaysTests
         await InlaysAsync("maybe");
 
         Assert.IsFalse(_context.Inlays.Enabled);
-        _console.Received().WriteMessage(RDCore.SDK.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "maybe");
+        _console.Received().WriteMessage(RDCore.CLI.ConsoleIO.Model.MessageKind.Error, Resources.Repl_SyntaxError, "maybe");
     }
 
     [TestMethod]

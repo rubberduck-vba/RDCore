@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Context.Abstract;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Operators;
 

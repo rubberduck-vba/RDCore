@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.Parsing;
 using RDCore.Runtime.Compiled;
@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Cli;

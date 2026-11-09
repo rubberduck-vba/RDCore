@@ -8,6 +8,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

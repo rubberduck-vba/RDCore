@@ -2,7 +2,8 @@ using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host.Handlers;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
@@ -14,6 +15,7 @@ using RDCore.SDK.Server.Configuration;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

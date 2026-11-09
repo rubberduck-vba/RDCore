@@ -2,8 +2,8 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.Themes;
-using RDCore.SDK.ConsoleIO;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO;
+using RDCore.CLI.ConsoleIO.Model;
 using Spectre.Console;
 using System.IO.Abstractions;
 

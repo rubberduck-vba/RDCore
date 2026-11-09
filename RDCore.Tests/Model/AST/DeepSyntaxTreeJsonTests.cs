@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Platform.Protocol;
 using System.Text;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Model.AST;
 

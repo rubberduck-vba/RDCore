@@ -25,7 +25,7 @@ Relational operators compare in the effective type, and yield a
 |---|---|
 |An operand is `NaN`.|6 (Overflow)|
 
-Run-time error 6 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.Overflow`.
+Run-time error 6 is `VBRuntimeErrorId.Overflow`.
 
 The range checks of a `For` loop use the relational operators
 `RDCore.Runtime.Semantics.Operators.Relational.BinaryGtRelationalOperatorRuntimeSemantics` and

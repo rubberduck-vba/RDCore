@@ -19,6 +19,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 
@@ -356,13 +357,16 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 activation.Forget();
             }
 
+            // a program waits only before an instruction that is on a line (a statement, a block's closer). The jump that ends a branch is on none: it is
+            // gone through to the End If it goes to, which is where the program is shown.
+            var location = BreakpointTable.LocationOf(list.Items[activation.Pc]);
+
             // between instructions, never inside one: a half-executed statement would leave the
             // session in a state no VBA program could have produced. This is what stops a program
             // whose own control flow never would - an empty Do…Loop, a GoTo cycle. It is a break
             // like a Stop is, which is why it is requested of the session the same way.
-            if (!resumed && cancellation.IsCancellationRequested && !_cancellationAcknowledged)
+            if (!resumed && location is not null && cancellation.IsCancellationRequested && !_cancellationAcknowledged)
             {
-                var location = InstructionLocations.Of(list, activation.Pc);
 
                 // A program that can be resumed waits here, before the instruction it was about to run, and runs it when it is resumed. The cancellation is then
                 // answered: it was one break, and a token that is cancelled stays cancelled, so it is not asked about again.
@@ -380,12 +384,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
             // a step the program was resumed with ends here, before the instruction it was asked to stop at - and not in a procedure a breakpoint's condition calls,
             // which is the debugger's own evaluation and not the program's.
-            if (!resumed && _conditionDepth == 0 && session.Halt.TakeStep(session.CallStack.Depth))
+            if (!resumed && location is not null && _conditionDepth == 0 && session.Halt.TakeStep(session.CallStack.Depth))
             {
-                var stepLocation = InstructionLocations.Of(list, activation.Pc);
-                if (!session.Halt.TrySuspend(RuntimeHaltKind.Break, stepLocation))
+                if (!session.Halt.TrySuspend(RuntimeHaltKind.Break, location))
                 {
-                    session.Halt.Request(RuntimeHaltKind.Break, stepLocation);
+                    session.Halt.Request(RuntimeHaltKind.Break, location);
                     return RuntimeExecutionOutcome.Break;
                 }
 
@@ -411,7 +414,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 && session.Halt.Breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc, out var breakpointCondition)
                 && IsMet(session, breakpointCondition, owner.Uri, ResolveContext(context, activation, list, list.Items[activation.Pc]), out var conditionFailure))
             {
-                var breakpointLocation = InstructionLocations.Of(list, activation.Pc);
+                var breakpointLocation = BreakpointTable.LocationOf(list.Items[activation.Pc]);
                 var waited = conditionFailure is null
                     ? session.Halt.TrySuspend(RuntimeHaltKind.Break, breakpointLocation)
                     : session.Halt.TrySuspendOnCondition(conditionFailure, breakpointLocation);
@@ -636,6 +639,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     {
                         return unhandledReturn;
                     }
+                    break;
+
+                // an Exit goes through the End statement, where a breakpoint or a step stops before the procedure returns.
+                case InstructionKind.ExitProcedure when instruction.Target is { } end:
+                    activation.Pc = end;
                     break;
 
                 case InstructionKind.ExitProcedure:

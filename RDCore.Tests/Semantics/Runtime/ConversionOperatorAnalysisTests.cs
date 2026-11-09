@@ -3,7 +3,6 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics.LetCoercion;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -21,6 +20,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Runtime;
 

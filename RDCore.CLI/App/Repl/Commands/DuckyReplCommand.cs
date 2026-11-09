@@ -2,7 +2,7 @@ using Newtonsoft.Json.Linq;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.External.Interaction;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Semantics.Refactoring;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;

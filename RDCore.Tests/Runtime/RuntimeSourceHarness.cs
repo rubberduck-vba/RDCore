@@ -24,6 +24,7 @@ using RDCore.SDK.Semantics.Instructions;
 using RDCore.Tests.Semantics.Runtime;
 using System.IO.Abstractions;
 using RDCore.Symbols;
+using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime;

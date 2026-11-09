@@ -1,5 +1,5 @@
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Symbols;
@@ -304,9 +304,9 @@ public sealed class ResumeTests
             Assert.AreEqual(11, run.Total());
         });
 
-    // a step from the last statement of a block's branch stops before the jump that ends the branch, which is no statement of its own: it is shown on the
-    // block's closing line, as MS-VBA shows it, and so is the frame that waits there. The steps after it go on past the block. The block is written at
-    // line 3, after Total = 7; each line it stops at, in turn, is in "steps".
+    // a step from the last statement of a block's branch stops at the block's closing line, where every branch ends, as MS-VBA stops there; so is the frame
+    // that waits there. The jump that ends a branch is on no line, and is gone through. The steps after it go on past the block. The block is written at
+    // line 3, after Total = 7; each line it stops at, in turn, is in "steps". A single-line If's Then part goes on to the next line, past its Else part.
     [TestMethod]
     [DataRow("If Total = 7 Then|    Stop|Else|    Total = 0|End If", "7,8", DisplayName = "the Then branch of an If block with an Else")]
     [DataRow("If Total = 0 Then|    Total = 0|ElseIf Total = 7 Then|    Stop|End If", "7,8", DisplayName = "an ElseIf branch")]
@@ -315,7 +315,7 @@ public sealed class ResumeTests
     [DataRow("Select Case Total|    Case 7|        Stop|    Case Else|        Total = 0|End Select", "8,9", DisplayName = "a Case")]
     [DataRow("Select Case Total|    Case 0|        Total = 0|    Case Else|        Stop|End Select", "8,9", DisplayName = "a Case Else")]
     [DataRow("With New Collection|    Stop|End With", "5,6", DisplayName = "a With block")]
-    [DataRow("If Total = 7 Then Stop Else Total = 0", "3,4", DisplayName = "a single-line If with an Else")]
+    [DataRow("If Total = 7 Then Stop Else Total = 0", "4,5", DisplayName = "a single-line If with an Else")]
     public async Task AStepToTheEndOfABlocksBranch_StopsAtTheBlocksClosingLine(string block, string steps)
         => await WithRunAsync(Program([
             "Public Total As Long",
@@ -414,15 +414,87 @@ public sealed class ResumeTests
             Assert.AreEqual(1, run.Session.CallStack.Depth);
         });
 
+    // MS-VBA stops on the End Sub before the procedure returns, and leaves it at the next step.
     [TestMethod]
-    public async Task AStep_AtTheLastInstruction_EndsTheProgram()
+    public async Task AStep_AtTheLastStatement_StopsAtEndSub_AndTheNextEndsTheProgram()
         => await WithRunAsync(Program("Public Total As Long", "Public Sub Main()", "    Stop", "    Total = 1", "End Sub"), async run =>
         {
             Assert.IsTrue((await run.StartAsync()).IsSuspended);
             Assert.IsTrue((await Step(run, StepKind.Over)).IsSuspended, "before Total = 1");
 
-            AssertCompleted(await Step(run, StepKind.Over));
+            var end = await Step(run, StepKind.Over);
+            Assert.IsTrue(end.IsSuspended, "the program waits at End Sub");
+            Assert.AreEqual(4, end.Location!.Value.Range.Start.Line);
+            Assert.AreEqual(1, run.Session.CallStack.Depth, "Main has not returned");
             Assert.AreEqual(1, run.Total());
+
+            AssertCompleted(await Step(run, StepKind.Over));
+        });
+
+    [TestMethod]
+    public async Task AStepOver_AtTheLastStatementOfACallee_StopsAtItsEndSub_ThenInTheCaller()
+        => await WithRunAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Helper",
+            "    Total = Total + 1",
+            "End Sub",
+            "Private Sub Helper()",
+            "    Stop",
+            "    Total = 10",
+            "End Sub"), async run =>
+        {
+            Assert.IsTrue((await run.StartAsync()).IsSuspended);
+            Assert.IsTrue((await Step(run, StepKind.Over)).IsSuspended, "before Total = 10");
+
+            var end = await Step(run, StepKind.Over);
+            Assert.AreEqual((8, 2), (end.Location!.Value.Range.Start.Line, run.Session.CallStack.Depth), "at Helper's End Sub");
+
+            var back = await Step(run, StepKind.Over);
+            Assert.AreEqual((3, 1), (back.Location!.Value.Range.Start.Line, run.Session.CallStack.Depth), "before Total = Total + 1");
+        });
+
+    // a step out does not stop at the End Sub of the procedure it leaves: it stops in the caller, which is at its own End Sub when the call was its last statement.
+    [TestMethod]
+    public async Task AStepOut_OfACallThatIsTheLastStatement_StopsAtTheCallersEndSub()
+        => await WithRunAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Helper",
+            "End Sub",
+            "Private Sub Helper()",
+            "    Stop",
+            "    Total = 10",
+            "End Sub"), async run =>
+        {
+            Assert.IsTrue((await run.StartAsync()).IsSuspended);
+
+            var out_ = await Step(run, StepKind.Out);
+
+            Assert.IsTrue(out_.IsSuspended);
+            Assert.AreEqual((3, 1), (out_.Location!.Value.Range.Start.Line, run.Session.CallStack.Depth), "at Main's End Sub");
+            Assert.AreEqual(10, run.Total());
+            AssertCompleted(await Step(run, StepKind.Over));
+        });
+
+    [TestMethod]
+    public async Task AStep_AtExitSub_StopsAtEndSub()
+        => await WithRunAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Stop",
+            "    Exit Sub",
+            "    Total = 99",
+            "End Sub"), async run =>
+        {
+            Assert.IsTrue((await run.StartAsync()).IsSuspended);
+            Assert.AreEqual(3, (await Step(run, StepKind.Over)).Location!.Value.Range.Start.Line, "before Exit Sub");
+
+            var end = await Step(run, StepKind.Over);
+
+            Assert.AreEqual(5, end.Location!.Value.Range.Start.Line, "at End Sub, past the statement after the Exit Sub");
+            Assert.AreEqual(0, run.Total());
+            AssertCompleted(await Step(run, StepKind.Over));
         });
 
     [TestMethod]

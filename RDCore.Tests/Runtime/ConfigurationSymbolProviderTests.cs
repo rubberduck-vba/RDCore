@@ -1,4 +1,4 @@
-﻿using RDCore.CLI.Host.Symbols;
+﻿using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;

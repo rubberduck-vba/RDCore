@@ -1,4 +1,5 @@
 using RDCore.Runtime.Semantics.Conversion;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Abstract;
@@ -6,6 +7,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
 
@@ -27,12 +29,14 @@ public sealed class StdFileSystem(IRuntimeSession session) : IStdFileSystemModul
         where TValue : VBTypedValue
         => RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(error, default, detail));
 
-    private static RuntimeSemanticsEvaluationResult Done(VBRuntimeErrorId? error, string detail)
+    private static RuntimeSemanticsEvaluationResult Done(RDCoreDiagnosticCode? error, string detail)
         => error is { } failed ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(failed, default, detail)) : RuntimeSemanticsEvaluationResult.Success(VBEmptyValue.Empty);
 
-    private static RuntimeSemanticsEvaluationResult<TValue> Answer<TValue>(VBRuntimeErrorId? error, Func<TValue> value, string detail)
+    private static RuntimeSemanticsEvaluationResult<TValue> Answer<TValue>(RDCoreDiagnosticCode? error, Func<TValue> value, string detail)
         where TValue : VBTypedValue
-        => error is { } failed ? Failed<TValue>(failed, detail) : RuntimeSemanticsEvaluationResult<TValue>.Success(value());
+        => error is { } failed
+            ? RuntimeSemanticsEvaluationResult<TValue>.Error(VBRuntimeErrorInfo.For(failed, default, detail))
+            : RuntimeSemanticsEvaluationResult<TValue>.Success(value());
 
     // the text of a Variant argument that names a drive or a file: Null is no text (error 94), and an omitted one is none.
     private RuntimeSemanticsEvaluationResult<VBStringValue>? TextOf(VBVariantValue? argument, out string? text)

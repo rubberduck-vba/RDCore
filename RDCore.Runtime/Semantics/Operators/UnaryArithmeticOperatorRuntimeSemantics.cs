@@ -20,6 +20,7 @@ using RDCore.SDK.Semantics.Facts;
 using RDCore.Runtime.LanguageCore.Plans;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using System.Numerics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Operators;
 

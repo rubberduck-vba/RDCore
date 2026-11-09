@@ -1,5 +1,6 @@
 using RDCore.LanguageServer.Debugging;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

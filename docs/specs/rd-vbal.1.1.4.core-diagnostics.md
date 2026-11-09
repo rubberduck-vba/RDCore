@@ -16,7 +16,8 @@ The schema of a *diagnostic* is specified by [LSP 3.17 § Diagnostic](https://mi
 |`VBR00000`|**Visual Basic Runtime** error diagnostics|[**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md)|
 |`VBA00000`|**Visual Basic Application** error diagnostics|[**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.md)|
 |`RDC00000`|**RDCore** *core diagnostics*|[**RD-VBAL §2.6.4** Rubberduck Core Diagnostics](rd-vbal.2.6.4.rubberduck-core-diagnostics.md)|
-|`RDX00000`|**RDCore** *extension diagnostics*|The documentation pertaining to the extension|
+|`RDX00000`|**RDCore** *extension diagnostics*, issued by RDCore's first-party extensions, the core extension included|The documentation pertaining to the extension|
+|`XYZ00000`|A third-party extension's diagnostics, under the prefix it declares ([Declaring a Prefix](#declaring-a-prefix))|The documentation pertaining to the extension|
 
 Every RDCore LSP diagnostic carries a stable code. See [**RD-VBAL §2.6** Diagnostics](rd-vbal.2.6.diagnostics.md).
 
@@ -26,19 +27,44 @@ The `00000` numeric portion of a diagnostic code is a five-digit zero-padded cod
 
 |Origin|Diagnostic|Numeric portion|
 |---|---|---|
-|The *parser*|Normally a *syntax error*|A [VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) value between **42 and 999**.|
+|The *parser*|Normally a *syntax error*|A `VBCompileErrorId` value between **42 and 999**.|
 |The *static semantics analysis pass*|A *compilation error*|A `VBCompileErrorId` value **greater than or equal to 9300**.|
 |A *language core extension*|A *compilation error*|A `VBCompileErrorId` value **between 8000 and 9299**.|
-|The *runtime semantics analysis pass*|A *runtime error*|A [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html) value corresponding to its MS-VBAL specified error code.|
+|The *runtime semantics analysis pass*|A *runtime error*|A `VBRuntimeErrorId` value corresponding to its MS-VBAL specified error code.|
 |*Workspace source code*|An error raised by the *workspace program*|An unspecified `VBA00000` code, defined by the *custom error code* raised in the workspace program.|
 |RDCore.Diagnostics|Any other *language core diagnostic*|Documented under an `RDC00000` code.|
-|Any other first-party extension|A *platform extension diagnostic*|Shall be documented under an `RDX00000` code, in the documentation pertaining to that extension.|
-|A third-party extension|A *platform extension diagnostic*|May be reported under an available `RDX` code, or under a reasonably publisher-specific 3-letter prefix.|
+|A first-party extension, the core extension included|A *platform extension diagnostic*|Documented under an `RDX00000` code, in the documentation pertaining to the extension.|
+|A third-party extension|A *platform extension diagnostic*|Any number, under the prefix the extension declares.|
 
-Diagnostics contributed by other extensions must use their own prefix, distinct from `RDC`. This keeps codes unique and traceable to their source.
+## Declaring a Prefix
 
-> [!WARNING]
-> A third-party extension that issues *already-documented first-party diagnostic codes* may be **required to modify** its codes before it can be distributed through the platform's official distribution channels. This ensures that all diagnostic codes published under the platform remain **traceable and searchable online**.
+An extension declares the prefix of its diagnostic codes with an assembly attribute, [DiagnosticPrefixAttribute](../api/RDCore.SDK.Extensibility.DiagnosticPrefixAttribute.html):
+
+```csharp
+[assembly: DiagnosticPrefix("XYZ")]
+```
+
+`rdc.exe describe-ext` writes the prefix into the extension's manifest as `DiagnosticPrefix` ([**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)).
+
+The platform manifest (`rdcore.json`) names the *core extension*, the one the platform bundles: `"coreExtension": "RDCore.Diagnostics"`. A platform manifest that does not name one bundles `RDCore.Diagnostics`, which declares `RDC`.
+
+While it assembles the platform, the language server does not start an extension when its prefix is one of the following, whatever the order of the folders, and it logs a warning for each one:
+
+|Prefix|Not started|
+|---|---|
+|`RDC`|Any extension other than the core extension.|
+|`VBC`, `VBR` or `VBA`, the language's own|Every extension.|
+|A prefix other than `RDX` that two extensions declare|Both, each warning naming the other.|
+|Not three letters `A` to `Z`|The extension that declares it.|
+
+`RDX` is the prefix of RDCore's first-party extensions, and the one prefix that several extensions may declare.
+
+> [!NOTE]
+> **Not implemented.** The platform does not verify that an extension that declares `RDX` is first-party, and does not detect two `RDX` extensions that use the same number.
+
+At run time, the language server reports the core extension's findings as they are. Of another extension's findings, it keeps only those whose code has the prefix the extension declares, and it reports each one with the extension's title as its `source` and with no link to the RDCore documentation. It drops every other finding, and logs it: a finding of an extension that declares no prefix is always dropped.
+
+A diagnostic gets a link to its page in the RDCore documentation only when its code has one of the platform's own prefixes (`VBC`, `VBR`, `VBA`, `RDC`, `RDX`).
 
 ## Run-time and Application Errors
 

@@ -20,6 +20,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using System.Security;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
 
@@ -581,7 +582,7 @@ public sealed class StdInteraction(
     // a dialog that cannot be answered fails the run, whatever handler the program has: the fault is not the program's to handle (VBR50001, VBR50002).
     private VBRuntimeErrorInfo Unanswered(DialogNotAnsweredException unanswered)
     {
-        var error = VBRuntimeErrorInfo.For(unanswered.ErrorId, default, unanswered.Message);
+        var error = VBRuntimeErrorInfo.For(unanswered.Code, default, unanswered.Message);
         session.Errors.RaiseUntrappable(error);
         return error;
     }

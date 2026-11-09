@@ -5,6 +5,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Parser;
 

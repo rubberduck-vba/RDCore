@@ -109,7 +109,7 @@ public interface IStdRegExpClass
     /// <param name="sourceString">The text.</param>
     /// <param name="replaceVar">
     /// What a match is replaced with: text, or a value written as text - a <c>Boolean</c> as <c>-1</c> or <c>0</c>, <c>Empty</c> as nothing.<br/>
-    /// 💥<see cref="Model.Errors.VBRuntimeErrorId.TypeMismatch"/> for <c>Null</c>.
+    /// 💥<em>Type mismatch</em> (<c>VBR00013</c>) for <c>Null</c>.
     /// </param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> object encapsulating the result of the successful operation, or the error metadata otherwise.</returns>
     RuntimeSemanticsEvaluationResult<VBStringValue> Replace(VBStringValue sourceString, VBVariantValue replaceVar);
@@ -144,7 +144,7 @@ public interface IStdMatchCollectionClass
     /// Gets a match by its position.
     /// </summary>
     /// <param name="index">From <c>0</c> to <c>Count - 1</c>.<br/>
-    /// 💥<see cref="Model.Errors.VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> for any other.</param>
+    /// 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) for any other.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> whose value is a <c>Match</c> (<see cref="IStdMatchClass"/>).</returns>
     /// <remarks>
     /// It is declared <c>Object</c>, as the library's own type library declares it (<c>IDispatch</c>): <c>m(0).SubMatches(Null)</c> is a late-bound call
@@ -222,7 +222,7 @@ public interface IStdSubMatchesClass
     /// Gets what a group matched, by its position.
     /// </summary>
     /// <param name="index">From <c>0</c> to <c>Count - 1</c>.<br/>
-    /// 💥<see cref="Model.Errors.VBRuntimeErrorId.InvalidProcedureCallOrArgument"/> for any other.</param>
+    /// 💥<em>Invalid procedure call or argument</em> (<c>VBR00005</c>) for any other.</param>
     /// <returns>A <see cref="RuntimeSemanticsEvaluationResult"/> whose value is a <c>String</c>, or <c>Empty</c> for a group that took no part in the match.</returns>
     [StdLibMember(Kind = StdLibMemberKind.PropertyGet, UserMemId = WellKnownDispIds.Value)]
     RuntimeSemanticsEvaluationResult<VBVariantValue> Item(VBLongValue index);

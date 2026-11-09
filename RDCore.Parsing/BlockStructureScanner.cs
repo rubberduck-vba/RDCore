@@ -3,6 +3,7 @@ using RDCore.Parsing.Syntax;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing;
 

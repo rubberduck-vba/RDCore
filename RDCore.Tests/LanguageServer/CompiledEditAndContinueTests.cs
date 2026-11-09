@@ -7,7 +7,7 @@ using OmniSharp.Extensions.DebugAdapter.Protocol.Events;
 using OmniSharp.Extensions.DebugAdapter.Protocol.Models;
 using OmniSharp.Extensions.DebugAdapter.Protocol.Requests;
 using OmniSharp.Extensions.DebugAdapter.Server;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer;
 using RDCore.LanguageServer.Debugging;
@@ -24,6 +24,7 @@ using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

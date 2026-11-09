@@ -1,7 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -19,5 +19,5 @@ internal sealed class RedundantByValArgumentAnalyzer : IModuleAnalyzer
             .SelectMany(procedure => procedure.Expressions)
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.RedundantByVal))
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.RedundantByValArgument, fact.Location.Range, DiagnosticSeverity.Hint, RDCoreDiagnosticsResources.RedundantByValArgument_Message));
+                RDCoreDiagnosticId.RedundantByValArgument.ToCode(), fact.Location.Range, DiagnosticSeverity.Hint, RDCoreDiagnosticsResources.RedundantByValArgument_Message));
 }

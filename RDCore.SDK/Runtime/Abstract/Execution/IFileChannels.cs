@@ -115,7 +115,7 @@ public interface IFileChannel
     /// The error that stopped it, or <c>null</c>. A position of <c>0</c> or less is one: the specification
     /// says "an error is raised" without naming it, and MS-VBA raises <c>63</c>, <c>Bad record number</c>.
     /// </returns>
-    Model.Errors.VBRuntimeErrorId? Seek(long position);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? Seek(long position);
 
     /// <summary>
     /// The ranges of this channel's file currently locked against other agents
@@ -139,7 +139,7 @@ public interface IFileChannel
     /// The error that stopped it, or <c>null</c>. "Start record MUST be greater than or equal to 1, and less
     /// than or equal to end record. If not, an error is raised": unnamed there, and MS-VBA raises <c>63</c>.
     /// </returns>
-    Model.Errors.VBRuntimeErrorId? LockRange(FileRecordRange range);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? LockRange(FileRecordRange range);
 
     /// <summary>
     /// Releases a lock this channel holds (<strong>MS-VBAL §5.4.5.5</strong>).
@@ -152,7 +152,7 @@ public interface IFileChannel
     /// is the mismatch the specification names last: "if a record range is provided for only the <c>Lock</c>
     /// statement or the <c>Unlock</c> statement designating the same currently open file number".
     /// </returns>
-    Model.Errors.VBRuntimeErrorId? UnlockRange(FileRecordRange range);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? UnlockRange(FileRecordRange range);
 
     /// <summary>
     /// Writes one record at the current <em>file-pointer-position</em>, in the byte format
@@ -356,7 +356,7 @@ public interface IFileChannels
     /// names a file another channel already has open, <c>70</c> when the requested lock cannot be had, and
     /// <c>75</c> when the file cannot be created.
     /// </returns>
-    Model.Errors.VBRuntimeErrorId? TryOpen(
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryOpen(
         int fileNumber, string path, VBFileMode mode, VBFileAccessMode access, VBFileLockMode @lock, int recordLength);
 
     /// <summary>
@@ -384,27 +384,29 @@ public interface IFileChannels
     /// the paths name does not exist, <c>70</c> when access is refused, and <c>75</c> when anything else about
     /// the path or the device stops it.
     /// </returns>
-    Model.Errors.VBRuntimeErrorId? TryRename(string oldPath, string newPath);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryRename(string oldPath, string newPath);
 
     /// <summary>
     /// The current directory of a drive (<c>CurDir</c>, <strong>MS-VBAL §6.1.2.5.1.1</strong>).
     /// </summary>
-    /// <param name="drive">The drive, its first letter being what counts; <see langword="null"/> or empty for the current drive.</param>
+    /// <param name="drive">The drive, of which only the first letter is read; <see langword="null"/> or empty for the current drive.</param>
     /// <param name="path">The directory.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>68</c> for a letter that is no drive, <c>5</c> for a drive that is no letter.</returns>
-    Model.Errors.VBRuntimeErrorId? TryGetCurrentDirectory(string? drive, out string path);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryGetCurrentDirectory(string? drive, out string path);
 
     /// <summary>
     /// Changes the current directory (<c>ChDir</c>, <strong>MS-VBAL §6.1.2.5.2.1</strong>).
     /// </summary>
+    /// <param name="path">The directory that is to be the current one.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>76</c> for a directory that does not exist.</returns>
-    Model.Errors.VBRuntimeErrorId? TryChangeDirectory(string path);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryChangeDirectory(string path);
 
     /// <summary>
     /// Changes the current drive (<c>ChDrive</c>, <strong>MS-VBAL §6.1.2.5.2.2</strong>): an empty one changes nothing.
     /// </summary>
+    /// <param name="drive">The drive, of which only the first letter is read.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>68</c> for a letter that is no drive, <c>5</c> for a drive that is no letter.</returns>
-    Model.Errors.VBRuntimeErrorId? TryChangeDrive(string drive);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryChangeDrive(string drive);
 
     /// <summary>
     /// The first name that matches <paramref name="pattern"/> (<c>Dir</c>, <strong>MS-VBAL §6.1.2.5.1.2</strong>), and what the next <see cref="TryFindNext"/>
@@ -414,63 +416,76 @@ public interface IFileChannels
     /// <param name="attributes">The attributes, besides the normal ones, of what matches.</param>
     /// <param name="name">The name, with no directory part; empty when nothing matches.</param>
     /// <returns>The error that stopped it, or <c>null</c>.</returns>
-    Model.Errors.VBRuntimeErrorId? TryFindFirst(string pattern, StdLib.VBFileAttribute attributes, out string name);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryFindFirst(string pattern, StdLib.VBFileAttribute attributes, out string name);
 
     /// <summary>
     /// The next name that matches the pattern <see cref="TryFindFirst"/> was last given.
     /// </summary>
     /// <param name="name">The name; empty when there is no other.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>5</c> when there is no pattern to go on with.</returns>
-    Model.Errors.VBRuntimeErrorId? TryFindNext(out string name);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryFindNext(out string name);
 
     /// <summary>
     /// Copies a file (<c>FileCopy</c>, <strong>MS-VBAL §6.1.2.5.2.3</strong>), replacing the destination.
     /// </summary>
+    /// <param name="source">The path of the file that is copied.</param>
+    /// <param name="destination">The path of the copy.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>52</c>, <c>53</c>, <c>55</c>, <c>75</c>, <c>76</c> (<c>IStdFileSystemModule.FileCopy</c>).</returns>
-    Model.Errors.VBRuntimeErrorId? TryCopy(string source, string destination);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryCopy(string source, string destination);
 
     /// <summary>
     /// Deletes the files that match <paramref name="pattern"/> (<c>Kill</c>, <strong>MS-VBAL §6.1.2.5.2.4</strong>): not a directory, nor a hidden or a
     /// system file.
     /// </summary>
+    /// <param name="pattern">A file name, with or without wildcards, that can include a directory and a drive.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>53</c>, <c>55</c>, <c>75</c> (<c>IStdFileSystemModule.Kill</c>).</returns>
-    Model.Errors.VBRuntimeErrorId? TryDelete(string pattern);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryDelete(string pattern);
 
     /// <summary>
     /// Creates a directory (<c>MkDir</c>, <strong>MS-VBAL §6.1.2.5.2.5</strong>).
     /// </summary>
+    /// <param name="path">The path of the directory to create.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>75</c> when something of the name exists, <c>76</c> when the directory it is in does not.</returns>
-    Model.Errors.VBRuntimeErrorId? TryCreateDirectory(string path);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryCreateDirectory(string path);
 
     /// <summary>
     /// Removes an empty directory (<c>RmDir</c>, <strong>MS-VBAL §6.1.2.5.2.6</strong>).
     /// </summary>
+    /// <param name="path">The path of the directory to remove.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>75</c> for one that is not empty, <c>76</c> for one that does not exist.</returns>
-    Model.Errors.VBRuntimeErrorId? TryRemoveDirectory(string path);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryRemoveDirectory(string path);
 
     /// <summary>
     /// The attributes of a file or a directory (<c>GetAttr</c>, <strong>MS-VBAL §6.1.2.8.1.8</strong>).
     /// </summary>
+    /// <param name="path">The path of the file or the directory.</param>
+    /// <param name="attributes">Its attributes.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>53</c> for what does not exist, <c>52</c> for a pattern.</returns>
-    Model.Errors.VBRuntimeErrorId? TryGetAttributes(string path, out StdLib.VBFileAttribute attributes);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryGetAttributes(string path, out StdLib.VBFileAttribute attributes);
 
     /// <summary>
     /// Sets the attributes of a file (<c>SetAttr</c>, <strong>MS-VBAL §6.1.2.5.2.7</strong>).
     /// </summary>
+    /// <param name="path">The path of the file.</param>
+    /// <param name="attributes">The attributes it is to have.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>5</c>, <c>52</c>, <c>53</c>, <c>55</c> (<c>IStdFileSystemModule.SetAttr</c>).</returns>
-    Model.Errors.VBRuntimeErrorId? TrySetAttributes(string path, StdLib.VBFileAttribute attributes);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TrySetAttributes(string path, StdLib.VBFileAttribute attributes);
 
     /// <summary>
     /// The length of a file on the file system, in bytes (<c>FileLen</c>, <strong>MS-VBAL §6.1.2.5.1.6</strong>): <c>0</c> for a directory.
     /// </summary>
+    /// <param name="path">The path of the file or the directory.</param>
+    /// <param name="length">Its length, in bytes.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>53</c> for what does not exist, <c>52</c> for a pattern.</returns>
-    Model.Errors.VBRuntimeErrorId? TryGetLength(string path, out long length);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryGetLength(string path, out long length);
 
     /// <summary>
     /// When a file or a directory was last modified (<c>FileDateTime</c>, <strong>MS-VBAL §6.1.2.5.1.5</strong>), local time.
     /// </summary>
+    /// <param name="path">The path of the file or the directory.</param>
+    /// <param name="modified">When it was last modified, local time.</param>
     /// <returns>The error that stopped it, or <c>null</c>: <c>53</c> for what does not exist, <c>52</c> for a pattern.</returns>
-    Model.Errors.VBRuntimeErrorId? TryGetLastWriteTime(string path, out DateTime modified);
+    Extensibility.Diagnostics.RDCoreDiagnosticCode? TryGetLastWriteTime(string path, out DateTime modified);
 
     /// <summary>
     /// Closes every open channel: what a <c>Close</c> with no file number, and a <c>Reset</c>, both do

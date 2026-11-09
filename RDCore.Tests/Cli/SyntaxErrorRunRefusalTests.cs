@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host.Handlers;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
@@ -10,6 +11,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Platform;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 
@@ -200,7 +202,7 @@ public sealed class SyntaxErrorRunRefusalTests
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
         Assert.IsEmpty(result.Output);
         var prefix = where == "P" ? "" : "Other: ";
-        StringAssert.StartsWith(result.Diagnostics[0], prefix + RDCore.SDK.Exceptions.VBSyntaxError_DefaultMessage, string.Join("; ", result.Diagnostics));
+        StringAssert.StartsWith(result.Diagnostics[0], prefix + RDCore.Runtime.LanguageCore.Exceptions.VBSyntaxError_DefaultMessage, string.Join("; ", result.Diagnostics));
     }
 
     // a syntax error in the declarations section of a module the run calls is the one error the run is refused with: the parse reads the procedures after
@@ -213,7 +215,7 @@ public sealed class SyntaxErrorRunRefusalTests
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program, [("Other", other)]);
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
-        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), "Other: " + RDCore.SDK.Exceptions.VBSyntaxError_DefaultMessage,
+        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), "Other: " + RDCore.Runtime.LanguageCore.Exceptions.VBSyntaxError_DefaultMessage,
             string.Join("; ", result.Diagnostics!));
     }
 
@@ -330,7 +332,7 @@ public sealed class SyntaxErrorRunRefusalTests
         }, debug: true);
 
         Assert.IsFalse(answer!.Success);
-        StringAssert.StartsWith(answer.Error, "Other: " + RDCore.SDK.Exceptions.VBSyntaxError_DefaultMessage, answer.Error);
+        StringAssert.StartsWith(answer.Error, "Other: " + RDCore.Runtime.LanguageCore.Exceptions.VBSyntaxError_DefaultMessage, answer.Error);
     }
 
     // a module taken out of the session is no module of the project: what it failed to load with refuses no run after it.
@@ -388,7 +390,7 @@ public sealed class SyntaxErrorRunRefusalTests
         var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program("Debug.Print 1(2)"));
 
         Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
-        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), RDCore.SDK.Exceptions.VBCompileError_OutputItemsNotSeparated);
+        StringAssert.StartsWith(Assert.ContainsSingle(result.Diagnostics!), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_OutputItemsNotSeparated);
     }
 
     // a statement that would have opened a file is not run: the file is never created, and the Close the error stood before is not needed.

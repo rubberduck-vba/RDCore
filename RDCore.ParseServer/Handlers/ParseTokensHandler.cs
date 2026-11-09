@@ -5,6 +5,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 
 using RDCore.Parsing;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.ParseServer.Handlers;
 

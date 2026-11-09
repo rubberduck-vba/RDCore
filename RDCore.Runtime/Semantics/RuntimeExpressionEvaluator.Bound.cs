@@ -23,6 +23,7 @@ using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics;
 

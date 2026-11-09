@@ -12,6 +12,7 @@ using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.Runtime.LanguageCore.Services;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Static;
 

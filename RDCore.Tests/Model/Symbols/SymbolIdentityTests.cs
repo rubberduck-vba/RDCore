@@ -2,7 +2,8 @@ using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host.Handlers;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
@@ -22,6 +23,7 @@ using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
+using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Model.Symbols;
@@ -183,7 +185,8 @@ public sealed class SymbolIdentityTests
     [TestMethod]
     public void NoTwoDeclarationsOfAModuleOfTheBenchCorpus_ShareASemanticId()
     {
-        var assembly = typeof(DefineSymbolsHandler).Assembly;
+        // the bench corpus is rdc's.
+        var assembly = typeof(RDCore.CLI.App.Bench.BenchRunner).Assembly;
         var modules = assembly.GetManifestResourceNames().Where(resource => resource.StartsWith("Bench/Corpus/", StringComparison.Ordinal)).ToList();
         Assert.IsNotEmpty(modules);
 

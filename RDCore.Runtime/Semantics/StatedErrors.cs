@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics;
 

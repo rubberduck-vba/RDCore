@@ -1,7 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -20,6 +20,6 @@ internal sealed class ImplicitArrayDeclarationAnalyzer : IModuleAnalyzer
         => (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration.DeclaredBy is LocalDeclarationKind.ReDim)
             .Select(declaration => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitArrayDeclaration, declaration.Location.Range, DiagnosticSeverity.Information,
+                RDCoreDiagnosticId.ImplicitArrayDeclaration.ToCode(), declaration.Location.Range, DiagnosticSeverity.Information,
                 string.Format(RDCoreDiagnosticsResources.ImplicitArrayDeclaration_Message, declaration.Name)));
 }

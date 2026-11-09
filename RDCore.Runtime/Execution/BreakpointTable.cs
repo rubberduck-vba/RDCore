@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
@@ -64,15 +65,7 @@ public sealed class BreakpointTable : IBreakpointTable
         return resolved.Offsets.TryGetValue(offset, out condition);
     }
 
-    /// <summary>
-    /// Whether a line is one a program can wait at: a statement of one of the bodies begins on it, or an instruction that ends a block is shown on it
-    /// (<see cref="InstructionLocations.Of"/>), as an <c>End If</c>, an <c>End Select</c>, an <c>End With</c>, a <c>Next</c> or a <c>Loop</c> is.
-    /// </summary>
-    /// <param name="bodies">The bodies of the module's procedures.</param>
-    /// <param name="line">A zero-based line of the source.</param>
-    public static bool Verify(IEnumerable<InstructionList> bodies, int line)
-        => bodies.Any(body => Stops(body).Any(stop => stop.Line == line));
-
+    // the first instruction of the body that is on each of the module's lines.
     private ImmutableDictionary<int, ExpressionNode?> Resolve(string module, InstructionList body)
     {
         if (!_lines.TryGetValue(module, out var lines))
@@ -81,36 +74,47 @@ public sealed class BreakpointTable : IBreakpointTable
         }
 
         var offsets = ImmutableDictionary.CreateBuilder<int, ExpressionNode?>();
-        foreach (var (offset, line) in Stops(body))
+        var seen = new HashSet<int>();
+        foreach (var instruction in body.Items)
         {
-            if (lines.TryGetValue(line, out var condition))
+            if (LineOf(instruction) is { } line && lines.TryGetValue(line, out var condition) && seen.Add(line))
             {
-                offsets[offset] = condition;
+                offsets[instruction.Offset] = condition;
             }
         }
 
         return offsets.ToImmutable();
     }
 
-    // where a breakpoint on a line waits. On a line a statement begins on, it waits before the line's first instruction, once. On a line no statement begins
-    // on, it waits before each instruction shown there: each branch of an If block reaches its End If by a jump of its own.
-    private static IEnumerable<(int Offset, int Line)> Stops(InstructionList body)
+    // where a program waits before the instruction, as MS-VBA stops there: its Closes when it has one (a block's closing line, as a Next, an End If or the
+    // procedure's End Sub; a post-test loop's Do line on entry and its Loop While line on each pass), or else its statement. None for the jump that ends a
+    // branch, which a program goes through. Closes comes first because the loop's back edge has the whole loop as its statement, which begins on the Do line.
+    public static SourceLocation? LocationOf(Instruction instruction) => instruction.Closes ?? instruction.Location;
+
+    // the line a program waits on before the instruction: the line LocationOf begins on.
+    public static int? LineOf(Instruction instruction) => LocationOf(instruction)?.Range.Start.Line;
+
+    /// <summary>
+    /// Whether a line is one a program can wait at: an instruction of one of the bodies is on it (<see cref="LineOf"/>).
+    /// </summary>
+    /// <param name="bodies">The bodies of the module's procedures.</param>
+    /// <param name="line">A zero-based line of the source.</param>
+    public static bool Verify(IEnumerable<InstructionList> bodies, int line)
+        => bodies.Any(body => body.Items.Any(instruction => LineOf(instruction) == line));
+
+    // where a move of the program counter to the line lands: the first instruction on it, or else on the first line after it that has one.
+    public static bool TryGetOffsetAtLine(InstructionList body, int line, out int offset)
     {
-        var statements = new HashSet<int>();
+        offset = -1;
+        var best = int.MaxValue;
         foreach (var instruction in body.Items)
         {
-            if (instruction.Node is { } node && statements.Add(node.SourceLocation.Range.Start.Line))
+            if (LineOf(instruction) is { } start && start >= line && start < best)
             {
-                yield return (instruction.Offset, node.SourceLocation.Range.Start.Line);
+                (best, offset) = (start, instruction.Offset);
             }
         }
 
-        foreach (var instruction in body.Items)
-        {
-            if (instruction.Node is null && InstructionLocations.Of(body, instruction.Offset) is { } shown && !statements.Contains(shown.Range.Start.Line))
-            {
-                yield return (instruction.Offset, shown.Range.Start.Line);
-            }
-        }
+        return offset >= 0;
     }
 }

@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
-using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Logging;
 
 namespace RDCore.SDK.Platform.Protocol;
 

@@ -1,0 +1,57 @@
+using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values;
+using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Workspace;
+
+namespace RDCore.Runtime.Support.Host.Symbols;
+
+/// <summary>
+/// Produces the project-level conditional-compilation constants a session starts with: the built-in
+/// host constants derived from the <see cref="IRuntimeEnvironmentProfile"/> (<see cref="PredefinedConditionalConstants"/>), the <c>.rdproj</c>
+/// <c>#Const</c>s, and (highest precedence) <c>--define</c> command-line overrides.
+/// </summary>
+/// <remarks>
+/// ⚖️ GPLv3. Runs in the environment-host process. Values that are not a recognised literal are skipped.
+/// </remarks>
+public sealed class ConfigurationSymbolProvider(
+    IRuntimeEnvironmentProfile environment,
+    RDCoreProject project,
+    IReadOnlyDictionary<string, string>? overrides = null) : ISymbolProvider
+{
+    private static readonly IReadOnlyDictionary<string, string> _noOverrides = new Dictionary<string, string>();
+
+    public IEnumerable<Symbol> ProvideSymbols()
+    {
+        var defined = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // highest precedence first; the HashSet makes the first definition of a name win.
+        foreach (var (name, source) in ByPrecedence())
+        {
+            if (defined.Add(name) && PrecompilerConstantExpression.TryParse(source, out var value))
+            {
+                yield return new PrecompilerConstantSymbol(name, value);
+            }
+        }
+    }
+
+    private IEnumerable<(string Name, string Source)> ByPrecedence()
+    {
+        foreach (var entry in overrides ?? _noOverrides)
+        {
+            yield return (entry.Key, entry.Value);
+        }
+
+        foreach (var entry in project.PrecompilerConstants)
+        {
+            yield return (entry.Key, entry.Value);
+        }
+
+        // the environment's own, lowest precedence: a .rdproj #Const or a --define overrides any of them.
+        foreach (var (name, value) in PredefinedConditionalConstants.Of(environment))
+        {
+            yield return (name, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+    }
+}

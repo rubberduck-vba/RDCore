@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Runtime;
 

@@ -3,10 +3,10 @@ using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Cli.Repl;
 

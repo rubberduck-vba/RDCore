@@ -3,13 +3,13 @@ using Newtonsoft.Json.Linq;
 using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Server;
 using System.Globalization;
 using System.IO.Pipelines;
 using System.Text;
 using OmniSharp.Extensions.LanguageServer.Server;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Server;
 
@@ -170,7 +170,7 @@ public sealed class ClientLocaleTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
 
         Assert.IsNotNull(ClientLocale.Apply(ClientLocale.Of(null, RDCore.SDK.Server.RDCoreServerApp.ReadInitializationOptions(sent))));
-        var answered = await Task.Run(() => RDCore.CLI.Resources.Host_ChangedWhileWaiting_Resume);
+        var answered = await Task.Run(() => RDCore.Runtime.Support.Resources.Host_ChangedWhileWaiting_Resume);
 
         StringAssert.StartsWith(answered, "{0} a changé pendant l'attente du programme");
     }

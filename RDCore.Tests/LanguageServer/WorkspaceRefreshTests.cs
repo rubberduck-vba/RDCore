@@ -14,8 +14,8 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.Parsing;
-using RDCore.SDK.Model.Diagnostics;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.LanguageServer;
 

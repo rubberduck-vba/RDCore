@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 

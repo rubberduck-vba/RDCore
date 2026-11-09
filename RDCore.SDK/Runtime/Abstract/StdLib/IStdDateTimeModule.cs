@@ -24,7 +24,7 @@ public interface IStdDateTimeModule
     /// The valid <c>Interval</c> arguments of <see cref="DateAdd"/>, <see cref="DateDiff"/> and <see cref="DatePart"/>; compared without regard to case.
     /// </summary>
     /// <remarks>
-    /// 💥 Any other value raises run-time error 5 <see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.
+    /// 💥 Any other value raises run-time error 5, <em>Invalid procedure call or argument</em>.
     /// </remarks>
     public static class Intervals
     {

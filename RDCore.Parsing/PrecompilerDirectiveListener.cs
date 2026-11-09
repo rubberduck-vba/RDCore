@@ -17,6 +17,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing;
 

@@ -2,7 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -19,7 +19,7 @@ internal sealed class ImplicitPublicMemberAnalyzer : SyntaxTreeAnalyzer
             .OfType<MemberDeclarationNode>()
             .Where(member => member is { AccessModifier: AccessModifier.Implicit, MemberKind: not MemberKind.ModuleField })
             .Select(member => new AnalyzerFinding(
-                RDCoreDiagnosticId.ImplicitPublicMember,
+                RDCoreDiagnosticId.ImplicitPublicMember.ToCode(),
                 member.NameRange ?? member.SourceLocation.Range,
                 DiagnosticSeverity.Information,
                 Say(RDCoreDiagnosticsResources.ImplicitPublicMember_Message, member.Name)));

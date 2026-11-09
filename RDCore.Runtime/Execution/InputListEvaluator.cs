@@ -11,6 +11,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Globalization;
 using System.Text;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution;
 

@@ -11,6 +11,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using System.Text.Json;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.LanguageServer.Workspace.Services;
 

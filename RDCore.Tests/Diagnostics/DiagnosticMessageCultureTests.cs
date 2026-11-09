@@ -3,9 +3,9 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Diagnostics.Model;
 using RDCore.Parsing;
-using RDCore.SDK.Model.Diagnostics;
 using System.Collections;
 using System.Globalization;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

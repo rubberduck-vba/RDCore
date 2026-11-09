@@ -13,7 +13,8 @@ using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host.Handlers;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
 using RDCore.External;
@@ -28,7 +29,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform;
@@ -40,6 +41,7 @@ using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
+using RDCore.SDK.Platform.Components;
 
 // expose internals to RDCore.Tests and the LSP handler container's dynamic proxies:
 [assembly: InternalsVisibleTo("RDCore.Tests")]
@@ -460,6 +462,8 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, ExportLibraryCommand>()
             .AddSingleton<ICliCommand, BenchCommand>()
             .AddSingleton<ICliCommand, CompilationCommand>()
+            .AddSingleton<ICliCommand, BuildCommand>()
+            .AddSingleton<ICliCommand, RunCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
             .AddSingleton<ConfigCommand>()

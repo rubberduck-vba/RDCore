@@ -5,6 +5,7 @@ using RDCore.SDK.Extensibility;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Server.ProtocolExtensions;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.SDK.Model.Diagnostics;
 
@@ -56,7 +57,10 @@ public interface ICoreDiagnosticsFactory
     /// Creates a new <c>Diagnostic</c> from what an analyzer found worth saying about a module.
     /// </summary>
     /// <param name="finding">What an <see cref="IModuleAnalyzer"/> found.</param>
-    /// <returns>A coded <c>RDC00000</c> (Rubberduck Core) diagnostic, with the severity the analyzer gave it.</returns>
+    /// <returns>
+    /// A diagnostic coded as the finding is (<c>RDC00000</c> for a Rubberduck Core one), with the severity the analyzer gave it; it links to the code's page in
+    /// the platform's documentation when the code is one of the platform's own.
+    /// </returns>
     Diagnostic FromAnalyzerFinding(AnalyzerFinding finding);
 }
 
@@ -69,11 +73,11 @@ public class DiagnosticFactory : ICoreDiagnosticsFactory
 
     public Diagnostic FromAnalyzerFinding(AnalyzerFinding finding)
     {
-        var code = finding.Id.ToDiagnosticCode();
+        var code = finding.Code.ToString();
         return new()
         {
             Code = new DiagnosticCode(code),
-            CodeDescription = CreateCodeDescription(code),
+            CodeDescription = finding.Code.IsFirstParty ? CreateCodeDescription(code) : null,
             Message = finding.Message,
             Severity = finding.Severity,
             Source = nameof(RDCore),

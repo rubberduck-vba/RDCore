@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Console;
-using RDCore.SDK.ConsoleIO;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO;
+using RDCore.CLI.ConsoleIO.Model;
 
 namespace RDCore.CLI.App.Repl;
 

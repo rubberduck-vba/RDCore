@@ -1,4 +1,5 @@
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
+using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 

@@ -4,10 +4,11 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Server;
 using System.Globalization;
 using static RDCore.Tests.Cli.ModuleWorkspace;
+using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Server;
 
@@ -107,7 +108,7 @@ public sealed class UserInterfaceLanguageTests
         Assert.AreEqual(message, applied.Message);
         Assert.AreEqual(setting, CultureInfo.CurrentUICulture.Name);
         Assert.AreEqual(machine, CultureInfo.CurrentCulture.Name);
-        StringAssert.StartsWith(RDCore.CLI.Resources.Host_ChangedWhileWaiting_Resume, "{0} changed while", "the neutral resources: English");
+        StringAssert.StartsWith(RDCore.Runtime.Support.Resources.Host_ChangedWhileWaiting_Resume, "{0} changed while", "the neutral resources: English");
     }
 
     [TestMethod]

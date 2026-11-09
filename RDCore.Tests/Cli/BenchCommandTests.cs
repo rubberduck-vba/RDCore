@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Commands;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Runtime;
 using RDCore.Runtime.Semantics;
@@ -114,6 +114,24 @@ public sealed class BenchCommandTests
 
         Assert.AreEqual(Root, workspace.Root);
         CollectionAssert.AreEqual(new[] { "Cases" }, workspace.Modules.Select(module => module.Name).ToArray());
+    }
+
+    [TestMethod]
+    public async Task TheDocumentOfEachModule_AndTheRoot_AreFileUris_ReadBackAsTheyAreWritten()
+    {
+        var workspace = await Load(Files(("Cases.bas", Cases), ("Model/Tally.cls", Tally)));
+
+        // a parse and a built program's image travel as JSON, which writes a Uri as its text and reads it back as relative or absolute: the text of a path
+        // that begins with / is read back relative, on Linux.
+        foreach (var uri in workspace.Modules.Select(workspace.DocumentOf).Append(workspace.RootUri))
+        {
+            Assert.AreEqual(Uri.UriSchemeFile, uri.Scheme, uri.OriginalString);
+            var read = new Uri(uri.OriginalString, UriKind.RelativeOrAbsolute);
+            Assert.IsTrue(read.IsAbsoluteUri, uri.OriginalString);
+            Assert.AreEqual(uri, read);
+        }
+
+        Assert.AreEqual(Path.Combine(Root, "Model", "Tally.cls"), workspace.DocumentOf(workspace.Modules[1]).LocalPath);
     }
 
     [TestMethod]

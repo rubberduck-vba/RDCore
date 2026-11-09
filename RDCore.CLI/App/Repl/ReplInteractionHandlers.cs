@@ -1,6 +1,6 @@
 using OmniSharp.Extensions.JsonRpc;
 using RDCore.External.Interaction;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 

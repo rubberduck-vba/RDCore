@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 
@@ -123,7 +124,7 @@ public sealed class PokeAtAReferenceParameterTests
             var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = 16, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
 
             Assert.IsFalse(poked.IsWritten);
-            Assert.AreEqual(Resources.Host_TheProgramIsRunning, poked.Error);
+            Assert.AreEqual(RDCore.Runtime.Support.Resources.Host_TheProgramIsRunning, poked.Error);
             _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
             Assert.AreEqual(ExecutionOutcome.Halted, (await running).Outcome);
         }, ModuleWorkspace.WhenRunning, debug: true);

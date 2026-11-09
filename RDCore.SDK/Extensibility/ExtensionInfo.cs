@@ -68,6 +68,16 @@ public record class ExtensionInfo
     public string? DiagnosticPrefix { get; init; }
 
     /// <summary>
+    /// Whether the extension is the one the platform bundles (<see cref="Platform.PlatformManifest.CoreExtension"/>), whose diagnostics are the platform's own.
+    /// </summary>
+    /// <remarks>
+    /// Not read from the extension's manifest: the platform says which extension it bundles, and the extension does not. Set when the extension is found
+    /// (<see cref="IExtensionsProvider.Discover"/>).
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsCoreExtension { get; init; }
+
+    /// <summary>
     /// The version of <c>RDCore.SDK</c> the extension was built against, as its assembly references it; <c>null</c> when the manifest does not say.
     /// </summary>
     public Version? SdkVersion { get; init; }

@@ -1,5 +1,5 @@
 using RDCore.CLI.Themes;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using Spectre.Console;
 using System.Reflection;
 using System.Text.Json;

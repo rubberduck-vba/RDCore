@@ -16,6 +16,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.LanguageServer;
 

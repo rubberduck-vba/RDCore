@@ -12,6 +12,7 @@ using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.Runtime.LanguageCore.Static.Expressions;
 using RDCore.Runtime.LanguageCore.Services;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Static.Expressions;
 
@@ -252,7 +253,7 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
         // the declared type of the match, the simple name expression is invalid" - the match is Sqr, which returns a Double (MS-VBA too: oracle\s44 D15).
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
-        Assert.Contains("'Sqr' is declared as Double", result.ErrorInfo.Verbose);
+        Assert.Contains("'Sqr' is declared as Double", result.ErrorInfo!.Verbose);
     }
 
     // MS-VBA ignores the character on a reserved function of the library, where MS-VBAL §5.6.10 makes the name invalid (oracle\s46 F18, oracle\s44 D01-D18):
@@ -293,7 +294,7 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.VariableNotDefined, result.ErrorInfo!.VBCompileErrorId);
-        Assert.Contains("Nope$", result.ErrorInfo.Verbose, "the diagnostic quotes the name as it was written");
+        Assert.Contains("Nope$", result.ErrorInfo!.Verbose, "the diagnostic quotes the name as it was written");
     }
 
     [TestMethod]
@@ -312,7 +313,7 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
-        Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
+        Assert.Contains("'Left' is declared as Long", result.ErrorInfo!.Verbose);
     }
 
     [TestMethod]
@@ -330,7 +331,7 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
-        Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
+        Assert.Contains("'Left' is declared as Long", result.ErrorInfo!.Verbose);
     }
 
     // a module of a referenced library that declares a public function Left As Long. No referenced library declares a member by its bare name yet (a class's
@@ -372,7 +373,7 @@ public sealed class SimpleNameExpressionStaticSemanticsTests
 
         Assert.IsTrue(result.IsError);
         Assert.AreEqual(VBCompileErrorId.TypeDeclarationCharacterDoesNotMatch, result.ErrorInfo!.VBCompileErrorId);
-        Assert.Contains("'Left' is declared as Long", result.ErrorInfo.Verbose);
+        Assert.Contains("'Left' is declared as Long", result.ErrorInfo!.Verbose);
     }
 
     [TestMethod]

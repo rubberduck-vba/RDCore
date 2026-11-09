@@ -7,7 +7,7 @@ A **runtime error** is raised by the runtime semantics layer and left unhandled 
 |Code family|`VBR`; the numeric portion matches the corresponding MS-VBA run-time error code|
 |Title|_Run-time error_|
 |Raised by|the runtime semantics layer|
-|Source metadata|[VBRuntimeErrorInfo](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html); its identifier is a [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html) whose numeric value corresponds to its MS-VBAL specified error code|
+|Source metadata|[VBRuntimeErrorInfo](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html); its `ErrorId` is the MS-VBA run-time error number (`VBRuntimeErrorId` in the language core names each one)|
 |Severity|`Error`|
 
 Regardless of the error message content, RD-VBA must still raise the MS-VBA equivalent error code in the relevant contexts (e.g. `VBR00461` `MethodOrDataMemberNotFound`, whose message uses the term "data member"; see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).

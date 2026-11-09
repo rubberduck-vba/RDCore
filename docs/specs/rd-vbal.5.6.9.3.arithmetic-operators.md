@@ -75,7 +75,7 @@ NaN, MS-VBA's `Variant` arithmetic differs from typed arithmetic, and RD-VBA fol
 An infinity and a NaN are values of `Single`, `Double` and `Variant`: they are copied between them, and assigned,
 with no error. Converted to any other type, compared (a NaN), or given a sign by `Sgn` (a NaN), they are 6.
 
-Run-time error 6 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.Overflow`. For division
+Run-time error 6 is `VBRuntimeErrorId.Overflow`. For division
 by zero, see [**RD-VBAL §5.6.9.3.6** \ Operator and Mod Operator](#56936--operator-and-mod-operator).
 
 ## 5.6.9.3.1 Unary - Operator

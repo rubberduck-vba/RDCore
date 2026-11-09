@@ -1,6 +1,6 @@
 using RDCore.CLI.App.Configuration;
 using RDCore.CLI.Themes;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Server.Configuration;
 

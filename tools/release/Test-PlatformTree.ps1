@@ -41,7 +41,7 @@ function Read-PlatformManifest([string]$Path) {
 function Get-Sha256([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 
 # (a) rdcore.json: present, parses, the contract's keys in the contract's order, and every path it names exists
-$ManifestKeys = @("platformVersion", "commit", "rid", "generatedUtc", "hostService", "langService", "parseServer", "extensionsDirectory")
+$ManifestKeys = @("platformVersion", "commit", "rid", "generatedUtc", "hostService", "langService", "parseServer", "extensionsDirectory", "coreExtension")
 $Manifest = $null
 $ManifestPath = Join-Path $Root "rdcore.json"
 if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
@@ -94,7 +94,8 @@ if ($Manifest) {
 # (b) every extension as the language server validates it: folder named after the Title, Name present, and the
 # FileHash base64(SHA-512) of the exe. describe-ext hashed the exe, so this catches any change made after it.
 $ExtensionCount = 0
-$ExtensionsRoot = if ($Manifest -and $Manifest.extensionsDirectory) { Join-Path $Root $Manifest.extensionsDirectory }
+$ExtensionTitles = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$ExtensionsRoot =if ($Manifest -and $Manifest.extensionsDirectory) { Join-Path $Root $Manifest.extensionsDirectory }
 if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Container)) {
     foreach ($folder in Get-ChildItem -LiteralPath $ExtensionsRoot -Directory) {
         $relative = Get-RelativePath $folder.FullName
@@ -109,6 +110,7 @@ if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Conta
         }
         $ExtensionCount++
         if ($extension.Title -cne $folder.Name) { Add-Failure "$relative/extension.manifest.json: Title '$($extension.Title)' does not match its folder name." }
+        else { [void]$ExtensionTitles.Add($folder.Name) }
         $name = [string]$extension.Name
         $executable = Join-Path $folder.FullName $name
         if (-not $name -or $name -match "[/\\]" -or -not (Test-Path -LiteralPath $executable -PathType Leaf)) {
@@ -126,6 +128,10 @@ if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Conta
         }
     }
     if ($ExtensionCount -eq 0) { Add-Failure "no extension manifests under $(Get-RelativePath $ExtensionsRoot)." }
+    # the extension whose title is coreExtension (ignoring case) is the core one, and the first-party diagnostic prefixes are its own
+    if ($Manifest.coreExtension -and -not $ExtensionTitles.Contains($Manifest.coreExtension)) {
+        Add-Failure "rdcore.json: coreExtension '$($Manifest.coreExtension)' is not an extension under $(Get-RelativePath $ExtensionsRoot)."
+    }
 }
 
 # (c) every first-party assembly carries the same informational version, <platformVersion>+<commit>

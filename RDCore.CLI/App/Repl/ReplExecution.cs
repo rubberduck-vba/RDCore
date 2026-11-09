@@ -1,6 +1,6 @@
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 

@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Model.Errors;
+﻿using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Immutable;
 
@@ -12,42 +13,43 @@ namespace RDCore.SDK.Runtime.Shared;
 /// <remarks>
 /// The resolver reports <em>which</em> compile-time error a lookup hit, not a located
 /// <see cref="VBCompileErrorInfo"/>: it does not know where the reference is. The caller, which has
-/// the syntax node, builds the diagnostic from <see cref="ErrorId"/> and <see cref="Candidates"/>.
+/// the syntax node, builds the diagnostic from <see cref="ErrorCode"/> and <see cref="Candidates"/>.
+/// The errors a lookup hits:
 /// <list type="bullet">
-/// <item><see cref="VBCompileErrorId.DuplicateDeclaration"/>: the name is declared more than once
+/// <item><em>Duplicate declaration in current scope</em>: the name is declared more than once
 ///   within one module or procedure.</item>
-/// <item><see cref="VBCompileErrorId.AmbiguousName"/>: the name resolves in more than one enclosing
+/// <item><em>Ambiguous name detected</em>: the name resolves in more than one enclosing
 ///   scope (members promoted from different modules or references); the reference must qualify it.</item>
-/// <item><see cref="VBCompileErrorId.InconsistentPropertyAccessors"/>: the name resolves to a
+/// <item><em>Definitions of property procedures for the same property are inconsistent</em>: the name resolves to a
 ///   property's <c>Get</c>/<c>Let</c>/<c>Set</c> accessors, but their declarations are not a valid
 ///   property (<strong>MS-VBAL §5.3.1.7</strong>).</item>
-/// <item><see cref="VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet"/>: the name resolves to a
+/// <item><em>Argument required for Property Let or Property Set</em>: the name resolves to a
 ///   <c>Property Let</c> or <c>Property Set</c> declared with no parameters at all, so it has no value
 ///   parameter (<strong>MS-VBAL §5.3.1.5</strong>: <c>value-param</c> is never bracketed).</item>
 /// </list>
 /// </remarks>
 /// <param name="Symbol">The bound symbol, or <c>null</c> when the name is unbound or in error.</param>
-/// <param name="ErrorId">The compile-time error the lookup hit, or <c>null</c>.</param>
+/// <param name="ErrorCode">The diagnostic code of the compile-time error the lookup hit (a <see cref="RDCoreDiagnosticCode.CompilePrefix"/> code), or <c>null</c>.</param>
 /// <param name="Candidates">The colliding declarations for an error result; empty otherwise.</param>
 public readonly record struct SymbolResolutionResult(
     Symbol? Symbol,
-    VBCompileErrorId? ErrorId,
+    RDCoreDiagnosticCode? ErrorCode,
     ImmutableArray<Symbol> Candidates)
 {
     /// <summary>
     /// <c>true</c> when the name bound to exactly one symbol.
     /// </summary>
-    public bool IsResolved => Symbol is not null && ErrorId is null;
+    public bool IsResolved => Symbol is not null && ErrorCode is null;
 
     /// <summary>
     /// <c>true</c> when no scope declared the name: not an error in itself.
     /// </summary>
-    public bool IsUnbound => Symbol is null && ErrorId is null;
+    public bool IsUnbound => Symbol is null && ErrorCode is null;
 
     /// <summary>
     /// <c>true</c> when the lookup hit a compile-time error.
     /// </summary>
-    public bool IsError => ErrorId is not null;
+    public bool IsError => ErrorCode is not null;
 
     /// <summary>
     /// A successful resolution to <paramref name="symbol"/>.
@@ -58,32 +60,4 @@ public readonly record struct SymbolResolutionResult(
     /// The name is declared nowhere visible from the origin scope.
     /// </summary>
     public static readonly SymbolResolutionResult Unbound = new(null, null, []);
-
-    /// <summary>
-    /// The name is declared more than once in a single scope
-    /// (<see cref="VBCompileErrorId.DuplicateDeclaration"/>).
-    /// </summary>
-    public static SymbolResolutionResult Duplicate(IEnumerable<Symbol> candidates)
-        => new(null, VBCompileErrorId.DuplicateDeclaration, [.. candidates]);
-
-    /// <summary>
-    /// The name resolves in more than one enclosing scope and must be qualified
-    /// (<see cref="VBCompileErrorId.AmbiguousName"/>).
-    /// </summary>
-    public static SymbolResolutionResult Ambiguous(IEnumerable<Symbol> candidates)
-        => new(null, VBCompileErrorId.AmbiguousName, [.. candidates]);
-
-    /// <summary>
-    /// The name resolves to a property's <c>Get</c>/<c>Let</c>/<c>Set</c> accessors, but their
-    /// declarations are not a valid property (<see cref="VBCompileErrorId.InconsistentPropertyAccessors"/>).
-    /// </summary>
-    public static SymbolResolutionResult InconsistentPropertyAccessors(IEnumerable<Symbol> candidates)
-        => new(null, VBCompileErrorId.InconsistentPropertyAccessors, [.. candidates]);
-
-    /// <summary>
-    /// The name resolves to a <c>Property Let</c> or <c>Property Set</c> with no parameters at all
-    /// (<see cref="VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet"/>).
-    /// </summary>
-    public static SymbolResolutionResult ArgumentRequiredForPropertyLetOrSet(IEnumerable<Symbol> candidates)
-        => new(null, VBCompileErrorId.ArgumentRequiredForPropertyLetOrSet, [.. candidates]);
 }

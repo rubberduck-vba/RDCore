@@ -37,11 +37,11 @@ Each diagnostics provider projects its own findings to LSP `Diagnostic`s through
 |Hop|Protocol|
 |---|---|
 |Editor → language server|plain LSP (`textDocument/diagnostic`)|
-|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentParams](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentParams.html), answered by a [DiagnoseDocumentResult](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentResult.html))|
+|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentParams](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentParams.html), answered by a [DiagnoseDocumentResult](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentResult.html))|
 
 The editor edge of the diagnostics pipeline stays plain LSP throughout. Only the language-server-to-provider hop is an RDCore request.
 
-The `rdcore/diagnostics/document` request carries the parse result ([DiagnoseDocumentPayload](../api/RDCore.SDK.Platform.Protocol.DiagnoseDocumentPayload.html)) as a [PlatformJson](../api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic.
+The `rdcore/diagnostics/document` request carries the parse result ([DiagnoseDocumentPayload](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentPayload.html)) as a [PlatformJson](../api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic.
 
 > [!NOTE]
 > **Not implemented.** The `rdcore/diagnostics/document` request does not carry a `SemanticContext` (resolver output). It carries the parse result.

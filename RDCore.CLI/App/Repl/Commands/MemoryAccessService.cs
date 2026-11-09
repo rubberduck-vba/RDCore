@@ -1,5 +1,5 @@
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using System.Globalization;
 
 namespace RDCore.CLI.App.Repl.Commands;

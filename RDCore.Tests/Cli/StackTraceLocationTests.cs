@@ -293,8 +293,9 @@ public sealed class StackTraceLocationTests
             "End Sub")),
     ];
 
-    // an object let go of where the activation that holds it ends, or leaves the For Each that held it: the activation is located where it then is - at its
-    // Exit Sub, nowhere past the end of its body, at the statement after the loop, which its Next or its Exit For leads to - and not at the last call it made.
+    // an object let go of where the activation that holds it ends, or leaves the For Each that held it: the activation is located where it then is, and not
+    // at the last call it made. That is nowhere, past the end of its body, which an Exit Sub goes to through its End Sub; or the statement after the loop,
+    // which its Next or its Exit For leads to.
     [TestMethod]
     public async Task AnActivationThatLetsGoOfAnObjectWhoseTerminateRaises_IsLocatedWhereItLetsGoOfIt()
     {
@@ -337,7 +338,7 @@ public sealed class StackTraceLocationTests
                 new[]
                 {
                     "  at Class_Terminate (8:5)", "  at Ends", "  at Main (2:5)",
-                    "  at Class_Terminate (8:5)", "  at Ends (12:23)", "  at Main (3:5)",
+                    "  at Class_Terminate (8:5)", "  at Ends", "  at Main (3:5)",
                     "  at Class_Terminate (8:5)", "  at Loops (22:5)", "  at Main (4:5)",
                     "  at Class_Terminate (8:5)", "  at Loops (22:5)", "  at Main (5:5)",
                 },

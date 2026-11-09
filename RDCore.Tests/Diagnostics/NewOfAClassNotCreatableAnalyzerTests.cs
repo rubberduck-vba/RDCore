@@ -2,10 +2,11 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Diagnostics.Model;
 using RDCore.Parsing;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.Tests.Cli;
+using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

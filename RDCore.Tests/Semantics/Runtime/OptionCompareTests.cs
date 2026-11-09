@@ -3,7 +3,6 @@ using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Operators.Relational;
 using RDCore.SDK.Model.AST.Abstract;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;

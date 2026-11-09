@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Runtime;
 using System.IO.Abstractions.TestingHelpers;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Files;
 

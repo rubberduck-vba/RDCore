@@ -7,6 +7,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.LanguageServer.Debugging;
 

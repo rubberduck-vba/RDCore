@@ -26,6 +26,7 @@ using RDCore.Runtime.LanguageCore.Plans;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Abstract;
 

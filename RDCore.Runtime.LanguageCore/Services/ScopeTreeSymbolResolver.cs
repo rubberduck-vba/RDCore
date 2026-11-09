@@ -12,6 +12,7 @@ using RDCore.SDK.Runtime.StdLib;
 using System.Diagnostics.CodeAnalysis;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Services;
 
