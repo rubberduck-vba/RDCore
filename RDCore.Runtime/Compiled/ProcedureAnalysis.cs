@@ -211,6 +211,12 @@ internal sealed partial class ProcedureAnalysis
     /// </summary>
     public bool ResultIsVariant { get; private set; }
 
+    /// <summary>
+    /// Whether the function result variable is a <c>String</c> of variable length, which its frame holds: compiled code assigns it a text where the
+    /// interpreter assigns it (<see cref="TextResultLetStep"/>), and reads nothing of it.
+    /// </summary>
+    public bool ResultIsText { get; private set; }
+
     /// <summary>The <c>For</c> loops, numbered.</summary>
     public IReadOnlyList<CompiledForLoop> Loops => _loops;
 
@@ -324,7 +330,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
@@ -553,6 +559,7 @@ internal sealed partial class ProcedureAnalysis
             {
                 NeedsFrame = true;
                 ResultIsVariant = returning.ResolvedType is VBVariantType;
+                ResultIsText = IsText(returning.ResolvedType);
             }
             else
             {
@@ -746,6 +753,10 @@ internal sealed partial class ProcedureAnalysis
             // a String is assigned the text as it is, as TryAssignUnboxed assigns it.
             case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
                 return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
+
+            // the result of a function of the String type, assigned the text as it is where its frame holds it.
+            case BoundName { Symbol: var function } when ResultIsText && IsOwnFunction(function):
+                return Text(assigned) is { } resultText ? new TextResultLetStep(offset, resultText) : null;
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
                 return null;
