@@ -146,8 +146,9 @@ public class ExtensionsClient(
     /// <remarks>
     /// An extension is found only when its diagnostic prefix (<see cref="ExtensionInfo.DiagnosticPrefix"/>) is its own, whatever the order of the folders:
     /// <list type="bullet">
-    /// <item>the first-party prefixes (<c>RDC</c>, <c>RDX</c>) belong to the core extension, the one the platform manifest bundles
-    /// (<see cref="PlatformManifest.CoreExtension"/>): another extension that declares one is not found;</item>
+    /// <item><c>RDC</c> belongs to the core extension, the one the platform manifest bundles (<see cref="PlatformManifest.CoreExtension"/>): another extension
+    /// that declares it is not found;</item>
+    /// <item><c>RDX</c> is the first-party extensions' prefix, and the one prefix that several extensions may declare;</item>
     /// <item>the language's own prefixes (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>) belong to the platform: an extension that declares one is not found;</item>
     /// <item>when two extensions declare the same other prefix, neither is found;</item>
     /// <item>an extension whose prefix is not three letters <c>A</c> to <c>Z</c> is not found.</item>
@@ -222,7 +223,7 @@ public class ExtensionsClient(
 
             var reason = !RDCoreDiagnosticCode.IsPrefix(prefix) ? "which is not three letters A to Z"
                 : prefix is RDCoreDiagnosticCode.CompilePrefix or RDCoreDiagnosticCode.RuntimePrefix or RDCoreDiagnosticCode.ApplicationPrefix ? "which is the language's own"
-                : prefix is RDCoreDiagnosticCode.CorePrefix or RDCoreDiagnosticCode.ExtensionPrefix && !string.Equals(title, coreExtension, StringComparison.OrdinalIgnoreCase)
+                : prefix is RDCoreDiagnosticCode.CorePrefix && !string.Equals(title, coreExtension, StringComparison.OrdinalIgnoreCase)
                     ? $"which is the platform's core extension's ('{coreExtension}')"
                 : null;
             if (reason is not null)

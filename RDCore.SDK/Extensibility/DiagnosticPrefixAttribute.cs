@@ -10,8 +10,9 @@ namespace RDCore.SDK.Extensibility;
 /// <para>
 /// The prefix is written into the extension's manifest when the extension is described (<see cref="IExtensionsProvider.Describe"/>), as
 /// <see cref="ExtensionInfo.DiagnosticPrefix"/>. The language server starts an extension only when its prefix is its own
-/// (<see cref="IExtensionsProvider.Discover"/>): the first-party prefixes (<c>RDC</c>, <c>RDX</c>) belong to the core extension, the language's
-/// (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>) belong to no extension, and two extensions that declare the same prefix are both left unstarted.
+/// (<see cref="IExtensionsProvider.Discover"/>): <c>RDC</c> belongs to the core extension, the language's prefixes (<c>VBC</c>, <c>VBR</c>, <c>VBA</c>)
+/// belong to no extension, and two extensions that declare the same prefix are both left unstarted. <c>RDX</c>, the first-party extensions' prefix, is the
+/// one that several extensions may declare.
 /// </para>
 /// <para>
 /// A finding the extension reports under another prefix is dropped. A finding under its own prefix is reported under the extension's name.

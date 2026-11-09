@@ -123,12 +123,10 @@ public sealed class ExtensionsClientDiscoverTests
     }
 
     [TestMethod]
-    [DataRow("RDC")]
-    [DataRow("RDX")]
-    public void AFirstPartyPrefix_IsTheCoreExtensions_WhereverTheFoldersSort(string prefix)
+    public void TheCorePrefix_IsTheCoreExtensions_WhereverTheFoldersSort()
     {
         // Aardvark sorts before Core, and Zebra after it: neither is the extension the platform bundles.
-        var (sut, logger) = Build(Manifest("Aardvark", prefix), Manifest("Core", "RDC"), Manifest("Zebra", prefix));
+        var (sut, logger) = Build(Manifest("Aardvark", "RDC"), Manifest("Core", "RDC"), Manifest("Zebra", "RDC"));
 
         var found = sut.Discover().ToArray();
 
@@ -138,6 +136,17 @@ public sealed class ExtensionsClientDiscoverTests
         var warnings = Warnings(logger).ToArray();
         Assert.HasCount(2, warnings);
         Assert.IsTrue(warnings.All(warning => warning.Contains("core extension's ('Core')")), string.Join("\n", warnings));
+    }
+
+    [TestMethod]
+    public void TwoExtensionsOfTheFirstPartyExtensionPrefix_AreBothFound()
+    {
+        var (sut, logger) = Build(Manifest("Core", "RDC"), Manifest("VendorExtension", "RDX"), Manifest("OtherVendorExtension", "RDX"));
+
+        var found = sut.Discover().Where(extension => !extension.IsCoreExtension).Select(extension => extension.Title).ToArray();
+
+        CollectionAssert.AreEquivalent(new[] { "VendorExtension", "OtherVendorExtension" }, found);
+        Assert.IsEmpty(Warnings(logger).ToArray());
     }
 
     [TestMethod]

@@ -76,6 +76,23 @@ public sealed class ExtensionFindingsTests
     }
 
     [TestMethod]
+    public void AFirstPartyExtensionsFinding_OfTheFirstPartyExtensionPrefix_IsItsOwn_AndItsOtherFindingsAreDropped()
+    {
+        var logger = new RecordingLogger();
+        const string help = "https://rubberduck-vba.github.io/RDCore/diagnostics/rdx00042.html";
+
+        var admitted = ExtensionFindings.Admit(Extension("VendorExtension", "RDX"), [Finding("RDX00042", help), Finding("RDC00101"), Finding("XYZ00042")], logger);
+
+        var kept = Assert.ContainsSingle(admitted);
+        Assert.AreEqual("RDX00042", kept.Code!.Value.String);
+        Assert.AreEqual("VendorExtension", kept.Source);
+        Assert.IsNull(kept.CodeDescription);
+        var warning = Assert.ContainsSingle(logger.Entries.Where(entry => entry.Level == LogLevel.Warning));
+        StringAssert.Contains(warning.Message, "2 finding(s) of extension 'VendorExtension'");
+        StringAssert.Contains(warning.Message, "RDC00101, XYZ00042");
+    }
+
+    [TestMethod]
     public void AnExtensionThatDeclaresNoPrefix_HasNoFindingReported()
         => Assert.IsEmpty(ExtensionFindings.Admit(Extension("Vendor", null), [Finding("XYZ00042")], NullLogger.Instance));
 
