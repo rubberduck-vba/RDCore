@@ -53,7 +53,9 @@ internal static class RecordDataFormat
         LongLong = 20,
     }
 
-    /// <summary>The second byte of the descriptor of a Variant that holds an array: VarType's <c>vbArray</c>, <c>&amp;H2000</c>.</summary>
+    /// <summary>
+    /// The second byte of the descriptor of a Variant that holds an array: VarType's <c>vbArray</c>, <c>&amp;H2000</c>.
+    /// </summary>
     private const byte ArrayDescriptor = 0x20;
 
     /// <summary>ANSI, "without NULL termination" — the encoding the format's String rows name.</summary>
