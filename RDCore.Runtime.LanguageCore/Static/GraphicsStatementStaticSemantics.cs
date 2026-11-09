@@ -4,6 +4,7 @@ using RDCore.SDK.Model.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
+// TODO a document module that is a form or a report has these members, and an unqualified statement in one is its own surface's.
 public static class GraphicsStatementStaticSemantics
 {
     public static VBCompileErrorInfo? Evaluate(GraphicsMethodStatementNode graphics)

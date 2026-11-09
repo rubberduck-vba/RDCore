@@ -12,6 +12,7 @@ using System.Collections.Immutable;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.2.4.3, §5.2.3.1.2, §5.3.1.8
+// an event name has no underscore because an underscore ends the variable's name in a handler's name.
 public static class ClassModuleEventSemantics
 {
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(VBClassModuleSymbol module, ISymbolResolver? resolver = null)

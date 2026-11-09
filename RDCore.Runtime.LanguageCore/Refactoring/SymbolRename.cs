@@ -74,6 +74,7 @@ public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, st
 public sealed record class RenameTarget(string Name, Uri Module, SourceRange Range, ImmutableArray<SemanticId> Symbols);
 
 // MS-VBAL §6.1.2.8.1.1, §5.6.12
+// what a string or a late-bound name refers to is only known at run time, so its edit asks the user to confirm.
 public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false, bool IsBacked = false);
 
 public sealed record class RenamePreparation(RenameTarget? Target, RenameRefusal? Refusal);
@@ -84,6 +85,7 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 }
 
 // MS-VBAL §5.6.10, §5.6.12
+// a name whose meaning cannot be told is not guessed at: the rename is refused.
 public static class SymbolRename
 {
     public static RenamePreparation Prepare(RenameContext context, Uri module, SourcePosition position)

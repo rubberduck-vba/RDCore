@@ -12,8 +12,11 @@ using RDCore.SDK.Semantics.Instructions;
 namespace RDCore.Runtime.LanguageCore.Instructions;
 
 // RD-VBAL §3.5; MS-VBAL §5.4.1.1
+// a flat, offset-addressed list: GoTo, GoSub, On...GoTo and Resume jump anywhere in a procedure, which a tree walk cannot express.
+// the errors are StatementStaticSemanticsEvaluator.CheckStructure's, the one place the rules are written: lowering only acts on the outcome.
 public static class InstructionListLowering
 {
+    // a label is scoped to its procedure: a nested block lowered on its own would under-resolve every jump into or out of it.
     public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default, MemberKind? procedure = null)
     {
         var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.IsReleaseBuild, options.Language, procedure);

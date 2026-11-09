@@ -11,6 +11,7 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
+// a count is stated only when it is the whole truth: nothing outside the analyzed code can refer to the declaration, and that code was fully analyzed.
 public static class DeclarationUsage
 {
     public static ImmutableArray<DeclarationFact> Of(

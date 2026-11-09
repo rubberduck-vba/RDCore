@@ -6,6 +6,8 @@ using System.Collections.Concurrent;
 namespace RDCore.Runtime.LanguageCore.Plans;
 
 // MS-VBAL §5.5.1.2
+// the static semantics keep their own table (MS-VBAL §5.5.1.1) and must not consult this one: they are stricter, as for an implicit LongLong let-coercion.
+// a Byte() let-coerced to a number, a Boolean or a Date is statically valid (§5.5.1.1 has no row for it) and a type mismatch whenever it runs (§5.5.1.2.6).
 public static class ConversionPlanner
 {
     private static readonly ConcurrentDictionary<(VBType Source, VBType Destination), ConversionPlan> _plans = new();

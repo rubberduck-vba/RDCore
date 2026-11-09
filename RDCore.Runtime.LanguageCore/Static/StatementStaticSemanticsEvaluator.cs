@@ -21,8 +21,11 @@ using RDCore.SDK;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.6.15, §5.4.2.12, §5.4.2.16, §5.4.4.1, §5.4.4.2, §5.2.4.1.2; RD-VBAL §5.2.4.1.2
+// collects every error rather than stopping at the first: unlike an expression's operands, statements are largely independent.
+// a Set to the default instance variable of a predeclared class is valid, as MS-VBA has it.
 public static class StatementStaticSemanticsEvaluator
 {
+    // a label is scoped to its procedure: a nested block walked on its own would report every jump out of it as undefined.
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(StaticEvaluationContext context, StatementBlock block, MemberKind? procedure = null)
         => Evaluate(context, block, default, procedure);
 

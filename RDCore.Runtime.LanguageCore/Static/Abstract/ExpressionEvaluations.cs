@@ -2,6 +2,7 @@ using RDCore.SDK.Model.AST.Abstract;
 
 namespace RDCore.Runtime.LanguageCore.Static.Abstract;
 
+// an expression is evaluated once however deep it is nested: evaluating it again at each level makes a nested call's work a power of its depth.
 internal sealed class ExpressionEvaluations
 {
     private readonly Dictionary<ExpressionNode, (StaticEvaluationContext Context, StaticSemanticsEvaluationResult Result)> _evaluated = new(ReferenceEqualityComparer.Instance);

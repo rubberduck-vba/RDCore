@@ -10,6 +10,7 @@ using RDCore.SDK;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.5.2.1
+// MS-VBAL §5.5.2.1 deliberately stops there: whether a source class implements or derives from the destination's class is a run-time question (§5.5.2.2.1, error 13), not a static one.
 public record class SetCoercionStaticSemantics : StaticSemantics
 {
     private static readonly Lazy<SetCoercionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
@@ -30,6 +31,7 @@ public record class SetCoercionStaticSemantics : StaticSemantics
         return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(id, expression.Location, Exceptions.VBCompileError_SetCoercionTypeMismatch_Verbose));
     }
 
+    // VBUnknownType on either side cannot be shown to violate the rule: deferred, not flagged.
     private static bool IsSetCoercionInvalid(VBType source, VBType destination)
         => source is not VBUnknownType && destination is not VBUnknownType
             && (destination is not (VBClassType or VBObjectType or VBVariantType)

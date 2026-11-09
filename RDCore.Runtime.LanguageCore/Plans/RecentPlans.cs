@@ -3,6 +3,8 @@ using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.LanguageCore.Plans;
 
+// a set keeps its last two plans, latest first: two plans a loop asks for in turn can share a set, and would evict each other.
+// an entry is immutable and replaced whole, so racing threads only cost each other a lookup.
 internal sealed class RecentPlans<TPlan> where TPlan : class
 {
     private const int Sets = 64;

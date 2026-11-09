@@ -7,6 +7,8 @@ using RDCore.Runtime.LanguageCore.Instructions;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.4.2.5, §5.4.2.7, §5.4.2.17, §5.4.2.18, §5.4.2.19
+// stated once: StatementStaticSemanticsEvaluator and InstructionListLowering must agree on it.
+// Exit Function is accepted in a Property Get, where MS-VBAL §5.4.2.18 refuses it: MS-VBA accepts it, and programs rely on that.
 public static class ExitStatementStaticSemantics
 {
     public static VBCompileErrorInfo? Evaluate(KeywordStatementNode exit, bool withinFor, bool withinDo, MemberKind? procedure)

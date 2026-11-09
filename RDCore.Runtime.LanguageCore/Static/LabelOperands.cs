@@ -9,6 +9,7 @@ using System.Globalization;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.4.2.12, §5.4.2.16, §5.4.4.1, §5.4.4.2
+// a label is not a symbol: its operand is read with these helpers, never evaluated as an expression.
 internal static class LabelOperands
 {
     public static bool TryGetLabelName(ExpressionNode operand, [NotNullWhen(true)] out string? name)

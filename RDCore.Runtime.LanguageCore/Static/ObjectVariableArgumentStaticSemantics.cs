@@ -14,6 +14,7 @@ using RDCore.SDK.Semantics;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // RD-VBAL §5.3.1.11; MS-VBAL §5.6.12, §5.3.1.11
+// MS-VBA implements a public variable of a class as a property: the caller passes what its Get returns, and what the callee assigns is lost.
 public static class ObjectVariableArgumentStaticSemantics
 {
     public static void MarkPassedAsCopies(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments)

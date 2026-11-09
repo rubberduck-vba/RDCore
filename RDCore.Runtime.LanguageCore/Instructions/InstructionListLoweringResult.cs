@@ -5,4 +5,5 @@ using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.LanguageCore.Instructions;
 
+// always built, errors or not: whether to run a body with errors is the executor's decision, not lowering's.
 public sealed record class InstructionListLoweringResult(InstructionList InstructionList, ImmutableArray<VBCompileErrorInfo> Errors);

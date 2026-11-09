@@ -14,6 +14,8 @@ using RDCore.SDK;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.2.3.1, §5.2.3.3, §5.3.1, §5.3.1.5
+// as MS-VBA does, not all as MS-VBAL says: a procedural module's public members may use its private types, and a field of its Public Type a private Enum or type.
+// MS-VBA also accepts, as RD-VBA does, a procedural module's Public Type as a parameter of a class's public procedure or event, which §5.3.1.5 refuses.
 public static class PublicMemberSemantics
 {
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(Symbol module, IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver)

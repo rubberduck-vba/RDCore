@@ -6,6 +6,8 @@ using System.Collections.Concurrent;
 namespace RDCore.Runtime.LanguageCore.Plans;
 
 // MS-VBAL §5.6.9, §5.6.9.5, §5.6.9.8
+// the relational operators' static semantics must not consult this table: a comparison's declared type says nothing of the type it compares in.
+// two rules depend on values, not types, and stay the evaluation's: a Variant number against a String (§5.6.9.5), Null in a logical operation (§5.6.9.8).
 public static class OperationPlanner
 {
     private static readonly ConcurrentDictionary<(string Operator, VBType Left, VBType Right), OperationPlan> _binary = new();
@@ -213,6 +215,7 @@ public static class OperationPlanner
     };
 
     // MS-VBAL §5.6.9.5; RD-VBAL §5.6.9.5
+    // kept for an analysis that states where code departs from the comparison the specification states.
     public static VBType? SpecifiedRelationalEffectiveType(VBType left, VBType right) => TableRelationalEffectiveType(AliasedTypeOf(left), AliasedTypeOf(right));
 
     // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL makes the effective type the number's: "2.5" = 2 is False and

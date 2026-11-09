@@ -30,6 +30,7 @@ public abstract record class StaticSemantics() : IStaticSemantics
         => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location, 
             Exceptions.VBCompileError_TypeMismatch_Verbose.Replace("{$INPUTS}", string.Join(", ", operandDeclaredTypes.Select(type => type.Name))));
 
+    // the same compile error as a static type mismatch, with a different cause: its verbose message tells them apart.
     protected static VBCompileErrorInfo GetStaticCoercionTypeMismatchErrorInfo(ExpressionNode expression, VBType[] operandDeclaredTypes)
         => VBCompileErrorInfo.For(VBCompileErrorId.TypeMismatch, expression.Location, 
             $"{Exceptions.VBCompileError_LetCoercionTypeMismatch_Verbose} ({string.Join(" → ", operandDeclaredTypes.Select(type => type.Name))})");

@@ -24,6 +24,7 @@ namespace RDCore.Runtime.LanguageCore.Static;
 
 public static class ExpressionStaticSemanticsEvaluator
 {
+    // a node kind with no rule yet defers to VBUnknownType rather than erroring: not modeled yet, not wrong.
     public static StaticSemanticsEvaluationResult Evaluate(StaticEvaluationContext context, ExpressionNode expression)
     {
         // the evaluation of a tree keeps what each of its expressions evaluated to, so that a check that looks at an operand again does not evaluate it again.

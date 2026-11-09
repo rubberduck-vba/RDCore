@@ -6,6 +6,8 @@ using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.LanguageCore.Binding;
 
+// a Static variable has no slot: it lives as long as its module, not as long as an activation.
+// a slot is read only where its layout is the activation's: a procedure defined again has a layout of its own.
 public sealed class FrameLayout
 {
     private readonly Dictionary<SemanticId, int> _slots = [];

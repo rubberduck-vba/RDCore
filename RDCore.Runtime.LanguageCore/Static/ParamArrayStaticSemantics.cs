@@ -14,6 +14,7 @@ using RDCore.SDK;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.3.1.11
+// a ParamArray holds values the call collected, not a caller's variable: there is nothing for a reference parameter to be a second name for.
 public static class ParamArrayStaticSemantics
 {
     public static VBCompileErrorInfo? ArgumentsError(

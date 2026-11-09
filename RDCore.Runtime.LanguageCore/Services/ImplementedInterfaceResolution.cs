@@ -4,6 +4,9 @@ using RDCore.SDK.Model.Symbols;
 namespace RDCore.Runtime.LanguageCore.Services;
 
 // MS-VBAL §5.2.4.2
+// resolved over the whole set, and again on any change: an interface defined later, or edited since, is otherwise a stale snapshot.
+// recursive and memoized by Uri: a flat pass leaves Widget Implements IMiddle Implements IBase looking empty from Widget.
+// a name that is no class, the class itself, or a repeat is dropped here: ImplementsSemantics reports it.
 public static class ImplementedInterfaceResolution
 {
     public static IReadOnlyDictionary<string, VBClassModuleSymbol> Resolve(IEnumerable<VBClassModuleSymbol> classModules)

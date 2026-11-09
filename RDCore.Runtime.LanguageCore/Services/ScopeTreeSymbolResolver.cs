@@ -19,6 +19,7 @@ namespace RDCore.Runtime.LanguageCore.Services;
 public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolver
 {
     // MS-VBAL §5.6.10
+    // the tree keeps each resolution (ScopeTree.ValueResolutions): a variable read a million times is resolved once.
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
         => scopeTree.ValueResolutions.GetOrAdd(new ScopeTree.ValueResolutionKey(name, scope, handle.AbsoluteUri),
             static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle), (Resolver: this, Name: name, Handle: handle));
@@ -336,6 +337,8 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
     private static bool IsProjectOrModule(Symbol symbol) => symbol is VBProjectSymbol or VBModuleSymbol || symbol.Kind is SymbolKindExt.TypeDescriptor;
 
     // MS-VBAL §5.3.1
+    // one representative accessor, Get first: Symbol.CreateUri keys on the name, so Get, Let and Set share one Uri.
+    // TODO give each accessor a Uri of its own.
     private static SymbolResolutionResult? TryResolvePropertyAccessors(Symbol[] matches)
     {
         if (matches.Any(symbol => symbol is not IVBPropertyMemberSymbol))

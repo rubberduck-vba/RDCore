@@ -18,6 +18,7 @@ using RDCore.SDK.Semantics;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.6.12, §6.1.2.8.1.4
+// a fact for tooling, never a declaration: nothing true or not of a class it may hold is a compile error.
 public sealed record class PossibleClasses(ImmutableArray<SemanticId> Classes, bool IsComplete)
 {
     public static PossibleClasses Unknown { get; } = new([], false);
@@ -40,6 +41,8 @@ public sealed record class PossibleClasses(ImmutableArray<SemanticId> Classes, b
 
 public sealed record class PossibleClassesQuery(StaticEvaluationContext Context, ExpressionNode Expression, ScopeTree ScopeTree, Uri ModuleUri, ModuleNode Module);
 
+// a source says it knows every class only when nothing it does not see can assign the expression: a wrong answer leaves code calling a renamed member by its old name.
+// asked on any thread, about several expressions at once: it answers from what it holds, without changing it or waiting on anything.
 public interface IPossibleClassesSource
 {
     PossibleClasses? ClassesOf(PossibleClassesQuery query);

@@ -16,6 +16,8 @@ using RDCore.SDK;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.6.16.1
+// MS-VBA refuses in a Const the calls §5.6.16.1 admits (Len, Abs, CLng), and so does RD-VBA; it admits Len and LenB of a constant expression in array bounds, and so does RD-VBA.
+// a procedure's Const valued Len of a constant compiles in MS-VBA and crashes the host when it runs: RD-VBA compiles it to the length MS-VBAL gives it, and warns (RDC11021).
 public static class ConstantExpressionStaticSemantics
 {
     internal static IEnumerable<VBCompileErrorInfo> Evaluate(IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver, int optionBase = 0)

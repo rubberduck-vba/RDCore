@@ -23,6 +23,8 @@ namespace RDCore.Runtime.LanguageCore.Static;
 // MS-VBAL §5.2, §5.6.16.7
 public static class DeclarationStaticSemanticsEvaluator
 {
+    // MS-VBAL sets no limit; MS-VBA compiles 10,800 module-level names and not 11,000 (Out of memory).
+    // a round number below that, so a module RD-VBA compiles is one MS-VBA compiles.
     public const int MaxModuleNames = 10_000;
 
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(
@@ -50,6 +52,7 @@ public static class DeclarationStaticSemanticsEvaluator
         return errors.ToImmutable();
     }
 
+    // MS-VBA compiles a WithEvents variable of a control's name and class, which only seems to shadow the control: RD-VBA refuses it with the same error.
     public static ImmutableArray<VBCompileErrorInfo> CheckDesigner(ModuleNode module, FormDescriptor? designer)
     {
         if (designer is null)
@@ -82,6 +85,7 @@ public static class DeclarationStaticSemanticsEvaluator
     }
 
     // MS-VBAL §5.2
+    // reads the syntax tree, not the symbols: a name declared twice as the same kind is one symbol by then.
     public static ImmutableArray<VBCompileErrorInfo> CheckSyntax(ModuleNode module, ConditionalCompilationBlocks blocks)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
@@ -374,5 +378,6 @@ public enum DeclarationRules
 {
     Default = 0,
 
+    // asked for only once everything is defined: a module defined before the one it names does not resolve it yet.
     DeclaredTypes = 1,
 }

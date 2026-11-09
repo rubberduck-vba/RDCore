@@ -21,6 +21,7 @@ public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemant
     public static MemberAccessExpressionStaticSemantics Instance => _instance.Value;
 
     // MS-VBAL §5.6.15
+    // members are read from the declaration by identity, not from the type's snapshot: a class typed after itself cannot carry a complete one.
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not MemberAccessExpressionNode memberAccess)

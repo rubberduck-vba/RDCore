@@ -10,6 +10,8 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Binding;
 
+// decided once by the static semantics, so evaluating it does not decide it again.
+// a binding holds for the scopes it was made in: whoever keeps a bound tree keeps the scopes, and binds again when they are not the session's.
 public abstract record class BoundNode(ExpressionNode Expression);
 
 // MS-VBAL §5.6.5
@@ -28,6 +30,7 @@ public sealed record class BoundInstance(InstanceExpressionNode Instance, Symbol
 public sealed record class BoundBinary(VBBinaryOperatorExpressionNode Operation, OperationPlan? Plan, BoundNode Left, BoundNode Right) : BoundNode(Operation);
 
 // MS-VBAL §5.6.9, §5.6.6, §5.6.9.3.1, §5.6.16.1
+// MS-VBA evaluates a negated constant expression as it compiles: the least Long is negated as the Long it is, where any other negation of it overflows.
 public sealed record class BoundUnary(VBUnaryOperatorExpressionNode Operation, OperationPlan? Plan, BoundNode Operand, bool NegatesAConstantExpression = false)
     : BoundNode(Operation);
 
@@ -37,6 +40,7 @@ public sealed record class BoundCall(IndexExpressionNode Call, Symbol Procedure,
     public VBType? ResultType { get; init; }
 
     // MS-VBAL §5.6.16.1
+    // MS-VBA evaluates it as it compiles: Abs of the least Long in one is that Long, where Abs of a variable holding it overflows.
     public bool IsAConstantExpression { get; init; }
 }
 
@@ -52,6 +56,7 @@ public sealed record class BoundMember(
     IndexExpressionNode? Arguments, ImmutableArray<BoundArgument>? BoundArguments = null) : BoundNode(Expression)
 {
     // MS-VBAL §5.6.12
+    // what a late-bound member returns is a Variant whatever it declares: an Integer property read that way widens where an Integer overflows.
     public bool IsLateBound { get; init; }
 }
 

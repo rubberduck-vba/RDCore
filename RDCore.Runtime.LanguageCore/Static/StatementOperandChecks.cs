@@ -15,6 +15,7 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
+// reports into a list rather than on the first error: a statement's operands are largely independent. An operand of unknown type is deferred, not rejected.
 internal sealed class StatementOperandChecks(StaticEvaluationContext context)
 {
     private readonly ImmutableArray<VBCompileErrorInfo>.Builder _errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();

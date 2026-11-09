@@ -20,6 +20,7 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
     public static IndexExpressionStaticSemantics Instance => _instance.Value;
 
     // MS-VBAL §5.6.13.1
+    // invalid by the specification for an array, and compiled by MS-VBA.
     public static bool IsASecondEmptyArgumentList(IndexExpressionNode index)
         => IndexExpressionNode.IsEmptyArgumentList(index.Arguments) && index.Callee is IndexExpressionNode given && IndexExpressionNode.IsEmptyArgumentList(given.Arguments);
 

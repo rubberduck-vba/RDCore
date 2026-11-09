@@ -79,6 +79,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         _ => null,
     };
 
+    // the double negatives follow the specification's own wording, deliberately.
     private static bool IsLetCoercionInvalid(VBType source, VBType destination) => source switch
     {
         VBType when destination is VBFixedSizeArrayType => true,
@@ -117,6 +118,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             ? string.Equals(leftClass.Symbol.Uri.AbsoluteUri, rightClass.Symbol.Uri.AbsoluteUri, StringComparison.Ordinal)
             : left == right;
 
+    // matched by kind, not by value: a parameterized type has one instance per element type.
     private static bool AnyTypeExceptNonByteResizableArrayOr(VBType source, params Type[] exceptTypeKinds)
         => !IsNonByteResizableArray(source) && !exceptTypeKinds.Any(kind => kind.IsInstanceOfType(source));
     private static bool IsNonByteResizableArray(VBType type) => type is VBResizableArrayType and not VBResizableByteArrayType;

@@ -6,6 +6,8 @@ using RDCore.SDK.Semantics;
 namespace RDCore.Runtime.LanguageCore.Static.Abstract;
 
 // RD-VBAL §2.3.1.2; MS-VBAL §5.6.15
+// deliberately just Resolver and Scope: a module-level fact (Option Explicit, Option Compare) is read off Scope's EnclosingModuleDirectives, rather than growing a parameter.
+// EnclosingWithTargetType is threaded through: it is positional in the statement tree, not derivable from Scope.
 public readonly record struct StaticEvaluationContext(
     ISymbolResolver Resolver, LexicalScope Scope, VBType? EnclosingWithTargetType = null, IExpressionFactSink? Facts = null,
     Binding.ExpressionBindings? Bindings = null, StaticEnvironment? Environment = null)

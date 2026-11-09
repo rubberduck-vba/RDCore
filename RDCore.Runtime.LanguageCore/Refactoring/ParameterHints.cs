@@ -14,6 +14,7 @@ public readonly record struct ParameterHint(SourcePosition Position, string Name
 
 public static class ParameterHints
 {
+    // the static pass recurses once per expression level: one large-stack thread for the call, not one per callee.
     public static IReadOnlyList<ParameterHint> In(RenameContext context, Uri module, SourceRange range)
     {
         if (!LargeStackThread.IsCurrent)

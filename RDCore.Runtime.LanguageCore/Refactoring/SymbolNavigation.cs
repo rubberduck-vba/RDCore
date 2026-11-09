@@ -33,6 +33,7 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
     }
 }
 
+// a name is bound the way a rename binds it, so a navigation finds what a rename renames.
 public static class SymbolNavigation
 {
     public static SymbolNavigationTarget? DefinitionsAt(RenameContext context, Uri module, SourcePosition position)
@@ -49,6 +50,7 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
+    // the first declaration written, of every #If branch and property procedure: the same whatever branch the precompiler compiles.
     public static SymbolNavigationTarget? DeclarationAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (SymbolAt(context, module, position) is not { } named)

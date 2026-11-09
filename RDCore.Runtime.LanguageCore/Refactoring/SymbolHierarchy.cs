@@ -46,6 +46,7 @@ public static class SymbolHierarchy
         return Grouped(calls);
     }
 
+    // one large-stack thread for the call (NameOccurrences.Find), not one per name.
     public static IReadOnlyList<HierarchyCall> OutgoingCalls(RenameContext context, HierarchyItem item)
     {
         if (!LargeStackThread.IsCurrent)

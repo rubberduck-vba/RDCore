@@ -8,6 +8,7 @@ using RDCore.SDK;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §3.3.5.2
+// MS-VBAL §3.3.5.2 is silent about a reserved name written without its arguments: MS-VBA refuses it as a syntax error, not Argument not optional.
 public static class ReservedNameStaticSemantics
 {
     // how many arguments each takes, which is the one way MS-VBA parses a call of it.

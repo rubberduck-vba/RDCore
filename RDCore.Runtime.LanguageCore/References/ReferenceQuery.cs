@@ -17,6 +17,8 @@ using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Runtime.LanguageCore.References;
 
+// a name is bound the way a rename binds it, so what is found is what a rename renames.
+// each module's static semantics are evaluated once for the query, on one large-stack thread.
 public static class ReferenceQuery
 {
     public static SymbolReferences? At(RenameContext context, Uri module, SourcePosition position)

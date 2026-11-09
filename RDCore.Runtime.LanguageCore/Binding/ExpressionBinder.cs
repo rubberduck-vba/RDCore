@@ -27,6 +27,7 @@ public sealed record class BoundExpression(SyntaxNodeId Node, StaticSemanticsEva
     public VBCompileErrorInfo? Error => Result.ErrorInfo;
 }
 
+// one binding at a time: not thread-safe.
 public sealed class ExpressionBindings
 {
     private readonly Dictionary<SyntaxNodeId, BoundExpression> _bound = [];

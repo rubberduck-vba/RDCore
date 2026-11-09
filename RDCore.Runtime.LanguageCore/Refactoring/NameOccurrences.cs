@@ -189,6 +189,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
     }
 
+    // the static pass recurses once per expression level: one large-stack thread for the call, not one per module or expression.
     public static NameOccurrences Find(RenameContext context, string name, IEnumerable<RenameModule> modules)
     {
         if (!LargeStackThread.IsCurrent)

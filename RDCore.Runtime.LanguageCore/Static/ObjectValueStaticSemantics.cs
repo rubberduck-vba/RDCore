@@ -77,6 +77,7 @@ public static class ObjectValueStaticSemantics
     }
 
     // MS-VBAL §5.5.1.1
+    // MS-VBA compiles it and raises error 438 when it runs (91 for Nothing): RD-VBA does too, and the fact is for an analyzer to report.
     public static void MarkNoDefaultMember(IExpressionFactSink? facts, ExpressionNode expression)
     {
         if (facts is not null && facts.TryGet(expression.Identity, out var fact))

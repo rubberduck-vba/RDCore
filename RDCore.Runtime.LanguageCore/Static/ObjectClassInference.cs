@@ -17,6 +17,7 @@ using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.6.12, §6.1.2.8.1.4
+// a fact for tooling, never a declaration: the runtime never reads it.
 public static class ObjectClassInference
 {
     public static ImmutableArray<ObjectCreationFact> CandidateClassesOf(
@@ -42,6 +43,7 @@ public static class ObjectClassInference
         return candidates.ToImmutable();
     }
 
+    // a class of an unreferenced library is read from its description: it is never a name the code can use, and the workspace is not composed with it.
     public static VBClassType? ClassOf(ObjectCreationFact candidate, ISymbolResolver resolver, Uri origin, Func<string, IReadOnlyList<Symbol>>? described)
     {
         var classModule = candidate.Source == ObjectClassSource.UnreferencedLibrary
