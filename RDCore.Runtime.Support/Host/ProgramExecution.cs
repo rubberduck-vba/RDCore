@@ -24,9 +24,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
 
-namespace RDCore.CLI.Host;
-
-using Resources = RDCore.Runtime.Support.Resources;
+namespace RDCore.Runtime.Support.Host;
 
 /// <summary>
 /// Whether the host is running a program.

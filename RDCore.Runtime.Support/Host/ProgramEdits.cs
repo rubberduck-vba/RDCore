@@ -12,9 +12,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.Symbols;
 
-namespace RDCore.CLI.Host;
-
-using Resources = RDCore.Runtime.Support.Resources;
+namespace RDCore.Runtime.Support.Host;
 
 /// <summary>
 /// What an edit made while a program waits is to it: applied when it is resumed, not applied to a program that waits yet, or not applicable at all.

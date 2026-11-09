@@ -1,3 +1,4 @@
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;

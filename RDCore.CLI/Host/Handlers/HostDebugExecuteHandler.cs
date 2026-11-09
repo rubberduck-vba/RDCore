@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Services.VerboseMessages;

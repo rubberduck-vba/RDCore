@@ -1,6 +1,7 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
+using RDCore.Runtime.Support.Build;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Services.VerboseMessages;

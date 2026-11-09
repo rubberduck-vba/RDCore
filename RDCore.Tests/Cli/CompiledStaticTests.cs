@@ -1,4 +1,4 @@
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Compiled;
 using static RDCore.Tests.Cli.CompiledDirectCallTests;
 using static RDCore.Tests.Cli.CompiledModuleFieldTests;

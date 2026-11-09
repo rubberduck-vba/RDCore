@@ -1,3 +1,4 @@
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
@@ -52,7 +53,7 @@ public sealed class ReplWorkspace : IDisposable
     {
         // one per process, so two shells never share a root; the pid also makes an abandoned one (a
         // killed process, which never reached Dispose) identifiable rather than anonymous litter.
-        var root = fileSystem.Path.Combine(Host.ScratchWorkspace.Folder(fileSystem), Environment.ProcessId.ToString());
+        var root = fileSystem.Path.Combine(ScratchWorkspace.Folder(fileSystem), Environment.ProcessId.ToString());
         fileSystem.Directory.CreateDirectory(root);
 
         var relativeUri = $"{ReplProgram.ModuleName}.bas";

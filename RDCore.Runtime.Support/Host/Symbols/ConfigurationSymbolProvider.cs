@@ -5,7 +5,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 
-namespace RDCore.CLI.Host.Symbols;
+namespace RDCore.Runtime.Support.Host.Symbols;
 
 /// <summary>
 /// Produces the project-level conditional-compilation constants a session starts with: the built-in

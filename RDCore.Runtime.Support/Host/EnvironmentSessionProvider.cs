@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using RDCore.CLI.Host.Symbols;
+using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.Runtime.Execution;
 using RDCore.External;
 using RDCore.External.Settings;
@@ -11,7 +11,7 @@ using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
-namespace RDCore.CLI.Host;
+namespace RDCore.Runtime.Support.Host;
 
 /// <summary>
 /// Owns the environment host's single <see cref="IRuntimeSession"/>. The session is composed once,

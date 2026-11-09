@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using OmniSharp.Extensions.JsonRpc;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
@@ -18,7 +18,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
 
-namespace RDCore.CLI.Host.Handlers;
+namespace RDCore.Runtime.Support.Host.Handlers;
 
 /// <summary>
 /// Handles <c>rdcore/host/symbols/define</c>: reconstructs the runtime member symbols one module

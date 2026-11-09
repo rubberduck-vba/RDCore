@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using RDCore.CLI.Host;
-using RDCore.CLI.Host.Handlers;
+using RDCore.Runtime.Support.Host;
+using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols;
@@ -15,7 +15,7 @@ using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Reflection;
 
-namespace RDCore.CLI.App.Build;
+namespace RDCore.Runtime.Support.Build;
 
 internal sealed record class BuiltEnvironment(
     bool Is64Bit, int Lcid, int AnsiCodePage, bool SupportsOptionCompareDatabase, OptionCompare DatabaseCompare, VBErlLineNumbering ErlLineNumbering,

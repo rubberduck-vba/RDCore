@@ -1,7 +1,7 @@
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
-namespace RDCore.CLI.Host;
+namespace RDCore.Runtime.Support.Host;
 
 // the folder the shell makes its scratch workspaces in, one per process: the environment host is given one as any other workspace.
 internal static class ScratchWorkspace
