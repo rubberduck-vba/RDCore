@@ -711,6 +711,62 @@ public sealed class ProgramExecutionTests
             Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
         });
 
+    private static readonly string Blocks = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Dim i As Long",
+        "    Stop",
+        "    For i = 1 To 4",
+        "        If i Mod 2 = 0 Then",
+        "            Total = Total + i",
+        "        Else",
+        "            Total = Total + 100",
+        "        End If",
+        "        Select Case i",
+        "            Case 1",
+        "                Total = Total + 1",
+        "            Case Else",
+        "                Total = Total + 2",
+        "        End Select",
+        "        With New Collection",
+        "            .Add i",
+        "        End With",
+        "    Next",
+        "    Debug.Print Total",
+        "End Sub");
+
+    // a breakpoint on the line that ends a block (its End If, End Select, End With, Next) is verified, and waited at each time the program goes through
+    // that line, from whichever branch it took, in either engine.
+    [TestMethod]
+    [DataRow(9, VBExecutionEngine.Interpreter, DisplayName = "End If, interpreted")]
+    [DataRow(9, VBExecutionEngine.Compiled, DisplayName = "End If, compiled")]
+    [DataRow(15, VBExecutionEngine.Interpreter, DisplayName = "End Select, interpreted")]
+    [DataRow(15, VBExecutionEngine.Compiled, DisplayName = "End Select, compiled")]
+    [DataRow(18, VBExecutionEngine.Interpreter, DisplayName = "End With, interpreted")]
+    [DataRow(18, VBExecutionEngine.Compiled, DisplayName = "End With, compiled")]
+    [DataRow(19, VBExecutionEngine.Interpreter, DisplayName = "Next, interpreted")]
+    [DataRow(19, VBExecutionEngine.Compiled, DisplayName = "Next, compiled")]
+    public async Task ABreakpoint_OnTheLineThatEndsABlock_IsWaitedAtEachTimeTheProgramGoesThroughIt(int line, VBExecutionEngine engine)
+        => await ModuleWorkspace.InspectAsync(NoClasses, Blocks, async (provider, first, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            var set = await SetBreakpoints(provider, line);
+
+            Assert.IsTrue(set.Breakpoints.Single().Verified);
+
+            var stops = new List<int>();
+            var stop = await Resume(provider);
+            while (stop.Outcome is ExecutionOutcome.Suspended)
+            {
+                stops.Add(stop.ErrorLine);
+                stop = await Resume(provider);
+            }
+
+            CollectionAssert.AreEqual(new[] { line, line, line, line }, stops, "once a round, from either branch");
+            Assert.AreEqual(ExecutionOutcome.Completed, stop.Outcome, stop.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "213" }, Lines(stop));
+        }, debug: true, engine: engine);
+
     [TestMethod]
     public async Task Breakpoints_OfAModuleThatIsNotLoaded_AreNotJudged()
         => await DebugAsync(Counting, async (provider, _, _) =>
