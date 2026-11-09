@@ -43,19 +43,6 @@ public sealed class ReplWorkspace : IDisposable
     public string ListingPath => _fileSystem.Path.Combine(Root, $"Untitled{BasicProgramText.Extension}");
 
     /// <summary>
-    /// Whether a folder is the scratch workspace of a shell, of this process or another: the environment host is given it as any other workspace.
-    /// </summary>
-    /// <param name="fileSystem">The file system the folder is on.</param>
-    /// <param name="root">The folder.</param>
-    public static bool IsScratch(IFileSystem fileSystem, string root)
-        => fileSystem.Path.GetDirectoryName(fileSystem.Path.TrimEndingDirectorySeparator(fileSystem.Path.GetFullPath(root))) is { } parent
-            && string.Equals(parent, ScratchFolder(fileSystem), WorkspacePaths.Comparison);
-
-    // the folder the scratch workspaces are made in, one per process.
-    private static string ScratchFolder(IFileSystem fileSystem)
-        => fileSystem.Path.TrimEndingDirectorySeparator(fileSystem.Path.GetFullPath(fileSystem.Path.Combine(fileSystem.Path.GetTempPath(), "RDCore", "shell")));
-
-    /// <summary>
     /// Scaffolds a private workspace with an empty program module in it.
     /// </summary>
     /// <param name="fileSystem">The file system to scaffold on.</param>
@@ -65,7 +52,7 @@ public sealed class ReplWorkspace : IDisposable
     {
         // one per process, so two shells never share a root; the pid also makes an abandoned one (a
         // killed process, which never reached Dispose) identifiable rather than anonymous litter.
-        var root = fileSystem.Path.Combine(ScratchFolder(fileSystem), Environment.ProcessId.ToString());
+        var root = fileSystem.Path.Combine(Host.ScratchWorkspace.Folder(fileSystem), Environment.ProcessId.ToString());
         fileSystem.Directory.CreateDirectory(root);
 
         var relativeUri = $"{ReplProgram.ModuleName}.bas";
