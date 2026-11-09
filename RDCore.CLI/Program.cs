@@ -395,6 +395,13 @@ internal class RDCoreConsoleClientApp(
             .WithHandler<RubberduckIndenterSettingsHandler>()
             .WithHandler<RubberduckIndenterSettingsApplyHandler>();
 
+    // initialize is answered: what the language server asks from now on waits until the shell is up, and has said READY, to be asked at its console.
+    protected override async Task OnLanguageClientInitializedAsync(ILanguageClient client, InitializeParams request, InitializeResult response, CancellationToken cancellationToken)
+    {
+        questions.Hold();
+        await base.OnLanguageClientInitializedAsync(client, request, response, cancellationToken);
+    }
+
     protected override async Task OnLanguageClientStartedAsync(ILanguageClient client, CancellationToken token)
     {
         // TODO
