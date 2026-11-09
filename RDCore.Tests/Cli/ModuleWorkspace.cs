@@ -331,8 +331,8 @@ internal static class ModuleWorkspace
         return running.Task;
     }
 
-    // how long a program that was cancelled has to answer the cancel, which it does at its next instruction: this is not a time anything is expected to take, but the
-    // bound past which a program that never answers fails its test, rather than leave it waiting.
+    // how long a program that was cancelled has to answer the cancel, which it does at its next instruction: the bound past which a program that never
+    // answers fails its test, so that it does not leave the test waiting. A program that answers takes a fraction of it.
     private static readonly TimeSpan AnswerGuard = TimeSpan.FromSeconds(30);
 
     /// <summary>
