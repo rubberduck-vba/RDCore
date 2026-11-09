@@ -8,7 +8,7 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.LanguageCore.Errors;
 
-namespace RDCore.CLI.Host;
+namespace RDCore.Runtime.Support.Host;
 
 /// <summary>
 /// Where the environment host asks the person running a program to answer its dialogs: the language server, which asks its client.

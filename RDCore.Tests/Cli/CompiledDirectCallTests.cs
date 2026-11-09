@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.SDK.Model.AST.Declarations;
