@@ -85,11 +85,8 @@ public sealed class BreakpointTable : IBreakpointTable
         return offsets.ToImmutable();
     }
 
-    /// <summary>
-    /// The zero-based line a program waits on before the instruction: the line its statement begins on, or the closing line of the block it closes - a
-    /// <c>Next</c>, a <c>Loop</c>, an <c>End If</c>, the procedure's <c>End Sub</c> (<see cref="Instruction.Closes"/>) - each of which MS-VBA stops on.
-    /// </summary>
-    /// <returns><see langword="null"/> for an instruction that is on no line, as the jump that ends a branch, which a program goes through.</returns>
+    // the line a program waits on before the instruction: its statement's, or the closing line of the block it closes (a Next, a Loop, an End If, the
+    // procedure's End Sub), each of which MS-VBA stops on. None for the jump that ends a branch, which a program goes through.
     public static int? LineOf(Instruction instruction) => instruction.Location?.Range.Start.Line;
 
     /// <summary>
@@ -100,14 +97,7 @@ public sealed class BreakpointTable : IBreakpointTable
     public static bool Verify(IEnumerable<InstructionList> bodies, int line)
         => bodies.Any(body => body.Items.Any(instruction => LineOf(instruction) == line));
 
-    /// <summary>
-    /// The first instruction of the body that is on <paramref name="line"/> (<see cref="LineOf"/>), or else on the first of the lines after it that has one:
-    /// where a move of the program counter to the line lands.
-    /// </summary>
-    /// <param name="body">The body.</param>
-    /// <param name="line">A zero-based line of the source.</param>
-    /// <param name="offset">The offset of that instruction.</param>
-    /// <returns><see langword="false"/> when no instruction of the body is on that line or after it.</returns>
+    // where a move of the program counter to the line lands: the first instruction on it, or else on the first line after it that has one.
     public static bool TryGetOffsetAtLine(InstructionList body, int line, out int offset)
     {
         offset = -1;

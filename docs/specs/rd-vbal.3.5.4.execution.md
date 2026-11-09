@@ -26,6 +26,20 @@ activation then completes "as if execution had reached the end of the body" (the
 [**RD-VBAL §5.4.2.17** Exit Sub Statement](rd-vbal.5.4.2.17.exit-sub-statement.md)): the same outcome as an
 explicit `Exit`.
 
+### Where a program stops
+
+A step, a pause and a breakpoint stop only before an instruction that is on a line (`Instruction.Location`): a
+statement, or a closer on its block's closing line, such as an `End If`, a `Next` or the procedure's `End Sub`
+([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md#synthesized-closers)).
+The trailing jump of a branch is on no line: a program goes through it to the closer, so the `End If` line is stopped
+at once.
+
+- A breakpoint on `End Sub`, `End Function` or `End Property` is hit before the procedure returns, with its variables
+  still readable. An `Exit` goes through it too.
+- A step from the last statement stops on `End Sub`. The next step returns to the caller.
+- A step out of a procedure does not stop on its `End Sub`.
+- An error that leaves the procedure does not go through its `End Sub`.
+
 `ICallStackFrame.Pc` is read-only on the SDK interface. Only the executor mutates it, through the concrete
 `CallStackFrame` ([**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)).
 
@@ -58,7 +72,7 @@ Whether to refuse to run a body that lowered with errors is a decision for the e
 |`OnErrorGoTo`, `OnErrorDisable`, `OnErrorResumeNext`|Sets the activation's error-handler state.|[**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md)|
 |`ResumeCurrentStatement`, `ResumeNext`, `ResumeLabel`|Resumes from the activation's active error.|[**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)|
 |`RaiseError`|Raises a run-time error.|[**RD-VBAL §5.4.4.3** Error Statement](rd-vbal.5.4.4.3.error-statement.md)|
-|`ExitProcedure`|Completes the activation.|[**RD-VBAL §5.4.2.17** Exit Sub Statement](rd-vbal.5.4.2.17.exit-sub-statement.md), [**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md), [**RD-VBAL §5.4.2.19** Exit Property Statement](rd-vbal.5.4.2.19.exit-property-statement.md)|
+|`ExitProcedure`|Branches to `Target`, the procedure's closer, past which the activation completes. Without a `Target`, completes the activation.|[**RD-VBAL §5.4.2.17** Exit Sub Statement](rd-vbal.5.4.2.17.exit-sub-statement.md), [**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md), [**RD-VBAL §5.4.2.19** Exit Property Statement](rd-vbal.5.4.2.19.exit-property-statement.md)|
 |`Halt`|Stops the run (`End`).|[**RD-VBAL §5.4.2.22** End Statement](rd-vbal.5.4.2.22.end-statement.md)|
 |`Break`|Stops the run (`Stop`).|[**RD-VBAL §5.4.2.11** Stop Statement](rd-vbal.5.4.2.11.stop-statement.md)|
 
