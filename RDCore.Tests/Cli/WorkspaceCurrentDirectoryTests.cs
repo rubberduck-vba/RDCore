@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.App.Repl;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host.Handlers;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
@@ -156,7 +157,7 @@ public sealed class WorkspaceCurrentDirectoryTests
         using var provider = new EnvironmentSessionProvider(Profile(), fileSystem, NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(new RDCoreProject { Name = RDCoreProject.DefaultName }, Wire.FileUri(scratch.Root));
 
-        Assert.IsTrue(ReplWorkspace.IsScratch(fileSystem, scratch.Root));
+        Assert.IsTrue(ScratchWorkspace.Is(fileSystem, scratch.Root));
         Assert.AreEqual(_root, CurrentDirectoryOf(provider));
     }
 

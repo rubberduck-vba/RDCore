@@ -1,3 +1,4 @@
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Platform.Protocol;
 
 namespace RDCore.CLI.Host.Handlers;

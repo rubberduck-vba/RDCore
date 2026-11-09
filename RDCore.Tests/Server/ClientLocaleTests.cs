@@ -170,7 +170,7 @@ public sealed class ClientLocaleTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
 
         Assert.IsNotNull(ClientLocale.Apply(ClientLocale.Of(null, RDCore.SDK.Server.RDCoreServerApp.ReadInitializationOptions(sent))));
-        var answered = await Task.Run(() => RDCore.CLI.Resources.Host_ChangedWhileWaiting_Resume);
+        var answered = await Task.Run(() => RDCore.Runtime.Support.Resources.Host_ChangedWhileWaiting_Resume);
 
         StringAssert.StartsWith(answered, "{0} a changé pendant l'attente du programme");
     }

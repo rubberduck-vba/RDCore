@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host.Handlers;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;

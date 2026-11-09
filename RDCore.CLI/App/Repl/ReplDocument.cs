@@ -1,3 +1,4 @@
+using RDCore.Runtime.Support.Host;
 namespace RDCore.CLI.App.Repl;
 
 /// <summary>

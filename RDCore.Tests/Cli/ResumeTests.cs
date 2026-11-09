@@ -1,5 +1,5 @@
 using NSubstitute;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Symbols;

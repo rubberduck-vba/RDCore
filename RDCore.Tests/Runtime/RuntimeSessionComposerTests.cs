@@ -1,5 +1,5 @@
 ﻿using System.IO.Abstractions.TestingHelpers;
-using RDCore.CLI.Host.Symbols;
+using RDCore.Runtime.Support.Host.Symbols;
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;

@@ -1,7 +1,9 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.Runtime.Semantics;
+using SupportResources = RDCore.Runtime.Support.Resources;
 
 namespace RDCore.CLI.Host.Handlers;
 
@@ -22,7 +24,7 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
         {
             return Task.FromResult(new DebugEvaluateResult
             {
-                Error = sessionProvider.Execution.State is ProgramState.Running ? Resources.Host_TheProgramIsRunning : Resources.Host_NoProgramIsSuspended,
+                Error = sessionProvider.Execution.State is ProgramState.Running ? SupportResources.Host_TheProgramIsRunning : SupportResources.Host_NoProgramIsSuspended,
             });
         }
 
@@ -39,7 +41,7 @@ internal sealed class HostDebugEvaluateHandler(IEnvironmentSessionProvider sessi
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or InvalidOperationException)
         {
-            return Task.FromResult(new DebugEvaluateResult { Error = Resources.Host_RequestCarriedNoExpression });
+            return Task.FromResult(new DebugEvaluateResult { Error = SupportResources.Host_RequestCarriedNoExpression });
         }
 
         var pipeline = RuntimeExecutionPipeline.Create(sessionProvider.Session, sessionProvider.Image, errorDetails, outside: sessionProvider.Outside);

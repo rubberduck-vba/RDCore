@@ -2,7 +2,7 @@ using System.IO.Pipelines;
 using Microsoft.Extensions.Logging.Abstractions;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Client;
-using RDCore.CLI.Host;
+using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;

@@ -32,11 +32,15 @@ public sealed class DebuggerMessagesTests
     [TestMethod]
     public void TheMessagesOfTheHost_AreAllTranslated()
     {
-        var neutral = Keys(Resources.ResourceManager, CultureInfo.InvariantCulture).Where(key => key.StartsWith("Host_")).ToArray();
-        var french = Keys(Resources.ResourceManager, French).Where(key => key.StartsWith("Host_")).ToArray();
+        // rdc's own, and those of the runtime support a built program carries too.
+        foreach (var manager in new[] { Resources.ResourceManager, RDCore.Runtime.Support.Resources.ResourceManager })
+        {
+            var neutral = Keys(manager, CultureInfo.InvariantCulture).Where(key => key.StartsWith("Host_")).ToArray();
+            var french = Keys(manager, French).Where(key => key.StartsWith("Host_")).ToArray();
 
-        Assert.IsNotEmpty(neutral);
-        CollectionAssert.AreEqual(neutral, french);
+            Assert.IsNotEmpty(neutral, manager.BaseName);
+            CollectionAssert.AreEqual(neutral, french, manager.BaseName);
+        }
     }
 
     [TestMethod]
@@ -44,6 +48,6 @@ public sealed class DebuggerMessagesTests
     {
         Assert.AreEqual("Main", DebuggerMessages.ResourceManager.GetString("ThreadMain", CultureInfo.InvariantCulture));
         Assert.AreEqual("Principal", DebuggerMessages.ResourceManager.GetString("ThreadMain", French));
-        Assert.AreEqual("le programme est en cours d'exécution",Resources.ResourceManager.GetString("Host_TheProgramIsRunning", French));
+        Assert.AreEqual("le programme est en cours d'exécution",RDCore.Runtime.Support.Resources.ResourceManager.GetString("Host_TheProgramIsRunning", French));
     }
 }

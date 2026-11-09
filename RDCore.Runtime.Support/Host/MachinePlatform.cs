@@ -4,7 +4,7 @@ using RDCore.External.Windows.Interaction;
 using RDCore.External.Windows.Settings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
-namespace RDCore.CLI.Host;
+namespace RDCore.Runtime.Support.Host;
 
 /// <summary>
 /// What the machine this host runs on has of the outside world a program reaches without a server or a library: its dialogs, its desktop, and its registry.

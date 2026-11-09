@@ -5,7 +5,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
-namespace RDCore.CLI.Host.Symbols;
+namespace RDCore.Runtime.Support.Host.Symbols;
 
 /// <summary>
 /// Produces the module symbols declared by a <c>.rdproj</c>'s <see cref="RDCoreProject"/> — one per

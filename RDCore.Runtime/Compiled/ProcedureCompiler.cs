@@ -10,6 +10,8 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -21,15 +23,39 @@ namespace RDCore.Runtime.Compiled;
 /// A body is compiled for the scopes the session binds its names in: a module defined again binds them anew, and the body is compiled again on its next
 /// call. A procedure that is not compiled - <see cref="ProcedureAnalysis"/> says why - runs in the interpreter, and so does one whose compiled code the
 /// runtime refuses to run, and every one where values are held boxed (<see cref="IneligibilityKind.BoxedEvaluation"/>).
+/// <para>
+/// A compiler given a <see cref="PersistTarget"/> writes the procedures into the assembly a build saves instead, where nothing is run; one given the procedures
+/// of an assembly a build saved (<see cref="Use"/>) runs a procedure that was compiled into it as it was, when it is the same procedure, and compiles the
+/// others as their first call does.
+/// </para>
 /// </remarks>
-internal sealed class ProcedureCompiler
+/// <param name="persist">The assembly the procedures are written into, for a build; <see langword="null"/> for a compiler whose procedures are run.</param>
+internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 {
     private readonly object _compiling = new();
     private readonly Lazy<ModuleBuilder> _module = new(() =>
     {
+        if (persist is not null)
+        {
+            return persist.Module;
+        }
+
         var name = new AssemblyName($"RDCore.Compiled.{Guid.NewGuid():N}");
         return AssemblyBuilder.DefineDynamicAssembly(name, AssemblyBuilderAccess.RunAndCollect).DefineDynamicModule(name.Name!);
     });
+
+    private PrebuiltProcedures? _prebuilt;
+    private int _bound;
+
+    /// <summary>
+    /// Runs the procedures compiled into an assembly a build saved, each where it is the procedure that was compiled: what a built program's session runs.
+    /// </summary>
+    public void Use(PrebuiltProcedures prebuilt) => _prebuilt = prebuilt;
+
+    /// <summary>
+    /// How many procedures run the code a build compiled them to (<see cref="Use"/>), rather than code compiled at their first call.
+    /// </summary>
+    public int Bound => Volatile.Read(ref _bound);
 
     private readonly ConditionalWeakTable<InstructionList, Entry> _bodies = [];
     private readonly ConcurrentDictionary<SemanticId, (VBTypeMemberSymbol Procedure, CompilationResult Result)> _results = [];
@@ -88,6 +114,13 @@ internal sealed class ProcedureCompiler
     // the procedure compiled, or found not to be: what is made of it, and the compiler's failure if it failed.
     private (CompilationResult Result, Exception? Failure) Make(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol procedure, InstructionList list)
     {
+        // a build writes into the assembly it saves what compiles where it runs: a procedure the compiler fails on, or whose code the runtime refuses, would
+        // leave a type the assembly cannot be saved with, and runs in the interpreter, as in any session.
+        if (persist?.Validate(session, evaluator, procedure, list) is { Body: null } refused)
+        {
+            return (refused, null);
+        }
+
         var stopwatch = Stopwatch.StartNew();
         CompiledBody? body;
         IReadOnlyList<Ineligibility> reasons;
@@ -97,7 +130,7 @@ internal sealed class ProcedureCompiler
         try
         {
             var analysis = ProcedureAnalysis.Of(session, evaluator, procedure, list);
-            body = analysis.Reasons.Count == 0 ? Emit(session, evaluator, analysis, procedure, list) : null;
+            body = analysis.Reasons.Count == 0 ? Bind(session, evaluator, analysis, procedure, list) ?? Emit(session, evaluator, analysis, procedure, list) : null;
             reasons = analysis.Reasons;
             stepped = body is null ? [] : analysis.Stepped;
         }
@@ -162,33 +195,126 @@ internal sealed class ProcedureCompiler
     // before it, and is called through the invoker (DirectCall).
     private readonly HashSet<SemanticId> _inProgress = [];
 
-    // a type of its own for each procedure, created as soon as its methods are written: what is created is what can be called. The IL is compiled now,
-    // rather than at the first call, so that code the runtime refuses is refused here. Two methods: the typed entry (Body), which a compiled caller calls with
-    // the arguments as it holds them, and Run, which reads them from the frame's cells, as an interpreted caller gives them, and calls it. The argument of a
-    // parameter passed by reference is a cell, which the IL holds as an object it only hands back to CompiledActivation.
+    // a type of its own for each procedure, created as soon as its methods are written: what is created is what can be called. Two methods: the typed entry
+    // (Body), which a compiled caller calls with the arguments as it holds them, and Run, which reads them from the frame's cells, as an interpreted caller
+    // gives them, and calls it. The argument of a parameter passed by reference is a cell, which the IL holds as an object it only hands back to
+    // CompiledActivation.
     private CompiledBody Emit(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, InstructionList list)
     {
         var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
-        Type[] parameters = [typeof(CompiledActivation), .. analysis.Parameters.Select(parameter => parameter.ByReference ? typeof(object) : ProcedureEmitter.ClrTypeOf(parameter.Kind))];
-        var entry = type.DefineMethod("Body", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), parameters);
+        var entry = type.DefineMethod("Body", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), ParametersOf(analysis));
         var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
 
         var directs = analysis.Callees.Select(callee => Link(session, evaluator, procedure, entry, list, callee, analysis.NeedsFrame)).ToArray();
-        ProcedureEmitter.Emit(analysis, method, entry, directs);
+        ProcedureEmitter.Emit(analysis, method, entry, directs, persist?.LinesOf(list));
+
+        // a type of the assembly a build saves is created to be saved, and runs only once it is loaded: its typed entry is what its compiled callers call.
+        if (persist is not null)
+        {
+            _ = type.CreateType();
+            persist.Add(new PersistedProcedure(type.FullName!, procedure.SemanticId.ToString(), FingerprintOf(persist.FingerprintOf(procedure.SemanticId), analysis),
+                [.. directs.Select(direct => direct is null ? string.Empty : direct.Entry.DeclaringType!.FullName!)]));
+            return Finish(NotRun, entry, entry, analysis, procedure, directs);
+        }
 
         var created = type.CreateType();
         var run = created.GetMethod("Run") ?? throw new MissingMethodException(type.Name, "Run");
         var body = created.GetMethod("Body") ?? throw new MissingMethodException(type.Name, "Body");
+        return Finish(Prepared(run, body), body, entry, analysis, procedure, directs);
+    }
+
+    // the type a build compiled the procedure to, when it is this procedure still and the procedures it calls directly are the ones it called: run as it was
+    // compiled. The calls its code makes are those it was compiled with, so a callee it called through the invoker is called that way still; one it called
+    // directly must be bound too, or the procedure is compiled again as at its first call.
+    private CompiledBody? Bind(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, InstructionList list)
+    {
+        if (_prebuilt?.Find(procedure) is not { } built || built.Links.Count != analysis.Callees.Count
+            || _prebuilt.FingerprintOf(procedure.SemanticId) is not { } bodyFingerprint || FingerprintOf(bodyFingerprint, analysis) != built.Fingerprint
+            || built.Type.GetMethod("Run") is not { } run || built.Type.GetMethod("Body") is not { } body
+            || !body.GetParameters().Select(parameter => parameter.ParameterType).SequenceEqual(ParametersOf(analysis)))
+        {
+            return null;
+        }
+
+        var directs = new DirectCall?[analysis.Callees.Count];
+        for (var callee = 0; callee < directs.Length; callee++)
+        {
+            if (built.Links[callee].Length == 0)
+            {
+                continue;
+            }
+
+            if (Link(session, evaluator, procedure, body, list, analysis.Callees[callee], analysis.NeedsFrame) is not { } direct
+                || direct.Entry.Module != built.Type.Module || direct.Entry.DeclaringType?.FullName != built.Links[callee])
+            {
+                return null;
+            }
+
+            directs[callee] = direct;
+        }
+
+        var bound = Finish(Prepared(run, body), body, body, analysis, procedure, directs);
+        _ = Interlocked.Increment(ref _bound);
+        return bound;
+    }
+
+    // what the code of a procedure is compiled from: its body (ProgramImage.ProcedureFingerprints), and what the analysis made of it for the session's scopes
+    // (the kinds of its slots and its result, its steps, its frame, the procedures it calls), which a library that resolves otherwise, or a #If whose branch
+    // differs, changes when the body does not.
+    private static string FingerprintOf(string body, ProcedureAnalysis analysis)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        void Append(object? text) => hash.AppendData(Encoding.UTF8.GetBytes($"{text}\n"));
+
+        Append(body);
+        Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.HasForEach}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
+        Append(string.Join(',', analysis.Parameters.Select(parameter => $"{parameter.Slot}:{parameter.Kind}:{parameter.ByReference}")));
+        Append(string.Join(',', analysis.CellSlots));
+        Append(string.Join(',', analysis.SlotSymbols.OrderBy(slot => slot.Key).Select(slot => $"{slot.Key}:{slot.Value.SemanticId}")));
+        Append(string.Join(',', analysis.Loops.Select(loop => $"{loop.Opener}:{loop.Kind}")));
+        Append(string.Join(',', analysis.Selects.Select(select => $"{select.Opener}:{select.End}:{select.Kind}")));
+        foreach (var step in analysis.Steps)
+        {
+            Append(step);
+        }
+
+        foreach (var callee in analysis.Callees)
+        {
+            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}");
+        }
+
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
+
+    // the typed entry's parameters: the compiled activation, then each parameter as compiled code holds it.
+    private static Type[] ParametersOf(ProcedureAnalysis analysis)
+        => [typeof(CompiledActivation), .. analysis.Parameters.Select(parameter => parameter.ByReference ? typeof(object) : ProcedureEmitter.ClrTypeOf(parameter.Kind))];
+
+    // the IL of both methods compiled now, rather than at the first call, so that code the runtime refuses is refused here.
+    private static Func<CompiledActivation, RuntimeExecutionOutcome> Prepared(MethodInfo run, MethodInfo body)
+    {
         RuntimeHelpers.PrepareMethod(run.MethodHandle);
         RuntimeHelpers.PrepareMethod(body.MethodHandle);
-        var compiled = new CompiledBody(run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>(), analysis.ResultKind, analysis.Loops, procedure.Name,
-            analysis.Callees, directs, analysis.SlotSymbols) { Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
-            Classes = analysis.Classes, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1 };
+        return run.CreateDelegate<Func<CompiledActivation, RuntimeExecutionOutcome>>();
+    }
 
-        // a call the body makes of itself is of the body just created.
+    // what a body a build saves is until it is loaded: nothing runs it.
+    private static RuntimeExecutionOutcome NotRun(CompiledActivation activation)
+        => throw new InvalidOperationException("a procedure compiled into the assembly a build saves runs once the assembly is loaded");
+
+    private static CompiledBody Finish(Func<CompiledActivation, RuntimeExecutionOutcome> run, MethodInfo body, MethodInfo self, ProcedureAnalysis analysis,
+        VBTypeMemberSymbol procedure, DirectCall?[] directs)
+    {
+        var compiled = new CompiledBody(run, analysis.ResultKind, analysis.Loops, procedure.Name, analysis.Callees, directs, analysis.SlotSymbols)
+        {
+            Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
+            Classes = analysis.Classes, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1,
+        };
+
+        // a call the body makes of itself is of the body just made.
         foreach (var direct in directs)
         {
-            if (direct is not null && ReferenceEquals(direct.Entry, entry))
+            if (direct is not null && ReferenceEquals(direct.Entry, self))
             {
                 direct.Body = compiled;
             }
@@ -202,7 +328,7 @@ internal sealed class ProcedureCompiler
     // calls the one that calls it).
     // A callee whose frame holds what compiled code does not (ProcedureAnalysis.NeedsFrame) is called through the invoker, which makes it its frame; so is
     // one given a String, which its frame holds.
-    private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodBuilder entry, InstructionList list,
+    private DirectCall? Link(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, VBTypeMemberSymbol caller, MethodInfo entry, InstructionList list,
         CompiledCallee callee, bool callerNeedsFrame)
     {
         // a member of an object is called through its binding, the object given as Me (CompiledActivation.CallMember).
