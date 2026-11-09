@@ -82,9 +82,11 @@ public enum VBCompileErrorId
     ExpectedIdentifier = 9308,
     LabelNotDefined = 9309,
     TypeMismatch = 9310,
+    // "user-defined" here means workspace-defined: the error is seldom about a user-defined type (UDT).
     UserDefinedTypeNotDefined = 9311,
     ExitDoNotWithinDoLoop = 9312,
     ExitForNotWithinForNext = 9313,
+    // "Property" is Property Let or Set: MS-VBA allows Exit Function in a Property Get (the VBE accepts and corrects it).
     ExitFunctionNotAllowedInSubOrProperty = 9314,
     ExitPropertyNotAllowedInSubOrFunction = 9315,
     MethodOrDataMemberNotFound = 9316,
@@ -124,6 +126,8 @@ public enum VBCompileErrorId
     FileAccessNotValidForMode = 9334,
     TypeDeclarationCharacterDoesNotMatch = 9335,
     // MS-VBAL §5.2.3.1 Variable Declarations, §5.3.1 Procedure Declarations.
+    // the message says "user defined types", but MS-VBA accepts a private UDT in the public members of a procedural module (recorded in Excel): there,
+    // only a private Enum is refused.
     PrivateTypeInPublicMember = 9336,
     // MS-VBAL §5.2.3.1 Variable Declarations.
     NotAllowedAsPublicMemberOfObjectModule = 9337,

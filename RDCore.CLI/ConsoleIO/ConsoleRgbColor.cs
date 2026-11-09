@@ -1,5 +1,7 @@
 namespace RDCore.CLI.ConsoleIO;
 
+// a frame needs the theme's exact 24-bit value (for the escape sequences that set the terminal's default colours) and its nearest legacy ConsoleColor
+// (for a terminal that can do neither): this carries the first and computes the second, so neither the renderer nor the theme has to.
 public readonly record struct ConsoleRgbColor(byte R, byte G, byte B)
 {
     public static ConsoleRgbColor Black { get; } = new(0, 0, 0);

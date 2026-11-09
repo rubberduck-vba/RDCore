@@ -6,6 +6,7 @@ public record class ConsoleMessageStringLiteralPlaceholderPart(PlaceholderKind K
 public record class ConsoleMessagePlaceholderPart(PlaceholderKind Kind, string Placeholder, double NumericValue)
     : ConsoleMessageStringLiteralPlaceholderPart(Kind, Placeholder, PlaceholderPartFormatter.FormatValue(Kind, NumericValue));
 
+// a glyph whose colour is part of what it means, whatever the theme (the slogan's red heart): not styled as a metric.
 public record class ConsoleMessageColoredPlaceholderPart(string Placeholder, string StringValue, ConsoleRgbColor Color)
     : ConsoleMessageStringLiteralPlaceholderPart(PlaceholderKind.StringLiteral, Placeholder, StringValue);
 

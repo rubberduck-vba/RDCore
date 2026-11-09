@@ -97,7 +97,10 @@ public enum VBRuntimeErrorId
     // RD-VBA's own run-time errors (VBR50000-50999), which MS-VBA has no number for. A program can raise its own error 50001 (Err.Raise), which is an application
     // error of the VBA family (VBA50001): the family follows the raiser (RD-VBAL §2.6.3), so the two never meet.
 
+    // a dialog in an unattended run, or one the client declined: nobody is there to answer it. Untrappable, whatever handler the program has.
     NobodyToAnswer = 50001,
 
+    // a dialog answered with what it cannot be answered with, or not relayed: untrappable, and the fault is the platform's or the client's, never the
+    // program's, whose call was valid.
     UnusableDialogAnswer = 50002,
 }

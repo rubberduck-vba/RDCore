@@ -52,6 +52,7 @@ public record class ConsoleMessageBuilder
 
     public ConsoleMessageBuilder WithPart(ConsoleMessagePart part) => this with { Parts = [.. Parts, part] };
 
+    // one part of each role: the first one written is kept, not the last.
     private ConsoleMessageBuilder WithUniquePart<TPart>(TPart part) where TPart : ConsoleMessagePart
         => Parts.Any(existing => existing.Part == part.Part) ? this : WithPart(part);
 

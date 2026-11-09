@@ -24,6 +24,7 @@ public static class RuntimeErrors
 
         public static string GetErrorString(VBRuntimeErrorId errorId) => MessageOf(errorId);
 
+        // the messages are in English only.
         public static IReadOnlyDictionary<VBRuntimeErrorId, string> VBRuntimeErrors => Messages;
     }
 

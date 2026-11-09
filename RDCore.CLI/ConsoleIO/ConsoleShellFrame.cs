@@ -2,6 +2,10 @@ using System.Runtime.InteropServices;
 
 namespace RDCore.CLI.ConsoleIO;
 
+// setting Console.BackgroundColor and clearing is not enough: every renderer that writes SGR sequences (Spectre.Console among them) ends a styled span
+// with a reset (ESC[0m), which goes back to the terminal's default colours, and .NET does not write again an attribute it believes is set. Making the
+// frame's colours the terminal's defaults (OSC 10/11) lands each reset back on the frame. A terminal that cannot gets the nearest 16-colour frame, and
+// Restore must run before the process exits to give the terminal back as it was found.
 public interface IConsoleShellFrame
 {
     bool IsAnsiEnabled { get; }
@@ -75,6 +79,7 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
         {
             writer.Write($"\u001b[38;2;{color.R};{color.G};{color.B}m");
             writer.Write(line.TrimEnd('\r'));
+            // the rest of a short line in the frame's background, not a tail of another colour.
             writer.Write(EraseToEndOfLine);
             writer.WriteLine(ResetAttributes);
         }
@@ -120,6 +125,7 @@ public sealed class ConsoleShellFrame : IConsoleShellFrame
         }
     }
 
+    // on Windows, virtual-terminal mode is opt-in for each console handle.
     private static bool TryEnableVirtualTerminal()
     {
         if (Console.IsOutputRedirected)

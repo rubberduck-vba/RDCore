@@ -26,6 +26,7 @@ public static class CompileErrors
 
     extension(VBCompileErrorInfo error)
     {
+        // RD-VBA keeps syntax errors apart: a compile error is one found after an executable AST was produced.
         public VBCompileErrorId VBCompileErrorId => (VBCompileErrorId)error.ErrorId;
     }
 

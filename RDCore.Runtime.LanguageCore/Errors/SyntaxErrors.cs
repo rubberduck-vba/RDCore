@@ -20,6 +20,7 @@ public static class SyntaxErrors
 
     extension(ModuleParseResult)
     {
+        // the verbose text is scrubbed here, so that no call site can put a build machine's source path on the wire.
         public static ModuleParseResult Failed(SourceLocation location, string verbose,
             SourcePathScrubMode scrub = SourcePathScrubMode.RepoRelative) => new()
         {
