@@ -80,6 +80,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         }
 
         var built = await runner.BuildAsync(workspace, builder, profile, token);
+        using var session = built.Provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): neither does a program built of it.
         if (built.Problems.Count > 0)

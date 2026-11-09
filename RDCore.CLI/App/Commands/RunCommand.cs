@@ -58,6 +58,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
 
         var profile = RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = options.Configuration };
         var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, token);
+        using var session = provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1).
         if (problems.Count > 0)

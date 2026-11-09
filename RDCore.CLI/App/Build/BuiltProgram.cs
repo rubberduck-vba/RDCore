@@ -79,7 +79,7 @@ public static class BuiltProgram
             .BuildServiceProvider()
             .GetRequiredService<IVerboseMessageBuilder>();
 
-        var provider = new EnvironmentSessionProvider(image.Environment.Profile, new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance);
+        using var provider = new EnvironmentSessionProvider(image.Environment.Profile, new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(image.Project, image.Root);
         var define = new DefineSymbolsHandler(provider, messages, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
