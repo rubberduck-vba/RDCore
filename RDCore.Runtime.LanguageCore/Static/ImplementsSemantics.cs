@@ -11,47 +11,10 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// The static semantics of the <c>Implements</c> directives of a class module (<strong>MS-VBAL §5.2.4.2</strong>) and of
-/// the implemented name declarations that follow from them (<strong>§5.3.1.9</strong>).
-/// </summary>
-/// <remarks>
-/// <list type="bullet">
-/// <item><strong>The directive.</strong> The class it names must exist, and cannot be the class of the module that has the
-/// directive, nor a class another directive of the module names. A class whose public variables or methods have an
-/// underscore in their names cannot be an interface class, and no interface's implemented interface name prefix
-/// (<c>InterfaceName_</c>) can begin another's. All of that is <see cref="VBCompileErrorId.InvalidImplementsDirective"/>,
-/// a class that does not exist is <see cref="VBCompileErrorId.UserDefinedTypeNotDefined"/>.</item>
-/// <item><strong>What it requires.</strong> An implemented name declaration for each public method of the interface class,
-/// of the same kind, and for each public variable the property accessors its type calls for: a <c>Property Get</c> and a
-/// <c>Property Let</c>, a <c>Property Set</c> where the variable is an <c>Object</c> or a class, and all three where it is a
-/// <c>Variant</c> (<see cref="VBCompileErrorId.InterfaceMemberNotImplemented"/>).</item>
-/// <item><strong>What it forbids.</strong> A procedure named <c>InterfaceName_MemberName</c> is the implementation of that
-/// member, and is invalid when it is not the kind of declaration the member needs, when its parameters are not equivalent
-/// to the member's, or when its type is not the member's (<see cref="VBCompileErrorId.InvalidImplementedMember"/>).</item>
-/// </list>
-/// A member the language implements on every class module's behalf, and gives an implementation of its own
-/// (<see cref="SymbolProperties.DefaultImplementation"/>), is not required of anything: this checks the interfaces a module
-/// names, and <see cref="ClassLifecycleInterface"/> is not one of them.
-/// <para>
-/// An <c>Implements</c> directive in an extensible module (<c>Attribute VB_Extensible = True</c>,
-/// <see cref="SymbolProperties.Extensible"/>) is invalid, whatever the directive names, and nothing else of the module's
-/// directives is checked then. A document module (<see cref="VBClassModuleSymbol.IsDocument"/>) is extensible too, and MS-VBA
-/// compiles and runs the directives of a worksheet's: they are checked as any class module's, and what the specification
-/// says of them is a warning of its own, not a compile error.
-/// </para>
-/// <para>
-/// 🚧 TODO the directive's own location is not on the symbol, so what is reported of a directive is located at the module.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.2.4.2, §5.3.1.9
+// TODO the directive's own location is not on the symbol, so what is reported of a directive is located at the module.
 public static class ImplementsSemantics
 {
-    /// <summary>
-    /// Checks the <c>Implements</c> directives of <paramref name="module"/> and what they require of it.
-    /// </summary>
-    /// <param name="module">The class module, with its members.</param>
-    /// <param name="resolver">What finds the classes the directives name, as they are now.</param>
-    /// <returns>Every error found, the directives' first, then the members'; empty when they are valid.</returns>
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(VBClassModuleSymbol module, ISymbolResolver resolver)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();

@@ -11,23 +11,12 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
-/// <summary>
-/// <strong>MS-VBAL 5.6.8</strong> New Expressions (static semantics). A <c>New</c> expression is
-/// invalid if the type referenced by its <c>TypeExpression</c> is not instantiable.
-/// </summary>
+// MS-VBAL §5.6.8
 public sealed record class NewExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<NewExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static NewExpressionStaticSemantics Instance => _instance.Value;
 
-    /// <summary>
-    /// Determines the declared type of a <see cref="NewExpressionNode"/>: the type referenced by its
-    /// <c>TypeExpression</c>, if that reference is an instantiable class module.
-    /// </summary>
-    /// <param name="context">The compile-time context this expression is evaluated against.</param>
-    /// <param name="expression">The <see cref="NewExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">Unused: <c>TypeExpression</c> names a type, not a value.</param>
-    /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="NewExpressionNode"/>.</exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not NewExpressionNode newExpression)

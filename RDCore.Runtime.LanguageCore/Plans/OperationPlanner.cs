@@ -5,34 +5,9 @@ using System.Collections.Concurrent;
 
 namespace RDCore.Runtime.LanguageCore.Plans;
 
-/// <summary>
-/// Makes the <see cref="OperationPlan"/> of an operation from the types of its operands: the one table of the effective types of the operators, consulted when an
-/// operation is bound from declared types and when it is evaluated on values (IR lowering §3.2).
-/// </summary>
-/// <remarks>
-/// <para>
-/// A plan depends on nothing but the operator and the operand types, so each is made once and kept: the interpreter asks for the plan of every operation it
-/// evaluates, and an operation evaluated a million times is planned once. The plans last asked for are also kept by the identity of the operator and the
-/// types (<see cref="RecentPlans{TPlan}"/>), which is what an operation evaluated in a loop asks with every time.
-/// </para>
-/// <para>
-/// Every operator of <strong>MS-VBAL §5.6.9</strong> is planned here: the arithmetic operators and unary <c>+</c>, <c>&amp;</c>, the relational operators,
-/// <c>Like</c> and <c>Is</c>, and the logical operators. What else evaluates as an operator - a let-assignment, a pair of parentheses - is a conversion, which
-/// has no table of effective types, and asking for its plan is a mistake (<see cref="NotSupportedException"/>).
-/// </para>
-/// <para>
-/// A plan is made from the types of the operands, and two rules of the specification depend on more than that, so they are the evaluation's: a comparison of
-/// two operands <em>declared</em> <c>Variant</c>, one holding a number and the other a <c>String</c>, ranks the number below the <c>String</c> whatever their
-/// types make of it (<strong>§5.6.9.5</strong>); and a logical operation of <c>Null</c> and a number is <c>Null</c> or a number, depending on the number
-/// (<strong>§5.6.9.8</strong>).
-/// </para>
-/// <para>
-/// The static semantics of the arithmetic, logical and concatenation operators consult this table. Those of the relational operators do not, and are not to:
-/// a comparison's <em>declared</em> type is Boolean, or Variant (<strong>§5.6.9.5</strong>), which says nothing of the effective type its operands are
-/// compared in. What the static semantics accept, this table does not reject for the same declared types - but where the specification itself makes a
-/// comparison of an <c>Error</c> and anything else statically valid and a type mismatch whenever it runs.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.6.9, §5.6.9.5, §5.6.9.8
+// the relational operators' static semantics must not consult this table: a comparison's declared type says nothing of the type it compares in.
+// two rules depend on values, not types, and stay the evaluation's: a Variant number against a String (§5.6.9.5), Null in a logical operation (§5.6.9.8).
 public static class OperationPlanner
 {
     private static readonly ConcurrentDictionary<(string Operator, VBType Left, VBType Right), OperationPlan> _binary = new();
@@ -41,13 +16,6 @@ public static class OperationPlanner
     private static readonly RecentPlans<OperationPlan> _recentBinary = new();
     private static readonly RecentPlans<OperationPlan> _recentUnary = new();
 
-    /// <summary>
-    /// The plan of a binary operation on values of these types: final, whatever the types are.
-    /// </summary>
-    /// <param name="operator">The operator: one of the <c>Tokens</c> binary operators.</param>
-    /// <param name="left">The value type of the left operand: the type of what a Variant operand holds.</param>
-    /// <param name="right">The value type of the right operand.</param>
-    /// <exception cref="NotSupportedException">The operator has no table of effective types: it is a conversion.</exception>
     public static OperationPlan ForValues(string @operator, VBType left, VBType right)
     {
         if (_recentBinary.TryGet(@operator, left, right, out var plan))
@@ -60,12 +28,6 @@ public static class OperationPlanner
         return plan;
     }
 
-    /// <summary>
-    /// The plan of a unary operation on a value of this type: final, whatever the type is.
-    /// </summary>
-    /// <param name="operator">The operator: one of the <c>Tokens</c> unary operators.</param>
-    /// <param name="operand">The value type of the operand.</param>
-    /// <exception cref="NotSupportedException">The operator has no table of effective types: it is a conversion.</exception>
     public static OperationPlan ForValue(string @operator, VBType operand)
     {
         if (_recentUnary.TryGet(@operator, operand, null, out var plan))
@@ -78,26 +40,11 @@ public static class OperationPlanner
         return plan;
     }
 
-    /// <summary>
-    /// The plan of a binary operation on operands of these declared types: <see cref="OperationPlan.IsDeferred"/> when either is declared <c>Variant</c> or
-    /// <c>Object</c>, or is late-bound (<see cref="VBUnknownType"/>), whose value type is not known until the operation is evaluated, and the plan of the
-    /// values otherwise.
-    /// </summary>
-    /// <param name="operator">The operator: one of the <c>Tokens</c> binary operators.</param>
-    /// <param name="left">The declared type of the left operand.</param>
-    /// <param name="right">The declared type of the right operand.</param>
-    /// <remarks>A fixed-length string holds a <c>String</c>, which is the value type it is planned as.</remarks>
     public static OperationPlan ForDeclared(string @operator, VBType left, VBType right)
         => IsDeferredType(left) || IsDeferredType(right)
             ? new OperationPlan(@operator, [left, right], null, IsDeferred: true)
             : ForValues(@operator, ValueTypeOf(left), ValueTypeOf(right));
 
-    /// <summary>
-    /// The plan of a unary operation on an operand of this declared type: <see cref="OperationPlan.IsDeferred"/> when it is declared <c>Variant</c> or
-    /// <c>Object</c>, and the plan of the value otherwise.
-    /// </summary>
-    /// <param name="operator">The operator: one of the <c>Tokens</c> unary operators.</param>
-    /// <param name="operand">The declared type of the operand.</param>
     public static OperationPlan ForDeclared(string @operator, VBType operand)
         => IsDeferredType(operand)
             ? new OperationPlan(@operator, [operand], null, IsDeferred: true)
@@ -267,18 +214,8 @@ public static class OperationPlanner
         _ => null,
     };
 
-    /// <summary>
-    /// The effective type <strong>MS-VBAL §5.6.9.5</strong>'s table gives a comparison of values of these types, where <see cref="ForValues"/> plans the
-    /// comparison MS-VBA makes of them.
-    /// </summary>
-    /// <param name="left">The value type of the left operand: the type of what a Variant operand holds.</param>
-    /// <param name="right">The value type of the right operand.</param>
-    /// <returns>The effective type of the table, or <see langword="null"/> where the table has none: a type mismatch.</returns>
-    /// <remarks>
-    /// The two differ for a <c>String</c> and a <c>Byte</c>, an <c>Integer</c> or a <c>Long</c>, which MS-VBA compares as <c>Double</c> values where the
-    /// table gives the number's type (<strong>RD-VBAL §5.6.9.5</strong>). An analysis that states where code departs from the comparison the specification
-    /// states compares against this type.
-    /// </remarks>
+    // MS-VBAL §5.6.9.5; RD-VBAL §5.6.9.5
+    // kept for an analysis that states where code departs from the comparison the specification states.
     public static VBType? SpecifiedRelationalEffectiveType(VBType left, VBType right) => TableRelationalEffectiveType(AliasedTypeOf(left), AliasedTypeOf(right));
 
     // MS-VBA compares a String with a Byte, an Integer or a Long as Doubles, where MS-VBAL makes the effective type the number's: "2.5" = 2 is False and

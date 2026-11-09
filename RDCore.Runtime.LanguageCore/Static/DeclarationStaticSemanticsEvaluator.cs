@@ -20,49 +20,13 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// The static semantics of what a module declares, apart from what its procedures' bodies say: the declarations themselves.
-/// </summary>
-/// <remarks>
-/// A module whose every procedure is valid is not a valid module: a name declared twice, an event that is wrong, an interface that is not
-/// implemented are all errors of a declaration, which no body shows. They are found here, once for the module, and a module model holds them
-/// next to the models of its procedures (<see cref="ModuleSemanticModel.DeclarationErrors"/>).
-/// <list type="bullet">
-/// <item>A name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.AmbiguousName"/>). That is a rule of
-/// the declarations as they are written, and not of the symbols they become (<see cref="CheckSyntax"/>).</item>
-/// <item>A declared type is a name that resolves to a type (<see cref="VBCompileErrorId.UserDefinedTypeNotDefined"/>): of a variable, a constant of the
-/// module, a parameter, a function's or a property's result, and a local variable. A name that resolves to a procedural module or a project does not: neither
-/// is a type (<strong>MS-VBAL §5.6.16.7</strong>, <see cref="VBCompileErrorId.ModuleIsNotAValidType"/>, <see cref="VBCompileErrorId.AutomationTypeNotSupported"/>
-/// for a library's module, <see cref="VBCompileErrorId.ExpectedUserDefinedTypeNotProject"/>). Of a field of a user-defined type and of a local constant, only that much is checked: a procedural module is
-/// refused there, and a name that does not resolve is not. Whether a name resolves can only be told once everything the declaration can see is defined,
-/// which is why this rule is one a caller asks for (<see cref="DeclarationRules.DeclaredTypes"/>).</item>
-/// <item>What a module exposes (<see cref="PublicMemberSemantics"/>): a public member is not declared with a private type, and a class module exposes no
-/// constant, array, user-defined type or <c>Declare</c>. A rule of the declared types too, and asked for with them.</item>
-/// <item>A class module is also checked for what it declares about events (<see cref="ClassModuleEventSemantics"/>) and for what its
-/// <c>Implements</c> directives require (<see cref="ImplementsSemantics"/>).</item>
-/// </list>
-/// </remarks>
+// MS-VBAL §5.2, §5.6.16.7
 public static class DeclarationStaticSemanticsEvaluator
 {
-    /// <summary>
-    /// The most names a module declares at module level - variables, constants, procedures, properties, <c>Declare</c> statements, enumerations and
-    /// user-defined types, all together, a property once whatever its accessors - before it is <see cref="VBCompileErrorId.OutOfMemory"/>.
-    /// </summary>
-    /// <remarks>
-    /// MS-VBAL sets no limit. MS-VBA compiles a module of 10,800 such names and not one of 11,000, whatever their kind or the length of their names, and
-    /// reports "Out of memory" (recorded in Excel). RD-VBA's cap is a round number below that, by the author's ruling: a module RD-VBA compiles is one
-    /// MS-VBA compiles.
-    /// </remarks>
+    // MS-VBAL sets no limit; MS-VBA compiles 10,800 module-level names and not 11,000 (Out of memory).
+    // a round number below that, so a module RD-VBA compiles is one MS-VBA compiles.
     public const int MaxModuleNames = 10_000;
 
-    /// <summary>
-    /// Checks everything <paramref name="module"/> declares.
-    /// </summary>
-    /// <param name="module">The module, as the session or the workspace composed it: a class module with its members.</param>
-    /// <param name="members">The members declared by the module (<see cref="ISessionSymbols.MembersOf"/>).</param>
-    /// <param name="resolver">What finds the classes the module's declarations name, as they are now.</param>
-    /// <param name="rules">Which of the rules that depend on what else is defined are checked.</param>
-    /// <returns>Every error found, in declaration order within each rule; empty when the declarations are valid.</returns>
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(
         Symbol module, IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver, DeclarationRules rules = DeclarationRules.Default)
     {
@@ -88,18 +52,7 @@ public static class DeclarationStaticSemanticsEvaluator
         return errors.ToImmutable();
     }
 
-    /// <summary>
-    /// Checks that the code of a form module declares no member with the name of one of the form's controls
-    /// (<see cref="VBCompileErrorId.MemberAlreadyExistsInDesigner"/>): the form's designer already declares a field of the form's class of that name.
-    /// </summary>
-    /// <remarks>
-    /// MS-VBA reports a variable, a constant, a procedure or a <c>Declare</c> of a control's name (Excel-measured, <c>oracle\s30</c> C09/C10). It compiles a
-    /// <c>WithEvents</c> variable of a control's name and class (C17), which reads as though it shadowed the control and does not: RD-VBA refuses it with the
-    /// same error, which is the error it should have been all along (the author's ruling).
-    /// </remarks>
-    /// <param name="module">The parsed module.</param>
-    /// <param name="designer">What the module's designer declares (<see cref="RDCore.SDK.Model.AST.ModuleParseResult.Designer"/>), or <c>null</c> when it is no form.</param>
-    /// <returns>One error for each declaration of a control's name, at the declaration; empty when there is none, or no designer.</returns>
+    // MS-VBA compiles a WithEvents variable of a control's name and class, which only seems to shadow the control: RD-VBA refuses it with the same error.
     public static ImmutableArray<VBCompileErrorInfo> CheckDesigner(ModuleNode module, FormDescriptor? designer)
     {
         if (designer is null)
@@ -131,20 +84,8 @@ public static class DeclarationStaticSemanticsEvaluator
         return errors.ToImmutable();
     }
 
-    /// <summary>
-    /// Checks that a name is declared once in the scope of a module (<strong>MS-VBAL §5.2</strong>, <see cref="VBCompileErrorId.AmbiguousName"/>), from
-    /// what the module's source declares.
-    /// </summary>
-    /// <remarks>
-    /// Read off the declarations of the syntax tree and not the symbols they become, because a symbol is one per identity: a name declared twice as the same
-    /// kind of thing (<c>Public Total As Long</c> twice, a <c>Sub</c> of one name twice) is, by then, one symbol, and a rule that read symbols could only
-    /// find the names that collide as different kinds. The <c>Get</c>, <c>Let</c> and <c>Set</c> accessors of a property are the one declaration of it; an
-    /// event is checked for its own uniqueness by the rule of events, which says what it is that is declared twice; and a name declared in each branch of a
-    /// <c>#If</c> block is declared once, whichever branch compiles.
-    /// </remarks>
-    /// <param name="module">The parsed module.</param>
-    /// <param name="blocks">The <c>#If</c> blocks of the module, which say which declarations are alternatives of one another.</param>
-    /// <returns>One error for each declaration of a name that is already declared, at the repeated declaration; empty when each is declared once.</returns>
+    // MS-VBAL §5.2
+    // reads the syntax tree, not the symbols: a name declared twice as the same kind is one symbol by then.
     public static ImmutableArray<VBCompileErrorInfo> CheckSyntax(ModuleNode module, ConditionalCompilationBlocks blocks)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
@@ -386,14 +327,7 @@ public static class DeclarationStaticSemanticsEvaluator
         errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.UserDefinedTypeNotDefined, new SourceLocation(document, range), verbose));
     }
 
-    /// <summary>
-    /// The error of a name written as a type that binds something the type binding context binds, and that is no type (<strong>MS-VBAL §5.6.10</strong>): a
-    /// procedural module, a library's, or a project. <see langword="null"/> for a type and for a name that does not resolve.
-    /// </summary>
-    /// <remarks>
-    /// MS-VBA's three errors, Excel-verified (oracle\s29): "A module is not a valid type", "Automation type not supported in Visual Basic", "Expected
-    /// user-defined type, not project".
-    /// </remarks>
+    // MS-VBAL §5.6.10
     internal static VBCompileErrorInfo? NoTypeError(TypeNameClass bound, string name, SourceLocation location) => bound switch
     {
         TypeNameClass.ProceduralModule => VBCompileErrorInfo.For(VBCompileErrorId.ModuleIsNotAValidType, location,
@@ -439,20 +373,11 @@ public static class DeclarationStaticSemanticsEvaluator
     };
 }
 
-/// <summary>
-/// The rules of <see cref="DeclarationStaticSemanticsEvaluator"/> that depend on what else is defined.
-/// </summary>
 [Flags]
 public enum DeclarationRules
 {
-    /// <summary>
-    /// The rules that depend on nothing but the module.
-    /// </summary>
     Default = 0,
 
-    /// <summary>
-    /// A declared type is a name that resolves to a type. Only to be asked once everything the module can see is defined: a module that is defined
-    /// before the one it names has a name that does not resolve yet.
-    /// </summary>
+    // asked for only once everything is defined: a module defined before the one it names does not resolve it yet.
     DeclaredTypes = 1,
 }

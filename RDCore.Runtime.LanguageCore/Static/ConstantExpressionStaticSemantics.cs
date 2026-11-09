@@ -15,35 +15,11 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Whether the value of a constant is a constant expression (<strong>MS-VBAL §5.6.16.1</strong>): one that is evaluated once, statically, as MS-VBA
-/// evaluates it (recorded in Excel).
-/// </summary>
-/// <remarks>
-/// <para>
-/// A constant expression is made of literals, constants - of the module, of the procedure, of a library - members of enumerations, parentheses, and the
-/// operators; anything else is <see cref="VBCompileErrorId.ConstantExpressionRequired"/>.
-/// </para>
-/// <para>
-/// 👉 MS-VBAL §5.6.16.1 also admits a call of <c>Int</c>, <c>Fix</c>, <c>Abs</c>, <c>Sgn</c>, <c>Len</c>, <c>LenB</c> and the conversion functions. MS-VBA
-/// refuses them in a constant (<c>Const k = Len("abc")</c>, <c>Abs(-1)</c>, <c>CLng(1.5)</c>; of a module, oracle\s44 C01, C02, and <c>LenB</c> of a
-/// procedure, C05), and RD-VBA refuses them as MS-VBA does. A <c>Const</c> of a procedure valued <c>Len</c> of a constant compiles in MS-VBA, and crashes the
-/// host when it runs (C03, C04): RD-VBA compiles it, to the length MS-VBAL gives it, and warns (<c>RDC11021</c>, the author's ruling). MS-VBA admits
-/// <c>Len</c> and <c>LenB</c> of a constant expression in the bounds of an array, of a
-/// procedure and of a module (<c>Dim d(Len(K))</c>, oracle\s46 F02, oracle\s44 C06), and so does RD-VBA.
-/// </para>
-/// <para>
-/// The <c>Nothing</c> literal is a constant expression, of a type no constant can have: <see cref="VBCompileErrorId.InvalidDataTypeForConstant"/>.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.6.16.1
+// MS-VBA refuses in a Const the calls §5.6.16.1 admits (Len, Abs, CLng), and so does RD-VBA; it admits Len and LenB of a constant expression in array bounds, and so does RD-VBA.
+// a procedure's Const valued Len of a constant compiles in MS-VBA and crashes the host when it runs: RD-VBA compiles it to the length MS-VBAL gives it, and warns (RDC11021).
 public static class ConstantExpressionStaticSemantics
 {
-    /// <summary>
-    /// The compile errors of the values of the constants a module declares, and of the constants its procedures declare.
-    /// </summary>
-    /// <param name="members">The members of the module.</param>
-    /// <param name="resolver">Resolves the names a value is written with, from where the constant is declared.</param>
-    /// <param name="optionBase">The module's <c>Option Base</c>: the lower bound of an array dimension declared without one, but of a field of a type.</param>
     internal static IEnumerable<VBCompileErrorInfo> Evaluate(IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver, int optionBase = 0)
     {
         foreach (var member in members)
@@ -209,27 +185,8 @@ public static class ConstantExpressionStaticSemantics
         _ => null,
     };
 
-    /// <summary>
-    /// The compile error of the value of a constant: the first part of it that is not a constant expression, or a value of no type a constant can have.
-    /// </summary>
-    /// <remarks>
-    /// A value that has one is not evaluated: what it would read - a variable, a function's result - has no value until the code runs.
-    /// </remarks>
-    /// <param name="resolver">Resolves the names the value is written with.</param>
-    /// <param name="scope">Where the constant is declared: its module, or its procedure.</param>
-    /// <param name="value">The value the constant is declared with.</param>
-    /// <returns>The error, or <see langword="null"/> when the value is a constant expression.</returns>
     public static VBCompileErrorInfo? ValueError(ISymbolResolver resolver, Uri scope, ExpressionNode value) => ValueError(resolver, scope, value, IntrinsicCalls.None);
 
-    /// <summary>
-    /// The compile error of the value of <paramref name="constant"/>, as <see cref="ValueError(ISymbolResolver, Uri, ExpressionNode)"/> - and of a constant
-    /// of a procedure, a call of the standard library's <c>Len</c> of a constant expression is one, which MS-VBA compiles there and refuses in a module
-    /// (recorded in Excel: oracle\s44 C01-C04).
-    /// </summary>
-    /// <param name="resolver">Resolves the names the value is written with.</param>
-    /// <param name="constant">The constant: of a module, or of a procedure.</param>
-    /// <param name="value">The value it is declared with.</param>
-    /// <returns>The error, or <see langword="null"/> when the value is a constant expression.</returns>
     public static VBCompileErrorInfo? ValueErrorOf(ISymbolResolver resolver, Symbol constant, ExpressionNode value)
         => ValueError(resolver, constant.ParentUri, value, constant is VBLocalConstantSymbol ? IntrinsicCalls.Len : IntrinsicCalls.None);
 
@@ -245,19 +202,7 @@ public static class ConstantExpressionStaticSemantics
             : null;
     }
 
-    /// <summary>
-    /// Whether <paramref name="expression"/> is a constant expression (<strong>MS-VBAL §5.6.16.1</strong>), which MS-VBA evaluates once, when it compiles
-    /// the code: made of literals, constants, members of enumerations, parentheses, the operators, and calls of the standard library's <c>Int</c>,
-    /// <c>Fix</c>, <c>Abs</c>, <c>Sgn</c>, <c>Len</c>, <c>LenB</c> and conversion functions.
-    /// </summary>
-    /// <remarks>
-    /// The value of a <c>Const</c> admits fewer of those calls (<see cref="ValueError(ISymbolResolver, Uri, ExpressionNode)"/>). Where code is run, MS-VBA
-    /// evaluates them all as it compiles it: <c>-CLng(&amp;H80000000)</c> and <c>Abs(CLng(-2147483647) - 1)</c> are the least <c>Long</c>, as a negation
-    /// of one evaluated when the code runs never is (recorded in Excel: oracle\s60 A01, N17).
-    /// </remarks>
-    /// <param name="resolver">Resolves the names the expression is written with.</param>
-    /// <param name="scope">Where the expression is written: a module, or a procedure.</param>
-    /// <param name="expression">The expression.</param>
+    // MS-VBAL §5.6.16.1
     public static bool IsConstantExpression(ISymbolResolver resolver, Uri scope, ExpressionNode expression)
         => FirstNotConstant(resolver, scope, expression, IntrinsicCalls.All) is null;
 

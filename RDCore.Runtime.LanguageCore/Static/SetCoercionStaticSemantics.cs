@@ -9,17 +9,8 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// MS-VBAL 5.5.2.1 Set-coercion (static semantics)
-/// </summary>
-/// <remarks>
-/// Considerably thinner than <see cref="LetCoercionStaticSemantics"/>'s table: Set-coercion only ever
-/// moves object references around, so the static table is just two rows: is the destination even
-/// object-ish (a specific class, <c>Object</c>, or <c>Variant</c>), and if so, is the source too? MS-VBAL
-/// 5.5.2.1 deliberately stops there: whether a source class actually implements or derives from the
-/// destination's declared class is a <em>runtime</em>-semantics question (5.5.2.2.1, runtime error 13
-/// on mismatch), not a static one. <see cref="VBClassType.Supertypes"/> has no role to play here.
-/// </remarks>
+// MS-VBAL §5.5.2.1
+// MS-VBAL §5.5.2.1 deliberately stops there: whether a source class implements or derives from the destination's class is a run-time question (§5.5.2.2.1, error 13), not a static one.
 public record class SetCoercionStaticSemantics : StaticSemantics
 {
     private static readonly Lazy<SetCoercionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
@@ -40,13 +31,7 @@ public record class SetCoercionStaticSemantics : StaticSemantics
         return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(id, expression.Location, Exceptions.VBCompileError_SetCoercionTypeMismatch_Verbose));
     }
 
-    /// <returns>
-    /// <c>true</c> if a Set-coercion operation is <strong>invalid</strong> between the specified source
-    /// and destination data types — i.e. either side isn't a specific class, <c>Object</c>, or
-    /// <c>Variant</c>. <see cref="VBUnknownType"/> on either side (not yet resolved/modeled) can't be
-    /// shown to violate this, so it's deferred rather than flagged — same convention as every other
-    /// rule this evaluator dispatches to.
-    /// </returns>
+    // VBUnknownType on either side cannot be shown to violate the rule: deferred, not flagged.
     private static bool IsSetCoercionInvalid(VBType source, VBType destination)
         => source is not VBUnknownType && destination is not VBUnknownType
             && (destination is not (VBClassType or VBObjectType or VBVariantType)

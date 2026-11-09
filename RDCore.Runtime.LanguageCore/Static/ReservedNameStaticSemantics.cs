@@ -7,20 +7,8 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// The functions of the standard library whose names are <em>reserved names</em> (<strong>MS-VBAL §3.3.5.2</strong>), which MS-VBA parses with the
-/// arguments they take: <c>Abs</c>, <c>Fix</c>, <c>Int</c>, <c>Sgn</c>, <c>Len</c>, <c>LenB</c>, the conversion functions, and <c>String</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// MS-VBAL §3.3.5.2 says a reserved name is used "as if it was a normal program defined entity", and is silent about one written without its arguments.
-/// MS-VBA refuses it as a syntax error (recorded in Excel): <c>Len</c>, <c>Len()</c>, <c>Abs(1, 2)</c> and <c>String(2)</c> are each "Syntax error" - and
-/// not "Argument not optional", which a function of the library that has no reserved name (<c>CDec()</c>) is.
-/// </para>
-/// <para>
-/// A name qualified by its library (<c>VBA.Len</c>) is a member like any other, and a named argument is left to the rules of arguments.
-/// </para>
-/// </remarks>
+// MS-VBAL §3.3.5.2
+// MS-VBAL §3.3.5.2 is silent about a reserved name written without its arguments: MS-VBA refuses it as a syntax error, not Argument not optional.
 public static class ReservedNameStaticSemantics
 {
     // how many arguments each takes, which is the one way MS-VBA parses a call of it.
@@ -30,16 +18,8 @@ public static class ReservedNameStaticSemantics
         ["CSng"] = 1, ["CStr"] = 1, ["CVar"] = 1, ["CVErr"] = 1, ["Fix"] = 1, ["Int"] = 1, ["Len"] = 1, ["LenB"] = 1, ["Sgn"] = 1, ["String"] = 2,
     }.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Whether <paramref name="name"/> is the name of one of the reserved-name functions, which MS-VBA parses with the arguments it takes.
-    /// </summary>
-    /// <param name="name">A name, as written.</param>
     public static bool IsReservedName(string name) => _arities.ContainsKey(name);
 
-    /// <summary>
-    /// The syntax error of a call of a reserved-name function with other than the arguments it takes, or <see langword="null"/>.
-    /// </summary>
-    /// <param name="call">An index expression: the call, when its callee is one of the functions.</param>
     public static VBCompileErrorInfo? CallError(IndexExpressionNode call)
     {
         if (call.Callee is not SimpleNameExpressionNode { IdentifierName: var name } || !_arities.TryGetValue(name, out var arity)
@@ -54,10 +34,6 @@ public static class ReservedNameStaticSemantics
             : VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, call.Location, string.Format(Exceptions.VBCompileError_ReservedNameArguments_Verbose, name, arity));
     }
 
-    /// <summary>
-    /// The syntax errors of the reserved-name functions a module names without an argument list: one for each.
-    /// </summary>
-    /// <param name="module">The parsed module.</param>
     public static ImmutableArray<VBCompileErrorInfo> CheckSyntax(ModuleNode module)
     {
         var nodes = module.Descendants().ToList();

@@ -34,6 +34,7 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
     }
 }
 
+// a name is bound the way a rename binds it, so a navigation finds what a rename renames.
 // an #If branch whose state is not known counts as compiled; a late-bound member refers to no known symbol, and leads nowhere.
 public static class SymbolNavigation
 {
@@ -51,6 +52,7 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
+    // the first declaration written, of every #If branch and property procedure: the same whatever branch the precompiler compiles.
     public static SymbolNavigationTarget? DeclarationAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)

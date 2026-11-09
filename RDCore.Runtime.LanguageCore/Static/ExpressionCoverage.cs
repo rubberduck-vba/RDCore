@@ -6,29 +6,9 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Whether the static pass evaluated every expression a body refers to a name in.
-/// </summary>
-/// <remarks>
-/// A fact about the references to a declaration is only true when every reference is among the facts: an expression the pass did not evaluate - an
-/// operand that follows one that is an error, the bounds of an array that is declared, a statement the pass does not look into - may refer to anything.
-/// This looks at the body itself, apart from what the pass did with it, for each place a name is written that is a reference (<see cref="SimpleNameExpressionNode"/>,
-/// <see cref="MemberAccessExpressionNode"/>, <see cref="DictionaryAccessExpressionNode"/> and <see cref="IndexExpressionNode"/>), and asks the pass for its fact:
-/// a body is covered when each has one.
-/// <para>
-/// What is not a reference is not looked for: the name of a member is the access that has it, the type a <c>New</c> expression names is a type and no value, a
-/// label a jump names is no symbol, nor is the name of a named argument, and the first operand of a <c>RaiseEvent</c> is an event. A statement or an expression
-/// in an excluded <c>#If</c> branch is not there (<strong>MS-VBAL §3.4.2</strong>).
-/// </para>
-/// </remarks>
+// MS-VBAL §3.4.2
 internal static class ExpressionCoverage
 {
-    /// <summary>
-    /// Whether every reference written in <paramref name="body"/> has a fact in <paramref name="facts"/>.
-    /// </summary>
-    /// <param name="body">The procedure's body.</param>
-    /// <param name="options">What decides which of the body's statements there are.</param>
-    /// <param name="facts">What the pass recorded of the expressions it evaluated.</param>
     public static bool IsCovered(StatementBlock body, StaticSemanticsOptions options, IExpressionFactSink facts)
     {
         var covered = true;

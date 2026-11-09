@@ -17,45 +17,13 @@ using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Runtime.LanguageCore.References;
 
-/// <summary>
-/// Finds where the modules of a workspace name a symbol, and how each names it (<see cref="SymbolReference"/>): what a refactoring that rewrites the references
-/// of a symbol (its calls, its assignments, its arguments) works from.
-/// </summary>
-/// <remarks>
-/// <para>
-/// A name is bound the way a rename binds it (<c>SymbolRename</c>), by the static semantics, so that what is found is what a rename of the symbol renames:
-/// a name that refers to another symbol of the same name is no reference of it. A property is one symbol with each of its procedures, its <c>Property Get</c>,
-/// <c>Let</c> and <c>Set</c> (<see cref="SymbolReferences.Symbols"/>); each reference says which procedure it calls (<see cref="SymbolReference.Symbol"/>,
-/// <see cref="SymbolReference.Use"/>).
-/// </para>
-/// <para>
-/// A name whose meaning is not known where it is written (a member accessed late-bound, a name in an expression nested too deeply to be analyzed, a name in a
-/// string a library calls a procedure by) is no reference, and is in <see cref="SymbolReferences.Unknown"/> where the symbol could be what it means.
-/// </para>
-/// <para>
-/// The static semantics are evaluated for each module that writes the symbol's name, once for the query, on a large-stack thread.
-/// </para>
-/// </remarks>
+// a name is bound the way a rename binds it, so what is found is what a rename renames.
+// each module's static semantics are evaluated once for the query, on one large-stack thread.
 public static class ReferenceQuery
 {
-    /// <summary>
-    /// The references of the symbol named at <paramref name="position"/> of <paramref name="module"/>: a value, or the type a name that means no value names.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <returns>
-    /// The references of the symbol; <see langword="null"/> where no name is written, or where what the name refers to is not known.
-    /// </returns>
     public static SymbolReferences? At(RenameContext context, Uri module, SourcePosition position)
         => RenameBinding.SymbolAt(context, module, position) is { } named ? Of(context, named.Symbol) : null;
 
-    /// <summary>
-    /// The references of <paramref name="symbol"/>, in every module of the workspace.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="symbol">A symbol the workspace declares, or a symbol of a library it references.</param>
-    /// <returns>The references of the symbol, and the places whose meaning is not known that could be.</returns>
     public static SymbolReferences Of(RenameContext context, Symbol symbol)
     {
         if (!LargeStackThread.IsCurrent)

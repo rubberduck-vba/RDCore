@@ -15,31 +15,15 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// The checks that the operands of a statement are held to, which the statements that have them
-/// (<see cref="MidStatementStaticSemantics"/>, <see cref="FileStatementStaticSemantics"/>, and the assignments and the <c>For</c> loops
-/// <see cref="StatementStaticSemanticsEvaluator"/> walks) state once instead of each of them restating.
-/// </summary>
-/// <remarks>
-/// Each check reports into a list rather than returning on the first error, because the operands of a statement are largely independent of one
-/// another: a statement with two wrong operands has two errors. And none of them reports what it cannot tell: an operand whose declared type is
-/// <see cref="VBUnknownType"/> - a name nothing resolved, a member the library does not declare - is deferred, not rejected, as
-/// <see cref="ExpressionStaticSemanticsEvaluator"/> does.
-/// </remarks>
+// reports into a list rather than on the first error: a statement's operands are largely independent. An operand of unknown type is deferred, not rejected.
 internal sealed class StatementOperandChecks(StaticEvaluationContext context)
 {
     private readonly ImmutableArray<VBCompileErrorInfo>.Builder _errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
 
-    /// <summary>Every error the checks found, in the order they were found.</summary>
     public ImmutableArray<VBCompileErrorInfo> Errors => _errors.ToImmutable();
 
-    /// <summary>Reports an error a statement's own rule found.</summary>
     public void Add(VBCompileErrorInfo error) => _errors.Add(error);
 
-    /// <summary>
-    /// Evaluates <paramref name="expression"/>, reporting what stops it.
-    /// </summary>
-    /// <returns>Its declared type, or <see langword="null"/> when it has none: the evaluation failed, or the type is not known.</returns>
     public VBType? TypeOf(ExpressionNode expression)
     {
         var result = ExpressionStaticSemanticsEvaluator.Evaluate(context, expression);
@@ -52,10 +36,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         return result.Result is null or VBUnknownType ? null : result.Result;
     }
 
-    /// <summary>
-    /// "The declared type of <paramref name="expression"/> MUST be a scalar declared type": every declared type but an array and a UDT
-    /// (<strong>MS-VBAL §2.2</strong>).
-    /// </summary>
+    // MS-VBAL §2.2
     public void RequireScalar(ExpressionNode expression, VBType? type, string role)
     {
         if (type is VBArrayType or VBUserDefinedType)
@@ -65,9 +46,6 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         }
     }
 
-    /// <summary>
-    /// "The declared type MUST be String or Variant."
-    /// </summary>
     public void RequireStringOrVariant(ExpressionNode expression, VBType? type, string role)
     {
         if (type is not null && type is not (VBStringType or VBVariantType))
@@ -77,10 +55,6 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         }
     }
 
-    /// <summary>
-    /// "The declared type MUST NOT be Object or a specific named class" - nor, for the record statements, a UDT whose definition
-    /// recursively includes one.
-    /// </summary>
     public void RequireNotAnObject(ExpressionNode expression, VBType? type, string role, bool throughUserDefinedTypes)
     {
         if (type is not null && IsObject(type, throughUserDefinedTypes))
@@ -99,9 +73,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         _ => false,
     };
 
-    /// <summary>
-    /// "The value MUST be Let-coercible to the declared type <paramref name="destination"/>" (<strong>MS-VBAL §5.5.1.1</strong>).
-    /// </summary>
+    // MS-VBAL §5.5.1.1
     public void RequireLetCoercible(ExpressionNode expression, VBType? type, VBType destination)
     {
         if (type is null)
@@ -116,44 +88,14 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         }
     }
 
-    /// <summary>
-    /// "The expression MUST be classified as a variable" (<strong>MS-VBAL §5.6.1</strong>).
-    /// </summary>
-    /// <remarks>
-    /// Only what is certainly not a variable is rejected: a literal, an operator's result, a constant - by its name, qualified by the project or the
-    /// module that declares it, or qualified by its Enum - and a function of a library. A member access, an index and the rest are not told apart
-    /// here, since which of them is a variable depends on what they resolve to. A function of the workspace is not rejected either: inside its own
-    /// body its name is its result, which is assigned to, and one assigned from outside its body is not judged here. Nor is a property, nor a
-    /// variable named like a library's member, which is what the name resolves to - written with a type character too (<c>Left$</c> after
-    /// <c>Dim Left$</c>), since a name is matched by its identifier (<strong>MS-VBAL §5.6.10</strong>).
-    /// </remarks>
-    /// <param name="expression">The operand.</param>
-    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
-    /// <param name="section">The section of MS-VBAL that requires a variable there, which the message cites, if any.</param>
+    // MS-VBAL §5.6.1, §5.6.10
     public void RequireVariable(ExpressionNode expression, string role, string? section = null)
         => Report(expression, NotAVariable(expression, LibraryFunctions.None), $"{role} must be a variable", section);
 
-    /// <summary>
-    /// What <see cref="RequireVariable"/> requires, of the target of a <c>Let</c> statement: a function of a library whose declared type is a class,
-    /// <c>Object</c> or <c>Variant</c> will do as well. <strong>MS-VBAL §5.4.3.8</strong> makes the statement invalid when the target "is classified
-    /// as a function, does not refer to the enclosing procedure, and the declared type of &lt;l-expression&gt; is any type except a class or Object or
-    /// Variant": <c>Left = "x"</c> is valid, and raises error 450 when it runs; <c>Left$ = "x"</c> is not.
-    /// </summary>
-    /// <param name="expression">The target.</param>
-    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
-    /// <param name="section">The section of MS-VBAL that requires it, which the message cites.</param>
+    // MS-VBAL §5.4.3.8
     public void RequireLetTarget(ExpressionNode expression, string role, string section)
         => Report(expression, NotAVariable(expression, LibraryFunctions.OfAClassObjectOrVariant), $"{role} must be a variable", section);
 
-    /// <summary>
-    /// What <see cref="RequireLetTarget"/> or <see cref="RequireVariable"/> require of the target of an assignment, a constant being
-    /// <see cref="VBCompileErrorId.AssignmentToConstantNotPermitted"/> rather than <see cref="VBCompileErrorId.VariableRequired"/>, as MS-VBA has it
-    /// (Excel-verified: a constant the code declares, and a member of an enumeration).
-    /// </summary>
-    /// <param name="expression">The target.</param>
-    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
-    /// <param name="section">The section of MS-VBAL that requires it, which the message cites.</param>
-    /// <param name="isLet">Whether the assignment is a <c>Let</c> statement, whose target may be a library's function of an object or <c>Variant</c> type.</param>
     public void RequireAssignmentTarget(ExpressionNode expression, string role, string section, bool isLet)
     {
         if (ConstantNamedBy(expression) is { } constant)
@@ -174,10 +116,6 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         }
     }
 
-    /// <summary>
-    /// What a function named as an element of an <c>Erase</c> statement, outside its own body, must be (<see cref="RequireFunctionTarget(ExpressionNode, VBReturningMemberSymbol, FunctionTarget)"/>).
-    /// </summary>
-    /// <param name="expression">The element.</param>
     public void RequireErasable(ExpressionNode expression)
     {
         if (FunctionNamedBy(expression, FunctionTarget.Erase) is { } function)
@@ -275,16 +213,7 @@ internal sealed class StatementOperandChecks(StaticEvaluationContext context)
         _ => null,
     };
 
-    /// <summary>
-    /// "MUST be classified as a variable, property, function or unbound member", as an element of an <c>Erase</c> statement is
-    /// (<strong>MS-VBAL §5.4.3.4</strong>): anything but a value.
-    /// </summary>
-    /// <remarks>
-    /// What <see cref="RequireVariable"/> rejects, but a function of a library: a literal, an operator's result and a constant are values.
-    /// </remarks>
-    /// <param name="expression">The operand.</param>
-    /// <param name="role">What the operand is to its statement, which the message starts with.</param>
-    /// <param name="section">The section of MS-VBAL that requires it, which the message cites.</param>
+    // MS-VBAL §5.4.3.4
     public void RequireNotAValue(ExpressionNode expression, string role, string section)
         => Report(expression, NotAVariable(expression, LibraryFunctions.Any), $"{role} must be a variable, a property or a function", section);
 

@@ -11,41 +11,10 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// The static semantics of what a class module declares about events: its <c>Event</c> declarations
-/// (<strong>MS-VBAL §5.2.4.3</strong>), its <c>WithEvents</c> variables (<strong>§5.2.3.1.2</strong>) and the procedures
-/// that handle an event of one (<strong>§5.3.1.8</strong>).
-/// </summary>
-/// <remarks>
-/// What a <c>RaiseEvent</c> statement may say is <see cref="StatementStaticSemanticsEvaluator"/>'s: this is what the
-/// declarations may.
-/// <list type="bullet">
-/// <item>An event name is unique within the class module (<see cref="VBCompileErrorId.DuplicateDeclaration"/>) and has no
-/// underscore (<see cref="VBCompileErrorId.InvalidEventName"/>): an underscore is what ends the name of a variable in the
-/// name of a handler.</item>
-/// <item>A <c>WithEvents</c> variable is declared as a specific class that has at least one event, and not as the class of
-/// the module that contains it (<see cref="VBCompileErrorId.InvalidWithEventsType"/>).</item>
-/// <item>A procedure that qualifies as the handler of an event is a subroutine whose parameter list is compatible with the
-/// event's (<see cref="VBCompileErrorId.InvalidEventHandler"/>): the same number of parameters, each of the same type
-/// and parameter mechanism - though not necessarily of the same name, nor with the mechanism written out in the same way.</item>
-/// </list>
-/// A procedure qualifies as a handler by its name alone, <c>VariableName_EventName</c>. One whose name only begins with
-/// the name of a <c>WithEvents</c> variable and an underscore is no handler of anything, and is not checked.
-/// <para>
-/// A type that has not been resolved is not a type that is wrong: whatever is declared as one is not reported.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.2.4.3, §5.2.3.1.2, §5.3.1.8
+// an event name has no underscore because an underscore ends the variable's name in a handler's name.
 public static class ClassModuleEventSemantics
 {
-    /// <summary>
-    /// Checks everything <paramref name="module"/> declares about events.
-    /// </summary>
-    /// <param name="module">The class module, with its members.</param>
-    /// <param name="resolver">
-    /// What finds the class a <c>WithEvents</c> variable is declared as, as it is now: a declared type carries the class as
-    /// it was when the type was built. <see langword="null"/> checks against what the types carry.
-    /// </param>
-    /// <returns>Every error found, events first, then variables, then handlers; empty when the declarations are valid.</returns>
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(VBClassModuleSymbol module, ISymbolResolver? resolver = null)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
@@ -151,28 +120,14 @@ public static class ClassModuleEventSemantics
         }
     }
 
-    /// <summary>
-    /// The procedures of <paramref name="module"/> that are named as the handler of <paramref name="handled"/>, an event of <paramref name="variable"/>'s class:
-    /// <c>VariableName_EventName</c> (<strong>MS-VBAL §5.3.1.8</strong>), whether or not they are valid handlers.
-    /// </summary>
+    // MS-VBAL §5.3.1.8
     internal static IEnumerable<VBTypeMemberSymbol> HandlersOf(VBClassModuleSymbol module, VBTypeMemberSymbol variable, VBEventMemberSymbol handled)
         => module.Members.Where(member => IsProcedure(member)
             && string.Equals(member.Name, $"{variable.Name}_{handled.Name}", StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>
-    /// Whether <paramref name="candidate"/>, named as the handler of <paramref name="handled"/>, is one the event can call: a subroutine whose parameter list is
-    /// compatible with the event's (<strong>MS-VBAL §5.3.1.8</strong>).
-    /// </summary>
-    /// <param name="candidate">The procedure named as the handler of the event.</param>
-    /// <param name="handled">The event.</param>
+    // MS-VBAL §5.3.1.8
     internal static bool Matches(VBTypeMemberSymbol candidate, VBEventMemberSymbol handled) => Matches(candidate, handled.Parameters);
 
-    /// <summary>
-    /// Whether <paramref name="candidate"/> is a subroutine whose parameter list is compatible with <paramref name="required"/>.
-    /// </summary>
-    /// <param name="candidate">The procedure named as the handler of an event.</param>
-    /// <param name="required">The parameter list the handler must have: the event's, or, for a control of a Visual Basic 6.0 control array, the control's
-    /// index and then the event's.</param>
     internal static bool Matches(VBTypeMemberSymbol candidate, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> required)
         => IsSubroutine(candidate) && ParameterLists.Incompatibility(ParameterLists.Of(candidate), required) is null;
 

@@ -13,41 +13,11 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// The static semantics of what a module exposes: which types a public member may be declared with, and which members an object module may expose
-/// at all (<strong>MS-VBAL §5.2.3.1</strong>, <strong>§5.2.3.3</strong>, <strong>§5.3.1</strong>).
-/// </summary>
-/// <remarks>
-/// A public member is one declared <c>Public</c> or <c>Global</c>, or declared with no modifier when it is a procedure, a property, an event, a
-/// <c>Declare</c> or a type, which are then public; a variable or a constant declared with none (<c>Dim</c>, <c>Const</c>) is private, and a
-/// <c>Friend</c> member is not public either.
-/// <list type="bullet">
-/// <item>A class module defines no public user-defined type (<see cref="VBCompileErrorId.PublicUserDefinedTypeInObjectModule"/>): a <c>Type</c> declared
-/// with no modifier is public, and refused as <c>Public Type</c> is.</item>
-/// <item>A class module exposes no constant, fixed-length string, array, user-defined type or <c>Declare</c>, and no <c>Global</c> variable at all
-/// (<see cref="VBCompileErrorId.NotAllowedAsPublicMemberOfObjectModule"/>). A member refused for this is not checked for the rule below: MS-VBA
-/// reports this one.</item>
-/// <item>A public member is not declared with a private <c>Enum</c> - as the type of a variable, of a parameter, or of the result of a function or a
-/// property - and, in a class module, with a private user-defined type either (<see cref="VBCompileErrorId.PrivateTypeInPublicMember"/>). An array of
-/// one is one.</item>
-/// </list>
-/// 👉 What MS-VBA does, recorded in Excel, and not all of it what MS-VBAL says: the message of the last rule names fields of a public user-defined type
-/// too, but a field of a <c>Public Type</c> of a procedural module may be of a private <c>Enum</c> or a private type; and a procedural module's
-/// public members may be of its private types, where §5.2.3.1 and §5.3.1 only speak of a class module. §5.3.1.5 refuses a procedural module's
-/// <c>Public Type</c> as a parameter of a public procedure or an event of a class, which MS-VBA accepts. RD-VBA does what MS-VBA does.
-/// <para>
-/// A type that does not resolve is not a type that is private: whatever is declared as one is not reported.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.2.3.1, §5.2.3.3, §5.3.1, §5.3.1.5
+// as MS-VBA does, not all as MS-VBAL says: a procedural module's public members may use its private types, and a field of its Public Type a private Enum or type.
+// MS-VBA also accepts, as RD-VBA does, a procedural module's Public Type as a parameter of a class's public procedure or event, which §5.3.1.5 refuses.
 public static class PublicMemberSemantics
 {
-    /// <summary>
-    /// Checks what <paramref name="module"/> exposes.
-    /// </summary>
-    /// <param name="module">The module, a procedural module or a class module.</param>
-    /// <param name="members">The members declared by the module.</param>
-    /// <param name="resolver">What finds the type a declared type names, when it did not resolve where the declaration was read.</param>
-    /// <returns>Every error found, in declaration order; at most one for each member; empty when the declarations are valid.</returns>
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(Symbol module, IReadOnlyList<VBTypeMemberSymbol> members, ISymbolResolver resolver)
     {
         var errors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();

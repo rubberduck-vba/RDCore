@@ -15,54 +15,11 @@ using RDCore.SDK.Model;
 
 namespace RDCore.Runtime.LanguageCore.Services;
 
-/// <summary>
-/// The compile-time <see cref="ISymbolResolver"/>: binds an identifier by walking a
-/// <see cref="ScopeTree"/> from the scope a lookup originates in — the first tier that declares the
-/// name binds it (<strong>MS-VBAL §5.6.10</strong>, <strong>RD-VBAL §2.3.1.2</strong>). A name declared
-/// more than once in a single module or procedure scope resolves as
-/// <see cref="SymbolResolutionResult.Duplicate"/>; more than once at the project or global tier
-/// resolves as <see cref="SymbolResolutionResult.Ambiguous"/>.
-/// </summary>
-/// <remarks>
-/// <see cref="ResolveValue"/> and <see cref="ResolveType(string, ScopeKind, Uri)"/> walk the same tree under the two binding
-/// contexts <strong>MS-VBAL §5.6.4</strong> distinguishes, each with its own candidates: a user-defined
-/// type or a class module is only ever bound by <see cref="ResolveType(string, ScopeKind, Uri)"/> (or, for a class module and the
-/// project, as the qualifier of a qualified type name, by <see cref="ResolveQualifier"/>), and a
-/// local, parameter, constant, variable or procedure only ever by <see cref="ResolveValue"/>. A class module that has a
-/// predeclared instance (<see cref="VBPredeclaredInstanceSymbol"/>) is also a name in the default binding
-/// context, as that instance: a variable of the class's type.
-/// <para>
-/// A name-resolution service only: the value-binding members throw, matching the intent of a
-/// design-time resolver that holds no run-time bindings. Where the candidates of one tier of the project or
-/// global scope are of different projects, the workspace's own shadow every library's, the standard library
-/// shadows every referenced library, and a library shadows one the project references after it: the earlier
-/// reference has the higher reference precedence (<strong>MS-VBAL §4.1</strong>,
-/// <see cref="SymbolProperties.LibraryPriority"/>); candidates still tied after that, of the one project with the highest reference precedence, are an ambiguous name, a result that carries
-/// <see cref="Model.Errors.VBCompileErrorId.AmbiguousName"/> and the candidates rather than an unbound one.
-/// </para>
-/// </remarks>
-/// <param name="scopeTree">The tree to resolve against.</param>
+// MS-VBAL §5.6.10, §5.6.4, §4.1; RD-VBAL §2.3.1.2
 public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolver
 {
-    /// <summary>
-    /// Resolves <paramref name="name"/> in the default binding context, as seen from the scope the
-    /// symbol at <paramref name="handle"/> belongs to. The tiers, in order of precedence
-    /// (<strong>MS-VBAL §5.6.10</strong>): the enclosing procedure; the enclosing module; the enclosing
-    /// project itself, a referenced project, or a procedural module of the enclosing project; an accessible
-    /// member of another procedural module of the project; a procedural module of a referenced project (a
-    /// library's); an accessible member of a library's procedural module; then whatever else the global scope
-    /// declares, which includes a class module's predeclared instance. Neither a user-defined type nor a class
-    /// module is a candidate in any tier. <paramref name="scope"/> is not consulted.
-    /// </summary>
-    /// <remarks>
-    /// The project scope holds the members of the enclosing project's procedural modules and those of every library's
-    /// alike, so it is two tiers, the enclosing project's (a symbol of no <see cref="SymbolProperties.Library"/>) and then the
-    /// libraries': a library's procedural module ranks between them, after the project's own members and before its own.
-    /// <para>
-    /// A name is resolved once for each place it is looked up from, and the tree keeps the resolution (<see cref="ScopeTree.ValueResolutions"/>): code that
-    /// reads a variable a million times resolves its name once.
-    /// </para>
-    /// </remarks>
+    // MS-VBAL §5.6.10
+    // the tree keeps each resolution (ScopeTree.ValueResolutions): a variable read a million times is resolved once.
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
         => scopeTree.ValueResolutions.GetOrAdd(new ScopeTree.ValueResolutionKey(name, scope, handle.AbsoluteUri),
             static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle), (Resolver: this, Name: name, Handle: handle));
@@ -114,27 +71,10 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SymbolResolutionResult.Unbound;
     }
 
-    /// <summary>
-    /// Resolves <paramref name="name"/> in the type binding context, as seen from the scope the symbol
-    /// at <paramref name="handle"/> belongs to. The tiers, in order of precedence
-    /// (<strong>MS-VBAL §5.6.4</strong>, <strong>§5.6.10</strong>): a user-defined type or Enum declared at the level of the
-    /// enclosing module; then the enclosing project itself, a referenced project, a procedural or class module of the
-    /// enclosing project, or a library's class; then an accessible user-defined type or Enum declared in another module of
-    /// the project; then a procedural module of a referenced project (a library's); then a user-defined type or Enum of a
-    /// library. The procedure scope is never consulted — no local is a type. <paramref name="scope"/> is not consulted.
-    /// </summary>
-    /// <remarks>
-    /// The project scope holds the types of the enclosing project's modules and those of every library's alike, so it is two
-    /// tiers, as it is for <see cref="ResolveValue"/>: a library's procedural module ranks between them, after the project's own
-    /// types and before the libraries'. A library's class keeps its place among the enclosing project's modules, ahead of the
-    /// project's own types, where §5.6.10 ranks it with the library's procedural modules.
-    /// </remarks>
+    // MS-VBAL §5.6.4, §5.6.10
     public SymbolResolutionResult ResolveType(string name, ScopeKind scope, Uri handle) => ResolveType(name, handle, _ => true);
 
-    /// <summary>
-    /// Resolves the type <paramref name="name"/> that <paramref name="project"/> declares (<strong>MS-VBAL §5.6.12</strong>): the candidates are the project's
-    /// own before the name is decided to be ambiguous, so the types of the other projects that share the tier are not in the way.
-    /// </summary>
+    // MS-VBAL §5.6.12
     public SymbolResolutionResult ResolveProjectType(VBProjectSymbol project, string name)
     {
         var library = project.GetProperty(SymbolProperties.Library) ?? string.Empty;
@@ -166,13 +106,6 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         return SymbolResolutionResult.Unbound;
     }
 
-    /// <summary>
-    /// Resolves <paramref name="name"/> as the qualifier of a qualified type name (the <c>A</c> in <c>A.B</c>), as
-    /// seen from the scope the symbol at <paramref name="handle"/> belongs to. A qualifier is a namespace, and neither
-    /// a user-defined type nor an Enum type can contain a type: the enclosing module's own types and the types of
-    /// the project's other modules are not tiers here, and what is left is the enclosing project itself, or a
-    /// procedural or class module in it. <paramref name="scope"/> is not consulted.
-    /// </summary>
     public SymbolResolutionResult ResolveQualifier(string name, ScopeKind scope, Uri handle)
     {
         var global = scopeTree.ScopeFor(handle).SelfAndAncestors().FirstOrDefault(lexicalScope => lexicalScope.Kind == LexicalScopeKind.Global);
@@ -182,19 +115,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             : SymbolResolutionResult.Unbound;
     }
 
-    /// <summary>
-    /// Resolves <paramref name="name"/> as a member of <paramref name="owner"/>, a project or a procedural module
-    /// (<strong>MS-VBAL §5.6.12</strong>), as seen from the scope the symbol at <paramref name="handle"/> belongs to.
-    /// </summary>
-    /// <remarks>
-    /// A module's members are what its own scope declares, less any that are <c>Private</c> to a lookup that does not
-    /// originate inside the module. A project's are, in the specification's order: a project, when the owner is the
-    /// enclosing project; a procedural module of the project; then the project tier's one accessible member of that
-    /// name — which is a tier of exactly the members "exactly one of the procedural modules" may have, so two modules
-    /// declaring the name collide there as an ambiguous name, as they do unqualified. The project tier is shared by
-    /// every module of the tree, a library's included, so which project a candidate is in is read off its
-    /// <see cref="SymbolProperties.Library"/>.
-    /// </remarks>
+    // MS-VBAL §5.6.12
     public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle)
     {
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
@@ -264,11 +185,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
                 : SymbolResolutionResult.Unbound;
     }
 
-    /// <summary>
-    /// Resolves <paramref name="name"/> as a conditional compilation constant. The tiers are §3.4.1's own
-    /// shadowing rule: the enclosing module's own <c>#Const</c> declarations, then the project-level ones,
-    /// which the global scope carries. <paramref name="scope"/> is not consulted.
-    /// </summary>
+    // MS-VBAL §3.4.1
     public SymbolResolutionResult ResolveConditionalConstant(string name, ScopeKind scope, Uri handle)
     {
         var origin = scopeTree.ScopeFor(handle).SelfAndAncestors().ToArray();
@@ -396,9 +313,6 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
             : matches.Where(candidate => candidate is VBEnumMemberSymbol);
     }
 
-    /// <summary>
-    /// Whether <paramref name="symbol"/> is a procedure: a <c>Sub</c>, a <c>Function</c>, a property accessor, or a <c>Declare</c>d one.
-    /// </summary>
     internal static bool IsProcedure(Symbol symbol) => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol;
 
     // MS-VBAL §5.6.10 lists no user-defined type, no class module and no event among the default binding context's
@@ -422,21 +336,9 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     private static bool IsProjectOrModule(Symbol symbol) => symbol is VBProjectSymbol or VBModuleSymbol || symbol.Kind is SymbolKindExt.TypeDescriptor;
 
-    /// <summary>
-    /// A property's Get/Let/Set accessors share one declared name by design (MS-VBAL §5.3.1) and are
-    /// not a duplicate declaration. Resolves to a single representative accessor — Get when present
-    /// (the common read-context lookup), else Let, else Set — when every match is a distinct accessor
-    /// kind of the same property and their declarations form a valid property
-    /// (<see cref="IsConsistentProperty"/>). A second accessor of the same kind is still a genuine
-    /// duplicate (<see langword="null"/>, falling through to the caller's own Duplicate/Ambiguous
-    /// handling).
-    /// </summary>
-    /// <remarks>
-    /// Collapsing to one representative, rather than exposing all matched accessors, is an interim
-    /// simplification: <c>Symbol.CreateUri</c> keys purely on name, so Get/Let/Set currently share one
-    /// <c>Symbol.Uri</c> and can only be told apart by concrete type — giving each accessor its own
-    /// uri suffix is separately-tracked follow-up work.
-    /// </remarks>
+    // MS-VBAL §5.3.1
+    // one representative accessor, Get first: Symbol.CreateUri keys on the name, so Get, Let and Set share one Uri.
+    // TODO give each accessor a Uri of its own.
     private static SymbolResolutionResult? TryResolvePropertyAccessors(Symbol[] matches)
     {
         if (matches.Any(symbol => symbol is not IVBPropertyMemberSymbol))

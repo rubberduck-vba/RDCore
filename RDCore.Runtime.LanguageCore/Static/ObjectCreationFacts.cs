@@ -12,25 +12,11 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Finds the class of the object a <c>CreateObject</c> call creates, from the programmatic identifier it is written with (<see cref="ObjectCreationFact"/>).
-/// </summary>
-/// <remarks>
-/// It looks where the runtime does - a class the platform implements itself, then the classes of the libraries - and finds out no more than the code says: the
-/// identifier is a literal, or a constant whose value is one, and the object is created on this machine. What the class is at run time is the server's to say.
-/// </remarks>
 internal static class ObjectCreationFacts
 {
     private static readonly string CreateObjectTarget = StdLibSymbolReader.ExternalTargetOf(
         typeof(IStdInteractionModule), typeof(IStdInteractionModule).GetMethod(nameof(IStdInteractionModule.CreateObject))!);
 
-    /// <summary>
-    /// The class of the object <paramref name="call"/> creates, or <see langword="null"/> when it is not a call of <c>CreateObject</c>, or its class is not
-    /// written as a constant, or nothing describes it.
-    /// </summary>
-    /// <param name="context">The context the call was evaluated in.</param>
-    /// <param name="call">The call.</param>
-    /// <param name="procedure">The procedure it calls.</param>
     public static ObjectCreationFact? Of(StaticEvaluationContext context, IndexExpressionNode call, Symbol procedure)
     {
         if (procedure.GetProperty(SymbolProperties.ExternalTarget) != CreateObjectTarget || procedure is not VBReturningMemberSymbol { Parameters: [var objectClass, var serverName] })

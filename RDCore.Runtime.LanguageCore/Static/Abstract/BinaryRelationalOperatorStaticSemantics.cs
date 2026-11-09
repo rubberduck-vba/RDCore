@@ -5,31 +5,17 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static.Abstract;
 
-/// <summary>
-/// Uses pattern-matching rules to encapsulate binary relational operator static semantics as defined in <strong>MS-VBAL 5.6.9.5</strong>.
-/// </summary>
+// MS-VBAL §5.6.9.5
 public record class BinaryRelationalOperatorStaticSemantics : StaticSemantics, IStaticSemantics
 {
-    /// <summary>
-    /// MS-VBAL 5.6.9.5 Relational Operators (static semantics) 
-    /// The operator has the declared type returned by this method, based on the declared type of its operands.
-    /// </summary>
-    /// <param name="context">The compile-time context this expression is evaluated against.</param>
-    /// <param name="expression">The <em>expression node</em> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">The declared type of the operands.</param>
+    // MS-VBAL §5.6.9.5
     public override StaticSemanticsEvaluationResult DetermineDeclaredType(
         StaticEvaluationContext context,
         ExpressionNode expression,
         params VBType[] operandDeclaredTypes)
         => DetermineOperatorStaticType(expression, operandDeclaredTypes[(int)InputIndex.BinaryLeftOperand], operandDeclaredTypes[(int)InputIndex.BinaryRightOperand]);
 
-    /// <summary>
-    /// MS-VBAL 5.6.9.5 Relational Operators (static semantics) 
-    /// The operator has the declared type returned by this method, based on the declared type of its operands.
-    /// </summary>
-    /// <param name="expression">The <em>expression node</em> being evaluated.</param>
-    /// <param name="lhs">The declared type of the LHS operand.</param>
-    /// <param name="rhs">The declared type of the RHS operand.</param>
+    // MS-VBAL §5.6.9.5
     protected virtual StaticSemanticsEvaluationResult DetermineOperatorStaticType(ExpressionNode expression, VBType lhs, VBType rhs)
         => lhs switch
         {

@@ -13,42 +13,15 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
-/// <summary>
-/// MS-VBAL 5.6 Member Access Expressions (static semantics). The declared type of
-/// <c>owner.member</c> is the declared type of the member <see cref="MemberAccessExpressionNode.Member"/>
-/// names on <see cref="MemberAccessExpressionNode.Owner"/>'s declared type.
-/// </summary>
+// MS-VBAL §5.6
 public sealed record class MemberAccessExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<MemberAccessExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
-    /// <summary>
-    /// The shared instance: this rule has no state of its own.
-    /// </summary>
     public static MemberAccessExpressionStaticSemantics Instance => _instance.Value;
 
-    /// <summary>
-    /// Determines the declared type of a <see cref="MemberAccessExpressionNode"/> by looking up its
-    /// <see cref="MemberAccessExpressionNode.Member"/> identifier among the members of its
-    /// <see cref="MemberAccessExpressionNode.Owner"/>'s declared type.
-    /// </summary>
-    /// <param name="context">
-    /// The compile-time context this expression is evaluated against. Member lookup is structural (an
-    /// owner type's own members), not lexical; the context's resolver is only used to read those members
-    /// from the owner class's or user-defined type's declaration, by identity, rather than from the
-    /// snapshot the type was built with: a class typed after itself cannot carry a complete snapshot.
-    /// </param>
-    /// <param name="expression">The <see cref="MemberAccessExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">
-    /// The effective owner's already-determined declared type, at
-    /// <see cref="InputIndex.MemberAccessOwner"/>: <see cref="MemberAccessExpressionNode.Owner"/>'s
-    /// declared type, or, for a <c>with-expression</c> (<see cref="MemberAccessExpressionNode.Owner"/>
-    /// is <c>null</c>), the innermost enclosing <c>With</c> block's target type (MS-VBAL §5.6.15),
-    /// which the caller is responsible for substituting in. This rule does not care which it was.
-    /// <see cref="MemberAccessExpressionNode.Member"/> has no independent declared type to pass here:
-    /// it is a bare member name, not a lexically resolved expression.
-    /// </param>
-    /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="MemberAccessExpressionNode"/>.</exception>
+    // MS-VBAL §5.6.15
+    // members are read from the declaration by identity, not from the type's snapshot: a class typed after itself cannot carry a complete one.
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not MemberAccessExpressionNode memberAccess)

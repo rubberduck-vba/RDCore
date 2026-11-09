@@ -17,25 +17,7 @@ using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// <strong>RD-VBAL §5.6.13.1</strong>: where an argument can be written <c>ByVal</c>, as <strong>MS-VBA</strong> compiles it (recorded in Excel), which is not
-/// where <strong>MS-VBAL §5.6.13.1</strong> says - only before an argument of an external procedure.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <c>ByVal</c> written before an argument says how the argument is passed, and MS-VBA takes it only where it is so passed already or where it means something:
-/// </para>
-/// <list type="bullet">
-/// <item>before an argument of a <c>ByVal</c> parameter, of any procedure - the workspace's, a library's, a <c>Declare</c>'s - it is valid and changes
-/// nothing (<see cref="ValueExpressionSemanticFlags.RedundantByVal"/>): what is passed is what would be, an object as much as a value;</item>
-/// <item>before an argument of a <c>Declare</c>'s <c>ByRef</c> parameter, or of an <c>As Any</c> one, it is valid and passes the value where an address goes;</item>
-/// <item>before an argument of a <c>ByRef</c> parameter of a procedure of the workspace or of a library (the type library declares every <c>Variant</c>
-/// parameter by reference, <see cref="SymbolProperties.TypeLibraryByRef"/>), of a <c>ParamArray</c>, or of a member called late-bound, it is
-/// <em>Type mismatch</em>; of a <c>ByRef</c> array parameter, <em>Array argument must be ByRef</em>;</item>
-/// <item>before an argument of a function MS-VBA compiles inline (the reserved names, <c>InStr</c>, <c>InStrB</c>, <c>StrComp</c>), or before an index of
-/// an array, it is a <em>Syntax error</em>.</item>
-/// </list>
-/// </remarks>
+// RD-VBAL §5.6.13.1; MS-VBAL §5.6.13.1
 public static class ByValArgumentStaticSemantics
 {
     // the functions MS-VBA parses with their arguments, and that take no ByVal argument (recorded in Excel), besides the reserved names.
@@ -44,44 +26,15 @@ public static class ByValArgumentStaticSemantics
     // what one argument written ByVal is: the ByVal node, the error it is, and whether it is valid and changes nothing.
     private readonly record struct Verdict(ByValArgumentExpressionNode Argument, VBCompileErrorInfo? Error, bool IsRedundant);
 
-    /// <summary>
-    /// The compile error of the first argument of a call that is written <c>ByVal</c> where <strong>MS-VBA</strong> refuses it, or <see langword="null"/>.
-    /// </summary>
-    /// <param name="context">The compile-time context the call is evaluated against.</param>
-    /// <param name="call">The call.</param>
-    /// <param name="calleeType">The declared type of the callee: an array's index takes no <c>ByVal</c>.</param>
     public static VBCompileErrorInfo? Error(StaticEvaluationContext context, IndexExpressionNode call, VBType? calleeType)
         => Error(context, call.Callee, call.Arguments, calleeType);
 
-    /// <summary>
-    /// The compile error of the first argument of a call written as a statement, without parentheses (<c>Work ByVal x</c>), that is written <c>ByVal</c> where
-    /// <strong>MS-VBA</strong> refuses it, or <see langword="null"/>.
-    /// </summary>
-    /// <param name="context">The compile-time context the call is evaluated against.</param>
-    /// <param name="callee">What the statement calls.</param>
-    /// <param name="arguments">The arguments, as written.</param>
-    /// <param name="calleeType">The declared type of the callee.</param>
     public static VBCompileErrorInfo? Error(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments, VBType? calleeType)
         => VerdictsOf(context, callee, arguments, calleeType).Select(verdict => verdict.Error).FirstOrDefault(error => error is not null);
 
-    /// <summary>
-    /// Flags each argument of a call that is written <c>ByVal</c> for a parameter that is <c>ByVal</c> already (<see cref="ValueExpressionSemanticFlags.RedundantByVal"/>):
-    /// a fact of the <c>ByVal</c> argument, where it is written, for an analyzer to say.
-    /// </summary>
-    /// <param name="context">The compile-time context the call is evaluated against; nothing is recorded without its facts.</param>
-    /// <param name="call">The call, whose arguments have been evaluated.</param>
-    /// <param name="calleeType">The declared type of the callee.</param>
     public static void MarkRedundant(StaticEvaluationContext context, IndexExpressionNode call, VBType? calleeType)
         => MarkRedundant(context, call.Callee, call.Arguments, calleeType);
 
-    /// <summary>
-    /// Flags each argument of a call written as a statement, without parentheses, that is written <c>ByVal</c> for a parameter that is <c>ByVal</c> already
-    /// (<see cref="ValueExpressionSemanticFlags.RedundantByVal"/>).
-    /// </summary>
-    /// <param name="context">The compile-time context the call is evaluated against; nothing is recorded without its facts.</param>
-    /// <param name="callee">What the statement calls.</param>
-    /// <param name="arguments">The arguments, as written.</param>
-    /// <param name="calleeType">The declared type of the callee.</param>
     public static void MarkRedundant(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments, VBType? calleeType)
     {
         if (context.Facts is not { } facts)
