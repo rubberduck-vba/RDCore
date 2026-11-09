@@ -79,6 +79,36 @@ public sealed class WorkspaceCurrentDirectoryTests
         Assert.IsTrue(File.Exists(Path.Combine(_root, "Sub", "out.txt")));
     }
 
+    // Linux lets a program delete its own current directory, and every read of it then fails: CurDir, and a relative path in any file function, are error 76,
+    // and a full path still works. Windows refuses to delete it (75), and the directory is there for all of them.
+    [TestMethod]
+    public async Task ADeletedCurrentDirectory_IsPathNotFound_ToWhatReadsIt()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "Gone"));
+        using var provider = Compose(_root);
+
+        var printed = await RunAsync(provider, _root,
+            "On Error Resume Next",
+            "Dim s As String",
+            "ChDir \"Gone\"",
+            "RmDir CurDir",
+            "Debug.Print \"RmDir \" & Err.Number",
+            "Err.Clear: s = CurDir: Debug.Print \"CurDir \" & Err.Number",
+            "Err.Clear: s = Dir(\"*.txt\"): Debug.Print \"Dir \" & Err.Number",
+            "Err.Clear: Open \"x.txt\" For Output As #1: Debug.Print \"Open \" & Err.Number",
+            "Close #1",
+            "Err.Clear: s = FileLen(\"x.txt\"): Debug.Print \"FileLen \" & Err.Number",
+            "Err.Clear: MkDir \"new\": Debug.Print \"MkDir \" & Err.Number",
+            "Err.Clear: ChDir \"..\": Debug.Print \"ChDir \" & Err.Number",
+            $"Err.Clear: ChDir \"{_root}\": Debug.Print \"ChDir root \" & Err.Number",
+            "Debug.Print CurDir",
+            "Debug.Print Dir(\"data.txt\")");
+
+        string[] deleted = ["RmDir 0", "CurDir 76", "Dir 76", "Open 76", "FileLen 76", "MkDir 76", "ChDir 76", "ChDir root 0", _root, "data.txt"];
+        string[] refusedOnWindows = ["RmDir 75", "CurDir 0", "Dir 0", "Open 0", "FileLen 0", "MkDir 0", "ChDir 0", "ChDir root 0", _root, "data.txt"];
+        CollectionAssert.AreEqual(OperatingSystem.IsWindows() ? refusedOnWindows : deleted, printed, string.Join("|", printed));
+    }
+
     // an LSP client's file: URI may spell the drive in lower case, as OmniSharp's does: CurDir gives the drive as a drive is written, in upper case.
     [TestMethod]
     public void AWorkspaceRootWithALowerCaseDrive_IsTheCurrentDirectory_WithAnUpperCaseDrive()
