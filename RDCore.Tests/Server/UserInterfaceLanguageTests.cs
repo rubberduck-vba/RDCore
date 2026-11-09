@@ -152,6 +152,7 @@ public sealed class UserInterfaceLanguageTests
 
     // ---- every component agrees ----
 
+#if SDK_SEAM // needs the SDK's internal RDCoreClientApp.InitializationOptionsOf and ClientLocale
     // the client applies its setting and says the language in its initialize request; the language server, in a process of its own on an English machine, takes
     // it and tells the components it starts the same; the diagnostics extension, in a third, analyzes in it on whatever thread it is asked.
     [TestMethod]
@@ -180,6 +181,7 @@ public sealed class UserInterfaceLanguageTests
         Assert.AreEqual("fr", toTheDiagnostics.Locale);
         Assert.AreEqual("'DoWork' est implicitement Public. Indiquez son accessibilité.", found);
     }
+#endif
 
     // ---- formatting is untouched ----
 

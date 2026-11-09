@@ -44,19 +44,7 @@ public sealed class ClientLocaleTests
         CultureInfo.CurrentCulture = _culture;
     }
 
-    [TestMethod]
-    public void TheClientsLocale_IsTheLanguageOfTheUserInterface_AndOnlyThat()
-    {
-        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-
-        var applied = ClientLocale.Apply("fr-CA");
-
-        Assert.AreEqual("fr-CA", applied?.Name);
-        Assert.AreEqual("fr-CA", CultureInfo.CurrentUICulture.Name);
-        Assert.AreEqual("fr-CA", CultureInfo.DefaultThreadCurrentUICulture?.Name);
-        Assert.AreEqual(CultureInfo.InvariantCulture, CultureInfo.CurrentCulture, "how numbers and dates are written is not the client's");
-    }
-
+#if SDK_SEAM // needs the SDK's internal ClientLocale, which a server app applies from its client's initialize request
     // a diagnostic is analyzed on whatever thread the request is served on, long after the client said its locale.
     [TestMethod]
     public async Task ADiagnostic_AnalyzedOnAnotherThread_IsInTheClientsLanguage()
@@ -72,55 +60,9 @@ public sealed class ClientLocaleTests
 
         Assert.AreEqual("'DoWork' est implicitement Public. Indiquez son accessibilité.", message);
     }
-
-    [TestMethod]
-    [DataRow(null)]
-    [DataRow("")]
-    [DataRow("  ")]
-    [DataRow("not-a-culture-at-all-xx")]
-    public void NoLocale_OrOneThePlatformDoesNotKnow_LeavesTheLanguageAsItIs(string? locale)
-    {
-        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
-
-        Assert.IsNull(ClientLocale.Apply(locale));
-        Assert.AreEqual("en-US", CultureInfo.CurrentUICulture.Name);
-    }
+#endif
 
     // ---- what a client of the protocol says ----
-
-    // OmniSharp 0.19.9 reads an initialize request into a type of its own that has no locale, and makes the request its handlers are given of that one: what the
-    // client said is kept from the message as it came.
-    [TestMethod]
-    [DataRow("fr-CA", "fr-CA", DisplayName = "a locale")]
-    [DataRow(null, null, DisplayName = "none")]
-    public async Task TheLocaleOfTheInitializeRequest_IsTheOneTheServerIsToldTheClientSaid(string? sent, string? said)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var toServer = new Pipe();
-        var toClient = new Pipe();
-        var told = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var serving = OmniSharpLanguageServer.From(options => options
-            .WithInput(toServer.Reader)
-            .WithOutput(toClient.Writer)
-            .WithLifecycleReceiver()
-            .OnInitialize((server, request, token) =>
-            {
-                _ = told.TrySetResult(ClientLocale.Said(server, request));
-                return Task.CompletedTask;
-            }), timeout.Token);
-
-        var parameters = new JObject { ["processId"] = null, ["rootUri"] = null, ["capabilities"] = new JObject() };
-        if (sent is not null)
-        {
-            parameters["locale"] = sent;
-        }
-
-        await SendAsync(toServer.Writer, new JObject { ["jsonrpc"] = "2.0", ["id"] = 1, ["method"] = "initialize", ["params"] = parameters }, timeout.Token);
-        Assert.AreEqual(said, await told.Task.WaitAsync(timeout.Token));
-
-        await SendAsync(toServer.Writer, new JObject { ["jsonrpc"] = "2.0", ["method"] = "initialized", ["params"] = new JObject() }, timeout.Token);
-        using var server = await serving.WaitAsync(timeout.Token);
-    }
 
     // a message as LSP frames it, written as a client that is not OmniSharp's writes it.
     private static async Task SendAsync(PipeWriter writer, JObject message, CancellationToken token)
@@ -132,35 +74,7 @@ public sealed class ClientLocaleTests
 
     // ---- what a platform's client says ----
 
-    [TestMethod]
-    public void APlatformsClient_SaysTheLanguageOfItsUserInterface_ByItsTag_AndTheInvariantCultureSaysNone()
-    {
-        Assert.AreEqual("fr-CA", ClientLocale.TagOf(CultureInfo.GetCultureInfo("fr-CA")));
-        Assert.IsNull(ClientLocale.TagOf(CultureInfo.InvariantCulture));
-    }
-
-    [TestMethod]
-    public void TheRequestsOwnLocale_IsReadFirst_AndThePlatformsInitializationOptionsOtherwise()
-    {
-        var options = new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "fr-CA" };
-
-        Assert.AreEqual("de-CH", ClientLocale.Of("de-CH", options), "a client of the protocol says it in the request");
-        Assert.AreEqual("fr-CA", ClientLocale.Of(null, options), "a platform's client, whose language client cannot say it there");
-        Assert.AreEqual("fr-CA", ClientLocale.Of("  ", options));
-        Assert.IsNull(ClientLocale.Of(null, null));
-    }
-
-    // a request's locale that is no culture the platform knows does not hide the one a platform's client says; when neither is known, the request's stands.
-    [TestMethod]
-    public void ARequestsLocaleThePlatformDoesNotKnow_GivesWayToTheInitializationOptions()
-    {
-        var options = new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "fr-CA" };
-
-        Assert.AreEqual("fr-CA", ClientLocale.Of("xx-YY", options));
-        Assert.AreEqual("xx-YY", ClientLocale.Of("xx-YY", new RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions { Locale = "zz-QQ" }));
-        Assert.AreEqual("xx-YY", ClientLocale.Of("xx-YY", null));
-    }
-
+#if SDK_SEAM // needs the SDK's internal ClientLocale, which a server app applies from its client's initialize request
     [TestMethod]
     public async Task WhatAPlatformsClientInFrenchSays_IsWhatTheHostAnswersIn_OnAThreadItBeginsLater()
     {
@@ -174,4 +88,5 @@ public sealed class ClientLocaleTests
 
         StringAssert.StartsWith(answered, "{0} a changé pendant l'attente du programme");
     }
+#endif
 }

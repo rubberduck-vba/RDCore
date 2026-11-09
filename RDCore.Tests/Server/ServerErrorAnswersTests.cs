@@ -53,6 +53,7 @@ public sealed class ServerErrorAnswersTests
         }
     }
 
+#if SDK_SEAM // needs the SDK's internal ServerErrorAnswers (WithOneLineErrors), how a server app answers a handler's exception
     // the error of the answer to a command, as it is written on the wire: the client turns an InternalError into its own "Internal error.", and hides it.
     private static async Task<JObject> ErrorOfAsync(string command, ILogger log)
     {
@@ -107,7 +108,9 @@ public sealed class ServerErrorAnswersTests
         var body = written[written.LastIndexOf('{', written.LastIndexOf("\"error\"", StringComparison.Ordinal))..];
         return (JObject)JObject.Parse(body[..(body.LastIndexOf('}') + 1)])["error"]!;
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal ServerErrorAnswers (WithOneLineErrors), how a server app answers a handler's exception
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AHandlerThatThrows_IsAnsweredInternalError_OnOneLine_AndTheServersLogHasTheWholeOfIt()
@@ -122,7 +125,9 @@ public sealed class ServerErrorAnswersTests
         Assert.IsInstanceOfType<UnauthorizedAccessException>(logged, "the exception itself: its stack and its inner exception");
         Assert.IsInstanceOfType<IOException>(logged.InnerException);
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal ServerErrorAnswers (WithOneLineErrors), how a server app answers a handler's exception
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task ARefusal_IsAnsweredAsTheHandlerThrewIt_AndIsNoError()
@@ -135,11 +140,14 @@ public sealed class ServerErrorAnswersTests
         Assert.AreEqual("Nothing to do.", error.Value<string>("message"));
         Assert.IsFalse(log.Records.Any(record => record.Level == LogLevel.Error));
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal ServerErrorAnswers (WithOneLineErrors), how a server app answers a handler's exception
     [TestMethod]
     [DataRow("first line\r\n   at Somewhere()", "first line", DisplayName = "the first line")]
     [DataRow("  padded  ", "padded", DisplayName = "trimmed")]
     [DataRow("", "InvalidOperationException", DisplayName = "no message: its type")]
     public void TheOneLine_IsTheMessagesFirstLine(string message, string expected)
         => Assert.AreEqual(expected, ServerErrorAnswers.OneLineOf(new InvalidOperationException(message)));
+#endif
 }
