@@ -27,11 +27,8 @@ internal static class ExtractionFixture
         string declarations = "")
         => PlanOf(FlowFixture.Analyze(body, header, close, optionExplicit, declarations), start, end);
 
-    /// <summary>
-    /// The module after extracting the lines of the body from <paramref name="first"/> to <paramref name="last"/> (zero-based) as a procedure
-    /// <paramref name="name"/>, returning the variable <paramref name="returnValue"/> names; and the edit. With <paramref name="formatting"/>, the edit is
-    /// formatted as it says.
-    /// </summary>
+    // The module after extracting the lines of the body from first to last (zero-based) as a procedure name, returning the variable returnValue
+    // names; and the edit. With formatting, the edit is formatted as it says.
     public static (string Module, ExtractionEdit Edit) Extract(
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null)
@@ -50,9 +47,7 @@ internal static class ExtractionFixture
         return (edit.ApplyTo(analyzed.Text), edit);
     }
 
-    /// <summary>
-    /// What a name for the procedure extracted from the lines <paramref name="first"/> to <paramref name="last"/> is checked against.
-    /// </summary>
+    // What a name for the procedure extracted from the lines first to last is checked against.
     public static (ExtractionPlan Plan, ExtractionSource Source, RenameContext Context, Uri Module, FlowFixture.Analyzed Analyzed) Naming(
         string body, int first, int last, string declarations = "", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub")
     {

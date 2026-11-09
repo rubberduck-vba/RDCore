@@ -81,7 +81,7 @@ public sealed class ExtractMethodEditTests
             """));
     }
 
-    // `Dim a As Long, b As Long` in the selection: b moves with it, a is used after and stays - the statement keeps it alone.
+    // `Dim a As Long, b As Long` in the selection: b moves with it, a is used after and stays; the statement keeps it alone.
     [TestMethod]
     public void ADeclarationOfSeveral_KeepsInTheSourceWhatIsUsedAfter_AndMovesTheRest()
     {

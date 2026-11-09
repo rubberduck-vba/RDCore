@@ -47,8 +47,8 @@ internal enum ExtractionNameProblemKind
     Rebinds,
 
     /// <summary>
-    /// The name is declared outside the module, by another module or a library, and the new procedure hides it in the module. Nothing in the module names it
-    /// yet: a warning, never a refusal.
+    /// The name is declared outside the module, by another module or a library, and the new procedure hides it in the module. Nothing in the module writes
+    /// the name: a warning, never a refusal.
     /// </summary>
     Shadows,
 }

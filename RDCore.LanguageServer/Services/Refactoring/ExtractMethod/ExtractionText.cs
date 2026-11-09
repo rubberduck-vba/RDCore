@@ -2,9 +2,7 @@ using RDCore.SDK.Model.Source;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
-/// <summary>
-/// The text of a module, read and changed by the positions its syntax tree has: zero-based lines, and characters in them.
-/// </summary>
+// The text of a module, read and changed by the positions its syntax tree has: zero-based lines, and characters in them.
 internal sealed class ExtractionText
 {
     private readonly string _text;
@@ -26,34 +24,21 @@ internal sealed class ExtractionText
         _lineStarts = [.. starts];
     }
 
-    /// <summary>
-    /// The line break the module is written with.
-    /// </summary>
+    // The line break the module is written with.
     public string NewLine { get; }
 
-    /// <summary>
-    /// The offset in the text of a position.
-    /// </summary>
     public int OffsetOf(SourcePosition position)
         => Math.Min(_text.Length, _lineStarts[Math.Min(position.Line, _lineStarts.Length - 1)] + position.Character);
 
-    /// <summary>
-    /// The line an offset in the text is on.
-    /// </summary>
     public int LineOf(int offset)
     {
         var line = Array.BinarySearch(_lineStarts, offset);
         return line >= 0 ? line : ~line - 1;
     }
 
-    /// <summary>
-    /// What is written in a range.
-    /// </summary>
     public string Of(SourceRange range) => _text[OffsetOf(range.Start)..OffsetOf(range.End)];
 
-    /// <summary>
-    /// What is written on a line before its first character that is not a space or a tab.
-    /// </summary>
+    // What is written on a line before its first character that is not a space or a tab.
     public string IndentationOf(int line)
     {
         var start = _lineStarts[line];
@@ -66,14 +51,10 @@ internal sealed class ExtractionText
         return _text[start..end];
     }
 
-    /// <summary>
-    /// Whether nothing but spaces and tabs is written between the start of the position's line and the position.
-    /// </summary>
+    // Whether nothing but spaces and tabs is written between the start of the position's line and the position.
     public bool OnlyIndentationBefore(SourcePosition position) => IndentationOf(position.Line).Length >= position.Character;
 
-    /// <summary>
-    /// Whether nothing but spaces and tabs is written after the position, up to the end of its line.
-    /// </summary>
+    // Whether nothing but spaces and tabs is written after the position, up to the end of its line.
     public bool OnlySpaceAfter(SourcePosition position)
     {
         for (var index = OffsetOf(position); index < _text.Length && _text[index] is not ('\r' or '\n'); index++)
@@ -87,15 +68,11 @@ internal sealed class ExtractionText
         return true;
     }
 
-    /// <summary>
-    /// The start of the line after the position's, or the end of the text when it is the last.
-    /// </summary>
+    // The start of the line after the position's, or the end of the text when it is the last.
     public SourcePosition StartOfNextLine(SourcePosition position)
         => position.Line + 1 < _lineStarts.Length ? new SourcePosition(position.Line + 1, 0) : new SourcePosition(position.Line, _text.Length - _lineStarts[position.Line]);
 
-    /// <summary>
-    /// The text of a range with the edits made in it: each edit is within the range, and none overlaps another.
-    /// </summary>
+    // The text of a range with the edits made in it: each edit is within the range, and none overlaps another.
     public string Of(SourceRange range, IEnumerable<ExtractionTextEdit> edits)
     {
         var start = OffsetOf(range.Start);
@@ -110,9 +87,7 @@ internal sealed class ExtractionText
         return text;
     }
 
-    /// <summary>
-    /// The module with the edits made, none of which overlaps another; and where in it each edit's text is written, in the order of the edits.
-    /// </summary>
+    // The module with the edits made, none of which overlaps another; and where in it each edit's text is written, in the order of the edits.
     public static (string Text, IReadOnlyList<(int Start, int End)> Written) Apply(string text, IReadOnlyList<ExtractionTextEdit> edits)
     {
         var module = new ExtractionText(text);
