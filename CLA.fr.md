@@ -14,7 +14,7 @@ Cette Entente étale les termes sous lesquels vous contribuez au Projet. Elle ex
 ## En Bref (sommaire en langage courant)
 
 - **Vous conservez vos droits d'auteur (copyright)** sur toutes vos contributions. Nous ne vous demandons **pas** d'assigner ou de renoncer à vos droits.
-- **Vos contributions demeureront open-source** : sous la licence du référentiel auquel vous contribuez, soit la licence MIT (`RDCore.SDK`, `RDCore.Forms`) ou la GNU GPL v3 ou ultérieure (`RDCore`, `RDCore.HexIDE`).
+- **Vos contributions demeureront open-source** : sous la licence du référentiel auquel vous contribuez, telle qu'indiquée dans son fichier LICENSE.
 - **Additionnellement**, vous donnez votre permission à la Société d'inclure vos contributions dans une édition commerciale privée du Projet. Des partenaires authorisés pourraient payer pour une licence non-GPL : c'est ce qui permettra de financer le développement continu de la plateforme logicielle.
 - **Vous confirmez que le travail est le vôtre** et ne contient aucun code propriétaire ou de tierces parties dont vous ne détenez pas le droit de contribuer au Projet; vous pouvez expliquer votre travail, justifier vos décisions, et êtes en mesure d'en effectuer la maintenance.
 
@@ -43,7 +43,7 @@ Vous octroyez **additionnellement** à la Société le droit de relicencier et s
 
 
 #### 3.2 Disponibilité Open Source Continuelle
-Vous reconnaissez que la Société a l'intention de continuer d'offrir le Projet, incluant vos Contributions acceptées, disponible au public sous les licences open-source du Projet (référentiels `RDCore.SDK` et `RDCore.Forms` sous MIT, référentiels `RDCore` et `RDCore.HexIDE` sous GPLv3 ou ultérieure). Les licences que vous octroyez à la section 3.1 sont **en sus** du licenciement open-source du Projet et **ne restreignent, retirent, ni ne diminuent** les droits que Vous ou tout autre contributeur détenez sous ces licences open-source. La Société n'est pas tenue d'utiliser ou d'inclure quelque Contribution que ce soit.
+Vous reconnaissez que la Société a l'intention de continuer d'offrir le Projet, incluant vos Contributions acceptées, disponible au public sous la licence open-source indiquée dans le fichier LICENSE de chaque référentiel (la licence MIT, ou la GPLv3 ou ultérieure). Les licences que vous octroyez à la section 3.1 sont **en sus** du licenciement open-source du Projet et **ne restreignent, retirent, ni ne diminuent** les droits que Vous ou tout autre contributeur détenez sous ces licences open-source. La Société n'est pas tenue d'utiliser ou d'inclure quelque Contribution que ce soit.
 
 
 ### 4. Octroi de Licence de Brevet
@@ -93,7 +93,7 @@ Signé :
 - `Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente` (en français)
 - `I have read and agreed with the CLA terms and conditions and I hereby sign the CLA` (en anglais)
 
-*Une signature enregistrée par le bot CLA couvre Vos Contributions à tous les référentiels RDCore de l'organisation rubberduck-vba : RDCore, RDCore.SDK, RDCore.HexIDE et RDCore.Forms.*
+*Une signature enregistrée par le bot CLA couvre Vos Contributions à chaque référentiel de l'organisation rubberduck-vba qui fait partie de la plateforme RDCore et qui renvoie à la présente Entente.*
 
 ---
 

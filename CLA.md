@@ -17,8 +17,7 @@ that the Project can stay open source **and** sustain itself commercially under 
 
 - **You keep the copyright** to everything you contribute. We are *not* asking you to
   assign or give up ownership.
-- **Your contributions stay open source** — under the license of the repository you contribute to:
-  the MIT License (`RDCore.SDK`, `RDCore.Forms`) or the GNU GPL v3 or later (`RDCore`, `RDCore.HexIDE`).
+- **Your contributions stay open source** — under the license of the repository you contribute to, as stated in its LICENSE file.
 - **In addition**, you give the Company permission to include your contribution in a
   separately-licensed commercial edition of the Project. Authorized partners could pay
   for a non-GPL license: this is how the Company can fund continued open development.
@@ -61,9 +60,8 @@ receive compensation for doing so.
 
 #### 3.2 Continued Open Source Availability
 You acknowledge that the Company intends to continue making the Project, including Your
-accepted Contributions, available to the public under the Project's open source licenses
-(currently the **MIT License** for the `RDCore.SDK` and `RDCore.Forms` repositories and the
-**GNU GPL v3 or later** for the `RDCore` and `RDCore.HexIDE` repositories). The licenses You grant in
+accepted Contributions, available to the public under the open source license stated in each repository's LICENSE file
+(the **MIT License**, or the **GNU GPL v3 or later**). The licenses You grant in
 Section 3.1 are **in addition to** the
 Project's open source licensing and **do not remove, restrict, or diminish** any rights
 that You or any other person have under those open source licenses. The Company is not
@@ -152,8 +150,8 @@ Agreement. To sign, post one of these comments, exactly as written, on a pull re
 - `I have read and agreed with the CLA terms and conditions and I hereby sign the CLA` (in English)
 - `Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente` (in French)
 
-*A signature recorded by the CLA bot covers Your Contributions to every RDCore repository of
-the rubberduck-vba organization: RDCore, RDCore.SDK, RDCore.HexIDE and RDCore.Forms.*
+*A signature recorded by the CLA bot covers Your Contributions to every repository of
+the rubberduck-vba organization that is part of the RDCore platform and refers to this Agreement.*
 
 ---
 
