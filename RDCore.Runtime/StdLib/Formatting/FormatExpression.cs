@@ -196,6 +196,12 @@ internal static class FormatExpression
             return (default, new FormatFailure(converted.Error ?? VBRuntimeErrorId.TypeMismatch, "the value is not a date"));
         }
 
+        // a Date that is no day, which only its bytes can make, is error 5 (ValueConversions.TryMomentOf).
+        if (!ValueConversions.TryMomentOf(date, out _))
+        {
+            return (default, new FormatFailure(VBRuntimeErrorId.InvalidProcedureCallOrArgument, "the Date is no day from January 1, 100 to December 31, 9999"));
+        }
+
         var serial = date.SerialValue;
         if (!(serial >= FirstSerial && serial < SerialAfterLast))
         {

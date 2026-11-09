@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Client;
+﻿using RDCore.LanguageServer.Services.Platform;
+using RDCore.SDK.Client;
 using RDCore.SDK.Extensibility;
 using RDCore.SDK.Platform;
 

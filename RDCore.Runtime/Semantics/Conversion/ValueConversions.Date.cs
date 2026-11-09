@@ -9,6 +9,24 @@ namespace RDCore.Runtime.Semantics.Conversion;
 public static partial class ValueConversions
 {
     /// <summary>
+    /// The day and time <paramref name="date"/> is, when it is one: a day from January 1, 100 to December 31, 9999 (<strong>MS-VBAL §2.1</strong>).
+    /// </summary>
+    /// <remarks>
+    /// Only a <c>Date</c>'s bytes can hold a serial that is no day's: an <c>LSet</c> of a record over another, a <c>Get</c>, a write to its address. Such a
+    /// <c>Date</c> is a <c>Date</c> still, and reads as the <c>Double</c> it holds; what reads it as a day (Let-coercion to <c>String</c>, <c>Format</c>,
+    /// <c>Year</c> and the other date functions) raises error 5, <em>Invalid procedure call or argument</em> (MS-VBA, recorded in Excel).
+    /// </remarks>
+    /// <param name="date">The <c>Date</c>.</param>
+    /// <param name="moment">The day and time, when <paramref name="date"/> is one.</param>
+    /// <returns>Whether <paramref name="date"/> is a day.</returns>
+    internal static bool TryMomentOf(VBDateValue date, out DateTime moment)
+    {
+        var serial = date.SerialValue;
+        moment = VBDateType.IsValidSerial(serial) ? DateTime.FromOADate(serial) : default;
+        return VBDateType.IsValidSerial(serial);
+    }
+
+    /// <summary>
     /// Converts <paramref name="source"/> to a <c>Date</c> (<strong>MS-VBAL §5.5.1.2.3</strong>), from a
     /// <c>Date</c>, any numeric type, <c>Boolean</c>, <c>String</c> (<strong>§5.5.1.2.4</strong>) or
     /// <c>Empty</c> (<strong>§5.5.1.2.11</strong>).

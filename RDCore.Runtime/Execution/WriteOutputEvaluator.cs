@@ -80,6 +80,13 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
                     written = converted;
                 }
 
+                // a Date is written as the day it is; one that is no day, which only its bytes can make, is error 5, as Print # of it is (ValueConversions.TryMomentOf).
+                if (Unwrapped(written) is VBDateValue date && !ValueConversions.TryMomentOf(date, out _))
+                {
+                    return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidProcedureCallOrArgument, item.Value.Location,
+                        "A Date that is no day from January 1, 100 to December 31, 9999 is written as none."));
+                }
+
                 output.Write(OutputString(written));
             }
 

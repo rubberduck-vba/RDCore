@@ -1,3 +1,4 @@
+using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -5,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using RDCore.LanguageServer.Progress;
 using RDCore.LanguageServer.Runtime;
+using RDCore.LanguageServer.Services.Diagnostics;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;
@@ -45,6 +47,7 @@ internal sealed class WorkspaceDiagnosticHandler(
     IWorkProgressReporter progress,
     IncomingDocumentChanges incoming,
     ILanguageServerFacade server,
+    ISerializer serializer,
     OpenDialogs dialogs) : WorkspaceDiagnosticHandlerBase
 {
     public override async Task<WorkspaceDiagnosticReport> Handle(WorkspaceDiagnosticParams request, CancellationToken cancellationToken)
@@ -87,7 +90,7 @@ internal sealed class WorkspaceDiagnosticHandler(
                 if (partial is not null)
                 {
                     // written by the repaired serializer, which OmniSharp's progress manager does not write a partial result with (WorkspaceDiagnosticReports).
-                    server.SendNotification(new ProgressParams { Token = partial, Value = WorkspaceDiagnosticReports.ToJson(WorkspaceDiagnosticReports.PartialOf([report])) });
+                    server.SendNotification(new ProgressParams { Token = partial, Value = WorkspaceDiagnosticReports.ToJson(WorkspaceDiagnosticReports.PartialOf([report]), serializer) });
                 }
                 else
                 {

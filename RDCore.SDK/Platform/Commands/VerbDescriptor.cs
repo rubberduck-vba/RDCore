@@ -114,7 +114,7 @@ public sealed record class VerbArgument
 /// </para>
 /// <para>
 /// The descriptor is data: it travels where the verb does not - with a completion request (<see cref="Protocol.SessionCompletionParams.Command"/>) - and is all
-/// that is needed to complete its arguments (<see cref="VerbCompletion"/>).
+/// that is needed to complete its arguments.
 /// </para>
 /// </remarks>
 public sealed record class VerbDescriptor

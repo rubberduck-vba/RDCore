@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Refactoring;

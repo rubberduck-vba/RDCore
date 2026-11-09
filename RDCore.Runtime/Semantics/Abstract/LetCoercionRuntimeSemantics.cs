@@ -146,6 +146,8 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
             { Error: VBRuntimeErrorId.Overflow } => LetCoercionResult.Error(OnLetCoercionOverflow(expression, frame)),
             { Error: VBRuntimeErrorId.TypeMismatch } => LetCoercionResult.Error(OnLetCoercionTypeMismatch(expression, frame)),
             { Error: VBRuntimeErrorId.InvalidUseOfNull } => LetCoercionResult.Error(OnLetCoercionInvalidUseOfNull(expression, frame)),
+            // a Date that is no day, as text (ValueConversions.TryMomentOf).
+            { Error: VBRuntimeErrorId.InvalidProcedureCallOrArgument } => LetCoercionResult.Error(OnLetCoercionInvalidProcedureCallOrArgument(expression, frame)),
             { Error: not null } => throw new InvalidOperationException(
                 $"A conversion raised {conversion.Error}, which no let-coercion reports."),
             { Value: { } value } => LetCoercionResult.Success(value),
