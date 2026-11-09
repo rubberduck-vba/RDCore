@@ -8,29 +8,11 @@ using RDCore.SDK.Model.Types;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
-/// <summary>
-/// The type a variable or a parameter has because it is declared without one, shown after its name (<strong>LSP 3.17</strong> §Inlay Hint Request).
-/// </summary>
-/// <param name="Position">Where the name, with its array bounds, ends: the hint is shown there.</param>
-/// <param name="TypeName">The name of the type: <c>Variant</c>.</param>
 public readonly record struct ImplicitTypeHint(SourcePosition Position, string TypeName);
 
-/// <summary>
-/// The declarations of a module that state no type, and are a <c>Variant</c> (<strong>MS-VBAL §5.2.3.1.5</strong>): <c>Dim x</c>, <c>Sub Show(Prompt)</c>.
-/// </summary>
-/// <remarks>
-/// A declaration states its type with an <c>As</c> clause or with a type-declaration character. A name that a <c>Def&lt;Type&gt;</c> directive of the module covers
-/// is given that type, not a <c>Variant</c>, and has no hint. A constant has none: its type is the type of its value. A parameter that is an array
-/// (<c>Items()</c>) has none, since the hint cannot be shown where its type would be written.
-/// </remarks>
+// an array parameter (Items()) gets no hint: there is nowhere to show the type where it would be written.
 public static class ImplicitTypeHints
 {
-    /// <summary>
-    /// The hints of the declarations written in <paramref name="range"/> of <paramref name="module"/>.
-    /// </summary>
-    /// <param name="module">The module.</param>
-    /// <param name="range">The range a client shows.</param>
-    /// <returns>The hints, in the order they are written.</returns>
     public static IReadOnlyList<ImplicitTypeHint> In(ModuleNode module, SourceRange range)
     {
         var directives = module.Children.OfType<TypeDefDirectiveNode>().ToList();

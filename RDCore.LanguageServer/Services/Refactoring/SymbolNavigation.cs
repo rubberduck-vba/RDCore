@@ -12,43 +12,14 @@ using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
-/// <summary>
-/// One place of a module of the workspace where a symbol is declared.
-/// </summary>
-/// <param name="Module">The address of the module.</param>
-/// <param name="Range">The whole declaration: a procedure from its first line to its <c>End</c>, a variable with its <c>As</c> clause.</param>
-/// <param name="SelectionRange">The name the declaration declares, which a client selects.</param>
 public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange SelectionRange);
 
-/// <summary>
-/// Where a navigation from a name leads: the name it starts from, and the places it leads to.
-/// </summary>
-/// <param name="Origin">Where the name is written, in the module the navigation starts from.</param>
-/// <param name="Symbol">The symbol the name refers to.</param>
-/// <param name="Sites">The places it leads to, in the order they are written; none for a symbol that no module of the workspace declares.</param>
 public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Symbol, IReadOnlyList<SymbolSite> Sites)
 {
-    /// <summary>
-    /// Where the symbol's name is written, as a name whose meaning is not known, that could refer to it: a name in an expression nested too deeply to be
-    /// analyzed (<strong>RD-VBAL §2.6.1</strong>), or a member of the object of a <c>With</c> block that the analysis of the block did not bind. What
-    /// <see cref="SymbolNavigation.ReferencesAt"/> and <see cref="SymbolNavigation.OccurrencesAt"/> find may be incomplete, as a rename of the symbol is
-    /// refused (<see cref="RenameRefusalKind.Unresolved"/>). None for any other navigation.
-    /// <para>
-    /// A member accessed late-bound (on an <c>Object</c> or a <c>Variant</c>) is not one of these sites: a rename asks the user to confirm its edit
-    /// (<see cref="RenameEdit.IsLateBound"/>).
-    /// </para>
-    /// </summary>
     public IReadOnlyList<SymbolSite> Unresolved { get; init; } = [];
 
     private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
 
-    /// <summary>
-    /// What a reader is told of what was found, when it may be incomplete (<see cref="Unresolved"/>): where the first name whose meaning is not known is
-    /// written.
-    /// </summary>
-    /// <param name="locate">How a position is named to the reader, as <see cref="RenameRefusal.ToMessage"/> names it; by default, the name of the module and the line and the column, from 1.</param>
-    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
-    /// <returns><see langword="null"/> when nothing found may be missing.</returns>
     public string? IncompleteMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
     {
         if (Unresolved is not [var first, ..])
@@ -62,28 +33,9 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
     }
 }
 
-/// <summary>
-/// Navigates from a name to what it refers to (<strong>LSP 3.17</strong> §Goto Definition Request, §Goto Declaration Request): the name is bound the way a
-/// rename binds it (<see cref="SymbolRename"/>), so that what a navigation finds is what a rename of the name would rename.
-/// </summary>
-/// <remarks>
-/// A name declared in more than one branch of an <c>#If</c> is defined by each branch that is compiled
-/// (<see cref="WorkspaceSymbol.Definitions"/>, <see cref="DefinitionState"/>); a branch whose state is not known yet is taken to be compiled. A property is
-/// defined by each of its procedures, its <c>Property Get</c>, <c>Let</c> and <c>Set</c>. A module is defined by its document, and a type named in an <c>As</c>
-/// clause is the type it declares. A member
-/// that code accesses late-bound - on an <c>Object</c> or a <c>Variant</c> - is not known to refer to any symbol, and leads nowhere.
-/// </remarks>
+// an #If branch whose state is not known yet counts as compiled; a late-bound member refers to no known symbol, and leads nowhere.
 public static class SymbolNavigation
 {
-    /// <summary>
-    /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is defined.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <returns>
-    /// The name and the places that define its symbol; <see langword="null"/> where no name is written, or where what the name refers to is not known.
-    /// </returns>
     public static SymbolNavigationTarget? DefinitionsAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)
@@ -98,18 +50,6 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
-    /// <summary>
-    /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is declared (<strong>LSP 3.17</strong> §Goto Declaration Request):
-    /// the one place that declares it first, whichever of its definitions are compiled.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <returns>
-    /// The name and the place that declares its symbol, as the one site of <see cref="SymbolNavigationTarget.Sites"/>: the first written, of every branch of
-    /// an <c>#If</c> and every procedure of a property, so that it is the same whatever branch the precompiler compiles. <see langword="null"/> where no name
-    /// is written, or where what the name refers to is not known.
-    /// </returns>
     public static SymbolNavigationTarget? DeclarationAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)
@@ -125,37 +65,9 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
-    /// <summary>
-    /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is referred to, in every module of the workspace
-    /// (<strong>LSP 3.17</strong> §Find References Request): each name that calls it or reads it, each name that assigns it, and each type name that names it.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <param name="includeDeclaration">Whether the names its declarations declare are references too, and the attributes of a member.</param>
-    /// <returns>
-    /// The name and each place that refers to its symbol, as a site whose range is the name, by module and then in the order written. <see langword="null"/>
-    /// where no name is written, or where what the name refers to is not known; a name whose meaning is not known where it is written is not a reference,
-    /// and where it could be one, it is in <see cref="SymbolNavigationTarget.Unresolved"/>: the references found may be incomplete.
-    /// </returns>
-    /// <remarks>
-    /// Each procedure of a property is referred to by the names that call it (<strong>MS-VBAL §5.3.1.7</strong>): its <c>Property Get</c> by those that read
-    /// the property, its <c>Property Let</c> by the targets of Let-assignments, and its <c>Property Set</c> by the targets of Set-assignments. The procedure is
-    /// the one whose name is at <paramref name="position"/>, or the one the name there calls; a rename renames all of them (<see cref="OccurrencesAt"/>). The
-    /// name of a function or a <c>Property Get</c> that its own body assigns, or reads as a simple name, is its result, and refers to no procedure
-    /// (<strong>MS-VBAL §5.6.2.1</strong>); with an argument list, it is a recursive call, and a reference.
-    /// </remarks>
     public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
         => NamesOf(context, module, position, includeDeclaration, byAccess: true);
 
-    /// <summary>
-    /// Every name that refers to the symbol named at <paramref name="position"/> of <paramref name="module"/>, in every module of the workspace, its
-    /// declarations included: what a rename of it renames, and each type name that names it - whichever procedure of a property it calls.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <returns>As <see cref="ReferencesAt"/> answers; the procedures of a property are one symbol.</returns>
     public static SymbolNavigationTarget? OccurrencesAt(RenameContext context, Uri module, SourcePosition position)
         => NamesOf(context, module, position, includeDeclaration: true, byAccess: false);
 
@@ -267,17 +179,6 @@ public static class SymbolNavigation
         _ => null,
     };
 
-    /// <summary>
-    /// Where the type of the symbol named at <paramref name="position"/> of <paramref name="module"/> is defined (<strong>LSP 3.17</strong> §Goto Type
-    /// Definition Request): the class, <c>Type</c> or <c>Enum</c> a variable, a constant, a parameter or a function is declared as - of an array, its items'.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <returns>
-    /// The name and the places that define the type, the type itself for a name that names one; no place for an intrinsic type, or a type of a library.
-    /// <see langword="null"/> where no name is written, or where what the name refers to is not known.
-    /// </returns>
     public static SymbolNavigationTarget? TypeDefinitionAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)
@@ -291,18 +192,6 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
-    /// <summary>
-    /// Where the symbol named at <paramref name="position"/> of <paramref name="module"/> is implemented (<strong>LSP 3.17</strong> §Goto Implementation
-    /// Request): for a class, each class of the workspace that implements it, at its <c>Implements</c> directive; for a member of a class, the procedure of
-    /// each of those classes that implements it - <c>IShape_Area</c> for <c>Area</c> of <c>IShape</c> (<strong>MS-VBAL §5.2.4.2</strong>).
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <returns>
-    /// The name and each place that implements its symbol; no place for a class that no class implements, or a symbol that is no class or member of one.
-    /// <see langword="null"/> where no name is written, or where what the name refers to is not known.
-    /// </returns>
     public static SymbolNavigationTarget? ImplementationsAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)

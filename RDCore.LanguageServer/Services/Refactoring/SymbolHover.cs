@@ -13,22 +13,10 @@ using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
-/// <summary>
-/// What a hover over a name says of its symbol (<strong>LSP 3.17</strong> §Hover Request): its declaration as code would write it, what declares it, and what
-/// it does when its doc string says so.
-/// </summary>
-/// <param name="Declaration">The declaration, on one line: <c>Public Function GetTotal() As Long</c>, <c>Dim count As Long</c>, <c>Enum Colour</c>.</param>
-/// <param name="Container">What declares the symbol: its module, procedure, <c>Enum</c> or <c>Type</c> - <c>Helpers</c>, <c>VBA.Strings</c>; <see langword="null"/>
-/// for a module, which nothing declares.</param>
-/// <param name="Documentation">What the symbol is or does, in a sentence: its doc string; <see langword="null"/> when it has none.</param>
 public sealed record class SymbolHover(string Declaration, string? Container, string? Documentation)
 {
     private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
 
-    /// <summary>
-    /// What a hover says of a symbol.
-    /// </summary>
-    /// <param name="symbol">The symbol.</param>
     public static SymbolHover Of(Symbol symbol)
     {
         var path = NameOccurrences.Describe(symbol);
@@ -53,23 +41,11 @@ public sealed record class SymbolHover(string Declaration, string? Container, st
         return new SymbolHover(DeclarationOf(symbol), container, symbol.GetProperty(SymbolProperties.DocString)) { ControlArrayOf = element is null ? null : ClassNameOf(element) };
     }
 
-    /// <summary>
-    /// The class of the controls of the Visual Basic 6.0 control array the symbol is (<see cref="FormControlArray"/>), such as <c>VB.CommandButton</c>, which the
-    /// hover names; <see langword="null"/> for any other symbol.
-    /// </summary>
     public string? ControlArrayOf { get; init; }
 
-    /// <summary>
-    /// The hover as Markdown: the declaration as a block of VBA, what declares it, the class of the controls of a control array, and its doc string.
-    /// </summary>
-    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
     public string ToMarkdown(CultureInfo? culture = null)
         => string.Join("\n\n", new[] { $"```vba\n{Declaration}\n```", MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
 
-    /// <summary>
-    /// The hover as plain text, for a client that does not read Markdown.
-    /// </summary>
-    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
     public string ToPlainText(CultureInfo? culture = null)
         => string.Join("\n", new[] { Declaration, MemberOf(culture), ArrayOf(culture), Documentation }.Where(part => part is { Length: > 0 }));
 

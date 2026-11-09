@@ -10,22 +10,8 @@ using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.LanguageServer.Services.Platform;
 
-/// <summary>
-/// An <em>abstract factory</em> that creates clients for platform components.
-/// </summary>
 public interface IRDCoreServerProxyFactory
 {
-    /// <summary>
-    /// Creates a client proxy for a platform component.
-    /// </summary>
-    /// <param name="platformComponent">The component the proxy launches and connects to.</param>
-    /// <param name="capabilities">The platform capabilities the proxy expects the child to provide.</param>
-    /// <param name="configureHandlers">App-specific LSP handler configuration for the proxy's client.</param>
-    /// <param name="configureServices">App-specific service registrations for the proxy's client.</param>
-    /// <param name="extensionInfo">
-    /// The extension manifest when <paramref name="platformComponent"/> is <see cref="CoreServerComponent.Extension"/>;
-    /// supplies the folder and executable name the proxy resolves the child from.
-    /// </param>
     RDCoreServerProxy Create(CoreServerComponent platformComponent, CorePlatformClientCapabilities capabilities,
         Action<IRDCoreLSPHandlerConfigurationBuilder>? configureHandlers = default,
         Action<IServiceCollection>? configureServices = default,
