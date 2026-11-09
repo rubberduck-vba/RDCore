@@ -1,13 +1,12 @@
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.Flow;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Flow;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Workspace;

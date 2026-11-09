@@ -54,7 +54,7 @@ public sealed class CompiledBlockTests
             "    End With",
             "End Function"), "Filled", recoveries: 6);
 
-        Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(SDK.Semantics.Instructions.InstructionKind.With) }),
+        Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.With) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 
@@ -310,7 +310,7 @@ public sealed class CompiledBlockTests
             "End Function"));
 
         Assert.IsNull(compiled["Listed"].Body);
-        Assert.IsTrue(compiled["Listed"].Reasons.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(SDK.Semantics.Instructions.InstructionKind.ForEachNext) }),
+        Assert.IsTrue(compiled["Listed"].Reasons.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.ForEachNext) }),
             string.Join("; ", compiled["Listed"].Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 }

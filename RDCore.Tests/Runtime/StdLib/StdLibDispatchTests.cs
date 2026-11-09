@@ -1,3 +1,5 @@
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Source;
@@ -19,10 +21,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Runtime.StdLib;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.StdLib;
@@ -325,7 +324,7 @@ public sealed class StdLibDispatchTests
     public void IntegerParameters_TakeTheArgumentsTheirCallerCoerced()
     {
         // an Integer's storage is a short; RGB declares three of them.
-        var rgb = new StdLibSymbolReader(Root).Read(typeof(IStdInformationModule).Assembly)
+        var rgb = new StdLibSymbolReader(Root).Read()
             .OfType<VBFunctionMemberSymbol>().Single(member => member.Name == "RGB");
         var information = Substitute.For<IStdInformationModule>();
         information.RGB(Arg.Any<VBIntegerValue>(), Arg.Any<VBIntegerValue>(), Arg.Any<VBIntegerValue>())
@@ -347,7 +346,7 @@ public sealed class StdLibDispatchTests
     public void ABooleanParameter_TakesTheArgumentItsCallerCoerced(bool abbreviate)
     {
         // a Boolean's storage is a struct of its own, which is what lets it be told from an Integer.
-        var monthName = new StdLibSymbolReader(Root).Read(typeof(IStdStringsModule).Assembly)
+        var monthName = new StdLibSymbolReader(Root).Read()
             .OfType<VBFunctionMemberSymbol>().Single(member => member.Name == "MonthName");
         var strings = Substitute.For<IStdStringsModule>();
         strings.MonthName(Arg.Any<VBLongValue>(), Arg.Any<VBBooleanValue?>())
@@ -367,7 +366,7 @@ public sealed class StdLibDispatchTests
     public void AStringWithATrailingByte_ReachesATypedStringParameterWhole()
     {
         // a String's runtime value is all of its data, and the parameter is bound to that same value. AscB declares one.
-        var ascB = new StdLibSymbolReader(Root).Read(typeof(IStdStringsModule).Assembly)
+        var ascB = new StdLibSymbolReader(Root).Read()
             .OfType<VBFunctionMemberSymbol>().Single(member => member.Name == "AscB");
         var strings = Substitute.For<IStdStringsModule>();
         strings.AscB(Arg.Any<VBStringValue>())
@@ -386,7 +385,7 @@ public sealed class StdLibDispatchTests
     {
         // vbNullString's managed value is null, which no case for a managed value matches: it was refused, as error 5,
         // before the member was reached.
-        var ascB = new StdLibSymbolReader(Root).Read(typeof(IStdStringsModule).Assembly)
+        var ascB = new StdLibSymbolReader(Root).Read()
             .OfType<VBFunctionMemberSymbol>().Single(member => member.Name == "AscB");
         var strings = Substitute.For<IStdStringsModule>();
         strings.AscB(Arg.Any<VBStringValue>())
@@ -421,7 +420,7 @@ public sealed class StdLibDispatchTests
     {
         // the call site Let-coerces an argument to the parameter's declared type, so a Double parameter's
         // argument arrives as a boxed double - the storage of a Double, not a Double. Atn declares one.
-        var atn = new StdLibSymbolReader(Root).Read(typeof(IStdMathModule).Assembly)
+        var atn = new StdLibSymbolReader(Root).Read()
             .OfType<VBFunctionMemberSymbol>().Single(member => member.Name == "Atn");
         var math = Substitute.For<IStdMathModule>();
         math.Atn(Arg.Any<VBDoubleValue>())

@@ -41,7 +41,7 @@ A `For` loop needs per-activation state. Its opener stores a
 5. Check steps 1 and 2 of the **MS-VBAL §5.4.2.3** algorithm immediately: "if step is zero or positive and the
    counter already exceeds end", and "if step is negative and the counter already falls short".
 6. When the counter is already out of range, branch to
-   [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.End`, right past the loop. Otherwise, fall
+   `Instruction.End`, right past the loop. Otherwise, fall
    through into the body.
 
 ### ForNext

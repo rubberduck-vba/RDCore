@@ -1,5 +1,5 @@
-using RDCore.SDK.Semantics.Flow;
-using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Flow;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Semantics.Flow;
 

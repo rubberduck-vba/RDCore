@@ -1,7 +1,7 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Reflection.Emit;

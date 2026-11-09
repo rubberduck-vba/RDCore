@@ -1,6 +1,6 @@
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
 using RDCore.Runtime.LanguageCore.Errors;

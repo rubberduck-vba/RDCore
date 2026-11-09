@@ -1,17 +1,18 @@
 # 3.5.5 Placement and Licensing
 
-The instruction model and its contracts live in **RDCore.SDK** (MIT). The interpreter that executes them lives in
-**RDCore.Runtime** (GPLv3), like the other RDCore implementations of the session services
+The instruction model lives in **RDCore.Runtime.LanguageCore** (GPLv3), and the contracts of an activation in
+**RDCore.SDK** (MIT). The interpreter that executes the instructions lives in **RDCore.Runtime** (GPLv3), like the other
+RDCore implementations of the session services
 ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 ## Types
 
 |Type or member|Assembly|Licence|Role|
 |---|---|---|---|
-|[InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)|RDCore.SDK|MIT|A procedure body's flattened instruction list ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)).|
-|[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)|RDCore.SDK|MIT|One entry of the list ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).|
-|[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)|RDCore.SDK|MIT|An entry's control-flow shape.|
-|`InstructionListLowering`|RDCore.SDK|MIT|Lowering ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).|
+|`InstructionList`|RDCore.Runtime.LanguageCore|GPLv3|A procedure body's flattened instruction list ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)).|
+|`Instruction`|RDCore.Runtime.LanguageCore|GPLv3|One entry of the list ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).|
+|`InstructionKind`|RDCore.Runtime.LanguageCore|GPLv3|An entry's control-flow shape.|
+|`InstructionListLowering`|RDCore.Runtime.LanguageCore|GPLv3|Lowering ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).|
 |[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)|RDCore.SDK|MIT|The read-only view of an activation's state.|
 |[ForLoopState](../api/RDCore.SDK.Runtime.Shared.ForLoopState.html), [ForEachState](../api/RDCore.SDK.Runtime.Shared.ForEachState.html), [ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html)|RDCore.SDK|MIT|Per-activation state values ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).|
 |[IProcedureInvoker](../api/RDCore.SDK.Runtime.Abstract.Execution.IProcedureInvoker.html), [CallableBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.CallableBindingHandle.html)|RDCore.SDK|MIT|The call contract: given a procedure symbol, a resolver, and arguments, run the procedure.|
@@ -25,11 +26,13 @@ The instruction model and its contracts live in **RDCore.SDK** (MIT). The interp
 
 ## The instruction model
 
-`InstructionList`, `Instruction`, `InstructionKind` and `InstructionListLowering` live in RDCore.SDK (MIT).
-Lowering is pure: it uses no symbol resolver and no runtime session.
+`InstructionList`, `Instruction`, `InstructionKind` and `InstructionListLowering` live in RDCore.Runtime.LanguageCore
+(GPLv3). Lowering is pure: it uses no symbol resolver and no runtime session.
 
-The instruction types and lowering are in RDCore.SDK because the SDK's static-analysis consumers (unreachable
-code, unused label, a flow-based inspection) need the same flattened instruction list that the interpreter executes.
+The instruction set implements MS-VBAL, so it belongs to the language core, and a new instruction is a change there.
+The flow analyses that follow the instruction list live there too. What they find about a procedure, such as
+whether every code path assigns its return value, is on the procedure's semantic model in RDCore.SDK, where an analyzer
+reads it.
 
 `ProcedureExecutor`, its statement dispatch, and activation state are in RDCore.Runtime (GPLv3).
 

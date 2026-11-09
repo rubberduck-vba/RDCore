@@ -9,7 +9,7 @@ namespace RDCore.SDK.Runtime.Shared;
 public enum ErrorHandlingMode
 {
     /// <summary>
-    /// No handler is active: an <see cref="RDCore.SDK.Semantics.Instructions.InstructionKind"/>'s
+    /// No handler is active: an <c>InstructionKind</c>'s
     /// <c>Error</c> outcome propagates out of the activation unchanged. The policy every activation
     /// starts with, and the one an <c>On Error GoTo</c> handler's own catch resets to.
     /// </summary>

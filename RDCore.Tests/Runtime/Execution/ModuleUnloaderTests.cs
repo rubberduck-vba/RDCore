@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
@@ -10,8 +11,6 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Instructions;
-using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
 

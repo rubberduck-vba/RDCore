@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[GoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html)|`GoSub`|[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.Target` holds the resolved offset of the target label.|
+|[GoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html)|`GoSub`|`Instruction.Target` holds the resolved offset of the target label.|
 
 A `GoSub` statement's target is an expression naming or numbering a label or line. There is no static link
 between the `GoSubStatementNode` and the [LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)
@@ -15,7 +15,7 @@ or [LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html) it
 ([**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md)).
 
 As for `GoTo`, lowering alone resolves a `GoSub` target label. A `GoSub` statement lowers to
-[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)`.GoSub`, whose `Target` holds
+`InstructionKind.GoSub`, whose `Target` holds
 the resolved offset ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md),
 [**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
 

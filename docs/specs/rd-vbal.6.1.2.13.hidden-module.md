@@ -6,8 +6,8 @@
 > `Array` is [documented](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/array-function), the other members are not.
 > The platform declares it as it does the modules the specification names, because the language needs it all the same.
 
-The `_HiddenModule` module is represented in the SDK by the type
-[IStdHiddenModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdHiddenModule.html), and implemented by `RDCore.Runtime.StdLib.StdHidden`.
+The `_HiddenModule` module is represented in the language core by the type
+`IStdHiddenModule`, and implemented by `RDCore.Runtime.StdLib.StdHidden`.
 
 A hidden member is left out of a completion list and resolves anyway, being a member of a standard module like any other. The module is declared hidden
 (`StdLibModuleAttribute.IsHidden`), and so are its members; the flag is the `hidden` bit (`SymbolProperties.HiddenMemberFlag`, `0x40`) of the symbol's
@@ -47,7 +47,7 @@ typed, or a member called that, is an ordinary name; arguments that are named or
 ## VarPtr
 
 `VarPtr` is declared as the `VBA` type library declares it, `VarPtr(Ptr As Any) As LongPtr`: its parameter is `ByRef … As Any`, as a `Declare`'s can be
-([StdLibAsAnyAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibAsAnyAttribute.html)). It takes a variable of any type and gives its address in
+(`StdLibAsAnyAttribute`). It takes a variable of any type and gives its address in
 the session's memory, which is where a `PEEK` or a `POKE` reads and writes it ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#memory-model),
 which has what is at every address in one place).
 The address space begins above the first 64 KiB, so that no address is `0` or a small number.
@@ -112,7 +112,7 @@ or an array, it is the pointer it is, as a variable's is. A type changed to or f
 ## StrPtr
 
 `StrPtr` is declared as the `VBA` type library declares it, `StrPtr(Ptr As String) As LongPtr`, and is given where its argument is
-([StdLibByAddressAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibByAddressAttribute.html)): it gives the address of the characters of the very
+(`StdLibByAddressAttribute`): it gives the address of the characters of the very
 `String` it is passed. Those are in a `BSTR` of the session's memory, as **MS-VBA** lays one out: a `Long` of the length in bytes just before them
 (`StrPtr(s) - 4`), the characters two bytes each - and the odd byte of a `String` that has one - then a null character
 ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)). The bytes of a `String` variable, at `VarPtr(s)`, are this address.
@@ -139,7 +139,7 @@ The bytes of the `BSTR` are its own, as in **MS-VBA** (recorded in Excel):
 ## ObjPtr
 
 `ObjPtr` is declared as the `VBA` type library declares it, `ObjPtr(Ptr As Unknown) As LongPtr`, and is given where its argument is
-([StdLibByAddressAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibByAddressAttribute.html)): it gives the address of the interface of the object
+(`StdLibByAddressAttribute`): it gives the address of the interface of the object
 that the variable it is passed is declared as. An object has one for each interface it is asked for through, made the first time its address is asked for and
 the same for as long as the object lives; it is freed with the object. The bytes of an object variable, at `VarPtr(o)`, are this address.
 

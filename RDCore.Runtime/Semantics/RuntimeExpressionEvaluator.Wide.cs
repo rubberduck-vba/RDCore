@@ -88,7 +88,7 @@ public sealed partial class RuntimeExpressionEvaluator
     // a call of a member of the standard library of one argument, by the key its implementation is found by, and its argument.
     private static (string Key, BoundNode Argument)? WideFunctionOf(BoundCall call)
         => call is { BoundArguments: [{ Value: { } argument, Elements.IsDefaultOrEmpty: true }] }
-            && call.Procedure.GetProperty(SymbolProperties.ExternalTarget) is { } key && StdLibSymbolProvider.IsLibraryMember(call.Procedure)
+            && call.Procedure.GetProperty(SymbolProperties.ExternalTarget) is { } key && StandardLibrary.IsLibraryMember(call.Procedure)
             ? (key, argument)
             : null;
 

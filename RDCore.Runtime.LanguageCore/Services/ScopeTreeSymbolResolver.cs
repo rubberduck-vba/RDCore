@@ -282,7 +282,7 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
         static long Rank(Symbol symbol) => symbol.GetProperty(SymbolProperties.Library) switch
         {
             null => -1,
-            StdLibSymbolProvider.LibraryName => 0,
+            StandardLibrary.LibraryName => 0,
             _ => symbol.TryGetProperty(SymbolProperties.LibraryPriority, out var priority) ? priority : long.MaxValue,
         };
 

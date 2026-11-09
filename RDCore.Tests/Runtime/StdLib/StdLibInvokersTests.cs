@@ -1,6 +1,6 @@
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.StdLib;
-using RDCore.SDK.Runtime.Abstract.StdLib;
-using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using System.Reflection;
 
@@ -15,7 +15,7 @@ public sealed class StdLibInvokersTests
 {
     private static IEnumerable<(Type Declaration, MethodInfo Method)> Members()
         => typeof(IStdConversionModule).Assembly.GetExportedTypes()
-            .Where(type => type is { IsInterface: true, Namespace: "RDCore.SDK.Runtime.Abstract.StdLib" } && type.Name.StartsWith("IStd"))
+            .Where(type => type.IsInterface && type.Namespace == typeof(IStdConversionModule).Namespace && type.Name.StartsWith("IStd"))
             .SelectMany(type => type.GetMethods().Select(method => (type, method)));
 
     private static bool ReturnsAResult(MethodInfo method)

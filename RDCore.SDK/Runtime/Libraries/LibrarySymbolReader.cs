@@ -10,14 +10,13 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
 using System.Globalization;
 
 namespace RDCore.SDK.Runtime.Libraries;
 
 /// <summary>
-/// Reads the symbols that libraries declare off their descriptions (<see cref="LibraryDescription"/>), as <see cref="StdLibSymbolReader"/> reads those of the
+/// Reads the symbols that libraries declare off their descriptions (<see cref="LibraryDescription"/>), as <c>StdLibSymbolReader</c> reads those of the
 /// standard library off its declarations.
 /// </summary>
 /// <remarks>

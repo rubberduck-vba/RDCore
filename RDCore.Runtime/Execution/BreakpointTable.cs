@@ -1,7 +1,7 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
@@ -12,7 +12,7 @@ namespace RDCore.Runtime.Execution;
 /// Which offsets of a body are breakpoints is worked out the first time the interpreter asks about the body after the breakpoints changed, and not again: between
 /// two instructions it is a lookup. Bodies are immutable and a module that is loaded again has new ones, so the answer is cached by the body itself.
 /// </remarks>
-public sealed class BreakpointTable : IBreakpointTable
+public sealed class BreakpointTable : IInstructionBreakpointTable
 {
     private readonly Lock _sync = new();
     private volatile ImmutableDictionary<string, ImmutableDictionary<int, ExpressionNode?>> _lines = ImmutableDictionary<string, ImmutableDictionary<int, ExpressionNode?>>.Empty;
@@ -52,7 +52,6 @@ public sealed class BreakpointTable : IBreakpointTable
         }
     }
 
-    /// <inheritdoc/>
     public bool IsAt(string module, InstructionList body, int offset, out ExpressionNode? condition)
     {
         var version = Volatile.Read(ref _version);

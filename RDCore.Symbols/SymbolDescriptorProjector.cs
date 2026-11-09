@@ -166,7 +166,7 @@ public static class SymbolDescriptorProjector
     // a type of a referenced library is named for its library, and the standard library's by its own. A class of the workspace travels by its own
     // name too; a user-defined type or an Enum of another module of the workspace is OfAnotherModule's.
     private static string Qualified(Symbol symbol, string name)
-        => symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StdLibSymbolProvider.LibraryName ? $"{library}.{name}" : name;
+        => symbol.GetProperty(SymbolProperties.Library) is { Length: > 0 } library && library != StandardLibrary.LibraryName ? $"{library}.{name}" : name;
 
     // a user-defined type or an Enum that another module of the workspace declares travels with the name of that module, and the host resolves it within
     // that module (MS-VBAL 5.6.12). By its bare name the host would bind it again, from the module being defined, and get whatever ranks first there under

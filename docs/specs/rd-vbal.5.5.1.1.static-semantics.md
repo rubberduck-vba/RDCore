@@ -36,7 +36,7 @@ variable name" ([**RD-VBAL §6.1.2.11.1.22**](rd-vbal.6.1.2.11.strings.md#612111
 variable, so it must be a `String` or a `Variant`. Every other parameter declared `Variant` takes an object
 as it is: `CVar`, `Round`, `Hex`, `Str`, `Left`, `Mid`, `Trim`, the functions of `DateTime` and `Information`, `IIf`,
 `Choose`. A standard-library parameter says which it is with
-[StdLibValueAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibValueAttribute.html).
+`StdLibValueAttribute`.
 
 MS-VBAL §5.5.1.1 makes an object of a class that has no accessible default member statically invalid to Let-coerce.
 MS-VBA compiles it, and raises run-time error 438 (Object doesn't support this property or method) when it runs, or 91

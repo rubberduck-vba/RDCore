@@ -9,7 +9,7 @@
 |---|---|---|
 |[ReturnStatementNode](../api/RDCore.SDK.Model.AST.Statements.ReturnStatementNode.html)|`Return`|No resolved target.|
 
-`Return` lowers to the [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)
+`Return` lowers to the `InstructionKind`
 `Return` ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
 ## Runtime Semantics

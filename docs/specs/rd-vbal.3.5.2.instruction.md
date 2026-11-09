@@ -1,13 +1,13 @@
 # 3.5.2 Instruction
 
-An [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html) is one entry of an
-[InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)
+An `Instruction` is one entry of an
+`InstructionList`
 ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)).
 
 ## Fields
 
 Every instruction carries its `Offset`, the source `Node` it was lowered from, and an
-[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html). The kind tells the interpreter
+`InstructionKind`. The kind tells the interpreter
 which of the resolved-target fields to consult, if any.
 
 |Field|Holds|

@@ -1,0 +1,31 @@
+﻿using RDCore.SDK.Runtime.Abstract.StdLib;
+
+namespace RDCore.Runtime.LanguageCore.StdLib.Abstract;
+
+/// <summary>
+/// <strong>MS-VBAL 6.1.1.10 VbIMEStatus</strong>
+/// </summary>
+[StdLibEnum]
+public enum VBIMEStatus
+{
+    VBIMENoOp = 0,
+    VBIMEModeNoControl = VBIMENoOp,
+    VBIMEOn = 1,
+    VBIMEModeOn = VBIMEOn,
+    VBIMEOff = 2,
+    VBIMEModeOff = VBIMEOff,
+    VBIMEDisable = 3,
+    VBIMEHiragana = 4,
+    VBIMEModeHiragana = VBIMEHiragana,
+    VBIMEKatakanaDbl = 5,
+    VBIMEModeKatakana = VBIMEKatakanaDbl,
+    VBIMEKatakanaSng = 6,
+    VBIMEModeKatakanaHalf = VBIMEKatakanaSng,
+    VBIMEAlphaDbl = 7,
+    VBIMEModeAlphaFull = VBIMEAlphaDbl,
+    VBIMEAlphaSng = 8,
+    VBIMEModeAlpha = VBIMEAlphaSng,
+    VBIMEModeHangulFull = 9,
+    VBIMEModeHangul = 10,
+}
+

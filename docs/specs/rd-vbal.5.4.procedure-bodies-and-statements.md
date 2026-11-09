@@ -8,14 +8,14 @@ At run time, statements have side effects on program, global, or host environmen
 
 ## Procedure Bodies
 
-A procedure body executes as an [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html):
+A procedure body executes as an `InstructionList`:
 the flat, offset-addressable list of instructions lowered from the body's statement tree.
 
 |Stage|What happens|RD-VBAL|
 |---|---|---|
 |Parsing|Each statement of the body is a [StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html). A block statement's nested statements are held in a [StatementBlock](../api/RDCore.SDK.Model.AST.Statements.StatementBlock.html).|[**RD-VBAL §3.4** Statements](rd-vbal.3.4.0.statements.md)|
 |Lowering|`InstructionListLowering` flattens the statement tree into an `InstructionList`: one instruction per executable statement, plus the synthesized instructions a block statement needs but has no source node for.|[**RD-VBAL §3.5** Instructions](rd-vbal.3.5.0.instructions.md)|
-|Execution|`ProcedureExecutor` drives the activation's program counter through the `InstructionList`: fetch the instruction, decode it by [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html), act on the outcome, repeat.|[**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)|
+|Execution|`ProcedureExecutor` drives the activation's program counter through the `InstructionList`: fetch the instruction, decode it by `InstructionKind`, act on the outcome, repeat.|[**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)|
 |Invocation|Invoking a procedure pushes a new activation and runs the callee's lowered body through the same executor.|[**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)|
 
 A statement tree cannot express an arbitrary jump, and `GoTo`, `GoSub`, `On…GoTo`, `On…GoSub` and `Resume` can
