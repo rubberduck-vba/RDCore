@@ -374,7 +374,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                     }
                 }
 
-                if (!body.TryGetOffsetAtLine(line, out offset))
+                if (!BreakpointTable.TryGetOffsetAtLine(body, line, out offset))
                 {
                     return NotMoved(Resources.Host_NoStatementAtOrAfterLine);
                 }
@@ -392,7 +392,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     private static DebugGotoResult MovedTo(InstructionList body, int offset)
     {
-        var location = InstructionLocations.Of(body, offset);
+        var location = offset < body.Items.Length ? body.Items[offset].Location : null;
         return new DebugGotoResult
         {
             Moved = true,
@@ -442,7 +442,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         var bodies = provider.Image.BodiesOf(module.Uri);
         return new DebugBreakpointsResult
         {
-            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new DebugBreakpoint(breakpoint.Line, IBreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
+            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new DebugBreakpoint(breakpoint.Line, BreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
             Judged = bodies.Any(),
         };
     }

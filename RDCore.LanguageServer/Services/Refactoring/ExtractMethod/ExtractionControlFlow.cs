@@ -50,6 +50,8 @@ internal static class ExtractionControlFlow
                 var kind = instruction.Kind switch
                 {
                     InstructionKind.ExitProcedure => ExtractionExitKind.Procedure,
+                    // a block's closer goes on to what follows the block, as a statement does: it is no GoTo.
+                    InstructionKind.Jump when instruction.Node is null && edge.To == after => null,
                     InstructionKind.Jump or InstructionKind.JumpTable or InstructionKind.ResumeLabel => ExtractionExitKind.Label,
                     _ when edge.To == after => (ExtractionExitKind?)null,
                     InstructionKind.ExitLoop => ExtractionExitKind.Loop,

@@ -64,7 +64,7 @@ public sealed class BreakpointTable : IBreakpointTable
         return resolved.Offsets.TryGetValue(offset, out condition);
     }
 
-    // the first instruction of the body that begins on each of the module's lines.
+    // the first instruction of the body that is on each of the module's lines.
     private ImmutableDictionary<int, ExpressionNode?> Resolve(string module, InstructionList body)
     {
         if (!_lines.TryGetValue(module, out var lines))
@@ -76,12 +76,50 @@ public sealed class BreakpointTable : IBreakpointTable
         var seen = new HashSet<int>();
         foreach (var instruction in body.Items)
         {
-            if (instruction.Node is { } node && node.SourceLocation.Range.Start.Line is var line && lines.TryGetValue(line, out var condition) && seen.Add(line))
+            if (LineOf(instruction) is { } line && lines.TryGetValue(line, out var condition) && seen.Add(line))
             {
                 offsets[instruction.Offset] = condition;
             }
         }
 
         return offsets.ToImmutable();
+    }
+
+    /// <summary>
+    /// The zero-based line a program waits on before the instruction: the line its statement begins on, or the closing line of the block it closes - a
+    /// <c>Next</c>, a <c>Loop</c>, an <c>End If</c>, the procedure's <c>End Sub</c> (<see cref="Instruction.Closes"/>) - each of which MS-VBA stops on.
+    /// </summary>
+    /// <returns><see langword="null"/> for an instruction that is on no line, as the jump that ends a branch, which a program goes through.</returns>
+    public static int? LineOf(Instruction instruction) => instruction.Location?.Range.Start.Line;
+
+    /// <summary>
+    /// Whether a line is one a program can wait at: an instruction of one of the bodies is on it (<see cref="LineOf"/>).
+    /// </summary>
+    /// <param name="bodies">The bodies of the module's procedures.</param>
+    /// <param name="line">A zero-based line of the source.</param>
+    public static bool Verify(IEnumerable<InstructionList> bodies, int line)
+        => bodies.Any(body => body.Items.Any(instruction => LineOf(instruction) == line));
+
+    /// <summary>
+    /// The first instruction of the body that is on <paramref name="line"/> (<see cref="LineOf"/>), or else on the first of the lines after it that has one:
+    /// where a move of the program counter to the line lands.
+    /// </summary>
+    /// <param name="body">The body.</param>
+    /// <param name="line">A zero-based line of the source.</param>
+    /// <param name="offset">The offset of that instruction.</param>
+    /// <returns><see langword="false"/> when no instruction of the body is on that line or after it.</returns>
+    public static bool TryGetOffsetAtLine(InstructionList body, int line, out int offset)
+    {
+        offset = -1;
+        var best = int.MaxValue;
+        foreach (var instruction in body.Items)
+        {
+            if (LineOf(instruction) is { } start && start >= line && start < best)
+            {
+                (best, offset) = (start, instruction.Offset);
+            }
+        }
+
+        return offset >= 0;
     }
 }

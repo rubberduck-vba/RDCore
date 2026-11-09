@@ -17,10 +17,27 @@ namespace RDCore.Runtime.LanguageCore.Instructions;
 public static class InstructionListLowering
 {
     // a label is scoped to its procedure: a nested block lowered on its own would under-resolve every jump into or out of it.
-    public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default, MemberKind? procedure = null)
+    // declaration is where the procedure is written, whose last line is its End statement; none for code that is not a whole body, as a statement run alone.
+    public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default, MemberKind? procedure = null,
+        SourceLocation? declaration = null)
     {
         var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.IsReleaseBuild, options.Language, procedure);
         LowerBlock(body, state, default);
+
+        // MS-VBA stops on End Sub before the procedure returns, whether it runs to the end or exits: a jump to the end of the body, on that line, that every
+        // Exit goes through. A label written just before it is its offset already.
+        if (declaration is { } declared)
+        {
+            var end = state.Items.Count;
+            Closing(state, Emit(state, default, null, InstructionKind.Jump, target: end + 1), declared);
+            for (var index = 0; index < end; index++)
+            {
+                if (state.Items[index].Kind is InstructionKind.ExitProcedure)
+                {
+                    PatchTarget(state, index, end);
+                }
+            }
+        }
 
         // Every label in the procedure is now known, however deeply nested its definition was, so every
         // deferred jump target can be resolved in one final pass.
@@ -312,7 +329,9 @@ public static class InstructionListLowering
             trailingJumps.Add(Emit(state, scope, null, InstructionKind.Jump));
         }
 
+        // every branch ends at the End If, the last by falling through to it.
         var after = state.Items.Count;
+        Closing(state, Emit(state, scope, null, InstructionKind.Jump, target: after + 1), ifBlock);
         if (lastHeaderNeedsElse)
         {
             PatchElse(state, previousHeader, after);
@@ -331,7 +350,9 @@ public static class InstructionListLowering
 
         if (inlineIf.ElseBody is { } elseBody)
         {
+            // the statement is stepped through as MS-VBA steps it: after the Then part, the program stops on the If again before it goes past the Else part.
             var trailingJump = Emit(state, scope, null, InstructionKind.Jump);
+            state.Items[trailingJump] = state.Items[trailingJump] with { Closes = inlineIf.SourceLocation };
             PatchElse(state, header, state.Items.Count);
             LowerBlock(elseBody, state, scope);
             PatchTarget(state, trailingJump, state.Items.Count);
@@ -371,7 +392,9 @@ public static class InstructionListLowering
             trailingJumps.Add(Emit(state, scope, null, InstructionKind.Jump));
         }
 
+        // every Case ends at the End Select, as does a selector no Case matches.
         var after = state.Items.Count;
+        Closing(state, Emit(state, scope, null, InstructionKind.Jump, target: after + 1), selectCase);
         if (previousHeader is { } last)
         {
             PatchElse(state, last, after);
@@ -438,7 +461,7 @@ public static class InstructionListLowering
         LowerBlock(withStatement.Body, state, scope with { EnclosingWith = opener });
 
         // End With is run through, not jumped to: the opener's End is past it, which is where a jump out of the block lands.
-        Emit(state, scope, null, InstructionKind.EndWith, matching: opener);
+        Closing(state, Emit(state, scope, null, InstructionKind.EndWith, matching: opener), withStatement);
         PatchEnd(state, opener, state.Items.Count);
     }
 
@@ -453,14 +476,17 @@ public static class InstructionListLowering
         return offset;
     }
 
-    // the instruction that closes a block, which has no statement of its own, is on the block's last line: its Next, its Wend, its Loop.
-    private static void Closing(LoweringState state, int index, StatementNode block)
+    // the instruction that closes a block, which has no statement of its own, is on the block's last line: its Next, its Wend, its Loop, its End If, the
+    // procedure's End Sub. A step or a break stops before it there; a jump with no line, as the one that ends a branch, is gone through.
+    private static void Closing(LoweringState state, int index, StatementNode block) => Closing(state, index, block.SourceLocation);
+
+    private static void Closing(LoweringState state, int index, SourceLocation block)
     {
-        var (start, end) = (block.SourceLocation.Range.Start, block.SourceLocation.Range.End);
+        var (start, end) = (block.Range.Start, block.Range.End);
         var line = end.Character == 0 && end.Line > start.Line ? end.Line - 1 : end.Line;
         state.Items[index] = state.Items[index] with
         {
-            Closes = new SourceLocation(block.SourceLocation.Uri, new SourceRange(new SourcePosition(line, 0), end.Line == line ? end : new SourcePosition(line, 0))),
+            Closes = new SourceLocation(block.Uri, new SourceRange(new SourcePosition(line, 0), end.Line == line ? end : new SourcePosition(line, 0))),
         };
     }
 

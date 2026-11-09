@@ -214,8 +214,9 @@ public sealed class FlowSoundnessTests
     }
 
     // where Resume Next goes on after an error in a condition, as MS-VBA has it (Excel-verified): the line it raises on, and the line it goes on at, zero-based.
+    // After a Select Case's expression, it is the End Select, which runs nothing: no Case is run, and what follows the block is next.
     [TestMethod]
-    [DataRow("Select Case 10 \\ n\nCase 1\nx = 1\nCase Else\nx = 2\nEnd Select\nDebug.Print x", 0, 6, DisplayName = "the expression of a Select Case: after End Select")]
+    [DataRow("Select Case 10 \\ n\nCase 1\nx = 1\nCase Else\nx = 2\nEnd Select\nDebug.Print x", 0, 5, DisplayName = "the expression of a Select Case: at End Select")]
     [DataRow("Select Case n\nCase 10 \\ n\nx = 1\nCase Else\nx = 2\nEnd Select\nDebug.Print x", 1, 2, DisplayName = "a Case expression: that Case's body")]
     [DataRow("If 10 \\ n Then\nx = 1\nElse\nx = 2\nEnd If\nDebug.Print x", 0, 1, DisplayName = "an If condition: the Then branch")]
     [DataRow("If n Then\nx = 1\nElseIf 10 \\ n Then\nx = 2\nEnd If\nDebug.Print x", 2, 3, DisplayName = "an ElseIf condition: that branch")]

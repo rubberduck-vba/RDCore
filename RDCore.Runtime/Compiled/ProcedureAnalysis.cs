@@ -625,6 +625,10 @@ internal sealed partial class ProcedureAnalysis
                 && instruction.Node is CaseExpressionStatementNode caseBlock && _selectOfOpener.TryGetValue(select, out var selectNumber):
                 return AnalyzeCase(instruction.Offset, caseBlock, selectNumber, next);
 
+            // an Exit goes through the End statement, as the interpreter's does.
+            case InstructionKind.ExitProcedure when instruction.Target is { } end:
+                return new JumpStep(instruction.Offset, end);
+
             case InstructionKind.ExitProcedure:
                 return new ExitStep(instruction.Offset);
 
