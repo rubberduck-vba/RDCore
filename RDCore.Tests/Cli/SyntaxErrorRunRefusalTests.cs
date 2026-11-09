@@ -155,6 +155,30 @@ public sealed class SyntaxErrorRunRefusalTests
         Assert.IsEmpty(result.Output);
     }
 
+    // a procedure with no End Sub is a syntax error at the header of the procedure after it: the run is refused, and neither procedure runs.
+    [TestMethod]
+    [DataRow("Sub Other()", DisplayName = "before a Sub")]
+    [DataRow("Public Sub Other()", DisplayName = "before a Public Sub")]
+    [DataRow("Private Function Other() As Long", DisplayName = "before a Private Function")]
+    public async Task AProcedureWithNoEndSub_RefusesTheRun(string header)
+    {
+        var program = string.Join("\r\n",
+            "Attribute VB_Name = \"Program\"",
+            "Public Sub Main()",
+            "    Debug.Print \"before\"",
+            "",
+            header,
+            "    Debug.Print \"other\"",
+            header.Contains("Function") ? "End Function" : "End Sub",
+            "");
+
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(program);
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.IsNotEmpty(result.Diagnostics!);
+    }
+
     private static string Module(string name, params string[] lines) => string.Join("\r\n", [$"Attribute VB_Name = \"{name}\"", .. lines, ""]);
 
     // a syntax error anywhere in the project refuses every run, with the module it is in named before it: nothing of the project runs while a module of it
