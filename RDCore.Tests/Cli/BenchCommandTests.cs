@@ -307,7 +307,7 @@ public sealed class BenchCommandTests
     public async Task RunsThatAreNotPositive_AreRefused()
         => Assert.AreEqual(2, await Command(Files()).Command.ExecuteAsync([Root, "--runs", "0"], CancellationToken.None));
 
-    // the session's current directory is the corpus folder while it runs, and the process's: alone, so no other test sees it move.
+    // while the session runs, the process's current directory is the corpus folder: the test runs alone, so no other test sees the directory move.
     [TestMethod]
     [DoNotParallelize]
     public async Task TheBuiltInCorpus_LoadsWithoutAProblem_AndHasTheCasesThePlanNames()
