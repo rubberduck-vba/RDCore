@@ -57,7 +57,7 @@ public sealed class UnrepresentableDateTests
         }
     }
 
-    // the host threw .NET's "Not a legal OleAut date" past the runtime where the Date was read as a day: Print, &, CStr, Year, Format.
+    // each place that reads the Date as a day (Print, &, CStr, Year, Format) raises error 5 itself: none lets .NET's "Not a legal OleAut date" reach the host.
     [TestMethod]
     [DataRow("X.D = 1E+300", "1E+300", "True", "5", DisplayName = "Far past the last day")]
     [DataRow("X.D = -1E+300", "-1E+300", "False", "5", DisplayName = "Far before the first day")]

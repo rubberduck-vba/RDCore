@@ -234,10 +234,10 @@ internal static class RecordDataFormat
         return true;
     }
 
-    // a member of a record - a field, or an element of an array field - as MS-VBA writes it (recorded in Excel): a String has its two-byte length in
+    // a member of a record (a field, or an element of an array field) as MS-VBA writes it (recorded in Excel): a String has its two-byte length in
     // Binary mode as in Random, since nothing else in the record says where it ends; a String * n is padded with spaces to its length, or cut to it; a
     // fixed-size array is its elements, the first subscript varying fastest; a resizable array is its number of dimensions in two bytes, then the element
-    // count and lower bound of each in four bytes each, then its elements - and no more than the two bytes when it has none.
+    // count and lower bound of each in four bytes each, then its elements, and only the two bytes when it has none.
     private static bool TryWriteMember(Stream stream, VBType declared, VBTypedValue value, VBFileMode mode, out int written)
     {
         written = 0;

@@ -84,7 +84,7 @@ public sealed class RecordFileBytesTests
 
     private const string Write = "Put #1, 1, X ;; Get #1, 1, Y";
 
-    // a fixed array field is its elements, one after the other, with nothing before them: it wrote no byte, so Get read past the end of the file (62).
+    // a fixed array field is its elements, one after the other, with nothing before them: a Put that wrote none would leave Get reading past the end of the file (62).
     [TestMethod]
     [DataRow("Random Len = 20", DisplayName = "Random")]
     [DataRow("Binary", DisplayName = "Binary")]
@@ -93,7 +93,7 @@ public sealed class RecordFileBytesTests
             "Y.N & \" \" & Y.A(1) & Y.A(2) & Y.A(3)"),
             "dump 0100020003000400", "back 1 234");
 
-    // a resizable array field is how many dimensions it has, then each dimension's count and lower bound, then its elements - in either mode.
+    // a resizable array field is how many dimensions it has, then each dimension's count and lower bound, then its elements, in either mode.
     [TestMethod]
     [DataRow("Random Len = 30", DisplayName = "Random")]
     [DataRow("Binary", DisplayName = "Binary")]
@@ -107,7 +107,7 @@ public sealed class RecordFileBytesTests
         => await AssertInBothEnginesAsync(file => Program(file, "Random Len = 30", "TR", "X.N = 1", Write, "Y.N"),
             "dump 01000000", "back 1");
 
-    // a fixed-length String has no two-byte prefix (MS-VBAL §5.4.5.11's Fixed-length String row) in Random mode either: it had one, so Get read the
+    // a fixed-length String has no two-byte prefix (MS-VBAL §5.4.5.11's Fixed-length String row) in Random mode either: with one, Get would read the
     // prefix as text and the field after it past the record.
     [TestMethod]
     [DataRow("Random Len = 20", DisplayName = "Random")]
@@ -125,7 +125,7 @@ public sealed class RecordFileBytesTests
         => await AssertInBothEnginesAsync(file => Program(file, open, "TVS", "X.S = \"hey\" ;; X.N = 7", Write, "\"[\" & Y.S & \"] \" & Y.N"),
             "dump 03006865790700", "back [hey] 7");
 
-    // a Variant field read by Get is a Variant still: the record written after it has the field's type descriptor, which it dropped.
+    // a Variant field read by Get is a Variant still: the record written after it has the field's type descriptor.
     [TestMethod]
     public async Task AVariantFieldReadByGet_IsWrittenWithItsDescriptor_Random()
         => await AssertInBothEnginesAsync(file => Program(file, "Random Len = 20", "TV", "X.V = CInt(5) ;; X.N = 7", "Put #1, 1, X ;; Get #1, 1, Y ;; Put #1, 2, Y",
@@ -144,7 +144,7 @@ public sealed class RecordFileBytesTests
             "VarType(Y.V) & \" \" & Y.V & \" \" & Y.N"),
             "dump 08000200686907000000000000000000000000000800020068690700", "back 8 hi 7");
 
-    // a String a Variant holds has its two-byte length in Binary mode too, in a field or not: it had none, so Get read no character.
+    // a String a Variant holds has its two-byte length in Binary mode too, in a field or not: without it, Get would read no character.
     [TestMethod]
     public async Task AVariantFieldHoldingAString_HasItsLength_InBinaryMode()
         => await AssertInBothEnginesAsync(file => Program(file, "Binary", "TV", "X.V = \"hi\" ;; X.N = 7", Write, "VarType(Y.V) & \" [\" & Y.V & \"] \" & Y.N"),

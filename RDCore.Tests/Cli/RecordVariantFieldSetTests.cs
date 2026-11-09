@@ -25,7 +25,7 @@ public sealed class RecordVariantFieldSetTests
         "    Debug.Print \"plain \" & V.Count\r\n" +
         "End Sub\r\n";
 
-    // the Set raised 424, Object required, where a Variant variable held the object.
+    // the Set raises no 424, Object required: the field holds the object, as a Variant variable does.
     [TestMethod]
     [DataRow(VBExecutionEngine.Interpreter, DisplayName = "Interpreter")]
     [DataRow(VBExecutionEngine.Compiled, DisplayName = "Compiled")]
