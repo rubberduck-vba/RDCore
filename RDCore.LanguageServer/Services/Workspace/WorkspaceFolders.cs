@@ -3,6 +3,7 @@ using RDCore.SDK.Workspace;
 namespace RDCore.LanguageServer.Services.Workspace;
 
 // the workspace is never widened past its folders: a path that climbs out of all of them is outside it. Case-insensitive on Windows only.
+// RD-VBAL §2.2.3
 public sealed class WorkspaceFolders
 {
     // each root with a separator at its end, so that C:\Work\App holds C:\Work\App\X.bas and not C:\Work\Application\X.bas; the closest first.

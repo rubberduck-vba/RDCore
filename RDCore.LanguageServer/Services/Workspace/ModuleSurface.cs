@@ -16,6 +16,7 @@ namespace RDCore.LanguageServer.Services.Workspace;
 
 // two parts, because they invalidate different things: Declarations what other modules bind against, References the reference counts of their members. Neither
 // says where anything is written, so moving code within its #If branch changes neither.
+// MS-VBAL §3.4
 public sealed record class ModuleSurface(string Declarations, string References)
 {
     // the properties of a node that say where it is, or which node it is, and not what it says.

@@ -11,6 +11,7 @@ namespace RDCore.LanguageServer.Services.Refactoring;
 public readonly record struct ImplicitTypeHint(SourcePosition Position, string TypeName);
 
 // an array parameter (Items()) gets no hint: there is nowhere to show the type where it would be written.
+// MS-VBAL §5.2.3.1.5
 public static class ImplicitTypeHints
 {
     public static IReadOnlyList<ImplicitTypeHint> In(ModuleNode module, SourceRange range)

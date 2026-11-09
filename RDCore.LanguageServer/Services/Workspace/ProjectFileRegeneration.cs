@@ -4,8 +4,9 @@ using System.Text.Json;
 
 namespace RDCore.LanguageServer.Services.Workspace;
 
-// always an offer the user answers, never done unasked: what only the project file says (its references) is lost. Unattended, or with a client that doesn't
-// answer during initialize, the project doesn't load.
+// always an offer the user answers, never done unasked: what only the project file says (its references) is lost. Unattended, or with a client that does not
+// answer during initialize, the project does not load.
+// RD-VBAL §2.2.3
 public static class ProjectFileRegeneration
 {
     private static readonly ResourceManager Messages = new("RDCore.LanguageServer.Services.Workspace.ProjectFileMessages", typeof(ProjectFileRegeneration).Assembly);

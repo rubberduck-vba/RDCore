@@ -13,6 +13,7 @@ public sealed record class HierarchyItem(Symbol Symbol, Uri Module, SourceRange 
 
 public sealed record class HierarchyCall(HierarchyItem Item, IReadOnlyList<SourceRange> Ranges);
 
+// MS-VBAL §5.2.4.2
 public static class SymbolHierarchy
 {
     public static HierarchyItem? PrepareCalls(RenameContext context, Uri module, SourcePosition position)
