@@ -84,7 +84,10 @@ internal sealed partial class ProcedureEmitter
     private Operand EmitNestedCall(CallNode node, Label failure)
     {
         var offset = _knowingAt;
-        var (integral, floating) = EmitCallOf(new CallStep(offset, node.Callee, node.Arguments, CallStep.NoResult, node.Receiver), failure);
+        var (integral, floating) = EmitCallOf(new CallStep(offset, node.Callee, node.Arguments, CallStep.NoResult, node.Receiver)
+        {
+            WithAt = node.WithAt, ReceiverField = node.ReceiverField,
+        }, failure);
         var returned = ScalarKinds.IsIntegral(node.Kind) ? integral : floating;
         _called = true;
         _known.Add(new KnownLocal(node.Syntax, node.Kind, returned));

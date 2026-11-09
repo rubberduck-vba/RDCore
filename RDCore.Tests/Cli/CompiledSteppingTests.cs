@@ -390,7 +390,7 @@ public sealed class CompiledSteppingTests
             "    Counted = N * 2",
             "End Function"), "Counted", recoveries: 0);
 
-    // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled.
+    // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled, Err.Number included.
     [TestMethod]
     public async Task AnErrorInAStatementTheInterpreterRuns_GoesToTheHandler()
         => await AssertAlikeAsync(Program(
@@ -407,7 +407,7 @@ public sealed class CompiledSteppingTests
             "    Exit Function",
             "Failed:",
             "    Guarded = Guarded * 100 + Err.Number",
-            "End Function"), "Guarded", recoveries: 2);
+            "End Function"), "Guarded", recoveries: 1);
 
     // a GoSub to a statement the interpreter runs, and a Return to one: at each of 2 passes, the statement GoSub lands on and the one Return lands on, 4.
     [TestMethod]

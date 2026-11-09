@@ -444,7 +444,7 @@ public sealed class CompiledMemberEntryTests
     }
 
     // an error a member does not handle is its caller's, where the call is: the stack it is raised on has the member's activation, made as the interpreter
-    // makes it, and the handler is the caller's.
+    // makes it, and the handler is the caller's - whose call of Total, beside Err.Number, compiled code makes.
     [TestMethod]
     public async Task AnErrorAMemberDoesNotHandle_IsRaisedOnTheStackTheInterpreterHas()
     {
@@ -482,7 +482,7 @@ public sealed class CompiledMemberEntryTests
                 "End Sub"))]);
 
         StringAssert.Contains(observed, "Divide@");
-        AssertEntered(compiled, "Divided", direct: 3, "Divide", framesMade: 2);
+        AssertEntered(compiled, "Divided", direct: 4, "Divide", framesMade: 2);
     }
 
     // a Stop in a member, with no debugger: the program is stopped where the interpreter stops it.

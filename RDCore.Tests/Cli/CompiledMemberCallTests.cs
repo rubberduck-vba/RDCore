@@ -174,8 +174,8 @@ public sealed class CompiledMemberCallTests
             "    Next",
             "End Function"), "Counted", recoveries: 0, direct: 12);
 
-    // a call on Nothing raises error 91: the interpreter makes it, as a support call, and the handler is given the error. Err.Number is stepped, and
-    // Err.Clear is a support call too.
+    // a call on Nothing raises error 91: the interpreter makes it, as a support call, and the handler is given the error. Err.Number is compiled code's
+    // to read, and Err.Clear is a support call too.
     [TestMethod]
     public async Task ACallOnNothing_IsMadeByTheInterpreter_WhichRaisesTheError()
         => await AssertCalledAsync(Program(
@@ -192,7 +192,7 @@ public sealed class CompiledMemberCallTests
             "        Err.Clear",
             "        If I = 2 Then Set T = New Tally",
             "    Next",
-            "End Function"), "Raised", recoveries: 5, direct: 1);
+            "End Function"), "Raised", recoveries: 2, direct: 1);
 
     // the object a member is called on lives at least as long as the call: Set to another, the one before is let go of after the call, and terminates.
     [TestMethod]

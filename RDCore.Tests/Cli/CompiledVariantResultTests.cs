@@ -237,7 +237,7 @@ public sealed class CompiledVariantResultTests
             "End Function"), "110", ("Total", 0, 0));
 
     // an error the assignment of what a call returned raises - an object with no default member, assigned to a Variant - is the statement's: the handler
-    // is given it, and the call is not made again. The 2 recoveries are that statement's error and Err.Number.
+    // is given it, and the call is not made again. The recovery is that statement's error; Err.Number is compiled code's.
     [TestMethod]
     public async Task AnErrorAssigningWhatACallReturned_IsTheStatementsAndTheCallIsNotMadeAgain()
         => await AssertRunAsync(Program(
@@ -255,5 +255,5 @@ public sealed class CompiledVariantResultTests
             "Private Function Plain() As Variant",
             "    Calls = Calls + 1",
             "    Set Plain = New Noisy",
-            "End Function"), "43801;gone 0;", ("Tried", 2, 0));
+            "End Function"), "43801;gone 0;", ("Tried", 1, 0));
 }

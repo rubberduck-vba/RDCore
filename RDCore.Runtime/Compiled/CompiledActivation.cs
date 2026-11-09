@@ -1634,6 +1634,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
 
     /// <summary>
+    /// The public variables of objects the body reads, by the number compiled code knows each by (<see cref="ProcedureAnalysis.MemberFields"/>).
+    /// </summary>
+    public IReadOnlyList<CompiledMemberField> MemberFields { get; init; } = [];
+
+    /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -
     /// under that mode every instruction boundary is one. It is chosen from the body's name, how many activations of it came before, and the seed
     /// (<see cref="CompiledExecution.WalkBackSeed"/>), so that a run can be replayed whatever else runs beside it; and from 1 to 3,969 (a 5-bit count
