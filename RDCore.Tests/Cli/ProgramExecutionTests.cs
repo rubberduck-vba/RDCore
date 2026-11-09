@@ -43,22 +43,15 @@ public sealed class ProgramExecutionTests
 
     private static string[] Lines(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
 
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + Patience;
-        while (!condition())
-        {
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "timed out");
-            await Task.Delay(10);
-        }
-    }
+    // the program goes on, as the session's execution says when its state changes.
+    private static Task GoesOnAsync(EnvironmentSessionProvider provider) => ModuleWorkspace.WhenRunning(provider).WaitAsync(Patience);
 
     private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> test,
-        Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
+        Func<EnvironmentSessionProvider, Task>? cancelWhen = null)
         => ModuleWorkspace.InspectAsync(NoClasses, program, test, cancelWhen, debug: true);
 
     // the program has started: a cancellation of its request is a break of a program that runs.
-    private static bool Running(EnvironmentSessionProvider provider) => provider.Execution.State is ProgramState.Running;
+    private static Task Running(EnvironmentSessionProvider provider) => ModuleWorkspace.WhenRunning(provider);
 
     private static readonly string Stopping = Program(
         "Public Total As Long",
@@ -156,7 +149,7 @@ public sealed class ProgramExecutionTests
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, "the cancellation of the request is a break");
 
             var running = Resume(provider);
-            await WaitForAsync(() => provider.Execution.State is ProgramState.Running);
+            await GoesOnAsync(provider);
 
             var refused = await runAgain().WaitAsync(Patience);
 
@@ -173,7 +166,7 @@ public sealed class ProgramExecutionTests
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
             var running = Resume(provider);
-            await WaitForAsync(() => provider.Execution.State is ProgramState.Running);
+            await GoesOnAsync(provider);
 
             var ack = await Pause(provider);
             var paused = await running;

@@ -115,14 +115,10 @@ public sealed class PokeAtAReferenceParameterTests
             "End Sub"), async (provider, first, runAgain) =>
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, "the cancellation of the request is a break");
+            var goesOn = ModuleWorkspace.WhenRunning(provider);
             var running = new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
                 .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(Patience);
-            var deadline = DateTime.UtcNow + Patience;
-            while (provider.Execution.State is not ProgramState.Running)
-            {
-                Assert.IsLessThan(deadline, DateTime.UtcNow, "timed out");
-                await Task.Delay(10);
-            }
+            await goesOn.WaitAsync(Patience);
 
             var poked = await new HostPokeHandler(provider).Handle(new HostPokeParams { Address = 16, Value = 42 }, CancellationToken.None).WaitAsync(Patience);
 
@@ -130,5 +126,5 @@ public sealed class PokeAtAReferenceParameterTests
             Assert.AreEqual(Resources.Host_TheProgramIsRunning, poked.Error);
             _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
             Assert.AreEqual(ExecutionOutcome.Halted, (await running).Outcome);
-        }, provider => provider.Execution.State is ProgramState.Running, debug: true);
+        }, ModuleWorkspace.WhenRunning, debug: true);
 }
