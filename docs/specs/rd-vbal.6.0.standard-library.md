@@ -79,15 +79,16 @@ returns: `m(0).SubMatches(Null)` is 13, `MatchCollection.Item` being declared `O
 
 ## 6.0.1 Symbol Injection
 
-The SDK declarations are the standard library's definition. The standard library's symbols are read off those
-declarations by `StdLibSymbolReader`.
+The standard library is defined by declarations in two assemblies: RDCore.Runtime.LanguageCore declares its modules,
+its classes and most of its enums, and RDCore.SDK declares the few enums that its own contracts use, such as
+`VBCalendar` and `VBMsgBoxResult`. `StdLibSymbolReader` reads the standard library's symbols off both.
 
 A standard-library module's members, their names, their parameters and their return types all come from the
-signature an implementation has to satisfy. Each of them is stated once, in that SDK signature. A module's constants
+signature an implementation has to satisfy. Each of them is stated once, in that signature. A module's constants
 are its public `static readonly` fields, each declared as the value it is
 ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)).
 
-Because the symbols are read off the SDK signatures, a symbol the _workspace_ resolves cannot describe a member the
+Because the symbols are read off those signatures, a symbol the _workspace_ resolves cannot describe a member the
 runtime does not have.
 
 ### Return Types
@@ -118,7 +119,7 @@ An attribute states what a declaration's signature cannot express, and is used o
 
 A standard-library name that follows a naming convention needs no attribute:
 
-|SDK declaration|Standard-library name|
+|Declaration|Standard-library name|
 |---|---|
 |Interface `IStdInformationModule`|Module `Information`|
 |Enum `VBDayOfWeek`|Enum `VbDayOfWeek`|
@@ -128,7 +129,7 @@ A standard-library name that follows a naming convention needs no attribute:
 ### No Reference, No Opt-In
 
 Nothing references the standard library, and nothing opts into it. The standard-library modules a project gets are
-the SDK declarations that carry a marker attribute.
+the declarations that carry a marker attribute.
 
 A project has the standard library's symbols whether or not its `.rdproj` mentions the library
 ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)).

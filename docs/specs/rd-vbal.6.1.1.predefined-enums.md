@@ -3,11 +3,11 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.1** Predefined Enums](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/cc0c4b7c-bd09-448b-9eeb-19a9d4c19504).
 
-RD-VBA implements all sixteen **MS-VBAL §6.1.1** predefined enums. The SDK defines all sixteen, and the standard
-library's symbols are read off those SDK declarations
+RD-VBA implements all sixteen **MS-VBAL §6.1.1** predefined enums. The language core declares ten of them. The SDK
+declares the six that its own contracts use, linked below. The standard library's symbols are read off both
 ([**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#601-symbol-injection)).
 
-|§|Enum|SDK declaration|Notes|
+|§|Enum|Declaration|Notes|
 |---|---|---|---|
 |6.1.1.1|[FormShowConstants](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/bea504ff-53dd-48c8-b165-e0a4e8ce3bba)|`VBFormShowConstants`|No naming convention recovers the name `FormShowConstants`, so `StdLibEnumAttribute` states it.|
 |6.1.1.2|[VbAppWinStyle](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2bf1e79f-d181-4e3d-bbb9-bda24b2b8ea4)|[VBAppWinStyle](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBAppWinStyle.html)||
@@ -26,7 +26,7 @@ library's symbols are read off those SDK declarations
 |6.1.1.15|[VbTriState](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/98bc1324-a43f-4bdd-a1a6-a5cba137a809)|`VBTriState`||
 |6.1.1.16|[VbVarType](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c15d7483-4ac0-48e0-a23b-8bfb91a57cad)|[VBVarType](../api/RDCore.SDK.Model.Values.Runtime.VBVarType.html)|Declared in the core value model. See [§6.1.1.16](#61116-vbvartype).|
 
-The other enum names follow the naming convention: the SDK enum `VBDayOfWeek` is the enum `VbDayOfWeek`, and its
+The other enum names follow the naming convention: the declared enum `VBDayOfWeek` is the enum `VbDayOfWeek`, and its
 member `VBSunday` is the constant `vbSunday`.
 
 Because an enum member is placed through its enum, an enum member such as `vbSunday` is a name on its own, resolvable

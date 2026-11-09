@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.11** Strings](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f87cc0fb-f0ca-4875-9691-34d80e2933b0).
 
-The `Strings` module is represented in the SDK by the interface
+The `Strings` module is represented in the language core by the interface
 `IStdStringsModule`.
 
 The `Strings` module is declared in full. **MS-VBAL §6.1.2.11** has 43 subsections, and RD-VBA's `Strings` module

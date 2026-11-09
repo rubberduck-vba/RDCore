@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.2** Constants Module](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/52c853c1-fda2-4853-8069-172e515310f9).
 
-The `Constants` module is represented in the SDK by the interface
+The `Constants` module is represented in the language core by the interface
 `IStdConstantsModule`.
 
 RD-VBA implements the eleven constants of **MS-VBAL §6.1.2.2**. Each is declared on `IStdConstantsModule` as the value

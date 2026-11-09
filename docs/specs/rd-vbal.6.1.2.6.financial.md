@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.6** Financial](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/368e9272-18bc-4632-a4c3-f7dd2c64b215).
 
-The `Financial` module is represented in the SDK by the interface
+The `Financial` module is represented in the language core by the interface
 `IStdFinancialModule`.
 
 The `Financial` module is declared in full, and every member has a runtime implementation (`StdFinancial`). Its

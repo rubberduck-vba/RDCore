@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.3.3** Global Class](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/02cee57d-60b1-4335-946a-d73c9f6a0e20).
 
-The `Global` class is represented in the SDK by the interface
+The `Global` class is represented in the language core by the interface
 `IStdGlobalClass`.
 
 

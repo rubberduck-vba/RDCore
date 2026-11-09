@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.3.1** Collection Object](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/31ec9e63-f71e-4521-863b-a7d12007b7cc).
 
-The `Collection` class is represented in the SDK by the interface
+The `Collection` class is represented in the language core by the interface
 `IStdCollectionClass`.
 
 A `For Each` statement finds an object's enumeration member through

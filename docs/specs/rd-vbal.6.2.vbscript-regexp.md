@@ -9,7 +9,7 @@
 `CreateObject("VBScript.RegExp")` creates the same object on any platform, without asking the machine for a server
 ([**RD-VBAL §6.1.2.8** Interaction](rd-vbal.6.1.2.8.interaction.md)). What follows is what MS-VBA does, recorded in Excel, and what RD-VBA does with it.
 
-|Class|SDK interface|What it is|
+|Class|Interface|What it is|
 |---|---|---|
 |`RegExp`|`IStdRegExpClass`|A pattern and its options: `Pattern` (`""`), `Global`, `IgnoreCase`, `Multiline` (all `False` for a new object); `Test`, `Execute`, `Replace`. It has no default member.|
 |`MatchCollection`|`IStdMatchCollectionClass`|What `Execute` found: `Count`, and `Item`, its default member, from `0`, declared `Object` as MS-VBA's type library declares it. A `For Each` enumerates it.|

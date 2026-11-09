@@ -6,7 +6,7 @@
 > `Array` is [documented](https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/array-function), the other members are not.
 > The platform declares it as it does the modules the specification names, because the language needs it all the same.
 
-The `_HiddenModule` module is represented in the SDK by the type
+The `_HiddenModule` module is represented in the language core by the type
 `IStdHiddenModule`, and implemented by `RDCore.Runtime.StdLib.StdHidden`.
 
 A hidden member is left out of a completion list and resolves anyway, being a member of a standard module like any other. The module is declared hidden

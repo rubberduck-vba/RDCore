@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.4** DateTime Module](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/ccbe147a-4f63-4f72-8404-b4e5b1ad4427).
 
-The `DateTime` module is represented in the SDK by the interface
+The `DateTime` module is represented in the language core by the interface
 `IStdDateTimeModule`, and implemented by
 `StdDateTime`.
 

@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.7** Information](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fd00fc8f-ea7d-4c3b-b7a5-5e55377551e4).
 
-The `Information` module is represented in the SDK by the interface
+The `Information` module is represented in the language core by the interface
 `IStdInformationModule`.
 
 The `Information` module is declared in full: every member of **MS-VBAL §6.1.2.7** has a declaration in

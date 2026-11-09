@@ -3,9 +3,9 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2** Predefined Procedural Modules](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e74eaaeb-e2e5-4ec5-9fb0-f3c739c53403).
 
-The SDK defines the twelve **MS-VBAL §6.1.2** predefined procedural modules:
+The language core defines the twelve **MS-VBAL §6.1.2** predefined procedural modules:
 
-|§|Module|SDK declaration|
+|§|Module|Declaration|
 |---|---|---|
 |6.1.2.1|[ColorConstants Module](rd-vbal.6.1.2.1.colorconstants-module.md)|`IStdColorConstantsModule`|
 |6.1.2.2|[Constants Module](rd-vbal.6.1.2.2.constants-module.md)|`IStdConstantsModule`|
@@ -23,6 +23,6 @@ The SDK defines the twelve **MS-VBAL §6.1.2** predefined procedural modules:
 And one that the specification does not name but the language has: the library's hidden module, which holds `Array`, `Input$` and `Width`
 (`_HiddenModule`, **RD-VBAL §6.1.2.13**):
 
-|§|Module|SDK declaration|
+|§|Module|Declaration|
 |---|---|---|
 |6.1.2.13|[Hidden Module](rd-vbal.6.1.2.13.hidden-module.md)|`IStdHiddenModule`|

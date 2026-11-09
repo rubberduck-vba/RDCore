@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.3** Conversion Module](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/498c1238-f735-4e3b-810f-e0999b4d5fda).
 
-The `Conversion` module is represented in the SDK by the interface
+The `Conversion` module is represented in the language core by the interface
 `IStdConversionModule`.
 
 The `Conversion` module's declarations follow MS-VBAL's own _Function Declaration_ blocks (**MS-VBAL §6.1.2.3**),

@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.1** ColorConstants Module](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/3201c251-c1a1-4465-96fa-78f4c9510978).
 
-The `ColorConstants` module is represented in the SDK by the interface
+The `ColorConstants` module is represented in the language core by the interface
 `IStdColorConstantsModule`.
 
 The eight constants are the specification's, each a `Long`, as in MS-VBA (recorded in Excel): `vbBlack`, `vbBlue`, `vbCyan`, `vbGreen`, `vbMagenta`,

@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.5** FileSystem](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/bf77cb3b-1e75-4dad-b849-56d661ce1990).
 
-The `FileSystem` module is represented in the SDK by the interface
+The `FileSystem` module is represented in the language core by the interface
 `IStdFileSystemModule`, and implemented by `RDCore.Runtime.StdLib.StdFileSystem`.
 
 What a member does to the machine - a directory listed, a file copied or deleted, the current directory changed - goes through the session's

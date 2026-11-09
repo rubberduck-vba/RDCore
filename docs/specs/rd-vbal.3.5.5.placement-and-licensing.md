@@ -29,8 +29,8 @@ RDCore implementations of the session services
 `InstructionList`, `Instruction`, `InstructionKind` and `InstructionListLowering` live in RDCore.Runtime.LanguageCore
 (GPLv3). Lowering is pure: it uses no symbol resolver and no runtime session.
 
-The instruction set is an implementation of MS-VBAL, and a new instruction is a change to the language core, not to the
-SDK. The flow analyses that follow the instruction list live there too. What they find about a procedure, such as
+The instruction set implements MS-VBAL, so it belongs to the language core, and a new instruction is a change there.
+The flow analyses that follow the instruction list live there too. What they find about a procedure, such as
 whether every code path assigns its return value, is on the procedure's semantic model in RDCore.SDK, where an analyzer
 reads it.
 
