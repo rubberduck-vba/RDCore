@@ -34,7 +34,8 @@ public sealed class CompiledBlockTests
 
     private static string WithHelpers(params string[] lines) => Program([.. lines, .. Helpers]);
 
-    // the With and its End With, and the statements that use its object, are the interpreter's; the For loop inside the block is compiled code's.
+    // the With and its End With, and the statement that reads a member of its object, are the interpreter's; each call of a member of the Collection is a
+    // support call, made on the object the block holds; the For loop inside the block is compiled code's.
     [TestMethod]
     public async Task AWith_IsSteppedByTheInterpreter_AroundACompiledLoop()
     {
@@ -52,7 +53,7 @@ public sealed class CompiledBlockTests
             "        Next",
             "        Filled = Filled + .Count",
             "    End With",
-            "End Function"), "Filled", recoveries: 6);
+            "End Function"), "Filled", recoveries: 3);
 
         Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.With) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
@@ -207,6 +208,7 @@ public sealed class CompiledBlockTests
             "End Sub"), "Ended", recoveries: 1, classes: Noisy);
 
     // the target of an inner With is evaluated against the outer one's object; each End With lets go of its own, the Collection's two objects with the outer.
+    // The two calls of Add are support calls, made on the object the outer block holds.
     [TestMethod]
     public async Task AnInnerWith_IsEvaluatedAgainstTheOuter_AndEachEndWithLetsGoOfItsOwn()
         => await AssertAlikeAsync(WithHelpers(
@@ -228,7 +230,7 @@ public sealed class CompiledBlockTests
             "        Report Nested",
             "    End With",
             "    Report Nested + 1",
-            "End Function"), "Nested", recoveries: 8, classes: Noisy);
+            "End Function"), "Nested", recoveries: 6, classes: Noisy);
 
     // an Exit For out of a With inside the loop leaves the With without its End With: compiled code lets its object go where the interpreter does.
     [TestMethod]
