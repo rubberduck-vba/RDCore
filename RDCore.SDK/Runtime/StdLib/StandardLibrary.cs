@@ -17,14 +17,12 @@ public static class StandardLibrary
     /// </summary>
     /// <remarks>
     /// A leading underscore is not a legal VBA identifier, so no source can name this module and no
-    /// workspace module can collide with it, which is the whole reason for the spelling. It is a
-    /// standard module, so its members are promoted to the project scope and resolve unqualified, the
-    /// way a standard library's members do.
+    /// workspace module can collide with it. It is a standard module, so its members are promoted to the
+    /// project scope and resolve unqualified, the way a standard library's members do.
     /// <para>
-    /// It also gives a global object's <em>class</em> somewhere to be parented that is not the global
-    /// scope itself. That matters: a predeclared instance is named after its class, so a class parented
-    /// to the global scope has the very same <c>Uri</c> as its own instance, and the name then resolves
-    /// to neither of them.
+    /// It is also the parent of a global object's <em>class</em>. A predeclared instance is named after its
+    /// class, so a class parented to the global scope would have the same <c>Uri</c> as its own instance,
+    /// and the name would resolve to neither of them.
     /// </para>
     /// </remarks>
     public const string GlobalModuleName = "_Global";
@@ -36,11 +34,11 @@ public static class StandardLibrary
 
     /// <summary>
     /// Whether <paramref name="symbol"/> is the synthesized <c>Debug</c> object: the default instance of its <c>Debug</c> class, a member of
-    /// the library's <see cref="GlobalModuleName"/> module - not a variable or a class of the workspace that happens to be named <c>Debug</c>.
+    /// the library's <see cref="GlobalModuleName"/> module. A variable or a class of the workspace named <c>Debug</c> is not it.
     /// </summary>
     /// <remarks>
-    /// <c>Debug</c> is somewhere between an object and a keyword: it is only ever written as the <c>Debug.Print</c> and <c>Debug.Assert</c> statements,
-    /// and MS-VBA reads any other use of the name - a value, the target of an assignment or a <c>With</c> block - as a syntax error.
+    /// <c>Debug</c> is written only as the <c>Debug.Print</c> and <c>Debug.Assert</c> statements. MS-VBA reads any other use of the name (a value,
+    /// the target of an assignment or a <c>With</c> block) as a syntax error.
     /// </remarks>
     /// <param name="symbol">The symbol a name resolved to.</param>
     public static bool IsDebugObject(Symbol symbol)
@@ -54,8 +52,8 @@ public static class StandardLibrary
     /// <remarks>
     /// It is what a project-qualified reference to the library names: <c>VBA.Strings.LenB</c>, <c>VBA.LenB</c>
     /// (<strong>MS-VBAL §5.6.12</strong>). It is the same in every dialect: VB6 loads the very same <c>VBA</c> library, and what
-    /// it calls <c>VB</c> is the runtime library of its ActiveX controls, which is not this one. Where a dialect has more or fewer
-    /// members than another, the members are what say so, not the name of the library.
+    /// it calls <c>VB</c> is the runtime library of its ActiveX controls. Where dialects differ, the library's members differ, and its
+    /// name stays.
     /// </remarks>
     public const string LibraryName = RDCore.SDK.Workspace.RDCoreReference.StandardLibraryName;
 
@@ -64,8 +62,8 @@ public static class StandardLibrary
     /// </summary>
     /// <remarks>
     /// It carries the key the library's reader stamps on what it reads (<see cref="SymbolProperties.ExternalTarget"/>), and no other library claims it as
-    /// its own: a referenced library's members carry a key of their own kind, and the name of their library (<see cref="SymbolProperties.Library"/>). A
-    /// member of a class is not stamped with the library's name, as the class is: it is carried by the class, and never provided on its own.
+    /// its own: a referenced library's members carry a key of their own kind, and the name of their library (<see cref="SymbolProperties.Library"/>). The
+    /// library's name is stamped on a class and not on its members, which are only ever provided with the class.
     /// </remarks>
     /// <param name="symbol">The member.</param>
     /// <returns><see langword="true"/> for a member of the standard library's; <see langword="false"/> for the workspace's, or a referenced library's.</returns>

@@ -37,19 +37,19 @@ public sealed record class ProcedureSemanticModel(SemanticId Procedure, Immutabl
 
     /// <summary>
     /// On how many of its code paths a function or a property getter assigns its return value, or <see langword="null"/> when the procedure returns none or the pass
-    /// could not tell (<c>ReturnValueAnalysis</c>): which is not to say that it assigns it on every path.
+    /// could not tell (<c>ReturnValueAnalysis</c>). A <see langword="null"/> says nothing about the procedure's paths.
     /// </summary>
     public Flow.ReturnValueFact? ReturnValue { get; init; }
 
     /// <summary>
     /// The reads of the procedure's own <c>For Each</c> control variables that see them emptied by the end of the loop (<c>ForEachControlAnalysis</c>),
-    /// in the order they are written in: none when the pass could not tell, which is not to say that there are none.
+    /// in the order they are written in. The list is empty when the pass could not tell, so an empty list says nothing about the procedure's reads.
     /// </summary>
     public ImmutableArray<Flow.EmptiedControlReadFact> EmptiedControlReads { get; init; } = [];
 
     /// <summary>
     /// What the language core states about the conversions and operations of the procedure's code, or <see langword="null"/> when the procedure has not been
-    /// evaluated yet: which is not to say that the code has none.
+    /// evaluated. A <see langword="null"/> says nothing about the code.
     /// </summary>
     public Facts.RuntimeFacts? Runtime { get; init; }
 
