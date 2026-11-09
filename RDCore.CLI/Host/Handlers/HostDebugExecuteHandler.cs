@@ -1,9 +1,7 @@
 using RDCore.Runtime.Execution;
-using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.Runtime.Semantics;
-using SupportResources = RDCore.Runtime.Support.Resources;
 
 namespace RDCore.CLI.Host.Handlers;
 
@@ -24,7 +22,7 @@ internal sealed class HostDebugExecuteHandler(IEnvironmentSessionProvider sessio
         {
             return Task.FromResult(new DebugEvaluateResult
             {
-                Error = sessionProvider.Execution.State is ProgramState.Running ? SupportResources.Host_TheProgramIsRunning : SupportResources.Host_NoProgramIsSuspended,
+                Error = sessionProvider.Execution.State is ProgramState.Running ? Resources.Host_TheProgramIsRunning : Resources.Host_NoProgramIsSuspended,
             });
         }
 

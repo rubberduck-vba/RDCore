@@ -1,6 +1,6 @@
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.External.Forms;
 using RDCore.LanguageServer.Runtime;
 using RDCore.SDK.Client;

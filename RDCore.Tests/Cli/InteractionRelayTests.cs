@@ -4,7 +4,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using OmniSharp.Extensions.JsonRpc;
 using OmniSharp.Extensions.JsonRpc.Server;
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.External;
 using RDCore.External.Interaction;
 using RDCore.External.Settings;

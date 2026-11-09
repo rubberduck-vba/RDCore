@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
-using RDCore.Runtime.Support.Host.Handlers;
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.External;
 using RDCore.Parsing;
@@ -67,19 +66,6 @@ internal sealed record class BenchCase(string Name, IReadOnlyList<TimeSpan> Runs
 internal sealed record class BenchReport(
     BenchWorkspace Workspace, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep, TimeSpan Compile, IReadOnlyList<BenchCase> Cases,
     IReadOnlyList<string> Problems, TimeSpan? Indent = null, long DirectCalls = 0, long IndirectCalls = 0);
-
-/// <summary>
-/// What a build made of a workspace (<see cref="BenchRunner.BuildAsync"/>).
-/// </summary>
-/// <param name="Procedures">Each procedure compiled into the program's assembly, or found not to be, by module and in the order the module declares them.</param>
-/// <param name="Problems">What kept a module from being parsed or loaded.</param>
-/// <param name="Definitions">What was defined in the session, in order: what the built program defines in its own when it runs.</param>
-/// <param name="Modules">The names of the modules that loaded.</param>
-/// <param name="Provider">The session the workspace was loaded in, which the caller disposes.</param>
-/// <param name="Environment">The environment the program was built for.</param>
-internal sealed record class BuiltWorkspace(
-    IReadOnlyList<(string Module, ProcedureCompilation Compilation)> Procedures, IReadOnlyList<string> Problems, IReadOnlyList<DefineSymbolsParams> Definitions,
-    IReadOnlyList<string> Modules, EnvironmentSessionProvider Provider, IRuntimeEnvironmentProfile Environment);
 
 /// <summary>
 /// Runs the benchmarks of a workspace in-process, the way the environment host runs a program: the session composed from the project, each module's symbols and
@@ -224,73 +210,13 @@ internal sealed class BenchRunner(
         return (procedures, load.Problems);
     }
 
-    /// <summary>
-    /// Loads <paramref name="workspace"/>, and compiles each procedure of each module that loaded into <paramref name="builder"/>, as its first call would:
-    /// what <c>rdc build</c> makes of a workspace.
-    /// </summary>
-    /// <param name="workspace">The workspace.</param>
-    /// <param name="builder">The program's assembly.</param>
-    /// <param name="profile">The environment the program is built for; the runner's when omitted.</param>
-    /// <param name="token">Stops the load.</param>
-    public async Task<BuiltWorkspace> BuildAsync(BenchWorkspace workspace, ProgramAssemblyBuilder builder, IRuntimeEnvironmentProfile? profile = null,
-        CancellationToken token = default)
-    {
-        var definitions = new List<DefineSymbolsParams>();
-        var built = profile ?? environment;
-        var load = await LoadAsync(workspace, built, token, definitions);
-        var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
-        try
-        {
-            var session = load.Provider.Session;
-            var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, errorDetails, token, outside: load.Provider.Outside);
-            foreach (var (module, _) in load.Loaded)
-            {
-                if (!session.Symbols.TryGetModule(module.Name, out var symbol))
-                {
-                    continue;
-                }
-
-                foreach (var procedure in session.Symbols.MembersOf(symbol.Uri).OfType<VBTypeMemberSymbol>().OrderBy(member => member.Range.Start.Line))
-                {
-                    if (builder.Add(load.Provider.Image, session, pipeline.Executor, procedure) is { } compilation)
-                    {
-                        procedures.Add((module.Name, compilation));
-                    }
-                }
-            }
-        }
-        catch
-        {
-            load.Provider.Dispose();
-            throw;
-        }
-
-        return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Provider, built);
-    }
-
-    /// <summary>
-    /// Loads <paramref name="workspace"/> to run it, as <c>rdc run</c> does: the session composed for <paramref name="profile"/>, every module defined and
-    /// loaded, and the analysis sweep waited for.
-    /// </summary>
-    /// <param name="workspace">The workspace.</param>
-    /// <param name="profile">The environment the program runs in; the runner's when omitted.</param>
-    /// <param name="token">Stops the load.</param>
-    /// <returns>The session, which the caller disposes; the modules that loaded; and what kept a module from being parsed or loaded.</returns>
-    public async Task<(EnvironmentSessionProvider Provider, IReadOnlyList<string> Modules, IReadOnlyList<string> Problems)> LoadProgramAsync(
-        BenchWorkspace workspace, IRuntimeEnvironmentProfile? profile = null, CancellationToken token = default)
-    {
-        var load = await LoadAsync(workspace, profile ?? environment, token);
-        return (load.Provider, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Problems);
-    }
-
     private sealed record class LoadedWorkspace(
         EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
         IReadOnlyList<string> Problems);
 
-    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile; what was defined in it, in order, kept in
-    // definitions when it is given. The caller disposes the provider: the session's current directory is the workspace, which the caller may delete.
-    private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token,
-        List<DefineSymbolsParams>? definitions = null)
+    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile. The caller disposes the provider: the session's
+    // current directory is the workspace, which the caller may delete.
+    private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token)
     {
         var root = new Uri(workspace.Root);
         var provider = new EnvironmentSessionProvider(
@@ -298,7 +224,7 @@ internal sealed class BenchRunner(
         try
         {
             provider.Compose(workspace.Project, root);
-            return await LoadAsync(provider, workspace, root, token, definitions);
+            return await LoadAsync(provider, workspace, root, token);
         }
         catch
         {
@@ -307,8 +233,7 @@ internal sealed class BenchRunner(
         }
     }
 
-    private async Task<LoadedWorkspace> LoadAsync(EnvironmentSessionProvider provider, BenchWorkspace workspace, Uri root, CancellationToken token,
-        List<DefineSymbolsParams>? definitions)
+    private async Task<LoadedWorkspace> LoadAsync(EnvironmentSessionProvider provider, BenchWorkspace workspace, Uri root, CancellationToken token)
     {
         var problems = new List<string>();
         var stopwatch = Stopwatch.StartNew();
@@ -354,18 +279,12 @@ internal sealed class BenchRunner(
 
         // as the language server does, the types of every module are declared before the declarations of any are bound (DefineSymbolsParams.DeclareTypesOnly).
         var define = new DefineSymbolsHandler(provider, errorDetails, loggers.CreateLogger<DefineSymbolsHandler>());
-        Task<DefineSymbolsResult> Define(DefineSymbolsParams definition)
-        {
-            definitions?.Add(definition);
-            return define.Handle(definition, token);
-        }
-
         foreach (var declareTypesOnly in new[] { true, false })
         {
             foreach (var (module, uri, parse) in parsed)
             {
                 var symbols = new SyntaxTreeSymbolProvider(root, uri, module.Type, parse, resolver, withImplicitDeclarations: true, scope).ProvideSymbols();
-                await Define(new DefineSymbolsParams
+                await define.Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = root,
                     ModuleUri = uri,
@@ -377,7 +296,7 @@ internal sealed class BenchRunner(
                     PrecompilerTriviaJson = DefineSymbolsParams.PrecompilerTriviaJsonOf(parse),
                     Replace = true,
                     DeclareTypesOnly = declareTypesOnly,
-                });
+                }, token);
             }
         }
 
@@ -387,7 +306,7 @@ internal sealed class BenchRunner(
         var loaded = new List<(BenchModule Module, Uri Uri)>();
         foreach (var (module, uri, parse) in parsed)
         {
-            var defined = await Define(new DefineSymbolsParams
+            var defined = await define.Handle(new DefineSymbolsParams
             {
                 WorkspaceRoot = root,
                 ModuleUri = uri,
@@ -397,7 +316,7 @@ internal sealed class BenchRunner(
                 ImplementedInterfaceRanges = parse.SyntaxTree!.GetImplementedInterfaceRanges(),
                 ParseResultJson = PlatformJson.Serialize(parse),
                 CodeOnly = true,
-            });
+            }, token);
 
             if (defined.CodeErrors.Count > 0)
             {

@@ -27,7 +27,6 @@
     <ProjectReference Include="..\RDCore.ParseServer\RDCore.ParseServer.csproj" />
     <ProjectReference Include="..\RDCore.Symbols\RDCore.Symbols.csproj" />
     <ProjectReference Include="..\RDCore.Runtime\RDCore.Runtime.csproj" />
-    <ProjectReference Include="..\RDCore.Runtime.Support\RDCore.Runtime.Support.csproj" />
   </ItemGroup>
 
   <ItemGroup>

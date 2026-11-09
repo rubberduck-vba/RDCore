@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI;
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
@@ -194,7 +194,7 @@ public sealed class EditAndContinueLayoutTests
 
         var log = await EditedAsync([], CalledTwice, Reload([], edited));
 
-        Same([$"Refused: {string.Format(RDCore.Runtime.Support.Resources.Host_ChangedWhileWaiting_Resume, $"Program.Inner ({RDCore.Runtime.Support.Resources.Host_Edit_LocalOfAnActiveProcedure})")}"], log);
+        Same([$"Refused: {string.Format(Resources.Host_ChangedWhileWaiting_Resume, $"Program.Inner ({Resources.Host_Edit_LocalOfAnActiveProcedure})")}"], log);
     }
 
     // a local removed and added back before the program goes on was never removed from it: it goes on with its value.

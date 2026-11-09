@@ -6,7 +6,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 
-namespace RDCore.Runtime.Support.Host;
+namespace RDCore.CLI.Host;
 
 /// <summary>
 /// Where the environment host asks the person running a program to answer its dialogs: the language server, which asks its client.

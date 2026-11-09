@@ -9,7 +9,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
-namespace RDCore.Runtime.Support.Host;
+namespace RDCore.CLI.Host;
 
 /// <summary>
 /// What a program that waits looks like from outside: its activations, and their variables.

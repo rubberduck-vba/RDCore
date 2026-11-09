@@ -1,7 +1,7 @@
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
 
-namespace RDCore.Runtime.Support.Host;
+namespace RDCore.CLI.Host;
 
 /// <summary>
 /// The dialogs of the environment host's program, asked of the language server it serves (<c>rdcore/host/interaction/*</c>).

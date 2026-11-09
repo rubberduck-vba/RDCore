@@ -13,8 +13,7 @@ using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
-using RDCore.Runtime.Support.Host.Handlers;
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
 using RDCore.External;
@@ -461,8 +460,6 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, ExportLibraryCommand>()
             .AddSingleton<ICliCommand, BenchCommand>()
             .AddSingleton<ICliCommand, CompilationCommand>()
-            .AddSingleton<ICliCommand, BuildCommand>()
-            .AddSingleton<ICliCommand, RunCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
             .AddSingleton<ConfigCommand>()

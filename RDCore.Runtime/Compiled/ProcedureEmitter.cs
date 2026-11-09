@@ -97,40 +97,10 @@ internal sealed partial class ProcedureEmitter
     /// parameters from the frame's cells and calls the entry with them.
     /// </summary>
     /// <param name="directs">For each callee of the analysis, the compiled procedure the body calls through its typed entry, or none.</param>
-    /// <param name="lines">
-    /// Where each instruction is written in the source, by its offset, for the debugger: a sequence point at the start of its code in the typed entry, and a
-    /// hidden one at the code that is no instruction's. None when omitted, as in a module that is only run.
-    /// </param>
-    public static void Emit(ProcedureAnalysis analysis, MethodBuilder run, MethodBuilder entry, IReadOnlyList<DirectCall?> directs,
-        IReadOnlyDictionary<int, SourcePoint>? lines = null)
+    public static void Emit(ProcedureAnalysis analysis, MethodBuilder run, MethodBuilder entry, IReadOnlyList<DirectCall?> directs)
     {
         EmitRun(analysis, run.GetILGenerator(), entry);
-        new ProcedureEmitter(analysis, directs, entry.GetILGenerator()) { _lines = lines }.Emit();
-    }
-
-    // where each instruction is written, by its offset (Emit).
-    private IReadOnlyDictionary<int, SourcePoint>? _lines;
-
-    // the line the debugger says code that is no instruction's is on: none.
-    private const int HiddenLine = 0xfeefee;
-
-    // a sequence point at the code of the instruction at offset, when it is written somewhere.
-    private void MarkLine(int offset)
-    {
-        if (_lines is not null && _lines.TryGetValue(offset, out var point))
-        {
-            var (start, end) = (point.Range.Start, point.Range.End);
-            _il.MarkSequencePoint(point.Document, start.Line + 1, start.Character + 1, end.Line + 1, end.Character + 1);
-        }
-    }
-
-    // a hidden sequence point: what follows is the code compiled code runs between the instructions, which steps over to the next one.
-    private void MarkHidden()
-    {
-        if (_lines is { Count: > 0 })
-        {
-            _il.MarkSequencePoint(_lines.Values.First().Document, HiddenLine, 0, HiddenLine, 0);
-        }
+        new ProcedureEmitter(analysis, directs, entry.GetILGenerator()).Emit();
     }
 
     // the parameters, read from their cells - a cell that holds no payload is the interpreter's to read, and the activation is handed to it before anything
@@ -238,15 +208,9 @@ internal sealed partial class ProcedureEmitter
         }
 
         EmitEntry();
-        var marked = -1;
         foreach (var step in _analysis.Steps)
         {
             _il.MarkLabel(_instructions[step.Offset]);
-            if (step.Offset != marked)
-            {
-                MarkLine(step.Offset);
-                marked = step.Offset;
-            }
 
             // a jump out of a For Each lands here: what the block held is let go of before the instruction, as the interpreter does.
             if (_analysis.BlockExits.Contains(step.Offset))
@@ -267,11 +231,9 @@ internal sealed partial class ProcedureEmitter
 
         // the end of the body (MS-VBAL §5.4.2.17): as an Exit.
         _il.MarkLabel(_instructions[_analysis.Length]);
-        MarkLine(_analysis.Length);
         EmitExit(_analysis.Length);
 
         // a call that fails in a body with an error handler recovers at it (RecoverAt): its label is emitted with the failures, after it.
-        MarkHidden();
         EmitKnownFailures();
         EmitFailedCalls();
         EmitFailures();

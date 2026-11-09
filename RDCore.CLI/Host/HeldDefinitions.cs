@@ -4,7 +4,7 @@ using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
-namespace RDCore.Runtime.Support.Host;
+namespace RDCore.CLI.Host;
 
 /// <summary>
 /// The definitions a program in progress holds (<see cref="ISessionSymbols.HoldsStoredValues"/>), and what was defined and lowered against them: applied, and

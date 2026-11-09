@@ -1,4 +1,4 @@
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Platform.Protocol;

@@ -121,7 +121,8 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
     public static ProcedureCompilation? Of(Execution.ProgramImage image, SDK.Runtime.Abstract.Execution.IRuntimeSession session, Execution.ProcedureExecutor executor,
         SDK.Model.Symbols.Abstract.VBTypeMemberSymbol procedure)
     {
-        if (!IsCompilable(procedure) || !image.TryGetValue(procedure.SemanticId, out var body))
+        if (procedure is not (SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol or SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol
+            or SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol) || !image.TryGetValue(procedure.SemanticId, out var body))
         {
             return null;
         }
@@ -129,11 +130,6 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
         var result = image.Compiler.Compile(session, executor.Expressions, procedure, body);
         return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped };
     }
-
-    // a Sub, a Function or a Property Get: what compiled code runs, which an Enum, a Type or a Const is not.
-    internal static bool IsCompilable(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol procedure)
-        => procedure is SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol or SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol
-            or SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol;
 
     /// <summary>
     /// What the interpreter runs of a compiled procedure, one instruction at a time, and why: each instruction compiled code does not do yet, which it hands

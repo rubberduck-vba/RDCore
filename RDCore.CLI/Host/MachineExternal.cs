@@ -9,7 +9,7 @@ using RDCore.SDK.Server;
 using RDCore.SDK.Server.Configuration;
 using System.IO.Abstractions;
 
-namespace RDCore.Runtime.Support.Host;
+namespace RDCore.CLI.Host;
 
 /// <summary>
 /// The outside world of the machine this host runs on - its automation servers, its native libraries, its dialogs and its desktop - for a host that was not composed with its own:

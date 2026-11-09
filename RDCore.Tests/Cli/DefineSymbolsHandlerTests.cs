@@ -1,9 +1,8 @@
 using System.IO.Abstractions.TestingHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Semantics;
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Symbols.Abstract;

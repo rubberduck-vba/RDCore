@@ -1,5 +1,5 @@
 using NSubstitute;
-using RDCore.Runtime.Support.Host;
+using RDCore.CLI.Host;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;

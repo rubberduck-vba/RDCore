@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using RDCore.Runtime.Support.Host.Symbols;
+using RDCore.CLI.Host.Symbols;
 using RDCore.Runtime.Execution;
 using RDCore.External;
 using RDCore.External.Settings;
@@ -11,7 +11,7 @@ using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
-namespace RDCore.Runtime.Support.Host;
+namespace RDCore.CLI.Host;
 
 /// <summary>
 /// Owns the environment host's single <see cref="IRuntimeSession"/>. The session is composed once,
@@ -97,7 +97,7 @@ public interface IEnvironmentSessionProvider
     /// </summary>
     /// <remarks>
     /// The current directory of the session is then the workspace root (RD-VBAL §6.1.2.5), at start-up and after a reload alike; a root that is the shell's
-    /// scratch workspace (<see cref="ScratchWorkspace.Is"/>), that is not a full path on this platform, or that is not there, leaves it where it was.
+    /// scratch workspace (<see cref="App.Repl.ReplWorkspace.IsScratch"/>), that is not a full path on this platform, or that is not there, leaves it where it was.
     /// The session it replaces first gives the process back the directory that session was composed in.
     /// </remarks>
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
@@ -274,7 +274,7 @@ public sealed class EnvironmentSessionProvider(
                 root = char.ToUpperInvariant(root[0]) + root[1..];
             }
 
-            if (ScratchWorkspace.Is(fileSystem, root))
+            if (App.Repl.ReplWorkspace.IsScratch(fileSystem, root))
             {
                 return;
             }
