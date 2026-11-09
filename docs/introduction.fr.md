@@ -25,15 +25,16 @@ VBA n'est pas qu'un runtime vieillissant - c'est aussi une _spécification de la
 ## Architecture
 
 - **Les librairies RDCore.SDK et RDCore.SDK.Protocol** sont sous licence  **MIT**;
-- **Tout le reste** construit par-dessus, est sous licence **GPLv3**.
+- **Tout le reste** construit par-dessus, est sous licence **GPLv3 ou ultérieure**.
 
 ![Survol de la Solution RDCore](images/solution-overview.png)
 
 RDCore est constitué de :
-- **RDCore.SDK** (MIT) définit le _coeur de langage_ : syntaxe, symboles, modèle sémantique, système de typage, etc.
+- **RDCore.SDK** (MIT) définit le _modèle du langage_ : arbres syntaxiques, symboles, modèle sémantique, système de typage, etc. C'est un paquet NuGet, développé dans [son propre dépôt](https://github.com/rubberduck-vba/RDCore.SDK), avec sa [référence d'API](https://rubberduck-vba.github.io/RDCore.SDK/) (en anglais).
 - **RDCore.SDK.Protocol** (MIT) est ce qu'un client parle à la plateforme : ses messages `rdcore/*`, la poignée de main, et comment démarrer le serveur de langage, avec la seule bibliothèque de base .NET.
-- **RDCore.Runtime** (GPLv3) implémente les abstractions définies par le SDK autour des sémantiques run-time, la librairie standard, etc.
-- **Hôtes** (GPLv3) incluant un client CLI (rdc.exe), un serveur LSP et les applications satellites lui permettant de manipuler et de comprendre le langage (parser, diagnostics, etc.).
+- **RDCore.Runtime.LanguageCore** (GPLv3 ou ultérieure) est le _coeur de langage_ : la liaison des noms, la sémantique statique, le jeu d'instructions et les déclarations de la bibliothèque standard.
+- **RDCore.Runtime** (GPLv3 ou ultérieure) implémente les abstractions définies par le SDK autour des sémantiques run-time, la librairie standard, etc.
+- **Hôtes** (GPLv3 ou ultérieure) incluant un client CLI (rdc.exe), un serveur LSP et les applications satellites lui permettant de manipuler et de comprendre le langage (parser, diagnostics, etc.).
 
 
 ---

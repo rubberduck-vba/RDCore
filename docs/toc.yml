@@ -10,3 +10,5 @@
   href: specs/rd-vbal.md
 - name: Diagnostics
   href: diagnostics/index.md
+- name: SDK
+  href: https://rubberduck-vba.github.io/RDCore.SDK/
