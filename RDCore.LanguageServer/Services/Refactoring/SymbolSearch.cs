@@ -1,38 +1,22 @@
-namespace RDCore.SDK.Semantics.Refactoring;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
-/// <summary>
-/// How a name matches what a search for a symbol asks: from the closest match to the loosest. A name is matched regardless of case, as VBA names are.
-/// </summary>
+namespace RDCore.LanguageServer.Services.Refactoring;
+
 public enum SymbolMatch
 {
-    /// <summary>The name is what is asked: <c>Total</c> for <c>total</c>.</summary>
     Exact,
 
-    /// <summary>The name begins with what is asked: <c>TotalCount</c> for <c>tot</c>.</summary>
     Prefix,
 
-    /// <summary>Each character asked begins a word of the name, in order: <c>GetTotal</c> for <c>gt</c>, <c>max_items</c> for <c>mi</c>.</summary>
     WordStarts,
 
-    /// <summary>The name has what is asked in it: <c>GrandTotal</c> for <c>total</c>.</summary>
     Substring,
 
-    /// <summary>The name has each character asked, in order: <c>GrandTotal</c> for <c>gdt</c>.</summary>
     Subsequence,
 }
 
-/// <summary>
-/// Searches symbols by name (<strong>LSP 3.17</strong> §Workspace Symbols Request): a name matches what a client asks when it has each character of it, in
-/// order, and the closer the match, the earlier the name (<see cref="SymbolMatch"/>).
-/// </summary>
 public static class SymbolSearch
 {
-    /// <summary>
-    /// How a name matches a query.
-    /// </summary>
-    /// <param name="query">What is asked: a whole name, the start of one, or some of its characters, in order.</param>
-    /// <param name="name">The name.</param>
-    /// <returns>How it matches; <see langword="null"/> when it does not. Every name matches an empty query exactly.</returns>
     public static SymbolMatch? Match(string query, string name)
     {
         if (query.Length == 0 || string.Equals(query, name, StringComparison.OrdinalIgnoreCase))
@@ -58,14 +42,6 @@ public static class SymbolSearch
         return IsSubsequence(query, name) ? SymbolMatch.Subsequence : null;
     }
 
-    /// <summary>
-    /// The candidates that match a query, the closest matches first.
-    /// </summary>
-    /// <param name="query">What is asked (<see cref="Match"/>).</param>
-    /// <param name="candidates">The candidates.</param>
-    /// <param name="nameOf">The name of a candidate.</param>
-    /// <param name="limit">How many to answer at most: a client asks again as its user types.</param>
-    /// <returns>The candidates that match, by how close the match is, then by name.</returns>
     public static IReadOnlyList<T> Search<T>(string query, IEnumerable<T> candidates, Func<T, string> nameOf, int limit)
         => [.. candidates
             .Select(candidate => (Candidate: candidate, Name: nameOf(candidate), Match: Match(query.Trim(), nameOf(candidate))))

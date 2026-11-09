@@ -2,6 +2,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Refactoring;
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Runtime.LanguageCore.Refactoring;
 
@@ -12,7 +13,7 @@ namespace RDCore.LanguageServer.Navigation;
 /// its doc string (<see cref="SymbolHover"/>), over the name.
 /// </summary>
 /// <remarks>
-/// The name is bound the way a rename binds it (<see cref="SymbolNavigation.SymbolAt"/>): a symbol of the workspace or of a library it references. The hover
+/// The name is bound the way a rename binds it (<see cref="RenameBinding.SymbolAt"/>): a symbol of the workspace or of a library it references. The hover
 /// is Markdown - the declaration in a block of VBA - for a client that reads it, and plain text for one that does not; no name, or a name whose meaning is not
 /// known, is answered with nothing.
 /// </remarks>

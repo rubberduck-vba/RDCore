@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -10,7 +11,7 @@ using System.Globalization;
 using System.Resources;
 using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.Runtime.LanguageCore.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 public sealed record class SymbolHover(string Declaration, string? Container, string? Documentation)
 {

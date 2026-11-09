@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
@@ -11,38 +12,11 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
-namespace RDCore.SDK.Model.AST;
+namespace RDCore.LanguageServer.Services.Workspace;
 
-/// <summary>
-/// What the other modules of a project can be told by a module, in two parts: what it declares, and what its code refers to. Each is a text that is the same
-/// for two parses of a module whenever no other module can tell them apart by it, so that a change of the module that leaves it as it was cannot change what
-/// it is of in any other.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="Declarations"/> is what the other modules are bound against: the module's options and attributes, its module-level declarations, and the
-/// signature of each of its procedures - its name, its parameters, the type it returns, its attributes - with every value written in them (a constant, an
-/// <c>Optional</c> parameter's default, an <c>Enum</c> member's value, an array's bounds); which branch of which <c>#If</c> outside of a procedure each of them
-/// is written in, by ordinal; and the directives that say which of those branches are compiled (<strong>MS-VBAL §3.4</strong>): each <c>#Const</c>, wherever
-/// it is written, and each <c>#If</c>, <c>#ElseIf</c> and <c>#Else</c> outside of a procedure. What is found out about another module - what its names mean,
-/// what its code does, what is wrong with it - is of what this one declares, and of nothing its procedures do.
-/// </para>
-/// <para>
-/// <see cref="References"/> is what the code of the module's procedures refers to: the names its bodies use, and what they declare, which decides what those
-/// names mean - not a local constant's value, which no other module sees. A body's labels and line numbers are in neither part: nothing outside of the
-/// procedure can go to them.
-/// It is what makes the module reference a member of another, which a count of that member's references is made of (a code lens), and nothing that is found
-/// out about the other module. An <c>Attribute</c> line written inside a statement of a body is in neither: a member's attributes are those that follow its
-/// header, and the platform reads no other.
-/// </para>
-/// <para>
-/// None of it is where it is written: an edit that moves a declaration within the branch it is in leaves both parts as they were, and so does one to a
-/// comment, to whitespace, or to a body that declares and names nothing it did not before - a literal, an operator, a statement that uses the same names. One
-/// that moves a declaration into a branch, out of one or to another changes <see cref="Declarations"/>: which constants compile it is not what it was.
-/// </para>
-/// </remarks>
-/// <param name="Declarations">What the module declares, as the other modules see it.</param>
-/// <param name="References">What the code of its procedures refers to.</param>
+// two parts, because they invalidate different things: Declarations what other modules bind against, References the reference counts of their members. Neither
+// says where anything is written, so moving code within its #If branch changes neither.
+// MS-VBAL §3.4
 public sealed record class ModuleSurface(string Declarations, string References)
 {
     // the properties of a node that say where it is, or which node it is, and not what it says.
@@ -50,14 +24,6 @@ public sealed record class ModuleSurface(string Declarations, string References)
 
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> Properties = new();
 
-    /// <summary>
-    /// The surface of a parsed module; <see langword="null"/> when it has no syntax tree, which no other module can be told anything by.
-    /// </summary>
-    /// <param name="parse">The module, as it was parsed.</param>
-    /// <remarks>
-    /// Two surfaces are compared part by part: a module whose <see cref="Declarations"/> are not what they were may change what is found out about the other
-    /// modules, and one whose <see cref="References"/> are not may change what is counted of their members' references.
-    /// </remarks>
     public static ModuleSurface? Of(ModuleParseResult parse)
     {
         if (parse.SyntaxTree is not { } tree)
@@ -200,10 +166,11 @@ public sealed record class ModuleSurface(string Declarations, string References)
         _ => [],
     };
 
-    // a record or a struct of the syntax tree's own that is no node: what it holds is a node's, as a DefType's letters or an array's bounds are.
+    // a record or a struct of the syntax tree's own that is no node: what it holds is a node's, as a DefType's letters or an array's bounds are. The tree's own
+    // types are those of the namespace of the parse result.
     private static bool IsOfTheTree(object? value)
         => value is not (null or SyntaxNode or SourceRange or SourceLocation or SyntaxNodeId)
-            && value.GetType().Namespace?.StartsWith(typeof(ModuleSurface).Namespace!, StringComparison.Ordinal) == true;
+            && value.GetType().Namespace?.StartsWith(typeof(ModuleParseResult).Namespace!, StringComparison.Ordinal) == true;
 
     // what the node is, and what it says that is not a node of its own - and of a declaration, the branches it is written in.
     private static void Describe(StringBuilder surface, SyntaxNode node, string branches = "")

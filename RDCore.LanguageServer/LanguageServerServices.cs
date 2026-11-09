@@ -8,6 +8,7 @@ using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Runtime;
 using RDCore.LanguageServer.SemanticTokens;
 using RDCore.LanguageServer.Server;
+using RDCore.LanguageServer.Services.Platform;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.LanguageServer.Workspace.States;

@@ -243,8 +243,8 @@ public static class VbpProjectImporter
     /// from <c>MyProj\MyProj.vbp</c> is <c>Util.bas</c>); <see langword="null"/> when it is not known, and such a path is outside of the folder.
     /// </param>
     /// <param name="inWorkspace">
-    /// Whether an absolute path lies in a folder of the workspace (<see cref="WorkspaceFolders.Contains"/>). A file the <c>.vbp</c> lists outside its own folder -
-    /// <c>..\Shared\Util.bas</c>, or an absolute path - is the project's when it does, as in VB6, and is written relative to the <c>.vbp</c>'s folder
+    /// Whether an absolute path lies in a folder of the workspace. A file the <c>.vbp</c> lists outside its own folder
+    /// (<c>..\Shared\Util.bas</c>, or an absolute path) is the project's when it does, as in VB6, and is written relative to the <c>.vbp</c>'s folder
     /// (<c>../Shared/Util.bas</c>): nothing a project file lists is absolute. <see langword="null"/> where there are no workspace folders (<c>rdc import</c>),
     /// and only the <c>.vbp</c>'s own folder is in bounds.
     /// </param>
