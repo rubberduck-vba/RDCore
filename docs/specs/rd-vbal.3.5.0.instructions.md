@@ -7,7 +7,7 @@ the order execution would normally reach them.
 
 [**RD-VBAL §3.4.0** Statements](rd-vbal.3.4.0.statements.md) catalogs the statement tree the parser produces.
 This section catalogs the flat, offset-addressable
-[InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html) that
+`InstructionList` that
 `InstructionListLowering` produces from
 that tree. Executing it is the role that [**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md)
 gives the evaluation engine: "sequentially evaluate each instruction in the frame."

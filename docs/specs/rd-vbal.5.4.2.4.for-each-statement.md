@@ -49,7 +49,7 @@ run-time error.
       `ReDim`'d), raise error 92.
    2. If the array's declared bounds hold zero elements, empty the control variable (see
       [The control variable after the loop](#the-control-variable-after-the-loop)) and skip the body entirely by
-      branching to [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.End`, per
+      branching to `Instruction.End`, per
       **MS-VBAL §5.4.2.4**'s "if the array has no elements".
    3. Otherwise, assign the first element to the control variable, store a
       [ForEachState](../api/RDCore.SDK.Runtime.Shared.ForEachState.html), and fall through into the body. The

@@ -1,7 +1,7 @@
 # 3.5.1 InstructionList
 
-[**RD-VBAL §3.5.0** Instructions](rd-vbal.3.5.0.instructions.md) models a procedure body as an [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)
-of [Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html) entries
+[**RD-VBAL §3.5.0** Instructions](rd-vbal.3.5.0.instructions.md) models a procedure body as an `InstructionList`
+of `Instruction` entries
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 `InstructionListLowering` produces the
 list from the statement tree ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).

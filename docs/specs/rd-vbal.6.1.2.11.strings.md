@@ -4,7 +4,7 @@
 > This section describes the implementation of [**MS-VBAL §6.1.2.11** Strings](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f87cc0fb-f0ca-4875-9691-34d80e2933b0).
 
 The `Strings` module is represented in the SDK by the interface
-[IStdStringsModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdStringsModule.html).
+`IStdStringsModule`.
 
 The `Strings` module is declared in full. **MS-VBAL §6.1.2.11** has 43 subsections, and RD-VBA's `Strings` module
 declares 55 members.
@@ -31,7 +31,7 @@ An argument has been through the call site before a member is given it
   of `FormatCurrency`, `FormatNumber` and `FormatPercent` is `-1`, and the `Abbreviate` of `MonthName` and `WeekdayName`
   is `False`. C# cannot state those
   defaults, so the declarations do, with
-  [StdLibDefaultAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibDefaultAttribute.html)
+  `StdLibDefaultAttribute`
   ([**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#attributes)).
 - A `Compare` left out is the calling module's `Option Compare` ([Compare and Option Compare](#compare-and-option-compare)).
 - A `Variant` optional argument left out, or a caller's own Missing passed on to one, is left out to the member, and
@@ -73,7 +73,7 @@ and reads it for `vbUnicode`.
 <option-compare-directive> of the calling module".
 
 The call site fills it in. The declarations mark `Compare` with
-[StdLibOptionCompareAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibOptionCompareAttribute.html), and a call
+`StdLibOptionCompareAttribute`, and a call
 that leaves it out passes `vbTextCompare` (`1`) where the calling module compares as `Text` and `vbBinaryCompare` (`0`)
 otherwise ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md#optional-parameters)):
 

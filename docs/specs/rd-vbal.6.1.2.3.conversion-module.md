@@ -4,7 +4,7 @@
 > This section describes the implementation of [**MS-VBAL §6.1.2.3** Conversion Module](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/498c1238-f735-4e3b-810f-e0999b4d5fda).
 
 The `Conversion` module is represented in the SDK by the interface
-[IStdConversionModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdConversionModule.html).
+`IStdConversionModule`.
 
 The `Conversion` module's declarations follow MS-VBAL's own _Function Declaration_ blocks (**MS-VBAL §6.1.2.3**),
 declaration by declaration, including their return types and their `Optional` parameters.
@@ -70,5 +70,5 @@ pointer width. `LongPtr` is a different type in each pointer width
 ([**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md)).
 
 The pointer width belongs to the environment, and is passed to
-[StdLibSymbolProvider](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.html)
+`StdLibSymbolProvider`
 ([**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#601-symbol-injection)).

@@ -93,7 +93,7 @@ literal type rules.
 
 The _environment host_ defines a number of globally defined _static symbols_
 ([StaticSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.StaticSymbol.html)). They are defined on top of the global
-[IStdConstantsModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdConstantsModule.html).
+`IStdConstantsModule`.
 
 |Literal (token)|Type|Value|
 |---|---|---|

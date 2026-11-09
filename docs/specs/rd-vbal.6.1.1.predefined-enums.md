@@ -9,21 +9,21 @@ library's symbols are read off those SDK declarations
 
 |§|Enum|SDK declaration|Notes|
 |---|---|---|---|
-|6.1.1.1|[FormShowConstants](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/bea504ff-53dd-48c8-b165-e0a4e8ce3bba)|[VBFormShowConstants](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBFormShowConstants.html)|No naming convention recovers the name `FormShowConstants`, so `StdLibEnumAttribute` states it.|
+|6.1.1.1|[FormShowConstants](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/bea504ff-53dd-48c8-b165-e0a4e8ce3bba)|`VBFormShowConstants`|No naming convention recovers the name `FormShowConstants`, so `StdLibEnumAttribute` states it.|
 |6.1.1.2|[VbAppWinStyle](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2bf1e79f-d181-4e3d-bbb9-bda24b2b8ea4)|[VBAppWinStyle](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBAppWinStyle.html)||
 |6.1.1.3|[VbCalendar](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/9ec53148-9a34-4add-8728-99d8e1ef1feb)|[VBCalendar](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBCalendar.html)||
-|6.1.1.4|[VbCallType](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/3e5c6a2c-757b-4107-81f3-ef7112afdf2d)|[VBCallType](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBCallType.html)||
-|6.1.1.5|[VbCompareMethod](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/92f41ee1-59f5-4792-9a20-208e6b62d699)|[VBCompareMethod](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBCompareMethod.html)||
-|6.1.1.6|[VbDateTimeFormat](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b6fd0457-1221-4b32-b709-57abd0235230)|[VBDateTimeFormat](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBDateTimeFormat.html)||
-|6.1.1.7|[VbDayOfWeek](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/3cedd8d4-1e8a-4955-a34f-8c54e82456f1)|[VBDayOfWeek](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBDayOfWeek.html)||
+|6.1.1.4|[VbCallType](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/3e5c6a2c-757b-4107-81f3-ef7112afdf2d)|`VBCallType`||
+|6.1.1.5|[VbCompareMethod](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/92f41ee1-59f5-4792-9a20-208e6b62d699)|`VBCompareMethod`||
+|6.1.1.6|[VbDateTimeFormat](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/b6fd0457-1221-4b32-b709-57abd0235230)|`VBDateTimeFormat`||
+|6.1.1.7|[VbDayOfWeek](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/3cedd8d4-1e8a-4955-a34f-8c54e82456f1)|`VBDayOfWeek`||
 |6.1.1.8|[VbFileAttribute](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/50ea77ee-b398-4a8d-943a-edf517d35401)|[VBFileAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBFileAttribute.html)||
-|6.1.1.9|[VbFirstWeekOfYear](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fe5b3612-55ed-4757-807c-c3608c90b495)|[VBFirstWeekOfYear](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBFirstWeekOfYear.html)||
-|6.1.1.10|[VbIMEStatus](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/910e9de1-70aa-4bb2-a793-b380faad2052)|[VBIMEStatus](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBIMEStatus.html)||
+|6.1.1.9|[VbFirstWeekOfYear](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fe5b3612-55ed-4757-807c-c3608c90b495)|`VBFirstWeekOfYear`||
+|6.1.1.10|[VbIMEStatus](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/910e9de1-70aa-4bb2-a793-b380faad2052)|`VBIMEStatus`||
 |6.1.1.11|[VbMsgBoxResult](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f566f64b-9667-40f5-9b6d-8c3264e3f562)|[VBMsgBoxResult](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBMsgBoxResult.html)||
 |6.1.1.12|[VbMsgBoxStyle](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f18d1d63-22a9-499f-b970-ecd0d4c5a30b)|[VBMsgBoxStyle](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBMsgBoxStyle.html)||
-|6.1.1.13|[VbQueryClose](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/89023539-ebf1-4e5c-ac50-b7d335ec42d3)|[VBQueryClose](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBQueryClose.html)||
-|6.1.1.14|[VbStrConv](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f03af91f-5ee0-42dc-8b2c-f93e0a372524)|[VBStrConv](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBStrConv.html)||
-|6.1.1.15|[VbTriState](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/98bc1324-a43f-4bdd-a1a6-a5cba137a809)|[VBTriState](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBTriState.html)||
+|6.1.1.13|[VbQueryClose](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/89023539-ebf1-4e5c-ac50-b7d335ec42d3)|`VBQueryClose`||
+|6.1.1.14|[VbStrConv](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/f03af91f-5ee0-42dc-8b2c-f93e0a372524)|`VBStrConv`||
+|6.1.1.15|[VbTriState](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/98bc1324-a43f-4bdd-a1a6-a5cba137a809)|`VBTriState`||
 |6.1.1.16|[VbVarType](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/c15d7483-4ac0-48e0-a23b-8bfb91a57cad)|[VBVarType](../api/RDCore.SDK.Model.Values.Runtime.VBVarType.html)|Declared in the core value model. See [§6.1.1.16](#61116-vbvartype).|
 
 The other enum names follow the naming convention: the SDK enum `VBDayOfWeek` is the enum `VbDayOfWeek`, and its

@@ -9,8 +9,8 @@ _standard library_ ([**RD-VBAL §6.1** VBA Project](rd-vbal.6.1.vba-project.md))
 The **RDCore** platform must implement the VBA standard library. The _environment host_ shall inject the standard
 library's symbols into all `VBA` projects, and those symbols shall carry the appropriate _return type_ metadata.
 
-The SDK defines the interfaces for the _internal representation_ of each standard-library module
-([RDCore.SDK.Runtime.Abstract.StdLib](../api/RDCore.SDK.Runtime.Abstract.StdLib.html)). The environment host exposes
+The language core defines the interfaces for the _internal representation_ of each standard-library module
+(`RDCore.Runtime.LanguageCore.StdLib.Abstract`). The environment host exposes
 the symbols provided by the standard library to the _workspace_.
 
 A session is composed from several _symbol providers_: configuration flags, AST declarations, reflected referenced
@@ -80,7 +80,7 @@ returns: `m(0).SubMatches(Null)` is 13, `MatchCollection.Item` being declared `O
 ## 6.0.1 Symbol Injection
 
 The SDK declarations are the standard library's definition. The standard library's symbols are read off those
-declarations by [StdLibSymbolReader](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolReader.html).
+declarations by `StdLibSymbolReader`.
 
 A standard-library module's members, their names, their parameters and their return types all come from the
 signature an implementation has to satisfy. Each of them is stated once, in that SDK signature. A module's constants
@@ -105,14 +105,14 @@ An attribute states what a declaration's signature cannot express, and is used o
 
 |Attribute|Carries|
 |---|---|
-|[StdLibModuleAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibModuleAttribute.html)|Marks a declaration as a standard-library module, and may name it.|
-|[StdLibClassAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibClassAttribute.html)|Marks a declaration as a standard-library class, and may name it.|
+|`StdLibModuleAttribute`|Marks a declaration as a standard-library module, and may name it.|
+|`StdLibClassAttribute`|Marks a declaration as a standard-library class, and may name it.|
 |[StdLibEnumAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibEnumAttribute.html)|Marks a declaration as a standard-library enum, and may name it. `FormShowConstants` is a name no naming convention recovers, so the attribute states it.|
-|[StdLibConstantAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibConstantAttribute.html)|The name of a constant, a member of an enum or of a module ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)), that no naming convention recovers.|
-|[StdLibMemberAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibMemberAttribute.html)|Any of: a member name no naming convention recovers (for example `Hex` beside `Hex$`); an accessor kind ([StdLibMemberKind](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibMemberKind.html)); a return type that is a _class_ or an _enum_ rather than an intrinsic type; whether the member is hidden; a `VB_UserMemId` (`0` for the default member of a class, `-4` for its enumeration member), which is what a workspace class says with `Attribute Item.VB_UserMemId = 0`.|
-|[StdLibArrayAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibArrayAttribute.html)|The element type of an array parameter (`ValueArray() As Double`), which `VBResizableArrayValue` alone reads as `Variant()`. It is refused on anything but a required `ByVal` array parameter.|
-|[StdLibDefaultAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibDefaultAttribute.html)|The default of a typed optional parameter (`Optional Limit As Long = -1`), which C# cannot state: a `VBLongValue? = default` parameter states no default at all. It is read into a literal of the parameter's declared type, and refused on a required parameter, a `ParamArray`, an enum (whose C# default states it already), a `Variant`, and a value of the wrong type or out of its type's range.|
-|[StdLibOptionCompareAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibOptionCompareAttribute.html)|A `Compare` parameter that, left out, is the calling module's `Option Compare` rather than its declared default ([**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)). It is refused on anything but an optional `ByVal` `VbCompareMethod` parameter.|
+|`StdLibConstantAttribute`|The name of a constant, a member of an enum or of a module ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)), that no naming convention recovers.|
+|`StdLibMemberAttribute`|Any of: a member name no naming convention recovers (for example `Hex` beside `Hex$`); an accessor kind (`StdLibMemberKind`); a return type that is a _class_ or an _enum_ rather than an intrinsic type; whether the member is hidden; a `VB_UserMemId` (`0` for the default member of a class, `-4` for its enumeration member), which is what a workspace class says with `Attribute Item.VB_UserMemId = 0`.|
+|`StdLibArrayAttribute`|The element type of an array parameter (`ValueArray() As Double`), which `VBResizableArrayValue` alone reads as `Variant()`. It is refused on anything but a required `ByVal` array parameter.|
+|`StdLibDefaultAttribute`|The default of a typed optional parameter (`Optional Limit As Long = -1`), which C# cannot state: a `VBLongValue? = default` parameter states no default at all. It is read into a literal of the parameter's declared type, and refused on a required parameter, a `ParamArray`, an enum (whose C# default states it already), a `Variant`, and a value of the wrong type or out of its type's range.|
+|`StdLibOptionCompareAttribute`|A `Compare` parameter that, left out, is the calling module's `Option Compare` rather than its declared default ([**RD-VBAL §6.1.2.11** Strings](rd-vbal.6.1.2.11.strings.md#compare-and-option-compare)). It is refused on anything but an optional `ByVal` `VbCompareMethod` parameter.|
 
 ### Naming Conventions
 
@@ -120,8 +120,8 @@ A standard-library name that follows a naming convention needs no attribute:
 
 |SDK declaration|Standard-library name|
 |---|---|
-|Interface [IStdInformationModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInformationModule.html)|Module `Information`|
-|Enum [VBDayOfWeek](../api/RDCore.SDK.Runtime.Abstract.StdLib.VBDayOfWeek.html)|Enum `VbDayOfWeek`|
+|Interface `IStdInformationModule`|Module `Information`|
+|Enum `VBDayOfWeek`|Enum `VbDayOfWeek`|
 |Enum member `VBSunday`|Constant `vbSunday`|
 |Module field `VBCrLf`|Constant `vbCrLf`|
 
@@ -139,7 +139,7 @@ intrinsic types ([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.
 ### Library Name
 
 The standard library is a project of its own, named `VBA` in every language
-([StdLibSymbolProvider.LibraryName](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.html)): it is what a project-qualified reference to the library names
+([StandardLibrary.LibraryName](../api/RDCore.SDK.Runtime.StdLib.StandardLibrary.html#RDCore_SDK_Runtime_StdLib_StandardLibrary_LibraryName)): it is what a project-qualified reference to the library names
 (`VBA.Strings.LenB`, `VBA.LenB`; [**MS-VBAL §5.6.12**](rd-vbal.5.6.12.member-access-expressions.md)), and what the library's members say they belong to
 (`SymbolProperties.Library`).
 
@@ -160,6 +160,6 @@ pointer width. `LongPtr` is a different type in each pointer width
 [**RD-VBAL §6.1.2.3.1.10** CLngPtr](rd-vbal.6.1.2.3.conversion-module.md#6123110-clngptr)).
 
 The pointer width belongs to the environment. The environment host passes
-[StdLibSymbolProvider](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.html) the pointer width of its own
+`StdLibSymbolProvider` the pointer width of its own
 runtime profile
 ([IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)).

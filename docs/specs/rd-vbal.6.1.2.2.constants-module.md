@@ -4,7 +4,7 @@
 > This section describes the implementation of [**MS-VBAL §6.1.2.2** Constants Module](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/52c853c1-fda2-4853-8069-172e515310f9).
 
 The `Constants` module is represented in the SDK by the interface
-[IStdConstantsModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdConstantsModule.html).
+`IStdConstantsModule`.
 
 RD-VBA implements the eleven constants of **MS-VBAL §6.1.2.2**. Each is declared on `IStdConstantsModule` as the value
 it is: a `static readonly` field of a value type, in the order of the specification's table. Nothing implements the
@@ -38,7 +38,7 @@ where `""` is a pointer to a zero-length string.
 
 ## Symbols
 
-[StdLibSymbolReader](../api/RDCore.SDK.Runtime.StdLib.StdLibSymbolReader.html) reads each field as a `Public Const`
+`StdLibSymbolReader` reads each field as a `Public Const`
 member of the `Constants` module, of the field's VBA type, whose value is a literal of the field's value
 ([**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#601-symbol-injection)). Like any constant, it has
 no storage: a use of it folds the value.

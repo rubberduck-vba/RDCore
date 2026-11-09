@@ -341,9 +341,9 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
 - A standard library member's `Variant` parameter accepts its argument.
 - An argument left out is filled in as any procedure's is ([Optional Parameters](#optional-parameters)). A typed
   optional whose default C# cannot state carries it in its declaration
-  ([StdLibDefaultAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibDefaultAttribute.html)), and a `Compare`
+  (`StdLibDefaultAttribute`), and a `Compare`
   that takes the calling module's `Option Compare` is marked
-  ([StdLibOptionCompareAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibOptionCompareAttribute.html); see
+  (`StdLibOptionCompareAttribute`; see
   [**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#attributes)).
 - An omitted `Variant` optional, Missing, reaches the member as left out (`null`), and so does a caller's Missing passed
   on. An explicit `Empty` reaches it as `Empty`.
