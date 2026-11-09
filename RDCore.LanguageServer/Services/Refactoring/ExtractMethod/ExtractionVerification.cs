@@ -11,7 +11,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
 /// <summary>
-/// Why an extraction, written, is not made: the module it would leave is checked first, and what it found wrong is a refusal, never an edit.
+/// Why an extraction, written, is not made: the module it would leave is checked first, and what the check finds wrong is a refusal, never an edit.
 /// </summary>
 internal enum ExtractionVerificationFailureKind
 {
@@ -53,7 +53,7 @@ internal sealed record class ExtractionVerificationFailure(ExtractionVerificatio
 
 /// <summary>
 /// Checks the module an extraction would leave, before the extraction is made: it parses, every name binds, it has no compile error it did not have, and the
-/// call does what the selection did - the same variables in and out, the same live after it, the same exits.
+/// call does what the selection did (the same variables in and out, the same live after it, the same exits).
 /// </summary>
 /// <remarks>
 /// The call is analyzed as a selection to extract would be, in the edited source procedure: what its plan says of the data flow and the exits is what the plan
