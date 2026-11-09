@@ -21,102 +21,22 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Recursively walks a real, arbitrarily-nested statement tree, evaluating every expression it
-/// contains via <see cref="ExpressionStaticSemanticsEvaluator"/>, threading the innermost enclosing
-/// <c>With</c> block's target type (<strong>MS-VBAL §5.6.15</strong>) through its body, checking
-/// <c>Let</c>/<c>Set</c> assignment coercion validity between an assignment's <c>Target</c> and
-/// <c>Value</c>, and checking that every label a jump statement names is defined
-/// (<strong>MS-VBAL §5.4.2.12</strong>–<strong>§5.4.2.16</strong>, <strong>§5.4.4.1</strong>,
-/// <strong>§5.4.4.2</strong>).
-/// </summary>
-/// <remarks>
-/// This is the statement-tree analogue of <see cref="ExpressionStaticSemanticsEvaluator"/>: nothing
-/// previously walked a <see cref="StatementBlock"/>'s nested blocks (<c>If</c>/<c>Do</c>/<c>For</c>/
-/// <c>Select Case</c>/<c>With</c>, ...) at all, so a <c>With</c> block's target type never had
-/// anywhere to flow from — <see cref="ExpressionStaticSemanticsEvaluator"/> could only ever defer a
-/// with-relative access, and an assignment's own coercion validity was never checked at all. Unlike an
-/// expression tree, a statement tree's individual statements are largely independent of one another,
-/// so this collects every error found across the whole tree rather than short-circuiting on the first
-/// one the way the expression evaluator does.
-/// <para>
-/// The operand of a jump statement names a label, not a value, and a label is not a symbol, so it is
-/// never handed to the expression evaluator. <c>On Error GoTo 0</c>, <c>On Error GoTo -1</c> and
-/// <c>Resume 0</c> are not jumps at all: their operand is a sentinel, not a label reference.
-/// </para>
-/// <para>
-/// A <c>Set</c> assignment whose target is the default instance variable of a predeclared class
-/// (<see cref="VBPredeclaredInstanceSymbol"/>) is valid, as it is in MS-VBA, where <strong>MS-VBAL §5.2.4.1.2</strong> says it
-/// is invalid (<strong>RD-VBAL §5.2.4.1.2</strong>).
-/// </para>
-/// </remarks>
+// MS-VBAL §5.6.15, §5.4.2.12, §5.4.2.16, §5.4.4.1, §5.4.4.2, §5.2.4.1.2; RD-VBAL §5.2.4.1.2
+// collects every error rather than stopping at the first: unlike an expression's operands, statements are largely independent.
+// a Set to the default instance variable of a predeclared class is valid, as MS-VBA has it.
 public static class StatementStaticSemanticsEvaluator
 {
-    /// <summary>
-    /// Walks every statement in <paramref name="block"/>, recursing into nested blocks and collecting
-    /// every compile error found anywhere in the tree.
-    /// </summary>
-    /// <param name="context">
-    /// The compile-time context to start walking from. <see cref="StaticEvaluationContext.EnclosingWithTargetType"/>
-    /// should be <c>null</c> unless <paramref name="block"/> is itself already inside a <c>With</c>
-    /// block relative to some outer context the caller is threading through.
-    /// </param>
-    /// <param name="block">
-    /// The statement block to walk — a procedure body. A label is scoped to its procedure, not to the
-    /// block it appears in, so label references are checked against the labels defined anywhere within
-    /// this block: passing a nested block on its own would report every jump out of it as undefined.
-    /// </param>
-    /// <param name="procedure">
-    /// The kind of the procedure <paramref name="block"/> is the body of, which decides whether an <c>Exit Sub</c>,
-    /// <c>Exit Function</c> or <c>Exit Property</c> statement in it is where it may be
-    /// (<see cref="ExitStatementStaticSemantics"/>). <see langword="null"/> when it is not known: the kind of procedure is not checked then, and the
-    /// <c>Exit For</c> and <c>Exit Do</c> statements still are.
-    /// </param>
-    /// <returns>
-    /// Every compile error found, in traversal order, followed by a
-    /// <see cref="VBCompileErrorId.LabelNotDefined"/> error for each label reference that no line label
-    /// or line number in <paramref name="block"/> defines. Empty when the whole tree is valid.
-    /// </returns>
+    // a label is scoped to its procedure: a nested block walked on its own would report every jump out of it as undefined.
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(StaticEvaluationContext context, StatementBlock block, MemberKind? procedure = null)
         => Evaluate(context, block, default, procedure);
 
-    /// <summary>
-    /// Walks every statement in <paramref name="block"/> like <see cref="Evaluate(StaticEvaluationContext, StatementBlock, MemberKind?)"/>, for the
-    /// build and the language <paramref name="options"/> state.
-    /// </summary>
-    /// <param name="context">The compile-time context to start walking from.</param>
-    /// <param name="block">The statement block to walk - a procedure body.</param>
-    /// <param name="options">The conditional-compilation branches that are excluded, and the language the body is written in.</param>
-    /// <param name="procedure">The kind of the procedure <paramref name="block"/> is the body of, when it is known.</param>
-    /// <returns>Every compile error found, in traversal order, followed by those that are told once the whole body has been walked.</returns>
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(
         StaticEvaluationContext context, StatementBlock block, StaticSemanticsOptions options, MemberKind? procedure = null)
         => Run(context, block, new Walk { Procedure = procedure, Options = options });
 
-    /// <summary>
-    /// Walks every statement in <paramref name="block"/> and checks what needs no name resolution: where an <c>Exit</c> statement is written, that every
-    /// label a jump names is defined and none is defined twice, and the statements the language has. The types of expressions, which need the symbols
-    /// of a workspace, are not evaluated.
-    /// </summary>
-    /// <param name="block">The statement block to walk - a procedure body.</param>
-    /// <param name="options">The conditional-compilation branches that are excluded, and the language the body is written in.</param>
-    /// <param name="procedure">The kind of the procedure <paramref name="block"/> is the body of, when it is known.</param>
-    /// <returns>Every compile error found, in traversal order, followed by those that are told once the whole body has been walked.</returns>
     public static ImmutableArray<VBCompileErrorInfo> CheckStructure(StatementBlock block, StaticSemanticsOptions options = default, MemberKind? procedure = null)
         => Run(default, block, new Walk { Procedure = procedure, Options = options, Structural = true });
 
-    /// <summary>
-    /// Analyzes the body of a procedure, and describes what the static pass found out about it.
-    /// </summary>
-    /// <param name="procedure">The identity of the procedure.</param>
-    /// <param name="block">The statement block to walk - the procedure's body.</param>
-    /// <param name="options">The conditional-compilation branches that are excluded, and the language the body is written in.</param>
-    /// <param name="kind">The kind of the procedure, when it is known.</param>
-    /// <param name="context">
-    /// The compile-time context the body's expressions are evaluated in, or <see langword="null"/> when there is no workspace to resolve names in:
-    /// only the structure of the body is checked then (<see cref="CheckStructure"/>).
-    /// </param>
-    /// <returns>The model of the procedure.</returns>
     public static ProcedureSemanticModel Analyze(
         SemanticId procedure, StatementBlock block, StaticSemanticsOptions options = default, MemberKind? kind = null, StaticEvaluationContext? context = null)
     {

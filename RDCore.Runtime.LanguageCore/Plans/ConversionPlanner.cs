@@ -5,41 +5,14 @@ using System.Collections.Concurrent;
 
 namespace RDCore.Runtime.LanguageCore.Plans;
 
-/// <summary>
-/// Makes the <see cref="ConversionPlan"/> of a let-coercion from the type of the value and the type it is let-coerced to: the one table of the rules of
-/// <strong>MS-VBAL §5.5.1.2</strong>, consulted when a conversion is bound from declared types and when it is evaluated on a value (IR lowering §3.2).
-/// </summary>
-/// <remarks>
-/// <para>
-/// A plan depends on nothing but the two types, so each is made once and kept, and the plans last asked for are also kept by the identity of the types
-/// (<see cref="RecentPlans{TPlan}"/>): a variable assigned in a loop is let-coerced from the same type every time.
-/// </para>
-/// <para>
-/// An object, <c>Null</c>, <c>Empty</c> and an <c>Error</c> are let-coerced by rules of their own, whatever the destination is - but for a <c>Variant</c>
-/// or a fixed-size array, which hold <c>Null</c>, <c>Empty</c> and an <c>Error</c> as they are, or have no rule for them. Anything else is let-coerced by
-/// the rule of its destination. Whether that rule takes the value is the conversion's to say: the plan names the rule, and the rule decides.
-/// </para>
-/// <para>
-/// The static semantics have a table of their own (<strong>§5.5.1.1</strong>), keyed by declared types, which says which let-coercions are valid at all, and
-/// are not to consult this one: they are stricter where the specification makes them so - an implicit let-coercion from a LongLong to anything but a
-/// LongLong or a Variant is invalid, though the same value let-coerced at run time from a Variant is not. What they accept, this table does not reject for
-/// the same declared types - but where the specification itself makes a <c>Byte()</c> let-coerced to a number, a Boolean or a date statically valid
-/// (§5.5.1.1 lists no such row) and a type mismatch whenever it runs (§5.5.1.2.6).
-/// </para>
-/// </remarks>
+// MS-VBAL §5.5.1.2
+// the static semantics keep their own table (MS-VBAL §5.5.1.1) and must not consult this one: they are stricter, as for an implicit LongLong let-coercion.
+// a Byte() let-coerced to a number, a Boolean or a Date is statically valid (§5.5.1.1 has no row for it) and a type mismatch whenever it runs (§5.5.1.2.6).
 public static class ConversionPlanner
 {
     private static readonly ConcurrentDictionary<(VBType Source, VBType Destination), ConversionPlan> _plans = new();
     private static readonly RecentPlans<ConversionPlan> _recent = new();
 
-    /// <summary>
-    /// The plan of the let-coercion of a value of this type: final, whatever the types are.
-    /// </summary>
-    /// <param name="source">
-    /// The value type of the source: the type of what a Variant holds, and for an array, an array of its elements - a <c>Byte()</c> is let-coerced by rules
-    /// an array of anything else is not.
-    /// </param>
-    /// <param name="destination">The declared type the value is let-coerced to.</param>
     public static ConversionPlan ForValue(VBType source, VBType destination)
     {
         if (_recent.TryGet(source, destination, null, out var plan))
@@ -52,16 +25,6 @@ public static class ConversionPlanner
         return plan;
     }
 
-    /// <summary>
-    /// The plan of the let-coercion of a source of this declared type: <see cref="ConversionPlan.IsDeferred"/> when it is declared <c>Variant</c> or is
-    /// late-bound (<see cref="VBUnknownType"/>), whose value type is not known until the conversion is evaluated, and the plan of its value otherwise.
-    /// </summary>
-    /// <param name="source">The declared type of the source.</param>
-    /// <param name="destination">The declared type the value is let-coerced to.</param>
-    /// <remarks>
-    /// A fixed-length string holds a <c>String</c>, an Enum a <c>Long</c>, a <c>LongPtr</c> what it is an alias of, and a class an object: those are the
-    /// value types the plan is made for.
-    /// </remarks>
     public static ConversionPlan ForDeclared(VBType source, VBType destination)
         => source is VBVariantType or VBUnknownType
             ? new ConversionPlan(source, DestinationOf(destination), ConversionRule.None, IsDeferred: true)

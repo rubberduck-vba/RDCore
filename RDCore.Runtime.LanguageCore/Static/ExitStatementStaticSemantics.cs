@@ -7,35 +7,11 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Where an <c>Exit</c> statement may be written: <strong>MS-VBAL §5.4.2.5</strong> (<c>Exit For</c>), <strong>§5.4.2.7</strong> (<c>Exit Do</c>),
-/// <strong>§5.4.2.17</strong> (<c>Exit Sub</c>), <strong>§5.4.2.18</strong> (<c>Exit Function</c>) and <strong>§5.4.2.19</strong>
-/// (<c>Exit Property</c>).
-/// </summary>
-/// <remarks>
-/// The rule is stated once, here, because two walkers of a procedure body each have the position it depends on - the loops around the statement, and the
-/// kind of procedure it is in - and both have to agree on it: <see cref="StatementStaticSemanticsEvaluator"/>, and
-/// <see cref="Instructions.InstructionListLowering"/>, the pass that actually reports the errors of a module as it is loaded.
-/// <para>
-/// An <c>Exit For</c> or <c>Exit Do</c> must be lexically inside a loop of its kind, at any depth: an <c>Exit For</c> in a <c>Do</c> loop that is itself in a
-/// <c>For</c> loop is the <c>For</c> loop's.
-/// </para>
-/// <para>
-/// 👉 <c>Exit Function</c> is also accepted in a <c>Property Get</c>. <strong>MS-VBAL §5.4.2.18</strong> says it must be in a function, but MS-VBA accepts it in a
-/// property getter (see <see cref="VBCompileErrorId.ExitFunctionNotAllowedInSubOrProperty"/>), and a program written against MS-VBA relies on that.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.4.2.5, §5.4.2.7, §5.4.2.17, §5.4.2.18, §5.4.2.19
+// stated once: StatementStaticSemanticsEvaluator and InstructionListLowering must agree on it.
+// Exit Function is accepted in a Property Get, where MS-VBAL §5.4.2.18 refuses it: MS-VBA accepts it, and programs rely on that.
 public static class ExitStatementStaticSemantics
 {
-    /// <summary>
-    /// Checks one <c>Exit</c> statement against the position it is written in.
-    /// </summary>
-    /// <param name="exit">The statement. Anything that is not an <c>Exit</c> statement is valid.</param>
-    /// <param name="withinFor">Whether the statement is lexically inside a <c>For</c> or <c>For Each</c> loop.</param>
-    /// <param name="withinDo">Whether the statement is lexically inside a <c>Do</c> loop.</param>
-    /// <param name="procedure">The kind of the procedure the statement is written in, or <see langword="null"/> when it is not known - the kind of
-    /// procedure is not checked then.</param>
-    /// <returns>The error, or <see langword="null"/> when the statement is where it may be.</returns>
     public static VBCompileErrorInfo? Evaluate(KeywordStatementNode exit, bool withinFor, bool withinDo, MemberKind? procedure)
         => exit.Token switch
         {

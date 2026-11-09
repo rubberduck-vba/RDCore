@@ -14,25 +14,10 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// What a <c>ParamArray</c> parameter may be given to: <c>Invalid ParamArray use</c> (<see cref="VBCompileErrorId.InvalidParamArrayUse"/>) where it is passed
-/// as the argument of a <c>ByRef</c> parameter of a procedure of the code's own (<strong>MS-VBAL §5.3.1.11</strong>).
-/// </summary>
-/// <remarks>
-/// A <c>ParamArray</c> is an array of values the call collected, not a variable of the caller's, so there is nothing a reference parameter can be a second name
-/// for. MS-VBA refuses it as a compile error, written bare (<c>Inner p</c>) or in parentheses (<c>Inner (p)</c>), whether the parameter is a <c>Variant</c>, an
-/// array or implicitly <c>ByRef</c>, of a procedure, a function or a member of a class. It takes it as the argument of a <c>ByVal</c> parameter, of another
-/// <c>ParamArray</c>, and of the standard library (<c>IsMissing(p)</c>); an element of it (<c>p(0)</c>) is a variable (all recorded in Excel).
-/// </remarks>
+// MS-VBAL §5.3.1.11
+// a ParamArray holds values the call collected, not a caller's variable: there is nothing for a reference parameter to be a second name for.
 public static class ParamArrayStaticSemantics
 {
-    /// <summary>
-    /// The first <c>Invalid ParamArray use</c> of the arguments of a call to <paramref name="member"/>, or <see langword="null"/> when there is none.
-    /// </summary>
-    /// <param name="context">The compile-time context the arguments are resolved in.</param>
-    /// <param name="member">The procedure called.</param>
-    /// <param name="parameters">Its parameters; an implicit <c>Me</c> is not one a call gives an argument to.</param>
-    /// <param name="arguments">The arguments of the call, positional and named, as they are written.</param>
     public static VBCompileErrorInfo? ArgumentsError(
         StaticEvaluationContext context, VBTypeMemberSymbol member, ImmutableArray<VBParameterSymbol> parameters, IEnumerable<ExpressionNode> arguments)
     {

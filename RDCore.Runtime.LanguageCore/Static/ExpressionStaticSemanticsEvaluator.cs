@@ -23,33 +23,9 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Recursively determines the declared type of a real, arbitrarily-nested expression tree.
-/// </summary>
-/// <remarks>
-/// Every individual <see cref="IStaticSemantics"/> rule (<see cref="SimpleNameExpressionStaticSemantics"/>,
-/// <see cref="MemberAccessExpressionStaticSemantics"/>, operators, ...) only knows how to combine
-/// already-resolved operand types for the one node it handles — nothing recurses into an expression's
-/// own children first to produce them. This is that missing piece: given any <see cref="ExpressionNode"/>,
-/// it dispatches by the node's own C# type (and, for operator nodes, by <c>Token</c>) to the matching
-/// rule, evaluating children first and short-circuiting on the first error, so a nested expression like
-/// <c>Foo.Bar.Baz</c> or <c>x + 1</c> resolves end to end instead of only ever being unit-tested with
-/// hand-fed operand types.
-/// </remarks>
 public static class ExpressionStaticSemanticsEvaluator
 {
-    /// <summary>
-    /// Determines the declared type of <paramref name="expression"/>, recursively evaluating its
-    /// children first wherever a rule needs their declared types as operands.
-    /// </summary>
-    /// <param name="context">The compile-time context this expression is evaluated against.</param>
-    /// <param name="expression">The expression to evaluate — may be arbitrarily nested.</param>
-    /// <returns>
-    /// The result of the first rule (own or a child's) that fails, or the final resolved type when the
-    /// whole tree evaluates successfully. A node kind with no rule yet (or an operator token with no
-    /// mapped rule, e.g. <c>Mod</c>) defers to <see cref="VBUnknownType"/> rather than erroring — the
-    /// same "not modeled yet, not wrong" convention every existing rule already uses for its own gaps.
-    /// </returns>
+    // a node kind with no rule yet defers to VBUnknownType rather than erroring: not modeled yet, not wrong.
     public static StaticSemanticsEvaluationResult Evaluate(StaticEvaluationContext context, ExpressionNode expression)
     {
         // the evaluation of a tree keeps what each of its expressions evaluated to, so that a check that looks at an operand again does not evaluate it again.
@@ -431,10 +407,6 @@ public static class ExpressionStaticSemanticsEvaluator
         return IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, calleeResult.Result!);
     }
 
-    /// <summary>
-    /// Flags the arguments of a call that may be taken by reference (<see cref="ValueExpressionSemanticFlags.PassedAsArgument"/>): not one written with
-    /// <c>ByVal</c>, which is a value bound to nothing, nor one that is not a value (the address of a procedure).
-    /// </summary>
     internal static void MarkPassedAsArguments(StaticEvaluationContext context, IEnumerable<ExpressionNode> arguments)
     {
         if (context.Facts is not { } facts)

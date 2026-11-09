@@ -3,9 +3,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 
 namespace RDCore.Runtime.LanguageCore.Static.Operators;
 
-/// <summary>
-/// <strong>MS-VBAL 5.6.9.3.2</strong> Binary '+' Operator (static semantics)
-/// </summary>
+// MS-VBAL §5.6.9.3.2
 public sealed record class BinaryAdditionOperatorStaticSemantics : BinaryArithmeticOperatorStaticSemantics
 {
     protected override string Operator => Tokens.AdditionOp;

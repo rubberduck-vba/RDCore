@@ -11,102 +11,45 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Binding;
 
-/// <summary>
-/// How the argument of a parameter is passed (<strong>MS-VBAL §5.3.1.11</strong>), as far as the declarations and the argument as it is written decide it.
-/// </summary>
+// MS-VBAL §5.3.1.11
 public enum ArgumentPassing
 {
-    /// <summary>
-    /// Let-coerced to the parameter's declared type, into a variable of the activation's own: a <c>ByVal</c> parameter, and a <c>ByRef</c> one whose argument
-    /// is no variable - a literal, an operation, a call, an expression in parentheses.
-    /// </summary>
     Value,
 
-    /// <summary>
-    /// A <c>ByRef</c> parameter whose argument may be a variable - a name, an element of an array, a member of an object, a field of a record, what is bound
-    /// late: the parameter is a second name for it when it is a variable of the parameter's declared type, which is the call's to find out, and a copy of
-    /// its value otherwise.
-    /// </summary>
     Reference,
 
-    /// <summary>
-    /// A <c>ParamArray</c> parameter: what the trailing positional arguments are collected into (<see cref="BoundArgument.Elements"/>).
-    /// </summary>
     ParamArray,
 
-    /// <summary>
-    /// An <c>Optional</c> parameter the call gives no argument: its declared default, or what an omitted argument of its type is.
-    /// </summary>
     Omitted,
 }
 
-/// <summary>
-/// The argument a call gives one parameter of the procedure it calls, bound (<strong>MS-VBAL §5.3.1.11</strong>): which of the arguments written at the call it
-/// is, and how it is passed - decided once, from the declarations and the arguments as they are written, rather than each time the call is made.
-/// </summary>
-/// <remarks>
-/// What only the call can decide stays the call's: whether a variable given to a <c>ByRef</c> parameter is of its declared type (an element type, a field of an
-/// object only known at run time), what a <c>Variant</c> argument holds, an error the argument raises.
-/// </remarks>
-/// <param name="Parameter">The parameter.</param>
-/// <param name="Passing">How the argument is passed.</param>
-/// <param name="Expression">The argument as it is written - the value of a named argument; <see langword="null"/> for one that is <see cref="ArgumentPassing.Omitted"/>
-/// or <see cref="ArgumentPassing.ParamArray"/>.</param>
-/// <param name="Value">The argument, bound; <see langword="null"/> when there is no <paramref name="Expression"/>.</param>
-/// <param name="Plan">How an argument passed by <see cref="ArgumentPassing.Value"/> is let-coerced to the parameter's declared type, made for the argument's declared
-/// type - deferred when it is a <c>Variant</c>; <see langword="null"/> when the argument has no declared type, and for any other passing.</param>
-/// <param name="Elements">The arguments a <see cref="ArgumentPassing.ParamArray"/> collects, bound; empty for any other passing.</param>
+// MS-VBAL §5.3.1.11
 public sealed record class BoundArgument(
     VBParameterSymbol Parameter, ArgumentPassing Passing, ExpressionNode? Expression, BoundNode? Value, ConversionPlan? Plan, ImmutableArray<BoundNode> Elements)
 {
-    /// <summary>
-    /// Whether the parameter is declared to be passed by reference: <c>ByRef</c>, said or not (<strong>MS-VBAL §5.3.1.5</strong>).
-    /// </summary>
+    // MS-VBAL §5.3.1.5
     public static bool IsByRef(VBParameterSymbol parameter) => parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef;
 }
 
-/// <summary>
-/// What goes wrong mapping the arguments of a call to the parameters of the procedure it calls (<strong>MS-VBAL §5.3.1.11</strong>).
-/// </summary>
+// MS-VBAL §5.3.1.11
 public enum ArgumentMappingError
 {
-    /// <summary>The arguments map to the parameters.</summary>
     None,
 
-    /// <summary>A named argument names no parameter, the <c>ParamArray</c>, or a parameter that is already given an argument.</summary>
     NamedArgumentNotFound,
 
-    /// <summary>More positional arguments than there are parameters.</summary>
     WrongNumberOfArguments,
 
-    /// <summary>A positional argument left out where the parameter is not <c>Optional</c>.</summary>
     MissingRequiredPositional,
 
-    /// <summary>A parameter that is not <c>Optional</c>, given no argument.</summary>
     ArgumentNotOptional,
 }
 
-/// <summary>
-/// The arguments of a call mapped to the parameters of the procedure it calls (<see cref="ArgumentMapping.Map"/>).
-/// </summary>
-/// <param name="Mapped">The argument each parameter is given, by the parameter's position - the value of a named argument; <see langword="null"/> for a parameter
-/// given none, or when <paramref name="Error"/> is not <see cref="ArgumentMappingError.None"/>.</param>
-/// <param name="ParamArrayArguments">The positional arguments a trailing <c>ParamArray</c> parameter collects.</param>
-/// <param name="Error">What went wrong, if anything did.</param>
-/// <param name="ErrorAt">The argument that is wrong, when one is.</param>
 public sealed record class ArgumentMap(ExpressionNode?[]? Mapped, ImmutableArray<ExpressionNode> ParamArrayArguments, ArgumentMappingError Error, ExpressionNode? ErrorAt);
 
-/// <summary>
-/// Maps the arguments of a call to the parameters of the procedure it calls, and binds how each is passed (<strong>MS-VBAL §5.3.1.11</strong>).
-/// </summary>
+// MS-VBAL §5.3.1.11
 public static class ArgumentMapping
 {
-    /// <summary>
-    /// Maps <paramref name="arguments"/>, as they are written, to <paramref name="parameters"/>: a positional argument to the parameter at its position, a
-    /// named one to the parameter of its name, and the trailing positional arguments to a <c>ParamArray</c> parameter, which is always satisfied.
-    /// </summary>
-    /// <param name="parameters">The parameters of the procedure - after its <c>Me</c>, for a member called on an object.</param>
-    /// <param name="arguments">The arguments of the call.</param>
     public static ArgumentMap Map(ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> arguments)
     {
         // `Area()` is a call that supplies nothing; the parser reads the empty parentheses as one omitted argument, which a procedure that takes none has no
@@ -168,14 +111,6 @@ public static class ArgumentMapping
         return new ArgumentMap(mapped, paramArrayArguments.ToImmutable(), ArgumentMappingError.None, null);
     }
 
-    /// <summary>
-    /// Binds how each parameter of a call is given its argument: one <see cref="BoundArgument"/> for each of <paramref name="parameters"/>, in order.
-    /// </summary>
-    /// <param name="parameters">The parameters of the procedure - after its <c>Me</c>, for a member called on an object.</param>
-    /// <param name="arguments">The arguments of the call, as they are written.</param>
-    /// <param name="nodeOf">The bound node of an argument; <see langword="null"/> for one that is not bound, which is then bound late.</param>
-    /// <param name="declaredTypeOf">The declared type of an argument; <see langword="null"/> for one that has none, whose coercion is planned when it is made.</param>
-    /// <returns>The bound arguments; <see langword="null"/> when the arguments do not map to the parameters - which the call reports when it is made.</returns>
     public static ImmutableArray<BoundArgument>? Bind(
         ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<ExpressionNode> arguments, Func<ExpressionNode, BoundNode?> nodeOf, Func<ExpressionNode, VBType?> declaredTypeOf)
     {

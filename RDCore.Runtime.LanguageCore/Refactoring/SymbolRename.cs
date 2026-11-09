@@ -18,100 +18,48 @@ using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.Runtime.LanguageCore.Refactoring;
 
-/// <summary>
-/// A module of the workspace, as a rename reads it: its syntax tree, and the text the tree was parsed from.
-/// </summary>
-/// <param name="Module">The address of the module (<c>workspace#Module</c>), as the scope tree has it.</param>
-/// <param name="Syntax">The syntax tree of the module.</param>
-/// <param name="Source">The text of the module, whose lines the positions of <paramref name="Syntax"/> are positions of.</param>
 public sealed record class RenameModule(Uri Module, ModuleNode Syntax, string Source);
 
-/// <summary>
-/// What a rename is worked out in: the workspace, composed, and every module of it.
-/// </summary>
-/// <param name="Resolver">The resolver of the composed workspace, which says what each name means where it is written.</param>
-/// <param name="ScopeTree">The scope tree of the composed workspace.</param>
-/// <param name="Modules">Every module of the workspace: a name is renamed wherever it refers to the symbol, and nowhere else.</param>
-/// <param name="Environment">What the environment the code is compiled for decides, when it is stated.</param>
-/// <param name="ClassSources">
-/// What else knows the classes of the objects an expression may hold (<see cref="IPossibleClassesSource"/>), beyond the assignments of the code
-/// (<see cref="AssignedClasses"/>), which are always read.
-/// </param>
 public sealed record class RenameContext(
     ISymbolResolver Resolver, ScopeTree ScopeTree, IReadOnlyList<RenameModule> Modules, StaticEnvironment? Environment = null,
     IReadOnlyList<IPossibleClassesSource>? ClassSources = null);
 
-/// <summary>
-/// Why a name is not renamed.
-/// </summary>
 public enum RenameRefusalKind
 {
-    /// <summary>There is no name where the rename was asked for.</summary>
     NoName,
 
-    /// <summary>The name refers to something the workspace does not declare: a member of a library, or nothing at all.</summary>
     NotDeclaredByWorkspace,
 
-    /// <summary>The name is that of a type - a module, a class, a <c>Type</c> or an <c>Enum</c> - which is not renamed yet.</summary>
     Type,
 
-    /// <summary>
-    /// The name of a procedure of a class module has an underscore: it is the handler of an event or the implementation of an interface member, named by the
-    /// event or the interface (<strong>MS-VBAL §5.2.3.1.2</strong>, §5.3.1.1), and a rename would make it something else.
-    /// </summary>
+    // MS-VBAL §5.2.3.1.2, §5.3.1.1
     NamedByConvention,
 
-    /// <summary>The name is that of an event, whose handlers are named after it: an event is not renamed yet.</summary>
     Event,
 
-    /// <summary>The name is that of a variable declared <c>WithEvents</c>, whose handlers are named after it: it is not renamed yet.</summary>
     WithEvents,
 
-    /// <summary>The name is that of a control of a form, which the form's designer declares: a control is not renamed yet.</summary>
     Control,
 
-    /// <summary>The name is that of an external procedure (<c>Declare</c>), which a library names: it is not renamed.</summary>
     ExternalProcedure,
 
-    /// <summary>The name is that of a member of a class that a class implements as an interface: a member of an interface is not renamed yet.</summary>
     InterfaceMember,
 
-    /// <summary>The new name is empty.</summary>
     Empty,
 
-    /// <summary>The new name is not an identifier (<see cref="VBIdentifierValidity.NotAnIdentifier"/>).</summary>
     NotAnIdentifier,
 
-    /// <summary>The new name is a keyword (<see cref="VBIdentifierValidity.Reserved"/>).</summary>
     Reserved,
 
-    /// <summary>The new name already means something where the code would mean the renamed symbol by it, or the other way around.</summary>
     Conflict,
 
-    /// <summary>What a name written as the renamed one refers to is not known: the rename could miss it, or change it when it should not.</summary>
     Unresolved,
 }
 
-/// <summary>
-/// Why a name is not renamed, and what about.
-/// </summary>
-/// <param name="Kind">Why.</param>
-/// <param name="Name">The name the refusal is about: the one renamed, or the new one.</param>
-/// <param name="Other">What else the refusal names: the symbol the new name already means, the class that implements the interface.</param>
-/// <param name="Module">The module the refusal points to, when it points to one.</param>
-/// <param name="Position">Where in <paramref name="Module"/>.</param>
 public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, string? Other = null, Uri? Module = null, SourcePosition Position = default)
 {
     private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
 
-    /// <summary>
-    /// What the refusal says, in the language of the reader.
-    /// </summary>
-    /// <param name="locate">
-    /// How a position is named to the reader: a client knows how it numbers its lines, which need not be the module's - a program of the platform's BASIC
-    /// numbers its own. By default, the name of the module and the line and the column, from 1.
-    /// </param>
-    /// <param name="culture">The language of the reader; the current UI culture by default.</param>
     public string ToMessage(Func<Uri, SourcePosition, string>? locate = null, CultureInfo? culture = null)
     {
         var where = Module is null ? string.Empty : (locate ?? DefaultLocation)(Module, Position);
@@ -123,91 +71,23 @@ public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, st
         => $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}";
 }
 
-/// <summary>
-/// A symbol that is renamed: the name where the rename was asked for, and every symbol the name is.
-/// </summary>
-/// <param name="Name">The name, as the symbol declares it.</param>
-/// <param name="Module">The module the rename was asked for in.</param>
-/// <param name="Range">Where the name is written there.</param>
-/// <param name="Symbols">
-/// The symbols renamed together: one, or each accessor of a property - <c>Get</c>, <c>Let</c> and <c>Set</c> are the one property, under one name.
-/// </param>
 public sealed record class RenameTarget(string Name, Uri Module, SourceRange Range, ImmutableArray<SemanticId> Symbols);
 
-/// <summary>
-/// One name that a rename writes anew.
-/// </summary>
-/// <param name="Module">The module.</param>
-/// <param name="Range">Where the name is written: the name only, never a type-declaration character after it.</param>
-/// <param name="NewText">The new name.</param>
-/// <param name="IsInString">
-/// Whether the name is written in a string that a member of a library calls the symbol by: the procedure name of <c>CallByName</c>
-/// (<strong>MS-VBAL §6.1.2.8.1.1</strong>), a host's macro (<c>Application.Run "Module1.Foo"</c>), a procedure a host calls later (<c>Application.OnTime</c>, <c>OnKey</c>), or the
-/// <c>OnAction</c> of a control. What a string names is
-/// only known when the code runs, so the user is asked to confirm the edit. A string left as it is names nothing the call can find.
-/// </param>
-/// <param name="IsLateBound">
-/// Whether the name is that of a member accessed late-bound (on an <c>Object</c> or a <c>Variant</c>) that may be the renamed member: which member it is, is
-/// only known when the code runs (<strong>MS-VBAL §5.6.12</strong>), so the user is asked to confirm the edit. An access left as it is does not find the
-/// renamed member when the object is of its class.
-/// </param>
-/// <param name="IsBacked">
-/// For a late-bound edit (<paramref name="IsLateBound"/>), whether what is known of the object says it may hold an object of the renamed member's class
-/// (<see cref="PossibleClasses.Classes"/>): the member is backed by what is known. One that is not backed is only possible: nothing known rules the class
-/// out.
-/// </param>
+// MS-VBAL §6.1.2.8.1.1, §5.6.12
+// what a string or a late-bound name refers to is only known at run time, so its edit asks the user to confirm.
 public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false, bool IsBacked = false);
 
-/// <summary>
-/// What a rename would rename, where it was asked for (<see cref="SymbolRename.Prepare"/>): the target, or why there is none.
-/// </summary>
-/// <param name="Target">The symbol, when the name can be renamed.</param>
-/// <param name="Refusal">Why it cannot, when it cannot.</param>
 public sealed record class RenamePreparation(RenameTarget? Target, RenameRefusal? Refusal);
 
-/// <summary>
-/// What a rename writes (<see cref="SymbolRename.Plan"/>): every name it writes anew, or why it writes none.
-/// </summary>
-/// <param name="Edits">The names, in each module, in the order they are written; empty when the new name is the name.</param>
-/// <param name="Refusal">Why nothing is renamed, when it is not.</param>
 public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRefusal? Refusal)
 {
-    /// <summary>Whether the rename can be made.</summary>
     public bool IsValid => Refusal is null;
 }
 
-/// <summary>
-/// Renames a symbol: the names that refer to it, wherever they are written, and none that do not - which is what makes it a rename and not a search for a text.
-/// </summary>
-/// <remarks>
-/// <para>
-/// What a name refers to is what the static semantics resolve it to (<strong>MS-VBAL §5.6.10</strong>, §5.6.12): the names of a procedure's body as the static pass
-/// binds them, a member of an object by the declared type of the object, a named argument by the procedure that is called, a member's attribute by the
-/// member. A name the pass does not bind is resolved where it is written. A name whose meaning cannot be told is not guessed at: the rename is refused.
-/// </para>
-/// <para>
-/// The new name must be one code can declare (<see cref="VBIdentifier"/>), and must not change what any code means: it must not be declared where the symbol is,
-/// it must not mean something nearer than the symbol where the code refers to the symbol, and the symbol must not become nearer than what it means where the
-/// code already writes it.
-/// </para>
-/// <para>
-/// A member that code accesses late-bound (on an <c>Object</c> or a <c>Variant</c>) with the name of a member of a class's public interface is renamed, and
-/// its edit says so (<see cref="RenameEdit.IsLateBound"/>), for the user to confirm: which member it is, is only known when the code runs. The edit also
-/// says whether what is known of the object backs the member (<see cref="RenameEdit.IsBacked"/>). It is not renamed where what is known of the object rules the class out (<see cref="PossibleClasses"/>).
-/// </para>
-/// <para>
-/// A string is renamed where a member of a library calls a member of a module by its name in it (<c>CallByName</c>, a host's macro, a control's
-/// <c>OnAction</c>), and its edit says so (<see cref="RenameEdit.IsInString"/>), for the user to confirm: what a string names is only known when the code runs.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.6.10, §5.6.12
+// a name whose meaning cannot be told is not guessed at: the rename is refused.
 public static class SymbolRename
 {
-    /// <summary>
-    /// What a rename at <paramref name="position"/> of <paramref name="module"/> would rename (<strong>LSP 3.17</strong> §Prepare Rename Request).
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
     public static RenamePreparation Prepare(RenameContext context, Uri module, SourcePosition position)
     {
         if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source
@@ -238,14 +118,6 @@ public static class SymbolRename
         return new(new RenameTarget(symbol.Name, module, here.Range, [.. RenamedTogether(context, symbol).Select(renamed => renamed.SemanticId)]), null);
     }
 
-    /// <summary>
-    /// What a client can offer to rename in a range of a module: the name at the position for an empty range - where a cursor is - and each symbol declared in
-    /// the range otherwise - a selection, a line, a whole module. A name that is not renamed is not offered.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="range">The range.</param>
-    /// <returns>Each symbol once, in the order its name is written in the range.</returns>
     public static IReadOnlyList<RenameTarget> TargetsIn(RenameContext context, Uri module, SourceRange range)
     {
         if (range.IsEmpty)
@@ -270,12 +142,6 @@ public static class SymbolRename
         return targets;
     }
 
-    /// <summary>
-    /// What renaming <paramref name="target"/> to <paramref name="newName"/> writes (<strong>LSP 3.17</strong> §Rename Request).
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="target">What is renamed (<see cref="Prepare"/>).</param>
-    /// <param name="newName">The new name, without a type-declaration character: a name written with one keeps it.</param>
     public static RenamePlan Plan(RenameContext context, RenameTarget target, string newName)
     {
         switch (VBIdentifier.Validate(newName))

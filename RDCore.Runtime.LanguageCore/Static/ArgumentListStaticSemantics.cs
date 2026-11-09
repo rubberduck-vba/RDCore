@@ -17,35 +17,9 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Whether the argument list of a call matches the parameters of the procedure it calls (<strong>MS-VBAL §5.6.13.1</strong> Argument Lists,
-/// <strong>§5.3.1.11</strong> Procedure Invocation Argument Processing), as MS-VBA checks it at compile time (recorded in Excel).
-/// </summary>
-/// <remarks>
-/// <list type="bullet">
-/// <item>An argument no parameter takes - one too many, with no <c>ParamArray</c> to collect it, or a named argument given to a procedure that declares no
-/// parameter - is <see cref="VBCompileErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment"/>.</item>
-/// <item>A named argument that names no parameter is <see cref="VBCompileErrorId.NamedArgumentNotFound"/>; one that names a parameter already given an
-/// argument is <see cref="VBCompileErrorId.NamedArgumentAlreadySpecified"/>.</item>
-/// <item>A parameter that is neither <c>Optional</c> nor a <c>ParamArray</c>, and that the call gives no argument, is
-/// <see cref="VBCompileErrorId.ArgumentNotOptional"/>.</item>
-/// <item>A subroutine given as an argument has no value to give: <see cref="VBCompileErrorId.ExpectedFunctionOrVariable"/>.</item>
-/// </list>
-/// A <c>Function</c> or <c>Property Get</c> that declares no parameter, and returns a <c>Variant</c> or an object, is not given the arguments written after
-/// it: they index what it returns, and are not this check's. One that returns an array is given them, as MS-VBA gives them (recorded in Excel, oracle\s55 A01),
-/// though <strong>MS-VBAL §5.6.13</strong> lets them index the array: its result is indexed by a second argument list, <c>F()(1)</c>.
-/// </remarks>
+// MS-VBAL §5.6.13.1, §5.3.1.11, §5.6.13
 internal static class ArgumentListStaticSemantics
 {
-    /// <summary>
-    /// The first way the arguments of a call do not match the parameters of the procedure it calls.
-    /// </summary>
-    /// <param name="context">The compile-time context the arguments are evaluated against.</param>
-    /// <param name="call">The call, where an argument that is missing is reported.</param>
-    /// <param name="procedure">The procedure called.</param>
-    /// <param name="parameters">Its parameters; an implicit <c>Me</c> is not one a call gives an argument to.</param>
-    /// <param name="arguments">The arguments, positional and named, as they are written.</param>
-    /// <returns>The error, or <see langword="null"/> when they match.</returns>
     public static VBCompileErrorInfo? Error(
         StaticEvaluationContext context, ExpressionNode call, VBTypeMemberSymbol procedure, ImmutableArray<VBParameterSymbol> parameters,
         ImmutableArray<ExpressionNode> arguments)
