@@ -9,26 +9,9 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Whether two parameter lists are compatible, the way the declarations that must match one another need
-/// (<strong>MS-VBAL §5.3.1.8</strong> for an event handler and its event, <strong>§5.3.1.9</strong> for an implemented
-/// name declaration and its interface member).
-/// </summary>
-/// <remarks>
-/// Both want the same number of parameters, each of the same declared type and the same parameter mechanism, though not
-/// necessarily the same name, nor with the mechanism written out in the same way. An implemented name declaration also
-/// wants the same optional parameters, the same <c>ParamArray</c>, and the same constant default of each optional
-/// parameter, which an event's parameters, being only a description of arguments, do not have.
-/// </remarks>
+// MS-VBAL §5.3.1.8, §5.3.1.9
 internal static class ParameterLists
 {
-    /// <summary>
-    /// The first way <paramref name="candidate"/> is not compatible with <paramref name="required"/>.
-    /// </summary>
-    /// <param name="candidate">The parameter list of the declaration that has to match.</param>
-    /// <param name="required">The parameter list it has to match, with the implicit <c>Me</c> of a member of a class left out.</param>
-    /// <param name="optionalsAndDefaults">Whether <c>Optional</c>, <c>ParamArray</c> and a constant default must match as well.</param>
-    /// <returns>What is different, or <see langword="null"/> when the lists are compatible.</returns>
     public static string? Incompatibility(
         ImmutableArray<VBParameterSymbol> candidate, ImmutableArray<VBParameterSymbol> required, bool optionalsAndDefaults = false)
     {
@@ -61,11 +44,6 @@ internal static class ParameterLists
         return null;
     }
 
-    /// <summary>
-    /// The parameters a procedure, function or property accessor declares, as they were written: the implicit <c>Me</c>
-    /// of a member of a class module is among them, when it has been built with one.
-    /// </summary>
-    /// <param name="member">The member.</param>
     public static ImmutableArray<VBParameterSymbol> Of(VBTypeMemberSymbol member) => member switch
     {
         VBProcedureMemberSymbol procedure => procedure.Parameters,
@@ -73,10 +51,6 @@ internal static class ParameterLists
         _ => [],
     };
 
-    /// <summary>
-    /// Whether two declared types are the same one. A type that is not known is not a type that differs, and an enumeration is the declared type
-    /// <c>Long</c> (<see cref="VBEnumType.AsDeclaredType"/>).
-    /// </summary>
     public static bool SameType(VBType left, VBType right)
         => left is VBUnknownType || right is VBUnknownType
             || string.Equals(VBEnumType.AsDeclaredType(left).Name, VBEnumType.AsDeclaredType(right).Name, StringComparison.OrdinalIgnoreCase);

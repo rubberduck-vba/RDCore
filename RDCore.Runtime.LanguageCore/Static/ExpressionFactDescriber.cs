@@ -17,13 +17,7 @@ using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Describes an expression the static pass has evaluated: what it names, what it is bound to, and how it is written.
-/// </summary>
-/// <remarks>
-/// The rules of the pass say whether an expression is valid and what its declared type is; this says the rest of what is known of it
-/// (<strong>MS-VBAL §5.6.1</strong>), once, from the same resolver, so that nothing that wants to know has to resolve a name again.
-/// </remarks>
+// MS-VBAL §5.6.1
 internal static class ExpressionFactDescriber
 {
     public static ExpressionFact Describe(

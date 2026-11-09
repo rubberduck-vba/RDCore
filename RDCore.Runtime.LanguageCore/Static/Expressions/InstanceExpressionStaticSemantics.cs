@@ -11,25 +11,12 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
-/// <summary>
-/// <strong>MS-VBAL 5.6.11</strong> Instance Expressions (static semantics). The declared type of
-/// <c>Me</c> is the type defined by the class module containing the enclosing procedure; using it
-/// outside a class module is invalid.
-/// </summary>
+// MS-VBAL §5.6.11
 public sealed record class InstanceExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<InstanceExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static InstanceExpressionStaticSemantics Instance => _instance.Value;
 
-    /// <summary>
-    /// Determines the declared type of an <see cref="InstanceExpressionNode"/>: the enclosing class
-    /// module's own type. Unlike <see cref="SimpleNameExpressionNode"/>, <c>Me</c> is never resolved
-    /// by name: it identifies the module enclosing <paramref name="context"/>'s own scope directly.
-    /// </summary>
-    /// <param name="context">The compile-time context this expression is evaluated against.</param>
-    /// <param name="expression">The <see cref="InstanceExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">Unused: an instance expression has no operands.</param>
-    /// <exception cref="ArgumentException"><paramref name="expression"/> is not an <see cref="InstanceExpressionNode"/>.</exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not InstanceExpressionNode)

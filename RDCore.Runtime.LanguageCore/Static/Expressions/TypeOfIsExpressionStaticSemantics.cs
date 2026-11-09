@@ -11,41 +11,14 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
-/// <summary>
-/// MS-VBAL 5.6.7 TypeOf...Is Expressions (static semantics). Always classified as a value with a
-/// declared type of Boolean; <see cref="TypeOfIsExpressionNode.Operand"/> must have a declared type
-/// of a specific UDT, a specific class, Object, or Variant, and <see cref="TypeOfIsExpressionNode.TypeExpression"/>
-/// must name a type.
-/// </summary>
-/// <remarks>
-/// What MS-VBA accepts as the type (Excel-verified, oracle\s29): the name of a class, an interface, a user-defined type or an enumeration, bare or
-/// qualified, and <c>Object</c>. An intrinsic type other than <c>Object</c>, or anything that is no name - <c>Nothing</c>, <c>Object()</c>,
-/// <c>String * 2</c> - is a syntax error. A name that binds no type is the error a declared type of that name would be
-/// (<see cref="DeclarationStaticSemanticsEvaluator"/>): a module, a library's module or a project is no type, and any other name, a variable's or a
-/// procedure's included, is a user-defined type that is not defined.
-/// </remarks>
+// MS-VBAL §5.6.7
 public sealed record class TypeOfIsExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<TypeOfIsExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
-    /// <summary>
-    /// The shared instance: this rule has no state of its own.
-    /// </summary>
     public static TypeOfIsExpressionStaticSemantics Instance => _instance.Value;
 
-    /// <summary>
-    /// Determines the declared type of a <see cref="TypeOfIsExpressionNode"/>: always
-    /// <see cref="VBBooleanType"/>, provided <see cref="TypeOfIsExpressionNode.Operand"/>'s declared
-    /// type satisfies MS-VBAL 5.6.7's classification requirement, and <see cref="TypeOfIsExpressionNode.TypeExpression"/> names a type.
-    /// </summary>
-    /// <param name="context">The compile-time context this expression is evaluated against: the type is resolved from its scope.</param>
-    /// <param name="expression">The <see cref="TypeOfIsExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">
-    /// <see cref="TypeOfIsExpressionNode.Operand"/>'s already-determined declared type, at
-    /// <see cref="InputIndex.TypeOfIsOperand"/>. <see cref="TypeOfIsExpressionNode.TypeExpression"/>
-    /// names a type, not a value, and has no declared type of its own.
-    /// </param>
-    /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="TypeOfIsExpressionNode"/>.</exception>
+    // MS-VBAL §5.6.7
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not TypeOfIsExpressionNode typeOfIs)

@@ -17,46 +17,14 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// The classes of the objects an expression may hold, where it is written: what is known of an object beyond the <c>Object</c> or <c>Variant</c> it is declared
-/// as.
-/// </summary>
-/// <remarks>
-/// <para>
-/// A fact for tooling (which late-bound accesses a rename proposes to rename, what a completion list offers after the expression), and for nothing else. It is
-/// never a declaration: a member accessed on the expression is late-bound and found when it is called (<strong>MS-VBAL §5.6.12</strong>,
-/// <strong>§6.1.2.8.1.4</strong>), and nothing that is or is not true of a class it may hold is a compile error.
-/// </para>
-/// <para>
-/// The sources of the fact are open (<see cref="IPossibleClassesSource"/>): the assignments of the code, and what a runtime or an extension knows of the objects.
-/// </para>
-/// </remarks>
-/// <param name="Classes">
-/// The classes the expression is known to hold an object of, at least some of the time, each once: the <see cref="SemanticId"/> of each class module (a
-/// <see cref="VBClassModuleSymbol"/> of the composed workspace, or of a library it references). A member of one of them that the expression is accessed for is
-/// backed by what is known.
-/// </param>
-/// <param name="IsComplete">
-/// Whether <paramref name="Classes"/> are all the classes it may hold: when they are not, it may hold an object of a class no source names.
-/// </param>
+// MS-VBAL §5.6.12, §6.1.2.8.1.4
+// a fact for tooling, never a declaration: nothing true or not of a class it may hold is a compile error.
 public sealed record class PossibleClasses(ImmutableArray<SemanticId> Classes, bool IsComplete)
 {
-    /// <summary>
-    /// Nothing is known: the expression may hold an object of any class.
-    /// </summary>
     public static PossibleClasses Unknown { get; } = new([], false);
 
-    /// <summary>
-    /// Whether the expression may hold an object of a class: one of <see cref="Classes"/>, or any class when they are not all of them.
-    /// </summary>
-    /// <param name="classModule">The class module of the class.</param>
     public bool MayBe(SemanticId classModule) => !IsComplete || Classes.Contains(classModule);
 
-    /// <summary>
-    /// What several sources say of one expression, together: every class any of them says it may hold, and all of them when one source says it knows them all.
-    /// </summary>
-    /// <param name="answers">What each source that says something says.</param>
-    /// <returns><see cref="Unknown"/> when there is no answer.</returns>
     public static PossibleClasses Combine(IEnumerable<PossibleClasses> answers)
     {
         var classes = ImmutableArray.CreateBuilder<SemanticId>();
@@ -71,79 +39,23 @@ public sealed record class PossibleClasses(ImmutableArray<SemanticId> Classes, b
     }
 }
 
-/// <summary>
-/// An expression whose classes are asked for (<see cref="IPossibleClassesSource"/>), and where it is written.
-/// </summary>
-/// <param name="Context">The context the expression is evaluated in: the resolver of the composed workspace, and the scope of the expression.</param>
-/// <param name="Expression">The expression.</param>
-/// <param name="ScopeTree">The scope tree of the composed workspace.</param>
-/// <param name="ModuleUri">The address of the module the expression is written in.</param>
-/// <param name="Module">The syntax tree of that module.</param>
 public sealed record class PossibleClassesQuery(StaticEvaluationContext Context, ExpressionNode Expression, ScopeTree ScopeTree, Uri ModuleUri, ModuleNode Module);
 
-/// <summary>
-/// Something that knows which classes the objects an expression holds may be (<see cref="PossibleClasses"/>): the assignments of the code
-/// (<see cref="AssignedClasses"/>), what a runtime saw, what an extension knows of a library.
-/// </summary>
-/// <remarks>
-/// <para>
-/// What every source says of an expression is put together (<see cref="PossibleClasses.Combine"/>): the classes are those any source names, and they are all
-/// the classes the expression may hold when one source says so. A source is passed in with the workspace (a rename takes its sources in
-/// <see cref="Refactoring.RenameContext.ClassSources"/>), and <see cref="AssignedClasses"/> is always asked.
-/// </para>
-/// <para>
-/// A class a source names backs the members of that class: a rename proposes the late-bound accesses of a member of it as backed, and any other as only
-/// possible. A source that knows all the classes says so (<see cref="PossibleClasses.IsComplete"/>), and the expression holds no other: a rename does not
-/// propose the late-bound accesses of a member of another class. A source says it knows them all only when nothing it does not see can assign the
-/// expression an object: a wrong answer leaves code that calls the renamed member by its old name.
-/// </para>
-/// <para>
-/// A source is asked once for each expression, on whatever thread asks, and may be asked about several expressions at the same time: it answers from what it holds, without
-/// changing it, and without waiting on anything.
-/// </para>
-/// </remarks>
+// a source says it knows every class only when nothing it does not see can assign the expression: a wrong answer leaves code calling a renamed member by its old name.
+// asked on any thread, about several expressions at once: it answers from what it holds, without changing it or waiting on anything.
 public interface IPossibleClassesSource
 {
-    /// <summary>
-    /// What the source knows of the classes the expression may hold.
-    /// </summary>
-    /// <param name="query">The expression, and where it is written.</param>
-    /// <returns>
-    /// What it knows; <see langword="null"/> when it knows nothing of the expression, which says the same as an answer of no class that is not complete
-    /// (<see cref="PossibleClasses.Unknown"/>).
-    /// </returns>
     PossibleClasses? ClassesOf(PossibleClassesQuery query);
 }
 
-/// <summary>
-/// The classes of the objects a variable of no particular class (declared <c>Object</c> or <c>Variant</c>) is <c>Set</c> to, in the module that declares it:
-/// the classes the code says it may hold.
-/// </summary>
-/// <remarks>
-/// <para>
-/// An object of a class the code names (<c>New Class1</c>, a variable or a function declared <c>As Class1</c>, <c>Me</c>) is of that class; one a
-/// <c>CreateObject</c> call creates by name is of the class the identifier names (<see cref="ObjectCreationFact"/>), when the project resolves it;
-/// <c>Nothing</c> is of none. Any other object, an <c>Object</c> or a <c>Variant</c>, may be of any class.
-/// </para>
-/// <para>
-/// The classes are all the classes the variable may hold only when every assignment that can reach it is one of the module's <c>Set</c> statements, and each
-/// of those says its class: the variable is a local that is not a parameter, or a <c>Private</c> variable of the module, it is not the variable of a
-/// <c>For Each</c> loop, and it is never a whole argument of a call or of a <c>RaiseEvent</c>, which could <c>Set</c> it by reference.
-/// </para>
-/// </remarks>
 public sealed class AssignedClasses : IPossibleClassesSource
 {
-    /// <summary>
-    /// The source.
-    /// </summary>
     public static AssignedClasses Instance { get; } = new();
 
     private AssignedClasses()
     {
     }
 
-    /// <inheritdoc/>
-    /// <returns>What the assignments say; <see langword="null"/> when the expression is not the name of a variable declared <c>Object</c> or <c>Variant</c>.</returns>
     public PossibleClasses? ClassesOf(PossibleClassesQuery query)
     {
         // each assigned value is evaluated as deep as it is written.

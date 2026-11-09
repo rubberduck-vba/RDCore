@@ -10,40 +10,9 @@ using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// <strong>MS-VBAL §5.4.5</strong> the file statements (static semantics), and the <c>Name</c> statement that sits beside them
-/// (<strong>RD-VBAL §5.4.5.13</strong>).
-/// </summary>
-/// <remarks>
-/// What each statement's operands have to be declared as:
-/// <list type="table">
-/// <listheader><term>Operand</term><description>Rule</description></listheader>
-/// <item><term>a file number (<strong>§5.4.5.1.1</strong>), a <c>Seek</c> position, a <c>Lock</c> or <c>Unlock</c> record number, a <c>Width</c> line width, a <c>Spc</c> or <c>Tab</c> number</term>
-/// <description>a scalar declared type: any but an array or a user-defined type.</description></item>
-/// <item><term>the path name of an <c>Open</c>, and the record length of its <c>Len</c> clause</term>
-/// <description>Let-coercible to <c>String</c>, and to <c>Integer</c>.</description></item>
-/// <item><term>the <c>Access</c> of an <c>Open</c></term>
-/// <description>the ones its <c>For</c> mode allows (<strong>§5.4.5.1</strong>).</description></item>
-/// <item><term>the variable of a <c>Line Input #</c></term>
-/// <description>a variable, declared as a <c>String</c> or a <c>Variant</c> (<strong>§5.4.5.6</strong>).</description></item>
-/// <item><term>each variable of an <c>Input #</c>, and the variable of a <c>Get</c></term>
-/// <description>a variable, not declared as an <c>Object</c> or a class (<strong>§5.4.5.10</strong>, <strong>§5.4.5.12</strong>); nor, for <c>Get</c>, as a user-defined type
-/// that has one in it.</description></item>
-/// <item><term>the data of a <c>Put</c></term>
-/// <description>not declared as an <c>Object</c>, a class, or a user-defined type that has one in it (<strong>§5.4.5.11</strong>).</description></item>
-/// <item><term>both operands of a <c>Name</c></term>
-/// <description>Let-coercible to <c>String</c>.</description></item>
-/// </list>
-/// </remarks>
+// MS-VBAL §5.4.5; RD-VBAL §5.4.5.13, §5.4.5.1.1, §5.4.5.1, §5.4.5.6, §5.4.5.10, §5.4.5.12, §5.4.5.11
 public static class FileStatementStaticSemantics
 {
-    /// <summary>
-    /// Evaluates the operands of a file statement and checks them.
-    /// </summary>
-    /// <param name="context">The compile-time context the statement is evaluated in.</param>
-    /// <param name="statement">The statement.</param>
-    /// <param name="errors">Every error found, in operand order. Empty when the statement is valid.</param>
-    /// <returns><see langword="false"/> when <paramref name="statement"/> is not a file statement, and nothing was evaluated.</returns>
     public static bool TryEvaluate(StaticEvaluationContext context, StatementNode statement, out ImmutableArray<VBCompileErrorInfo> errors)
     {
         var checks = new StatementOperandChecks(context);

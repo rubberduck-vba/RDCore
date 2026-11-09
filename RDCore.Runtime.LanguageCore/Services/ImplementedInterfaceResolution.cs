@@ -3,38 +3,12 @@ using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.Runtime.LanguageCore.Services;
 
-/// <summary>
-/// Resolves the interface names of the <c>Implements</c> directives of class modules
-/// (<see cref="VBClassModuleSymbol.ImplementedInterfaceNames"/>, <strong>MS-VBAL §5.2.4.2</strong>) to the classes they name.
-/// </summary>
-/// <remarks>
-/// A class module's <see cref="VBClassModuleSymbol.ImplementedInterfaces"/> hold the interface class symbols as they are
-/// when it is resolved, so whatever composes class modules - the language server over a workspace, the environment host over
-/// the modules it is sent one at a time - resolves them over the whole set, and again when any of them changes: an interface
-/// defined after the class that implements it, or edited since, is otherwise a stale snapshot of itself.
-/// <para>
-/// Resolution is recursive and memoized by <c>Uri</c>, not a flat single pass: a flat pass would assign each class's
-/// interfaces from the <em>pre-resolution</em> snapshot, so a transitive chain (<c>Widget Implements IMiddle</c>,
-/// <c>IMiddle Implements IBase</c>) would leave <c>IMiddle</c>'s own interfaces looking empty from <c>Widget</c>'s side,
-/// whichever order the two classes come in. Recursing into (and caching) each interface's own fully resolved symbol is
-/// what makes <see cref="Types.Complex.VBClassType.FromClassModule(VBClassModuleSymbol)"/>'s own recursion see the whole
-/// chain from any entry point.
-/// </para>
-/// <para>
-/// A name that is no class among the ones given, one that is the class itself, and one a directive repeats are dropped
-/// rather than reported: they are what <see cref="Static.ImplementsSemantics"/> reports, from the names.
-/// </para>
-/// </remarks>
+// MS-VBAL §5.2.4.2
+// resolved over the whole set, and again on any change: an interface defined later, or edited since, is otherwise a stale snapshot.
+// recursive and memoized by Uri: a flat pass leaves Widget Implements IMiddle Implements IBase looking empty from Widget.
+// a name that is no class, the class itself, or a repeat is dropped here: ImplementsSemantics reports it.
 public static class ImplementedInterfaceResolution
 {
-    /// <summary>
-    /// Resolves the implemented interfaces of every class module in <paramref name="classModules"/> that names any.
-    /// </summary>
-    /// <param name="classModules">Every class module the names can refer to.</param>
-    /// <returns>
-    /// The class modules that name an interface, resolved, keyed by their <see cref="Abstract.Symbol.Uri"/> as an absolute URI string: a
-    /// <c>Uri</c>'s own equality ignores the fragment, which is where a symbol's identity lives.
-    /// </returns>
     public static IReadOnlyDictionary<string, VBClassModuleSymbol> Resolve(IEnumerable<VBClassModuleSymbol> classModules)
     {
         var all = classModules.ToList();

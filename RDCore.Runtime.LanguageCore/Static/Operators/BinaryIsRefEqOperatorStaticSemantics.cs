@@ -7,20 +7,9 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 
 namespace RDCore.Runtime.LanguageCore.Static.Operators;
 
-/// <summary>
-/// <strong>MS-VBAL 5.6.9.7</strong> Binary 'Is' Operator (static semantics)
-/// </summary>
+// MS-VBAL §5.6.9.7
 public sealed record class BinaryIsRefEqOperatorStaticSemantics : StaticSemantics
 {
-    /// <summary>
-    /// Determines a static <see cref="VBType"/> from specified operands.
-    /// </summary>
-    /// <param name="context">The compile-time context this expression is evaluated against.</param>
-    /// <param name="expression">The <em>expression node</em> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">The declared type of each operand involved in the evaluation.</param>
-    /// <returns>
-    /// A <see cref="StaticSemanticsEvaluationResult"/> encapsulating the resulting <see cref="VBType"/> if successful, or <see cref="VBCompileErrorInfo"/> error metadata otherwise.
-    /// </returns>
     public override  StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         // MS-VBAL: each expression MUST be classified as a value and
