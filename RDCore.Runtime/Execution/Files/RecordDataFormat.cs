@@ -18,9 +18,8 @@ namespace RDCore.Runtime.Execution.Files;
 /// written by MS-VBA has to be a file this reads, which is why every width and byte order here is the
 /// specification's rather than .NET's default.
 /// <para>
-/// 🚧 A UDT is not handled yet. The specification says "the value of each member of the UDT is written to the
-/// file... in the order in which the members are declared", which needs member-by-member access to the
-/// session's memory that nothing exposes yet — see the TODO on <see cref="TryWrite"/>.
+/// A UDT is written member by member, "in the order in which the members are declared", each by the row of its
+/// declared type.
 /// </para>
 /// </remarks>
 internal static class RecordDataFormat
@@ -95,19 +94,24 @@ internal static class RecordDataFormat
             return TryWriteFields(stream, udt, mode, out written);
         }
 
-        if (isVariantTarget)
+        if (!isVariantTarget)
         {
-            if (DescriptorOf(unwrapped) is not { } descriptor)
-            {
-                return false;
-            }
-
-            stream.WriteByte((byte)descriptor);
-            stream.WriteByte(0);
-            written += DescriptorSize;
+            written += WriteValue(stream, unwrapped, mode);
+            stream.Flush();
+            return true;
         }
 
-        written += WriteValue(stream, unwrapped, mode);
+        if (DescriptorOf(unwrapped) is not { } descriptor)
+        {
+            return false;
+        }
+
+        stream.WriteByte((byte)descriptor);
+        stream.WriteByte(0);
+
+        // a String a Variant holds has its two-byte length in Binary mode as in Random: the descriptor says it is a String, not how long it is (MS-VBA,
+        // recorded in Excel).
+        written = DescriptorSize + WriteValue(stream, unwrapped, VBFileMode.Random);
         stream.Flush();
         return true;
     }
@@ -137,7 +141,7 @@ internal static class RecordDataFormat
                 return false;
             }
 
-            return TryReadDescribed(stream, (VariantDescriptor)descriptorBytes[0], mode, currentLength, out value);
+            return TryReadDescribed(stream, (VariantDescriptor)descriptorBytes[0], VBFileMode.Random, currentLength, out value);
         }
 
         return TryReadTyped(stream, declaredType, mode, currentLength, out value);
@@ -161,24 +165,10 @@ internal static class RecordDataFormat
     {
         for (var index = 0; index < udt.Fields.Length; index++)
         {
-            var field = udt.Fields[index];
-
-            // a nested UDT is read into in place too, so its own fields keep their identity the way the
-            // outer ones do - and so a String field nested two deep still measures its own current length.
-            if (udt.FieldAt(index) is VBUserDefinedTypeValue nested)
-            {
-                if (!TryReadInto(stream, nested, mode))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            // the field read is let in place (TryLetFieldAt): a ByRef parameter given it is bound to its cell (MS-VBAL §5.3.1.11).
-            var currentLength = udt.FieldAt(index) is VBStringValue text ? text.Length : 0;
-            if (!TryRead(stream, field.ResolvedType ?? VBVariantType.TypeInfo, mode, currentLength, out var value)
-                || !udt.TryLetFieldAt(index, value!))
+            // a nested record is read into in place, so it keeps its identity the way the outer record does; any other field is let what was read in place (TryLetFieldAt): a ByRef parameter given it is bound to its cell (MS-VBAL §5.3.1.11).
+            var current = udt.FieldAt(index);
+            if (!TryReadMember(stream, udt.Fields[index].ResolvedType ?? VBVariantType.TypeInfo, current, mode, out var value)
+                || (!ReferenceEquals(value, current) && !udt.TryLetFieldAt(index, value!)))
             {
                 return false;
             }
@@ -187,15 +177,15 @@ internal static class RecordDataFormat
         return true;
     }
 
-    // the write side of the same walk. A field is written by its own row of the format, so a String field
-    // carries a length prefix in Random mode and none in Binary, exactly as a String variable would.
+    // the write side of the same walk. Each field is written by the row of its declared type, not of the value it holds: a Variant field has its type
+    // descriptor whatever it was last given, and a String * n field is its characters and nothing else.
     private static bool TryWriteFields(Stream stream, VBUserDefinedTypeValue udt, VBFileMode mode, out int written)
     {
         written = 0;
         for (var index = 0; index < udt.Fields.Length; index++)
         {
             if (udt.FieldAt(index) is not { } field
-                || !TryWrite(stream, field, mode, isVariantTarget: field is VBVariantValue, out var fieldBytes))
+                || !TryWriteMember(stream, udt.Fields[index].ResolvedType ?? VBVariantType.TypeInfo, field, mode, out var fieldBytes))
             {
                 return false;
             }
@@ -204,6 +194,60 @@ internal static class RecordDataFormat
         }
 
         return true;
+    }
+
+    // a field of a record as MS-VBA writes it (recorded in Excel): a String has its two-byte length in Binary mode as in Random, since nothing else in the
+    // record says where it ends; a String * n is padded with spaces to its length, or cut to it.
+    private static bool TryWriteMember(Stream stream, VBType declared, VBTypedValue value, VBFileMode mode, out int written)
+    {
+        written = 0;
+        switch (declared)
+        {
+            case VBVariantType:
+                return TryWrite(stream, value, mode, isVariantTarget: true, out written);
+
+            case VBFixedStringType fixedString when Unwrapped(value) is VBStringValue text:
+                written = WriteBytes(stream, Ansi.GetBytes(Text(text).PadRight(fixedString.Length)[..fixedString.Length]));
+                return true;
+
+            case VBStringType when Unwrapped(value) is VBStringValue text:
+                written = WriteString(stream, Text(text), VBFileMode.Random);
+                return true;
+
+            default:
+                return TryWrite(stream, value, mode, isVariantTarget: false, out written);
+        }
+    }
+
+    // the read side of TryWriteMember. A record is read into the value the field holds, which is what value is then.
+    private static bool TryReadMember(Stream stream, VBType declared, VBTypedValue? current, VBFileMode mode, out VBTypedValue? value)
+    {
+        value = null;
+        switch (declared)
+        {
+            case VBUserDefinedType when current is VBUserDefinedTypeValue record:
+                value = record;
+                return TryReadInto(stream, record, mode);
+
+            // a Variant member is a Variant still, whatever it was read as: the next Put writes its descriptor.
+            case VBVariantType:
+                if (!TryRead(stream, declared, mode, 0, out var held))
+                {
+                    return false;
+                }
+
+                value = held is VBVariantValue ? held : new VBVariantValue(held!);
+                return true;
+
+            case VBFixedStringType:
+                return TryReadTyped(stream, declared, mode, 0, out value);
+
+            case VBStringType:
+                return TryReadString(stream, VBFileMode.Random, 0, out value);
+
+            default:
+                return TryReadTyped(stream, declared, mode, 0, out value);
+        }
     }
 
     private static int WriteValue(Stream stream, VBTypedValue value, VBFileMode mode) => value switch
