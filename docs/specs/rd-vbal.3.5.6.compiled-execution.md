@@ -169,7 +169,7 @@ The interpreter keeps the rest:
 
 - a member of an object declared `Object` or `Variant`, which is late-bound;
 - a `With` block whose object is a record;
-- a `Set` of a member, and a `Set` inside a `With` block;
+- a `Set` of a member (`Set .Other = Q`), and a `Set` inside a `With` block (`Set F = .Self`), which it runs as a call compiled code makes (see below);
 - a member of the object of a `With` block inside an expression, read (`.X + 1`) or called (`.Total() + 1`);
 - a `String` assigned to a member.
 
@@ -252,8 +252,9 @@ The interpreter runs a call statement that compiled code does not make (`Err.Cle
 argument), and a `Set` it does not do (see Objects, above), as a call that compiled code makes: compiled code writes its variables into the
 frame, the interpreter runs the statement, and compiled code reads the variables back after it, as after any call it makes. An error the statement raises
 reaches the activation's handler as an error a callee raises does (see Error handling, below). Such a statement never keeps a procedure in the
-interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the interpreter runs it on its own, as
-above.
+interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the statement is evaluated against the
+object the block holds, as the interpreter evaluates it: a jump out of the block and back in finds the same object, and a block with no object raises
+error 91 at a member of it.
 
 A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
 address from then on. Bytes a debugger writes at that address while the program waits are the variable's, and compiled code reads them when it goes on. If
