@@ -1,4 +1,7 @@
+using RDCore.Runtime.Support.Build;
 using System.IO.Abstractions;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 namespace RDCore.CLI.App.Build;
 
@@ -18,7 +21,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         fileSystem.File.WriteAllBytes(fileSystem.Path.Combine(folder, dll), assembly);
         fileSystem.File.WriteAllBytes(fileSystem.Path.Combine(folder, $"{program}.pdb"), pdb);
         fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, $"{program}.runtimeconfig.json"), RuntimeConfiguration());
-        CopyRuntime(folder);
+        CopyRuntime(folder, RuntimeClosure([SupportName, .. ReferencesOf(assembly)]));
 
         if (host is null)
         {
@@ -59,27 +62,63 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
             """;
     }
 
-    // the runtime's assemblies, and the folders of their resources in each language: what the program loads from beside itself.
-    private void CopyRuntime(string folder)
-    {
-        foreach (var file in fileSystem.Directory.GetFiles(runtimeFolder, "*.dll"))
-        {
-            fileSystem.File.Copy(file, fileSystem.Path.Combine(folder, fileSystem.Path.GetFileName(file)), overwrite: true);
-        }
+    // the assembly a built program calls into, and the root of what it runs on.
+    public static string SupportName { get; } = typeof(BuiltProgram).Assembly.GetName().Name!;
 
-        foreach (var culture in fileSystem.Directory.GetDirectories(runtimeFolder))
+    // the named assemblies of the runtime folder and every one of it they reference, followed transitively without loading them: what the program loads
+    // from beside itself. A reference to the shared framework is not in the folder, and is not followed; rdc itself, its parser and its console are not
+    // referenced, and are not copied.
+    public IReadOnlyList<string> RuntimeClosure(IEnumerable<string> roots)
+    {
+        var found = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Queue<string>(roots);
+        while (pending.TryDequeue(out var name))
         {
-            var resources = fileSystem.Directory.GetFiles(culture, "*.resources.dll");
-            if (resources.Length == 0)
+            var path = fileSystem.Path.Combine(runtimeFolder, $"{name}.dll");
+            if (!seen.Add(name) || !fileSystem.File.Exists(path))
             {
                 continue;
             }
 
-            var target = fileSystem.Path.Combine(folder, fileSystem.Path.GetFileName(culture));
-            _ = fileSystem.Directory.CreateDirectory(target);
-            foreach (var file in resources)
+            found.Add(name);
+            foreach (var reference in ReferencesOf(fileSystem.File.ReadAllBytes(path)))
             {
-                fileSystem.File.Copy(file, fileSystem.Path.Combine(target, fileSystem.Path.GetFileName(file)), overwrite: true);
+                pending.Enqueue(reference);
+            }
+        }
+
+        return found;
+    }
+
+    public static IReadOnlyList<string> ReferencesOf(byte[] assembly)
+    {
+        using var image = new PEReader(new MemoryStream(assembly, writable: false));
+        var metadata = image.GetMetadataReader();
+        return [.. metadata.AssemblyReferences.Select(handle => metadata.GetString(metadata.GetAssemblyReference(handle).Name))];
+    }
+
+    // the assemblies, and their resources in each language that has them.
+    private void CopyRuntime(string folder, IReadOnlyList<string> closure)
+    {
+        foreach (var name in closure)
+        {
+            fileSystem.File.Copy(fileSystem.Path.Combine(runtimeFolder, $"{name}.dll"), fileSystem.Path.Combine(folder, $"{name}.dll"), overwrite: true);
+        }
+
+        foreach (var culture in fileSystem.Directory.GetDirectories(runtimeFolder))
+        {
+            foreach (var name in closure)
+            {
+                var resources = fileSystem.Path.Combine(culture, $"{name}.resources.dll");
+                if (!fileSystem.File.Exists(resources))
+                {
+                    continue;
+                }
+
+                var target = fileSystem.Path.Combine(folder, fileSystem.Path.GetFileName(culture));
+                _ = fileSystem.Directory.CreateDirectory(target);
+                fileSystem.File.Copy(resources, fileSystem.Path.Combine(target, $"{name}.resources.dll"), overwrite: true);
             }
         }
     }

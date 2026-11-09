@@ -50,6 +50,9 @@ public sealed class BuildCommandTests
     // an application host as small as one can be: the placeholder, between what comes before it and after it.
     private static readonly byte[] FakeHost = [.. "MZ-before-"u8, .. AppHost.Placeholder, .. new byte[AppHost.SlotLength - AppHost.Placeholder.Length], .. "-after"u8];
 
+    private static readonly Lazy<byte[]> SupportAssembly = new(() => File.ReadAllBytes(typeof(BuiltProgram).Assembly.Location));
+    private static readonly Lazy<byte[]> RuntimeAssembly = new(() => File.ReadAllBytes(typeof(RDCore.Runtime.Execution.RuntimeExecutionPipeline).Assembly.Location));
+
     private static MockFileSystem Files(params (string Path, string Source)[] modules)
     {
         var fileSystem = new MockFileSystem();
@@ -59,10 +62,15 @@ public sealed class BuildCommandTests
             fileSystem.File.WriteAllText(Path.Combine(Root, path), source);
         }
 
-        // the runtime a program runs on: an assembly, its resources in French, and rdc's runtime configuration.
+        // the runtime a program runs on: the support it calls and an assembly that references, their resources in French, and rdc's runtime
+        // configuration; beside them, what is rdc's own and no program's.
         fileSystem.Directory.CreateDirectory(Path.Combine(Runtime, "fr"));
-        fileSystem.File.WriteAllText(Path.Combine(Runtime, "RDCore.Runtime.dll"), "the runtime");
-        fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", "rdc.resources.dll"), "les ressources");
+        fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.Runtime.Support.dll"), SupportAssembly.Value);
+        fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.Runtime.dll"), RuntimeAssembly.Value);
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", "RDCore.Runtime.Support.resources.dll"), "les ressources");
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", "rdc.resources.dll"), "les ressources de rdc");
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.dll"), "rdc");
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "RDCore.Parsing.dll"), "the parser");
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net10.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
@@ -114,9 +122,15 @@ public sealed class BuildCommandTests
         var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"], CancellationToken.None);
 
         Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
-        foreach (var file in new[] { "Hello.dll", "Hello.pdb", "Hello.exe", "Hello.runtimeconfig.json", "RDCore.Runtime.dll", Path.Combine("fr", "rdc.resources.dll") })
+        foreach (var file in new[] { "Hello.dll", "Hello.pdb", "Hello.exe", "Hello.runtimeconfig.json", "RDCore.Runtime.Support.dll", "RDCore.Runtime.dll",
+            Path.Combine("fr", "RDCore.Runtime.Support.resources.dll") })
         {
             Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        foreach (var file in new[] { "rdc.dll", "RDCore.Parsing.dll", Path.Combine("fr", "rdc.resources.dll") })
+        {
+            Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, file)), file);
         }
 
         Assert.AreEqual(fileSystem.File.ReadAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json")), fileSystem.File.ReadAllText(Path.Combine(Output, "Hello.runtimeconfig.json")));
