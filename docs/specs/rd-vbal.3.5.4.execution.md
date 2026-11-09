@@ -32,8 +32,8 @@ A step, a pause and a breakpoint stop only before an instruction that is on a li
 block's closing line, such as an `End If`, a `Next` or the procedure's `End Sub`
 ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md#synthesized-closers)).
 The runtime reads that line from the instruction's `Closes` when it has one, and from its `Location` otherwise
-(`RDCore.Runtime.Execution.BreakpointTable.LocationOf`). A post-test loop's closer has the whole loop as its node,
-which begins on the `Do` line, and is stopped on at its `Loop` line. The trailing jump of a branch is on no line: a
+(`RDCore.Runtime.Execution.BreakpointTable.LocationOf`). `Closes` comes first because a post-test loop's closer has the
+whole loop as its node, which begins on the `Do` line. The trailing jump of a branch is on no line: a
 program goes through it to the closer, so the `End If` line is stopped at once.
 
 A step stops once per statement, as MS-VBA's step does:

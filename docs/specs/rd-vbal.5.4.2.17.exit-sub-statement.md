@@ -26,6 +26,9 @@ The executor dispatches the `ExitProcedure` instruction: it goes on at the `End 
 activation completes. A breakpoint on the `End Sub` line is hit, and a step from the `Exit Sub` stops there, before the
 procedure returns.
 
+**RD-VBA differs from MS-VBA:** MS-VBA goes from the `Exit Sub` straight back to the caller
+([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md#where-a-program-stops)).
+
 Reaching the end of the instruction list completes the activation "as if execution had reached the end of the
 body" (the wording of **MS-VBAL §5.4.2.17**). This is the same outcome as an explicit `Exit`
 ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
