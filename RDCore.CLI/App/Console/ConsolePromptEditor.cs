@@ -255,6 +255,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
         private Task<SignatureHelp?>? _signing;
         private CancellationTokenSource? _signingCancellation;
         private readonly List<string> _drawn = [];
+        private bool _forgotten;
         private int _reservedRows;
 
         // the snippet whose tab stops are being filled in, while they are.
@@ -1190,7 +1191,7 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             {
                 down++;
                 var row = index < rows.Count ? rows[index] : null;
-                if (index < _drawn.Count && _drawn[index] == row)
+                if (!_forgotten && index < _drawn.Count && _drawn[index] == row)
                 {
                     continue;
                 }
@@ -1207,18 +1208,24 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
                 Output.Write($"\u001b[{moved}A");
             }
 
+            _forgotten = false;
             _drawn.Clear();
             _drawn.AddRange(rows);
         }
 
-        // what is under the line was drawn over by someone else - the output of a program, a progress line: every row of it is written again. When it was erased
-        // to write above the line (WriteAbove), the rows under the line are gone too, and are made again.
+        // what is under the line was drawn over by someone else - the output of a program, a progress line: every row of it is written again, and the rows it
+        // had that it no longer has are cleared, which a bar whose work ended is. When it was erased to write above the line (WriteAbove), the rows under the
+        // line are gone too, and are made again.
         private void Forget(bool erased = false)
         {
-            _drawn.Clear();
             if (erased)
             {
+                _drawn.Clear();
                 _reservedRows = 0;
+            }
+            else
+            {
+                _forgotten = true;
             }
         }
 
