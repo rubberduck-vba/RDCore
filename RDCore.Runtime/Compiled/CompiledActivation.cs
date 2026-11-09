@@ -934,7 +934,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         var list = Body;
-        _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
+        _body.WalkedBack(InstructionLocations.Of(list, pc));
         if (!HandKnowns(frame, list, pc, inside: _failed is null))
         {
             return RuntimeExecutionOutcome.InternalError;
@@ -1310,7 +1310,7 @@ public sealed partial class CompiledActivation : ILightActivation
             return RuntimeExecutionOutcome.InternalError;
         }
 
-        _body.WalkedBack(pc < list.Items.Length ? list.Items[pc].Location : null);
+        _body.WalkedBack(InstructionLocations.Of(list, pc));
         return _executor.Run(_session, frame, list, _context);
     }
 
