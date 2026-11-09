@@ -12,17 +12,10 @@ using System.Text.Json;
 
 namespace RDCore.CLI.App.Build;
 
-/// <summary>
-/// What a project's <c>.rdproj</c> says of the program it is, in its <c>build</c> section, which the project file reads as
-/// members it does not know, kept as they were read.
-/// </summary>
-/// <param name="EntryPoint">The entry point it names, <c>Module.Procedure</c> or <c>Procedure</c>; <see langword="null"/> for the implicit <c>Sub Main</c>.</param>
-/// <param name="IsLibrary">Whether the project is a library, which has no entry point.</param>
+// the .rdproj's build section, read from the members the project file doesn't know until it has a typed one. EntryPoint is Module.Procedure or Procedure,
+// null for the implicit Sub Main.
 internal sealed record class ProjectBuildSettings(string? EntryPoint, bool IsLibrary)
 {
-    /// <summary>
-    /// The settings of <paramref name="project"/>; none of them when it has no <c>build</c> section.
-    /// </summary>
     public static ProjectBuildSettings Of(RDCoreProject project)
     {
         if (project.ExtensionData?.TryGetValue("build", out var build) is not true || build.ValueKind is not JsonValueKind.Object)
@@ -37,36 +30,17 @@ internal sealed record class ProjectBuildSettings(string? EntryPoint, bool IsLib
     }
 }
 
-/// <summary>
-/// Runs a program's entry point in a session that is loaded: what <c>rdc run</c> runs a workspace with, and a built program its image, so that the two run
-/// the same way and end the same way.
-/// </summary>
+// what rdc run runs a loaded workspace with, and a built program its replayed image, so that the two run, print and exit alike.
 internal static class ProgramRunner
 {
-    /// <summary>
-    /// The exit code of a program that ran to its end, or to an <c>End</c>.
-    /// </summary>
     public const int Completed = 0;
 
-    /// <summary>
-    /// The exit code of a program a run-time error stopped, whatever the error: its number is in the message on standard error.
-    /// </summary>
     public const int Failed = 1;
 
-    /// <summary>
-    /// The exit code of a program that could not be started: no entry point, or code that does not load.
-    /// </summary>
+    // no entry point, or code that doesn't load.
     public const int Refused = 2;
 
-    /// <summary>
-    /// The entry point of the session's program: the procedure the project names (<see cref="ProjectBuildSettings.EntryPoint"/>), or else the
-    /// <c>Sub Main</c> of the one standard module that declares one (<see cref="ProgramEntryPoint"/>).
-    /// </summary>
-    /// <param name="session">The session the program is loaded in.</param>
-    /// <param name="modules">The names of the modules that loaded.</param>
-    /// <param name="settings">What the project says of the program.</param>
-    /// <param name="refusal">Why there is none, worded for the user.</param>
-    /// <returns>The module that declares it and the procedure; <see langword="null"/> when there is none, or more than one.</returns>
+    // the procedure the project names, or else the Sub Main of the one standard module that declares one; null, with the reason, otherwise.
     public static (string Module, VBTypeMemberSymbol Procedure)? EntryPointOf(IRuntimeSession session, IEnumerable<string> modules, ProjectBuildSettings settings,
         out string? refusal)
     {
@@ -112,28 +86,10 @@ internal static class ProgramRunner
         }
     }
 
-    /// <summary>
-    /// The command line a program started with <paramref name="arguments"/> sees (<c>Command$</c>): the arguments, separated by a space, and in double quotes
-    /// when they are empty or hold a space or a tab, so that each is still one argument.
-    /// </summary>
-    /// <param name="arguments">What the program was started with.</param>
+    // Command$: an argument that is empty or holds whitespace is quoted, so that each is still one argument.
     public static string CommandLineOf(IReadOnlyList<string> arguments)
         => string.Join(' ', arguments.Select(argument => argument.Length == 0 || argument.AsSpan().IndexOfAny(' ', '\t') >= 0 ? $"\"{argument}\"" : argument));
 
-    /// <summary>
-    /// Runs <paramref name="entryPoint"/> in the session of <paramref name="provider"/>, and says how the program ended.
-    /// </summary>
-    /// <param name="provider">The session the program is loaded in.</param>
-    /// <param name="entryPoint">Its entry point.</param>
-    /// <param name="arguments">
-    /// What the program was started with: the entry point's <c>ParamArray</c>, when it declares one, and <c>Command$</c> (<see cref="CommandLineOf"/>).
-    /// </param>
-    /// <param name="messages">Builds the verbose half of a run-time error's message.</param>
-    /// <param name="output">Where what the program prints is written, as it prints it: standard output.</param>
-    /// <param name="error">Where the error that stopped it is written: standard error.</param>
-    /// <param name="unattended">Whether nobody answers a dialog, which then fails the run.</param>
-    /// <param name="token">Stops the program.</param>
-    /// <returns>The exit code: <see cref="Completed"/>, or <see cref="Failed"/>.</returns>
     public static async Task<int> RunAsync(EnvironmentSessionProvider provider, VBTypeMemberSymbol entryPoint, IReadOnlyList<string> arguments,
         IVerboseMessageBuilder messages, TextWriter output, TextWriter error, bool unattended, CancellationToken token)
     {

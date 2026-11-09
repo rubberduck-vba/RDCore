@@ -33,20 +33,8 @@ internal sealed class BuildCommandOptions
     public string? Runtime { get; set; }
 }
 
-/// <summary>
-/// <c>rdc build [path]</c>: builds a workspace into a program that runs where .NET is installed, without rdc: its procedures compiled into an
-/// assembly, the assembly's executable, and the runtime it runs on.
-/// </summary>
-/// <remarks>
-/// The workspace is loaded as <c>rdc bench</c> loads it, and each procedure compiled as its first call would compile it. The program's assembly holds the
-/// load itself, which the program replays when it runs: it runs with no parser.
-/// </remarks>
-/// <param name="writer">Writes the platform's messages: what went wrong, and where the program was written.</param>
-/// <param name="fileSystem">The file system the workspace and the output folder are on.</param>
-/// <param name="projects">Reads a <c>.rdproj</c>.</param>
-/// <param name="runner">Loads the workspace, and compiles its procedures.</param>
-/// <param name="output">Writes the program into its folder; into one beside rdc's own runtime unless said otherwise.</param>
-/// <param name="hosts">Finds the application host of a platform; in the packs of the .NET rdc runs on unless said otherwise.</param>
+// rdc build [path]: the workspace loaded as rdc bench loads it, each procedure compiled as its first call would compile it, and the load itself kept in the
+// assembly, which the program replays when it runs: a built program runs with no parser.
 internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner,
     ProgramOutput? output = null, Func<string, string?>? hosts = null) : ICliCommand
 {

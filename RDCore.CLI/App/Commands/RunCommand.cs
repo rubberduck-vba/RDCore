@@ -21,19 +21,7 @@ internal sealed class RunCommandOptions
     public bool Unattended { get; set; }
 }
 
-/// <summary>
-/// <c>rdc run [path] [-- args…]</c>: runs the program of a workspace (its entry point, in a session of its own, in-process) and exits as the program
-/// ends: 0 when it ran to its end, 1 when a run-time error stopped it, 2 when it could not be started. Nothing is written.
-/// </summary>
-/// <remarks>
-/// The workspace is loaded as <c>rdc bench</c> loads it, and run as a program <c>rdc build</c> builds of it runs (<see cref="ProgramRunner"/>).
-/// </remarks>
-/// <param name="fileSystem">The file system the workspace is on.</param>
-/// <param name="projects">Reads a <c>.rdproj</c>.</param>
-/// <param name="runner">Loads the workspace.</param>
-/// <param name="messages">Builds the verbose half of a run-time error's message.</param>
-/// <param name="output">Where what the program prints is written; standard output unless said otherwise.</param>
-/// <param name="error">Where what stops it is written; standard error unless said otherwise.</param>
+// rdc run [path] [-- args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
 internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IVerboseMessageBuilder messages,
     TextWriter? output = null, TextWriter? error = null) : ICliCommand
 {

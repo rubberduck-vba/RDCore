@@ -3,43 +3,19 @@ using System.Text;
 
 namespace RDCore.CLI.App.Build;
 
-/// <summary>
-/// The native executable that starts a built program: the .NET application host of the target platform, told the name of the program's assembly.
-/// </summary>
-/// <remarks>
-/// The host is the one the .NET SDK makes an executable of an application with, from its packs
-/// (<c>packs/Microsoft.NETCore.App.Host.&lt;rid&gt;/&lt;version&gt;/runtimes/&lt;rid&gt;/native/</c>). It holds a slot of 1024 bytes that begins with a
-/// placeholder (the SHA-256 of <c>foobar</c>, in hexadecimal) where the path of the application's assembly, relative to the executable, is written
-/// over it in UTF-8 and the rest of the placeholder set to zeros.
-/// </remarks>
+// the .NET application host the SDK makes an application's executable from, out of its packs
+// (packs/Microsoft.NETCore.App.Host.<rid>/<version>/runtimes/<rid>/native/). Its 1024-byte slot begins with a placeholder, the hex SHA-256 of "foobar":
+// the assembly's path, relative to the executable, is written over it in UTF-8, and the rest of the slot is zeroed.
 internal static class AppHost
 {
-    /// <summary>
-    /// The placeholder the path of the application's assembly is written over.
-    /// </summary>
     internal static readonly byte[] Placeholder = Encoding.UTF8.GetBytes("c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2");
 
-    /// <summary>
-    /// How long the path written over the placeholder can be, in UTF-8 bytes: the size of the slot.
-    /// </summary>
     internal const int SlotLength = 1024;
 
-    /// <summary>
-    /// The runtime identifier of the platform rdc runs on: what a program is built for unless said otherwise.
-    /// </summary>
     public static string CurrentRuntime => RuntimeInformation.RuntimeIdentifier;
 
-    /// <summary>
-    /// The name of the executable of a program, on the platform of <paramref name="runtime"/>.
-    /// </summary>
     public static string ExecutableName(string program, string runtime) => IsWindows(runtime) ? $"{program}.exe" : program;
 
-    /// <summary>
-    /// The application host for <paramref name="runtime"/>, in the packs of the .NET installation rdc runs on: of the newest version of the major version
-    /// rdc runs on. <see langword="null"/> when there is none.
-    /// </summary>
-    /// <param name="runtime">The runtime identifier, <c>win-x64</c>, <c>linux-x64</c>.</param>
-    /// <param name="dotnetRoot">The root of the .NET installation; the one rdc runs on when omitted.</param>
     public static string? Find(string runtime, string? dotnetRoot = null)
     {
         var root = dotnetRoot ?? DotnetRoot();
@@ -71,14 +47,6 @@ internal static class AppHost
         return null;
     }
 
-    /// <summary>
-    /// The application host <paramref name="host"/> made the executable of the assembly <paramref name="assembly"/>: the path written over the placeholder.
-    /// </summary>
-    /// <param name="host">The content of the application host.</param>
-    /// <param name="assembly">The path of the program's assembly, relative to the executable: its file name, when they are side by side.</param>
-    /// <returns>The content of the executable.</returns>
-    /// <exception cref="ArgumentException">The path is longer than the slot.</exception>
-    /// <exception cref="InvalidDataException">The host has no placeholder, or more than one.</exception>
     public static byte[] Patch(ReadOnlySpan<byte> host, string assembly)
     {
         var path = Encoding.UTF8.GetBytes(assembly);

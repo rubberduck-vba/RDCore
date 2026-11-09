@@ -2,40 +2,15 @@ using System.IO.Abstractions;
 
 namespace RDCore.CLI.App.Build;
 
-/// <summary>
-/// What a build writes into its output folder: the program's assembly, the runtime configuration that says what .NET runs it, its executable, and the
-/// assemblies of the runtime it runs on.
-/// </summary>
-/// <param name="fileSystem">The file system the output folder is on.</param>
-/// <param name="runtimeFolder">The folder of the runtime the program runs on: rdc's own.</param>
 internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder)
 {
-    /// <summary>
-    /// The name of rdc's own assembly, whose runtime configuration a built program's is.
-    /// </summary>
     private const string RdcName = "rdc";
 
-    /// <summary>
-    /// The folder of the runtime a program runs on: rdc's own.
-    /// </summary>
     public string RuntimeFolder => runtimeFolder;
 
-    /// <summary>
-    /// Whether <paramref name="program"/> is the name of an assembly of the runtime, which the program's would take the place of.
-    /// </summary>
     public bool IsTaken(string program)
         => fileSystem.File.Exists(fileSystem.Path.Combine(runtimeFolder, $"{program}.dll")) || string.Equals(program, RdcName, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Writes the program into <paramref name="folder"/>, which is made when it does not exist.
-    /// </summary>
-    /// <param name="folder">The output folder.</param>
-    /// <param name="program">The program's name: that of its assembly, without its extension.</param>
-    /// <param name="assembly">The content of its assembly.</param>
-    /// <param name="pdb">The content of its debugging information, a portable PDB.</param>
-    /// <param name="host">The application host its executable is made from; none when there is none for its platform.</param>
-    /// <param name="runtime">The runtime identifier of the platform it is built for.</param>
-    /// <returns>The path of the executable; <see langword="null"/> when none was written.</returns>
     public string? Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime)
     {
         _ = fileSystem.Directory.CreateDirectory(folder);
