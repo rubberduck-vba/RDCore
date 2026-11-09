@@ -31,6 +31,9 @@ A path given to a file statement or a `FileSystem` member may separate its folde
 separator is `/` (Linux, macOS), each `\` in the path is read as `/`: `Open "Data\in.txt"` opens `Data/in.txt` in the current directory. On Windows a path
 is used as given. `CurDir` gives the path as the file system spells it, with `/` on Linux and macOS, and `Dir` gives names with no directory part.
 
+When the current directory is deleted (Linux and macOS allow it), `CurDir` and a relative path given to a file statement or a `FileSystem`
+member raise error `76` (RD-VBA addition). A full path still works.
+
 > [!NOTE]
 > On Linux and macOS, a file or folder whose name contains `\` cannot be reached through the VBA file functions.
 
