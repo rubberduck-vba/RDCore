@@ -47,7 +47,7 @@ public record class ExternalBindingHandle(
     /// Invokes the member and returns the outcome as a result, the way the semantics of the language do:
     /// an error it raised, that nothing handled, is in the result rather than thrown.
     /// </summary>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     /// <param name="args">The arguments of the call, without the receiver, which the handle passes itself.</param>
     public RuntimeSemanticsEvaluationResult Call(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
         => Dispatcher.Invoke(

@@ -9,9 +9,9 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// (<strong>MS-VBAL §5.6.4</strong>, <strong>§5.6.10</strong>).
 /// </summary>
 /// <remarks>
-/// Name lookup only: what a name binds to, never what is stored for it. The storage a running session binds its symbols to is
-/// <see cref="ISymbolStorage"/>, and a resolver of a running session is both (<see cref="IRuntimeSymbolResolver"/>). The static front end and the
-/// language server resolve names with no session at all, so they need nothing more than this.
+/// Name lookup: what a name binds to. The storage a running session binds its symbols to is <see cref="ISymbolStorage"/>, and a resolver of a
+/// running session is both (<see cref="IRuntimeSymbolResolver"/>). The static front end and the language server resolve names without a session,
+/// through this interface alone.
 /// </remarks>
 public interface ISymbolResolver
 {

@@ -50,6 +50,8 @@ public record class ReferenceBindingHandle : IKnowledgeBinding
     /// <remarks>
     /// Stores a reference that is known: a write that may be of one that is not says so with <see cref="Store"/>.
     /// </remarks>
+    /// <param name="resolver">Unused: the reference is held by the handle.</param>
+    /// <param name="value">The reference to store.</param>
     public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value) => Store(value, isKnown: true);
 
     /// <inheritdoc/>

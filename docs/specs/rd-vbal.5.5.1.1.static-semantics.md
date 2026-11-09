@@ -3,13 +3,13 @@
 This section corresponds to [**MS-VBAL §5.5.1.1** Static semantics](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4ef84713-33da-445b-942e-345982b3267d).
 
 The pairs of declared types MS-VBAL §5.5.1.1 makes invalid to Let-coerce are checked by
-[LetCoercionStaticSemantics](../api/RDCore.SDK.Semantics.Static.LetCoercionStaticSemantics.html), and reported as
+`LetCoercionStaticSemantics`, and reported as
 [`VBC09310`](../diagnostics/vbc09310.md) (Type mismatch).
 
 ## An object where a value is expected
 
 Where a value is expected, an object stands for its _simple data value_: what its default member returns
-(**MS-VBAL §5.5.1.2.13**). [ObjectValueStaticSemantics](../api/RDCore.SDK.Semantics.Static.ObjectValueStaticSemantics.html)
+(**MS-VBAL §5.5.1.2.13**). `ObjectValueStaticSemantics`
 checks at compile time that it can have one, as MS-VBA does (recorded in Excel, each statement compiled alone):
 
 |The object|Where a value of a declared type is expected|`Abs`, `Int`, `Fix`|`Len`, `LenB`|Where a `Variant` is expected|

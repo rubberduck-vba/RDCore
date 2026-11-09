@@ -17,7 +17,7 @@
 
 An `Exit Sub` must be inside the body of a subroutine; in a `Function` or in a property it is
 [`VBC09332`](../diagnostics/vbc09332.md) (`ExitSubNotAllowedInFunctionOrProperty`). The rule is
-[ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s, applied when the kind of the procedure is known
+`ExitStatementStaticSemantics`'s, applied when the kind of the procedure is known
 ([**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md)).
 
 ## Runtime Semantics

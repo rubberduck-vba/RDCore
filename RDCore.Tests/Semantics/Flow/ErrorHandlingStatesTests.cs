@@ -3,6 +3,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Semantics.Flow;
 

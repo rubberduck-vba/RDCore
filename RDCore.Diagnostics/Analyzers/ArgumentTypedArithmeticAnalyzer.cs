@@ -15,7 +15,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// <strong>MS-VBAL §6.1.2.10.1.1</strong>, <strong>§6.1.2.3.1.16</strong> and <strong>§6.1.2.3.1.18</strong> declare <c>Abs</c>, <c>Fix</c> and <c>Int</c>
 /// <c>As Variant</c>; MS-VBA types a call of one of a number as the number's type, and RD-VBA does as MS-VBA does
-/// (<see cref="RDCore.SDK.Semantics.Static.ArgumentTypedFunctions"/>): <c>Fix(n) * 7000</c> of an <c>Integer</c> raises error 6, where a <c>Variant</c> product
+/// (<c>ArgumentTypedFunctions</c>): <c>Fix(n) * 7000</c> of an <c>Integer</c> raises error 6, where a <c>Variant</c> product
 /// would be a <c>Long</c>. A warning, because the program that relies on MS-VBAL's typing overflows. The host states it from the declared types
 /// (<see cref="ValueExpressionSemanticFlags.OverflowsWhereVariantWidens"/>).
 /// </remarks>

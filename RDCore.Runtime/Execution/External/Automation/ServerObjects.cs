@@ -124,7 +124,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     }
 
     private static bool IsControlExtender(VBClassModuleSymbol classModule)
-        => classModule.Name == SDK.Semantics.Static.FormControlExtender.ClassName
+        => classModule.Name == LanguageCore.Static.FormControlExtender.ClassName
             && classModule.GetProperty(SymbolProperties.Library) == SDK.Workspace.Forms.FormDesigner.MSFormsLibrary;
 
     // what the server names the class of an object: asked as a call is made, the program waiting with its turn given up - an event the server raises meanwhile (a

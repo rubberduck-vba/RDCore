@@ -168,6 +168,6 @@ public interface IExternalDispatcher
     /// workspace can trap it like any other.
     /// </remarks>
     /// <param name="request">The call to run.</param>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver);
 }

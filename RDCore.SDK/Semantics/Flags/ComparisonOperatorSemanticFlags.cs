@@ -118,7 +118,7 @@ public enum ComparisonOperatorSemanticFlags
     /// <remarks>
     /// 👉 <strong>MS-VBAL §5.6.9.5</strong> makes the effective type the number's: <c>"2.5" = 2</c> is <c>True</c>, and <c>"40000" &gt; i</c>, with
     /// <c>i</c> an <c>Integer</c>, overflows (6). MS-VBA compares the two as <c>Double</c> values: <c>False</c>, and no error
-    /// (<see cref="Plans.OperationPlanner.SpecifiedRelationalEffectiveType"/>; RD-VBAL §5.6.9.5).
+    /// (<c>OperationPlanner.SpecifiedRelationalEffectiveType</c>; RD-VBAL §5.6.9.5).
     /// </remarks>
     IsStringComparedAsADouble = 1 << 24,
 

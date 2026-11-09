@@ -45,10 +45,10 @@ public enum BindingCapabilities
 /// A handle to a binding to a runtime entity.
 /// </summary>
 /// <remarks>
-/// The value operations take <see cref="IRuntimeSymbolResolver"/> (the read face over the current
-/// execution context), so a handle that is not self-contained (a reference to another address, a
-/// property- or member-backed binding) can resolve its value through the same read protocol that
-/// produced it. The self-contained literal/value/reference cases ignore it today.
+/// The value operations take <see cref="IRuntimeSymbolResolver"/> (the running session's symbols and their
+/// storage), so a handle that is not self-contained (a reference to another address, a
+/// property- or member-backed binding) can resolve its value through the same session that
+/// produced it. The self-contained literal and value cases ignore it.
 /// </remarks>
 public interface IBindingHandle
 {
@@ -59,7 +59,8 @@ public interface IBindingHandle
     /// <remarks>
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.GetValue"/>.
     /// </remarks>
-    /// <exception cref="NotSupportedException"></exception>
+    /// <param name="resolver">The running session's symbols and their storage, which a binding that is not self-contained is read through.</param>
+    /// <exception cref="NotSupportedException">The binding does not support <see cref="BindingCapabilities.GetValue"/>.</exception>
     IRuntimeValue GetValue(IRuntimeSymbolResolver resolver);
     /// <summary>
     /// Sets the value associated to this handle.
@@ -67,7 +68,9 @@ public interface IBindingHandle
     /// <remarks>
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.SetValue"/>.
     /// </remarks>
-    /// <exception cref="NotSupportedException"></exception>
+    /// <param name="resolver">The running session's symbols and their storage, which a binding that is not self-contained is written through.</param>
+    /// <param name="value">The value to assign.</param>
+    /// <exception cref="NotSupportedException">The binding does not support <see cref="BindingCapabilities.SetValue"/>.</exception>
     void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value);
     /// <summary>
     /// Invokes the callable entity associated to this handle, and returns the runtime value it yields - an <c>HRESULT</c> (<c>S_OK</c>), for one that yields no value.
@@ -76,6 +79,8 @@ public interface IBindingHandle
     /// 👉 Verify that the binding supports <see cref="BindingCapabilities.Invoke"/>.<br/>
     /// A handle to code that runs on a call stack does not push the frame itself: it hands the call to an <see cref="IProcedureInvoker"/>.
     /// </remarks>
+    /// <param name="resolver">The running session's symbols and their storage, which the call is made in.</param>
+    /// <param name="args">The arguments of the call.</param>
     /// <exception cref="NotSupportedException">The binding does not support <see cref="BindingCapabilities.Invoke"/>.</exception>
     /// <exception cref="Errors.VBRuntimeErrorException">A run-time error was raised by the invoked entity and nothing handled it.</exception>
     IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args);

@@ -7,7 +7,7 @@ sequences of operations.
 
 |Semantics|Defined by|Availability to the _semantic analysis layer_|
 |---|---|---|
-|_Static semantics_ ([**§5.0.1**](#501-static-semantics))|[IStaticSemantics](../api/RDCore.SDK.Semantics.Static.Abstract.IStaticSemantics.html)|Fully available.|
+|_Static semantics_ ([**§5.0.1**](#501-static-semantics))|`IStaticSemantics`|Fully available.|
 |_Runtime semantics_ ([**§5.0.2**](#502-runtime-semantics))|[IRuntimeSemantics&lt;,&gt;](../api/RDCore.SDK.Runtime.Abstract.IRuntimeSemantics-2.html)|Partially available, for simulated execution pipelines.|
 
 _Static semantics_ are effective in _design-time_. _Runtime semantics_ are generally unavailable in a _static
@@ -26,7 +26,7 @@ The role of _static semantics_ is to determine a _declared type_ for a given _bo
 determined static _declared type_ of its inputs.
 
 Static semantics always yield a
-[StaticSemanticsEvaluationResult](../api/RDCore.SDK.Semantics.Static.Abstract.StaticSemanticsEvaluationResult.html):
+`StaticSemanticsEvaluationResult`:
 
 |Result|Encapsulates|
 |---|---|
@@ -39,7 +39,7 @@ Static semantics always yield a
 ### Static evaluation context
 
 Every static semantics rule is evaluated against a
-[StaticEvaluationContext](../api/RDCore.SDK.Semantics.Static.Abstract.StaticEvaluationContext.html):
+`StaticEvaluationContext`:
 
 |Member|Description|
 |---|---|
@@ -77,7 +77,7 @@ the next ([DefineSymbolsParams](../api/RDCore.SDK.Platform.Protocol.DefineSymbol
 A declaration holds the class or user-defined type it names by its identity, not a copy of it: what the type declares -
 the members and default member of a class, the fields of a user-defined type - is read from the type as the composition
 has it when it is asked
-([CurrentTypes](../api/RDCore.SDK.Semantics.Static.CurrentTypes.html)). A module listed before the class it uses is
+([CurrentTypes](../api/RDCore.SDK.Model.Symbols.CurrentTypes.html)). A module listed before the class it uses is
 bound before the class is composed, and two classes can name each other: no order would make every copy complete.
 
 ### Expression evaluation
@@ -86,7 +86,7 @@ Each static semantics rule for a node kind is documented in isolation, in the se
 counterpart. A node kind's own static semantics rule does not recurse into its own children to produce the
 `operandDeclaredTypes` it is given.
 
-[ExpressionStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.ExpressionStaticSemanticsEvaluator.html) is
+`ExpressionStaticSemanticsEvaluator` is
 the component that recurses into child expressions, given any (possibly deeply nested) expression:
 
 1. It dispatches by the node's own type; for an operator node, it dispatches by the operator's token.

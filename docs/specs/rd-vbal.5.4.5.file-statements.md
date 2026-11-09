@@ -68,8 +68,8 @@ the same target resolution the Let assignment statement uses
 
 ## Static Semantics
 
-What the operands of a file statement have to be declared as is [FileStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.FileStatementStaticSemantics.html)'s,
-which [StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) asks. A declared type that breaks a rule is a
+What the operands of a file statement have to be declared as is `FileStatementStaticSemantics`'s,
+which `StatementStaticSemanticsEvaluator` asks. A declared type that breaks a rule is a
 `TypeMismatch`; an operand whose declared type is not known is deferred, not rejected.
 
 |Operand|Rule|MS-VBAL|

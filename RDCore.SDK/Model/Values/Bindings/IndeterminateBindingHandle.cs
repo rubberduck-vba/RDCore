@@ -46,6 +46,8 @@ public sealed record class IndeterminateBindingHandle : IBindingHandle
     /// <summary>
     /// Always throws: a value that is not known is not assigned.
     /// </summary>
+    /// <param name="resolver">Unused.</param>
+    /// <param name="value">Unused.</param>
     /// <exception cref="NotSupportedException">Always.</exception>
     public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value)
         => throw new NotSupportedException("An indeterminate value cannot be assigned.");

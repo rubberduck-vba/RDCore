@@ -40,7 +40,7 @@ the provider dispatches it to the strategy of its own type. It does so for any d
 fixed-size array, which those rules leave out ("any type except a fixed-size array or `Variant`"). No strategy is
 keyed on a fixed-size array, so a `Null`, `Empty` or `Error` source let-coerced to one is the provider's
 `TypeMismatch` (13). Static semantics refuses any let-coercion into a fixed-size array
-([LetCoercionStaticSemantics](../api/RDCore.SDK.Semantics.Static.LetCoercionStaticSemantics.html)), so this case is
+(`LetCoercionStaticSemantics`), so this case is
 reached only by a direct call of the provider.
 
 `LetCoercionRuntimeSemanticsProvider.Analyze` asks the destination's strategy, which says nothing about a `Null`

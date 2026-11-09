@@ -24,8 +24,8 @@ A `While…Wend` loop does not satisfy `Exit Do`: MS-VBAL gives `While…Wend` n
 
 An `Exit Do` that has no enclosing `Do` loop, including one inside a `While…Wend` that no `Do` loop encloses, is
 [`VBC09312`](../diagnostics/vbc09312.md) (`ExitDoNotWithinDoLoop`). The rule is
-[ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s, which
-[StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) and instruction-list
+`ExitStatementStaticSemantics`'s, which
+`StatementStaticSemanticsEvaluator` and instruction-list
 lowering both ask. Lowering emits no instruction for the statement that is an error.
 
 ## Runtime Semantics
@@ -37,7 +37,7 @@ lowering both ask. Lowering emits no instruction for the statement that is an er
 
 ## Implementation
 
-- [InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) resolves the
+- `InstructionListLowering` resolves the
   `ExitLoop` target ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
 - `ProcedureExecutor` uses the same `case` arm for `ExitLoop` and `Jump`
   ([**RD-VBAL §5.4.2.5** Exit For Statement](rd-vbal.5.4.2.5.exit-for-statement.md)).

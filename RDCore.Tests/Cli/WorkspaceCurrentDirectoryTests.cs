@@ -60,9 +60,11 @@ public sealed class WorkspaceCurrentDirectoryTests
     {
         using var provider = Compose(_root);
 
-        var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")", "Debug.Print Dir(\"Sub\\inner.txt\")");
+        // a relative path is written with the separator of the platform the session runs on.
+        var inner = Path.Combine("Sub", "inner.txt");
+        var printed = await RunAsync(provider, _root, "Debug.Print CurDir", "Debug.Print Dir(\"data.txt\")", $"Debug.Print Dir(\"{inner}\")");
 
-        CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed);
+        CollectionAssert.AreEqual(new[] { _root, "data.txt", "inner.txt" }, printed, string.Join("|", printed));
     }
 
     // an LSP client's file: URI may spell the drive in lower case, as OmniSharp's does: CurDir gives the drive as a drive is written, in upper case.
@@ -176,15 +178,16 @@ public sealed class WorkspaceCurrentDirectoryTests
     {
         var start = Path.Combine(_root, "Sub");
         Directory.SetCurrentDirectory(start);
-        // the workspace root without its drive on Windows, a path with a drive on Linux.
+        // the workspace root without its drive on Windows; on Linux a path with a drive, whose local path (C:\ws\) is one relative name, backslashes and all.
         var root = OperatingSystem.IsWindows() ? new Uri("file://" + _root[2..].Replace('\\', '/')) : new Uri("file:///C:/ws/");
+        var resolved = Path.GetFullPath(root.LocalPath);
         if (!OperatingSystem.IsWindows())
         {
-            Directory.CreateDirectory(Path.Combine(start, "C:", "ws"));
+            Directory.CreateDirectory(resolved);
         }
 
         Assert.IsFalse(Path.IsPathFullyQualified(root.LocalPath), root.LocalPath);
-        Assert.IsTrue(Directory.Exists(Path.GetFullPath(root.LocalPath)), $"{root.LocalPath} names a folder under the current directory");
+        Assert.IsTrue(Directory.Exists(resolved), $"{root.LocalPath} names {resolved}, a folder under the current directory");
 
         using var provider = new EnvironmentSessionProvider(Profile(), new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance);
         provider.Compose(Project(_root).ProjectInfo, root);

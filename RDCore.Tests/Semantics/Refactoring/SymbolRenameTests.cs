@@ -8,7 +8,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
 using System.Globalization;
@@ -172,6 +172,96 @@ public sealed class SymbolRenameTests
             "Public Sub Two()",
             "    Dim x As Long",
             "    x = 2",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheCounterOfAForLoop_IsRenamedInTheNextThatNamesIt()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Count()",
+            "    Dim x As Integer",
+            "    For x = 1 To 10",
+            "        Debug.Print \"Hello RDCore!\"",
+            "    Next x",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "For x = 1", "x", "tehDuck");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Count()",
+            "    Dim tehDuck As Integer",
+            "    For tehDuck = 1 To 10",
+            "        Debug.Print \"Hello RDCore!\"",
+            "    Next tehDuck",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheElementOfAForEachLoop_IsRenamedInTheNextThatNamesIt()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub List(ByVal items As Collection)",
+            "    Dim item As Variant",
+            "    For Each item In items",
+            "        Debug.Print item",
+            "    Next item",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "For Each item", "item", "entry");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub List(ByVal items As Collection)",
+            "    Dim entry As Variant",
+            "    For Each entry In items",
+            "        Debug.Print entry",
+            "    Next entry",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheCounterOfAnOuterLoop_IsRenamedAfterTheCommaOfANextThatEndsBoth_FromTheNext()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Grid()",
+            "    Dim i As Long, j As Long",
+            "    For i = 1 To 3",
+            "        For j = 1 To 3",
+            "            Debug.Print i * j",
+            "    Next j, i",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "Next j, i", "i", "row");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Grid()",
+            "    Dim row As Long, j As Long",
+            "    For row = 1 To 3",
+            "        For j = 1 To 3",
+            "            Debug.Print row * j",
+            "    Next j, row",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheCounterOfALoop_WhoseNextNamesNoVariable_IsRenamedWhereItIsWritten()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Count()",
+            "    Dim x As Integer",
+            "    For x = 1 To 10",
+            "        Debug.Print x",
+            "    Next",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "For x = 1", "x", "tehDuck");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Count()",
+            "    Dim tehDuck As Integer",
+            "    For tehDuck = 1 To 10",
+            "        Debug.Print tehDuck",
+            "    Next",
             "End Sub"), Renamed(context, plan, "Main"));
     }
 
