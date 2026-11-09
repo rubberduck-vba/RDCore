@@ -16,12 +16,17 @@ namespace RDCore.SDK.Model.AST.Abstract;
 /// The bounds of a declared array (<c>Dim a(1 To n)</c>) are held the same way: an <see cref="Declarations.ArrayBoundsNode"/> has no children, and keeps the
 /// expression of each bound in its <see cref="Declarations.ArrayBoundsNode.Bounds"/>. They are walked as what the clause is made of.
 /// </para>
+/// <para>
+/// So is the variable a <c>Next</c> names (<c>Next i</c>): a <c>For</c> or <c>For Each</c> loop keeps it in its <see cref="ForStatementNode.NextExpression"/>
+/// or <see cref="ForEachStatementNode.NextExpression"/>, and it is walked after the statements of the loop's body, where it is written. It is a reference to
+/// the loop's control variable, which a rename rewrites and a search for references finds.
+/// </para>
 /// </remarks>
 public static class SyntaxNodeWalk
 {
     /// <summary>
     /// The nodes <paramref name="node"/> is directly made of: its <see cref="SyntaxNode.Children"/>, the branches of a structured statement, the statements of
-    /// its own blocks, and the expressions of the bounds of a declared array.
+    /// its own blocks, the variable the <c>Next</c> of a loop names, and the expressions of the bounds of a declared array.
     /// </summary>
     /// <param name="node">A node of the tree.</param>
     /// <returns>The nodes, in the order they are written.</returns>
@@ -44,7 +49,21 @@ public static class SyntaxNodeWalk
                 yield return statement;
             }
         }
+
+        // the variable a Next names is written after the loop's body.
+        if (NextOf(node) is { } next)
+        {
+            yield return next;
+        }
     }
+
+    // the variable named by the Next that ends a loop: Next i.
+    private static ExpressionNode? NextOf(SyntaxNode node) => node switch
+    {
+        ForStatementNode loop => loop.NextExpression,
+        ForEachStatementNode loop => loop.NextExpression,
+        _ => null,
+    };
 
     /// <summary>
     /// Every node under <paramref name="node"/>, depth first and in the order they are written, however deep in the blocks of structured statements; not the node itself.

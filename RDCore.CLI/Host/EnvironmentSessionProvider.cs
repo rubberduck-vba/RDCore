@@ -33,6 +33,7 @@ public interface IEnvironmentSessionProvider
     /// </summary>
     bool IsComposed { get; }
 
+    /// <summary>
     /// The name of the project the session was composed from; an empty string before <see cref="Compose"/>
     /// has run, or when the project declares no name.
     /// </summary>
@@ -98,7 +99,7 @@ public interface IEnvironmentSessionProvider
     /// </summary>
     /// <remarks>
     /// The current directory of the session is then the workspace root (RD-VBAL §6.1.2.5), at start-up and after a reload alike; a root that is the shell's
-    /// scratch workspace (<see cref="App.Repl.ReplWorkspace.IsScratch"/>), that is no full path on this platform, or that is not there, leaves it where it was.
+    /// scratch workspace (<see cref="App.Repl.ReplWorkspace.IsScratch"/>), that is not a full path on this platform, or that is not there, leaves it where it was.
     /// The session it replaces first gives the process back the directory that session was composed in.
     /// </remarks>
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
@@ -289,8 +290,8 @@ public sealed class EnvironmentSessionProvider(
         }
     }
 
-    // the directory is the process's: a session that ends gives it back, or the folder it was in could not be deleted on Windows, and on Linux a deleted one
-    // fails every later read of the current directory. When the directory it found is gone, the process stays where it is.
+    // the directory is the process's, so a session that ends gives it back. Otherwise Windows could not delete the folder the process is in, and on Linux,
+    // once that folder is deleted, every later read of the current directory fails. When the directory the session found is gone, the process stays where it is.
     private void LeaveSession()
     {
         if (_session is null || _directoryBefore is not { } before)
