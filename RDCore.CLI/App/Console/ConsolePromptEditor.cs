@@ -1213,9 +1213,9 @@ public sealed class ConsolePromptEditor(IConsoleKeys keys, TextWriter output, Fu
             _drawn.AddRange(rows);
         }
 
-        // what is under the line was drawn over by someone else - the output of a program, a progress line: every row of it is written again, and the rows it
-        // had that it no longer has are cleared, which a bar whose work ended is. When it was erased to write above the line (WriteAbove), the rows under the
-        // line are gone too, and are made again.
+        // what is under the line was drawn over by someone else (the output of a program, a progress line): every row of it is written again, and the rows it
+        // no longer has are cleared, as when a bar's work ends. When it was erased to write above the line (WriteAbove), the rows under the line are gone too,
+        // and are made again.
         private void Forget(bool erased = false)
         {
             if (erased)
