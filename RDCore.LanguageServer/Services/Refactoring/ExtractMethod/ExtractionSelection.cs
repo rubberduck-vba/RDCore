@@ -20,12 +20,20 @@ internal enum ExtractionSelectionRefusal
     /// The selection cuts a block statement: it starts or ends inside the body of one it does not hold whole (half an <c>If…End If</c>).
     /// </summary>
     CutsABlock,
+
+    /// <summary>
+    /// The selection cuts an <c>#If</c> block: it holds one of its directives (an <c>#Else</c>, its <c>#End If</c>), but not the whole block.
+    /// </summary>
+    CutsADirectiveBlock,
 }
 
 /// <summary>
 /// The statements a selection is extracted as: the smallest whole run of statements of one statement list that holds it.
 /// </summary>
-/// <param name="Range">Where the run is: from the start of its first statement or declaration to the end of its last, which is what the editor shows will move.</param>
+/// <param name="Range">
+/// Where the run is: from the start of its first statement or declaration to the end of its last, or of the <c>#If</c> block at either end of it, which is what the
+/// editor shows will move.
+/// </param>
 /// <param name="Statements">The statements, in order: siblings of one block.</param>
 /// <param name="Declarations">
 /// The declarations of local variables and constants (<c>Dim</c>, <c>Static</c>, <c>Const</c>) that the run holds, in order, among its statements: they are written
@@ -45,6 +53,7 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
     /// </summary>
     /// <param name="procedure">The procedure the range is in.</param>
     /// <param name="instructions">Its lowered body.</param>
+    /// <param name="directives">The <c>#If</c> blocks of its module.</param>
     /// <param name="requested">What the user selected.</param>
     /// <param name="selection">The statements, when the range can be extracted as whole statements.</param>
     /// <param name="refusal">Why it cannot, otherwise.</param>
@@ -64,8 +73,12 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
     /// <para>
     /// A range that ends at the first character of a line, after the line it starts on, ends on the line before: it is how an editor selects whole lines.
     /// </para>
+    /// <para>
+    /// An <c>#If</c> block moves whole or not at all: a run that holds one of its directives takes the whole block, directives and every branch, when the range
+    /// holds all of its lines, and is refused otherwise. A run inside one branch is extracted from that branch.
+    /// </para>
     /// </remarks>
-    public static bool TrySnap(MemberDeclarationNode procedure, InstructionList instructions, SourceRange requested,
+    public static bool TrySnap(MemberDeclarationNode procedure, InstructionList instructions, ExtractionDirectives directives, SourceRange requested,
         out ExtractionSelection? selection, out ExtractionSelectionRefusal refusal, out StatementNode? cut)
     {
         selection = null;
@@ -120,12 +133,50 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
             }
 
             var range = new SourceRange(first.SourceLocation.Range.Start, last.SourceLocation.Range.End);
-            selection = new ExtractionSelection(range, statements, [.. run.Where(IsDeclaration)], RegionOf(statements, range, instructions))
+            if (!TryHoldWhole(directives, start, end, ref range))
+            {
+                refusal = ExtractionSelectionRefusal.CutsADirectiveBlock;
+                return false;
+            }
+
+            selection =new ExtractionSelection(range, statements, [.. run.Where(IsDeclaration)], RegionOf(statements, range, instructions))
             {
                 Labels = [.. run.OfType<LineLabelNode>().Select(label => label.Name)],
             };
             return true;
         }
+    }
+
+    // grows the range over each #If block it holds a directive of, when the lines from start to end hold all of the block; a block it grows over may hold a
+    // directive of another, which it then grows over too. Whether no block is cut.
+    private static bool TryHoldWhole(ExtractionDirectives directives, int start, int end, ref SourceRange range)
+    {
+        var grown = true;
+        while (grown)
+        {
+            grown = false;
+            foreach (var block in directives.Blocks)
+            {
+                var (first, last) = (range.Start.Line, range.End.Line);
+                if (!block.DirectiveLines.Any(line => line >= first && line <= last))
+                {
+                    continue;
+                }
+
+                if (block.Range.Start.Line < start || block.Range.End.Line > end)
+                {
+                    return false;
+                }
+
+                if (block.Range.Start < range.Start || block.Range.End > range.End)
+                {
+                    range = new SourceRange(block.Range.Start < range.Start ? block.Range.Start : range.Start, block.Range.End > range.End ? block.Range.End : range.End);
+                    grown = true;
+                }
+            }
+        }
+
+        return true;
     }
 
     // what a block is written as, line by line: its statements, and the declarations of its locals and its labels among them.

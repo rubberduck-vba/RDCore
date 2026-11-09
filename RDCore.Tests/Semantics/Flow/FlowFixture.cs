@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.Runtime.LanguageCore.Flow;
@@ -73,6 +74,11 @@ internal static class FlowFixture
         public RenameContext Context { get; init; } = null!;
 
         /// <summary>
+        /// The <c>#If</c> blocks of the module.
+        /// </summary>
+        public ExtractionDirectives Directives { get; init; } = ExtractionDirectives.None;
+
+        /// <summary>
         /// The module's address in <see cref="Context"/>.
         /// </summary>
         public Uri ModuleAddress => ModuleUri("Main");
@@ -98,7 +104,10 @@ internal static class FlowFixture
     /// <summary>
     /// Analyzes a procedure <c>Run</c> whose body is <paramref name="body"/>, in a module that declares what <paramref name="declarations"/> says before the rest.
     /// </summary>
-    public static Analyzed Analyze(string body, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true, string declarations = "")
+    /// <param name="classes">The name and the source of each class module of the workspace beside the module; none when omitted.</param>
+    public static Analyzed Analyze(
+        string body, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true, string declarations = "",
+        IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         var moduleLevel = $"{declarations}\r\n{Others}".ReplaceLineEndings("\r\n");
         var prefix = $"Attribute VB_Name = \"Main\"\r\n{(optionExplicit ? "Option Explicit" : "' no Option Explicit")}\r\n{moduleLevel}\r\n{header}\r\n";
@@ -106,7 +115,14 @@ internal static class FlowFixture
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), text);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(ModuleUri("Main"), ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
+        var others = (classes ?? []).Select(module =>
+        {
+            var classParse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{module.Name}.cls"), module.Source);
+            Assert.IsTrue(classParse.IsSuccess, string.Join("; ", classParse.SyntaxErrors.Select(error => error.Verbose)));
+            return (ModuleUri(module.Name), ModuleType.ClassModule, classParse);
+        });
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            Root, [(ModuleUri("Main"), ModuleType.StdModule, parse), .. others], new IntrinsicSymbolResolver());
         Assert.IsTrue(composition.ScopeTree.TryGetScope(ModuleUri("Main.Run"), out var scope));
         var run = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single(member => member.Name == "Run");
         var block = new StatementBlock([.. run.Children]);
@@ -121,6 +137,7 @@ internal static class FlowFixture
             Module = parse.SyntaxTree!,
             Text = text,
             Context = new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(ModuleUri("Main"), parse.SyntaxTree!, text)]),
+            Directives = ExtractionDirectives.Of(parse.PrecompilerTrivia, text),
         };
     }
 }

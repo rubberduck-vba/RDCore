@@ -33,7 +33,18 @@ internal static class ExtractionFixture
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null)
     {
-        var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations);
+        var extracted = Extracted(body, first, last, name, returnValue, header, end, optionExplicit, declarations, routeExits, formatting);
+        return (extracted.Module, extracted.Edit);
+    }
+
+    // Extract's module and edit, with the module before the extraction and the plan the edit was written from; the workspace has the class modules classes
+    // besides the module.
+    public static (string Original, string Module, ExtractionEdit Edit, ExtractionPlan Plan) Extracted(
+        string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
+        bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null,
+        IReadOnlyList<(string Name, string Source)>? classes = null)
+    {
+        var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations, classes);
         var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits };
@@ -44,7 +55,7 @@ internal static class ExtractionFixture
             edit = edit.Formatted(analyzed.Text, edited, formatting);
         }
 
-        return (edit.ApplyTo(analyzed.Text), edit);
+        return (analyzed.Text, edit.ApplyTo(analyzed.Text), edit, plan);
     }
 
     // What a name for the procedure extracted from the lines first to last is checked against.
@@ -60,7 +71,7 @@ internal static class ExtractionFixture
     private static ExtractionPlan PlanOf(FlowFixture.Analyzed analyzed, SourcePosition start, SourcePosition end)
     {
         var requested = new SourceRange(analyzed.FirstBodyLine + start.Line, start.Character, analyzed.FirstBodyLine + end.Line, end.Character);
-        Assert.IsTrue(ExtractionSelection.TrySnap(analyzed.Procedure, analyzed.Instructions, requested, out var selection, out var refusal, out _), $"refused: {refusal}");
+        Assert.IsTrue(ExtractionSelection.TrySnap(analyzed.Procedure, analyzed.Instructions, analyzed.Directives, requested, out var selection, out var refusal, out _), $"refused: {refusal}");
         return ExtractionAnalysis.Plan(selection!, analyzed.Graph, analyzed.Accesses, analyzed.Model, analyzed.Scopes);
     }
 }
