@@ -1,4 +1,5 @@
-﻿using RDCore.LanguageServer.Symbols;
+﻿using RDCore.LanguageServer.Services.Refactoring;
+using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Model.AST;
@@ -338,8 +339,8 @@ public sealed class ExpressionPastTheLimitTests
         var context = Workspace(Parse());
 
         var (assigned, indexed) = LargeStackThread.Run(() => (
-            SymbolNavigation.SymbolAt(context, Program, AssignedY)?.Symbol.Name,
-            SymbolNavigation.SymbolAt(context, Program, IndexedA)?.Symbol.Name));
+            RenameBinding.SymbolAt(context, Program, AssignedY)?.Symbol.Name,
+            RenameBinding.SymbolAt(context, Program, IndexedA)?.Symbol.Name));
 
         Assert.AreEqual("y", assigned);
         Assert.IsNull(indexed, "a name past the limit is not analyzed");

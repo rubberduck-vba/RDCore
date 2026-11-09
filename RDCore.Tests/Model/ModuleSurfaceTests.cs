@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Workspace;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 

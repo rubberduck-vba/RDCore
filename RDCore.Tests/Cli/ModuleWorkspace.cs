@@ -10,7 +10,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.IO.Abstractions.TestingHelpers;
@@ -447,7 +447,7 @@ internal static class ModuleWorkspace
 
         var entry = parsed.Single(module => module.Name == "Program");
         Task<ExecuteResult> Execute(CancellationToken cancellation)
-            => new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+            => new HostExecuteHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
                 .Handle(new HostExecuteParams
                 {
                     Json = PlatformJson.Serialize(new HostExecutePayload(entry.Uri, entry.Parse)),
@@ -571,7 +571,7 @@ internal static class ModuleWorkspace
             foreach (var module in parsed)
             {
                 var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                     .Handle(Wire.RoundTrip(new DefineSymbolsParams
                     {
                         WorkspaceRoot = workspaceRoot,
@@ -591,7 +591,7 @@ internal static class ModuleWorkspace
         var defined = new List<(string Name, Uri Uri, ModuleParseResult Parse, IReadOnlyList<string> CodeErrors)>();
         foreach (var module in parsed)
         {
-            var loaded = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            var loaded = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,

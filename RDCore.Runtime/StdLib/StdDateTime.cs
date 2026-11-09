@@ -430,7 +430,13 @@ public sealed class StdDateTime(IRuntimeSession session) : IStdDateTimeModule
             return false;
         }
 
-        var exact = System.DateTime.FromOADate(value.SerialValue);
+        // a Date that is no day, which only its bytes can make, is error 5 (ValueConversions.TryMomentOf).
+        if (!ValueConversions.TryMomentOf(value, out var exact))
+        {
+            error = VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidProcedureCallOrArgument, default, "The Date is no day from January 1, 100 to December 31, 9999.");
+            return false;
+        }
+
         var rounded = (exact.Ticks + TimeSpan.TicksPerSecond / 2) / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond;
         date = new DateTime(Math.Min(rounded, System.DateTime.MaxValue.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond));
         return true;

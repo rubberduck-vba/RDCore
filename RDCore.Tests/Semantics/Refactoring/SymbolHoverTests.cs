@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
@@ -98,7 +99,7 @@ public sealed class SymbolHoverTests
         var lines = context.Modules.Single(candidate => candidate.Module.Fragment == "#" + module).Source.Split("\r\n");
         var index = Array.FindIndex(lines, candidate => candidate.Contains(line, StringComparison.Ordinal));
         Assert.IsTrue(index >= 0, $"no line has '{line}'");
-        var named = SymbolNavigation.SymbolAt(context, ModuleUri(module), new SourcePosition(index, lines[index].IndexOf(text, StringComparison.Ordinal) + 1));
+        var named = RenameBinding.SymbolAt(context, ModuleUri(module), new SourcePosition(index, lines[index].IndexOf(text, StringComparison.Ordinal) + 1));
         Assert.IsNotNull(named, $"'{text}' on '{line}' names nothing known");
         return SymbolHover.Of(named.Value.Symbol);
     }

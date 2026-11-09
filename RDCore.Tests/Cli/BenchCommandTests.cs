@@ -5,7 +5,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.SDK.ConsoleIO;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
@@ -90,7 +90,7 @@ public sealed class BenchCommandTests
         => BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), path ?? Root);
 
     private static BenchRunner Runner(MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null)
-        => new(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
+        => new(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
 
     // ---- the workspace ----
@@ -316,7 +316,7 @@ public sealed class BenchCommandTests
         var fileSystem = new System.IO.Abstractions.FileSystem();
         var output = new StringWriter();
         var command = new BenchCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem),
-            new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IVerboseMessageBuilder>(), NullLoggerFactory.Instance,
+            new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
                 new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty)), output);
         var saved = Directory.GetCurrentDirectory();
         var corpus = Path.Combine(Path.GetTempPath(), "RDCore", "bench", Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));

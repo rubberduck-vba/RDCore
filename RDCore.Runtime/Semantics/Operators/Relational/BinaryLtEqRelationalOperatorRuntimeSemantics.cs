@@ -2,7 +2,6 @@
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators.Relational;
 
@@ -11,8 +10,8 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// </summary>
 public sealed record class BinaryLtEqRelationalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, ErrorDetails)
 {
     protected override string Operator => Tokens.CompareLessThanOrEqualOp;
 

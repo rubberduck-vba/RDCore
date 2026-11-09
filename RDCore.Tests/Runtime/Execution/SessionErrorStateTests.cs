@@ -13,7 +13,6 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
@@ -45,7 +44,7 @@ public sealed class SessionErrorStateTests
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false, ErlLineNumbering: numbering), new Provider([]));
 
         var pipeline = RuntimeExecutionPipeline.Create(
-            session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());
+            session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IErrorDetailsRecorder>());
 
         var frame = session.Symbols.CreateFrame(NodeId, new StaticSymbol("Foo", SymbolKindExt.Procedure, VBVoidType.TypeInfo));
         session.CallStack.TryPush(frame);

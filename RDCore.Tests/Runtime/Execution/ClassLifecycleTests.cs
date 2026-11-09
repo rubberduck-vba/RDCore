@@ -22,7 +22,6 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
@@ -92,7 +91,7 @@ public sealed class ClassLifecycleTests
         var session = RuntimeSessionComposer.Compose(
             new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), [],
             [new StdLibSymbolProvider(Root), new Provider([module, widget, .. members])], output: output);
-        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IVerboseMessageBuilder>());
+        var pipeline = RuntimeExecutionPipeline.Create(session, bodies, Substitute.For<IErrorDetailsRecorder>());
         return new World(session, pipeline, output, module.Uri, widget, bodies);
     }
 

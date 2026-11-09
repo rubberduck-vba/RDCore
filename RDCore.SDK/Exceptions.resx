@@ -156,9 +156,6 @@
   <data name="VBIndex_LongLongSubscript_Verbose" xml:space="preserve">
     <value>A subscript of an array is a Long: a LongLong is not let-coerced to one.</value>
   </data>
-  <data name="Verbose_FrameDetails" xml:space="preserve">
-    <value>Frame details:</value>
-  </data>
   <data name="Verbose_LetCoercionStackTrace" xml:space="preserve">
     <value>Evaluation stack:</value>
   </data>

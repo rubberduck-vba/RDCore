@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Workspace;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Runtime.Libraries;
@@ -382,7 +383,7 @@ public sealed class VbpProjectImporterTests
     private static readonly string Shared = Path.Combine(Projects, "Shared");
 
     private static bool InWorkspace(string path)
-        => new SDK.Workspace.WorkspaceFolders([Battleship, Shared]).Contains(path);
+        => new WorkspaceFolders([Battleship, Shared]).Contains(path);
 
     private static VbpImport ImportBounded(string vbp, bool withWorkspace = true)
         => VbpProjectImporter.Import(vbp, "Battleship.vbp", Libraries, Battleship, withWorkspace ? InWorkspace : null);

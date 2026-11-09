@@ -7,7 +7,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Cli;
 
@@ -41,7 +41,7 @@ public sealed class ResumeTests
             Session.Halt.Clear();
             provider.Output.Target = _output;
 
-            var pipeline = RuntimeExecutionPipeline.Create(Session, provider.Image, Substitute.For<IVerboseMessageBuilder>(), cancellation);
+            var pipeline = RuntimeExecutionPipeline.Create(Session, provider.Image, Substitute.For<IErrorDetailsRecorder>(), cancellation);
             Assert.IsTrue(Session.Symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module));
             Assert.IsTrue(Session.Symbols.TryResolveValue("Main", module!, out var main));
             var entry = (VBTypeMemberSymbol)main!;

@@ -20,7 +20,6 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -51,7 +50,7 @@ public sealed class FixedAssignmentSemanticFlagsTests
 
     private static FixedAssignmentRuntimeSemantics Semantics()
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var strings = new VBStringLetCoercionRuntimeSemantics(formatter);
         var letCoercion = new LetCoercionRuntimeSemanticsProvider([strings], formatter);
         var operators = new OperatorRuntimeSemanticsProvider(letCoercion, formatter);

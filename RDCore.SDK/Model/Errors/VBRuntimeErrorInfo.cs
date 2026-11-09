@@ -44,6 +44,18 @@ public record class VBRuntimeErrorInfo : VBErrorInfo, IVBRaisableError
     /// <returns>A new instance of a <see cref="VBRuntimeErrorInfo"/> encapsulating the specified error metadata with a localized description string.</returns>
     public static VBRuntimeErrorInfo For(VBRuntimeErrorId vbCompileErrorId, SourceLocation location, string verbose)
         => new(vbCompileErrorId, location, GetErrorString(vbCompileErrorId), verbose);
+
+    /// <summary>
+    /// Creates a new <see cref="VBRuntimeErrorInfo"/> describing the specified <see cref="VBRuntimeErrorId"/> at the specified <see cref="SourceLocation"/>,
+    /// with the details the runtime recorded when it raised it.
+    /// </summary>
+    /// <param name="vbRuntimeErrorId">The formal <see cref="VBRuntimeErrorId"/> value for this error.</param>
+    /// <param name="location">The document location of the problematic <em>node</em>.</param>
+    /// <param name="details">What the runtime was doing when it raised the error. Their <see cref="VBErrorDetails.Message"/> is the error's
+    /// <see cref="Abstract.VBErrorInfo.Verbose"/>; <see langword="null"/> records none, and the verbose message is empty.</param>
+    /// <returns>A new instance of a <see cref="VBRuntimeErrorInfo"/> with a localized description string and the specified details.</returns>
+    public static VBRuntimeErrorInfo For(VBRuntimeErrorId vbRuntimeErrorId, SourceLocation location, VBErrorDetails? details)
+        => For(vbRuntimeErrorId, location, details?.Message ?? string.Empty) with { Details = details };
     /// <summary>
     /// Gets the standard (localied) error message for the specified <c>errorId</c>.
     /// </summary>
