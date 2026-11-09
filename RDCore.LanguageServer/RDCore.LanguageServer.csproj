@@ -76,7 +76,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
     <!-- the static front end the workspace is analysed with; never the runtime, which only the environment host loads. -->
     <ProjectReference Include="..\RDCore.Runtime.LanguageCore\RDCore.Runtime.LanguageCore.csproj" />
     <!-- the symbols of the workspace, built from the syntax trees the parser hands over. -->

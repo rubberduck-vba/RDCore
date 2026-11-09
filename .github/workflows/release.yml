@@ -40,11 +40,10 @@ on:
       - 'tools/release/**'
       - 'Directory.Build.props'
       - 'NOTICE.md'
-      # a package bump changes the notices (exact-version overrides), and the smoke test waits for these files' log lines
+      # a package bump changes the notices (exact-version overrides), and the smoke test waits for this file's log lines and
+      # for the RDCore.SDK package's (its version is RDCoreSdkVersion, in Directory.Build.props)
       - '**/*.csproj'
       - 'RDCore.LanguageServer/CoreLanguageServerApp.cs'
-      - 'RDCore.SDK/Extensibility/ExtensionsClient.cs'
-      - 'RDCore.SDK/Exceptions.resx'
 
 permissions:
   contents: read

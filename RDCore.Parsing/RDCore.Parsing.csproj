@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
     <ProjectReference Include="..\RDCore.Runtime.LanguageCore\RDCore.Runtime.LanguageCore.csproj" />
   </ItemGroup>
 
