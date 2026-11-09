@@ -53,4 +53,11 @@ public class AppOptions
     [Setting(SettingReach.NextStart)]
     [Range(0, MaximumBreakListingLines)]
     public int BreakListingLines { get; init; } = DefaultBreakListingLines;
+
+    /// <summary>
+    /// How the console words the details of a run-time error (<see cref="SDK.Model.Errors.VBErrorDetails"/>): the runtime records them as data, and each client
+    /// words them its own way.
+    /// </summary>
+    [Setting(SettingReach.NextStart)]
+    public App.VerboseMessages.VerboseMessageOptions VerboseMessages { get; init; } = new();
 }

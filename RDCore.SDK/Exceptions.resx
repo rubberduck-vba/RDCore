@@ -132,9 +132,6 @@
   <data name="LanguageServerProtocolSdkException_ServerNotInitialized" xml:space="preserve">
     <value>Language server was not initialized.</value>
   </data>
-  <data name="Verbose_FrameDetails" xml:space="preserve">
-    <value>Frame details:</value>
-  </data>
   <data name="Verbose_LetCoercionStackTrace" xml:space="preserve">
     <value>Evaluation stack:</value>
   </data>

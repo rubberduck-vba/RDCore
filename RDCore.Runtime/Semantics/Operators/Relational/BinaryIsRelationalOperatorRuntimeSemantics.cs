@@ -17,7 +17,6 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators.Relational;
 
@@ -26,8 +25,8 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// </summary>
 public record class BinaryIsRelationalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, ErrorDetails)
 {
     protected override string Operator => Tokens.CompareIsOp;
 

@@ -11,7 +11,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.SDK.Platform.Components;
@@ -69,7 +69,7 @@ public sealed class HostProjectReloadHandlerTests
             Parse: new ModuleParser().Parse(new Uri(Path.Combine(Root, module.File)), _files.File.ReadAllText(Path.Combine(Root, module.File))))).ToList();
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, parsed.Select(module => (module.Uri, module.Type, module.Parse)), new IntrinsicSymbolResolver());
 
-        var define = new DefineSymbolsHandler(_session, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance);
+        var define = new DefineSymbolsHandler(_session, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var module in parsed)
         {
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
@@ -85,7 +85,7 @@ public sealed class HostProjectReloadHandlerTests
         }
 
         var main = parsed.Single(module => module.Name == "Program");
-        return await new HostExecuteHandler(_session, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+        return await new HostExecuteHandler(_session, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
             .Handle(new HostExecuteParams
             {
                 Json = PlatformJson.Serialize(new HostExecutePayload(main.Uri, main.Parse)),

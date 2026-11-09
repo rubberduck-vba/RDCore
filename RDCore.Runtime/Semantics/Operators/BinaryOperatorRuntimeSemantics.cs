@@ -12,7 +12,6 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Context.Abstract;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Operators;
@@ -22,8 +21,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </summary>
 public abstract record class BinaryOperatorRuntimeSemantics<TContext, TFlags>(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider, 
-    IVerboseMessageBuilder FormatterService) 
-    : OperatorRuntimeSemantics<TContext, TFlags>(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails) 
+    : OperatorRuntimeSemantics<TContext, TFlags>(LetCoercionSemanticsProvider, ErrorDetails)
 where TContext : SemanticContext<TFlags>, new()
 where TFlags : struct, Enum
 {

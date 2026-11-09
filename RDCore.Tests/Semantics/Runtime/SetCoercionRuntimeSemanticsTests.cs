@@ -16,8 +16,8 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -37,7 +37,7 @@ public sealed class SetCoercionRuntimeSemanticsTests
     private static IRuntimeSession ComposeSession(params Symbol[] symbols)
         => RuntimeSessionComposer.Compose(new RuntimeEnvironmentProfile(Is64Bit: true, 0, 1252, false), new Provider(symbols));
 
-    private static SetCoercionRuntimeSemantics Sut() => new(Substitute.For<IVerboseMessageBuilder>());
+    private static SetCoercionRuntimeSemantics Sut() => new(Substitute.For<IErrorDetailsRecorder>());
 
     private static VBObjectValue CreateInstance(IRuntimeSession session, VBClassModuleSymbol classModule)
     {

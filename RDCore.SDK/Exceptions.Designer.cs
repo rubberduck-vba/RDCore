@@ -187,15 +187,6 @@ namespace RDCore.SDK {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Frame details:.
-        /// </summary>
-        internal static string Verbose_FrameDetails {
-            get {
-                return ResourceManager.GetString("Verbose_FrameDetails", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Evaluation stack:.
         /// </summary>
         internal static string Verbose_LetCoercionStackTrace {

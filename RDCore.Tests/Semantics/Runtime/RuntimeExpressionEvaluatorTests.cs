@@ -19,7 +19,6 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Runtime;
@@ -62,13 +61,13 @@ public sealed class RuntimeExpressionEvaluatorTests
         => new(Root, ProcedureUri, name, R, R, ParameterKind.ImplicitByRef, type);
 
     private static RuntimeExpressionEvaluator Evaluator()
-        => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IVerboseMessageBuilder>()));
+        => new(new OperatorRuntimeSemanticsProvider(RealCoercionProvider(), Substitute.For<IErrorDetailsRecorder>()));
 
     // The real Numeric let-coercion strategy - for operators to determine their effective type for
     // real, rather than the identity passthrough a bare NSubstitute fake would give every operand.
     private static ILetCoercionRuntimeSemanticsProvider RealCoercionProvider()
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies = [new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle)];
         var provider = new LetCoercionRuntimeSemanticsProvider(strategies, formatter);

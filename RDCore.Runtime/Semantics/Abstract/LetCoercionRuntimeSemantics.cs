@@ -13,7 +13,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Diagnostics.CodeAnalysis;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -30,10 +29,10 @@ namespace RDCore.Runtime.Semantics.Abstract;
 public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoercionRuntimeSemantics
     where TStrategy : VBType
 {
-    private readonly IVerboseMessageBuilder _formatterService;
-    protected LetCoercionRuntimeSemantics(IVerboseMessageBuilder formatterService)
+    private readonly IErrorDetailsRecorder _errorDetails;
+    protected LetCoercionRuntimeSemantics(IErrorDetailsRecorder errorDetails)
     {
-        _formatterService = formatterService;
+        _errorDetails = errorDetails;
     }
 
     public Type LetCoercionSpecification { get; } = typeof(TStrategy);
@@ -117,7 +116,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// </summary>
     protected VBRuntimeErrorInfo OnLetCoercionTypeMismatch(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, expression.Location,
-            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, [frame]));
+            _errorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, [frame]));
 
     /// <summary>
     /// The frame with a <c>Variant</c> source replaced by the value it holds, at any depth of nesting.
@@ -159,26 +158,26 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// </summary>
     protected VBRuntimeErrorInfo OnLetCoercionObjectRequired(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, expression.Location,
-            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionObjectRequired, expression, [frame]));
+            _errorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionObjectRequired, expression, [frame]));
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
     /// </summary>
     protected VBRuntimeErrorInfo OnLetCoercionOverflow(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.Overflow, expression.Location,
-            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionOverflow_Verbose, expression, [frame]));
+            _errorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionOverflow_Verbose, expression, [frame]));
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
     /// </summary>
     protected VBRuntimeErrorInfo OnLetCoercionInvalidUseOfNull(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidUseOfNull, expression.Location,
-            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionInvalidUseOfNull_Verbose, expression, [frame]));
+            _errorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionInvalidUseOfNull_Verbose, expression, [frame]));
 
     /// <summary>
     /// A helper method to get a <c>VBRuntimeErrorInfo</c> error metadata from derived types as needed.
     /// </summary>
     protected VBRuntimeErrorInfo OnLetCoercionInvalidProcedureCallOrArgument(ExpressionNode expression, LetCoercionStackFrame frame) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.InvalidProcedureCallOrArgument, expression.Location,
-            _formatterService.Format(Exceptions.LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose, expression, [frame]));
+            _errorDetails.Record(Exceptions.LetCoercionRuntimeErrorExceptionInvalidProcedureCallOrArgument_Verbose, expression, [frame]));
 }

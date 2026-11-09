@@ -7,7 +7,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Platform.Protocol;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Platform;
 using RDCore.SDK.Platform.Components;
@@ -300,9 +300,9 @@ public sealed class SyntaxErrorRunRefusalTests
             var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Typed.bas"), "Public Sub E()\r\n__e = 1 + 1\r\nEnd Sub\r\n");
             var typed = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single().Children.OfType<AssignmentStatementNode>().Single();
             answer = statement
-                ? await new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+                ? await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
                     .Handle(new HostDebugExecuteParams { FrameId = frame, Json = PlatformJson.Serialize<SyntaxNode>(typed) }, CancellationToken.None).WaitAsync(Patience)
-                : await new HostDebugEvaluateHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+                : await new HostDebugEvaluateHandler(provider, Substitute.For<IErrorDetailsRecorder>())
                     .Handle(new HostDebugEvaluateParams { FrameId = frame, Json = PlatformJson.Serialize(typed.Value) }, CancellationToken.None).WaitAsync(Patience);
         }, debug: true);
 
@@ -344,7 +344,7 @@ public sealed class SyntaxErrorRunRefusalTests
         {
             Assert.AreEqual(ExecutionOutcome.Completed, ran.Outcome, ran.ErrorMessage);
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Other"], syntaxErrors: true, ("Program", ModuleType.StdModule, program), BadOther);
-            _ = await new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            _ = await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = Wire.FileUri(ModuleWorkspace.Root),

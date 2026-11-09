@@ -16,7 +16,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -53,7 +52,7 @@ public sealed class ErrObjectTests
     {
         var session = Session(environment);
         var pipeline = RuntimeExecutionPipeline.Create(
-            session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IVerboseMessageBuilder>());
+            session, new Dictionary<SemanticId, InstructionList>(), Substitute.For<IErrorDetailsRecorder>());
 
         ICallStackFrame? innermost = null;
         foreach (var name in frameNames)

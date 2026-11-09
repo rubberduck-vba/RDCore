@@ -24,7 +24,6 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -85,7 +84,7 @@ public sealed class RuntimeProcedureInvokerTests
     private static (ProcedureExecutor Executor, IRuntimeSession Session) Compose(IReadOnlyDictionary<SemanticId, InstructionList> bodies, params Symbol[] symbols)
     {
         var session = ComposeSession(symbols);
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, formatter);
         var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle);

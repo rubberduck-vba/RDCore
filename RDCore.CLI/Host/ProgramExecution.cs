@@ -1166,6 +1166,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                     frame.Location?.Range.Start.Character ?? -1,
                     frame.GoSubs.IsDefaultOrEmpty ? null : [.. frame.GoSubs.Select(gosub => gosub.Range.Start.Line)])),
             ],
+            ErrorDetails = error.AsErrorInfo.Details,
         };
     }
 }

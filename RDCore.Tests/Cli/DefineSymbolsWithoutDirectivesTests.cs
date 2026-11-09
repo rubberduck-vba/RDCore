@@ -13,7 +13,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Platform;
@@ -45,7 +45,7 @@ public sealed class DefineSymbolsWithoutDirectivesTests
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, [(moduleUri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver).ProvideSymbols();
 
-        var result = await new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        var result = await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

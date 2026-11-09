@@ -12,7 +12,6 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -38,8 +37,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </remarks>
 public sealed record class UnaryLetCoerceOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : UnaryOperatorRuntimeSemantics<ConversionOperationSemanticContext, ConversionSemanticFlags>(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : UnaryOperatorRuntimeSemantics<ConversionOperationSemanticContext, ConversionSemanticFlags>(LetCoercionProvider, ErrorDetails)
 {
     protected override ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> AnalyzeOperands(
         ISemanticContextContributor<ConversionOperationSemanticContext, ConversionSemanticFlags> builder,

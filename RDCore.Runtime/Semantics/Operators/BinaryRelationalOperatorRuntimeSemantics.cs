@@ -23,7 +23,6 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.Runtime.LanguageCore.Plans;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -31,8 +30,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 
 public abstract record class BinaryRelationalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryOperatorRuntimeSemantics<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryOperatorRuntimeSemantics<BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags>, ComparisonOperatorSemanticFlags>(LetCoercionSemanticsProvider, ErrorDetails)
 {
     /// <summary>
     /// Compares two operands already let-coerced to <c>String</c>, as <paramref name="rules"/> say: whole values rather than their

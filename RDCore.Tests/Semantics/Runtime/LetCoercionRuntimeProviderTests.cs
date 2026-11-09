@@ -20,8 +20,8 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -45,7 +45,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
 
     private static LetCoercionRuntimeSemanticsProvider BuildProvider()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         ILetCoercionRuntimeSemantics[] strategies =
         [
@@ -276,7 +276,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
         // a strategy that (however it got there) calls back into the provider with the exact same
         // frame it was given is the one scenario the recursion guard exists for. No production
         // strategy actually does this by design, so a substitute stands in for one that does.
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var strategy = Substitute.For<ILetCoercionRuntimeSemantics>();
         strategy.LetCoercionSpecification.Returns(typeof(VBLongType));
 
@@ -297,7 +297,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
         // deeper") rather than leaving it in a partially-unwound state -- confirm a later, entirely
         // unrelated coercion isn't permanently poisoned by an earlier recursive failure.
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var strategy = Substitute.For<ILetCoercionRuntimeSemantics>();
         strategy.LetCoercionSpecification.Returns(typeof(VBLongType));
 

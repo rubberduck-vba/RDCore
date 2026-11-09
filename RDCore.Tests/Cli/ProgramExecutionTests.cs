@@ -275,7 +275,7 @@ public sealed class ProgramExecutionTests
         var parse = new RDCore.Parsing.ModuleParser().Parse(new Uri(Path.Combine(ModuleWorkspace.Root, "Program.bas")), source);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
         Assert.IsTrue(provider.Session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module));
-        Assert.IsEmpty(new ModuleLoader(provider.Session, provider.Image, NSubstitute.Substitute.For<RDCore.SDK.Services.VerboseMessages.IVerboseMessageBuilder>()).Load(module!, parse));
+        Assert.IsEmpty(new ModuleLoader(provider.Session, provider.Image, NSubstitute.Substitute.For<RDCore.Runtime.Semantics.IErrorDetailsRecorder>()).Load(module!, parse));
     }
 
     [TestMethod]
@@ -1002,7 +1002,7 @@ public sealed class ProgramExecutionTests
         var session = provider.Session;
         Assert.IsTrue(session.Symbols.TryResolveValue("Program", RDCore.SDK.Model.Symbols.GlobalSymbols.UnresolvedSymbol, out var module));
         Assert.IsTrue(session.Symbols.TryResolveValue(procedure, module!, out var entry));
-        var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, NSubstitute.Substitute.For<RDCore.SDK.Services.VerboseMessages.IVerboseMessageBuilder>());
+        var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, NSubstitute.Substitute.For<RDCore.Runtime.Semantics.IErrorDetailsRecorder>());
         return provider.Execution.RunAsync(pipeline, (RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol)entry!, debug: false, CancellationToken.None, immediate: true).WaitAsync(Patience);
     }
 

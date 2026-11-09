@@ -11,7 +11,7 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Server.Configuration;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.SDK.Platform.Components;
@@ -87,7 +87,7 @@ public sealed class ArrayStatementTargetTests
         foreach (var module in parsed)
         {
             var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, module.Uri, module.Module.Type, module.Parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
-            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+            var defined = await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
                 .Handle(new DefineSymbolsParams
                 {
                     WorkspaceRoot = workspaceRoot,
@@ -103,7 +103,7 @@ public sealed class ArrayStatementTargetTests
         }
 
         var program = parsed.Single(module => module.Module.Name == "Program");
-        var result = await new HostExecuteHandler(sessionProvider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<HostExecuteHandler>.Instance)
+        var result = await new HostExecuteHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
             .Handle(new HostExecuteParams
             {
                 Json = PlatformJson.Serialize(new HostExecutePayload(program.Uri, program.Parse)),

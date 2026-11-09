@@ -23,7 +23,6 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.StdLib;

@@ -10,8 +10,8 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -28,7 +28,7 @@ public sealed class VBErrorTypeLetCoercionTests : LetCoercionRuntimeSemanticsTes
     // provider ⇄ strategy cyclic-break pattern used across tonight's operator coverage.
     private static VBErrorTypeLetCoercionRuntimeSemantics Sut()
     {
-        var fmt = Substitute.For<IVerboseMessageBuilder>();
+        var fmt = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         var provider = new LetCoercionRuntimeSemanticsProvider([new VBNumericLetCoercionTypeRuntimeSemantics(fmt, handle)], fmt);
         handle.Inner = provider;

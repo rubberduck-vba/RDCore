@@ -22,7 +22,6 @@ using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Context;
 using RDCore.Runtime.LanguageCore.Plans;
 using RDCore.SDK.Semantics.Runtime.Operators;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -34,8 +33,8 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// </summary>
 public abstract record class BinaryArithmeticOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider, 
-    IVerboseMessageBuilder FormatterService)
-    : BinaryOperatorRuntimeSemantics<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryOperatorRuntimeSemantics<BinaryArithmeticOperatorSemanticContext, ArithmeticOperatorSemanticFlags>(LetCoercionProvider, ErrorDetails)
 {
     /// <summary>
     /// Evaluates the numeric result of a binary arithmetic operation.

@@ -132,9 +132,6 @@
   <data name="LanguageServerProtocolSdkException_ServerNotInitialized" xml:space="preserve">
     <value>Le serveur de langage n'a pas encore été initialisé.</value>
   </data>
-  <data name="Verbose_FrameDetails" xml:space="preserve">
-    <value>Détails de la cellule :</value>
-  </data>
   <data name="Verbose_LetCoercionStackTrace" xml:space="preserve">
     <value>Pile d'évaluation :</value>
   </data>

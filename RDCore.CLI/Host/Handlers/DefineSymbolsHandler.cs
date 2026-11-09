@@ -11,7 +11,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Model.AST;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.Source;
@@ -29,7 +29,7 @@ namespace RDCore.CLI.Host.Handlers;
 /// </summary>
 internal sealed class DefineSymbolsHandler(
     IEnvironmentSessionProvider sessionProvider,
-    IVerboseMessageBuilder messages,
+    IErrorDetailsRecorder errorDetails,
     ILogger<DefineSymbolsHandler> logger) : RDCoreRequestHandler<DefineSymbolsParams, DefineSymbolsResult>
 {
     protected override Task<DefineSymbolsResult> HandleAsync(DefineSymbolsParams request, CancellationToken token)
@@ -149,7 +149,7 @@ internal sealed class DefineSymbolsHandler(
             var trivia = PlatformJson.Deserialize<ImmutableArray<RDCore.SDK.Model.AST.Abstract.SyntaxNode>>(request.PrecompilerTriviaJson);
             var ranges = trivia.IsDefaultOrEmpty
                 ? []
-                : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, sessionProvider.Image, messages).Expressions,
+                : PrecompilerLiveBranchEvaluator.GetDeadRanges(session, RuntimeExecutionPipeline.Create(session, sessionProvider.Image, errorDetails).Expressions,
                     new RDCore.Runtime.Semantics.RuntimeEvaluationContext(StaticSymbol.GlobalUri), trivia);
             cached = (request.PrecompilerTriviaJson, constants, ranges);
             evaluated[key] = cached;
@@ -311,7 +311,7 @@ internal sealed class DefineSymbolsHandler(
 
     private ImmutableArray<string> Load(IRuntimeSession session, string name, VBModuleSymbol module, ModuleParseResult parseResult)
     {
-        var errors = new ModuleLoader(session, sessionProvider.Image, messages).Load(module, parseResult);
+        var errors = new ModuleLoader(session, sessionProvider.Image, errorDetails).Load(module, parseResult);
 
         // a module is loaded again at every edit of it: what a load failed with is said once, as long as the next fails with the same, and so is that it loads again.
         switch (LoadFailuresBySession.GetOrCreateValue(session).Record(name, errors))

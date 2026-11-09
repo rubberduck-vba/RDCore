@@ -16,7 +16,6 @@ using RDCore.SDK.Semantics.Analysis;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Operators.Relational;
@@ -26,8 +25,8 @@ namespace RDCore.Runtime.Semantics.Operators.Relational;
 /// </summary>
 public sealed record class LikeRelationalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryRelationalOperatorRuntimeSemantics(LetCoercionSemanticsProvider, ErrorDetails)
 {
     /// <remarks>
     /// MS-VBAL 5.6.9.6: if either operand's value is Null, the result is Null; otherwise both operands are Let-coerced to String regardless of their own value

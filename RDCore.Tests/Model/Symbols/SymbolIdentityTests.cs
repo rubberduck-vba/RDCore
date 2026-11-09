@@ -16,7 +16,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
@@ -216,7 +216,7 @@ public sealed class SymbolIdentityTests
         var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, [(moduleUri, ModuleType.ClassModule, parse)], new IntrinsicSymbolResolver());
         var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.ClassModule, parse, resolver).ProvideSymbols();
 
-        var result = await new DefineSymbolsHandler(provider, Substitute.For<IVerboseMessageBuilder>(), NullLogger<DefineSymbolsHandler>.Instance)
+        var result = await new DefineSymbolsHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
             .Handle(Wire.RoundTrip(new DefineSymbolsParams
             {
                 WorkspaceRoot = workspaceRoot,

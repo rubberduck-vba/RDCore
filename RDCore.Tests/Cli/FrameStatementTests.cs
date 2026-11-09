@@ -6,7 +6,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Platform.Components;
 
@@ -53,7 +53,7 @@ public sealed class FrameStatementTests
     }
 
     private static Task<DebugEvaluateResult> Execute(EnvironmentSessionProvider provider, int frame, string statement)
-        => new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+        => new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
             .Handle(new HostDebugExecuteParams { FrameId = frame, Json = PlatformJson.Serialize(Statement(statement)) }, CancellationToken.None).WaitAsync(Patience);
 
     private static async Task<string> ValueOf(EnvironmentSessionProvider provider, int frame, string name)

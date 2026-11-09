@@ -10,7 +10,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.SetCoercion;
@@ -30,7 +29,7 @@ namespace RDCore.Runtime.Semantics.SetCoercion;
 /// match; it becomes meaningful the moment something populates <c>Supertypes</c>, with no changes
 /// needed here.
 /// </remarks>
-public sealed record class SetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) : ISetCoercionRuntimeSemantics
+public sealed record class SetCoercionRuntimeSemantics(IErrorDetailsRecorder ErrorDetails) : ISetCoercionRuntimeSemantics
 {
     public SetCoercionResult EvaluateSetCoercion(IRuntimeSession session, ExpressionNode expression, VBTypedValue source, VBType destinationType)
     {
@@ -104,9 +103,9 @@ public sealed record class SetCoercionRuntimeSemantics(IVerboseMessageBuilder Fo
 
     private VBRuntimeErrorInfo OnSetCoercionTypeMismatch(ExpressionNode expression) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, expression.Location,
-            FormatterService.Format(Exceptions.SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, []));
+            ErrorDetails.Record(Exceptions.SetCoercionRuntimeErrorExceptionTypeMismatch_Verbose, expression, []));
 
     private VBRuntimeErrorInfo OnSetCoercionObjectRequired(ExpressionNode expression) =>
         VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, expression.Location,
-            FormatterService.Format(Exceptions.SetCoercionRuntimeErrorExceptionObjectRequired_Verbose, expression, []));
+            ErrorDetails.Record(Exceptions.SetCoercionRuntimeErrorExceptionObjectRequired_Verbose, expression, []));
 }

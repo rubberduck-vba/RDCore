@@ -1910,6 +1910,15 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("VBRuntimeError_UnusableDialogAnswer_NotRelayed", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Frame details:.
+        /// </summary>
+        public static string Verbose_FrameDetails {
+            get {
+                return ResourceManager.GetString("Verbose_FrameDetails", resourceCulture);
+            }
+        }
+
     }
 }

@@ -21,7 +21,6 @@ using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -49,8 +48,8 @@ namespace RDCore.Runtime.Execution;
 /// </remarks>
 /// <param name="session">The session the module is loaded into.</param>
 /// <param name="image">The code of the session.</param>
-/// <param name="messages">Builds the verbose half of the errors the expression evaluator reports.</param>
-public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IVerboseMessageBuilder messages)
+/// <param name="errorDetails">Records the details of the errors the expression evaluator raises.</param>
+public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IErrorDetailsRecorder errorDetails)
 {
     /// <summary>
     /// Lowers the procedures of <paramref name="module"/> and loads them, replacing what was loaded for it before.
@@ -80,7 +79,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
         // composed before anything is lowered, because lowering needs its expression evaluator to decide
         // which #If branches are live. The invoker looks a body up at call time, so the image it holds is this same one.
-        var pipeline = RuntimeExecutionPipeline.Create(session, image, messages);
+        var pipeline = RuntimeExecutionPipeline.Create(session, image, errorDetails);
 
         // the scope is the global one because that is where the project's #Const is bound and resolved from
         // (RuntimeExpressionEvaluator.EvaluatePrecompilerConstant); the module's own are found in the trivia, and shadow them.
@@ -181,7 +180,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
         // kept whether or not the module loads: what is wrong with a module is what is asked after. What the language core states about the code is found out by
         // evaluating it, which only a procedure with nothing wrong with it can be, and takes longer than anything above: the model is stored now, and the
         // facts are added to it when they are ready. The evaluation is given what it needs of the session as it is at this moment, because it is not done here.
-        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, messages);
+        var sweep = sweepable.Count == 0 ? null : ModuleSweep.Prepare(session, sweepable, errorDetails);
         image.Semantics.Store(moduleModel, sweep is null ? null : sweep.Evaluate);
 
         // what the error is, and the detail that says which of the module's statements it is about. A module with a syntax error is not loaded either, so that a

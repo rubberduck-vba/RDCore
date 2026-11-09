@@ -8,7 +8,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using static RDCore.Tests.Cli.CompiledDirectCallTests;
 using RDCore.SDK.Platform.Components;
 
@@ -457,7 +457,7 @@ public sealed class CompiledByRefCallTests
                         .Single(variable => variable.Name == name).Value;
 
                 observed = $"x={ValueIn("Bump", "x")}, n={ValueIn("Go", "n")}";
-                var assigned = await new HostDebugExecuteHandler(provider, Substitute.For<IVerboseMessageBuilder>())
+                var assigned = await new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
                     .Handle(new HostDebugExecuteParams { FrameId = stack.Single(frame => frame.Procedure == "Bump").Id, Json = PlatformJson.Serialize(Statement("x = 50")) },
                         CancellationToken.None).WaitAsync(Patience);
                 Assert.IsTrue(assigned.Success, assigned.Error);

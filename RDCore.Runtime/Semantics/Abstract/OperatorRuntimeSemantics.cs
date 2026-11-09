@@ -23,7 +23,6 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.Runtime.LanguageCore.Plans;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -38,13 +37,13 @@ namespace RDCore.Runtime.Semantics.Abstract;
 /// <typeparam name="TContext">The specific type of <see cref="SemanticContext&lt;TFlags&gt;"/> associated with the operator.</typeparam>
 /// <typeparam name="TFlags">The type of semantic flags being accumulated.</typeparam>
 /// <param name="LetCoercionSemanticsProvider">A service that provides the type-appropriate <em>let-coercion runtime semantics</em> on demand.</param>
-/// <param name="FormatterService">A service that builds the configurable <c>Verbose</c> message string of a <see cref="VBErrorInfo"/>.</param>
+/// <param name="ErrorDetails">Records the details of the errors the operator raises.</param>
 /// <remarks>
 /// Encapsulates the base runtime semantics of <em>operator expressions</em>.
 /// </remarks>
 public abstract record class OperatorRuntimeSemantics<TContext, TFlags>(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider, 
-    IVerboseMessageBuilder FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
     : RuntimeSemantics<TContext, TFlags>
 where TContext : SemanticContext<TFlags>, new()
 where TFlags : struct, Enum
@@ -54,9 +53,9 @@ where TFlags : struct, Enum
     /// </summary>
     protected ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider { get; } = LetCoercionSemanticsProvider;
     /// <summary>
-    /// A service that builds the configurable <c>Verbose</c> message string of a <see cref="VBErrorInfo"/>.
+    /// Records the details of the errors the operator raises.
     /// </summary>
-    protected IVerboseMessageBuilder FormatterService { get; } = FormatterService;
+    protected IErrorDetailsRecorder ErrorDetails { get; } = ErrorDetails;
 
     public sealed override ISemanticContextContributor<TContext, TFlags> Analyze(
         IRuntimeSession session,

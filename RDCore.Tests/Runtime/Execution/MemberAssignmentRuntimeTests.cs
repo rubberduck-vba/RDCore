@@ -17,9 +17,9 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Runtime.Execution;
 
@@ -163,7 +163,7 @@ public sealed class MemberAssignmentRuntimeTests
             [new StdLibSymbolProvider(Root), new Provider([module, box, iBox, impl, size, boxLink, show, terminate, showLink, levelLet, levelGet, itemLet, partnerSet, cells, links, allocate,
                 iSize, stored, implLet, implGet, implShow, main])],
             output: output);
-        var pipeline = RuntimeExecutionPipeline.Create(session, world.Bodies, Substitute.For<IVerboseMessageBuilder>());
+        var pipeline = RuntimeExecutionPipeline.Create(session, world.Bodies, Substitute.For<IErrorDetailsRecorder>());
 
         outcome = pipeline.Invoker.Invoke(main, session.Symbols.Resolver, []);
         return [.. output.Lines.Select(line => line.Trim())];
