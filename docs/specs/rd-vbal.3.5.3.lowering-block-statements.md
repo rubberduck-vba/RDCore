@@ -37,8 +37,8 @@ instruction for it, whose `Closes` is that line:
 |`For`|`ForNext`|Increments and tests the counter.|`null` (synthesized)|
 |`For Each`|`ForEachNext`|Advances to the next element.|`null` (synthesized)|
 |`While…Wend`, `Do While`, `Do Until`|`Jump` back to the header|None|`null` (synthesized)|
-|`Do…Loop While`, `Do…Loop Until`|`LoopBack`|Evaluates the condition and decides whether to branch back.|The loop's own node: the closer is the loop's only instruction.|
-|`Do…Loop`|`Jump` back to the body|None|The loop's own node: the closer is the loop's only instruction.|
+|`Do…Loop While`, `Do…Loop Until`|`LoopBack`|Evaluates the condition and decides whether to branch back.|The loop's own node: the closer is the loop's only instruction that has one.|
+|`Do…Loop`|`Jump` back to the body|None|The loop's own node: the closer is the loop's only instruction that has one.|
 |`If`, `Select Case`|`Jump` to the next instruction|None|`null` (synthesized)|
 |`With`|`EndWith`|Lets go of the `With` object ([**RD-VBAL §5.4.2.21** With Statement](rd-vbal.5.4.2.21.with-statement.md)).|`null` (synthesized)|
 |The procedure|`Jump` to the end of the body|None|`null` (synthesized)|
@@ -57,8 +57,12 @@ on its own has no declaration, and its body has no procedure closer. A line labe
 statement resolves to the procedure's closer.
 
 A step, a pause and a breakpoint stop before a closer, on its closing line
-([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md#where-a-program-stops)). A `Do…Loop While`,
-`Do…Loop Until` or `Do…Loop` closer is the loop's own node, and is on the `Do` line.
+([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md#where-a-program-stops)).
+
+A `Do…Loop While`, `Do…Loop Until` or `Do…Loop` closer is the loop's own node, which begins on the `Do` line. Its
+`Closes` is the `Loop` line, where it is stopped on. Before the body, lowering emits a synthesized `Jump` to the next
+instruction, whose `Closes` is the `Do` line. The closer's back edge goes past it, to the body's first instruction. A
+step stops on the `Do` line once, on entry, then on the body and the `Loop` line on each pass, as MS-VBA stops.
 
 ## Branch trailing jumps
 
@@ -68,9 +72,9 @@ construct's closer. It does so even for the last branch, where the jump is redun
 Always emitting the trailing `Jump` keeps the emission logic uniform, instead of special-casing "is this the last
 branch", at the cost of one extra instruction that does not change behaviour.
 
-A trailing jump is on no line: a program goes through it to the closer, on the `End If` or `End Select` line. The
-trailing jump of a single-line `If` with an `Else` part is on the `If` line, so a step after the `Then` part stops on
-the `If` again before it goes past the `Else` part.
+A trailing jump is on no line: a program goes through it to the closer, on the `End If` or `End Select` line. So is
+the trailing jump of a single-line `If` with an `Else` part: a step after the `Then` part goes on to the next line, as
+MS-VBA goes.
 
 ## Loop exits
 

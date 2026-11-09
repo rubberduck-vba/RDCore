@@ -44,6 +44,7 @@ section of the same number, and defines the statement's runtime semantics.
 |Pre-test loop back-edge (synthesized)|`Jump`|`Target`: the loop's header.|[**RD-VBAL §5.4.2.2** While Statement](rd-vbal.5.4.2.2.while-statement.md), [**RD-VBAL §5.4.2.6** Do Statement](rd-vbal.5.4.2.6.do-statement.md)|
 |`Do…Loop While`, `Do…Loop Until` closer|`LoopBack`|`Target`: the body's first instruction, taken when the loop continues. Falling through ends the loop.|[**RD-VBAL §5.4.2.6** Do Statement](rd-vbal.5.4.2.6.do-statement.md)|
 |Bare `Do…Loop` back-edge|`Jump`|`Target`: the body's first instruction.|[**RD-VBAL §5.4.2.6** Do Statement](rd-vbal.5.4.2.6.do-statement.md)|
+|`Do…Loop While`, `Do…Loop Until`, `Do…Loop` entry (synthesized)|`Jump`|`Target`: the next instruction, the body's first. A back edge goes past it.|[**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)|
 |`For` opener / `Next` closer|`ForOpener` / `ForNext`|Opener's `End`: right past the `Next`. `Next`'s `Target`: the body's first instruction. `Next`'s `Matching`: the opener's offset.|[**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md)|
 |`For Each` opener / `Next` closer|`ForEachOpener` / `ForEachNext`|The same shape as `For`.|[**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)|
 |`With` opener|`With`|`End`: right past the block. Every instruction inside the block carries `EnclosingWith` = this opener's offset.|[**RD-VBAL §5.4.2.21** With Statement](rd-vbal.5.4.2.21.with-statement.md)|

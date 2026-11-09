@@ -28,17 +28,33 @@ explicit `Exit`.
 
 ### Where a program stops
 
-A step, a pause and a breakpoint stop only before an instruction that is on a line (`Instruction.Location`): a
-statement, or a closer on its block's closing line, such as an `End If`, a `Next` or the procedure's `End Sub`
+A step, a pause and a breakpoint stop only before an instruction that is on a line: a statement, or a closer on its
+block's closing line, such as an `End If`, a `Next` or the procedure's `End Sub`
 ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md#synthesized-closers)).
-The trailing jump of a branch is on no line: a program goes through it to the closer, so the `End If` line is stopped
-at once.
+The runtime reads that line from the instruction's `Closes` when it has one, and from its `Location` otherwise
+(`RDCore.Runtime.Execution.BreakpointTable.LocationOf`). A post-test loop's closer has the whole loop as its node,
+which begins on the `Do` line, and is stopped on at its `Loop` line. The trailing jump of a branch is on no line: a
+program goes through it to the closer, so the `End If` line is stopped at once.
+
+A step stops once per statement, as MS-VBA's step does:
+
+- A line of statements separated by `:` is stopped on once for each statement.
+- A single-line `If` is stopped on once for its test, then once for each statement of the part it runs.
+- A `Do…Loop While` or `Do…Loop Until` is stopped on at its `Do` line once, on entry. On each pass, it is stopped on
+  at the body, then at the `Loop` line, where its test is. A `Do While…Loop` is stopped on at its `Do While` line
+  for each test.
+
+The procedure's `End` line:
 
 - A breakpoint on `End Sub`, `End Function` or `End Property` is hit before the procedure returns, with its variables
   still readable. An `Exit` goes through it too.
 - A step from the last statement stops on `End Sub`. The next step returns to the caller.
 - A step out of a procedure does not stop on its `End Sub`.
 - An error that leaves the procedure does not go through its `End Sub`.
+
+**RD-VBA differs from MS-VBA:** after an `Exit Sub`, `Exit Function` or `Exit Property`, RD-VBA stops on the
+procedure's `End` line: a step lands there, and a breakpoint there is hit. MS-VBA goes from the `Exit` straight back
+to the caller (observed in Excel). It stops on the `End` line only when the procedure runs off its end.
 
 `ICallStackFrame.Pc` is read-only on the SDK interface. Only the executor mutates it, through the concrete
 `CallStackFrame` ([**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)).
