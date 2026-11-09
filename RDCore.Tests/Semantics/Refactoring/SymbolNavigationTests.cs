@@ -473,6 +473,26 @@ public sealed class SymbolNavigationTests
     }
 
     [TestMethod]
+    public void TheCounterOfALoop_IsReferredTo_ByTheNextThatNamesIt()
+    {
+        var context = Compose(("Loops", Module("Loops",
+            "Public Sub Spin(ByVal items As Collection)",
+            "    Dim index As Long",
+            "    For index = 1 To 3",
+            "    Next index",
+            "    Dim entry As Variant",
+            "    For Each entry In items",
+            "    Next entry",
+            "End Sub")));
+
+        CollectionAssert.AreEqual(new[] { "Loops:For index = 1 To 3", "Loops:Next index" },
+            Referenced(context, SymbolNavigation.ReferencesAt(context, ModuleUri("Loops"), At(context, "Loops", "Dim index", "index"), includeDeclaration: false)));
+        CollectionAssert.AreEqual(new[] { "Loops:Dim entry As Variant", "Loops:For Each entry In items", "Loops:Next entry" },
+            Referenced(context, SymbolNavigation.OccurrencesAt(context, ModuleUri("Loops"), At(context, "Loops", "Next entry", "entry"))),
+            "what a highlight from the Next shows");
+    }
+
+    [TestMethod]
     public void AClass_IsReferredTo_WhereATypeNamesIt()
     {
         var context = Workspace();
