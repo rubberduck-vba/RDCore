@@ -146,8 +146,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// Raised each time the program's <see cref="State"/> changes, with the state it is now in: as it starts, as it waits, as it goes on, and as it ends.
     /// </summary>
     /// <remarks>
-    /// Raised with the execution's lock held, on the thread that changed the state: a handler says that it happened - completes a task, queues a message - and does
-    /// not wait for anything, nor ask anything of the execution but its <see cref="State"/>.
+    /// Raised with the execution's lock held, on the thread that changed the state: a handler says that it happened (it completes a task, or queues a message), and
+    /// does not wait for anything, nor ask anything of the execution but its <see cref="State"/>.
     /// </remarks>
     public event Action<ProgramState>? StateChanged;
 
