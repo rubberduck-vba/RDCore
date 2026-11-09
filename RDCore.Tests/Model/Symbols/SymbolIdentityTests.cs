@@ -182,7 +182,8 @@ public sealed class SymbolIdentityTests
     [TestMethod]
     public void NoTwoDeclarationsOfAModuleOfTheBenchCorpus_ShareASemanticId()
     {
-        var assembly = typeof(DefineSymbolsHandler).Assembly;
+        // the bench corpus is rdc's.
+        var assembly = typeof(RDCore.CLI.App.Bench.BenchRunner).Assembly;
         var modules = assembly.GetManifestResourceNames().Where(resource => resource.StartsWith("Bench/Corpus/", StringComparison.Ordinal)).ToList();
         Assert.IsNotEmpty(modules);
 
