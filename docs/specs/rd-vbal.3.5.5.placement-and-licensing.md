@@ -11,7 +11,7 @@ The instruction model and its contracts live in **RDCore.SDK** (MIT). The interp
 |[InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)|RDCore.SDK|MIT|A procedure body's flattened instruction list ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)).|
 |[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)|RDCore.SDK|MIT|One entry of the list ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).|
 |[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)|RDCore.SDK|MIT|An entry's control-flow shape.|
-|[InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html)|RDCore.SDK|MIT|Lowering ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).|
+|`InstructionListLowering`|RDCore.SDK|MIT|Lowering ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).|
 |[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)|RDCore.SDK|MIT|The read-only view of an activation's state.|
 |[ForLoopState](../api/RDCore.SDK.Runtime.Shared.ForLoopState.html), [ForEachState](../api/RDCore.SDK.Runtime.Shared.ForEachState.html), [ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html)|RDCore.SDK|MIT|Per-activation state values ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).|
 |[IProcedureInvoker](../api/RDCore.SDK.Runtime.Abstract.Execution.IProcedureInvoker.html), [CallableBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.CallableBindingHandle.html)|RDCore.SDK|MIT|The call contract: given a procedure symbol, a resolver, and arguments, run the procedure.|

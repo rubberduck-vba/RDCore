@@ -35,8 +35,8 @@ listed in §3.5.5.
 |---|---|---|
 |`CallStackAwareSymbolResolver` (RDCore.Runtime)|Runtime|Resolves the address; allocates the storage.|
 |`RuntimeSymbolResolver` (RDCore.Runtime)|Runtime|Resolves the address; allocates the storage.|
-|[CompositeSymbolResolver](../api/RDCore.SDK.Model.Symbols.CompositeSymbolResolver.html)|Compile-time only|Returns `false` for both.|
-|[ScopeTreeSymbolResolver](../api/RDCore.SDK.Model.Symbols.ScopeTreeSymbolResolver.html)|Compile-time only|Returns `false` for both.|
+|`CompositeSymbolResolver`|Compile-time only|Returns `false` for both.|
+|`ScopeTreeSymbolResolver`|Compile-time only|Returns `false` for both.|
 |`IntrinsicSymbolResolver`|Compile-time only|Returns `false` for both.|
 
 `CallStackAwareSymbolResolver` and `RuntimeSymbolResolver` are the only two resolvers that resolve an address for
@@ -292,7 +292,7 @@ An appropriate compile-time error ([VBCompileErrorId](../api/RDCore.SDK.Model.Er
 be issued for a duplicate declaration and for an ambiguous name
 ([**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)).
 
-[SimpleNameExpressionStaticSemantics](../api/RDCore.SDK.Semantics.Static.Expressions.SimpleNameExpressionStaticSemantics.html)
+`SimpleNameExpressionStaticSemantics`
 ([**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)) consumes `ResolveValue`'s
 error outcomes, and reports an ambiguous or duplicate name as a coded compile-time error: the simple name expression
 yields an `Error` carrying `AmbiguousName` or `DuplicateDeclaration`.

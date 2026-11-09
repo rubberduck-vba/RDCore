@@ -17,7 +17,7 @@
 
 An `Exit Property` must be inside the body of a property declaration (`Property Get`, `Property Let` or `Property Set`); in a `Sub` or a `Function` it is
 [`VBC09315`](../diagnostics/vbc09315.md) (`ExitPropertyNotAllowedInSubOrFunction`). The rule is
-[ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s, applied when the kind of the procedure is known
+`ExitStatementStaticSemantics`'s, applied when the kind of the procedure is known
 ([**RD-VBAL §5.4.2.18** Exit Function Statement](rd-vbal.5.4.2.18.exit-function-statement.md)).
 
 ## Runtime Semantics

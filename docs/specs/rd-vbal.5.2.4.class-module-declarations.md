@@ -166,7 +166,7 @@ its `ImplementedInterfaceNames`.
 
 ### Static Semantics
 
-[ImplementsSemantics](../api/RDCore.SDK.Semantics.Static.ImplementsSemantics.html) checks the directives of a class module and what they
+`ImplementsSemantics` checks the directives of a class module and what they
 require of it.
 
 - The class a directive names must exist (`VBC09311` otherwise, as for any type that does not), cannot be the class of the
@@ -215,4 +215,4 @@ The event symbols and their parameters are among the member descriptors the envi
 An event name must be unique within the class module, reported as a duplicate declaration (`VBC09303`) when it is not, and
 must not contain an underscore, which is what separates a handler's variable from its event:
 [VBC09325](../diagnostics/vbc09325.md). Both are reported by
-[ClassModuleEventSemantics](../api/RDCore.SDK.Semantics.Static.ClassModuleEventSemantics.html).
+`ClassModuleEventSemantics`.
