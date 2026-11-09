@@ -25,6 +25,18 @@ platform's storage (**MS-VBAL §2.7.3**). In RD-VBA:
 - `ChDir` and `ChDrive` move it. `End` leaves it where the program put it.
 - The interactive shell started without a workspace runs in a temporary one, and its session stays in the folder the environment host was started in.
 
+## Path separators
+
+A path given to a file statement or a `FileSystem` member may separate its folders with `\` on every platform (RD-VBA addition). Where the file system's
+separator is `/` (Linux, macOS), each `\` in the path is read as `/`: `Open "Data\in.txt"` opens `Data/in.txt` in the current directory. On Windows a path
+is used as given. `CurDir` gives the path as the file system spells it, with `/` on Linux and macOS, and `Dir` gives names with no directory part.
+
+When the current directory is deleted (Linux and macOS allow it), `CurDir` and a relative path given to a file statement or a `FileSystem`
+member raise error `76` (RD-VBA addition). A full path still works.
+
+> [!NOTE]
+> On Linux and macOS, a file or folder whose name contains `\` cannot be reached through the VBA file functions.
+
 
 ## 6.1.2.5.1 Public Functions
 

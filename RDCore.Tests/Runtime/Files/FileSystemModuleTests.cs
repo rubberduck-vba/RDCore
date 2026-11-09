@@ -153,4 +153,16 @@ public sealed class FileSystemModuleTests
     [DataRow("a.txt", "Open \"/ws/a.txt\" For Input As #1 ;; Err.Clear ;; SetAttr \"/ws/a.txt\", vbReadOnly ;; P Err.Number ;; P GetAttr(\"/ws/a.txt\") ;; Close #1 ;; SetAttr \"/ws/a.txt\", vbNormal ;; Err.Clear ;; SetAttr \"/ws/*.txt\", vbNormal ;; P Err.Number ;; Err.Clear ;; P GetAttr(\"/ws/*.txt\") ;; P Err.Number", "0|1|52|52|", DisplayName = "G03 open for Input, a pattern")]
     [DataRow("a.txt", "Open \"/ws/a.txt\" For Binary As #1 ;; Err.Clear ;; SetAttr \"/ws/a.txt\", vbHidden ;; P Err.Number", "55|", DisplayName = "G11 open in any other mode")]
     public void SetAttrAndGetAttr_AreTheAttributes(string files, string body, string expected) => AssertPrinted(expected, files, body);
+
+    // a path's \ is a separator on every platform: VBA written with Windows paths finds the same files on Linux, where the file system's own separator is /.
+    [TestMethod]
+    [DataRow("sub/,sub/a.txt", "P Dir(\"\\ws\\sub\\a.txt\") ;; P Dir(\"\\ws\\sub\\*.txt\") ;; P Dir(\"\\ws\\sub\\\")", "a.txt|a.txt|a.txt|", DisplayName = "Dir")]
+    [DataRow("sub/", "Open \"\\ws\\sub\\o.txt\" For Output As #1 ;; Print #1, \"hi\"; ;; Err.Clear ;; Kill \"/ws/sub/o.txt\" ;; P Err.Number ;; Close #1 ;; P FileLen(\"/ws/sub/o.txt\")", "55|2|", DisplayName = "Open")]
+    [DataRow("sub/,sub/a.txt,sub/b.log", "Kill \"\\ws\\sub\\*.txt\" ;; P Dir(\"/ws/sub/*.*\") ;; P \"[\" & Dir() & \"]\"", "b.log|[]|", DisplayName = "Kill")]
+    [DataRow("sub/", "MkDir \"\\ws\\sub\\new\" ;; P GetAttr(\"/ws/sub/new\") ;; RmDir \"\\ws\\sub\\new\" ;; P \"[\" & Dir(\"/ws/sub/new\", vbDirectory) & \"]\"", "16|[]|", DisplayName = "MkDir, RmDir")]
+    [DataRow("sub/,sub/a.txt=hello", "FileCopy \"\\ws\\sub\\a.txt\", \"\\ws\\sub\\b.txt\" ;; P FileLen(\"/ws/sub/b.txt\")", "5|", DisplayName = "FileCopy")]
+    [DataRow("sub/,sub/a.txt", "Name \"\\ws\\sub\\a.txt\" As \"\\ws\\sub\\c.txt\" ;; P Dir(\"/ws/sub/c.txt\") ;; P \"[\" & Dir(\"/ws/sub/a.txt\") & \"]\"", "c.txt|[]|", DisplayName = "Name")]
+    [DataRow("sub/,sub/a.txt=hello", "SetAttr \"\\ws\\sub\\a.txt\", vbReadOnly ;; P GetAttr(\"\\ws\\sub\\a.txt\") ;; P FileLen(\"\\ws\\sub\\a.txt\") ;; P TypeName(FileDateTime(\"\\ws\\sub\\a.txt\"))", "1|5|Date|", DisplayName = "SetAttr, GetAttr, FileLen, FileDateTime")]
+    [DataRow("sub/,sub/deep/", "Err.Clear ;; ChDir \"\\ws\\sub\\deep\" ;; P Err.Number ;; Err.Clear ;; ChDir \"\\ws\\sub\\nope\" ;; P Err.Number", "0|76|", DisplayName = "ChDir")]
+    public void ABackslash_IsAPathSeparator_OnEveryPlatform(string files, string body, string expected) => AssertPrinted(expected, files, body);
 }
