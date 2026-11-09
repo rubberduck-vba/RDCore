@@ -28,21 +28,8 @@ public record class ExpressionInfoBuilder: IExpressionInfoFormatter
             .WithIconIf(_options.ExpressionSemanticId && _options.ShowSemanticIdIcon, _options.SemanticIdIcon)
             .WithConditional(_options.ExpressionSemanticId, expression.SemanticId);
 
-    /// <summary>
-    /// Formats a <c>Uri</c>.
-    /// </summary>
-    /// <remarks>
-    /// 🧩 Base implementation simply dumps the <c>Uri.ToString()</c> representation into the output.
-    /// </remarks>
     protected virtual string FormatUri(Uri uri) => uri.ToString(); // TODO UriFormatter, discrimate by namespace.
 
-    /// <summary>
-    /// Formats the <c>DocumentLocation</c> of the specified expression.
-    /// </summary>
-    /// <remarks>
-    /// 🧩 Base implementation uses <c>&lt;Start&gt;[ ..&lt;End&gt;]</c> <c>L1C1</c> notation
-    /// where the <c>End</c> coordinates only appear if different than the <c>Start</c> coordinates.
-    /// </remarks>
     protected virtual void FormatLocation(StringBuilder builder, VBErrorExpression expression)
         => builder
             .WithConditional(_options.DocumentLocation, sb1 => sb1
