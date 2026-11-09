@@ -74,7 +74,7 @@ internal sealed record class BenchReport(
 /// <param name="Problems">What kept a module from being parsed or loaded.</param>
 /// <param name="Definitions">What was defined in the session, in order: what the built program defines in its own when it runs.</param>
 /// <param name="Modules">The names of the modules that loaded.</param>
-/// <param name="Provider">The session the workspace was loaded in.</param>
+/// <param name="Provider">The session the workspace was loaded in, which the caller disposes.</param>
 /// <param name="Environment">The environment the program was built for.</param>
 internal sealed record class BuiltWorkspace(
     IReadOnlyList<(string Module, ProcedureCompilation Compilation)> Procedures, IReadOnlyList<string> Problems, IReadOnlyList<DefineSymbolsParams> Definitions,
@@ -126,7 +126,7 @@ internal sealed class BenchRunner(
         // whatever implements the environment: --engine is never ignored.
         var profile = options.Engine is { } engine ? SDK.Runtime.RuntimeEnvironmentProfile.Of(environment) with { ExecutionEngine = engine } : environment;
         var load = await LoadAsync(workspace, profile, token);
-        var provider = load.Provider;
+        using var provider = load.Provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): each case is refused with what keeps the modules from loading.
         var refused = load.Problems.Count > 0 ? $"{ExecutionOutcome.SyntaxError} {string.Join("; ", load.Problems)}" : null;
@@ -200,8 +200,9 @@ internal sealed class BenchRunner(
         BenchWorkspace workspace, CancellationToken token = default)
     {
         var load = await LoadAsync(workspace, environment, token);
-        var session = load.Provider.Session;
-        var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, messages, token, outside: load.Provider.Outside);
+        using var provider = load.Provider;
+        var session = provider.Session;
+        var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, messages, token, outside: provider.Outside);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
         foreach (var (module, _) in load.Loaded)
         {
@@ -212,7 +213,7 @@ internal sealed class BenchRunner(
 
             foreach (var procedure in session.Symbols.MembersOf(symbol.Uri).OfType<VBTypeMemberSymbol>().OrderBy(member => member.Range.Start.Line))
             {
-                if (ProcedureCompilation.Of(load.Provider.Image, session, pipeline.Executor, procedure) is { } compilation)
+                if (ProcedureCompilation.Of(provider.Image, session, pipeline.Executor, procedure) is { } compilation)
                 {
                     procedures.Add((module.Name, compilation));
                 }
@@ -236,23 +237,31 @@ internal sealed class BenchRunner(
         var definitions = new List<DefineSymbolsParams>();
         var built = profile ?? environment;
         var load = await LoadAsync(workspace, built, token, definitions);
-        var session = load.Provider.Session;
-        var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, messages, token, outside: load.Provider.Outside);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
-        foreach (var (module, _) in load.Loaded)
+        try
         {
-            if (!session.Symbols.TryGetModule(module.Name, out var symbol))
+            var session = load.Provider.Session;
+            var pipeline = RuntimeExecutionPipeline.Create(session, load.Provider.Image, messages, token, outside: load.Provider.Outside);
+            foreach (var (module, _) in load.Loaded)
             {
-                continue;
-            }
-
-            foreach (var procedure in session.Symbols.MembersOf(symbol.Uri).OfType<VBTypeMemberSymbol>().OrderBy(member => member.Range.Start.Line))
-            {
-                if (builder.Add(load.Provider.Image, session, pipeline.Executor, procedure) is { } compilation)
+                if (!session.Symbols.TryGetModule(module.Name, out var symbol))
                 {
-                    procedures.Add((module.Name, compilation));
+                    continue;
+                }
+
+                foreach (var procedure in session.Symbols.MembersOf(symbol.Uri).OfType<VBTypeMemberSymbol>().OrderBy(member => member.Range.Start.Line))
+                {
+                    if (builder.Add(load.Provider.Image, session, pipeline.Executor, procedure) is { } compilation)
+                    {
+                        procedures.Add((module.Name, compilation));
+                    }
                 }
             }
+        }
+        catch
+        {
+            load.Provider.Dispose();
+            throw;
         }
 
         return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Provider, built);
@@ -265,7 +274,7 @@ internal sealed class BenchRunner(
     /// <param name="workspace">The workspace.</param>
     /// <param name="profile">The environment the program runs in; the runner's when omitted.</param>
     /// <param name="token">Stops the load.</param>
-    /// <returns>The session, the modules that loaded, and what kept a module from being parsed or loaded.</returns>
+    /// <returns>The session, which the caller disposes; the modules that loaded; and what kept a module from being parsed or loaded.</returns>
     public async Task<(EnvironmentSessionProvider Provider, IReadOnlyList<string> Modules, IReadOnlyList<string> Problems)> LoadProgramAsync(
         BenchWorkspace workspace, IRuntimeEnvironmentProfile? profile = null, CancellationToken token = default)
     {
@@ -278,16 +287,29 @@ internal sealed class BenchRunner(
         IReadOnlyList<string> Problems);
 
     // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile; what was defined in it, in order, kept in
-    // definitions when it is given.
+    // definitions when it is given. The caller disposes the provider: the session's current directory is the workspace, which the caller may delete.
     private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token,
         List<DefineSymbolsParams>? definitions = null)
     {
-        var problems = new List<string>();
         var root = new Uri(workspace.Root);
         var provider = new EnvironmentSessionProvider(
             profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, ExternalWorld.None);
-        provider.Compose(workspace.Project, root);
+        try
+        {
+            provider.Compose(workspace.Project, root);
+            return await LoadAsync(provider, workspace, root, token, definitions);
+        }
+        catch
+        {
+            provider.Dispose();
+            throw;
+        }
+    }
 
+    private async Task<LoadedWorkspace> LoadAsync(EnvironmentSessionProvider provider, BenchWorkspace workspace, Uri root, CancellationToken token,
+        List<DefineSymbolsParams>? definitions)
+    {
+        var problems = new List<string>();
         var stopwatch = Stopwatch.StartNew();
         var parsed = new List<(BenchModule Module, Uri Uri, ModuleParseResult Parse)>();
         foreach (var module in workspace.Modules)
