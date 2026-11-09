@@ -390,6 +390,11 @@ public abstract class RDCoreClientApp : IRDCoreClientApp
             .OnInitialize(HandleLanguageClientInitializeAsync)
             .OnInitialized(HandleLanguageClientInitializedAsync);
 
+        // a request the server makes runs to its end and is answered, as a server's does (ServerRequestScheduling.WithEveryRequestAnswered): by default a
+        // window/showMessageRequest that waits for the user is abandoned when a $/progress or a window/workDoneProgress/create arrives, and OmniSharp 0.19.9
+        // then answers the server nothing.
+        options.WithContentModifiedSupport(false);
+
         // the server asks for the live settings (workspace/configuration).
         OmniSharp.Extensions.LanguageServer.Protocol.Workspace.ConfigurationExtensions.OnConfiguration(options, (request, _) => Task.FromResult(AnswerConfiguration(request)));
 

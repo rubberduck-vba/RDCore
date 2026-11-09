@@ -1,6 +1,7 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 
 namespace RDCore.Tests.Parser;
@@ -69,6 +70,30 @@ public sealed class SyntaxNodeWalkTests
     [TestMethod]
     public void EveryStatementInEveryKindOfBlock_IsAmongTheDescendants()
         => Assert.AreEqual(16, Procedure().Descendants().OfType<DebugPrintStatementNode>().Count());
+
+    [TestMethod]
+    public void TheVariableANextNames_IsWalkedAfterTheBodyOfItsLoop_WhereItIsWritten()
+    {
+        const string grid = """
+            Public Sub Grid()
+                For i = 1 To 2
+                    For Each j In items
+                        Debug.Print 1
+                Next j, i
+            End Sub
+            """;
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), grid.ReplaceLineEndings("\r\n") + "\r\n");
+        Assert.IsEmpty(result.SyntaxErrors, string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
+
+        var names = result.SyntaxTree!.Descendants().OfType<SimpleNameExpressionNode>()
+            .Select(name => $"{name.IdentifierName}@{name.Location.Range.Start.Line}").ToArray();
+
+        CollectionAssert.AreEqual(new[] { "i@1", "j@2", "items@2", "j@4", "i@4" }, names);
+    }
+
+    [TestMethod]
+    public void ANextThatNamesNoVariable_AddsNothingAfterTheBodyOfItsLoop()
+        => Assert.IsInstanceOfType<DebugPrintStatementNode>(Procedure().Descendants().OfType<ForStatementNode>().Single().ChildNodes().Last());
 
     [TestMethod]
     public void TheChildrenAlone_NeverGetInsideABlock()

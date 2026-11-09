@@ -191,7 +191,7 @@ public sealed class WorkspaceCurrentDirectoryTests
         Directory.Delete(workspace, recursive: true);
     }
 
-    // Linux lets a process's current directory be deleted (Windows refuses), and every later read of it then fails: no session composed after it fails with it.
+    // Linux lets a process's current directory be deleted (Windows refuses), and every later read of it then fails: a session composed after that does not fail.
     [TestMethod]
     public void AWorkspaceDeletedWhileItIsTheCurrentDirectory_FailsNoLaterCompose()
     {
