@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -179,7 +180,7 @@ public sealed partial class CompiledActivation : ILightActivation
     private ScalarCell? CellOf(int number, long integral, double floating)
     {
         var slot = _body.CellSlots[number];
-        var type = ((ITypedSymbol)_body.SlotSymbols[slot]).ResolvedType;
+        var type = VBEnumType.AsDeclaredType(((ITypedSymbol)_body.SlotSymbols[slot]).ResolvedType);
         if (_frame is { } frame && frame.IsSlotFilled(slot))
         {
             var held = frame.TryGetSlotCell(slot, out var cell) && cell is ScalarCell scalar && scalar.Type.Equals(type) ? scalar : null;
@@ -1013,7 +1014,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         scalar = frame.TryGetAddressedSlot(slot, out var bound) && bound is ScalarCell held
-            && _body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && held.Type.Equals(type)
+            && _body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && held.Type.Equals(VBEnumType.AsDeclaredType(type))
             ? held
             : null;
         return scalar is not null;
@@ -1261,7 +1262,8 @@ public sealed partial class CompiledActivation : ILightActivation
 
         // an activation of a call compiled code made through the callee's typed entry holds no cell until it needs one (EnterDirectly): it is given the cell
         // it would have been given at the call, holding what the variable holds now.
-        if (_body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && ScalarPayload.IsScalar(type))
+        if (_body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var declared }
+            && VBEnumType.AsDeclaredType(declared) is var type && ScalarPayload.IsScalar(type))
         {
             frame.PushPayload(symbol, new ScalarPayload(type, integral, floating), slot);
         }

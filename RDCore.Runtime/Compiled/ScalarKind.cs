@@ -1,5 +1,6 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -45,9 +46,13 @@ public enum ScalarKind
 /// </summary>
 internal static class ScalarKinds
 {
-    /// <summary>The kind of <paramref name="type"/>, when it is a scalar type.</summary>
+    /// <summary>
+    /// The kind of <paramref name="type"/>, when it is a scalar type. An enumeration is a <c>Long</c> (<strong>MS-VBAL §5.2.3.4</strong>): what a variable
+    /// declared as one holds is a <c>Long</c>, held in a cell of the <c>Long</c> type (<see cref="VBEnumType.AsDeclaredType"/>).
+    /// </summary>
     public static ScalarKind? Of(VBType? type) => type switch
     {
+        VBEnumType => ScalarKind.Long,
         VBByteType => ScalarKind.Byte,
         VBIntegerType => ScalarKind.Integer,
         VBLongType => ScalarKind.Long,
