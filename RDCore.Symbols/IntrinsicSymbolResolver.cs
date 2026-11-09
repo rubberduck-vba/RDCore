@@ -1,11 +1,8 @@
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Model.Values.Abstract;
-using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Symbols;
 
@@ -15,8 +12,7 @@ namespace RDCore.Symbols;
 /// their intrinsic <c>VBType</c> (via <see cref="IntrinsicVBTypes"/>), and resolves nothing else.
 /// </summary>
 /// <remarks>
-/// A compile-time type resolver only — it holds no runtime bindings, so the value-lookup members
-/// throw. With it in place the <c>SymbolBuilder</c> binds intrinsic declared types instead of
+/// A compile-time type resolver only: it holds no runtime bindings. With it in place the <c>SymbolBuilder</c> binds intrinsic declared types instead of
 /// leaving every one <c>VBUnknownType</c>; project and library type names still fall through until a
 /// resolver composed with those symbols is available. A reserved data-type name is a type, never a
 /// value, so it binds in the type binding context only.
@@ -43,29 +39,4 @@ public sealed class IntrinsicSymbolResolver(bool is64Bit = true) : ISymbolResolv
     /// <inheritdoc/>
     public SymbolResolutionResult ResolveMember(Symbol owner, string name, Uri handle)
         => SymbolResolutionResult.Unbound; // the intrinsic types are no project or module to have members
-
-    /// <inheritdoc/>
-    public IBindingHandle GetValue(Symbol symbol)
-        => throw new NotSupportedException("The intrinsic symbol resolver resolves type names only; it holds no runtime bindings.");
-
-    /// <inheritdoc/>
-    public bool TryRead(MemoryAddress address, [NotNullWhen(true)][MaybeNullWhen(false)] out IBindingHandle? value)
-    {
-        value = null;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool TryGetAddress(Symbol symbol, out MemoryAddress address)
-    {
-        address = default;
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool TryAllocate(Symbol symbol, VBTypedValue value, out MemoryAddress address)
-    {
-        address = default;
-        return false;
-    }
 }

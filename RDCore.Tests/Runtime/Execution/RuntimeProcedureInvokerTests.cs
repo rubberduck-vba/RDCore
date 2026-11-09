@@ -24,6 +24,7 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
 
@@ -57,9 +58,9 @@ public sealed class RuntimeProcedureInvokerTests
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.EvaluateLetCoercionSemantics(resolver, expression, frame);
-        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(ISymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
+        public RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver resolver, RDCore.SDK.Semantics.Builders.ILetCoercionSemanticContextBuilder builder, ExpressionNode expression, LetCoercionStackFrame frame)
             => Inner.Analyze(resolver, builder, expression, frame);
     }
 

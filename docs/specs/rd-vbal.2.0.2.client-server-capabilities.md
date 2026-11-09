@@ -292,7 +292,7 @@ A request a server refuses is answered `RequestFailed` (-32803), with a message 
 
 The language server answers `textDocument/inlayHint` (**LSP 3.17** §Inlay Hint Request) with, before each positional argument of the calls in the range,
 the name of the parameter it is given to: `MsgBox Prompt: "Hello", Buttons: vbOKOnly`
-([`ParameterHints`](../api/RDCore.SDK.Semantics.Refactoring.ParameterHints.html)). A call is an argument list after a name the static pass binds to a
+(`ParameterHints`). A call is an argument list after a name the static pass binds to a
 procedure, a function or a property, of the workspace or of a library it references. The subscripts of an array have no hint. A named argument, and every
 argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
 of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
@@ -330,7 +330,7 @@ What the list offers depends on what is being written, and where. The language s
 
 Which keyword is legal where is decided by [`CompletionRules`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionRules.html). A `Private` member is offered only in its own module. A member a library hides (`VB_MemberFlags`) is never offered.
 
-An `Object` or a `Variant` has no members known when the code is written. For a variable of one, the list offers the members of every class the module `Set`s it to an object of with `CreateObject` and a constant identifier (`Set o = CreateObject("Scripting.Dictionary")`), wherever the module does it ([`ObjectClassInference`](../api/RDCore.SDK.Semantics.Static.ObjectClassInference.html)). A class of a library the project does not reference is read from the library's description, and its names are still not names of the project. This is a fact for tooling only: the variable keeps its declared type, nothing about the class is a compile error, and the member stays late-bound when the code runs.
+An `Object` or a `Variant` has no members known when the code is written. For a variable of one, the list offers the members of every class the module `Set`s it to an object of with `CreateObject` and a constant identifier (`Set o = CreateObject("Scripting.Dictionary")`), wherever the module does it (`ObjectClassInference`). A class of a library the project does not reference is read from the library's description, and its names are still not names of the project. This is a fact for tooling only: the variable keeps its declared type, nothing about the class is a compile error, and the member stays late-bound when the code runs.
 
 The line being typed seldom parses. The language server takes it out of the module before the module is parsed. For a member access, it puts it back as an assignment of the expression the member is accessed on, whose type comes from the static semantics. The module is composed with the rest of the workspace and the referenced libraries. Nothing of it is sent to the environment host.
 
@@ -388,7 +388,7 @@ The interactive shell asks it once for the conditions of all the breakpoints `BR
 
 ### `textDocument/rename` and `textDocument/prepareRename`
 
-The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed, except a string a library calls the symbol by ([`SymbolRename`](../api/RDCore.SDK.Semantics.Refactoring.SymbolRename.html)).
+The language server answers `textDocument/prepareRename` and `textDocument/rename` (**LSP 3.17** §Rename Request, §Prepare Rename Request) for the documents it holds, a `.rdc` program included (`renameProvider.prepareProvider = true`). A rename renames a symbol: the names that refer to it, in every document of the workspace, and no other name: a text that is the same in a comment, a string, or another procedure's local is not renamed, except a string a library calls the symbol by (`SymbolRename`).
 
 `textDocument/prepareRename` answers the range of the name at the position and the name the symbol is declared with (`placeholder`). `textDocument/rename` answers a `WorkspaceEdit` of `documentChanges`, one `TextDocumentEdit` per document whose text changes, at the version the server holds, to a client that says it takes them (`workspace.workspaceEdit.documentChanges`); any other client is answered the same edits as `changes`, by document, which name no version (**LSP 3.17** §WorkspaceEdit). An edit whose change annotation asks the user to confirm it is sent only to a client that takes change annotations (`changeAnnotationSupport`); an edit the client could not apply at all is refused, with why. An edit replaces a name only: a type-declaration character after it stays (`s$`).
 
@@ -406,11 +406,11 @@ The accessors of a property (`Get`, `Let`, `Set`) are one name, and are renamed 
 
 A string is renamed where a member of a library calls a member of a module by its name in it: the procedure name of `CallByName` (**MS-VBAL §6.1.2.8.1.1**), a macro `Application.Run` runs, a procedure `Application.OnTime` or `OnKey` calls later, or the `OnAction` of a control. The string can be qualified (`"Module1.Foo"`, `"'Book1.xlsm'!Foo"`); one that names another module of the workspace is not renamed. What a string says is only known when the code runs, so the user confirms these edits. A string left as it is names nothing the call can find, and the call fails only when the code runs.
 
-A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's name is renamed too, when the symbol is a member of a class that code outside the class can call (not `Private`). Which member the access calls is only known when the code runs (**MS-VBAL §5.6.12**), so the user confirms these edits as well. What is known of the classes the object may hold decides which accesses are proposed ([`PossibleClasses`](../api/RDCore.SDK.Semantics.Static.PossibleClasses.html)):
+A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's name is renamed too, when the symbol is a member of a class that code outside the class can call (not `Private`). Which member the access calls is only known when the code runs (**MS-VBAL §5.6.12**), so the user confirms these edits as well. What is known of the classes the object may hold decides which accesses are proposed (`PossibleClasses`):
 
 - An object may hold any class, unless something knows them all. An access on it is proposed.
 - The code knows them all for a local or a `Private` variable of the module, when every `Set` of it names its class (`New Class1`, a variable or a function `As Class1`, `Me`, `CreateObject` of a class the project resolves, `Nothing`), and the variable is never the variable of a `For Each` loop or a whole argument of a call. An access on it is proposed only when one of those classes is the symbol's.
-- **Extension point:** what else knows the classes (an extension) can say so too ([`IPossibleClassesSource`](../api/RDCore.SDK.Semantics.Static.IPossibleClassesSource.html)).
+- **Extension point:** what else knows the classes (an extension) can say so too (`IPossibleClassesSource`).
 
 > [!NOTE]
 > **Not implemented.** The classes an environment-host session saw the object hold while it ran are not a source.
@@ -438,7 +438,7 @@ A position is said the way the document says it: its file and line, and for a pr
 ### `textDocument/hover`
 
 The language server answers `textDocument/hover` (**LSP 3.17** §Hover Request) for the documents it holds, over the name at the position, bound the way a
-rename binds it ([`SymbolHover`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHover.html)). A symbol of a library the workspace references is hovered as one
+rename binds it (`SymbolHover`). A symbol of a library the workspace references is hovered as one
 of the workspace is.
 
 |Hovered|Declaration|Member of|
@@ -458,7 +458,7 @@ not known (a member accessed late-bound), has no hover.
 
 The language server answers `textDocument/definition` (**LSP 3.17** §Goto Definition Request) for the documents it holds, a `.rdc` program included. The name at
 the position is bound the way a rename binds it (table above), so a navigation leads to what a rename of the name would rename
-([`SymbolNavigation`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)).
+(`SymbolNavigation`).
 
 |Named|Defined by|
 |---|---|
@@ -475,7 +475,7 @@ declares. Ranges are in the text of the document: for a program of the BASIC, it
 ### `textDocument/references` and `textDocument/documentHighlight`
 
 The language server answers `textDocument/references` (**LSP 3.17** §Find References Request) with each name, in every document it holds, that refers to the
-symbol named at the position ([`SymbolNavigation.ReferencesAt`](../api/RDCore.SDK.Semantics.Refactoring.SymbolNavigation.html)): the names a rename of the
+symbol named at the position (`SymbolNavigation.ReferencesAt`): the names a rename of the
 symbol would rename (table above), and, for a class, a module, a `Type` or an `Enum`, the names of the type in `As` clauses and after `New`. The names its
 declarations declare are references when the client asks for them (`context.includeDeclaration`), and so are the attributes of a member
 (`Attribute Foo.VB_Description`). A member accessed late-bound (on an `Object` or a `Variant`) is not known to refer to it, and is not a reference.
@@ -583,7 +583,7 @@ It answers what it wrote: the URI of the `.rdproj` (`projectFile`), the project'
 
 ### `textDocument/codeLens` and `codeLens/resolve`
 
-The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares ([`SymbolLenses`](../api/RDCore.SDK.Semantics.Refactoring.SymbolLenses.html)): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
+The language server answers `textDocument/codeLens` (**LSP 3.17** §Code Lens Request) with a lens at the name of each member a module declares (`SymbolLenses`): a `Sub`, a `Function`, each procedure of a property, a `Declare` statement, an `Event`, a `Type` and an `Enum`. A variable or a constant of the module has none, nor a field of a `Type` or a member of an `Enum`. A `.rdc` program has none: its procedure is the one its lines are the body of.
 
 A lens is answered without its command (`resolveProvider = true`), since its references are found in every document of the workspace: a client resolves the lenses it shows (`codeLens/resolve`), and the server finds the references of each when it is resolved. Its references are those of `textDocument/references` at its name, its declarations not included: the lens of a `Property Get` counts the names that read the property, and the lens of its `Property Let` or `Property Set` the names that assign it. A property that nothing assigns shows `0 references` above its `Property Let`. The result a function or a `Property Get` assigns or reads in its own body is no reference; a recursive call is.
 
@@ -773,7 +773,7 @@ The work the server begins of its own is not drawn among a command's output.
 ### Call hierarchy and type hierarchy
 
 The language server answers `textDocument/prepareCallHierarchy`, `callHierarchy/incomingCalls` and `callHierarchy/outgoingCalls` (**LSP 3.17** §Call
-Hierarchy) ([`SymbolHierarchy`](../api/RDCore.SDK.Semantics.Refactoring.SymbolHierarchy.html)):
+Hierarchy) (`SymbolHierarchy`):
 
 - An item is a procedure, a function, or a procedure of a property, that the workspace declares; a member of a library is none. Its `data` is the identity of
   its symbol, which is all the server needs to find it again when the client sends it back.

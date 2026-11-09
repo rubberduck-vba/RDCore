@@ -9,7 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.Compiled;

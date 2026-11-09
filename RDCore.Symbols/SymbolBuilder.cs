@@ -15,7 +15,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 

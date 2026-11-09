@@ -9,7 +9,7 @@ innermost enclosing `With` statement. See [**RD-VBAL §5.4.2.21** With Statement
 ## Static Semantics
 
 At compile time, the declared type of the innermost enclosing `With` block's target is carried by
-[StaticEvaluationContext](../api/RDCore.SDK.Semantics.Static.Abstract.StaticEvaluationContext.html)`.EnclosingWithTargetType`.
+`StaticEvaluationContext.EnclosingWithTargetType`.
 See [**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md).
 
 ## Runtime Semantics

@@ -33,7 +33,7 @@ public record class BinaryExponentOperatorRuntimeSemantics(
     protected override string Operator => Tokens.PowerOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)

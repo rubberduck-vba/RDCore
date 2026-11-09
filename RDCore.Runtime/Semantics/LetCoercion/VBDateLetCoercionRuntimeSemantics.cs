@@ -36,7 +36,7 @@ public record class VBDateLetCoercionRuntimeSemantics(
     : LetCoercionRuntimeSemantics<VBDateType>(ErrorDetails)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) =>
         frame.DestinationTypeDesc.Target is VBDateType
@@ -45,7 +45,7 @@ public record class VBDateLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder, 
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         LetCoercionStackFrame frame)
     {

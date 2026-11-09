@@ -1,5 +1,5 @@
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 
 namespace RDCore.Tests.Semantics.Abstract;
 

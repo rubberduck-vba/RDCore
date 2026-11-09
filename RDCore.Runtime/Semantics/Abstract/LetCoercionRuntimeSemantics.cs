@@ -46,7 +46,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <param name="frame">The current stack frame of the coercion operation.</param>
     /// <returns></returns>
     public abstract LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         LetCoercionStackFrame frame);
 
@@ -61,7 +61,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <returns>The <see cref="LetCoercionAnalysisContext"/> for the context of this <em>let-coercion</em> operation.</returns>
     public LetCoercionAnalysisContext Analyze(
         ILetCoercionSemanticContextBuilder builder, 
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         LetCoercionStackFrame frame,
         LetCoercionResult result)
@@ -93,7 +93,7 @@ public abstract record class LetCoercionRuntimeSemantics<TStrategy> : ILetCoerci
     /// <returns></returns>
     protected abstract ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder, 
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         LetCoercionStackFrame frame);
 

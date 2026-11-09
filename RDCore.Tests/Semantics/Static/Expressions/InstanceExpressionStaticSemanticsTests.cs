@@ -8,8 +8,9 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Semantics.Static.Abstract;
-using RDCore.SDK.Semantics.Static.Expressions;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static.Expressions;
+using RDCore.Runtime.LanguageCore.Services;
 
 namespace RDCore.Tests.Semantics.Static.Expressions;
 

@@ -19,7 +19,7 @@ The declared type of a simple name expression is the declared type of the entity
 identifier resolves per the ordered lookup of [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 
 This section specifies how a simple name expression's declared type is determined from a `ResolveValue` outcome.
-[SimpleNameExpressionStaticSemantics](../api/RDCore.SDK.Semantics.Static.Expressions.SimpleNameExpressionStaticSemantics.html)
+`SimpleNameExpressionStaticSemantics`
 implements it.
 
 ### Candidates
@@ -62,7 +62,7 @@ is not the function's type. Any other function of the library refuses a characte
 
 The static semantics of a simple name expression have three outcomes, depending on the resolver's result. Each
 outcome is a
-[StaticSemanticsEvaluationResult](../api/RDCore.SDK.Semantics.Static.Abstract.StaticSemanticsEvaluationResult.html):
+`StaticSemanticsEvaluationResult`:
 
 |Resolver result|Outcome|
 |---|---|
@@ -85,7 +85,7 @@ A project, a procedural module and an Enum type qualify the names of what they d
 `Color.Red`): as the owner of a member access they are what they are, and by themselves they are no value, variable or
 procedure. Written bare or qualified (`VBA.Strings`, `Globals.Color`) where an expression is, each is an error of what it
 is, as **MS-VBA** reports it (recorded in Excel), with a verbose message that says what the name is
-([NameClassificationStaticSemantics](../api/RDCore.SDK.Semantics.Static.NameClassificationStaticSemantics.html)):
+(`NameClassificationStaticSemantics`):
 
 |The name is|Error|
 |---|---|

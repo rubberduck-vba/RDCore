@@ -47,7 +47,7 @@ public sealed record class ExternalCallPipeline(
         => new(session, [new DllImportPolicyInterceptor(), new AutomationPolicyInterceptor(), .. interceptors ?? []], [.. providers]);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, ISymbolResolver resolver)
+    public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         foreach (var interceptor in Interceptors)
         {

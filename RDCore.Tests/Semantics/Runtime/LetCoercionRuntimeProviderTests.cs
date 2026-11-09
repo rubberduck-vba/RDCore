@@ -36,9 +36,9 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.EvaluateLetCoercionSemantics(r, e, f);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.Analyze(r, b, e, f);
     }
 
@@ -281,7 +281,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
 
         var provider = new LetCoercionRuntimeSemanticsProvider([strategy], fmt);
         strategy.EvaluateLetCoercion(default!, default!, default).ReturnsForAnyArgs(call =>
-            provider.EvaluateLetCoercionSemantics(call.ArgAt<ISymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2)));
+            provider.EvaluateLetCoercionSemantics(call.ArgAt<IRuntimeSymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2)));
 
         var frame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, new VBLongValue(5), new VBTypeDescValue(VBLongType.TypeInfo));
         var result = provider.EvaluateLetCoercionSemantics(null!, ThrowawayExpression, frame);
@@ -309,7 +309,7 @@ public sealed class LetCoercionRuntimeProviderTests : LetCoercionRuntimeSemantic
                 return LetCoercionResult.Success(new VBLongValue(9));
             }
             recursedOnce = true;
-            return provider.EvaluateLetCoercionSemantics(call.ArgAt<ISymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2));
+            return provider.EvaluateLetCoercionSemantics(call.ArgAt<IRuntimeSymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2));
         });
 
         var recursiveFrame = new LetCoercionStackFrame(NodeId, InputIndex.CoercionSourceValue, new VBLongValue(5), new VBTypeDescValue(VBLongType.TypeInfo));

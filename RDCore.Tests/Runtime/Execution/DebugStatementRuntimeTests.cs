@@ -12,6 +12,7 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
 

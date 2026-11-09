@@ -38,7 +38,7 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
     SDK.Runtime.RegionalSettings? Regional = null)
     : LetCoercionRuntimeSemantics<VBBooleanType>(ErrorDetails)
 {
-    public sealed override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    public sealed override LetCoercionResult EvaluateLetCoercion(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
     {
         frame = WithoutVariant(frame);
         return frame.DestinationTypeDesc.Target is VBBooleanType
@@ -46,7 +46,7 @@ public sealed record class VBBooleanLetCoercionRuntimeSemantics(
             : LetCoercionResult.NotApplicable(frame);
     }
 
-    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(ILetCoercionSemanticContextBuilder builder, ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
+    protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(ILetCoercionSemanticContextBuilder builder, IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame)
     {
         builder.AddLetCoercionFlags(ConversionSemanticFlags.Numeric | ConversionSemanticFlags.CTypeAvailable | frame.SourceValue switch
         {

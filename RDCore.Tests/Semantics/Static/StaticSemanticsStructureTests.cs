@@ -5,7 +5,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Workspace;
 
 namespace RDCore.Tests.Semantics.Static;

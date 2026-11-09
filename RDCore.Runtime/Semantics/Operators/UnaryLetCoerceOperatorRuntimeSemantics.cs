@@ -61,13 +61,13 @@ public sealed record class UnaryLetCoerceOperatorRuntimeSemantics(
     /// a <c>String</c> operand's effective type <c>Double</c>) is never reached.
     /// </summary>
     protected override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
         => DetermineOperatorEffectiveTypeResult.Success(frame[InputIndex.UnaryOperand].TypeInfo);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)

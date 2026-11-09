@@ -32,7 +32,7 @@ public record class BinaryDivisionOperatorRuntimeSemantics(
     protected override string Operator => Tokens.DivisionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)

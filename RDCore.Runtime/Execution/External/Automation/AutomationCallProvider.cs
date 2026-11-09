@@ -68,7 +68,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
         && request.Arguments is [var receiver, ..] && IdentityOf(receiver) is { } identity && HandleOf(identity) is not null;
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         try
         {
@@ -85,7 +85,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
     }
 
     // CreateObject and GetObject: the object, an instance of the class of a referenced library that declares it, or a late-bound one (LateBinding).
-    private RuntimeSemanticsEvaluationResult Obtain(ExternalObjectRequest request, ISymbolResolver resolver)
+    private RuntimeSemanticsEvaluationResult Obtain(ExternalObjectRequest request, IRuntimeSymbolResolver resolver)
     {
         object obtained;
         using (session.Turn.Yield())
@@ -157,7 +157,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             AutomationMarshaller.FromAutomation(last, VBVariantType.TypeInfo, (value, declared) => Wrap(value, declared, session.Symbols.Resolver)));
     }
 
-    private RuntimeSemanticsEvaluationResult Call(ExternalCallRequest request, ISymbolResolver resolver)
+    private RuntimeSemanticsEvaluationResult Call(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         var member = request.Member;
         var (name, invocation) = ParseTarget(member.GetProperty(SymbolProperties.ExternalTarget)!);
@@ -198,7 +198,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             result, member.ResolvedType, (value, declared) => enumeration ? WrapEnumerator(value, resolver) : Wrap(value, declared, resolver)));
     }
 
-    private VBTypedValue WrapEnumerator(object enumerator, ISymbolResolver resolver) => _objects.WrapEnumerator(enumerator, resolver);
+    private VBTypedValue WrapEnumerator(object enumerator, IRuntimeSymbolResolver resolver) => _objects.WrapEnumerator(enumerator, resolver);
 
     private sealed class PassedArguments
     {
@@ -227,7 +227,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
 
     // the arguments in the order the server takes them. The caller has Let-coerced each to the parameter's declared type, which is what recovers the
     // typed value from the storage the argument arrives as; an argument passed by reference arrives as the address of the variable it names.
-    private PassedArguments Arguments(ExternalCallRequest request, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters, ISymbolResolver resolver)
+    private PassedArguments Arguments(ExternalCallRequest request, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters, IRuntimeSymbolResolver resolver)
     {
         var passed = new PassedArguments();
         for (var index = 1; index < parameters.Length; index++)
@@ -285,7 +285,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
             : declared.CreateValue(new ValueBindingHandle(argument));
 
     // MS-VBAL §5.3.1.11: a reference parameter is the variable the argument names, so a server that wrote to it has written to the variable.
-    private void WriteBack(PassedArguments passed, object?[] values, ISymbolResolver resolver)
+    private void WriteBack(PassedArguments passed, object?[] values, IRuntimeSymbolResolver resolver)
     {
         foreach (var (variableType, position, variable, sent) in passed.Variables)
         {
@@ -307,7 +307,7 @@ public sealed class AutomationCallProvider(IRuntimeSession session, IAutomationS
         }
     }
 
-    private VBTypedValue Wrap(object value, VBType declared, ISymbolResolver resolver) => _objects.Wrap(value, declared, resolver);
+    private VBTypedValue Wrap(object value, VBType declared, IRuntimeSymbolResolver resolver) => _objects.Wrap(value, declared, resolver);
 
     private object? HandleOf(VBRuntimeObjectId identity) => _objects.HandleOf(identity);
 

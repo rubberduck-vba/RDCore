@@ -17,10 +17,10 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 

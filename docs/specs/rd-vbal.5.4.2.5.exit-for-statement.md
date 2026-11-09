@@ -24,8 +24,8 @@ A `While…Wend` loop does not satisfy `Exit For`
 
 An `Exit For` that has no enclosing `For` or `For Each` loop is
 [`VBC09313`](../diagnostics/vbc09313.md) (`ExitForNotWithinForNext`). The rule is
-[ExitStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.ExitStatementStaticSemantics.html)'s, which
-[StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) and instruction-list
+`ExitStatementStaticSemantics`'s, which
+`StatementStaticSemanticsEvaluator` and instruction-list
 lowering both ask: the statement is lexically inside a loop of the kind, at any depth. Lowering emits no instruction for the statement that is an error.
 
 ## Runtime Semantics
@@ -37,6 +37,6 @@ lowering both ask: the statement is lexically inside a loop of the kind, at any 
 
 ## Implementation
 
-- [InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) resolves the
+- `InstructionListLowering` resolves the
   `ExitLoop` target ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
 - `ProcedureExecutor` uses the same `case` arm for `ExitLoop` and `Jump`.

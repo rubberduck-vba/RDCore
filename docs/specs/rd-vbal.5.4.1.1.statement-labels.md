@@ -64,6 +64,6 @@ A named label never sets `Erl`, in either `ErlLineNumbering` mode. Only a label 
 
 ## Implementation
 
-[InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) builds the label
+`InstructionListLowering` builds the label
 table of an `InstructionList` and reports both
 diagnostics ([**RD-VBAL §2.6.2** Semantic Compilation Errors](rd-vbal.2.6.2.semantic-compilation-errors.md)).

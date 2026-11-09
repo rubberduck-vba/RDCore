@@ -20,7 +20,7 @@ using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Plans;
 using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators.Logical;
@@ -117,7 +117,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// evaluated over the -1/0 of its operands, which are let-coerced to Boolean.
     /// </remarks>
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryLogicalOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)
@@ -125,7 +125,7 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
             Operator, frame[InputIndex.BinaryLeftOperand].GetTargetType(), frame[InputIndex.BinaryRightOperand].GetTargetType()), expression);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryLogicalOperatorSemanticContext context, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
@@ -156,12 +156,12 @@ public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     /// Base implementation has already handled the case where both operands are <see cref="IIntegralNumericType"/>, and the case where they're both <c>Null</c>.
     /// </remarks>
     protected abstract RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame);
 
     protected override ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> Analyze(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ConversionOperationSemanticContext coercionContext,
         ISemanticContextContributor<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags> builder,
         ExpressionNode expression,

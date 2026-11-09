@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.Runtime.LanguageCore.Services;
 
 namespace RDCore.Tests.Model.Symbols;
 

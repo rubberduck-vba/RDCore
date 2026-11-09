@@ -24,12 +24,14 @@ public record class ValueBindingHandle : IKnowledgeBinding
 
     public BindingCapabilities BindingCapabilities => BindingCapabilities.GetValue | BindingCapabilities.SetValue;
 
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => _value;
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver) => _value;
 
     /// <remarks>
     /// Stores a value that is known: a write that may be of one that is not says so with <see cref="Store"/>.
     /// </remarks>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => Store(value, isKnown: true);
+    /// <param name="resolver">Unused: the value is held by the handle.</param>
+    /// <param name="value">The value to store.</param>
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value) => Store(value, isKnown: true);
 
     /// <inheritdoc/>
     /// <remarks>
@@ -49,5 +51,5 @@ public record class ValueBindingHandle : IKnowledgeBinding
     /// <inheritdoc/>
     public void Forget() => _isKnown = false;
 
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
 }

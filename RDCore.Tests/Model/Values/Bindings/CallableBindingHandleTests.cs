@@ -25,7 +25,7 @@ namespace RDCore.Tests.Model.Values.Bindings;
 public sealed class CallableBindingHandleTests
 {
     private static readonly Uri Root = new("file://rdcore-test");
-    private static readonly ISymbolResolver Resolver = Substitute.For<ISymbolResolver>();
+    private static readonly IRuntimeSymbolResolver Resolver = Substitute.For<IRuntimeSymbolResolver>();
 
     private static VBProcedureMemberSymbol Sub(string name = "DoWork")
         => new(Root, Root, name, ScopeKind.Module, SymbolKindExt.Procedure, VBVoidType.TypeInfo, SourceRange.Empty, SourceRange.Empty, AccessModifier.Public);

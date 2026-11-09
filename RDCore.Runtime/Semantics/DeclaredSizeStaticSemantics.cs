@@ -12,7 +12,7 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Semantics;
@@ -234,7 +234,7 @@ public static class DeclaredSizeStaticSemantics
 
     // whether a bound of an array is one this check reduces: a constant expression. One that is not is "Constant expression required"
     // (ConstantExpressionStaticSemantics), and has no value until the code runs; one kept as text (VBC00060, RD-VBAL 2.6.1) is not analyzed.
-    private static bool IsReducible(ISymbolResolver resolver, Symbol array, ExpressionNode expression)
+    private static bool IsReducible(IRuntimeSymbolResolver resolver, Symbol array, ExpressionNode expression)
         => expression is not UnbuiltExpressionTriviaNode && !expression.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any()
             && ConstantExpressionStaticSemantics.ValueError(resolver, array.ParentUri, expression) is null;
 

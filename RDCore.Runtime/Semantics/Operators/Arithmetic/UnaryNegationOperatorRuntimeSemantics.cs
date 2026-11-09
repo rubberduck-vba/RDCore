@@ -30,7 +30,7 @@ public sealed record class UnaryNegationOperatorRuntimeSemantics(
     protected override T EvaluateNumericOp<T>(T operand) => checked(-operand);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         UnaryArithmeticOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => frame.EffectiveType switch

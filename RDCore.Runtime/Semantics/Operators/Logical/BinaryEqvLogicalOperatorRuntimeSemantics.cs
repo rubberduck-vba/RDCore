@@ -27,7 +27,7 @@ public record class BinaryEqvLogicalOperatorRuntimeSemantics(
     protected override T EvaluateBitwiseOp<T>(T lhs, T rhs) => ~(lhs ^ rhs);
 
     protected override RuntimeSemanticsEvaluationResult EvaluateSemanticallly(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
     {

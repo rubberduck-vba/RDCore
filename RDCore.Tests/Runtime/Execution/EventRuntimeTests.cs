@@ -17,6 +17,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Runtime.Execution;

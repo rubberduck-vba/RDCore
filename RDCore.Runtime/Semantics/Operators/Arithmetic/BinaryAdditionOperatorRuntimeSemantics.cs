@@ -30,7 +30,7 @@ public sealed record class BinaryAdditionOperatorRuntimeSemantics(
     protected override string Operator => Tokens.AdditionOp;
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryArithmeticOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame)

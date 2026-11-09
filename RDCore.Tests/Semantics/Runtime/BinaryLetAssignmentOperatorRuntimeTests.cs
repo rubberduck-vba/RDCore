@@ -147,7 +147,7 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
         // point - IsInternalError itself only describes that pre-wrap sentinel, never the public result.
     {
         var target = new VBConstantMemberSymbol(Root, Root, "Pi", ScopeKind.Module, VBLongType.TypeInfo, R, R, AccessModifier.Implicit);
-        var resolver = Substitute.For<ISymbolResolver>();
+        var resolver = Substitute.For<IRuntimeSymbolResolver>();
         resolver.GetValue(target).Returns(new ConstantBindingHandle(VBLongType.TypeInfo.DefaultValue.RuntimeValue));
         var symbols = Substitute.For<ISessionSymbols>();
         symbols.Resolver.Returns(resolver);
@@ -188,9 +188,9 @@ public sealed class BinaryLetAssignmentOperatorRuntimeTests
     private sealed class ProviderHandle : ILetCoercionRuntimeSemanticsProvider
     {
         public ILetCoercionRuntimeSemanticsProvider Inner { get; set; } = default!;
-        public LetCoercionResult EvaluateLetCoercionSemantics(ISymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionResult EvaluateLetCoercionSemantics(IRuntimeSymbolResolver r, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.EvaluateLetCoercionSemantics(r, e, f);
-        public LetCoercionAnalysisContext Analyze(ISymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
+        public LetCoercionAnalysisContext Analyze(IRuntimeSymbolResolver r, ILetCoercionSemanticContextBuilder b, ExpressionNode e, LetCoercionStackFrame f)
             => Inner.Analyze(r, b, e, f);
     }
 }

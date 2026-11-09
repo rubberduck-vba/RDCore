@@ -38,7 +38,7 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
 
     // two object references are compared as they are, whatever a Variant holds: the plan of the operation is the whole answer.
     protected override DetermineOperatorEffectiveTypeResult DetermineBinaryOperatorEffectiveType(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) => PlannedEffectiveType(expression, frame);
@@ -46,14 +46,14 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
     // the operands are object references compared as they are (MS-VBAL 5.6.9.7): the Boolean effective type of the result is
     // not a type to let-coerce them to - which would coerce an object to a Boolean, and fail.
     protected override LetCoercionResult ValidateOperand(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         OperatorEvaluationFrame frame,
         InputIndex index)
         => LetCoercionResult.Success(frame[index], []);
 
     protected override LetCoercionAnalysisContext AnalyzeValidateOperand(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ILetCoercionSemanticContextBuilder builder,
         ExpressionNode expression,
         OperatorEvaluationFrame frame,
@@ -61,7 +61,7 @@ public record class BinaryIsRelationalOperatorRuntimeSemantics(
         => new(frame.NodeId, LetCoercionResult.Success(frame[operandIndex], []));
 
     protected override RuntimeSemanticsEvaluationResult EvaluateBinaryOperatorExpressionResult(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         BinaryOperatorSemanticContext<ComparisonOperatorSemanticFlags> context, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
