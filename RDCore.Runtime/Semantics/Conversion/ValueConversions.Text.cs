@@ -41,8 +41,10 @@ public static partial class ValueConversions
 
         VBBooleanValue boolean => ValueConversionResult.Success(new VBStringValue((bool)boolean.Value ? Tokens.True : Tokens.False)),
 
-        VBDateValue date => ValueConversionResult.Success(new VBStringValue(FormatDate(date.Value,
-            regional?.DateFormat ?? DateFormatOf(culture ?? CultureInfo.InvariantCulture)))),
+        // a Date that is no day (TryMomentOf) is written as none: error 5.
+        VBDateValue date => TryMomentOf(date, out var moment)
+            ? ValueConversionResult.Success(new VBStringValue(FormatDate(moment, regional?.DateFormat ?? DateFormatOf(culture ?? CultureInfo.InvariantCulture))))
+            : ValueConversionResult.Failure(VBRuntimeErrorId.InvalidProcedureCallOrArgument),
 
         // MS-VBAL 5.5.1.2.11: "The result is a 0-length string."
         VBEmptyValue => ValueConversionResult.Success(VBStringValue.ZeroLengthString),
