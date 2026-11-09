@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using RDCore.CLI.Host;
 using RDCore.CLI.Host.Handlers;
+using RDCore.Runtime.Support.Host;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
