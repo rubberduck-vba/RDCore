@@ -8,6 +8,8 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 
 namespace RDCore.CLI.Host;
 
+using Resources = RDCore.Runtime.Support.Resources;
+
 /// <summary>
 /// Where the environment host asks the person running a program to answer its dialogs: the language server, which asks its client.
 /// </summary>

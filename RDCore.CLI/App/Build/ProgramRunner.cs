@@ -12,6 +12,8 @@ using System.Text.Json;
 
 namespace RDCore.CLI.App.Build;
 
+using Resources = RDCore.Runtime.Support.Resources;
+
 // the .rdproj's build section, which the project file reads as members it does not know, kept as they were read. EntryPoint is Module.Procedure or
 // Procedure, null for the implicit Sub Main.
 internal sealed record class ProjectBuildSettings(string? EntryPoint, bool IsLibrary)

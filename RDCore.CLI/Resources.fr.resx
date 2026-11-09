@@ -461,131 +461,11 @@
   <data name="Repl_Frame_Summary" xml:space="preserve">
     <value>Choisit la procédure visée par VARS : FRAME 1 est celle qui a appelé.</value>
   </data>
-  <data name="Host_AProgramIsRunning" xml:space="preserve">
-    <value>un programme est en cours d'exécution</value>
-  </data>
-  <data name="Host_TheProgramIsRunning" xml:space="preserve">
-    <value>le programme est en cours d'exécution</value>
-  </data>
-  <data name="Host_NoProgramIsSuspended" xml:space="preserve">
-    <value>aucun programme n'est interrompu</value>
-  </data>
-  <data name="Host_ChangedWhileWaiting_Resume" xml:space="preserve">
-    <value>{0} a changé pendant l'attente du programme, d'une façon qui ne lui est pas appliquée : relancez-le pour prendre les changements en compte, ou annulez-les</value>
-  </data>
-  <data name="Host_ChangedWhileWaiting_Goto" xml:space="preserve">
-    <value>{0} a changé pendant l'attente du programme, d'une façon qui ne lui est pas appliquée : relancez-le pour prendre les changements en compte, ou annulez-les</value>
-  </data>
-  <data name="Host_Edit_Applies" xml:space="preserve">
-    <value>appliqué</value>
-  </data>
-  <data name="Host_Edit_FaultOfAnActiveProcedure" xml:space="preserve">
-    <value>l'instruction d'une procédure où se trouve le programme, où celui-ci s'est arrêté sur une erreur</value>
-  </data>
-  <data name="Host_Edit_UncertainInAnActiveProcedure" xml:space="preserve">
-    <value>une modification près de l'endroit où se trouve le programme, qui ne peut être située avec certitude, ce qui n'est pas encore appliqué à un programme en attente</value>
-  </data>
-  <data name="Host_Edit_TooLargeToPlaceInAnActiveProcedure" xml:space="preserve">
-    <value>une modification dans une procédure où se trouve le programme, trop grande pour situer avec certitude l'endroit où il se trouve, ce qui n'est pas encore appliqué à un programme en attente</value>
-  </data>
-  <data name="Host_Edit_ValueReset" xml:space="preserve">
-    <value>une variable dont une modification a réinitialisé la valeur, que seule une nouvelle exécution du programme rend</value>
-  </data>
-  <data name="Host_Edit_HeldUntilRun" xml:space="preserve">
-    <value>une variable qui détient une valeur, dont le type a changé : elle garde sa valeur tant que le programme est en cours, et la modification s'applique une fois le programme terminé - annulez la modification pour poursuivre</value>
-  </data>
-  <data name="Host_Edit_OptionBaseOfStoredArrays" xml:space="preserve">
-    <value>l'Option Base d'un module dont les tableaux détiennent des valeurs</value>
-  </data>
-  <data name="Host_Edit_CallOfAnActiveProcedure" xml:space="preserve">
-    <value>l'appel qu'une procédure où se trouve le programme est en train de faire</value>
-  </data>
-  <data name="Host_Edit_BlockOfAnActiveProcedure" xml:space="preserve">
-    <value>l'ouverture d'un bloc ou d'un GoSub où se trouve le programme</value>
-  </data>
-  <data name="Host_Edit_HandlerOfAnActiveProcedure" xml:space="preserve">
-    <value>le gestionnaire d'erreurs d'une procédure où se trouve le programme, ou l'instruction où son erreur a été levée</value>
-  </data>
-  <data name="Host_Edit_SignatureOfAnActiveProcedure" xml:space="preserve">
-    <value>la signature d'une procédure où se trouve le programme</value>
-  </data>
-  <data name="Host_Edit_ActiveProcedureRemoved" xml:space="preserve">
-    <value>une procédure où se trouve le programme, retirée</value>
-  </data>
-  <data name="Host_Edit_LocalOfAnActiveProcedure" xml:space="preserve">
-    <value>une variable locale d'une procédure où se trouve le programme, dont le type a changé ou qui est devenue Static</value>
-  </data>
-  <data name="Host_Edit_StoredValue" xml:space="preserve">
-    <value>une variable ou un champ qui détient une valeur, dont le type a changé ou qui a été retiré</value>
-  </data>
-  <data name="Host_Edit_ClassInterface" xml:space="preserve">
-    <value>ce qu'une classe implémente, ou les événements qu'elle déclenche</value>
-  </data>
-  <data name="Host_Edit_DoesNotCompile" xml:space="preserve">
-    <value>le code ne compile pas : {0}</value>
-  </data>
-  <data name="Host_Edit_HeaderOfAnActiveProcedure" xml:space="preserve">
-    <value>le code d'une procédure où se trouve le programme, au milieu d'un appel que fait sa condition ou l'en-tête de son bloc, ce qui n'est pas encore appliqué à un programme en attente</value>
-  </data>
-  <data name="Host_Edit_OptionOfAnActiveModule" xml:space="preserve">
-    <value>une option du module où se trouve le programme, ce qui n'est pas encore appliqué à un programme en attente</value>
-  </data>
-  <data name="Host_Edit_TypeHeldUntilRun" xml:space="preserve">
-    <value>un Type dont le programme peut détenir des valeurs, dont les champs ont changé : ses valeurs gardent leurs champs tant que le programme est en cours, et la modification s'applique une fois le programme terminé, et les valeurs du projet sont alors réinitialisées, comme MS-VBA réinitialise le projet pour cette modification - annulez la modification pour poursuivre</value>
-  </data>
-  <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
-    <value>une constante qui dimensionne ce que détient une variable, dont la valeur a changé</value>
-  </data>
-  <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
-    <value>une constante déjà lue par une procédure où se trouve le programme, dont la valeur a changé, ce qui n'est pas encore appliqué à un programme en attente</value>
-  </data>
-  <data name="Host_WaitsInNoProcedure" xml:space="preserve">
-    <value>le programme n'attend dans aucune procédure</value>
-  </data>
-  <data name="Host_NoSuchLabel" xml:space="preserve">
-    <value>la procédure n'a pas d'étiquette '{0}'</value>
-  </data>
-  <data name="Host_NoStatementAtOrAfterLine" xml:space="preserve">
-    <value>aucune instruction de la procédure ne commence à cette ligne ni après</value>
-  </data>
-  <data name="Host_GotoOutsideTheProcedure" xml:space="preserve">
-    <value>la ligne n'est pas dans {0}, la procédure où le programme attend</value>
-  </data>
-  <data name="Host_GotoInAnotherModule" xml:space="preserve">
-    <value>la ligne est dans {0}, et le programme attend dans {1}</value>
-  </data>
-  <data name="Host_NoSuchActivation" xml:space="preserve">
-    <value>cette activation n'existe pas</value>
-  </data>
-  <data name="Host_TheExpressionEndedTheProgram" xml:space="preserve">
-    <value>l'expression a mis fin au programme</value>
-  </data>
-  <data name="Host_TheExpressionWasStopped" xml:space="preserve">
-    <value>l'expression a été interrompue par un Stop</value>
-  </data>
-  <data name="Host_CannotEvaluateYet" xml:space="preserve">
-    <value>l'interpréteur ne peut pas encore évaluer ceci</value>
-  </data>
-  <data name="Host_NameIsNotDefined" xml:space="preserve">
-    <value>'{0}' n'est pas défini</value>
-  </data>
-  <data name="Host_VariableNotDefined" xml:space="preserve">
-    <value>Variable non définie : '{0}'</value>
-  </data>
-  <data name="Host_TheProgramWasInterrupted" xml:space="preserve">
-    <value>le programme a été interrompu</value>
-  </data>
-  <data name="Host_CannotRunYet" xml:space="preserve">
-    <value>l'interpréteur a rencontré quelque chose qu'il ne peut pas encore exécuter</value>
-  </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>il n'y a pas de session d'exécution</value>
   </data>
   <data name="Host_NoRuntimeSessionToRunIn" xml:space="preserve">
     <value>il n'y a pas de session d'exécution où exécuter</value>
-  </data>
-  <data name="Host_RequestCarriedNoExpression" xml:space="preserve">
-    <value>la requête ne portait aucune expression</value>
   </data>
   <data name="Host_RequestCarriedNoParsedModule" xml:space="preserve">
     <value>la requête ne portait aucun module analysé</value>
@@ -595,15 +475,6 @@
   </data>
   <data name="Host_NotAProcedureOfTheModule" xml:space="preserve">
     <value>'{0}.{1}' n'est pas une procédure du module</value>
-  </data>
-  <data name="Host_ValueUnavailable" xml:space="preserve">
-    <value>&lt;indisponible&gt;</value>
-  </data>
-  <data name="Host_TheStatementEndedTheProgram" xml:space="preserve">
-    <value>l'instruction a mis fin au programme</value>
-  </data>
-  <data name="Host_TheStatementWasStopped" xml:space="preserve">
-    <value>l'instruction a été interrompue par un Stop</value>
   </data>
   <data name="Host_RequestCarriedNoStatement" xml:space="preserve">
     <value>la requête ne portait aucune instruction</value>
@@ -626,12 +497,6 @@
   <data name="Build_Summary" xml:space="preserve">
     <value>Construit un programme à partir d'un espace de travail : son assembly, son exécutable et le runtime sur lequel il s'exécute.</value>
   </data>
-  <data name="Build_NoEntryPoint" xml:space="preserve">
-    <value>Aucun module standard ne déclare ni Public Sub Main() ni Sub Main(ParamArray Args()) : le programme n'a pas de point de départ.</value>
-  </data>
-  <data name="Build_AmbiguousEntryPoint" xml:space="preserve">
-    <value>Plus d'un module déclare un Sub Main, et le programme a donc plus d'un point de départ : {0}.</value>
-  </data>
   <data name="Build_NameTaken" xml:space="preserve">
     <value>Un programme ne peut pas s'appeler {0} : le runtime sur lequel il s'exécute a un assembly de ce nom. Nommez-le avec --name.</value>
   </data>
@@ -643,9 +508,6 @@
   </data>
   <data name="Run_Summary" xml:space="preserve">
     <value>Exécute le programme d'un espace de travail et se termine avec son code de sortie : 0 quand il se termine, 1 en cas d'erreur d'exécution, 2 quand il ne peut pas démarrer.</value>
-  </data>
-  <data name="Run_RuntimeError" xml:space="preserve">
-    <value>{0} '{1}' : {2} ({3})</value>
   </data>
   <data name="Compilation_Compiled" xml:space="preserve">
     <value>compilée</value>
@@ -874,17 +736,5 @@
   </data>
   <data name="Repl_Edits_NoProgram" xml:space="preserve">
     <value>Aucun programme n'attend.</value>
-  </data>
-  <data name="UnnamedClient" xml:space="preserve">
-    <value>Le client</value>
-  </data>
-  <data name="VBRuntimeError_NobodyToAnswer_Declined" xml:space="preserve">
-    <value>{1}, qui affiche les dialogues du programme, a refusé de répondre à son {0} : personne d'autre ne le fera, et l'exécution échoue.</value>
-  </data>
-  <data name="VBRuntimeError_UnusableDialogAnswer_NoSuchButton" xml:space="preserve">
-    <value>{0} a répondu au MsgBox du programme ({1}) par {2}, qui n'est aucun de ses boutons : le programme ne peut pas continuer avec cette réponse, et l'exécution échoue.</value>
-  </data>
-  <data name="VBRuntimeError_UnusableDialogAnswer_NotRelayed" xml:space="preserve">
-    <value>Le {0} du programme n'a pas pu être relayé au client qui affiche ses dialogues ({1}) : l'exécution échoue, plutôt que d'attendre un dialogue que personne ne voit.</value>
   </data>
 </root>

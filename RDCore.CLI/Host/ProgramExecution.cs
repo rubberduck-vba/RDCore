@@ -26,6 +26,8 @@ using System.Collections.Immutable;
 
 namespace RDCore.CLI.Host;
 
+using Resources = RDCore.Runtime.Support.Resources;
+
 /// <summary>
 /// Whether the host is running a program.
 /// </summary>

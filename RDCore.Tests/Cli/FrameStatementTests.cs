@@ -188,7 +188,7 @@ public sealed class FrameStatementTests
             var done = await Execute(provider, 0, "Debug.Print nowhere");
 
             Assert.IsFalse(done.Success);
-            Assert.AreEqual(string.Format(RDCore.CLI.Resources.Host_VariableNotDefined, "nowhere"), done.Error);
+            Assert.AreEqual(string.Format(RDCore.Runtime.Support.Resources.Host_VariableNotDefined, "nowhere"), done.Error);
             Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
         }, debug: true);
 

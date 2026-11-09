@@ -11,6 +11,8 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.CLI.Host;
 
+using Resources = RDCore.Runtime.Support.Resources;
+
 /// <summary>
 /// What a program that waits looks like from outside: its activations, and their variables.
 /// </summary>

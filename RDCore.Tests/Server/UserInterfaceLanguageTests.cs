@@ -107,7 +107,7 @@ public sealed class UserInterfaceLanguageTests
         Assert.AreEqual(message, applied.Message);
         Assert.AreEqual(setting, CultureInfo.CurrentUICulture.Name);
         Assert.AreEqual(machine, CultureInfo.CurrentCulture.Name);
-        StringAssert.StartsWith(RDCore.CLI.Resources.Host_ChangedWhileWaiting_Resume, "{0} changed while", "the neutral resources: English");
+        StringAssert.StartsWith(RDCore.Runtime.Support.Resources.Host_ChangedWhileWaiting_Resume, "{0} changed while", "the neutral resources: English");
     }
 
     [TestMethod]
