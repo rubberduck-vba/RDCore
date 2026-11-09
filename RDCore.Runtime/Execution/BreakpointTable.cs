@@ -64,7 +64,15 @@ public sealed class BreakpointTable : IBreakpointTable
         return resolved.Offsets.TryGetValue(offset, out condition);
     }
 
-    // the first instruction of the body that begins on each of the module's lines.
+    /// <summary>
+    /// Whether a line is one a program can wait at: a statement of one of the bodies begins on it, or an instruction that ends a block is shown on it
+    /// (<see cref="InstructionLocations.Of"/>), as an <c>End If</c>, an <c>End Select</c>, an <c>End With</c>, a <c>Next</c> or a <c>Loop</c> is.
+    /// </summary>
+    /// <param name="bodies">The bodies of the module's procedures.</param>
+    /// <param name="line">A zero-based line of the source.</param>
+    public static bool Verify(IEnumerable<InstructionList> bodies, int line)
+        => bodies.Any(body => Stops(body).Any(stop => stop.Line == line));
+
     private ImmutableDictionary<int, ExpressionNode?> Resolve(string module, InstructionList body)
     {
         if (!_lines.TryGetValue(module, out var lines))
@@ -73,15 +81,36 @@ public sealed class BreakpointTable : IBreakpointTable
         }
 
         var offsets = ImmutableDictionary.CreateBuilder<int, ExpressionNode?>();
-        var seen = new HashSet<int>();
-        foreach (var instruction in body.Items)
+        foreach (var (offset, line) in Stops(body))
         {
-            if (instruction.Node is { } node && node.SourceLocation.Range.Start.Line is var line && lines.TryGetValue(line, out var condition) && seen.Add(line))
+            if (lines.TryGetValue(line, out var condition))
             {
-                offsets[instruction.Offset] = condition;
+                offsets[offset] = condition;
             }
         }
 
         return offsets.ToImmutable();
+    }
+
+    // where a breakpoint on a line waits. On a line a statement begins on, it waits before the line's first instruction, once. On a line no statement begins
+    // on, it waits before each instruction shown there: each branch of an If block reaches its End If by a jump of its own.
+    private static IEnumerable<(int Offset, int Line)> Stops(InstructionList body)
+    {
+        var statements = new HashSet<int>();
+        foreach (var instruction in body.Items)
+        {
+            if (instruction.Node is { } node && statements.Add(node.SourceLocation.Range.Start.Line))
+            {
+                yield return (instruction.Offset, node.SourceLocation.Range.Start.Line);
+            }
+        }
+
+        foreach (var instruction in body.Items)
+        {
+            if (instruction.Node is null && InstructionLocations.Of(body, instruction.Offset) is { } shown && !statements.Contains(shown.Range.Start.Line))
+            {
+                yield return (instruction.Offset, shown.Range.Start.Line);
+            }
+        }
     }
 }

@@ -44,22 +44,15 @@ public sealed class ProgramExecutionTests
 
     private static string[] Lines(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
 
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + Patience;
-        while (!condition())
-        {
-            Assert.IsLessThan(deadline, DateTime.UtcNow, "timed out");
-            await Task.Delay(10);
-        }
-    }
+    // the program goes on, as the session's execution says when its state changes.
+    private static Task GoesOnAsync(EnvironmentSessionProvider provider) => ModuleWorkspace.WhenRunning(provider).WaitAsync(Patience);
 
     private static Task DebugAsync(string program, Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> test,
-        Func<EnvironmentSessionProvider, bool>? cancelWhen = null)
+        Func<EnvironmentSessionProvider, Task>? cancelWhen = null)
         => ModuleWorkspace.InspectAsync(NoClasses, program, test, cancelWhen, debug: true);
 
     // the program has started: a cancellation of its request is a break of a program that runs.
-    private static bool Running(EnvironmentSessionProvider provider) => provider.Execution.State is ProgramState.Running;
+    private static Task Running(EnvironmentSessionProvider provider) => ModuleWorkspace.WhenRunning(provider);
 
     private static readonly string Stopping = Program(
         "Public Total As Long",
@@ -157,7 +150,7 @@ public sealed class ProgramExecutionTests
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, "the cancellation of the request is a break");
 
             var running = Resume(provider);
-            await WaitForAsync(() => provider.Execution.State is ProgramState.Running);
+            await GoesOnAsync(provider);
 
             var refused = await runAgain().WaitAsync(Patience);
 
@@ -174,7 +167,7 @@ public sealed class ProgramExecutionTests
         {
             Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome);
             var running = Resume(provider);
-            await WaitForAsync(() => provider.Execution.State is ProgramState.Running);
+            await GoesOnAsync(provider);
 
             var ack = await Pause(provider);
             var paused = await running;
@@ -711,6 +704,62 @@ public sealed class ProgramExecutionTests
 
             Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
         });
+
+    private static readonly string Blocks = Program(
+        "Public Total As Long",
+        "Public Sub Main()",
+        "    Dim i As Long",
+        "    Stop",
+        "    For i = 1 To 4",
+        "        If i Mod 2 = 0 Then",
+        "            Total = Total + i",
+        "        Else",
+        "            Total = Total + 100",
+        "        End If",
+        "        Select Case i",
+        "            Case 1",
+        "                Total = Total + 1",
+        "            Case Else",
+        "                Total = Total + 2",
+        "        End Select",
+        "        With New Collection",
+        "            .Add i",
+        "        End With",
+        "    Next",
+        "    Debug.Print Total",
+        "End Sub");
+
+    // a breakpoint on the line that ends a block (its End If, End Select, End With, Next) is verified, and waited at each time the program goes through
+    // that line, from whichever branch it took, in either engine.
+    [TestMethod]
+    [DataRow(9, VBExecutionEngine.Interpreter, DisplayName = "End If, interpreted")]
+    [DataRow(9, VBExecutionEngine.Compiled, DisplayName = "End If, compiled")]
+    [DataRow(15, VBExecutionEngine.Interpreter, DisplayName = "End Select, interpreted")]
+    [DataRow(15, VBExecutionEngine.Compiled, DisplayName = "End Select, compiled")]
+    [DataRow(18, VBExecutionEngine.Interpreter, DisplayName = "End With, interpreted")]
+    [DataRow(18, VBExecutionEngine.Compiled, DisplayName = "End With, compiled")]
+    [DataRow(19, VBExecutionEngine.Interpreter, DisplayName = "Next, interpreted")]
+    [DataRow(19, VBExecutionEngine.Compiled, DisplayName = "Next, compiled")]
+    public async Task ABreakpoint_OnTheLineThatEndsABlock_IsWaitedAtEachTimeTheProgramGoesThroughIt(int line, VBExecutionEngine engine)
+        => await ModuleWorkspace.InspectAsync(NoClasses, Blocks, async (provider, first, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, first.Outcome, first.ErrorMessage);
+            var set = await SetBreakpoints(provider, line);
+
+            Assert.IsTrue(set.Breakpoints.Single().Verified);
+
+            var stops = new List<int>();
+            var stop = await Resume(provider);
+            while (stop.Outcome is ExecutionOutcome.Suspended)
+            {
+                stops.Add(stop.ErrorLine);
+                stop = await Resume(provider);
+            }
+
+            CollectionAssert.AreEqual(new[] { line, line, line, line }, stops, "once a round, from either branch");
+            Assert.AreEqual(ExecutionOutcome.Completed, stop.Outcome, stop.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "213" }, Lines(stop));
+        }, debug: true, engine: engine);
 
     [TestMethod]
     public async Task Breakpoints_OfAModuleThatIsNotLoaded_AreNotJudged()

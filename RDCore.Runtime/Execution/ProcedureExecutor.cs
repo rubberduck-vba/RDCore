@@ -363,7 +363,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             // like a Stop is, which is why it is requested of the session the same way.
             if (!resumed && cancellation.IsCancellationRequested && !_cancellationAcknowledged)
             {
-                var location = list.Items[activation.Pc].Location;
+                var location = InstructionLocations.Of(list, activation.Pc);
 
                 // A program that can be resumed waits here, before the instruction it was about to run, and runs it when it is resumed. The cancellation is then
                 // answered: it was one break, and a token that is cancelled stays cancelled, so it is not asked about again.
@@ -383,7 +383,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             // which is the debugger's own evaluation and not the program's.
             if (!resumed && _conditionDepth == 0 && session.Halt.TakeStep(session.CallStack.Depth))
             {
-                var stepLocation = list.Items[activation.Pc].Location;
+                var stepLocation = InstructionLocations.Of(list, activation.Pc);
                 if (!session.Halt.TrySuspend(RuntimeHaltKind.Break, stepLocation))
                 {
                     session.Halt.Request(RuntimeHaltKind.Break, stepLocation);
@@ -412,7 +412,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 && session.Halt.Breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc, out var breakpointCondition)
                 && IsMet(session, breakpointCondition, owner.Uri, ResolveContext(context, activation, list, list.Items[activation.Pc]), out var conditionFailure))
             {
-                var breakpointLocation = list.Items[activation.Pc].Location;
+                var breakpointLocation = InstructionLocations.Of(list, activation.Pc);
                 var waited = conditionFailure is null
                     ? session.Halt.TrySuspend(RuntimeHaltKind.Break, breakpointLocation)
                     : session.Halt.TrySuspendOnCondition(conditionFailure, breakpointLocation);
