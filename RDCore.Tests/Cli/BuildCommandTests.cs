@@ -62,7 +62,7 @@ public sealed class BuildCommandTests
             fileSystem.File.WriteAllText(Path.Combine(Root, path), source);
         }
 
-        // the runtime a program runs on: the support it calls and an assembly that references, their resources in French, and rdc's runtime
+        // the runtime a program runs on: the support it calls and an assembly the support references, their resources in French, and rdc's runtime
         // configuration; beside them, what is rdc's own and no program's.
         fileSystem.Directory.CreateDirectory(Path.Combine(Runtime, "fr"));
         fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.Runtime.Support.dll"), SupportAssembly.Value);
