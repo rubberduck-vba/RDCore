@@ -13,6 +13,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Semantics.Flow;
 
@@ -57,6 +58,26 @@ internal static class FlowFixture
     internal sealed record class Analyzed(
         MemberDeclarationNode Procedure, InstructionList Instructions, ProcedureSemanticModel Model, DefinitionsAndUses Accesses, ControlFlowGraph Graph, ScopeTree Scopes, int FirstBodyLine)
     {
+        /// <summary>
+        /// The module's syntax tree.
+        /// </summary>
+        public ModuleNode Module { get; init; } = null!;
+
+        /// <summary>
+        /// The module's text.
+        /// </summary>
+        public string Text { get; init; } = string.Empty;
+
+        /// <summary>
+        /// The workspace, bound, as the refactorings see it.
+        /// </summary>
+        public RenameContext Context { get; init; } = null!;
+
+        /// <summary>
+        /// The module's address in <see cref="Context"/>.
+        /// </summary>
+        public Uri ModuleAddress => ModuleUri("Main");
+
         public LiveVariables Live => LiveVariables.Of(Graph, Accesses);
 
         public ReachingDefinitions Reaching => ReachingDefinitions.Of(Graph, Accesses);
@@ -82,7 +103,8 @@ internal static class FlowFixture
     {
         var moduleLevel = $"{declarations}\r\n{Others}".ReplaceLineEndings("\r\n");
         var prefix = $"Attribute VB_Name = \"Main\"\r\n{(optionExplicit ? "Option Explicit" : "' no Option Explicit")}\r\n{moduleLevel}\r\n{header}\r\n";
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), $"{prefix}{body.ReplaceLineEndings("\r\n")}\r\n{end}\r\n");
+        var text = $"{prefix}{body.ReplaceLineEndings("\r\n")}\r\n{end}\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), text);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(ModuleUri("Main"), ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
@@ -95,6 +117,11 @@ internal static class FlowFixture
 
         var instructions = InstructionListLowering.Lower(block, default, run.MemberKind).InstructionList;
         var graph = ControlFlowGraph.Of(instructions, model);
-        return new Analyzed(run, instructions, model, DefinitionsAndUses.Of(instructions, model, composition.ScopeTree), graph, composition.ScopeTree, prefix.Split("\r\n").Length - 1);
+        return new Analyzed(run, instructions, model, DefinitionsAndUses.Of(instructions, model, composition.ScopeTree), graph, composition.ScopeTree, prefix.Split("\r\n").Length - 1)
+        {
+            Module = parse.SyntaxTree!,
+            Text = text,
+            Context = new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(ModuleUri("Main"), parse.SyntaxTree!, text)]),
+        };
     }
 }
