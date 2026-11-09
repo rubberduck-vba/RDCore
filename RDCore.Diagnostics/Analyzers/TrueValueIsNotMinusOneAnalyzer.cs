@@ -5,12 +5,12 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -100,7 +100,7 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
 
     private static AnalyzerFinding Finding(ExpressionNode operation, SDK.Model.Source.SourceRange range)
         => new(
-            RDCoreDiagnosticId.TrueValueIsNotMinusOne,
+            RDCoreDiagnosticId.TrueValueIsNotMinusOne.ToCode(),
             range,
             DiagnosticSeverity.Warning,
             AnalyzerMessages.Format(RDCoreDiagnosticsResources.TrueValueIsNotMinusOne_Message, OperatorOf(operation)));

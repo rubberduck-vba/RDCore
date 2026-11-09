@@ -44,7 +44,7 @@ For example, a diagnostic titled "Run-time error" has the description "Division 
 
 The title is localized. The description of compilation and run-time errors shall exactly match the corresponding MS-VBA descriptions; see [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).
 
-A diagnostic's title is derived rather than stored, because the two `VBC` categories (syntax errors and semantic compilation errors) share one family and nothing but the numeric portion separates them. [VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html) reserves the range `[9300..]` for semantic compilation errors. Every `VBCompileErrorId` value below 9300 belongs to the parser (syntax errors).
+A diagnostic's title is derived rather than stored, because the two `VBC` categories (syntax errors and semantic compilation errors) share one family and nothing but the numeric portion separates them. `VBCompileErrorId` reserves the range `[9300..]` for semantic compilation errors. Every `VBCompileErrorId` value below 9300 belongs to the parser (syntax errors).
 
 The title derivation ([VBErrorExtensions](../api/RDCore.SDK.Model.Errors.Abstract.VBErrorExtensions.html)) switches on the error's runtime type. An error held through a more general declared type therefore still takes the title of its own family.
 

@@ -1,6 +1,6 @@
 using CommandLine;
-using RDCore.SDK.ConsoleIO;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO;
+using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;

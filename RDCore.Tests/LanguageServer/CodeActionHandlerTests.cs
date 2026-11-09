@@ -10,7 +10,6 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Refactoring;
@@ -20,6 +19,7 @@ using RDCore.Symbols;
 using RDCore.Tests.Runtime.Libraries;
 using System.Globalization;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.LanguageServer;
 

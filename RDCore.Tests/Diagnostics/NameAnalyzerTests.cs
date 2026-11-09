@@ -7,6 +7,7 @@ using RDCore.Parsing;
 using RDCore.SDK.Model.Diagnostics;
 using RDCore.Tests.Cli;
 using System.Text;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.Diagnostics;
 

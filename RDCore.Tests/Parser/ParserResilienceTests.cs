@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using System.Text.Json;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Parser;
 

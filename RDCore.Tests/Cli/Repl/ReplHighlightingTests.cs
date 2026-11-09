@@ -3,7 +3,7 @@ using NSubstitute.ExceptionExtensions;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.Themes;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Workspace;
 using Spectre.Console;

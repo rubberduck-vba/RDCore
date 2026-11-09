@@ -1,7 +1,7 @@
 ﻿using NSubstitute;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.Libraries;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Runtime.Libraries;
 using System.IO.Abstractions.TestingHelpers;
 using System.Runtime.Versioning;

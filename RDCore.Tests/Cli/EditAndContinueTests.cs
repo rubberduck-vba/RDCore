@@ -10,6 +10,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Tests.Platform;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

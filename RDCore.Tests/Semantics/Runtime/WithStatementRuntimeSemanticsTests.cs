@@ -20,6 +20,7 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Context;
+using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;

@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Platform;
 

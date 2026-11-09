@@ -1,4 +1,5 @@
 using RDCore.Parsing;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 
@@ -31,7 +32,7 @@ public sealed class LineContinuationLimitTests
         var result = new ModuleParser().Parse(new Uri("file:///C:/Program.bas"), Program(25, blanks: blanks));
 
         var error = Assert.ContainsSingle(result.SyntaxErrors);
-        Assert.AreEqual((int)RDCore.SDK.Model.Errors.VBCompileErrorId.SyntaxError, error.ErrorId);
+        Assert.AreEqual((int)RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.SyntaxError, error.ErrorId);
         StringAssert.Contains(error.Verbose, "Too many line continuations");
     }
 

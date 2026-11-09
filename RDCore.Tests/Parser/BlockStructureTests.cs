@@ -1,5 +1,6 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.Errors;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Parser;
 

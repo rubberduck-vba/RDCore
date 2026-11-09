@@ -14,6 +14,7 @@ using RDCore.SDK.Server.Configuration;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

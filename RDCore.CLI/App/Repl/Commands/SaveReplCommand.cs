@@ -1,4 +1,4 @@
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO.Model;
 using System.IO.Abstractions;
 
 namespace RDCore.CLI.App.Repl.Commands;

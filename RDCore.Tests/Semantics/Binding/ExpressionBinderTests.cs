@@ -17,6 +17,7 @@ using RDCore.Runtime.LanguageCore.Plans;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.Runtime.LanguageCore.Services;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Binding;
 
@@ -479,7 +480,7 @@ public sealed class ExpressionBinderTests
         // a class module of the workspace is a closed set of members: an unknown one is a compile error, which the static pass reports. Its run-time
         // counterpart is the member found from the object, late-bound, which raises 438.
         var error = (BoundError)ExpressionBinder.Bind(context, access).NodeOf(access)!;
-        Assert.AreEqual(SDK.Model.Errors.VBCompileErrorId.MethodOrDataMemberNotFound, error.Error.VBCompileErrorId);
+        Assert.AreEqual(RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.MethodOrDataMemberNotFound, error.Error.VBCompileErrorId);
         Assert.IsNull(((BoundMember)error.Late).Member);
     }
 }

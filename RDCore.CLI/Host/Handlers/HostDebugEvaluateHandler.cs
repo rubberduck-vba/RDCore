@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.Semantics;
 
 namespace RDCore.CLI.Host.Handlers;

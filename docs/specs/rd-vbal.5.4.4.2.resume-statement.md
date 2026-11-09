@@ -60,4 +60,4 @@ fault statement are held on the activation's
 |---|---|
 |`RDCore.Runtime.Execution.ProcedureExecutor`|Dispatches `ResumeCurrentStatement`, `ResumeNext` and `ResumeLabel`.|
 |`ErrorHandlerState.ActiveError`, `ErrorHandlerState.FaultStatementOffset`|The active error, and the offset of the fault statement (**RDCore.SDK**).|
-|[VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.ResumeWithoutError`|Run-time error 20.|
+|`VBRuntimeErrorId.ResumeWithoutError`|Run-time error 20.|

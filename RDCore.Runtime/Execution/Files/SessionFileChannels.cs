@@ -6,6 +6,8 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.IO.Abstractions;
+using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution.Files;
 
@@ -71,14 +73,14 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         // what the last Get read: EOF of a Random or Binary channel is that it could not read an entire record (oracle\s25 E03, E04).
         public bool IsPastEndOfRecords { get; private set; }
 
-        public VBRuntimeErrorId? LockRange(FileRecordRange range)
+        public RDCoreDiagnosticCode? LockRange(FileRecordRange range)
         {
             var requested = Requested(range);
             if (!requested.IsEntireFile && (requested.Start < 1 || requested.Start > requested.End))
             {
                 // "Start record MUST be greater than or equal to 1, and less than or equal to end record. If
                 // not, an error is raised" - which the specification does not name, and MS-VBA raises 63 for.
-                return VBRuntimeErrorId.BadRecordNumber;
+                return VBRuntimeErrorId.BadRecordNumber.ToCode();
             }
 
             // TODO apply a real lock to the external file. "The mechanism for actually implementing such locks
@@ -93,7 +95,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
             return null;
         }
 
-        public VBRuntimeErrorId? UnlockRange(FileRecordRange range)
+        public RDCoreDiagnosticCode? UnlockRange(FileRecordRange range)
         {
             var requested = Requested(range);
             if (requested.IsEntireFile)
@@ -105,7 +107,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
                 // error handler the way Close is.
                 if (_locks.Any(held => !held.IsEntireFile))
                 {
-                    return VBRuntimeErrorId.BadRecordNumber;
+                    return VBRuntimeErrorId.BadRecordNumber.ToCode();
                 }
 
                 _locks.Clear();
@@ -114,13 +116,13 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
 
             if (requested.Start < 1 || requested.Start > requested.End)
             {
-                return VBRuntimeErrorId.BadRecordNumber;
+                return VBRuntimeErrorId.BadRecordNumber.ToCode();
             }
 
             // "its start record and end record MUST designate a range that is identical to a start record to
             // end record range of a previously executed <lock-statement> for the same currently-open file
             // number. If is not the case, an error is raised."
-            return _locks.Remove(requested) ? null : VBRuntimeErrorId.BadRecordNumber;
+            return _locks.Remove(requested) ? null : VBRuntimeErrorId.BadRecordNumber.ToCode();
         }
 
         public bool TryWriteRecord(VBTypedValue value, bool isVariant, out int written)
@@ -148,12 +150,12 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
                 ? FileRecordRange.EntireFile
                 : range;
 
-        public VBRuntimeErrorId? Seek(long position)
+        public RDCoreDiagnosticCode? Seek(long position)
         {
             // "An error is raised if the new file position is 0 or negative."
             if (position < 1)
             {
-                return VBRuntimeErrorId.BadRecordNumber;
+                return VBRuntimeErrorId.BadRecordNumber.ToCode();
             }
 
             var offset = (position - 1) * PositionUnit;
@@ -351,14 +353,14 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryOpen(
+    public RDCoreDiagnosticCode? TryOpen(
         int fileNumber, string path, VBFileMode mode, VBFileAccessMode access, VBFileLockMode @lock, int recordLength)
     {
         // "An error (number 55, 'File already open') is generated if the <file-number> integer value already
         // has an external file association" (MS-VBAL 5.4.5.1).
         if (_channels.ContainsKey(fileNumber))
         {
-            return VBRuntimeErrorId.FileAlreadyOpen;
+            return VBRuntimeErrorId.FileAlreadyOpen.ToCode();
         }
 
         if (Resolve(ref path) is { } unavailable)
@@ -376,7 +378,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         if (mode is VBFileMode.Append or VBFileMode.Output
             && _channels.Values.Any(channel => PathsMatch(channel.FullPath, path)))
         {
-            return VBRuntimeErrorId.FileAlreadyOpen;
+            return VBRuntimeErrorId.FileAlreadyOpen.ToCode();
         }
 
         // "If the external file... does not exist, an attempt is made to create the external file unless
@@ -384,7 +386,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         var exists = fileSystem.File.Exists(path);
         if (!exists && mode is VBFileMode.Input)
         {
-            return VBRuntimeErrorId.FileNotFound;
+            return VBRuntimeErrorId.FileNotFound.ToCode();
         }
 
         try
@@ -403,19 +405,19 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         {
             // the lock could not be had, or the file refuses the access: "an error (number 70, 'Permission
             // denied') is generated".
-            return VBRuntimeErrorId.PermissionDenied;
+            return VBRuntimeErrorId.PermissionDenied.ToCode();
         }
         catch (IOException)
         {
             // already held by another process is also 70; anything else about the path or the device is
             // "number 75, 'Path/File access error'". IOException covers both, and a sharing violation is the
             // one worth telling apart, since a program can retry it.
-            return VBRuntimeErrorId.PathOrFileAccessError;
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
         }
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryRename(string oldPath, string newPath)
+    public RDCoreDiagnosticCode? TryRename(string oldPath, string newPath)
     {
         if ((Resolve(ref oldPath) ?? Resolve(ref newPath)) is { } unavailable)
         {
@@ -425,33 +427,33 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         // "Name arguments cannot include multiple-character (*) and single-character (?) wildcards."
         if (HasWildcard(oldPath) || HasWildcard(newPath))
         {
-            return VBRuntimeErrorId.BadFileNameOrNumber;
+            return VBRuntimeErrorId.BadFileNameOrNumber.ToCode();
         }
 
         var isFile = fileSystem.File.Exists(oldPath);
         var isDirectory = !isFile && fileSystem.Directory.Exists(oldPath);
         if (!isFile && !isDirectory)
         {
-            return ParentExists(oldPath) ? VBRuntimeErrorId.FileNotFound : VBRuntimeErrorId.PathNotFound;
+            return ParentExists(oldPath) ? VBRuntimeErrorId.FileNotFound.ToCode() : VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
         // "Using Name on an open file produces an error. You must close an open file before renaming it." A directory
         // is as good as open when a file under it is.
         if (_channels.Values.Any(channel => isFile ? PathsMatch(channel.FullPath, oldPath) : IsUnder(channel.FullPath, oldPath)))
         {
-            return VBRuntimeErrorId.FileAlreadyOpen;
+            return VBRuntimeErrorId.FileAlreadyOpen.ToCode();
         }
 
         // "The file name specified by newpathname can't already exist."
         if (fileSystem.File.Exists(newPath) || fileSystem.Directory.Exists(newPath))
         {
-            return VBRuntimeErrorId.FileAlreadyExists;
+            return VBRuntimeErrorId.FileAlreadyExists.ToCode();
         }
 
         // "Name cannot create a new file, directory, or folder": the folder the new name is in is not made for it.
         if (!ParentExists(newPath))
         {
-            return VBRuntimeErrorId.PathNotFound;
+            return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
         // "Name can move a file across drives, but it can only rename an existing directory or folder when both
@@ -459,7 +461,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         if (isDirectory && !PathsMatch(fileSystem.Path.GetPathRoot(fileSystem.Path.GetFullPath(oldPath)) ?? string.Empty,
                 fileSystem.Path.GetPathRoot(fileSystem.Path.GetFullPath(newPath)) ?? string.Empty))
         {
-            return VBRuntimeErrorId.CantRenameWithDifferentDrive;
+            return VBRuntimeErrorId.CantRenameWithDifferentDrive.ToCode();
         }
 
         try
@@ -477,11 +479,11 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         }
         catch (UnauthorizedAccessException)
         {
-            return VBRuntimeErrorId.PermissionDenied;
+            return VBRuntimeErrorId.PermissionDenied.ToCode();
         }
         catch (IOException)
         {
-            return VBRuntimeErrorId.PathOrFileAccessError;
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
         }
     }
 
@@ -490,10 +492,10 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     // what every path a VBA file function is given goes through first: its \ is a separator on every platform, so VBA written with Windows paths runs
     // as is where the file system's own separator is /. Where it is, a file whose name holds a \ is out of VBA's reach. A path that is not fully
     // qualified is in the current directory, and one that is gone is error 76 (Linux lets a process's current directory be deleted).
-    private VBRuntimeErrorId? Resolve(ref string path)
+    private RDCoreDiagnosticCode? Resolve(ref string path)
     {
         path = fileSystem.Path.DirectorySeparatorChar == '\\' ? path : path.Replace('\\', fileSystem.Path.DirectorySeparatorChar);
-        return fileSystem.Path.IsPathFullyQualified(path) || CurrentDirectory() is not null ? null : VBRuntimeErrorId.PathNotFound;
+        return fileSystem.Path.IsPathFullyQualified(path) || CurrentDirectory() is not null ? null : VBRuntimeErrorId.PathNotFound.ToCode();
     }
 
     // null when the current directory cannot be read: once it is deleted, every read of it fails on Linux.

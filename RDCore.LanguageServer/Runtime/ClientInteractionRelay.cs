@@ -6,6 +6,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Server.Services;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.LanguageServer.Runtime;
 

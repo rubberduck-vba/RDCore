@@ -17,6 +17,7 @@ using RDCore.Runtime.Semantics.Precompiler;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.CLI.Host.Handlers;
 

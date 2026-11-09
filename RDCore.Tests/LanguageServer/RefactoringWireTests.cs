@@ -16,7 +16,6 @@ using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.Parsing;
 using RDCore.SDK.Client;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.StdLib;
@@ -32,6 +31,7 @@ using RDCore.Tests.Runtime.Libraries;
 using System.IO.Pipelines;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Tests.LanguageServer;
 

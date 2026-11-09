@@ -2,9 +2,9 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -39,7 +39,7 @@ internal sealed class ReDimOfAnImplicitVariantAnalyzer : IModuleAnalyzer
                     && Within(procedure.SourceLocation.Range, local.Location.Range.Start)
                     && local.Location.Range.Start.CompareTo(redim.SourceLocation.Range.Start) < 0)))
             .Select(redim => new AnalyzerFinding(
-                RDCoreDiagnosticId.ReDimOfAnImplicitVariant,
+                RDCoreDiagnosticId.ReDimOfAnImplicitVariant.ToCode(),
                 redim.Target.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ReDimOfAnImplicitVariant_Message, redim.Name)));

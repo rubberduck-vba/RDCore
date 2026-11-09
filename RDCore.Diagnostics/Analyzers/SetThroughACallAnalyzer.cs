@@ -1,9 +1,9 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -31,7 +31,7 @@ internal sealed class SetThroughACallAnalyzer : IModuleAnalyzer
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.SetHasNoDefaultMemberToSet))
             .Where(fact => !(procedure.Runtime?.Errors ?? []).Any(error => error.Location.Range.Start.Line == fact.Location.Range.Start.Line && error.ErrorId == 438))
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.SetThroughACallFails,
+                RDCoreDiagnosticId.SetThroughACallFails.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Error,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.SetThroughACallFails_NoDefaultMemberToSet_Message, NameOf(fact)))));

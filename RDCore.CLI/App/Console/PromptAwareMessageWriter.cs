@@ -1,5 +1,5 @@
-using RDCore.SDK.ConsoleIO;
-using RDCore.SDK.ConsoleIO.Model;
+using RDCore.CLI.ConsoleIO;
+using RDCore.CLI.ConsoleIO.Model;
 
 namespace RDCore.CLI.App.Console;
 

@@ -29,4 +29,18 @@ public record class PlatformManifest
 
     /// <summary>The executable of the parse server.</summary>
     public string ParseServer { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The extension the platform bundles: the name of its folder under <see cref="ExtensionsDirectory"/>.
+    /// </summary>
+    /// <remarks>
+    /// The core extension reports the platform's first-party diagnostics. The prefixes of their codes (<c>RDC</c>, <c>RDX</c>) are its own: no other extension
+    /// that declares one is started (<strong>RD-VBAL §1.1.4</strong>). A manifest that does not name it bundles <see cref="DefaultCoreExtension"/>.
+    /// </remarks>
+    public string CoreExtension { get; init; } = DefaultCoreExtension;
+
+    /// <summary>
+    /// The extension a platform bundles when its manifest does not say: <c>RDCore.Diagnostics</c>.
+    /// </summary>
+    public const string DefaultCoreExtension = "RDCore.Diagnostics";
 }

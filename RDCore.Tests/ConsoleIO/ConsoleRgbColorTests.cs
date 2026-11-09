@@ -1,4 +1,4 @@
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 
 namespace RDCore.Tests.ConsoleIO;
 

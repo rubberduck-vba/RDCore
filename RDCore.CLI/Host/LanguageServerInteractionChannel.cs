@@ -1,5 +1,6 @@
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.CLI.Host;
 

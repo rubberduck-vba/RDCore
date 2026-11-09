@@ -4,7 +4,7 @@
 
 |||
 |---|---|
-|Code family|`RDC`, defined by [RDCoreDiagnosticId](../api/RDCore.SDK.Model.Diagnostics.RDCoreDiagnosticId.html); the enum value is the code|
+|Code family|`RDC`, defined by `RDCoreDiagnosticId` (in `RDCore.Diagnostics`); the enum value is the code|
 |Title|per finding|
 |Raised by|the `RDCore.Diagnostics` analyzers|
 |Severity|spans `Hint` through `Error`, per finding|

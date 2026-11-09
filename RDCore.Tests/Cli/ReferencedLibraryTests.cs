@@ -110,8 +110,8 @@ public sealed class ReferencedLibraryTests
         var errors = await LoadErrorsAsync([], Program("Public A As Widgets.Gadget", "Public B As Gadget"), References(new InMemoryLibrarySource(Widgets)));
 
         Assert.HasCount(2, errors);
-        StringAssert.Contains(errors[0], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, "Widgets.Gadget", "Widgets"));
-        StringAssert.Contains(errors[1], string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, "Gadget"));
+        StringAssert.Contains(errors[0], string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, "Widgets.Gadget", "Widgets"));
+        StringAssert.Contains(errors[1], string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeNotResolved_Verbose, "Gadget"));
     }
 
     [TestMethod]
@@ -119,7 +119,7 @@ public sealed class ReferencedLibraryTests
     {
         var errors = await LoadErrorsAsync([], Program("Public App As Excel.Application"), References(new InMemoryLibrarySource(Widgets), "Excel", "Widgets"));
 
-        StringAssert.Contains(errors.Single(), string.Format(RDCore.SDK.Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, "Excel.Application", "Excel"));
+        StringAssert.Contains(errors.Single(), string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_DeclaredTypeQualifierNotResolved_Verbose, "Excel.Application", "Excel"));
     }
 
     [TestMethod]

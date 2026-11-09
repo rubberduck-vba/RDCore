@@ -4,6 +4,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Platform;
 

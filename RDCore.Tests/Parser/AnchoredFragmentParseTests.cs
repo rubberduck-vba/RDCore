@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Configuration;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Parser;
 

@@ -14,6 +14,7 @@ using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.Services;
 using System.IO.Abstractions;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

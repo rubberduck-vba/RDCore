@@ -1,7 +1,7 @@
 ﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -21,7 +21,7 @@ internal sealed class ValueOfObjectWithNoDefaultMemberAnalyzer : IModuleAnalyzer
         => (context.Semantics?.Procedures ?? []).SelectMany(procedure => procedure.Expressions
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.ValueOfObjectWithNoDefaultMember))
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.ValueOfObjectWithNoDefaultMember,
+                RDCoreDiagnosticId.ValueOfObjectWithNoDefaultMember.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ValueOfObjectWithNoDefaultMember_Message, fact.DeclaredType ?? string.Empty))));

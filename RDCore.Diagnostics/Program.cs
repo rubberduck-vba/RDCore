@@ -1,4 +1,6 @@
 ﻿using RDCore.SDK.Client;
+using RDCore.SDK.Extensibility;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Server;
 using System.Runtime.CompilerServices;
 
@@ -11,6 +13,9 @@ using System.Runtime.CompilerServices;
 // marks this extension a diagnostics provider: the language server fans textDocument/diagnostic
 // pulls out to it over rdcore/diagnostics/document.
 [assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]
+
+// the core diagnostics are reported under RDC codes: no other extension of the platform is started with that prefix.
+[assembly: DiagnosticPrefix(RDCoreDiagnosticCode.CorePrefix)]
 
 namespace RDCore.Diagnostics;
 

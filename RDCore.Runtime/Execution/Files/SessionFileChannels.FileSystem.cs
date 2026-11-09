@@ -1,6 +1,8 @@
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Runtime.Abstract.StdLib;
+using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Execution.Files;
 
@@ -16,19 +18,19 @@ internal sealed partial class SessionFileChannels
     private Queue<string>? _search;
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryGetCurrentDirectory(string? drive, out string path)
+    public RDCoreDiagnosticCode? TryGetCurrentDirectory(string? drive, out string path)
     {
         path = string.Empty;
         var current = CurrentDirectory();
         if (string.IsNullOrEmpty(drive))
         {
             path = current ?? string.Empty;
-            return current is null ? VBRuntimeErrorId.PathNotFound : null;
+            return current is null ? VBRuntimeErrorId.PathNotFound.ToCode() : null;
         }
 
         if (DriveOf(drive) is not { } root)
         {
-            return char.IsAsciiLetter(drive[0]) ? VBRuntimeErrorId.DeviceUnavailable : VBRuntimeErrorId.InvalidProcedureCallOrArgument;
+            return char.IsAsciiLetter(drive[0]) ? VBRuntimeErrorId.DeviceUnavailable.ToCode() : VBRuntimeErrorId.InvalidProcedureCallOrArgument.ToCode();
         }
 
         // the drive's own current directory, which the file system keeps for each drive it has (C: is where C's is).
@@ -37,7 +39,7 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryChangeDirectory(string path)
+    public RDCoreDiagnosticCode? TryChangeDirectory(string path)
     {
         if (Resolve(ref path) is { } unavailable)
         {
@@ -46,7 +48,7 @@ internal sealed partial class SessionFileChannels
 
         if (string.IsNullOrEmpty(path) || !fileSystem.Directory.Exists(path))
         {
-            return VBRuntimeErrorId.PathNotFound;
+            return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
         fileSystem.Directory.SetCurrentDirectory(fileSystem.Path.GetFullPath(path));
@@ -54,7 +56,7 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryChangeDrive(string drive)
+    public RDCoreDiagnosticCode? TryChangeDrive(string drive)
     {
         if (string.IsNullOrEmpty(drive))
         {
@@ -63,7 +65,7 @@ internal sealed partial class SessionFileChannels
 
         if (DriveOf(drive) is not { } root)
         {
-            return char.IsAsciiLetter(drive[0]) ? VBRuntimeErrorId.DeviceUnavailable : VBRuntimeErrorId.InvalidProcedureCallOrArgument;
+            return char.IsAsciiLetter(drive[0]) ? VBRuntimeErrorId.DeviceUnavailable.ToCode() : VBRuntimeErrorId.InvalidProcedureCallOrArgument.ToCode();
         }
 
         if (CurrentDirectory() is not { } current || !IsOnDrive(current, root))
@@ -89,7 +91,7 @@ internal sealed partial class SessionFileChannels
     private static bool IsOnDrive(string path, string root) => path.Length >= 2 && char.ToUpperInvariant(path[0]) == char.ToUpperInvariant(root[0]) && path[1] == ':';
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryFindFirst(string pattern, VBFileAttribute attributes, out string name)
+    public RDCoreDiagnosticCode? TryFindFirst(string pattern, VBFileAttribute attributes, out string name)
     {
         name = string.Empty;
         if (Resolve(ref pattern) is { } unavailable)
@@ -123,12 +125,12 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryFindNext(out string name)
+    public RDCoreDiagnosticCode? TryFindNext(out string name)
     {
         name = string.Empty;
         if (_search is null)
         {
-            return VBRuntimeErrorId.InvalidProcedureCallOrArgument;
+            return VBRuntimeErrorId.InvalidProcedureCallOrArgument.ToCode();
         }
 
         // the last match given, what follows is a zero-length String, and then there is no pattern to go on with (D01).
@@ -214,7 +216,7 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryCopy(string source, string destination)
+    public RDCoreDiagnosticCode? TryCopy(string source, string destination)
     {
         if ((Resolve(ref source) ?? Resolve(ref destination)) is { } unavailable)
         {
@@ -223,36 +225,36 @@ internal sealed partial class SessionFileChannels
 
         if (HasWildcard(source))
         {
-            return VBRuntimeErrorId.BadFileNameOrNumber;
+            return VBRuntimeErrorId.BadFileNameOrNumber.ToCode();
         }
 
         if (!fileSystem.File.Exists(source))
         {
-            return VBRuntimeErrorId.FileNotFound;
+            return VBRuntimeErrorId.FileNotFound.ToCode();
         }
 
         // a source open for Input is copied, open in any other mode it is not; the destination open in any mode is not replaced (Y02, Y11, Y12).
         if (_channels.Values.Any(channel => PathsMatch(channel.FullPath, source) && channel.Mode is not VBFileMode.Input)
             || _channels.Values.Any(channel => PathsMatch(channel.FullPath, destination)))
         {
-            return VBRuntimeErrorId.FileAlreadyOpen;
+            return VBRuntimeErrorId.FileAlreadyOpen.ToCode();
         }
 
         if (fileSystem.Directory.Exists(destination))
         {
-            return VBRuntimeErrorId.PathOrFileAccessError;
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
         }
 
         if (!ParentExists(destination))
         {
-            return VBRuntimeErrorId.PathNotFound;
+            return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
         return Attempt(() => fileSystem.File.Copy(source, destination, overwrite: true));
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryDelete(string pattern)
+    public RDCoreDiagnosticCode? TryDelete(string pattern)
     {
         if (Resolve(ref pattern) is { } unavailable)
         {
@@ -262,26 +264,26 @@ internal sealed partial class SessionFileChannels
         // no pattern is no file - not every file of the current directory, which is what it is to Dir.
         if (pattern.Length == 0 || !TrySplit(pattern, out var directory, out var mask) || !fileSystem.Directory.Exists(directory))
         {
-            return VBRuntimeErrorId.FileNotFound;
+            return VBRuntimeErrorId.FileNotFound.ToCode();
         }
 
         var files = Matches(directory, mask, VBFileAttribute.VBNormal).Select(match => fileSystem.Path.Combine(directory, match)).ToList();
         if (files.Count == 0)
         {
-            return VBRuntimeErrorId.FileNotFound;
+            return VBRuntimeErrorId.FileNotFound.ToCode();
         }
 
         foreach (var file in files)
         {
             if (_channels.Values.Any(channel => PathsMatch(channel.FullPath, file)))
             {
-                return VBRuntimeErrorId.FileAlreadyOpen;
+                return VBRuntimeErrorId.FileAlreadyOpen.ToCode();
             }
 
             // a read-only file is not deleted (K03).
             if (fileSystem.File.GetAttributes(file).HasFlag(FileAttributes.ReadOnly))
             {
-                return VBRuntimeErrorId.PathOrFileAccessError;
+                return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
             }
 
             if (Attempt(() => fileSystem.File.Delete(file)) is { } failed)
@@ -294,7 +296,7 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryCreateDirectory(string path)
+    public RDCoreDiagnosticCode? TryCreateDirectory(string path)
     {
         if (Resolve(ref path) is { } unavailable)
         {
@@ -303,20 +305,20 @@ internal sealed partial class SessionFileChannels
 
         if (fileSystem.Directory.Exists(path) || fileSystem.File.Exists(path))
         {
-            return VBRuntimeErrorId.PathOrFileAccessError;
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
         }
 
         // the directory it is in is not made for it (M01).
         if (!ParentExists(path))
         {
-            return VBRuntimeErrorId.PathNotFound;
+            return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
         return Attempt(() => fileSystem.Directory.CreateDirectory(path));
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryRemoveDirectory(string path)
+    public RDCoreDiagnosticCode? TryRemoveDirectory(string path)
     {
         if (Resolve(ref path) is { } unavailable)
         {
@@ -326,19 +328,19 @@ internal sealed partial class SessionFileChannels
         // a file, a pattern, are no directory (M02, M03).
         if (HasWildcard(path) || !fileSystem.Directory.Exists(path))
         {
-            return VBRuntimeErrorId.PathNotFound;
+            return VBRuntimeErrorId.PathNotFound.ToCode();
         }
 
         if (fileSystem.Directory.EnumerateFileSystemEntries(path).Any())
         {
-            return VBRuntimeErrorId.PathOrFileAccessError;
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
         }
 
         return Attempt(() => fileSystem.Directory.Delete(path, recursive: false));
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryGetAttributes(string path, out VBFileAttribute attributes)
+    public RDCoreDiagnosticCode? TryGetAttributes(string path, out VBFileAttribute attributes)
     {
         attributes = VBFileAttribute.VBNormal;
         if ((Resolve(ref path) ?? TryFind(path)) is { } missing)
@@ -356,11 +358,11 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TrySetAttributes(string path, VBFileAttribute attributes)
+    public RDCoreDiagnosticCode? TrySetAttributes(string path, VBFileAttribute attributes)
     {
         if ((attributes & ~SettableAttributes) != 0)
         {
-            return VBRuntimeErrorId.InvalidProcedureCallOrArgument;
+            return VBRuntimeErrorId.InvalidProcedureCallOrArgument.ToCode();
         }
 
         if ((Resolve(ref path) ?? TryFind(path)) is { } missing)
@@ -371,7 +373,7 @@ internal sealed partial class SessionFileChannels
         // a file open for Input is given them, open in any other mode it is not (G03, G11).
         if (_channels.Values.Any(channel => PathsMatch(channel.FullPath, path) && channel.Mode is not VBFileMode.Input))
         {
-            return VBRuntimeErrorId.FileAlreadyOpen;
+            return VBRuntimeErrorId.FileAlreadyOpen.ToCode();
         }
 
         var directory = fileSystem.File.GetAttributes(path) & FileAttributes.Directory;
@@ -384,7 +386,7 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryGetLength(string path, out long length)
+    public RDCoreDiagnosticCode? TryGetLength(string path, out long length)
     {
         length = 0;
         if ((Resolve(ref path) ?? TryFind(path)) is { } missing)
@@ -410,7 +412,7 @@ internal sealed partial class SessionFileChannels
     }
 
     /// <inheritdoc/>
-    public VBRuntimeErrorId? TryGetLastWriteTime(string path, out DateTime modified)
+    public RDCoreDiagnosticCode? TryGetLastWriteTime(string path, out DateTime modified)
     {
         modified = default;
         if ((Resolve(ref path) ?? TryFind(path)) is { } missing)
@@ -423,13 +425,13 @@ internal sealed partial class SessionFileChannels
     }
 
     // a path that is no pattern, and names a file or a directory that exists (G02, G03, L01, L03, T01).
-    private VBRuntimeErrorId? TryFind(string path)
-        => HasWildcard(path) ? VBRuntimeErrorId.BadFileNameOrNumber
+    private RDCoreDiagnosticCode? TryFind(string path)
+        => HasWildcard(path) ? VBRuntimeErrorId.BadFileNameOrNumber.ToCode()
             : fileSystem.File.Exists(path) || fileSystem.Directory.Exists(path) ? null
-            : VBRuntimeErrorId.FileNotFound;
+            : VBRuntimeErrorId.FileNotFound.ToCode();
 
     // what refuses an operation the checks let through: access, 70; anything else about the path or the device, 75.
-    private static VBRuntimeErrorId? Attempt(Action operation)
+    private static RDCoreDiagnosticCode? Attempt(Action operation)
     {
         try
         {
@@ -438,11 +440,11 @@ internal sealed partial class SessionFileChannels
         }
         catch (UnauthorizedAccessException)
         {
-            return VBRuntimeErrorId.PermissionDenied;
+            return VBRuntimeErrorId.PermissionDenied.ToCode();
         }
         catch (IOException)
         {
-            return VBRuntimeErrorId.PathOrFileAccessError;
+            return VBRuntimeErrorId.PathOrFileAccessError.ToCode();
         }
     }
 }

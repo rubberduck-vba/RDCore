@@ -11,7 +11,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Server;
 using RDCore.SDK.Client;
-using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Logging;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;

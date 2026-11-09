@@ -1,7 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -22,7 +22,7 @@ internal sealed class BitwiseSemanticsAnalyzer : IModuleAnalyzer
             .SelectMany(procedure => procedure.Runtime?.Operations ?? [])
             .Where(op => op.LogicalOpSemanticFlags?.HasFlag(LogicalOperatorSemanticFlags.IsBitwiseSemantics) ?? false)
             .Select(op => new AnalyzerFinding(
-                RDCoreDiagnosticId.BitwiseOperator,
+                RDCoreDiagnosticId.BitwiseOperator.ToCode(),
                 (op.OperatorLocation ?? op.Location).Range,
                 DiagnosticSeverity.Hint,
                 AnalyzerMessages.Format(

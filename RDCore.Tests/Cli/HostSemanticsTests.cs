@@ -1,5 +1,6 @@
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 
@@ -43,7 +44,7 @@ public sealed class HostSemanticsTests
 
         var model = payload.Modules.Single();
         Assert.HasCount(1, model.DeclarationErrors);
-        Assert.AreEqual(RDCore.SDK.Model.Errors.VBCompileErrorId.AmbiguousName, model.DeclarationErrors[0].Id);
+        Assert.AreEqual(RDCore.Runtime.LanguageCore.Errors.VBCompileErrorId.AmbiguousName, model.DeclarationErrors[0].Id);
     }
 
     [TestMethod]

@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Commands;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Runtime;
 using RDCore.Runtime.Semantics;

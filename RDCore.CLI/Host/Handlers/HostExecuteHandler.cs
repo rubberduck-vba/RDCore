@@ -8,6 +8,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.Semantics;
 
 namespace RDCore.CLI.Host.Handlers;

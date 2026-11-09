@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

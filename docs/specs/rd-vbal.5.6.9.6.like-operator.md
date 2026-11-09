@@ -89,7 +89,7 @@ An invalid element raises run-time error 93 (*Invalid pattern string*) at the po
   `"ab" Like "a*c[z-a]"` raises 93, although `c` never appears in the text.
 - A `*` reached at the end of the text checks nothing: `"a" Like "a*["` is `False`.
 
-Run-time error 93 is [VBRuntimeErrorId](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorId.html)`.InvalidPatternString`.
+Run-time error 93 is `VBRuntimeErrorId.InvalidPatternString`.
 
 ### Performance
 

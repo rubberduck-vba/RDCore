@@ -28,7 +28,7 @@ using RDCore.Runtime.Semantics;
 using RDCore.SDK;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform;
@@ -40,6 +40,7 @@ using RDCore.SDK.Server.Services.States;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
+using RDCore.SDK.Platform.Components;
 
 // expose internals to RDCore.Tests and the LSP handler container's dynamic proxies:
 [assembly: InternalsVisibleTo("RDCore.Tests")]

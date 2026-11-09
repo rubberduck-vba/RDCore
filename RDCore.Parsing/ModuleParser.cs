@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RDCore.Parsing.AST;
 using RDCore.Parsing.Syntax;
-using RDCore.SDK.ConsoleIO;
+using RDCore.SDK.Logging;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -19,6 +19,7 @@ using RDCore.SDK.Platform;
 using RDCore.SDK.Server.Configuration;
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing;
 

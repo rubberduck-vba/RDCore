@@ -8,6 +8,7 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
 using RDCore.Tests.Parser;
 using RDCore.Runtime.LanguageCore.Refactoring;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 

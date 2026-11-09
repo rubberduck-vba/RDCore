@@ -23,7 +23,7 @@ public interface IStdInformationModule
     /// 👉 A VBA color is <c>&amp;HBBGGRR</c>: red is the least-significant byte, so <c>Red</c> is <c>&amp;H80</c> and <c>Blue</c> is
     /// <c>&amp;H800000</c>.
     /// <para>
-    /// 💥 Any other value raises run-time error 5 <see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>.
+    /// 💥 Any other value raises run-time error 5, <em>Invalid procedure call or argument</em>.
     /// </para>
     /// </remarks>
     public static class StdInformationQBColors
@@ -278,7 +278,7 @@ public interface IStdInformationModule
     /// <para>
     /// 🎯 The specification's formula takes <c>max(x, 255)</c> of each part, which would make every color white: it means the smaller
     /// of the two. A part above 255 counts as 255, and a negative part raises run-time error 5
-    /// (<see cref="VBRuntimeErrorId.InvalidProcedureCallOrArgument"/>), as in MS-VBA. Each argument is Let-coerced to <c>Integer</c>
+    /// (<em>Invalid procedure call or argument</em>, <c>VBR00005</c>), as in MS-VBA. Each argument is Let-coerced to <c>Integer</c>
     /// first, so a fractional part rounds to even and one outside the <c>Integer</c> range overflows.
     /// </para>
     /// </remarks>

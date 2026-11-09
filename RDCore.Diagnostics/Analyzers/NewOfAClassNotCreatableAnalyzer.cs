@@ -1,9 +1,9 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -23,7 +23,7 @@ internal sealed class NewOfAClassNotCreatableAnalyzer : IModuleAnalyzer
         var declarations = (context.Semantics?.Declarations ?? [])
             .Where(declaration => declaration.AutoInstantiationAlwaysFails)
             .Select(declaration => new AnalyzerFinding(
-                RDCoreDiagnosticId.NewOfAClassNotCreatable,
+                RDCoreDiagnosticId.NewOfAClassNotCreatable.ToCode(),
                 declaration.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.NewOfAClassNotCreatable_AsNew_Message, declaration.Name)));
@@ -31,7 +31,7 @@ internal sealed class NewOfAClassNotCreatableAnalyzer : IModuleAnalyzer
         var expressions = (context.Semantics?.Procedures ?? []).SelectMany(procedure => procedure.Expressions
             .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.NewAlwaysFails))
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.NewOfAClassNotCreatable,
+                RDCoreDiagnosticId.NewOfAClassNotCreatable.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.NewOfAClassNotCreatable_New_Message, NameOf(fact)))));

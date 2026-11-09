@@ -1,5 +1,5 @@
 using RDCore.CLI.Themes;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using System.Collections.Immutable;
 
 namespace RDCore.CLI.App.Repl.Commands;

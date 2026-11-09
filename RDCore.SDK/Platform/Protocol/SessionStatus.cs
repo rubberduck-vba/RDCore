@@ -12,13 +12,6 @@ namespace RDCore.SDK.Platform.Protocol;
 public sealed record class SessionStatusRequest : SessionStatusParams, IRequest, IRequest<SessionStatusResult>;
 
 /// <summary>
-/// Request for <c>rdcore/host/session/status</c>: the language-server side of
-/// <see cref="SessionStatusParams"/>, addressed to the component that owns the session.
-/// </summary>
-[Method(RDCoreComponentProtocol.HostSessionStatus, Direction.ClientToServer)]
-public record class HostSessionStatusParams : IRequest, IRequest<SessionStatusResult>;
-
-/// <summary>
 /// Projects a session allocator's statistics onto the wire.
 /// </summary>
 public static class SessionMemoryStatusExtensions

@@ -1,4 +1,4 @@
-using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 
 namespace RDCore.External.Interaction;
@@ -40,12 +40,14 @@ public interface IUserInteraction
 /// A dialog that cannot be answered: the run fails with an untrappable error of RD-VBA's own (VBR50000-50999), rather than wait on a dialog nobody sees, or go
 /// on with an answer nobody gave.
 /// </summary>
-/// <param name="ErrorId">The error the run fails with.</param>
+/// <param name="Code">The diagnostic code of the error the run fails with.</param>
 /// <param name="message">Why, as the error says it: who was asked, and what they answered.</param>
-public sealed class DialogNotAnsweredException(VBRuntimeErrorId ErrorId, string message) : Exception(message)
+public sealed class DialogNotAnsweredException(RDCoreDiagnosticCode Code, string message) : Exception(message)
 {
-    /// <summary>The error the run fails with.</summary>
-    public VBRuntimeErrorId ErrorId { get; } = ErrorId;
+    /// <summary>
+    /// The diagnostic code of the error the run fails with.
+    /// </summary>
+    public RDCoreDiagnosticCode Code { get; } = Code;
 }
 
 /// <summary>

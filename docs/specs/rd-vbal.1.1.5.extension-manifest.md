@@ -40,7 +40,7 @@ By default, the environment host may restrict capabilities requested by **unsign
 |`Description`|A short description of the extension.|
 |`FileHash`|The Base64-encoded `SHA512` file hash of the extension executable (.exe) file. It **must** be identical to the file hash of the discovered extension executable (.exe).|
 |`Capabilities`|The platform capabilities the extension advertises, recorded by `rdc.exe describe-ext`. Each entry names a capability (`Name`) and whether it is supported (`IsSupported`, `true` by default). The host ignores an entry whose `IsSupported` is `false`.|
-|`DiagnosticPrefix`|The three-letter prefix of the diagnostic codes the extension's publisher issues. `null` for none.|
+|`DiagnosticPrefix`|The three-letter prefix of the extension's diagnostic codes, recorded by `rdc.exe describe-ext` from the extension's [`DiagnosticPrefixAttribute`](../api/RDCore.SDK.Extensibility.DiagnosticPrefixAttribute.html) ([**RD-VBAL §1.1.4** Declaring a Prefix](rd-vbal.1.1.4.core-diagnostics.md#declaring-a-prefix)). `null` for none.|
 |`SdkVersion`|The version of `RDCore.SDK` the extension was built against, recorded by `rdc.exe describe-ext` from the extension assembly's reference to `RDCore.SDK`. `null` when the manifest does not say.|
 |`Settings`|The settings the extension is configured with ([`SettingDescriptor`](../api/RDCore.SDK.Server.Configuration.SettingDescriptor.html)), recorded by `rdc.exe describe-ext` from the extension's [`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html). A client offers them to a user without starting the extension ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md)). Empty for an extension that has none.|
 |`SettingDescriptions`|The description of each setting, by its key, in each language of the platform, by its two-letter name. A description in a language the platform has none in is the first language's (`en`).|
@@ -69,6 +69,8 @@ An extension manifest discovered under the platform's `./extensions` folder must
 |The `FileHash` in the manifest mismatches the `SHA512` file hash of the extension executable (.exe).|`FileHashMismatch`|
 
 The validation flags are documented by [ExtensionValidationFlags](../api/RDCore.SDK.Extensibility.ExtensionValidationFlags.html).
+
+A valid extension is still not started when its `DiagnosticPrefix` is not its own: not three letters `A` to `Z`, one of the language's own (`VBC`, `VBR`, `VBA`), `RDC` for an extension other than the core extension, or a prefix other than `RDX` that another extension also declares ([**RD-VBAL §1.1.4** Declaring a Prefix](rd-vbal.1.1.4.core-diagnostics.md#declaring-a-prefix)).
 
 The environment host may prompt to allow discovered extensions that do not appear in the platform extension configuration. Whether the host prompts to allow, or automatically blocks, non-configured extensions depends on the host implementation.
 

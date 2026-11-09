@@ -24,7 +24,7 @@ public sealed class DeclarationErrorTests
         var errors = await ModuleWorkspace.LoadErrorsAsync([], Program("Public Total As Long", "Public Sub total()", "End Sub"));
 
         Assert.HasCount(1, errors);
-        StringAssert.Contains(errors[0], RDCore.SDK.Exceptions.VBCompileError_AmbiguousName);
+        StringAssert.Contains(errors[0], RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_AmbiguousName);
         StringAssert.Contains(errors[0], "declared more than once");
     }
 

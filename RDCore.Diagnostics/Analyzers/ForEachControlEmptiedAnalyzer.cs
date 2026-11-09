@@ -1,7 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flow;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -20,7 +20,7 @@ internal sealed class ForEachControlEmptiedAnalyzer : IModuleAnalyzer
         => (context.Semantics?.Procedures ?? [])
             .SelectMany(procedure => procedure.EmptiedControlReads ?? [])
             .Select(read => new AnalyzerFinding(
-                RDCoreDiagnosticId.ForEachControlEmptiedAfterLoop, read.Location.Range, DiagnosticSeverity.Warning,
+                RDCoreDiagnosticId.ForEachControlEmptiedAfterLoop.ToCode(), read.Location.Range, DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(
                     read.IsObject ? RDCoreDiagnosticsResources.ForEachControlEmptiedAfterLoop_Nothing_Message : RDCoreDiagnosticsResources.ForEachControlEmptiedAfterLoop_Empty_Message,
                     read.Name)));

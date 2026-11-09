@@ -7,7 +7,7 @@ A **syntax error** is raised while the parser traverses the *concrete syntax tre
 |Code family|`VBC`, range `VBC00001`–`VBC00999`|
 |Title|_Syntax error_|
 |Raised by|the parser (concrete syntax tree)|
-|Source metadata|[VBSyntaxErrorInfo](../api/RDCore.SDK.Model.Errors.VBSyntaxErrorInfo.html); its `ErrorId` is a [VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html)|
+|Source metadata|[VBSyntaxErrorInfo](../api/RDCore.SDK.Model.Errors.VBSyntaxErrorInfo.html); its `ErrorId` is the number of the code (`VBCompileErrorId` in the language core names each one)|
 |Severity|`Error`|
 |Detail|the faulted token and its expected role, on `Diagnostic.data`|
 

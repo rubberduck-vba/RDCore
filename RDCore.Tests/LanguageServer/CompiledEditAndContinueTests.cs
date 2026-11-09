@@ -24,6 +24,7 @@ using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.LanguageServer;
 

@@ -27,7 +27,7 @@ public enum ValueDestination
     /// </summary>
     /// <remarks>
     /// A <c>String</c>, a <c>Variant</c>, a late-bound object and a record are read as a value; a value of any other declared type must be a variable, and
-    /// anything else is <see cref="Model.Errors.VBCompileErrorId.VariableRequired"/>: <c>Len(5)</c>, <c>Len(FnLong())</c>, an object whose default member
+    /// anything else is <em>Variable required</em> (<c>VBC09333</c>): <c>Len(5)</c>, <c>Len(FnLong())</c>, an object whose default member
     /// returns neither a <c>String</c> nor a <c>Variant</c> (recorded in Excel).
     /// </remarks>
     StringOrVariable,

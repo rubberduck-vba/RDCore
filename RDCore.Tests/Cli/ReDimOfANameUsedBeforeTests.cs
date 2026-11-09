@@ -1,4 +1,4 @@
-using RDCore.SDK;
+using RDCore.Runtime.LanguageCore;
 
 namespace RDCore.Tests.Cli;
 

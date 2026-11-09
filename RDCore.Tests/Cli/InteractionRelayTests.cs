@@ -18,6 +18,8 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
+using RDCore.SDK.Platform.Components;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Cli;
 
@@ -96,7 +98,7 @@ public sealed class InteractionRelayTests
 
         var failed = Assert.ThrowsExactly<DialogNotAnsweredException>(() => relay.ShowMessage(YesNo));
 
-        Assert.AreEqual(VBRuntimeErrorId.UnusableDialogAnswer, failed.ErrorId);
+        Assert.AreEqual(VBRuntimeErrorId.UnusableDialogAnswer.ToCode(), failed.Code);
         StringAssert.Contains(failed.Message, "vbYesNo");
         StringAssert.Contains(failed.Message, ((int)VBMsgBoxResult.VBAbort).ToString(System.Globalization.CultureInfo.InvariantCulture));
         fallback.DidNotReceiveWithAnyArgs().ShowMessage(default!, default);
@@ -110,7 +112,7 @@ public sealed class InteractionRelayTests
 
         var failed = Assert.ThrowsExactly<DialogNotAnsweredException>(() => Relay(channel).Relay.ShowMessage(new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOKOnly)));
 
-        Assert.AreEqual(VBRuntimeErrorId.UnusableDialogAnswer, failed.ErrorId);
+        Assert.AreEqual(VBRuntimeErrorId.UnusableDialogAnswer.ToCode(), failed.Code);
         Assert.AreEqual("HexIDE answered 6", failed.Message);
     }
 
@@ -122,8 +124,8 @@ public sealed class InteractionRelayTests
         channel.InputBoxAsync(Arg.Any<HostInputBoxParams>(), Arg.Any<CancellationToken>()).Returns(new InputBoxResult { Declined = true });
         var (relay, _, fallback, _) = Relay(channel);
 
-        Assert.AreEqual(VBRuntimeErrorId.NobodyToAnswer, Assert.ThrowsExactly<DialogNotAnsweredException>(() => relay.ShowMessage(YesNo)).ErrorId);
-        Assert.AreEqual(VBRuntimeErrorId.NobodyToAnswer, Assert.ThrowsExactly<DialogNotAnsweredException>(() => relay.Prompt(new InputBoxRequest("x", "t"))).ErrorId);
+        Assert.AreEqual(VBRuntimeErrorId.NobodyToAnswer.ToCode(), Assert.ThrowsExactly<DialogNotAnsweredException>(() => relay.ShowMessage(YesNo)).Code);
+        Assert.AreEqual(VBRuntimeErrorId.NobodyToAnswer.ToCode(), Assert.ThrowsExactly<DialogNotAnsweredException>(() => relay.Prompt(new InputBoxRequest("x", "t"))).Code);
         fallback.DidNotReceiveWithAnyArgs().ShowMessage(default!, default);
         fallback.DidNotReceiveWithAnyArgs().Prompt(default!, default);
     }
@@ -137,7 +139,7 @@ public sealed class InteractionRelayTests
 
         var failed = Assert.ThrowsExactly<DialogNotAnsweredException>(() => relay.Prompt(new InputBoxRequest("x", "t")));
 
-        Assert.AreEqual(VBRuntimeErrorId.UnusableDialogAnswer, failed.ErrorId);
+        Assert.AreEqual(VBRuntimeErrorId.UnusableDialogAnswer.ToCode(), failed.Code);
         StringAssert.Contains(failed.Message, "lost");
         fallback.DidNotReceiveWithAnyArgs().Prompt(default!, default);
     }

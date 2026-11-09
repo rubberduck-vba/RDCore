@@ -2,6 +2,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 using static RDCore.Tests.Runtime.StdLib.StdStringsTestHarness;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.StdLib;
 

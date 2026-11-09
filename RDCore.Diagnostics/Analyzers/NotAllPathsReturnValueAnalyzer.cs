@@ -1,7 +1,7 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Model.Diagnostics;
 using RDCore.SDK.Semantics.Flow;
+using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -21,7 +21,7 @@ internal sealed class NotAllPathsReturnValueAnalyzer : IModuleAnalyzer
             .OfType<ReturnValueFact>()
             .Where(fact => fact is { IsEmpty: false, Assignment: not ReturnValueAssignment.Always })
             .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.NotAllPathsReturnValue,
+                RDCoreDiagnosticId.NotAllPathsReturnValue.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
                 AnalyzerMessages.Format(

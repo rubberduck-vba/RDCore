@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Cli;

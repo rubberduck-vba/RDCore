@@ -20,6 +20,7 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Semantics.Instructions;
 

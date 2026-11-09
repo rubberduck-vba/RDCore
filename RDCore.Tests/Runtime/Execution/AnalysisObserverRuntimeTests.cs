@@ -7,6 +7,7 @@ using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Runtime.Operators;
 using RDCore.Tests.Semantics.Runtime;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Tests.Runtime.Execution;
 

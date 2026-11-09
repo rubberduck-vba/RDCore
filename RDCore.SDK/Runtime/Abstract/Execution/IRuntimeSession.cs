@@ -109,7 +109,7 @@ public interface IRuntimeSession
     /// </summary>
     /// <remarks>
     /// A dialog - <c>MsgBox</c>, <c>InputBox</c>, a form shown, in the process or through an external host - is then not shown anywhere, and fails the run with
-    /// <see cref="RDCore.SDK.Model.Errors.VBRuntimeErrorId.NobodyToAnswer"/>, an error no handler of the program catches: a program that expects a person
+    /// <em>Nobody to answer</em> (<c>VBR50001</c>), an error no handler of the program catches: a program that expects a person
     /// fails loudly where it expects one. Set by whatever starts the run, for that run.
     /// </remarks>
     bool RunsUnattended { get; set; }

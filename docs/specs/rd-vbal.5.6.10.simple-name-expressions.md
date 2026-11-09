@@ -66,7 +66,7 @@ outcome is a
 
 |Resolver result|Outcome|
 |---|---|
-|Ambiguous: `Duplicate` or `Ambiguous` (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#resolution-results))|An `Error` carrying `AmbiguousName` or `DuplicateDeclaration` ([VBCompileErrorId](../api/RDCore.SDK.Model.Errors.VBCompileErrorId.html)).|
+|Ambiguous: `Duplicate` or `Ambiguous` (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#resolution-results))|An `Error` carrying `AmbiguousName` or `DuplicateDeclaration` (`VBCompileErrorId`).|
 |Unresolved, under `Option Explicit`|An `Error` carrying `VariableNotDefined` (`VBCompileErrorId`).|
 |Unresolved, without `Option Explicit`|`Success(VBUnknownType)` ([VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html)).|
 

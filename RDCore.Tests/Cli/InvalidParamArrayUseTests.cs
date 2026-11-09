@@ -32,7 +32,7 @@ public sealed class InvalidParamArrayUseTests
     [DataRow("v = Fn(p)")]
     [DataRow("Inner a:=p")]
     public async Task AParamArray_PassedToAByRefParameterOfTheCodesOwn_IsInvalidParamArrayUse(string statement)
-        => StringAssert.StartsWith(Assert.ContainsSingle(await ErrorsOf(statement)), SDK.Exceptions.VBCompileError_InvalidParamArrayUse);
+        => StringAssert.StartsWith(Assert.ContainsSingle(await ErrorsOf(statement)), RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_InvalidParamArrayUse);
 
     [TestMethod]
     [DataRow("Inner p(0)")]

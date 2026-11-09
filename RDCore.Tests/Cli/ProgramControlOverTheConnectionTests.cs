@@ -9,6 +9,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Server;
 using RDCore.SDK.Server.Services;
 using OmniSharpLanguageServer = OmniSharp.Extensions.LanguageServer.Server.LanguageServer;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 

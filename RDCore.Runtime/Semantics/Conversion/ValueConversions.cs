@@ -7,6 +7,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.Semantics.Conversion;
 

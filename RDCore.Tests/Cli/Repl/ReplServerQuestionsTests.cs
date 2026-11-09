@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
-using RDCore.SDK.ConsoleIO;
+using RDCore.CLI.ConsoleIO;
 using static RDCore.Tests.Cli.Repl.ScriptedKeys;
 
 namespace RDCore.Tests.Cli.Repl;

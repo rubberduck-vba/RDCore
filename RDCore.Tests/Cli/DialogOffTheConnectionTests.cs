@@ -1,6 +1,7 @@
 using RDCore.CLI.Host;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.StdLib;
+using RDCore.SDK.Platform.Components;
 
 namespace RDCore.Tests.Cli;
 
