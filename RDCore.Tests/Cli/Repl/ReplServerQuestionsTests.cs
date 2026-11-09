@@ -357,14 +357,74 @@ public sealed class ReplServerQuestionsTests
         Assert.AreEqual(string.Empty, await reading.WaitAsync(Token));
     }
 
+    // the server waits for the answer to answer initialize: nothing else reads the keys yet.
     [TestMethod]
-    public async Task AQuestionBeforeTheShellReadsItsFirstLine_IsAskedAsItComes()
+    public async Task AQuestionBeforeInitializeIsAnswered_IsAskedAsItComes()
     {
         var keys = new WaitingKeys();
         keys.Send(Char('y'));
         var questions = new ReplServerQuestions(keys);
 
         Assert.AreEqual(0, await questions.AskAsync((at, token) => at.ReadKey(token).KeyChar == 'y' ? 0 : 1, CancellationToken.None));
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task AQuestionAfterInitializeIsAnswered_WaitsToBeAsked_AndReadsNoKeyUntilItIs()
+    {
+        var keys = new WaitingKeys();
+        keys.Send(Char('y'));
+        var questions = new ReplServerQuestions(keys);
+        questions.Hold();
+
+        var answer = questions.AskAsync((at, token) => at.ReadKey(token).KeyChar == 'y' ? 0 : 1, Token);
+
+        Assert.IsFalse(answer.IsCompleted, "it waits");
+        Assert.IsTrue(questions.Waiting.IsCompleted, "and is what waits to be asked");
+        await Task.Run(() => questions.AskWaiting(keys), Token);
+        Assert.AreEqual(0, await answer, "the key is the question's once it is asked");
+    }
+
+    // a question the server asks while the shell comes up - the indenter settings of Rubberduck, say - is not drawn among the splash and the memory the shell
+    // writes as it starts, nor while the server's work is reported: it is asked once the shell has said READY, before its first prompt.
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task AQuestionThatComesWhileTheShellComesUp_IsAskedOnceItSaysReady()
+    {
+        var keys = new WaitingKeys();
+        var questions = new ReplServerQuestions(keys);
+        questions.Hold();
+        var said = new List<string>();
+        var answer = questions.AskAsync((_, _) =>
+        {
+            lock (said)
+            {
+                said.Add("asked");
+            }
+
+            return 0;
+        }, Token);
+
+        var console = Substitute.For<IReplConsole>();
+        console.When(each => each.WriteLine(Arg.Is<string>(line => line.Contains(RDCore.CLI.Resources.Repl_Ready)))).Do(_ =>
+        {
+            lock (said)
+            {
+                said.Add("READY");
+            }
+        });
+        var editor = new ConsolePromptEditor(new EndingInput(() => { }), new Console(), () => 80);
+        var program = new ReplProgram();
+        var platform = Substitute.For<IReplPlatformClient>();
+        var shell = new ReplShell(
+            program, console, platform, new ReplDocument(program, platform), Substitute.For<IReplCommandDispatcher>(), NullLogger<ReplShell>.Instance,
+            editor, questions: questions, keys: keys);
+
+        Assert.IsFalse(answer.IsCompleted, "nothing is asked before the shell runs");
+        await shell.RunAsync(Token);
+
+        Assert.AreEqual(0, await answer);
+        CollectionAssert.AreEqual(new[] { "READY", "asked" }, said);
     }
 
     [TestMethod]
