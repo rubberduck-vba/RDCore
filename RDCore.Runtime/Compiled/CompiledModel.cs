@@ -251,6 +251,10 @@ internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNod
 // regional setting changes (StringOperations.OfWhole).
 internal sealed record class WholeTextNode(PayloadNode Value) : TextNode;
 
+// Chr$ of a Byte, an Integer, a Long or a LongLong (MS-VBAL §6.1.2.11.1.4): the character the code names, as the library's Chr$ makes it
+// (CompiledActivation.TryChr); a code it names none for is the interpreter's, which raises the error.
+internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
+
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
 

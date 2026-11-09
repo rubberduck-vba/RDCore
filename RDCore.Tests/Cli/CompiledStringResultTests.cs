@@ -6,7 +6,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A function of the <c>String</c> type, compiled: its result is assigned the text it is given where its frame holds it, as the interpreter assigns it
 /// (<strong>MS-VBAL §5.3.1</strong>), and a <c>Byte</c>, an <c>Integer</c> or a <c>Long</c> joined to a <c>String</c> is written as its let-coercion
-/// writes it (<strong>MS-VBAL §5.5.1.2.4</strong>). A program runs the same either way.
+/// writes it (<strong>MS-VBAL §5.5.1.2.4</strong>), and <c>Chr$</c> of one is the character the library makes of it
+/// (<strong>MS-VBAL §6.1.2.11.1.4</strong>). A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledStringResultTests
@@ -25,6 +26,9 @@ public sealed class CompiledStringResultTests
             "End Sub",
             "Public Function ToString() As String",
             "    ToString = \"(\" & this.X & \",\" & this.Y & \")\"",
+            "End Function",
+            "Public Function ToA1String() As String",
+            "    ToA1String = Chr$(64 + this.X) & this.Y",
             "End Function")),
     ];
 
@@ -96,6 +100,48 @@ public sealed class CompiledStringResultTests
             "Private Function Width(ByVal S As String) As Long",
             "    Width = Len(S)",
             "End Function"), expected: " 4  2"), "Measure");
+
+    // Chr$ of a whole number is the character the code names, joined to the text of a field.
+    [TestMethod]
+    public async Task ChrOfAWholeNumber_IsTheCharacterItNames()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim C As New GridCoord",
+            "    Dim N As Long",
+            "    For N = 1 To 3",
+            "        C.Init N, 10 - N",
+            "        Debug.Print C.ToA1String",
+            "    Next",
+            "End Sub"), classes: Coordinates, expected: "C7"), "ToA1String");
+
+    // Chr$ of an Integer and of a Byte, joined in a loop: a String variable that grows, then the result.
+    [TestMethod]
+    public async Task ChrJoinedInALoop_IsTheTextItMakes()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Letters(5, 97)",
+            "End Sub",
+            "Private Function Letters(ByVal Count As Integer, ByVal First As Byte) As String",
+            "    Dim S As String",
+            "    Dim I As Integer",
+            "    For I = 0 To Count - 1",
+            "        S = S & Chr$(65 + I)",
+            "    Next",
+            "    Letters = S & Chr$(First)",
+            "End Function"), expected: "ABCDEa"), "Letters");
+
+    // a code that names no character is error 5, raised where the interpreter raises it.
+    [TestMethod]
+    public async Task ChrOfACodeThatNamesNoCharacter_IsError5()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    On Error Resume Next",
+            "    Debug.Print Named(70000)",
+            "    Debug.Print \"err\"; Err.Number",
+            "End Sub",
+            "Private Function Named(ByVal Code As Long) As String",
+            "    Named = \"[\" & Chr$(Code) & \"]\"",
+            "End Function"), expected: "err 5"), "Named");
 
     // a Double, a Currency, a Boolean and a Date are written in the regional settings: the interpreter assigns them, and the program runs the same.
     [TestMethod]

@@ -109,6 +109,15 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Stloc, text);
                 break;
 
+            case ChrTextNode chr:
+                var code = EmitPayload(chr.Code, failure);
+                _il.Emit(OpCodes.Ldarg_0);
+                Load(code, chr.Code.Kind);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryChr))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+
             case WholeTextNode whole:
                 Load(EmitPayload(whole.Value, failure), whole.Value.Kind);
                 _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.OfWhole))!);
