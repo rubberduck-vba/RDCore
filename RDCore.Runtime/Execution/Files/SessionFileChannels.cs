@@ -65,6 +65,9 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
         // an Append channel begins where the file ends, which is what MS-VBA counts its Seek and Loc from (recorded in Excel, oracle\s25 Q03).
         public long Origin { get; init; }
 
+        // the complete path of the file, which the channel is compared by: Path is as the Open gave it.
+        public string FullPath { get; init; } = Path;
+
         // what the last Get read: EOF of a Random or Binary channel is that it could not read an entire record (oracle\s25 E03, E04).
         public bool IsPastEndOfRecords { get; private set; }
 
@@ -358,11 +361,20 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
             return VBRuntimeErrorId.FileAlreadyOpen;
         }
 
+        if (Resolve(ref path) is { } unavailable)
+        {
+            return unavailable;
+        }
+
+        // what the channel is compared by is the complete path: a relative one would name another file once ChDir moves the current directory, and none once
+        // it is deleted.
+        var fullPath = fileSystem.Path.GetFullPath(path);
+
         // "If <mode> is Append or Output, the path specification MUST NOT identify an external file that
         // currently has a file number association" - the one cross-channel rule the specification states
         // outright rather than leaving implementation-defined.
         if (mode is VBFileMode.Append or VBFileMode.Output
-            && _channels.Values.Any(channel => PathsMatch(channel.Path, path)))
+            && _channels.Values.Any(channel => PathsMatch(channel.FullPath, path)))
         {
             return VBRuntimeErrorId.FileAlreadyOpen;
         }
@@ -383,6 +395,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
                 new ChannelOutput(stream, encoding), new ChannelInput(stream, encoding))
             {
                 Origin = mode is VBFileMode.Append ? stream.Position : 0,
+                FullPath = fullPath,
             };
             return null;
         }
@@ -404,6 +417,11 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     /// <inheritdoc/>
     public VBRuntimeErrorId? TryRename(string oldPath, string newPath)
     {
+        if ((Resolve(ref oldPath) ?? Resolve(ref newPath)) is { } unavailable)
+        {
+            return unavailable;
+        }
+
         // "Name arguments cannot include multiple-character (*) and single-character (?) wildcards."
         if (HasWildcard(oldPath) || HasWildcard(newPath))
         {
@@ -419,7 +437,7 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
 
         // "Using Name on an open file produces an error. You must close an open file before renaming it." A directory
         // is as good as open when a file under it is.
-        if (_channels.Values.Any(channel => isFile ? PathsMatch(channel.Path, oldPath) : IsUnder(channel.Path, oldPath)))
+        if (_channels.Values.Any(channel => isFile ? PathsMatch(channel.FullPath, oldPath) : IsUnder(channel.FullPath, oldPath)))
         {
             return VBRuntimeErrorId.FileAlreadyOpen;
         }
@@ -468,6 +486,28 @@ internal sealed partial class SessionFileChannels(IFileSystem fileSystem, Encodi
     }
 
     private static bool HasWildcard(string path) => path.AsSpan().IndexOfAny('*', '?') >= 0;
+
+    // what every path a VBA file function is given goes through first: its \ is a separator on every platform, so VBA written with Windows paths runs
+    // as is where the file system's own separator is /. Where it is, a file whose name holds a \ is out of VBA's reach. A path that is not fully
+    // qualified is in the current directory, and one that is gone is error 76 (Linux lets a process's current directory be deleted).
+    private VBRuntimeErrorId? Resolve(ref string path)
+    {
+        path = fileSystem.Path.DirectorySeparatorChar == '\\' ? path : path.Replace('\\', fileSystem.Path.DirectorySeparatorChar);
+        return fileSystem.Path.IsPathFullyQualified(path) || CurrentDirectory() is not null ? null : VBRuntimeErrorId.PathNotFound;
+    }
+
+    // null when the current directory cannot be read: once it is deleted, every read of it fails on Linux.
+    private string? CurrentDirectory()
+    {
+        try
+        {
+            return fileSystem.Directory.GetCurrentDirectory();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     // a path with no directory part is in the current directory, which exists.
     private bool ParentExists(string path)

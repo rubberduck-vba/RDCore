@@ -8,9 +8,11 @@ namespace RDCore.SDK.Runtime.Abstract.Execution;
 /// </summary>
 /// <remarks>
 /// A breakpoint is a place in the source, not in the code: the code of a module is loaded again whenever the document is edited, and a breakpoint stays on its line.
-/// The place is a line of a module, and the instruction it is is found in the code that runs - the first instruction of a procedure's body that begins on the line.
-/// A line with no statement on it is not a place a program waits at, and is not looked for after: the client that sets breakpoints says which lines they are on, and
-/// is told which of them are statements (<see cref="Verify"/>).
+/// The place is a line of a module, and the instructions it is are found in the code that runs. On a line a statement begins on, it is the first instruction of a
+/// procedure's body that begins there. On a line that only ends a block (an <c>End If</c>, an <c>End Select</c>, an <c>End With</c>, a <c>Next</c> or a
+/// <c>Loop</c>), it is each instruction shown there, so that the program waits there from whichever branch it took.
+/// Any other line is not a place a program waits at, and is not looked for after: the client that sets breakpoints says which lines they are on, and is told
+/// which of them are places a program waits at.
 /// <para>
 /// The program waits <em>before</em> the instruction, as it does at a step, and is resumed from the same instruction without waiting there again.
 /// </para>
@@ -49,7 +51,7 @@ public interface IBreakpointTable
     bool IsAt(string module, InstructionList body, int offset, out ExpressionNode? condition);
 
     /// <summary>
-    /// Whether a line is one a program can wait at: a statement of one of the bodies begins on it.
+    /// Whether a statement of one of the bodies begins on a line. A line that only ends a block is a place a program waits at too, which this does not say.
     /// </summary>
     /// <param name="bodies">The bodies of the module's procedures.</param>
     /// <param name="line">A zero-based line of the source.</param>
