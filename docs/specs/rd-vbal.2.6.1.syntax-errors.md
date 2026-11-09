@@ -7,7 +7,7 @@ A **syntax error** is raised while the parser traverses the *concrete syntax tre
 |Code family|`VBC`, range `VBC00001`–`VBC00999`|
 |Title|_Syntax error_|
 |Raised by|the parser (concrete syntax tree)|
-|Source metadata|[VBSyntaxErrorInfo](../api/RDCore.SDK.Model.Errors.VBSyntaxErrorInfo.html); its `ErrorId` is the number of the code (`VBCompileErrorId` in the language core names each one)|
+|Source metadata|[VBSyntaxErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBSyntaxErrorInfo.html); its `ErrorId` is the number of the code (`VBCompileErrorId` in the language core names each one)|
 |Severity|`Error`|
 |Detail|the faulted token and its expected role, on `Diagnostic.data`|
 
@@ -140,7 +140,7 @@ How RD-VBA reads it:
 - **One branch's header.** The parse is of every branch, whatever the constants are. It reads the branch whose header is of the kind of the statement
   that closes the procedure, or the first branch when none is.
 - **The alternatives.** Each other branch is read on its own, and its header is an alternative of the procedure
-  ([MemberDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.HeaderAlternatives`).
+  ([MemberDeclarationNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.HeaderAlternatives`).
 - **The body.** What a branch writes after its header belongs to the body, in source order.
 - **Before the header.** What a branch writes before its header - a `Declare`, a variable, a whole procedure - is the module's, where it is written, as
   in any `#If` block. A branch's header is the procedure it leaves open.

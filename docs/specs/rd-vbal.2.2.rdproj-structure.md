@@ -10,9 +10,9 @@ Keeping the source code on the file system completely decouples a VBA project fr
 |File|Model|Specification|
 |---|---|---|
 |`.rdworkspace`|`WorkspaceFile`|[**RD-VBAL §2.2.2** WorkspaceFile](rd-vbal.2.2.2.workspacefile.md)|
-|`.rdproj`|[`ProjectFile`](../api/RDCore.SDK.Workspace.ProjectFile.html)|[**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)|
+|`.rdproj`|[`ProjectFile`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectFile.html)|[**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)|
 
-[`VBSourceProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBSourceProjectType.html) corresponds to the content of an RD-VBA workspace folder (`.rdproj`) (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
+[`VBSourceProjectType`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBSourceProjectType.html) corresponds to the content of an RD-VBA workspace folder (`.rdproj`) (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
 ---
 ## In this section

@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[ErrorStatementNode](../api/RDCore.SDK.Model.AST.Statements.ErrorStatementNode.html)|`RaiseError`|`Error <number>`.|
+|[ErrorStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ErrorStatementNode.html)|`RaiseError`|`Error <number>`.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md) and
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md).
@@ -35,4 +35,4 @@ by an error handler; see [**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.
 |Type or member|Role|
 |---|---|
 |`ErrorHandlingEvaluator`|Evaluates the number expression and Let-coerces it to `Integer`, calling the numeric Let-coercion strategy (`VBNumericLetCoercionTypeRuntimeSemantics`) directly.|
-|[VBApplicationErrorInfo](../api/RDCore.SDK.Model.Errors.VBApplicationErrorInfo.html)|The source metadata of an application error (**RDCore.SDK**).|
+|[VBApplicationErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBApplicationErrorInfo.html)|The source metadata of an application error (**RDCore.SDK**).|

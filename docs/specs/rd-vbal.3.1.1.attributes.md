@@ -157,13 +157,13 @@ The static semantics of `VB_PredeclaredId`
 are modeled.
 
 A class module with `VB_PredeclaredId = True` has a
-[VBPredeclaredInstanceSymbol](../api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html)
+[VBPredeclaredInstanceSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html)
 ([**RD-VBAL §2.5.1** Runtime Entities](rd-vbal.2.5.1.runtime-entities.md)). A `VBPredeclaredInstanceSymbol` is a
 global variable named after the class, whose declared type is that class.
 
 The predeclared instance variable is created as if declared `As New`. It is therefore an _automatic instantiation
 variable_ (`SymbolProperties.AutoInstantiated`, see
-[SymbolProperties](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html);
+[SymbolProperties](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html);
 [**MS-VBAL §2.5.1** Automatic Object Instantiation](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fef06761-45b9-48c2-825c-b75c28aee9b5)).
 For variables declared with an `As New` clause, see
 [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md).
@@ -211,7 +211,7 @@ to its members stays with it. See
 [**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics).
 
 The semantic model of a class module carries
-[ClassModuleSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ClassModuleSemanticFlags.html): `DefaultInstance` for a
+[ClassModuleSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.ClassModuleSemanticFlags.html): `DefaultInstance` for a
 predeclared class, and `Stateful` for a class with state of its own
 ([**RD-VBAL §5.2.4.1.2** Default Instance Variables Static Semantics](rd-vbal.5.2.4.class-module-declarations.md#52412-default-instance-variables-static-semantics)).
 

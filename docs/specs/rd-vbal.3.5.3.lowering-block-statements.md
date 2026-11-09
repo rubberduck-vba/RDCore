@@ -27,8 +27,8 @@ Lowering only flattens the statement tree. It never flattens the expression tree
 
 A block's closing line (`Next`, `Loop`, `Wend`, `End If`, `End Select`, `End With`, and the procedure's `End Sub`,
 `End Function` or `End Property`) has no AST node of its own: the whole construct is one
-[ForStatementNode](../api/RDCore.SDK.Model.AST.Statements.ForStatementNode.html),
-[DoLoopStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoLoopStatementNode.html) (and so on) with a
+[ForStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ForStatementNode.html),
+[DoLoopStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DoLoopStatementNode.html) (and so on) with a
 `Body` ([**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md)). Lowering emits a closer
 instruction for it, whose `Closes` is that line:
 

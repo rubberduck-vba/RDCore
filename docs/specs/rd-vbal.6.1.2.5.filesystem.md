@@ -7,7 +7,7 @@ The `FileSystem` module is represented in the language core by the interface
 `IStdFileSystemModule`, and implemented by `RDCore.Runtime.StdLib.StdFileSystem`.
 
 What a member does to the machine - a directory listed, a file copied or deleted, the current directory changed - goes through the session's
-[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html), the one seam every file statement goes through
+[IFileChannels](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html), the one seam every file statement goes through
 ([**RD-VBAL §5.4.5**](rd-vbal.5.4.5.file-statements.md)): the channels know which files are open, which most of these members ask, and the seam is what
 an administrator restricts and a test fakes. What the specification leaves to the implementation, and the errors it does not name, are **MS-VBA**'s,
 recorded in Excel; where **MS-VBA** does other than the specification says, RD-VBA does what **MS-VBA** does, and the notes below say so.

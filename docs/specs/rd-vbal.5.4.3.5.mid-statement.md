@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html)|`Simple`|`Mid`, `Mid$`, `MidB` and `MidB$`. See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).|
+|[MidStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html)|`Simple`|`Mid`, `Mid$`, `MidB` and `MidB$`. See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).|
 
 `MidStatementNode` records the statement's spelling in two independent flags: `IsByteMode` distinguishes
 `MidB`/`MidB$` from `Mid`/`Mid$`, and `IsStringInput` records the `$` suffix (`Mid$`/`MidB$`).

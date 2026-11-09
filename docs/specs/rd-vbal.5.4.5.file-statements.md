@@ -30,8 +30,8 @@ instruction ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 ## The File-Channel Shim
 
 All file statements run through one session-level shim: the
-[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html) /
-[IFileChannel](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html) interfaces
+[IFileChannels](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html) /
+[IFileChannel](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html) interfaces
 ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 `IFileChannels` holds numbered channels. Each channel records the mode it was opened under.
@@ -49,8 +49,8 @@ A file channel has a character surface in each direction (output and input), and
 
 |Surface|Used by|Interface|
 |---|---|---|
-|Character output|`Print #`, `Write #`|[IFileChannelOutput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html)|
-|Character input|`Line Input #`, `Input #`|[IFileChannelInput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelInput.html)|
+|Character output|`Print #`, `Write #`|[IFileChannelOutput](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html)|
+|Character input|`Line Input #`, `Input #`|[IFileChannelInput](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelInput.html)|
 |Record|`Put`, `Get`|`IFileChannel`|
 
 `IFileChannelOutput` carries a maximum line length, which `Width #` sets

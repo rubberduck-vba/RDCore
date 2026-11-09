@@ -7,7 +7,7 @@
 
 |Expression|AST node|
 |---|---|
-|Dictionary access|[DictionaryAccessExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.DictionaryAccessExpressionNode.html)|
+|Dictionary access|[DictionaryAccessExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.DictionaryAccessExpressionNode.html)|
 
 See [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
 

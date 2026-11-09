@@ -9,17 +9,17 @@ definitions for one data type:
 
 |Directive|Configures implicit definitions for|Environment|
 |---|---|---|
-|`DefBool`|[VBBooleanType](../api/RDCore.SDK.Model.Types.VBBooleanType.html)|None|
-|`DefByte`|[VBByteType](../api/RDCore.SDK.Model.Types.VBByteType.html)|None|
-|`DefInt`|[VBIntegerType](../api/RDCore.SDK.Model.Types.VBIntegerType.html)|None|
-|`DefLng`|[VBLongType](../api/RDCore.SDK.Model.Types.VBLongType.html)|None|
-|`DefLngLng`|[VBLongLongType](../api/RDCore.SDK.Model.Types.VBLongLongType.html)|64-bit|
-|`DefLngPtr`|[VBLongPtrType_x86](../api/RDCore.SDK.Model.Types.VBLongPtrType_x86.html)|32-bit|
-|`DefLngPtr`|[VBLongPtrType_x64](../api/RDCore.SDK.Model.Types.VBLongPtrType_x64.html)|64-bit|
-|`DefCur`|[VBCurrencyType](../api/RDCore.SDK.Model.Types.VBCurrencyType.html)|None|
-|`DefSng`|[VBSingleType](../api/RDCore.SDK.Model.Types.VBSingleType.html)|None|
-|`DefDbl`|[VBDoubleType](../api/RDCore.SDK.Model.Types.VBDoubleType.html)|None|
-|`DefDate`|[VBDateType](../api/RDCore.SDK.Model.Types.VBDateType.html)|None|
-|`DefStr`|[VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)|None|
-|`DefObj`|[VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html)|None|
-|`DefVar`|[VBVariantType](../api/RDCore.SDK.Model.Types.VBVariantType.html)|None|
+|`DefBool`|[VBBooleanType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBBooleanType.html)|None|
+|`DefByte`|[VBByteType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBByteType.html)|None|
+|`DefInt`|[VBIntegerType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBIntegerType.html)|None|
+|`DefLng`|[VBLongType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongType.html)|None|
+|`DefLngLng`|[VBLongLongType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongLongType.html)|64-bit|
+|`DefLngPtr`|[VBLongPtrType_x86](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongPtrType_x86.html)|32-bit|
+|`DefLngPtr`|[VBLongPtrType_x64](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongPtrType_x64.html)|64-bit|
+|`DefCur`|[VBCurrencyType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBCurrencyType.html)|None|
+|`DefSng`|[VBSingleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBSingleType.html)|None|
+|`DefDbl`|[VBDoubleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBDoubleType.html)|None|
+|`DefDate`|[VBDateType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBDateType.html)|None|
+|`DefStr`|[VBStringType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBStringType.html)|None|
+|`DefObj`|[VBObjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBObjectType.html)|None|
+|`DefVar`|[VBVariantType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBVariantType.html)|None|

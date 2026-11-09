@@ -7,7 +7,7 @@ A **semantic compilation error** is raised by the static semantics layer while w
 |Code family|`VBC`, range `VBC09300`–`VBC09999`|
 |Title|_Compile error_|
 |Raised by|the static semantics layer (abstract syntax tree)|
-|Source metadata|[VBCompileErrorInfo](../api/RDCore.SDK.Model.Errors.VBCompileErrorInfo.html)|
+|Source metadata|[VBCompileErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBCompileErrorInfo.html)|
 |Severity|`Error`|
 |Detail|the offending symbol / expression, on `Diagnostic.data`|
 
@@ -21,7 +21,7 @@ Compilation errors issued from a *language core extension* report a `VBCompileEr
 
 Semantic compilation errors are emitted by the resolver and the static semantic pass.
 
-[ICoreDiagnosticsFactory](../api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html)`.FromVBCompileError` is the projection for semantic compilation errors, the counterpart of `FromVBSyntaxError`. The RDCore.Diagnostics handler for `rdcore/diagnostics/document` projects through it the compile errors of the static pass (the module's declaration errors and each procedure's compile errors), beside the syntax errors of the parse result, so they reach the `textDocument/diagnostic` pull; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md). A _Variable not defined_ error at the name of a host's document is left out: [`RDC01005`](../diagnostics/rdc01005.md) says why that name names nothing.
+[ICoreDiagnosticsFactory](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html)`.FromVBCompileError` is the projection for semantic compilation errors, the counterpart of `FromVBSyntaxError`. The RDCore.Diagnostics handler for `rdcore/diagnostics/document` projects through it the compile errors of the static pass (the module's declaration errors and each procedure's compile errors), beside the syntax errors of the parse result, so they reach the `textDocument/diagnostic` pull; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md). A _Variable not defined_ error at the name of a host's document is left out: [`RDC01005`](../diagnostics/rdc01005.md) says why that name names nothing.
 
 ## Published Codes
 

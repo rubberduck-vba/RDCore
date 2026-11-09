@@ -7,7 +7,7 @@ A **runtime error** is raised by the runtime semantics layer and left unhandled 
 |Code family|`VBR`; the numeric portion matches the corresponding MS-VBA run-time error code|
 |Title|_Run-time error_|
 |Raised by|the runtime semantics layer|
-|Source metadata|[VBRuntimeErrorInfo](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html); its `ErrorId` is the MS-VBA run-time error number (`VBRuntimeErrorId` in the language core names each one)|
+|Source metadata|[VBRuntimeErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html); its `ErrorId` is the MS-VBA run-time error number (`VBRuntimeErrorId` in the language core names each one)|
 |Severity|`Error`|
 
 Regardless of the error message content, RD-VBA must still raise the MS-VBA equivalent error code in the relevant contexts (e.g. `VBR00461` `MethodOrDataMemberNotFound`, whose message uses the term "data member"; see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
@@ -152,7 +152,7 @@ An **application error** is a custom run-time error explicitly raised from works
 |Code family|`VBA`, a pseudo-code; the numeric portion matches the application-supplied error code|
 |Title|_Application error_|
 |Raised by|workspace source code (`Error` or `Err.Raise`)|
-|Source metadata|[VBApplicationErrorInfo](../api/RDCore.SDK.Model.Errors.VBApplicationErrorInfo.html)|
+|Source metadata|[VBApplicationErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBApplicationErrorInfo.html)|
 |Severity|`Error`|
 
 RDCore removes the need for the `vbObjectError` constant by internally representing run-time errors and application errors as different error metadata types; see [**RD-VBAL §1.1.4** Core Diagnostics](rd-vbal.1.1.4.core-diagnostics.md).

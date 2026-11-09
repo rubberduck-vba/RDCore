@@ -7,7 +7,7 @@
 
 |Expression|AST node|
 |---|---|
-|Member access|[MemberAccessExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.MemberAccessExpressionNode.html)|
+|Member access|[MemberAccessExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.MemberAccessExpressionNode.html)|
 
 See [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
 

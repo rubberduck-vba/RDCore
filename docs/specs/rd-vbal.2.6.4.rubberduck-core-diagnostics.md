@@ -99,16 +99,16 @@ reported; see [**RD-VBAL §2.6.3** Runtime Errors](rd-vbal.2.6.3.runtime-errors.
 
 ### Runtime facts
 
-What an analyzer of the runtime phase reads is `ProcedureSemanticModel.Runtime` ([`RuntimeFacts`](../api/RDCore.SDK.Semantics.Facts.RuntimeFacts.html)), which travels
-as [`RuntimeFactsDto`](../api/RDCore.SDK.Platform.Protocol.RuntimeFactsDto.html). Every fact is stated by the runtime semantics themselves, as they evaluate each
+What an analyzer of the runtime phase reads is `ProcedureSemanticModel.Runtime` ([`RuntimeFacts`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Facts.RuntimeFacts.html)), which travels
+as [`RuntimeFactsDto`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RuntimeFactsDto.html). Every fact is stated by the runtime semantics themselves, as they evaluate each
 instruction of the procedure once (the *sweep*), and only when it is true of the code however the procedure is called:
 
 |Facts|What they say|Flags|
 |---|---|---|
-|`Conversions` ([`ConversionFact`](../api/RDCore.SDK.Semantics.Facts.ConversionFact.html))|every let-coercion the code asks for, its site and operand|`ConversionSemanticFlags`|
-|`Operations` ([`OperatorFact`](../api/RDCore.SDK.Semantics.Facts.OperatorFact.html))|every operation of an operator, with its effective type; a comparison says how `String` values compare (`Option Compare`)|`ArithmeticOperatorSemanticFlags`, `ConcatOperationSemanticFlags`, `ComparisonOperatorSemanticFlags`, `LogicalOperatorSemanticFlags`|
-|`Operations` ([`MemberAccessFact`](../api/RDCore.SDK.Semantics.Facts.MemberAccessFact.html))|every member the code accesses: named (`a.b`, `.b`), a dictionary access (`a!b`), the default member of an indexed object, the enumeration member a `For Each` uses, and the member an assignment writes|`MemberAccessOperationSemanticFlags`|
-|`Statements` ([`StatementFact`](../api/RDCore.SDK.Semantics.Facts.StatementFact.html))|what an `LSet`, `RSet` or `With` statement is|`FixedAssignmentSemanticFlags`, `WithStatementSemanticFlags`|
+|`Conversions` ([`ConversionFact`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Facts.ConversionFact.html))|every let-coercion the code asks for, its site and operand|`ConversionSemanticFlags`|
+|`Operations` ([`OperatorFact`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Facts.OperatorFact.html))|every operation of an operator, with its effective type; a comparison says how `String` values compare (`Option Compare`)|`ArithmeticOperatorSemanticFlags`, `ConcatOperationSemanticFlags`, `ComparisonOperatorSemanticFlags`, `LogicalOperatorSemanticFlags`|
+|`Operations` ([`MemberAccessFact`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Facts.MemberAccessFact.html))|every member the code accesses: named (`a.b`, `.b`), a dictionary access (`a!b`), the default member of an indexed object, the enumeration member a `For Each` uses, and the member an assignment writes|`MemberAccessOperationSemanticFlags`|
+|`Statements` ([`StatementFact`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Facts.StatementFact.html))|what an `LSet`, `RSet` or `With` statement is|`FixedAssignmentSemanticFlags`, `WithStatementSemanticFlags`|
 |`Errors`|every run-time error an instruction raises whenever it runs|-|
 
 An error is stated only when nothing the instruction did was *assumed*: the value of a variable or a parameter, what a procedure that is not called returns, the

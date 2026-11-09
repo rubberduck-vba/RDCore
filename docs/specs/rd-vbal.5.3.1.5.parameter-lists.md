@@ -5,9 +5,9 @@
 
 ## Syntax
 
-A declared parameter is a [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html);
+A declared parameter is a [VBParameterSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html);
 a trailing `ParamArray` parameter is a
-[ParamArrayParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.ParamArrayParameterSymbol.html).
+[ParamArrayParameterSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.ParamArrayParameterSymbol.html).
 
 The parameter list of a `Property Let` or `Property Set` follows this **MS-VBAL §5.3.1.5** rule:
 

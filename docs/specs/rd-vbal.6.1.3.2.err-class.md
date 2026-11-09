@@ -146,7 +146,7 @@ procedure, then the line and column of its location, then a `from` and the line 
 #### Implementation
 
 `ErrObject.StackTrace` is implemented through the
-[VBStackTrace](../api/RDCore.SDK.Model.Errors.VBStackTrace.html) type, one
-[VBStackTraceFrame](../api/RDCore.SDK.Model.Errors.VBStackTraceFrame.html) per activation. The current error's stack trace is held on
+[VBStackTrace](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBStackTrace.html) type, one
+[VBStackTraceFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBStackTraceFrame.html) per activation. The current error's stack trace is held on
 `ISessionErrorState.StackTrace`, and is built from
-[ICallStack](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStack.html)`.Frames`.
+[ICallStack](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStack.html)`.Frames`.

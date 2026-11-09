@@ -4,7 +4,7 @@
 > This section describes the implementation of [**MS-VBAL §5.5.2.2** Runtime semantics](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/bdd2d85a-3236-4381-b289-002bf0bf8ffd).
 
 Set-coercion is evaluated by `SetCoercionRuntimeSemantics`, through
-[ISetCoercionRuntimeSemantics](../api/RDCore.SDK.Runtime.Abstract.ISetCoercionRuntimeSemantics.html).
+[ISetCoercionRuntimeSemantics](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.ISetCoercionRuntimeSemantics.html).
 
 |Construct|Set-coercion entry point|See|
 |---|---|---|
@@ -22,10 +22,10 @@ Let-coercion, by contrast, dispatches to a per-destination-type strategy; see
 > This section describes the implementation of [**MS-VBAL §5.5.2.2.1** Set-coercion to and from a class or Object or Nothing](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/83404cf0-9a0f-49f5-93bd-eb4c473492c5).
 
 `SetCoercionRuntimeSemantics` unwraps a `Variant` that wraps an object before its
-[VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html) pattern-match. The unwrap is recursive,
+[VBObjectValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html) pattern-match. The unwrap is recursive,
 because a `Variant` may wrap another `Variant`.
 
-> A [VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html)'s `TypeInfo` mirrors its wrapped
+> A [VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html)'s `TypeInfo` mirrors its wrapped
 > value's, but the instance remains a `VBVariantValue`: without the unwrap, the pattern-match would see the box
 > instead of the object
 > ([**RD-VBAL §5.5.1.2.12** Let-coercion to Variant](rd-vbal.5.5.1.2.runtime-semantics.md#551212-let-coercion-to-variant)).

@@ -1,6 +1,6 @@
 # 2.5.2.1.3 User-Defined Type (UDT) Values
 
-An instance of a UDT is a [VBUserDefinedTypeValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue.html).
+An instance of a UDT is a [VBUserDefinedTypeValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue.html).
 
 The _data type_ of a UDT value is defined by the UDT declaration of its _declared type_; see [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md).
 
@@ -21,7 +21,7 @@ A UDT value carries its field store in the same way as an array value carries it
 The declaration order of the field store is normative rather than incidental. It is:
 
 - the order [**MS-VBAL §5.4.5.11** Put Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/46eeacb8-7a06-4ec8-9736-eea42de4eeca) writes a record in (see [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md));
-- the order [VBUserDefinedTypeLayout](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html) assigns field offsets in.
+- the order [VBUserDefinedTypeLayout](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html) assigns field offsets in.
 
 Each field-store cell starts at its field's declared type's own default value, because VBA gives a UDT no initializer.
 
@@ -33,15 +33,15 @@ Like an array, a UDT value is **location-identified**. Three pieces preserve a U
 
 |Piece|Role|
 |---|---|
-|[VBRuntimeUserDefinedTypeValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeUserDefinedTypeValue.html) boxing|Boxes a UDT value when it is stored, into the handle a symbol's storage allocation reserves.|
-|[VBUserDefinedType](../api/RDCore.SDK.Model.Types.VBUserDefinedType.html)`.CreateValue(IBindingHandle)` unboxing|Unboxes the stored UDT value back out unchanged, rather than rebuilding one with default fields.|
+|[VBRuntimeUserDefinedTypeValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeUserDefinedTypeValue.html) boxing|Boxes a UDT value when it is stored, into the handle a symbol's storage allocation reserves.|
+|[VBUserDefinedType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUserDefinedType.html)`.CreateValue(IBindingHandle)` unboxing|Unboxes the stored UDT value back out unchanged, rather than rebuilding one with default fields.|
 |The `VBUserDefinedTypeValue` copy constructor|Gives every `with`-derived copy a field store of its own.|
 
 Three kinds of value are location-identified this way: an array, a `Variant`, and a UDT (`VBRuntimeUserDefinedTypeValue`).
 
 Reconstructing a UDT value from a handle, instead of unboxing it, would return a UDT with default fields, whatever had been assigned to it.
 
-`VBRuntimeUserDefinedTypeValue` is a plain (non-`record`) wrapper, for the same reason [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html) is: structural equality would recurse into the value's own equality through the boxed value.
+`VBRuntimeUserDefinedTypeValue` is a plain (non-`record`) wrapper, for the same reason [VBRuntimeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html) is: structural equality would recurse into the value's own equality through the boxed value.
 
 ### Copies
 

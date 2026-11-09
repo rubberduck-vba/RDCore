@@ -1,12 +1,12 @@
 # 2.5.2.1.4 Object Values
 
-An instance of a [VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html) is always a [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html).
+An instance of a [VBObjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBObjectType.html) is always a [VBObjectValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html).
 
 The underlying value of an _object value_ is a unique addressable ID.
 
 ## Object Lifetime
 
-Object lifetime is the responsibility of the session's [ISessionObjects](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionObjects.html) service:
+Object lifetime is the responsibility of the session's [ISessionObjects](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISessionObjects.html) service:
 
 |Member|Role|
 |---|---|

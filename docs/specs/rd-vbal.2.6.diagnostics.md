@@ -46,7 +46,7 @@ The title is localized. The description of compilation and run-time errors shall
 
 A diagnostic's title is derived rather than stored, because the two `VBC` categories (syntax errors and semantic compilation errors) share one family and nothing but the numeric portion separates them. `VBCompileErrorId` reserves the range `[9300..]` for semantic compilation errors. Every `VBCompileErrorId` value below 9300 belongs to the parser (syntax errors).
 
-The title derivation ([VBErrorExtensions](../api/RDCore.SDK.Model.Errors.Abstract.VBErrorExtensions.html)) switches on the error's runtime type. An error held through a more general declared type therefore still takes the title of its own family.
+The title derivation ([VBErrorExtensions](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.Abstract.VBErrorExtensions.html)) switches on the error's runtime type. An error held through a more general declared type therefore still takes the title of its own family.
 
 ## Codes and Help URLs
 

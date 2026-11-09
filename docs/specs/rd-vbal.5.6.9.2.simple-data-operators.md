@@ -17,12 +17,12 @@ The _evaluation pipeline_ of all operators then follows a fixed sequence of thre
 1. **Effective type.** The _effective type_ of the operation is determined, based on the _declared type_ of its
    _operands_.
 2. **Validation.** All non-null operands (every operand that is not a
-   [VBNullValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)) are let-coerced to the determined
+   [VBNullValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)) are let-coerced to the determined
    effective type of the operation ([**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)).
 3. **Evaluation.** A templated method evaluates a result from the validated operands.
 
 The sequence may be aborted at any point to return an _error result_. An error result encapsulates
-[VBRuntimeErrorInfo](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html) error metadata.
+[VBRuntimeErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html) error metadata.
 
 ### Operand validation
 
@@ -31,7 +31,7 @@ The arithmetic, relational and concatenation (`&`) operators validate their oper
 
 `LetCoerceNonNullOperand` has a `TypeInfo`-equality short-circuit: an operand whose `TypeInfo` equals the destination
 type is not coerced. The short-circuit does not apply to a
-[VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) operand: a `Variant` operand is always
+[VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) operand: a `Variant` operand is always
 let-coerced, even when its `TypeInfo` equals the destination type.
 
 A `VBVariantValue`'s `TypeInfo` mirrors its wrapped value's; see
@@ -93,7 +93,7 @@ computation.
 ## Implementation
 
 - The node parameter of `OperatorRuntimeSemantics<TContext,TFlags>` is typed
-  [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html).
+  [ExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html).
 - Nothing in the operator runtime-semantics hierarchy reads `.Left`, `.Right` or `.Token` off the node parameter.
   It reads the node's identity (`.Identity`) and its source location, to attribute the operation and its errors to
   the node. Beyond those, it only tests the node's type: to flag which operand position (unary, binary left or binary
@@ -101,8 +101,8 @@ computation.
 - Only the token-dispatch layer, `OperatorRuntimeSemanticsProvider`, reads `.Token` off the operator node.
 
 The operator strategies do not require a binary or unary operator node
-([VBBinaryOperatorExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.VBBinaryOperatorExpressionNode.html),
-[VBUnaryOperatorExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.VBUnaryOperatorExpressionNode.html)) as their
+([VBBinaryOperatorExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.VBBinaryOperatorExpressionNode.html),
+[VBUnaryOperatorExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.VBUnaryOperatorExpressionNode.html)) as their
 node parameter. Requiring one would force the fabrication of synthetic nodes, which RD-VBA rules out, as it does for
 let-coercion ([**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)).
 

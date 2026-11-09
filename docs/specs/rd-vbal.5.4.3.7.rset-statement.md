@@ -11,7 +11,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `RSet`)|`Simple`|The same node shape as `Let`, `Set` and `LSet`.|
+|[AssignmentStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `RSet`)|`Simple`|The same node shape as `Let`, `Set` and `LSet`.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 

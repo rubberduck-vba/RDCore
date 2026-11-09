@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[WithStatementNode](../api/RDCore.SDK.Model.AST.Statements.WithStatementNode.html)|`With`, `EndWith`|The opener's `Instruction.End` is right past the block, past its `EndWith`.|
+|[WithStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.WithStatementNode.html)|`With`, `EndWith`|The opener's `Instruction.End` is right past the block, past its `EndWith`.|
 
 `With...End With` is a block statement
 ([**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md)). Its opener lowers to the
@@ -44,7 +44,7 @@ The executor runs the `With` instruction as follows:
 1. The header expression (the target) is evaluated once.
 2. The target is Set-coerced or Let-coerced:
    - a class-valued target is Set-assigned through
-     [ISetCoercionRuntimeSemantics](../api/RDCore.SDK.Runtime.Abstract.ISetCoercionRuntimeSemantics.html)
+     [ISetCoercionRuntimeSemantics](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.ISetCoercionRuntimeSemantics.html)
      ([**RD-VBAL §5.5.2.2** Runtime semantics](rd-vbal.5.5.2.2.runtime-semantics.md));
    - a UDT-valued target is Let-assigned through `ILetCoercionRuntimeSemanticsProvider.EvaluateLetCoercionSemantics`
      directly.
@@ -92,7 +92,7 @@ The block holds its object from its `With` statement to its `End With`, wherever
 - `RDCore.Runtime.Semantics.Statements.WithStatementRuntimeSemantics` performs the Set-coercion or Let-coercion
   of step 2.
 - The target is stored through `CallStackFrame.SetBlockState` and read back through
-  [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetBlockState`,
+  [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetBlockState`,
   keyed by the opener's offset. `Select Case` stores its selector the same way
   ([**RD-VBAL §5.4.2.10** Select Case Statement](rd-vbal.5.4.2.10.select-case-statement.md)); a single
   block-state value is enough for either.

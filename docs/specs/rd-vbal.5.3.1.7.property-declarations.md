@@ -28,9 +28,9 @@ property. Two diagnostics report a property declaration that does not:
 ## Runtime Semantics
 
 - A `Property Get` has a function result variable, as a `Function` does: each invocation gets a fresh one,
-  modeled as [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`.
+  modeled as [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`.
   `Property Get` return values follow
   [**MS-VBAL §5.3.1** Procedure Declarations](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/227005ad-78fb-479f-8145-fa3b8b610386).
   See [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md).
-- [VBVoidType](../api/RDCore.SDK.Model.Types.Complex.VBVoidType.html) is the data type returned by
+- [VBVoidType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBVoidType.html) is the data type returned by
   `Property Let` and `Property Set` procedures.

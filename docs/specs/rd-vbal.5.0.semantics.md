@@ -8,7 +8,7 @@ sequences of operations.
 |Semantics|Defined by|Availability to the _semantic analysis layer_|
 |---|---|---|
 |_Static semantics_ ([**§5.0.1**](#501-static-semantics))|`IStaticSemantics`|Fully available.|
-|_Runtime semantics_ ([**§5.0.2**](#502-runtime-semantics))|[IRuntimeSemantics&lt;,&gt;](../api/RDCore.SDK.Runtime.Abstract.IRuntimeSemantics-2.html)|Partially available, for simulated execution pipelines.|
+|_Runtime semantics_ ([**§5.0.2**](#502-runtime-semantics))|[IRuntimeSemantics&lt;,&gt;](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.IRuntimeSemantics-2.html)|Partially available, for simulated execution pipelines.|
 
 _Static semantics_ are effective in _design-time_. _Runtime semantics_ are generally unavailable in a _static
 context_.
@@ -30,8 +30,8 @@ Static semantics always yield a
 
 |Result|Encapsulates|
 |---|---|
-|`Success`|A [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html): the declared type.|
-|`Error`|A [VBCompileErrorInfo](../api/RDCore.SDK.Model.Errors.VBCompileErrorInfo.html): compile-time error metadata.|
+|`Success`|A [VBType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBType.html): the declared type.|
+|`Error`|A [VBCompileErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBCompileErrorInfo.html): compile-time error metadata.|
 
 > In most static-semantics error cases, the compile-time error metadata returned is for a `TypeMismatch` error
 > (`VBCompileErrorId`).
@@ -43,12 +43,12 @@ Every static semantics rule is evaluated against a
 
 |Member|Description|
 |---|---|
-|`Resolver`|The [ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html).|
-|`Scope`|The [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html) the expression is lexically found in. How a lexical scope is resolved is specified in [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).|
+|`Resolver`|The [ISymbolResolver](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html).|
+|`Scope`|The [LexicalScope](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.LexicalScope.html) the expression is lexically found in. How a lexical scope is resolved is specified in [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).|
 |`EnclosingWithTargetType`|The declared type of the innermost enclosing `With` block's target expression, or `null` when the expression is not inside any `With` block ([**RD-VBAL §5.6.15** With Expressions](rd-vbal.5.6.15.with-expressions.md)).|
 
 Module-level facts a static semantics rule needs are not parameters of the `StaticEvaluationContext`. They live on
-[ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html), reachable from any scope via
+[ModuleDirectives](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ModuleDirectives.html), reachable from any scope via
 `LexicalScope.EnclosingModuleDirectives()`.
 
 The module-level fact a static semantics rule needs is whether the enclosing module declares `Option Explicit`
@@ -65,7 +65,7 @@ grows.
 
 A declaration is bound to a type that exists, whichever module declares the type and in whichever order the project file
 lists the modules. The environment host is given a workspace's symbols in three phases, each for every module before
-the next ([DefineSymbolsParams](../api/RDCore.SDK.Platform.Components.DefineSymbolsParams.html)`.DeclareTypesOnly`):
+the next ([DefineSymbolsParams](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Components.DefineSymbolsParams.html)`.DeclareTypesOnly`):
 
 1. **Declare types.** Each module's user-defined types, with their fields, and enumerations, with their members. A class
    module exists as soon as the project is composed.
@@ -77,7 +77,7 @@ the next ([DefineSymbolsParams](../api/RDCore.SDK.Platform.Components.DefineSymb
 A declaration holds the class or user-defined type it names by its identity, not a copy of it: what the type declares -
 the members and default member of a class, the fields of a user-defined type - is read from the type as the composition
 has it when it is asked
-([CurrentTypes](../api/RDCore.SDK.Model.Symbols.CurrentTypes.html)). A module listed before the class it uses is
+([CurrentTypes](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.CurrentTypes.html)). A module listed before the class it uses is
 bound before the class is composed, and two classes can name each other: no order would make every copy complete.
 
 ### Expression evaluation
@@ -97,7 +97,7 @@ With `ExpressionStaticSemanticsEvaluator`, an expression such as `Foo.Bar.Baz` o
 
 |Case|Outcome in `ExpressionStaticSemanticsEvaluator`|
 |---|---|
-|A node kind with no static semantics rule|Defers to [VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html) rather than erroring.|
+|A node kind with no static semantics rule|Defers to [VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html) rather than erroring.|
 |An operator token with no mapped rule, such as `Mod` ([**RD-VBAL §5.6.9.3** Arithmetic Operators](rd-vbal.5.6.9.3.arithmetic-operators.md))|Defers to `VBUnknownType` rather than erroring.|
 
 Every type-comparing static-semantics rule in RDCore follows the same convention: an unresolved declared type is
@@ -115,11 +115,11 @@ The role of _runtime semantics_ depends on the type of node being evaluated:
 |---|---|
 |_Directives_|Evaluate to their static / compile-time value.|
 |_Literal_ or _constant expressions_|Evaluate to their static / compile-time value ([**RD-VBAL §5.6.5** Literal Expressions](rd-vbal.5.6.5.literal-expressions.md)).|
-|_Operators_|Evaluate a [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html) from their _operands_ ([**RD-VBAL §5.6.9** Operator Expressions](rd-vbal.5.6.9.operator-expressions.md)).|
+|_Operators_|Evaluate a [VBTypedValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html) from their _operands_ ([**RD-VBAL §5.6.9** Operator Expressions](rd-vbal.5.6.9.operator-expressions.md)).|
 |_Statements_|Induce _side-effects_ to _program_, _global_, or _host environment_ state ([**RD-VBAL §5.4** Procedure Bodies and Statements](rd-vbal.5.4.procedure-bodies-and-statements.md)).|
 
 Evaluation returns an evaluation result record,
-[RuntimeSemanticsEvaluationResult](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html), that
+[RuntimeSemanticsEvaluationResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html), that
 describes and encapsulates either the evaluation result or runtime error metadata
 ([**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts.md)).
 
@@ -147,7 +147,7 @@ The _analysis pipeline_ of all operators follows a fixed sequence of three steps
 
 1. The _effective type_ of the operation is determined, based on the _declared type_ of its _operands_. This step
    invokes the same methods as runtime semantics to determine the effective type.
-2. Validation: all non-null operands (non-[VBNullValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html))
+2. Validation: all non-null operands (non-[VBNullValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html))
    are let-coerced to the determined _effective type_ of the operation. This step uses the same runtime semantics
    let-coercion provider as the evaluation pipeline
    ([**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)).
@@ -155,14 +155,14 @@ The _analysis pipeline_ of all operators follows a fixed sequence of three steps
    validated _operands_ to work with, without inducing any side-effects.
 
 The `Analyze` method yields a _builder_,
-[ISemanticContextContributor&lt;,&gt;](../api/RDCore.SDK.Semantics.Builders.ISemanticContextContributor-2.html), that
+[ISemanticContextContributor&lt;,&gt;](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Builders.ISemanticContextContributor-2.html), that
 builds a _semantic context_ for the specific _expression node_. The semantic context includes the results of each
 analysis step:
 
 |Semantic context member|Encapsulates|
 |---|---|
-|[DetermineOperatorEffectiveTypeResult](../api/RDCore.SDK.Runtime.Shared.DetermineOperatorEffectiveTypeResult.html)|The result of the first step.|
-|[LetCoercionAnalysisContext](../api/RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext.html)|The aggregated evaluation stack and outcome of all let-coercion operations, with their respective _semantic flags_.|
+|[DetermineOperatorEffectiveTypeResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.DetermineOperatorEffectiveTypeResult.html)|The result of the first step.|
+|[LetCoercionAnalysisContext](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Analysis.LetCoercionAnalysisContext.html)|The aggregated evaluation stack and outcome of all let-coercion operations, with their respective _semantic flags_.|
 |`RuntimeSemanticsEvaluationResult`|The result of the operation.|
 
 The language core features an analytical pipeline that attaches detailed _semantic flags_ to abstract syntax tree
@@ -176,8 +176,8 @@ Semantic flags are _facts_, not _opinions_.
 ### The semantic model
 
 What the analysis finds out about a procedure is described by an immutable
-[ProcedureSemanticModel](../api/RDCore.SDK.Semantics.ProcedureSemanticModel.html), and that of a module by a
-[ModuleSemanticModel](../api/RDCore.SDK.Semantics.ModuleSemanticModel.html). A model is built by the pass that analyzed the code;
+[ProcedureSemanticModel](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.ProcedureSemanticModel.html), and that of a module by a
+[ModuleSemanticModel](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.ModuleSemanticModel.html). A model is built by the pass that analyzed the code;
 it is never written back onto the syntax tree or onto a value.
 
 The first fact a model holds is the _compile errors_ of the _static pass_ (**RD-VBAL §5.0.1**), which is one walk over a
@@ -211,7 +211,7 @@ and is an error if it still does not.
 ### Expression facts
 
 Given the symbols of a workspace, the static pass records an
-[ExpressionFact](../api/RDCore.SDK.Semantics.ExpressionFact.html) for every expression it evaluates, in the
+[ExpressionFact](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.ExpressionFact.html) for every expression it evaluates, in the
 `Expressions` of the procedure's model, by the expression's node identity. An operand has a fact of its own, evaluated before
 the expression that has it.
 
@@ -220,7 +220,7 @@ the expression that has it.
 |`DeclaredType`|The declared type of the expression (**RD-VBAL §5.0.1**); `null` when it is an error, which `Error` then holds.|
 |`Classification`|What it names (**MS-VBAL §5.6.1**): a value, variable, constant, function, property, subroutine, type, namespace, or the member of an object that is bound when it runs.|
 |`Binding`|The `SemanticId` of the symbol it refers to, when it resolved to one.|
-|`Flags`|[ValueExpressionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html): `Literal`, `LateBound`, `DefaultMember`, `WithBlockRelative`, `DictionaryAccess`, `ProcedureCall`, `CaseMismatch`, and `ExplicitCallKeyword` on the callee of a `Call` statement written with the keyword.|
+|`Flags`|[ValueExpressionSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html): `Literal`, `LateBound`, `DefaultMember`, `WithBlockRelative`, `DictionaryAccess`, `ProcedureCall`, `CaseMismatch`, and `ExplicitCallKeyword` on the callee of a `Call` statement written with the keyword.|
 
 An expression an assignment writes to, the counter or control variable of a `For` or `For Each`, the string a `Mid` statement
 replaces a part of, and the array a `ReDim` gives its dimensions, is flagged `AssignmentTarget`; an element of an array is
@@ -232,7 +232,7 @@ is worth a diagnostic is for an analyzer to say.
 ### Declaration facts
 
 A `ModuleSemanticModel` also describes the declarations of the module (`Declarations`,
-[DeclarationFact](../api/RDCore.SDK.Semantics.DeclarationFact.html)): each variable, constant, parameter, procedure, property
+[DeclarationFact](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.DeclarationFact.html)): each variable, constant, parameter, procedure, property
 and event, with the access it is declared with and where. A variable that was never declared is `IsImplicit` (it came into
 being because something referred to it), and `OptionExplicit` says whether the module states `Option Explicit`
 (**MS-VBAL §5.2.1.3**); it is not issued (`null`) for a language that has no such directive, such as the platform's BASIC. The
@@ -255,7 +255,7 @@ An analyzer reads what is stated, and has nothing to say about what is not. Whic
 to say.
 
 The same holds for what the analysis states about a value. A procedure is analyzed without knowing how it will be called,
-so a value can be _not known_ ([VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html)`.IsIndeterminate`),
+so a value can be _not known_ ([VBTypedValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html)`.IsIndeterminate`),
 and what is derived from a value that is not known is not known either. The standard library runs for real in an analysis,
 given the value an argument's type assumes in place of one that is not known, so what a call made with an argument that is
 not known returns is not known, whichever procedure is called. A call made with no argument, or with arguments that are all
@@ -263,7 +263,7 @@ known, returns what the procedure returned. The facts the analysis states as it 
 run-time error, are described under [**RD-VBAL §2.6.4** Runtime facts](rd-vbal.2.6.4.rubberduck-core-diagnostics.md#runtime-facts).
 
 A `Variant` whose value is not known can still have a subtype that is
-([VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html)`.IsSubtypeKnown`): one assigned
+([VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html)`.IsSubtypeKnown`): one assigned
 `x * 1.5` holds a `Double` whatever `x` is, and a local the code has not assigned yet holds the `Empty` it starts as. Where
 the `Empty` is only what the analysis put in place of a value it does not have - a parameter, whose argument is the
 caller's; a variable of the module or a `Static` local, entered with whatever the rest of the program left in it; what a

@@ -1,7 +1,7 @@
 # 3.5.0 Instructions
 
 An *instruction* is the unit the interpreter's program counter fetches. A procedure body has one instruction
-per executable [StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html), plus the
+per executable [StatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.StatementNode.html), plus the
 synthesized instructions that a block statement needs but has no source node for. Instructions are ordered in
 the order execution would normally reach them.
 

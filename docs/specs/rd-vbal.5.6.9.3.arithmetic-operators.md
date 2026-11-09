@@ -104,7 +104,7 @@ A program runs as the code the VBE keeps:
 
 So a unary `+` is no operator, and converts nothing. A variable after it is still the variable: `Foo +x` passes `x` by
 reference, and `Set o = +obj` assigns the object. No node of the syntax tree stands for a `+`. Each one is kept as
-the module's trivia, as a comment is ([ErasedPlusTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.ErasedPlusTriviaNode.html)), so that the source can be written back as it was read.
+the module's trivia, as a comment is ([ErasedPlusTriviaNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.ErasedPlusTriviaNode.html)), so that the source can be written back as it was read.
 
 A `For` loop's `ForNext` instruction adds `step` to the counter through the addition operator,
 `RDCore.Runtime.Semantics.Operators.Arithmetic.BinaryAdditionOperatorRuntimeSemantics`. The step addition is therefore
@@ -141,7 +141,7 @@ This section corresponds to [**MS-VBAL §5.6.9.3.5** / Operator](https://learn.m
 
 > [!NOTE]
 > **Not implemented.** The `Mod` operator token has no mapped static semantics rule. The static semantics of a `Mod`
-> expression defer to [VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html)
+> expression defer to [VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html)
 > ([**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md)).
 
 ### Runtime Semantics

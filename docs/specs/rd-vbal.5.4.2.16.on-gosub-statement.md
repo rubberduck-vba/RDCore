@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[OnGoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoSubStatementNode.html)|`GoSubTable`|Lowering resolves the statement's labels into `Instruction.Targets`.|
+|[OnGoSubStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnGoSubStatementNode.html)|`GoSubTable`|Lowering resolves the statement's labels into `Instruction.Targets`.|
 
 An `On expression GoSub label, ...` statement is represented by `OnGoSubStatementNode`, and lowers to the
 `InstructionKind` `GoSubTable`
@@ -17,7 +17,7 @@ An `On expression GoSub label, ...` statement is represented by `OnGoSubStatemen
 label or line, with no static link to the label node: the same convention as `GoSub`
 ([**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md)).
 
-[OnGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoToStatementNode.html) and
+[OnGoToStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnGoToStatementNode.html) and
 `OnGoSubStatementNode` are separate node types, rather than one shared node with a `Kind`.
 
 ## Static Semantics

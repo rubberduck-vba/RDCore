@@ -6,7 +6,7 @@
 An _RD-VBA Environment_ is organized into a number of _workspace source files_ and _host-defined projects_.
 
 The symbol at the top of the abstract syntax tree (AST) of an entire VBA project is of a type inherited from
-[VBProjectType](../api/RDCore.SDK.Model.Types.Abstract.VBProjectType.html). These types correspond to the project
+[VBProjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBProjectType.html). These types correspond to the project
 types defined in
 [**MS-VBAL §4.1** Projects](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4cd406c7-1ade-4522-8d7b-933183059ac7)
 (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
@@ -59,7 +59,7 @@ The _environment host_ must ultimately be able to:
 - _externally address_ the host memory space, to enable automation through COM and .NET interoperability.
 
 In principle, external addressing of the host process memory allows a
-[VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) to _wrap_ an externally-defined
+[VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) to _wrap_ an externally-defined
 object reference ([**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md)).
 
 > [!NOTE]

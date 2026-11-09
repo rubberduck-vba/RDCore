@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[OnGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoToStatementNode.html)|`JumpTable`|`Instruction.Targets` holds one offset per label, in source order.|
+|[OnGoToStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnGoToStatementNode.html)|`JumpTable`|`Instruction.Targets` holds one offset per label, in source order.|
 
 An `On expression GoTo label, ...` statement is represented by `OnGoToStatementNode`, and lowers to the
 `InstructionKind` `JumpTable`
@@ -17,7 +17,7 @@ An `On expression GoTo label, ...` statement is represented by `OnGoToStatementN
 label or line, with no static link to the label node: the same convention as `GoTo`
 ([**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md)).
 
-`OnGoToStatementNode` and [OnGoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnGoSubStatementNode.html)
+`OnGoToStatementNode` and [OnGoSubStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnGoSubStatementNode.html)
 are separate node types, rather than one shared node with a `Kind`.
 
 ## Static Semantics
