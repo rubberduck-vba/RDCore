@@ -441,7 +441,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         var bodies = provider.Image.BodiesOf(module.Uri);
         return new DebugBreakpointsResult
         {
-            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new DebugBreakpoint(breakpoint.Line, IBreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
+            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new DebugBreakpoint(breakpoint.Line, BreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
             Judged = bodies.Any(),
         };
     }
