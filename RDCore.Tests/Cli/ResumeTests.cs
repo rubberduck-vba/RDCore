@@ -306,8 +306,7 @@ public sealed class ResumeTests
 
     // a step from the last statement of a block's branch stops at the block's closing line, where every branch ends, as MS-VBA stops there; so is the frame
     // that waits there. The jump that ends a branch is on no line, and is gone through. The steps after it go on past the block. The block is written at
-    // line 3, after Total = 7; each line it stops at, in turn, is in "steps". A single-line If is stepped through: after its Then part it stops on the If
-    // again, before it goes past the Else part.
+    // line 3, after Total = 7; each line it stops at, in turn, is in "steps". A single-line If's Then part goes on to the next line, past its Else part.
     [TestMethod]
     [DataRow("If Total = 7 Then|    Stop|Else|    Total = 0|End If", "7,8", DisplayName = "the Then branch of an If block with an Else")]
     [DataRow("If Total = 0 Then|    Total = 0|ElseIf Total = 7 Then|    Stop|End If", "7,8", DisplayName = "an ElseIf branch")]
@@ -316,7 +315,7 @@ public sealed class ResumeTests
     [DataRow("Select Case Total|    Case 7|        Stop|    Case Else|        Total = 0|End Select", "8,9", DisplayName = "a Case")]
     [DataRow("Select Case Total|    Case 0|        Total = 0|    Case Else|        Stop|End Select", "8,9", DisplayName = "a Case Else")]
     [DataRow("With New Collection|    Stop|End With", "5,6", DisplayName = "a With block")]
-    [DataRow("If Total = 7 Then Stop Else Total = 0", "3,4", DisplayName = "a single-line If with an Else")]
+    [DataRow("If Total = 7 Then Stop Else Total = 0", "4,5", DisplayName = "a single-line If with an Else")]
     public async Task AStepToTheEndOfABlocksBranch_StopsAtTheBlocksClosingLine(string block, string steps)
         => await WithRunAsync(Program([
             "Public Total As Long",

@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
@@ -86,11 +87,22 @@ public sealed class BreakpointTable : IBreakpointTable
     }
 
     /// <summary>
-    /// The zero-based line a program waits on before the instruction: the line its statement begins on, or the closing line of the block it closes - a
-    /// <c>Next</c>, a <c>Loop</c>, an <c>End If</c>, the procedure's <c>End Sub</c> (<see cref="Instruction.Closes"/>) - each of which MS-VBA stops on.
+    /// Where a program waits before the instruction, as MS-VBA stops there: the line of the block it closes (<see cref="Instruction.Closes"/>), as a
+    /// <c>Next</c>, a <c>Loop</c>, an <c>End If</c> or the procedure's <c>End Sub</c>, or else its statement (<see cref="Instruction.Location"/>).
     /// </summary>
+    /// <remarks>
+    /// A post-test loop has two instructions with a <see cref="Instruction.Closes"/>. Its entry is on the <c>Do</c> line, where it is stopped on once. Its
+    /// back edge is on the <c>Loop While</c> or <c>Loop Until</c> line, where its test is. That back edge has the whole loop as its statement, so its
+    /// <see cref="Instruction.Location"/> is the <c>Do</c> line.
+    /// </remarks>
     /// <returns><see langword="null"/> for an instruction that is on no line, as the jump that ends a branch, which a program goes through.</returns>
-    public static int? LineOf(Instruction instruction) => instruction.Location?.Range.Start.Line;
+    public static SourceLocation? LocationOf(Instruction instruction) => instruction.Closes ?? instruction.Location;
+
+    /// <summary>
+    /// The zero-based line a program waits on before the instruction: the line <see cref="LocationOf"/> begins on.
+    /// </summary>
+    /// <returns><see langword="null"/> for an instruction that is on no line.</returns>
+    public static int? LineOf(Instruction instruction) => LocationOf(instruction)?.Range.Start.Line;
 
     /// <summary>
     /// Whether a line is one a program can wait at: an instruction of one of the bodies is on it (<see cref="LineOf"/>).

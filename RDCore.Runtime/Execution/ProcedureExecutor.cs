@@ -358,7 +358,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
             // a program waits before an instruction that is on a line - a statement, a block's closer - and never before one that has none, as the jump that
             // ends a branch: it is gone through to the End If it goes to, which is where the program is shown.
-            var location = list.Items[activation.Pc].Location;
+            var location = BreakpointTable.LocationOf(list.Items[activation.Pc]);
 
             // between instructions, never inside one: a half-executed statement would leave the
             // session in a state no VBA program could have produced. This is what stops a program
@@ -413,7 +413,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 && session.Halt.Breakpoints.IsAt(owner.ParentUri.AbsoluteUri, list, activation.Pc, out var breakpointCondition)
                 && IsMet(session, breakpointCondition, owner.Uri, ResolveContext(context, activation, list, list.Items[activation.Pc]), out var conditionFailure))
             {
-                var breakpointLocation = list.Items[activation.Pc].Location;
+                var breakpointLocation = BreakpointTable.LocationOf(list.Items[activation.Pc]);
                 var waited = conditionFailure is null
                     ? session.Halt.TrySuspend(RuntimeHaltKind.Break, breakpointLocation)
                     : session.Halt.TrySuspendOnCondition(conditionFailure, breakpointLocation);

@@ -739,10 +739,12 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(3, items);
-        Assert.AreEqual(InstructionKind.LoopBack, items[1].Kind);
-        Assert.AreEqual(0, items[1].Target); // continuing branches back to the body's first instruction
-        Assert.IsNotNull(items[1].Node); // the only real instruction this construct has to carry it
+        Assert.HasCount(4, items);
+        Assert.AreEqual((InstructionKind.Jump, 1, null), (items[0].Kind, items[0].Target, items[0].Node)); // the entry, which the back edge goes past
+        Assert.AreEqual(InstructionKind.LoopBack, items[2].Kind);
+        Assert.AreEqual(1, items[2].Target); // continuing branches back to the body's first instruction
+        Assert.IsNotNull(items[2].Node); // the only real instruction this construct has to carry it
+        Assert.AreEqual(((int?)1, (int?)3), (BreakpointTable.LineOf(items[0]), BreakpointTable.LineOf(items[2])), "stopped on at the Do on entry, at the Loop Until on each pass");
     }
 
     [TestMethod]
@@ -752,9 +754,10 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(3, items);
-        Assert.AreEqual(InstructionKind.Jump, items[1].Kind);
-        Assert.AreEqual(0, items[1].Target);
+        Assert.HasCount(4, items);
+        Assert.AreEqual(InstructionKind.Jump, items[2].Kind);
+        Assert.AreEqual(1, items[2].Target);
+        Assert.AreEqual(((int?)1, (int?)3), (BreakpointTable.LineOf(items[0]), BreakpointTable.LineOf(items[2])), "stopped on at the Do on entry, at the Loop on each pass");
     }
 
     [TestMethod]
@@ -806,7 +809,7 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        var exit = items[0];
+        var exit = items[1];
         Assert.AreEqual(InstructionKind.ExitLoop, exit.Kind);
         Assert.AreEqual(items.Length - 1, exit.Target);
     }

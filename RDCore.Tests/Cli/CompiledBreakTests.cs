@@ -90,7 +90,7 @@ public sealed class CompiledBreakTests
         }
 
         var frames = run.Session.CallStack.Frames.Cast<CallStackFrame>()
-            .Select(frame => $"{frame.Procedure!.Name}@{LineOf(frame.Body!.Items[frame.Pc].Location)}");
+            .Select(frame => $"{frame.Procedure!.Name}@{LineOf(BreakpointTable.LocationOf(frame.Body!.Items[frame.Pc]))}");
         return $"{stop.Kind} @{LineOf(stop.Location)} | {string.Join(" < ", frames)} | Total {run.Total()}";
     }
 

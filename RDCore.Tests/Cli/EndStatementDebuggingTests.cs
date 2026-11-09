@@ -134,6 +134,7 @@ public sealed class EndStatementDebuggingTests
     [DataRow("With New Collection|    t = 1|End With", 6, "1", DisplayName = "End With")]
     [DataRow("Do While t = 7|    t = 1|Loop", 6, "1", DisplayName = "Loop")]
     [DataRow("For t = 1 To 1|    t = t + 10|Next", 6, "11", DisplayName = "Next")]
+    [DataRow("Do|    t = t + 1|Loop While t < 8", 6, "8", DisplayName = "Loop While")]
     public async Task ABreakpointOnABlocksClosingLine_IsVerified_AndWaitedAt(string block, int line, string value)
     {
         foreach (var engine in new[] { VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled })

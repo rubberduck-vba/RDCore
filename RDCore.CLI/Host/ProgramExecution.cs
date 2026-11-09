@@ -409,7 +409,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     private static DebugGotoResult MovedTo(InstructionList body, int offset)
     {
-        var location = offset < body.Items.Length ? body.Items[offset].Location : null;
+        var location = offset < body.Items.Length ? BreakpointTable.LocationOf(body.Items[offset]) : null;
         return new DebugGotoResult
         {
             Moved = true,

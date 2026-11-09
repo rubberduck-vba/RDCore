@@ -350,9 +350,8 @@ public static class InstructionListLowering
 
         if (inlineIf.ElseBody is { } elseBody)
         {
-            // the statement is stepped through as MS-VBA steps it: after the Then part, the program stops on the If again before it goes past the Else part.
+            // on no line, as a block's branch-ending jump: MS-VBA goes from the Then part's last statement to the next line.
             var trailingJump = Emit(state, scope, null, InstructionKind.Jump);
-            state.Items[trailingJump] = state.Items[trailingJump] with { Closes = inlineIf.SourceLocation };
             PatchElse(state, header, state.Items.Count);
             LowerBlock(elseBody, state, scope);
             PatchTarget(state, trailingJump, state.Items.Count);
@@ -417,20 +416,33 @@ public static class InstructionListLowering
         return after;
     }
 
+    // a loop whose Do tests nothing is stopped on at its Do once, on entry, and at its Loop line on each pass, where its test is, as MS-VBA stops.
     private static int LowerPostTestLoop(StatementNode node, StatementBlock body, LoweringState state, LoweringScope scope)
     {
-        var bodyStart = state.Items.Count;
+        var bodyStart = Entering(state, scope, node);
         LowerBlock(body, state, scope);
-        Emit(state, scope, node, InstructionKind.LoopBack, target: bodyStart);
+        Closing(state, Emit(state, scope, node, InstructionKind.LoopBack, target: bodyStart), node);
         return state.Items.Count;
     }
 
     private static int LowerBareLoop(StatementNode node, StatementBlock body, LoweringState state, LoweringScope scope)
     {
-        var bodyStart = state.Items.Count;
+        var bodyStart = Entering(state, scope, node);
         LowerBlock(body, state, scope);
-        Emit(state, scope, node, InstructionKind.Jump, target: bodyStart);
+        Closing(state, Emit(state, scope, node, InstructionKind.Jump, target: bodyStart), node);
         return state.Items.Count;
+    }
+
+    // a jump to the next instruction, on the block's first line, which the back edge goes past: the offset after it.
+    private static int Entering(LoweringState state, LoweringScope scope, StatementNode block)
+    {
+        var start = block.SourceLocation.Range.Start;
+        var entry = Emit(state, scope, null, InstructionKind.Jump, target: state.Items.Count + 1);
+        state.Items[entry] = state.Items[entry] with
+        {
+            Closes = new SourceLocation(block.SourceLocation.Uri, new SourceRange(start, new SourcePosition(start.Line, start.Character + "Do".Length))),
+        };
+        return entry + 1;
     }
 
     private static int LowerFor(ForStatementNode forStatement, LoweringState state, LoweringScope scope)
@@ -476,8 +488,9 @@ public static class InstructionListLowering
         return offset;
     }
 
-    // the instruction that closes a block, which has no statement of its own, is on the block's last line: its Next, its Wend, its Loop, its End If, the
-    // procedure's End Sub. A step or a break stops before it there; a jump with no line, as the one that ends a branch, is gone through.
+    // the instruction that closes a block is on the block's last line: its Next, its Wend, its Loop, its End If, the procedure's End Sub. A step or a break
+    // stops before it there; a jump with no line, as the one that ends a branch, is gone through. A post-test loop's back edge has the loop as its statement,
+    // and its Closes still says where it is stopped on.
     private static void Closing(LoweringState state, int index, StatementNode block) => Closing(state, index, block.SourceLocation);
 
     private static void Closing(LoweringState state, int index, SourceLocation block)
