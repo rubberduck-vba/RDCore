@@ -93,7 +93,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 return null;
             }
 
-            var statement = InstructionLocations.Of(body, Pc);
+            var statement = BreakpointTable.LocationOf(body.Items[Pc]);
             return _call is { } call && _callPc == Pc && statement is { } at && call.Uri == at.Uri
                 && call.Range.Start >= at.Range.Start && call.Range.Start <= at.Range.End
                     ? call

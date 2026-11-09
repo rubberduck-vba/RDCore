@@ -602,7 +602,7 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(4, items);
+        Assert.HasCount(5, items);
         var header = items[0];
         Assert.AreEqual(InstructionKind.ConditionalBranch, header.Kind);
         Assert.AreEqual(3, header.Else);
@@ -611,6 +611,11 @@ public sealed class InstructionListLoweringTests
         Assert.IsNull(items[2].Node);
         Assert.AreEqual(InstructionKind.Jump, items[2].Kind);
         Assert.AreEqual(3, items[2].Target);
+        Assert.IsNull(items[2].Location, "the jump that ends the branch is on no line: it is gone through");
+
+        // the End If: every branch ends there, on its line.
+        Assert.AreEqual((InstructionKind.Jump, (int?)4, 3), (items[3].Kind, items[3].Target, items[3].Location?.Range.Start.Line));
+        Assert.IsNull(items[3].Node);
     }
 
     [TestMethod]
@@ -620,9 +625,9 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(6, items);
+        Assert.HasCount(7, items);
         Assert.AreEqual(3, items[0].Else); // header -> Else body (x = 2)
-        Assert.AreEqual(5, items[0].End);  // right past the whole If
+        Assert.AreEqual(5, items[0].End);  // the End If
         Assert.AreEqual(5, items[2].Target); // trailing jump after x = 1 skips the Else body
         Assert.AreEqual(5, items[4].Target); // trailing jump after x = 2 lands in the same place
     }
@@ -634,13 +639,13 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(9, items);
+        Assert.HasCount(10, items);
         var ifHeader = items[0];
         var elseIfHeader = items[3];
         Assert.AreEqual(InstructionKind.ConditionalBranch, elseIfHeader.Kind);
         Assert.AreEqual(3, ifHeader.Else);      // If false -> the ElseIf header
         Assert.AreEqual(6, elseIfHeader.Else);  // ElseIf false -> the Else body (s3)
-        Assert.AreEqual(8, ifHeader.End);       // right past the whole chain
+        Assert.AreEqual(8, ifHeader.End);       // the End If
         foreach (var trailingJumpOffset in new[] { 2, 5, 7 })
         {
             Assert.AreEqual(8, items[trailingJumpOffset].Target);
@@ -681,7 +686,7 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(10, items);
+        Assert.HasCount(11, items);
         var opener = items[0];
         var case1 = items[1];
         var case2 = items[4];
@@ -704,9 +709,10 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(5, items);
-        Assert.AreEqual(4, items[1].Else); // no match -> right past the whole Select
+        Assert.HasCount(6, items);
+        Assert.AreEqual(4, items[1].Else); // no match -> the End Select
         Assert.AreEqual(4, items[0].End);
+        Assert.AreEqual((InstructionKind.Jump, 4), (items[4].Kind, items[4].Location?.Range.Start.Line));
     }
 
     // ---- Loops (§5.4.2.2–.7) ----
@@ -734,10 +740,12 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(3, items);
-        Assert.AreEqual(InstructionKind.LoopBack, items[1].Kind);
-        Assert.AreEqual(0, items[1].Target); // continuing branches back to the body's first instruction
-        Assert.IsNotNull(items[1].Node); // the only real instruction this construct has to carry it
+        Assert.HasCount(4, items);
+        Assert.AreEqual((InstructionKind.Jump, 1, null), (items[0].Kind, items[0].Target, items[0].Node)); // the entry, which the back edge goes past
+        Assert.AreEqual(InstructionKind.LoopBack, items[2].Kind);
+        Assert.AreEqual(1, items[2].Target); // continuing branches back to the body's first instruction
+        Assert.IsNotNull(items[2].Node); // the only real instruction this construct has to carry it
+        Assert.AreEqual(((int?)1, (int?)3), (BreakpointTable.LineOf(items[0]), BreakpointTable.LineOf(items[2])), "stopped on at the Do on entry, at the Loop Until on each pass");
     }
 
     [TestMethod]
@@ -747,9 +755,10 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        Assert.HasCount(3, items);
-        Assert.AreEqual(InstructionKind.Jump, items[1].Kind);
-        Assert.AreEqual(0, items[1].Target);
+        Assert.HasCount(4, items);
+        Assert.AreEqual(InstructionKind.Jump, items[2].Kind);
+        Assert.AreEqual(1, items[2].Target);
+        Assert.AreEqual(((int?)1, (int?)3), (BreakpointTable.LineOf(items[0]), BreakpointTable.LineOf(items[2])), "stopped on at the Do on entry, at the Loop on each pass");
     }
 
     [TestMethod]
@@ -801,7 +810,7 @@ public sealed class InstructionListLoweringTests
         var items = result.InstructionList.Items;
 
         AssertNoErrors(result);
-        var exit = items[0];
+        var exit = items[1];
         Assert.AreEqual(InstructionKind.ExitLoop, exit.Kind);
         Assert.AreEqual(items.Length - 1, exit.Target);
     }
@@ -948,5 +957,91 @@ public sealed class InstructionListLoweringTests
 
         AssertNoErrors(result);
         Assert.HasCount(1, result.InstructionList.Items); // x = 2 only - NEVERDEFINED = 0 = False
+    }
+
+    // --- the End statement of a procedure (MS-VBAL §5.3.1) ---
+
+    // a body lowered as a module loads it: told the declaration, whose last line is its End statement.
+    private static InstructionListLoweringResult LowerProcedure(params string[] procedureBody)
+    {
+        var source = $"Sub Foo()\r\n{string.Join("\r\n", procedureBody)}\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var member = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
+        return InstructionListLowering.Lower(new StatementBlock([.. member.Children]), default, member.MemberKind, member.SourceLocation);
+    }
+
+    // the End Sub is a jump to the end of the body on its line, which a step or a breakpoint stops before.
+    private static Instruction EndOf(InstructionListLoweringResult result)
+    {
+        var end = result.InstructionList.Items[^1];
+        Assert.AreEqual((InstructionKind.Jump, (int?)result.InstructionList.Items.Length), (end.Kind, end.Target));
+        Assert.IsNull(end.Node);
+        return end;
+    }
+
+    [TestMethod]
+    public void AProcedureBody_EndsWithItsEndStatement_OnTheLastLine()
+    {
+        var result = LowerProcedure("x = 1", "x = 2");
+
+        AssertNoErrors(result);
+        var end = EndOf(result);
+        Assert.AreEqual((2, (int?)3), (end.Offset, BreakpointTable.LineOf(end)));
+        Assert.IsTrue(BreakpointTable.TryGetOffsetAtLine(result.InstructionList, 3, out var offset));
+        Assert.AreEqual(2, offset, "the End Sub line is where a breakpoint on it lands");
+    }
+
+    [TestMethod]
+    public void AnExitSub_JumpsToTheEndStatement()
+    {
+        var result = LowerProcedure("If True Then Exit Sub", "x = 1", "Exit Sub", "x = 2");
+
+        AssertNoErrors(result);
+        var end = EndOf(result).Offset;
+        var exits = result.InstructionList.Items.Where(instruction => instruction.Kind is InstructionKind.ExitProcedure).ToArray();
+        Assert.HasCount(2, exits);
+        Assert.IsTrue(exits.All(exit => exit.Target == end));
+    }
+
+    [TestMethod]
+    public void ALabelBeforeEndSub_IsTheEndStatement()
+    {
+        var result = LowerProcedure("GoTo Done", "x = 1", "Done:");
+
+        AssertNoErrors(result);
+        Assert.IsTrue(result.InstructionList.TryGetLabelOffset("Done", out var done));
+        Assert.AreEqual(EndOf(result).Offset, done);
+    }
+
+    [TestMethod]
+    public void ABodyLoweredWithoutItsDeclaration_HasNoEndStatement()
+    {
+        var result = Lower("x = 1", "Exit Sub");
+
+        AssertNoErrors(result);
+        Assert.HasCount(2, result.InstructionList.Items);
+        Assert.IsNull(result.InstructionList.Items.Single(instruction => instruction.Kind is InstructionKind.ExitProcedure).Target);
+    }
+
+    // a block's closer is on its last line, where a step or a breakpoint stops: every path through the block goes through it.
+    [TestMethod]
+    [DataRow("If x Then|y = 1|Else|y = 2|End If", 5, DisplayName = "End If")]
+    [DataRow("Select Case x|Case 1|y = 1|Case Else|y = 2|End Select", 6, DisplayName = "End Select")]
+    [DataRow("With y|.z = 1|End With", 3, DisplayName = "End With")]
+    [DataRow("For i = 1 To 2|y = 1|Next", 3, DisplayName = "Next")]
+    [DataRow("Do While x|y = 1|Loop", 3, DisplayName = "Loop")]
+    [DataRow("While x|y = 1|Wend", 3, DisplayName = "Wend")]
+    public void ABlocksClosingLine_IsALineAProgramStopsOn(string block, int line)
+    {
+        var result = LowerProcedure(block.Split('|'));
+
+        AssertNoErrors(result);
+        Assert.IsTrue(BreakpointTable.Verify([result.InstructionList], line));
+        Assert.IsTrue(BreakpointTable.TryGetOffsetAtLine(result.InstructionList, line, out var offset));
+        var closer = result.InstructionList.Items[offset];
+        Assert.IsNull(closer.Node, "the closer has no statement of its own");
+        Assert.AreEqual(line, BreakpointTable.LineOf(closer));
     }
 }

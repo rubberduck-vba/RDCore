@@ -125,7 +125,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             }
 
             var body = new StatementBlock([.. declaration.Children]);
-            var lowering = InstructionListLowering.Lower(body, options, declaration.MemberKind);
+            // the declaration as it is written, whatever header is live: its End statement is on its last line.
+            var lowering = InstructionListLowering.Lower(body, options, declaration.MemberKind, member.SourceLocation);
 
             // the static pass is told what the session defines, so what is wrong with an expression is found out along with what is wrong with the
             // structure of the body.
@@ -143,7 +144,10 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
                     .Select(local => local.SemanticId).ToHashSet();
             procedureModels.Add(model with
             {
-                ReturnValue = ReturnValueAnalysis.Of(declaration, model, lowering.InstructionList),
+                // a body that has no statement has its End statement all the same.
+                ReturnValue = ReturnValueAnalysis.Of(declaration, model, lowering.InstructionList) is { } returned
+                    ? returned with { IsEmpty = lowering.InstructionList.Items.Length == 1 }
+                    : null,
                 EmptiedControlReads = ForEachControlAnalysis.Of(model, lowering.InstructionList, automaticLocals),
             });
             procedures.Add(new(procedure.SemanticId, lowering.InstructionList));
