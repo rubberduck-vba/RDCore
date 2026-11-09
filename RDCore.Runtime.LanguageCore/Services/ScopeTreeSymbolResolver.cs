@@ -339,7 +339,6 @@ public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolv
 
     // MS-VBAL §5.3.1
     // one representative accessor, Get first: Symbol.CreateUri keys on the name, so Get, Let and Set share one Uri.
-    // TODO give each accessor a Uri of its own.
     private static SymbolResolutionResult? TryResolvePropertyAccessors(Symbol[] matches)
     {
         if (matches.Any(symbol => symbol is not IVBPropertyMemberSymbol))

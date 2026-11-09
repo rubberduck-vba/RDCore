@@ -13,7 +13,7 @@ using RDCore.Runtime.LanguageCore.Errors;
 namespace RDCore.Runtime.LanguageCore.Static;
 
 // MS-VBAL §5.2.4.2, §5.3.1.9
-// TODO the directive's own location is not on the symbol, so what is reported of a directive is located at the module.
+// the directive's own location is not on the symbol, so what is reported of a directive is located at the module.
 public static class ImplementsSemantics
 {
     public static ImmutableArray<VBCompileErrorInfo> Evaluate(VBClassModuleSymbol module, ISymbolResolver resolver)
