@@ -15,7 +15,6 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Abstract.StdLib;
-using RDCore.SDK.Runtime.StdLib;
 using System.IO.Abstractions.TestingHelpers;
 
 namespace RDCore.Tests.Runtime.StdLib;

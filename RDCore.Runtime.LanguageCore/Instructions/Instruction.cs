@@ -2,7 +2,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Instructions;
+namespace RDCore.Runtime.LanguageCore.Instructions;
 
 /// <summary>
 /// One entry of an <see cref="InstructionList"/> (<strong>RD-VBAL §3.5</strong>). <see cref="Offset"/>

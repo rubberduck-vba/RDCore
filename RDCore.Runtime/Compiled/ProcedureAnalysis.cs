@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Operators;
 using RDCore.SDK.Model;
@@ -17,7 +18,6 @@ using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Runtime.LanguageCore.Binding;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Plans;
 using System.Collections.Immutable;
 

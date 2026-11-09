@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using RDCore.Runtime.Execution.Frames;
-using RDCore.SDK.Semantics.Instructions;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Runtime.Compiled;
 

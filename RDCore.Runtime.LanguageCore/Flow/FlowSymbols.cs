@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The symbol a binding of the static pass names, for the analyses that need to know what kind of variable it is.

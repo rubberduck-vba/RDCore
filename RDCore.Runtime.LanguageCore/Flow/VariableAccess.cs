@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// How an instruction gives a variable a value.

@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.AST.Abstract;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Instructions;
+namespace RDCore.Runtime.LanguageCore.Instructions;
 
 /// <summary>
 /// The ordered, keyed instruction list of one procedure body: <strong>RD-VBAL §3.5</strong>

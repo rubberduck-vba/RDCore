@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The definitions whose value may still be the variable's, at each instruction of a procedure: <em>reaching</em> definitions, over every code path, loops and handlers

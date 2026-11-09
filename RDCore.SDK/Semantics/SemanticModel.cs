@@ -37,12 +37,12 @@ public sealed record class ProcedureSemanticModel(SemanticId Procedure, Immutabl
 
     /// <summary>
     /// On how many of its code paths a function or a property getter assigns its return value, or <see langword="null"/> when the procedure returns none or the pass
-    /// could not tell (<see cref="Flow.ReturnValueAnalysis"/>): which is not to say that it assigns it on every path.
+    /// could not tell (<c>ReturnValueAnalysis</c>): which is not to say that it assigns it on every path.
     /// </summary>
     public Flow.ReturnValueFact? ReturnValue { get; init; }
 
     /// <summary>
-    /// The reads of the procedure's own <c>For Each</c> control variables that see them emptied by the end of the loop (<see cref="Flow.ForEachControlAnalysis"/>),
+    /// The reads of the procedure's own <c>For Each</c> control variables that see them emptied by the end of the loop (<c>ForEachControlAnalysis</c>),
     /// in the order they are written in: none when the pass could not tell, which is not to say that there are none.
     /// </summary>
     public ImmutableArray<Flow.EmptiedControlReadFact> EmptiedControlReads { get; init; } = [];

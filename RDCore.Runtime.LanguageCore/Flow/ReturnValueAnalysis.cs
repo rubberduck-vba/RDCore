@@ -1,11 +1,13 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Instructions;
+using RDCore.SDK.Semantics.Flow;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// Tells on how many of the code paths of a function or a property getter the return value is assigned: the function result variable (<strong>MS-VBAL §5.3.1</strong>).

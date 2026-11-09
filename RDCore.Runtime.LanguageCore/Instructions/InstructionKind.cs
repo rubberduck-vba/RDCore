@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Semantics.Instructions;
+namespace RDCore.Runtime.LanguageCore.Instructions;
 
 /// <summary>
 /// Discriminates the control-flow shape of an <see cref="Instruction"/> within an

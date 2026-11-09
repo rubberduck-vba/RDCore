@@ -17,7 +17,6 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Libraries;
-using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Parsing;
 using RDCore.Symbols;

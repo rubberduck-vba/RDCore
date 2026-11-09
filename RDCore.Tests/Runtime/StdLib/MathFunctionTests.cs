@@ -1,7 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.StdLib;
-using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.StdLib;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using static RDCore.Tests.Cli.ModuleWorkspace;
 
 namespace RDCore.Tests.Runtime.StdLib;

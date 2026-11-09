@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The edges a data-flow analysis walks: the <see cref="ControlFlowGraph"/>'s normal edges, where a <c>Resume</c> can continue, and where an error goes, as the

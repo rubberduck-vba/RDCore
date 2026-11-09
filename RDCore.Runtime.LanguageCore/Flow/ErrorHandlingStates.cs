@@ -1,7 +1,7 @@
-using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Instructions;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The error-handling states an instruction can run in (<strong>MS-VBAL §5.4.4</strong>), over every code path to it: which <c>On Error</c> statement is in effect, and

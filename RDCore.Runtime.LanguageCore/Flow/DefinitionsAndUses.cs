@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -8,11 +9,13 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Flow;
+using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
+
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// Where each variable of a procedure body may be given a value, and where its value may be read: what the data-flow analyses of the body

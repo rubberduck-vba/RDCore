@@ -1,12 +1,12 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Semantics.Instructions;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// What is certain about a branch from the way it is written: a condition that is the literal <c>True</c> or <c>False</c>, and a <c>For</c> loop whose bounds are literals.

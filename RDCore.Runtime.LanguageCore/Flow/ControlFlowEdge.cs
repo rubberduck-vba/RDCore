@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// Why control can pass from one instruction to another.

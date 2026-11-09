@@ -12,7 +12,6 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
 

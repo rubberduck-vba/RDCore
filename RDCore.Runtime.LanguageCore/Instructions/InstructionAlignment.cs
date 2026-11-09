@@ -1,6 +1,6 @@
 using RDCore.SDK.Model.AST.Abstract;
 
-namespace RDCore.SDK.Semantics.Instructions;
+namespace RDCore.Runtime.LanguageCore.Instructions;
 
 /// <summary>
 /// The instructions of a procedure's body that an edit of its code left as they were, each with where it now is in the edited body: what an

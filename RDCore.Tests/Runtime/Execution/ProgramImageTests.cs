@@ -1,8 +1,7 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols.Abstract;
-using RDCore.SDK.Semantics.Instructions;
-using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
 

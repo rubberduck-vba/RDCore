@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
@@ -6,9 +7,11 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
-using RDCore.SDK.Semantics.Instructions;
+using RDCore.SDK.Semantics;
 
-namespace RDCore.SDK.Semantics.Flow;
+using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
+
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The assignments of a procedure that cannot raise an error: what <see cref="ControlFlowGraph.CanRaiseError"/> says of an instruction by its kind is told

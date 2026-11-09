@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.Symbols.Abstract;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The variables whose value may still be read, at each instruction of a procedure: <em>live</em> variables, over every code path, loops and handlers included.

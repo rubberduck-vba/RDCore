@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// What a <see cref="ControlFlowGraph"/> could not describe exactly, so that whoever asks it a question knows which answers to trust.

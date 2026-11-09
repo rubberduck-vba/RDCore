@@ -1,6 +1,7 @@
 using NSubstitute;
 using RDCore.Parsing;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
@@ -13,8 +14,6 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Instructions;
-using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
 

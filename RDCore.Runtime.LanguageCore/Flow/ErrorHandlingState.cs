@@ -1,4 +1,4 @@
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The error-handling policy of a procedure activation (<strong>MS-VBAL §5.4.4</strong>): what happens to an error raised in it.

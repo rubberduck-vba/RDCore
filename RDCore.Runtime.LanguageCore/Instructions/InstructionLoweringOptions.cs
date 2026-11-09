@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.Source;
 using System.Collections.Immutable;
 
-namespace RDCore.SDK.Semantics.Instructions;
+namespace RDCore.Runtime.LanguageCore.Instructions;
 
 /// <summary>
 /// What lowering needs to know about the build a procedure is being lowered for.
@@ -45,7 +45,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 public readonly record struct InstructionLoweringOptions(
     ImmutableArray<SourceRange> DeadRanges = default,
     bool IsReleaseBuild = false,
-    Workspace.SupportedLanguage? Language = null,
+    RDCore.SDK.Workspace.SupportedLanguage? Language = null,
     bool DropsDebugStatements = false)
 {
     /// <summary>

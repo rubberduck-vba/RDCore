@@ -1,6 +1,6 @@
+using RDCore.Runtime.LanguageCore.Flow;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Semantics.Flow;
-using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 

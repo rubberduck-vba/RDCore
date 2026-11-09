@@ -1,7 +1,8 @@
-using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.SDK.Semantics;
 
-namespace RDCore.SDK.Semantics.Flow;
+namespace RDCore.Runtime.LanguageCore.Flow;
 
 /// <summary>
 /// The code paths of a procedure: every way control can pass from one <see cref="Instruction"/> of an <see cref="InstructionList"/> to another, from the first
