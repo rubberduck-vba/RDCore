@@ -17,7 +17,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
-using RDCore.SDK.Services.VerboseMessages;
 
 namespace RDCore.Runtime.Semantics.Operators;
 
@@ -28,7 +27,7 @@ namespace RDCore.Runtime.Semantics.Operators;
 /// <remarks>
 /// Each operator's runtime semantics is a stateless rule over its own two (or one) already-evaluated
 /// operands - the same <see cref="ILetCoercionRuntimeSemanticsProvider"/> and
-/// <see cref="IVerboseMessageBuilder"/> back every one of them, so one instance per operator, built once
+/// <see cref="IErrorDetailsRecorder"/> back every one of them, so one instance per operator, built once
 /// and reused for the life of the provider, is exactly as valid as a fresh one per call: the same pattern
 /// <see cref="ILetCoercionRuntimeSemanticsProvider"/> already uses for let-coercion strategies.
 /// </remarks>
@@ -94,39 +93,39 @@ public sealed class OperatorRuntimeSemanticsProvider : IOperatorRuntimeSemantics
     private readonly AnalysisObservation? _observation;
 
     /// <param name="letCoercionProvider">Coerces the operands of every operator.</param>
-    /// <param name="formatterService">Builds the verbose half of an error message.</param>
+    /// <param name="errorDetails">Records the details of the errors raised.</param>
     /// <param name="observation">Told of every operation this provider evaluates, as an <see cref="OperatorFact"/>; <see langword="null"/> when nothing
     /// is analyzing the code. The same one the <paramref name="letCoercionProvider"/> is given, so that describing an operation does not state
     /// the conversions of its operands a second time.</param>
     public OperatorRuntimeSemanticsProvider(
-        ILetCoercionRuntimeSemanticsProvider letCoercionProvider, IVerboseMessageBuilder formatterService, AnalysisObservation? observation = null)
+        ILetCoercionRuntimeSemanticsProvider letCoercionProvider, IErrorDetailsRecorder errorDetails, AnalysisObservation? observation = null)
     {
         _observation = observation;
-        _addition = new(letCoercionProvider, formatterService);
-        _subtraction = new(letCoercionProvider, formatterService);
-        _multiplication = new(letCoercionProvider, formatterService);
-        _division = new(letCoercionProvider, formatterService);
-        _integerDivision = new(letCoercionProvider, formatterService);
-        _modulo = new(letCoercionProvider, formatterService);
-        _exponent = new(letCoercionProvider, formatterService);
-        _concat = new(letCoercionProvider, formatterService);
-        _is = new(letCoercionProvider, formatterService);
-        _eq = new(letCoercionProvider, formatterService);
-        _neq = new(letCoercionProvider, formatterService);
-        _gt = new(letCoercionProvider, formatterService);
-        _gtEq = new(letCoercionProvider, formatterService);
-        _lt = new(letCoercionProvider, formatterService);
-        _ltEq = new(letCoercionProvider, formatterService);
-        _like = new(letCoercionProvider, formatterService);
-        _and = new(letCoercionProvider, formatterService);
-        _or = new(letCoercionProvider, formatterService);
-        _xor = new(letCoercionProvider, formatterService);
-        _eqv = new(letCoercionProvider, formatterService);
-        _imp = new(letCoercionProvider, formatterService);
-        _negation = new(letCoercionProvider, formatterService);
-        _not = new(letCoercionProvider, formatterService);
-        _letCoerce = new(letCoercionProvider, formatterService);
-        _letAssignment = new(letCoercionProvider, formatterService);
+        _addition = new(letCoercionProvider, errorDetails);
+        _subtraction = new(letCoercionProvider, errorDetails);
+        _multiplication = new(letCoercionProvider, errorDetails);
+        _division = new(letCoercionProvider, errorDetails);
+        _integerDivision = new(letCoercionProvider, errorDetails);
+        _modulo = new(letCoercionProvider, errorDetails);
+        _exponent = new(letCoercionProvider, errorDetails);
+        _concat = new(letCoercionProvider, errorDetails);
+        _is = new(letCoercionProvider, errorDetails);
+        _eq = new(letCoercionProvider, errorDetails);
+        _neq = new(letCoercionProvider, errorDetails);
+        _gt = new(letCoercionProvider, errorDetails);
+        _gtEq = new(letCoercionProvider, errorDetails);
+        _lt = new(letCoercionProvider, errorDetails);
+        _ltEq = new(letCoercionProvider, errorDetails);
+        _like = new(letCoercionProvider, errorDetails);
+        _and = new(letCoercionProvider, errorDetails);
+        _or = new(letCoercionProvider, errorDetails);
+        _xor = new(letCoercionProvider, errorDetails);
+        _eqv = new(letCoercionProvider, errorDetails);
+        _imp = new(letCoercionProvider, errorDetails);
+        _negation = new(letCoercionProvider, errorDetails);
+        _not = new(letCoercionProvider, errorDetails);
+        _letCoerce = new(letCoercionProvider, errorDetails);
+        _letAssignment = new(letCoercionProvider, errorDetails);
     }
 
     /// <inheritdoc/>

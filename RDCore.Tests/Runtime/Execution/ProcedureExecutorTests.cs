@@ -27,7 +27,6 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime.Execution;
@@ -70,7 +69,7 @@ public sealed class ProcedureExecutorTests
 
     private static ProcedureExecutor Executor()
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         var booleanCoercion = new VBBooleanLetCoercionRuntimeSemantics(handle, formatter);
         var numericCoercion = new VBNumericLetCoercionTypeRuntimeSemantics(formatter, handle);

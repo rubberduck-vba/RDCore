@@ -14,7 +14,6 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Runtime.Operators;
-using RDCore.SDK.Services.VerboseMessages;
 
 using RDCore.SDK.Model;
 
@@ -25,8 +24,8 @@ namespace RDCore.Runtime.Semantics.Operators.Arithmetic;
 /// </summary>
 public record class BinaryDivisionOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionProvider,
-    IVerboseMessageBuilder FormatterService)
-    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryArithmeticOperatorRuntimeSemantics(LetCoercionProvider, ErrorDetails)
 {
     protected override T EvaluateManagedNumericOp<T>(T lhs, T rhs) => lhs / rhs;
 

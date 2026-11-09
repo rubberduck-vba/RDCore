@@ -9,7 +9,7 @@ using RDCore.SDK.Model.Values.Meta;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -23,7 +23,7 @@ public abstract class LetCoercionRuntimeSemanticsTests
 {
     protected static readonly RDCore.SDK.Model.AST.Abstract.SyntaxNodeId NodeId = new(TestUri.TestModuleUri().AbsolutePath, [42]);
 
-    protected static IVerboseMessageBuilder Formatter() => Substitute.For<IVerboseMessageBuilder>();
+    protected static IErrorDetailsRecorder Formatter() => Substitute.For<IErrorDetailsRecorder>();
     protected static ILetCoercionRuntimeSemanticsProvider FakeProvider() => Substitute.For<ILetCoercionRuntimeSemanticsProvider>();
 
     // resolver is never dereferenced by EvaluateLetCoercion; expression is only used on error paths

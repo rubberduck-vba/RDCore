@@ -5,6 +5,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
+using RDCore.CLI.App.VerboseMessages;
 using RDCore.CLI.Themes;
 using RDCore.Diagnostics;
 using RDCore.SDK.ConsoleIO;
@@ -135,6 +136,16 @@ public sealed class ConfigCommandTests
         Assert.AreEqual(MessageKind.Success, Sut.Run("CLI.BreakListingLines 0").Single().Kind);
 
         Assert.AreEqual("0", UserSettings()["Configuration:CLI:BreakListingLines"]);
+    }
+
+    [TestMethod]
+    public void HowTheDetailsOfAnErrorAreWorded_IsTheConsolesToSet_AndIsReadFromWhereItIsSet()
+    {
+        Assert.AreEqual(MessageKind.Success, Sut.Run("CLI.VerboseMessages.ShowValues True").Single().Kind);
+        Assert.AreEqual(MessageKind.Success, Sut.Run("CLI.VerboseMessages.StackFrameMarker #").Single().Kind);
+
+        var read = UserSettings().GetSection($"{SettingsSchema.Root}:{AppOptions.Section}").Get<AppOptions>()!.VerboseMessages;
+        Assert.AreEqual(new VerboseMessageOptions(ShowValues: true, StackFrameMarker: "#"), read);
     }
 
     [TestMethod]

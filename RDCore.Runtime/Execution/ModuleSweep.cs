@@ -2,7 +2,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Execution;
@@ -26,13 +26,13 @@ public sealed class ModuleSweep
 {
     private readonly IRuntimeSession _analysis;
     private readonly IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> _procedures;
-    private readonly IVerboseMessageBuilder _messages;
+    private readonly IErrorDetailsRecorder _errorDetails;
 
-    private ModuleSweep(IRuntimeSession analysis, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IVerboseMessageBuilder messages)
+    private ModuleSweep(IRuntimeSession analysis, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
     {
         _analysis = analysis;
         _procedures = procedures;
-        _messages = messages;
+        _errorDetails = errorDetails;
     }
 
     /// <summary>
@@ -40,10 +40,10 @@ public sealed class ModuleSweep
     /// </summary>
     /// <param name="session">A session whose symbols are declared: the context the code is evaluated in. It is not changed.</param>
     /// <param name="procedures">The procedures to evaluate with their lowered bodies.</param>
-    /// <param name="messages">Builds the verbose half of the errors the evaluation raises.</param>
+    /// <param name="errorDetails">Records the details of the errors the evaluation raises.</param>
     public static ModuleSweep Prepare(
-        IRuntimeSession session, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IVerboseMessageBuilder messages)
-        => new(RuntimeSessionComposer.ComposeForAnalysis(session), procedures, messages);
+        IRuntimeSession session, IReadOnlyList<(VBTypeMemberSymbol Procedure, InstructionList Body)> procedures, IErrorDetailsRecorder errorDetails)
+        => new(RuntimeSessionComposer.ComposeForAnalysis(session), procedures, errorDetails);
 
     /// <summary>
     /// Evaluates the procedures.
@@ -64,7 +64,7 @@ public sealed class ModuleSweep
 
         var collector = new AnalysisFactCollector();
         var bodies = _procedures.ToDictionary(entry => entry.Procedure.SemanticId, entry => entry.Body);
-        var pipeline = RuntimeExecutionPipeline.CreateForSweep(_analysis, bodies, _messages, collector, cancellation);
+        var pipeline = RuntimeExecutionPipeline.CreateForSweep(_analysis, bodies, _errorDetails, collector, cancellation);
 
         foreach (var (procedure, _) in _procedures)
         {

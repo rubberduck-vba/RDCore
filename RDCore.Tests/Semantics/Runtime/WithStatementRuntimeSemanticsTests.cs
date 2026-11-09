@@ -20,7 +20,7 @@ using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Context;
-using RDCore.SDK.Services.VerboseMessages;
+using RDCore.Runtime.Semantics;
 
 namespace RDCore.Tests.Semantics.Runtime;
 
@@ -51,14 +51,14 @@ public sealed class WithStatementRuntimeSemanticsTests
     }
 
     private static WithStatementRuntimeSemantics Sut(ISetCoercionRuntimeSemantics? setCoercion = null, ILetCoercionRuntimeSemanticsProvider? letCoercion = null)
-        => new(setCoercion ?? new SetCoercionRuntimeSemantics(Substitute.For<IVerboseMessageBuilder>()), letCoercion ?? RealLetCoercionProvider());
+        => new(setCoercion ?? new SetCoercionRuntimeSemantics(Substitute.For<IErrorDetailsRecorder>()), letCoercion ?? RealLetCoercionProvider());
 
     // VBUserDefinedTypeLetCoercionRuntimeSemantics needs the provider back to report a same-type
     // coercion's own analysis - this handle breaks that construction cycle, same pattern used throughout
     // the runtime test suite.
     private static ILetCoercionRuntimeSemanticsProvider RealLetCoercionProvider()
     {
-        var formatter = Substitute.For<IVerboseMessageBuilder>();
+        var formatter = Substitute.For<IErrorDetailsRecorder>();
         var handle = new ProviderHandle();
         var provider = new LetCoercionRuntimeSemanticsProvider([new VBUserDefinedTypeLetCoercionRuntimeSemantics(handle, formatter)], formatter);
         handle.Inner = provider;

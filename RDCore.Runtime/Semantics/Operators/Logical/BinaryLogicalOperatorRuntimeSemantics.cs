@@ -21,7 +21,6 @@ using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.Runtime.LanguageCore.Plans;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
 
 namespace RDCore.Runtime.Semantics.Operators.Logical;
@@ -33,8 +32,8 @@ namespace RDCore.Runtime.Semantics.Operators.Logical;
 /// </summary>
 public abstract record class BinaryLogicalOperatorRuntimeSemantics(
     ILetCoercionRuntimeSemanticsProvider LetCoercionSemanticsProvider, 
-    IVerboseMessageBuilder FormatterService)
-    : BinaryOperatorRuntimeSemantics<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionSemanticsProvider, FormatterService)
+    IErrorDetailsRecorder ErrorDetails)
+    : BinaryOperatorRuntimeSemantics<BinaryLogicalOperatorSemanticContext, LogicalOperatorSemanticFlags>(LetCoercionSemanticsProvider, ErrorDetails)
 {
     /// <summary>
     /// Evaluates the bitwise result of a binary logical operation in the effective type's own representation.

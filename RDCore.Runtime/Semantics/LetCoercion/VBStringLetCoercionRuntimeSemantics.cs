@@ -14,7 +14,6 @@ using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Services.VerboseMessages;
 using System.Globalization;
 
 namespace RDCore.Runtime.Semantics.LetCoercion;
@@ -35,14 +34,14 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 /// <c>String</c> is read by: the culture of the thread the interpreter happens to run on is never read.
 /// </para>
 /// </remarks>
-/// <param name="FormatterService">Builds the verbose message of an error.</param>
+/// <param name="ErrorDetails">Records the details of the errors the coercion raises.</param>
 /// <param name="Culture">The culture a number or a date is written in when no regional settings are given; the invariant culture when none is.</param>
 /// <param name="Regional">The regional settings a number or a date is written in.</param>
 public record class VBStringLetCoercionRuntimeSemantics(
-    IVerboseMessageBuilder FormatterService,
+    IErrorDetailsRecorder ErrorDetails,
     CultureInfo? Culture = null,
     SDK.Runtime.RegionalSettings? Regional = null)
-    : LetCoercionRuntimeSemantics<VBStringType>(FormatterService)
+    : LetCoercionRuntimeSemantics<VBStringType>(ErrorDetails)
 {
     /// <summary>
     /// The culture a number or a date is written in when no regional settings are given.
