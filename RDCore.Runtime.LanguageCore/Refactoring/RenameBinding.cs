@@ -20,20 +20,9 @@ using System.Resources;
 
 namespace RDCore.Runtime.LanguageCore.Refactoring;
 
-/// <summary>
-/// How a name is bound as a rename binds it, which is how the reference index finds what refers to a symbol: the symbol a name is, the procedures of a
-/// property, the type a name names, and the names a string or a late-bound access may be of the symbol.
-/// </summary>
+// how a rename binds a name: the reference index binds names the same way, so it finds what a rename renames.
 public static class RenameBinding
 {
-    /// <summary>
-    /// The symbol named at <paramref name="position"/> of <paramref name="module"/>, bound as a rename binds it: a value, or the type a name that means no
-    /// value names (a class that is created, a <c>Type</c> a variable is declared as).
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="position">A position in the name, or at its end.</param>
-    /// <returns>Where the name is written, and its symbol; <see langword="null"/> where no name is written, or where what it refers to is not known.</returns>
     public static (SourceRange Origin, Symbol Symbol)? SymbolAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
