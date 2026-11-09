@@ -192,11 +192,12 @@ internal enum ExtractionBehaviourChangeKind
 
     /// <summary>
     /// A variable that becomes the new procedure's own can hold an object: an object it holds last is released when the new procedure ends, and its
-    /// <c>Class_Terminate</c> runs then, before what the source procedure does after the call rather than when the source procedure ends.
+    /// <c>Class_Terminate</c> runs then, before the code the source procedure runs after the call. Left in the source procedure, the variable keeps the
+    /// object until that procedure ends.
     /// </summary>
     /// <remarks>
     /// A variable declared as an object, an array of objects or a user-defined type with an object field can hold one; a <c>Variant</c> can when the
-    /// selection <c>Set</c>-assigns it, or a <c>For Each</c> of it gives it an element.
+    /// selection <c>Set</c>-assigns it, or a <c>For Each</c> in the selection gives it an element.
     /// </remarks>
     ObjectReleasedEarlier,
 }

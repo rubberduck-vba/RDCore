@@ -199,7 +199,7 @@ internal static class ExtractionAnalysis
     }
 
     // whether a variable of the type can hold an object: one declared as an object, an array of them, a user-defined type with an object field; a Variant, an
-    // element or a field of one, when the selection Set-assigns the variable or a For Each of it gives it an element. The type of a field the variable's own
+    // element or a field of one, when the selection Set-assigns the variable or a For Each in it gives the variable an element. The type of a field the variable's own
     // type does not bind is not known: it is an object's when the selection Set-assigns it.
     private static bool MayHoldAnObject(VBType? type, bool setBySelection) => type switch
     {
