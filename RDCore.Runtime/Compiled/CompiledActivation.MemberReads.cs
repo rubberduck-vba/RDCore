@@ -11,7 +11,7 @@ public sealed partial class CompiledActivation
 {
     /// <summary>
     /// Reads <c>Err.Number</c> (MS-VBAL §6.1.3.2.2.5): the number of the session's error, as the error object reads it. Not under a debugger that observes
-    /// member accesses, which the interpreter reports it to.
+    /// member accesses: the interpreter reads it then, and reports the access.
     /// </summary>
     /// <param name="number">The number.</param>
     public bool TryReadErrNumber(out long number)
@@ -23,8 +23,9 @@ public sealed partial class CompiledActivation
     /// <summary>
     /// Reads the public variable numbered <paramref name="number"/> of the body (MS-VBAL §5.6.12), of the object the variable whose cell is
     /// <paramref name="cell"/> refers to: the variable the object's class has for it is found as the interpreter finds it (<c>EvaluateBoundMember</c>), and
-    /// read in its cell. Not when the variable holds <c>Nothing</c> (error 91, which the interpreter raises), refers to an object the session has no
-    /// instance of, or whose class has a procedure for it, or a variable of another kind: the interpreter reads it.
+    /// read in its cell. Not under a debugger that observes member accesses, not when the variable holds <c>Nothing</c> (error 91, which the interpreter
+    /// raises) or an object the session has no instance of, and not when the object's class has a procedure for the member, or a variable of a kind other
+    /// than the one compiled code reads: the interpreter reads it then.
     /// </summary>
     /// <param name="number">The number of the variable among the body's.</param>
     /// <param name="cell">The cell of the object variable the variable is read of.</param>

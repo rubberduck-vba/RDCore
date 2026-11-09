@@ -115,9 +115,10 @@ the default instance holds. A default instance that holds no object yet, or hold
 the object, and runs its `Class_Initialize`, as it does for any variable declared `As New` (MS-VBAL §5.2.3.1.4). Compiled code calls the members of the
 object it made.
 
-Compiled code reads a public variable of a scalar type of such an object, of the default instance of a class, or of the object of a `With` block
-(`N = C.Size`, `.X + 1`) where the object keeps it (MS-VBAL §5.6.12). Each time, it finds the variable the object's class has for it, as the
-interpreter does. A variable of `Nothing` is the interpreter's, which raises error 91, and so is a variable given arguments, which index it.
+Compiled code reads a public variable of a scalar type of an object variable declared as a class, of the default instance of a class, or of the
+object of a `With` block (`N = C.Size`, `.X + 1`) where the object keeps it (MS-VBAL §5.6.12). Each time, it finds the variable the object's class
+has for it, as the interpreter does. A read of a variable of `Nothing` is the interpreter's, which raises error 91, and so is a read of a variable
+given arguments, which index it.
 
 Compiled code gives an object to a procedure or a member it calls as the interpreter does (MS-VBAL §5.3.1.11):
 
@@ -173,8 +174,8 @@ handler, and the statement is not run again. What the statement held while it ra
 
 Compiled code also calls a member of the object of a `With` block (`.Add 1`, `N = .Total()`, `If .IsSunken Then`) as it calls a member of an object
 variable (see Objects, above), inside an expression too (see Calls inside an expression, below). The `With` statement and its `End With` are the
-interpreter's: it evaluates the object and holds it for the block (MS-VBAL §5.4.2.21), and lets go of it at the `End With`, or when the procedure is left. Compiled code reads the object where the interpreter holds it, each time it needs it, so a jump
-out of the block and back in finds the same object. A block whose `With` statement did not run (jumped into), or whose object raised an error that
+interpreter's: it evaluates the object and holds it for the block (MS-VBAL §5.4.2.21), and lets go of it at the `End With`, or when the procedure is left.
+Compiled code reads the object where the interpreter holds it, each time it needs it, so a jump out of the block and back in finds the same object. A block whose `With` statement did not run (jumped into), or whose object raised an error that
 `On Error Resume Next` went past, has no object, and neither does a block of `Nothing`: a member of it raises error 91, as in the interpreter.
 
 The interpreter keeps the rest:
