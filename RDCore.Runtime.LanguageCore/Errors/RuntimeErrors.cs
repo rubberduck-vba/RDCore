@@ -17,7 +17,7 @@ public static class RuntimeErrors
         public static VBRuntimeErrorInfo For(VBRuntimeErrorId errorId, SourceLocation location, string verbose)
             => new((int)errorId, location, MessageOf(errorId), verbose);
 
-        // the details' message is the error's verbose text; no details record none, and the verbose text is empty.
+        // the details' message is the error's verbose text. Without details, the error records none and its verbose text is empty.
         public static VBRuntimeErrorInfo For(VBRuntimeErrorId errorId, SourceLocation location, VBErrorDetails? details)
             => VBRuntimeErrorInfo.For(errorId, location, details?.Message ?? string.Empty) with { Details = details };
 
