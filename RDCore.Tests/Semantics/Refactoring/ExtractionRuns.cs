@@ -15,12 +15,12 @@ internal static class ExtractionRuns
     /// How a run of the program ended.
     /// </summary>
     /// <param name="Outcome">Whether it completed.</param>
-    /// <param name="Output">What it printed, its lines trimmed and joined by <c>|</c>.</param>
+    /// <param name="Output">What it printed, its lines trimmed and joined by <c> | </c>.</param>
     /// <param name="ErrorNumber">The number of the error it ended with; 0 when it completed.</param>
     internal sealed record class Run(ExecutionOutcome Outcome, string Output, int ErrorNumber);
 
     // The program run with the module as it is, then with the lines of Run's body from first to last extracted, and formatted as for a user who set nothing:
-    // driver is the body of the program's Main, which calls Run. The workspace has the class modules classes besides the module.
+    // driver is the body of the program's Main, which calls Run. The workspace has the class modules in classes beside the module.
     public static async Task<(Run Before, Run After, string Module, ExtractionPlan Plan)> BeforeAndAfterAsync(
         string body, int first, int last, string driver = "Run 3", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)",
         string end = "End Sub", string declarations = "", IReadOnlyList<(string Name, string Source)>? classes = null)

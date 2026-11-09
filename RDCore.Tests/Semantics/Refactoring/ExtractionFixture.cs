@@ -37,8 +37,8 @@ internal static class ExtractionFixture
         return (extracted.Module, extracted.Edit);
     }
 
-    // Extract's module and edit, with the module before the extraction and the plan the edit was written from; the workspace has the class modules classes
-    // besides the module.
+    // Extract's module and edit, with the module before the extraction and the plan the edit was written from; the workspace has the class modules in
+    // classes beside the module.
     public static (string Original, string Module, ExtractionEdit Edit, ExtractionPlan Plan) Extracted(
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null,

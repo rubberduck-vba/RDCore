@@ -3,8 +3,8 @@ using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 namespace RDCore.Tests.Semantics.Refactoring;
 
 /// <summary>
-/// An extraction changes how the code reads, never what it does: each program is run before the extraction and after it, in RDCore's runtime, and prints the
-/// same, ends the same, and raises the same error. Where the plan says the behaviour changes, the runs show the change it says.
+/// Each program is run in RDCore's runtime before the extraction and after it. Where the plan reports no behaviour change, both runs print the same, end the
+/// same and raise the same error; where it reports one, the runs show that change.
 /// </summary>
 [TestClass]
 public sealed class ExtractMethodRunTests
@@ -19,7 +19,7 @@ public sealed class ExtractMethodRunTests
         return before.Output;
     }
 
-    // the loop RD got wrong: x passed ByVal, the loop never ends.
+    // x is the loop's counter: the new procedure must take it ByRef, or the loop never ends.
     [TestMethod]
     public async Task TheLoop_EndsAsItDidInline()
         => Assert.AreEqual("10", await SameAsync("Dim x As Long\nDo While x < 10\nx = x + 1\nLoop\nDebug.Print x", 2, 2));
@@ -63,7 +63,7 @@ public sealed class ExtractMethodRunTests
         => Assert.AreEqual("11", await SameAsync(
             "Dim x As Long\nOn Error Resume Next\nx = 1 / 0\nx = 2\nDebug.Print Err.Number", 2, 3));
 
-    // what the plan says changes does: the On Error Resume Next the new procedure starts with clears the error raised before the selection, which it reads.
+    // the change the plan reports happens: the On Error Resume Next the new procedure starts with clears the error raised before the selection, which it reads.
     [TestMethod]
     public async Task ResumeNext_ClearsTheEarlierErrorTheSelectionReads_AsThePlanSays()
     {
@@ -90,7 +90,7 @@ public sealed class ExtractMethodRunTests
         Assert.IsTrue(plan.BehaviourChanges.All(change => change.IsNote), string.Join(", ", plan.BehaviourChanges));
     }
 
-    // what the plan says changes does: Resume Next resumes after the call, and the rest of the extracted code is skipped.
+    // the change the plan reports happens: Resume Next resumes after the call, and the rest of the extracted code is skipped.
     [TestMethod]
     public async Task AHandlerThatResumesNext_SkipsTheRestOfTheExtractedCode_AsThePlanSays()
     {

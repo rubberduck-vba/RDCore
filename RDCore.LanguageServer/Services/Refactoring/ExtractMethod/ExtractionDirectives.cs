@@ -6,11 +6,11 @@ using System.Collections.Immutable;
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
 /// <summary>
-/// The <c>#If</c> blocks of a module as a selection to extract sees them: where each is written, and which of its lines are its directives (the <c>#If</c>, each
-/// <c>#ElseIf</c> and <c>#Else</c>, the <c>#End If</c>) rather than the code of a branch.
+/// The <c>#If</c> blocks (<strong>MS-VBAL §3.4</strong>) of a module as a selection to extract sees them: where each is written, and which of its lines are its
+/// directives (the <c>#If</c>, each <c>#ElseIf</c> and <c>#Else</c>, the <c>#End If</c>).
 /// </summary>
 /// <remarks>
-/// A block moves whole or not at all (<strong>MS-VBAL §3.4</strong>): a selection inside one of its branches is extracted from that branch, and a selection that
+/// A block moves whole or not at all: a selection inside one of its branches is extracted from that branch, and a selection that
 /// holds one of its directives holds all of it.
 /// </remarks>
 internal sealed class ExtractionDirectives
