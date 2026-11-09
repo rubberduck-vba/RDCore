@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -9,7 +10,7 @@ using System.Globalization;
 using System.Resources;
 using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.Runtime.LanguageCore.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange SelectionRange);
 
@@ -34,18 +35,19 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
 }
 
 // a name is bound the way a rename binds it, so a navigation finds what a rename renames.
+// an #If branch whose state is not known counts as compiled; a late-bound member refers to no known symbol, and leads nowhere.
 public static class SymbolNavigation
 {
     public static SymbolNavigationTarget? DefinitionsAt(RenameContext context, Uri module, SourcePosition position)
     {
-        if (SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
             return null;
         }
 
         var (origin, symbol) = named;
         IReadOnlyList<SymbolSite> sites = NameOccurrences.IsDeclaredBy(context, symbol)
-            ? [.. DefinedTogether(context, symbol).SelectMany(Definitions).OrderBy(site => site.Range.Start)]
+            ? [.. RenameBinding.DefinedTogether(context, symbol).SelectMany(Definitions).OrderBy(site => site.Range.Start)]
             : [];
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
@@ -53,14 +55,14 @@ public static class SymbolNavigation
     // the first declaration written, of every #If branch and property procedure: the same whatever branch the precompiler compiles.
     public static SymbolNavigationTarget? DeclarationAt(RenameContext context, Uri module, SourcePosition position)
     {
-        if (SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
             return null;
         }
 
         var (origin, symbol) = named;
         IReadOnlyList<SymbolSite> sites = NameOccurrences.IsDeclaredBy(context, symbol)
-            && DefinedTogether(context, symbol).SelectMany(Sites).OrderBy(site => site.Site.Range.Start).FirstOrDefault() is { Site: { } first }
+            && RenameBinding.DefinedTogether(context, symbol).SelectMany(Sites).OrderBy(site => site.Site.Range.Start).FirstOrDefault() is { Site: { } first }
             ? [first]
             : [];
         return new SymbolNavigationTarget(origin, symbol, sites);
@@ -75,13 +77,13 @@ public static class SymbolNavigation
 
     private static SymbolNavigationTarget? NamesOf(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration, bool byAccess)
     {
-        if (SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
             return null;
         }
 
         var (origin, symbol) = named;
-        var together = DefinedTogether(context, symbol).ToList();
+        var together = RenameBinding.DefinedTogether(context, symbol).ToList();
         var symbols = together.Select(defined => defined.SemanticId).ToHashSet();
         var isType = symbol is VBModuleSymbol or VBUserDefinedTypeMemberSymbol or VBEnumMemberSymbol;
         var found = NameOccurrences.Find(context, symbol.Name, context.Modules);
@@ -126,7 +128,7 @@ public static class SymbolNavigation
             // a name that means no value where it is written is the type it names: a class that is created with New.
             var refers = occurrence.Binding is { } binding
                 ? symbols.Contains(binding)
-                : isType && occurrence.Scope is { } scope && IsTheType(context, symbol, scope.Uri);
+                : isType && occurrence.Scope is { } scope && RenameBinding.IsTheType(context, symbol, scope.Uri);
             if (refers && byAccess)
             {
                 refers = occurrence.Kind switch
@@ -151,7 +153,7 @@ public static class SymbolNavigation
                 foreach (var (name, range) in NameOccurrences.TypeNamesIn(source))
                 {
                     if (string.Equals(name, symbol.Name, StringComparison.OrdinalIgnoreCase)
-                        && IsTheType(context, symbol, NameOccurrences.ScopeOf(context, source, range.Start).Uri))
+                        && RenameBinding.IsTheType(context, symbol, NameOccurrences.ScopeOf(context, source, range.Start).Uri))
                     {
                         sites.Add(new SymbolSite(source.Module, range, range));
                     }
@@ -161,7 +163,7 @@ public static class SymbolNavigation
 
         // a name written as the symbol's whose meaning is not known, where the symbol could be what it means, as a rename refuses it.
         var unresolved = found.Unknown
-            .Where(unknown => unknown.Kind == OccurrenceKind.Member || together.Any(defined => SymbolRename.ChainIndex(unknown.Scope, defined) < int.MaxValue))
+            .Where(unknown => unknown.Kind == OccurrenceKind.Member || together.Any(defined => RenameBinding.ChainIndex(unknown.Scope, defined) < int.MaxValue))
             .Select(unknown => new SymbolSite(unknown.Module, unknown.Range, unknown.Range));
         return new SymbolNavigationTarget(origin, symbol, Ordered(sites)) { Unresolved = Ordered(unresolved) };
     }
@@ -181,13 +183,9 @@ public static class SymbolNavigation
         _ => null,
     };
 
-    // whether the type a name names where it is written is the symbol.
-    internal static bool IsTheType(RenameContext context, Symbol type, Uri scope)
-        => context.Resolver.ResolveType(type.Name, ScopeKind.Local, scope).Symbol is { } resolved && resolved.SemanticId == type.SemanticId;
-
     public static SymbolNavigationTarget? TypeDefinitionAt(RenameContext context, Uri module, SourcePosition position)
     {
-        if (SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
             return null;
         }
@@ -201,7 +199,7 @@ public static class SymbolNavigation
     // MS-VBAL §5.2.4.2
     public static SymbolNavigationTarget? ImplementationsAt(RenameContext context, Uri module, SourcePosition position)
     {
-        if (SymbolAt(context, module, position) is not { } named)
+        if (RenameBinding.SymbolAt(context, module, position) is not { } named)
         {
             return null;
         }
@@ -224,7 +222,7 @@ public static class SymbolNavigation
         {
             foreach (var implementer in ImplementersOf(context, owner))
             {
-                foreach (var member in DefinedTogether(context, symbol).OfType<VBTypeMemberSymbol>())
+                foreach (var member in RenameBinding.DefinedTogether(context, symbol).OfType<VBTypeMemberSymbol>())
                 {
                     if (implementer.FindImplementation(owner, member, AccessOf(member)) is { } implementation)
                     {
@@ -271,53 +269,6 @@ public static class SymbolNavigation
             VBEnumType @enum => @enum.Symbol,
             _ => null,
         };
-    }
-
-    // a property is defined by each of its procedures - its Property Get, Let and Set: what an access calls is not known from the name alone.
-    internal static IEnumerable<Symbol> DefinedTogether(RenameContext context, Symbol symbol)
-    {
-        if (symbol is not (VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
-            || !context.ScopeTree.TryGetScope(NameOccurrences.ModuleOf(symbol.Uri), out var module))
-        {
-            return [symbol];
-        }
-
-        var accessors = module.DeclaredAs(symbol.Name)
-            .Where(declared => declared is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol)
-            .ToList();
-        return accessors.Count > 0 ? accessors : [symbol];
-    }
-
-    public static (SourceRange Origin, Symbol Symbol)? SymbolAt(RenameContext context, Uri module, SourcePosition position)
-    {
-        if (context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } source)
-        {
-            return null;
-        }
-
-        if (NameOccurrences.NameAt(source, position) is not { } name)
-        {
-            return NameOccurrences.TypeNameAt(source, position) is { } typeName
-                && context.Resolver.ResolveType(typeName.Name, ScopeKind.Local, NameOccurrences.ScopeOf(context, source, position).Uri).Symbol is { } declared
-                ? (typeName.Range, declared)
-                : null;
-        }
-
-        var found = NameOccurrences.Find(context, name, [source]);
-        if (found.Unknown.Any(occurrence => Contains(occurrence.Range, position)))
-        {
-            return null;
-        }
-
-        var here = found.Occurrences.FirstOrDefault(occurrence => Contains(occurrence.Range, position));
-        if (here.Binding is { } binding && NameOccurrences.SymbolOf(context, binding) is { } symbol)
-        {
-            return (here.Range, symbol);
-        }
-
-        return here.Scope is { } scope && context.Resolver.ResolveType(name, ScopeKind.Local, scope.Uri).Symbol is { } type
-            ? (here.Range, type)
-            : null;
     }
 
     // the sites of a symbol that are compiled, or every site where none is; a module is defined by its whole document.

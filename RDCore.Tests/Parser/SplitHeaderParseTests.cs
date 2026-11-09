@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Folding;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;

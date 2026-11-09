@@ -1,12 +1,14 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.Runtime.LanguageCore.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 public sealed record class SymbolLens(string Name, SourceRange NameRange);
 
+// a function's own result, assigned or read in its body, is no reference of it; a recursive call is.
 // MS-VBAL §5.2.3, §5.3
 public static class SymbolLenses
 {

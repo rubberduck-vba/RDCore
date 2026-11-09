@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
@@ -8,15 +9,15 @@ using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.Runtime.LanguageCore.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 public readonly record struct ParameterHint(SourcePosition Position, string Name);
 
 public static class ParameterHints
 {
-    // the static pass recurses once per expression level: one large-stack thread for the call, not one per callee.
     public static IReadOnlyList<ParameterHint> In(RenameContext context, Uri module, SourceRange range)
     {
+        // the static pass recurses once per level of an expression: one large-stack thread for the whole call, not one per callee.
         if (!LargeStackThread.IsCurrent)
         {
             return LargeStackThread.Run(() => In(context, module, range));

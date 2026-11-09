@@ -274,7 +274,7 @@ What a client shows of a module (its diagnostics, its semantic tokens, its inlay
 
 Each is a request, which the client answers; a client that sent none of a capability is not asked. The server asks after:
 
-- **A change of a module that the others can tell,** once the environment host has it: the module's options and attributes, its module-level declarations, the signature of a procedure, a value written in any of them, and the names a procedure's body uses and what it declares ([`ModuleSurface`](../api/RDCore.SDK.Model.AST.ModuleSurface.html)). The workspace is defined again in its three phases first, so that what the host has of the other modules (what their declarations are bound to, what their code calls) is of what the module declares now. A change that no other module can tell asks nothing: a literal, an operator or a comment in a procedure's body, a statement that uses the same names, whitespace.
+- **A change of a module that the others can tell,** once the environment host has it: the module's options and attributes, its module-level declarations, the signature of a procedure, a value written in any of them, and the names a procedure's body uses and what it declares (`ModuleSurface`). The workspace is defined again in its three phases first, so that what the host has of the other modules (what their declarations are bound to, what their code calls) is of what the module declares now. A change that no other module can tell asks nothing: a literal, an operator or a comment in a procedure's body, a statement that uses the same names, whitespace.
 - **A module that is gone,** closed with no file under it.
 - **A reload of the project** that changed the workspace ([`workspace/didChangeWatchedFiles`](#workspacedidchangewatchedfiles), [file operations](#workspacedidcreatefiles-didrenamefiles-and-diddeletefiles), `rdcore.importProject`).
 - **A change of the live settings** ([`workspace/configuration`](#workspaceconfiguration-and-workspacedidchangeconfiguration)).
@@ -297,7 +297,7 @@ procedure, a function or a property, of the workspace or of a library it referen
 argument after it, has none; nor has an argument that is a name written as its parameter's, or an argument of a `ParamArray` after its first. Each hint is
 of kind `Parameter`, complete as it is answered (no `inlayHint/resolve`). For a `.rdc` program, positions are in its lines.
 
-After the name of each variable or parameter that is declared without a type, and is a `Variant` (**MS-VBAL §5.2.3.1.5**), the answer has a hint `As Variant` of kind `Type`, padded on its left: `Dim x` is shown `Dim x As Variant` ([`ImplicitTypeHints`](../api/RDCore.SDK.Semantics.Refactoring.ImplicitTypeHints.html)). A declaration with an `As` clause or a type-declaration character has none; nor has a name that a `Def<Type>` directive of the module covers, a constant, or a parameter that is an array. The hint is after the array bounds of a variable (`Dim a(10)` is shown `Dim a(10) As Variant`).
+After the name of each variable or parameter that is declared without a type, and is a `Variant` (**MS-VBAL §5.2.3.1.5**), the answer has a hint `As Variant` of kind `Type`, padded on its left: `Dim x` is shown `Dim x As Variant` (`ImplicitTypeHints`). A declaration with an `As` clause or a type-declaration character has none; nor has a name that a `Def<Type>` directive of the module covers, a constant, or a parameter that is an array. The hint is after the array bounds of a variable (`Dim a(10)` is shown `Dim a(10) As Variant`).
 
 The interactive shell asks for the hints of its program once for the whole listing, and shows them in `LIST`, faint, when `INLAYS ON` has been said (`INLAYS OFF` stops; they are off until then).
 
@@ -338,7 +338,7 @@ The line being typed seldom parses. The language server takes it out of the modu
 
 A line at a client's prompt can also be one of the client's own commands. A client registers the verbs of its commands with `rdcore/session/commands` ([`SessionCommandsParams`](../api/RDCore.SDK.Platform.Protocol.SessionCommandsParams.html)), each described by a [`VerbDescriptor`](../api/RDCore.SDK.Platform.Commands.VerbDescriptor.html): the forms its arguments take, which are keywords, choices, line numbers, expressions, paths, text, settings and their values.
 
-A verb is registered once. It is registered again only when its descriptor changes (a choice of what the client has more or fewer of), and then it replaces what it was. A completion request names the verb and what is typed after it (`Command`), and nothing more of the verb travels. The language server completes each argument as described ([`VerbCompletion`](../api/RDCore.SDK.Platform.Commands.VerbCompletion.html)):
+A verb is registered once. It is registered again only when its descriptor changes (a choice of what the client has more or fewer of), and then it replaces what it was. A completion request names the verb and what is typed after it (`Command`), and nothing more of the verb travels. The language server completes each argument as described (`VerbCompletion`):
 
 - a keyword or a choice with its values;
 - a line number with the numbered lines of the module, each shown with its statement;
@@ -510,7 +510,7 @@ module declares, and the members of its `Enum`s and `Type`s under them. Each sym
 declares. A procedure's locals are not in the outline. For a `.rdc` program, ranges are in its lines.
 
 It answers `workspace/symbol` (**LSP 3.17** §Workspace Symbols Request) with the symbols of the outline of every document it holds whose name matches the
-query ([`SymbolSearch`](../api/RDCore.SDK.Semantics.Refactoring.SymbolSearch.html)), regardless of case. Each is named with what it is declared in
+query (`SymbolSearch`), regardless of case. Each is named with what it is declared in
 (`containerName`: the module, or the module and its `Enum` or `Type`) and located at the name it declares.
 
 |The name|Comes|
@@ -624,7 +624,7 @@ settings; the language server, as the client of its components, with what its ow
 
 The language server answers `textDocument/selectionRange` (**LSP 3.17** §Selection Range Request) with what a selection at each position grows to, step by
 step: each node of the syntax tree written around the position, from a name through its expression, its statement, the block of a structured statement and
-the procedure, to everything the module declares ([`SyntaxSelection`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxSelection.html)). Each step is in the next.
+the procedure, to everything the module declares (`SyntaxSelection`). Each step is in the next.
 A position that no node is written around is answered with the empty range at it. For a `.rdc` program, ranges are in its lines.
 
 ### `textDocument/formatting` and `textDocument/rangeFormatting`

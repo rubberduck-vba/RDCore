@@ -18,6 +18,7 @@ using RDCore.LanguageServer.SemanticTokens;
 using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Server.Handlers.Document;
 using RDCore.LanguageServer.Server.Handlers.Workspace;
+using RDCore.LanguageServer.Services.Workspace;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Workspace;

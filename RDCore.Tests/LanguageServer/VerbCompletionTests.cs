@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Platform.Commands;
+﻿using RDCore.LanguageServer.Services.Completion;
+using RDCore.SDK.Platform.Commands;
 
 namespace RDCore.Tests.LanguageServer;
 

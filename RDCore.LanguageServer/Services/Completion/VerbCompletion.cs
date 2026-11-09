@@ -1,47 +1,23 @@
-﻿namespace RDCore.SDK.Platform.Commands;
+﻿using RDCore.SDK.Platform.Commands;
+using RDCore.SDK.Server.Configuration;
 
-/// <summary>
-/// The argument of a verb that is being written, and what of it is typed.
-/// </summary>
-/// <param name="Argument">The argument.</param>
-/// <param name="Typed">
-/// What is typed of it: the word being written, for an argument that is one word; everything after where it starts, for one that takes the rest of the line.
-/// </param>
-/// <param name="Written">The arguments of the form that are written before it, by their <see cref="VerbArgument.Name"/>: the line an expression is evaluated at.</param>
+namespace RDCore.LanguageServer.Services.Completion;
+
 public sealed record class VerbCompletionSite(VerbArgument Argument, string Typed, IReadOnlyDictionary<string, string> Written)
 {
-    /// <summary>
-    /// The line an <see cref="VerbArgumentKind.Expression"/> is evaluated at (<see cref="VerbArgument.EvaluatedAt"/>), as it is written; <see langword="null"/> when
-    /// it is evaluated at none.
-    /// </summary>
     public string? EvaluatedAt => Argument.EvaluatedAt is { } name && Written.TryGetValue(name, out var line) ? line : null;
 
-    /// <summary>
-    /// The arguments of the form the argument is of, in the order they are written.
-    /// </summary>
     public IReadOnlyList<VerbArgument> Form { get; init; } = [];
 
-    /// <summary>
-    /// The setting a <see cref="VerbArgumentKind.SettingValue"/> is a value of (<see cref="VerbArgument.ValueOf"/>), as its key is written before it;
-    /// <see langword="null"/> when it is of no setting the form knows.
-    /// </summary>
-    public Server.Configuration.SettingDescriptor? Setting
+    public SettingDescriptor? Setting
         => Argument.ValueOf is { } name && Written.TryGetValue(name, out var key)
             && Form.FirstOrDefault(argument => argument.Name == name) is { Kind: VerbArgumentKind.Setting } owner
                 ? owner.Settings.FirstOrDefault(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase))
                 : null;
 }
 
-/// <summary>
-/// Which argument of a verb is being written, as the arguments are typed (<see cref="VerbDescriptor"/>).
-/// </summary>
 public static class VerbCompletion
 {
-    /// <summary>
-    /// The arguments that can be the one at the end of <paramref name="arguments"/>: one for each form of the verb that what is typed is the start of.
-    /// </summary>
-    /// <param name="verb">The verb.</param>
-    /// <param name="arguments">What is typed after the verb, up to the cursor, as it is typed: not trimmed.</param>
     public static IReadOnlyList<VerbCompletionSite> Read(VerbDescriptor verb, string arguments)
     {
         var words = Words(arguments);
@@ -91,24 +67,17 @@ public static class VerbCompletion
         return null;
     }
 
-    /// <summary>
-    /// What a key of a setting can go on as, after what is typed of it (<see cref="VerbArgumentKind.Setting"/>): the next part of the keys that start with what
-    /// is typed up to its last <c>.</c> - a section, or the name of a setting in it.
-    /// </summary>
-    /// <param name="settings">The settings.</param>
-    /// <param name="typed">What is typed of the key: <c>server.Ve</c>.</param>
-    /// <returns>Each part once, in the order of the settings, with the setting it is the name of; <see langword="null"/> for a section.</returns>
-    public static IReadOnlyList<(string Part, Server.Configuration.SettingDescriptor? Setting)> SettingPartsAfter(
-        IEnumerable<Server.Configuration.SettingDescriptor> settings, string typed)
+    public static IReadOnlyList<(string Part, SettingDescriptor? Setting)> SettingPartsAfter(
+        IEnumerable<SettingDescriptor> settings, string typed)
     {
         var dot = typed.LastIndexOf('.');
         var section = dot < 0 ? string.Empty : typed[..(dot + 1)];
-        var parts = new List<(string Part, Server.Configuration.SettingDescriptor? Setting)>();
+        var parts = new List<(string Part, SettingDescriptor? Setting)>();
         foreach (var setting in settings.Where(setting => setting.Key.StartsWith(section, StringComparison.OrdinalIgnoreCase)))
         {
             var rest = setting.Key[section.Length..];
             var end = rest.IndexOf('.');
-            (string Part, Server.Configuration.SettingDescriptor? Setting) part = end < 0 ? (rest, setting) : (rest[..end], null);
+            (string Part, SettingDescriptor? Setting) part = end < 0 ? (rest, setting) : (rest[..end], null);
             if (part.Part.Length > 0 && !parts.Any(other => string.Equals(other.Part, part.Part, StringComparison.OrdinalIgnoreCase)))
             {
                 parts.Add(part);

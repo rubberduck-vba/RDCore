@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -6,7 +7,7 @@ using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Semantics.Refactoring;
 
-namespace RDCore.Runtime.LanguageCore.Refactoring;
+namespace RDCore.LanguageServer.Services.Refactoring;
 
 public sealed record class HierarchyItem(Symbol Symbol, Uri Module, SourceRange Range, SourceRange SelectionRange);
 
@@ -16,10 +17,10 @@ public sealed record class HierarchyCall(HierarchyItem Item, IReadOnlyList<Sourc
 public static class SymbolHierarchy
 {
     public static HierarchyItem? PrepareCalls(RenameContext context, Uri module, SourcePosition position)
-        => SymbolNavigation.SymbolAt(context, module, position) is { Symbol: var symbol } && IsCallable(context, symbol) ? ItemOf(context, symbol) : null;
+        => RenameBinding.SymbolAt(context, module, position) is { Symbol: var symbol } && IsCallable(context, symbol) ? ItemOf(context, symbol) : null;
 
     public static HierarchyItem? PrepareTypes(RenameContext context, Uri module, SourcePosition position)
-        => SymbolNavigation.SymbolAt(context, module, position) is { Symbol: VBClassModuleSymbol type } && NameOccurrences.IsDeclaredBy(context, type)
+        => RenameBinding.SymbolAt(context, module, position) is { Symbol: VBClassModuleSymbol type } && NameOccurrences.IsDeclaredBy(context, type)
             ? ItemOf(context, type)
             : null;
 
@@ -46,9 +47,9 @@ public static class SymbolHierarchy
         return Grouped(calls);
     }
 
-    // one large-stack thread for the call (NameOccurrences.Find), not one per name.
     public static IReadOnlyList<HierarchyCall> OutgoingCalls(RenameContext context, HierarchyItem item)
     {
+        // the static pass recurses once per level of an expression: one large-stack thread for the whole call, not one per name.
         if (!LargeStackThread.IsCurrent)
         {
             return LargeStackThread.Run(() => OutgoingCalls(context, item));

@@ -6,6 +6,7 @@ using RDCore.CLI;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.ConsoleIO.Model;
+using RDCore.LanguageServer.Services.Refactoring;
 using RDCore.SDK.Semantics.Refactoring;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 

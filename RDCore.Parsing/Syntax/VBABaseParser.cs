@@ -190,6 +190,51 @@ public abstract class VBABaseParser : Parser
         return TokenTypeAtRelativePosition(offset) == VBALexer.COLON;
     }
 
+    // MS-VBAL §5.3.1: a procedure's header is no statement of the procedure before it, which is missing its End Sub: the statements of that procedure end
+    // there. Read as a statement, `Public Sub B()` would be a declaration (`Public` declares variables), refused, and the procedure would go on with B's
+    // statements.
+    protected bool IsProcedureHeaderAhead() => BeginsAProcedureHeader(_input);
+
+    // a procedure's header, next in the stream: at the start of a line, its modifiers (Public, Private, Friend, Global, then Static), then Sub, Function or
+    // Property Get, Let or Set.
+    internal static bool BeginsAProcedureHeader(ITokenStream stream)
+    {
+        var at = 1;
+        if (stream.La(at) is VBALexer.PRIVATE or VBALexer.PUBLIC or VBALexer.FRIEND or VBALexer.GLOBAL)
+        {
+            at = PastTheBlanks(stream, at + 1);
+        }
+
+        if (stream.La(at) == VBALexer.STATIC)
+        {
+            at = PastTheBlanks(stream, at + 1);
+        }
+
+        if (stream.La(at) is not (VBALexer.SUB or VBALexer.FUNCTION or VBALexer.PROPERTY_GET or VBALexer.PROPERTY_LET or VBALexer.PROPERTY_SET))
+        {
+            return false;
+        }
+
+        // the token before it, as an index of the stream: the next token's is the stream's.
+        var before = stream.Index - 1;
+        while (before >= 0 && stream.Get(before).Type == VBALexer.WS)
+        {
+            before--;
+        }
+
+        return before < 0 || stream.Get(before).Type is VBALexer.NEWLINE or VBALexer.LINE_CONTINUATION;
+    }
+
+    private static int PastTheBlanks(ITokenStream stream, int at)
+    {
+        while (stream.La(at) is VBALexer.WS or VBALexer.LINE_CONTINUATION)
+        {
+            at++;
+        }
+
+        return at;
+    }
+
     // MS-VBAL §5.4.5.8.1: at the start of an output clause, `Tab` is a tab clause and `Spc` followed by `(` a spc clause, never an expression that calls a name
     // Spc or Tab. The VBE writes `Spc(1)(2)` as `Spc(1); (2)` (oracle\s69 O04). Without this, the argument list of a name read `Spc(1)(2)` as one
     // expression, an index of `Spc(1)`, when what follows the clause was no output item it could be.
@@ -269,10 +314,9 @@ public abstract class VBABaseParser : Parser
         return true;
     }
 
-    // Bounds recovery to the next recognizable procedure boundary - for a rule whose body can span many
-    // lines (Sub/Function/Property), where stopping at just the next newline would still leave the
-    // parser trying to resume mid-procedure. Stops on a visibility/STATIC modifier too, so a qualified
-    // declaration (`Public Sub Foo()`) isn't itself partially consumed as recovery fodder.
+    // Bounds recovery to the procedure's boundary, for a rule whose body can span many lines (Sub/Function/Property), where stopping at just the next newline
+    // would still leave the parser trying to resume mid-procedure. The procedure ends at its End Sub (End Function, End Property), which is read as its own,
+    // or before the next procedure's header, its modifiers included (`Public Sub Foo()`), when it has none: the procedure after it is read on its own.
     protected bool RecoverToProcedureBoundary(RecognitionException re)
     {
         if (ErrorHandler is BailErrorStrategy)
@@ -280,17 +324,14 @@ public abstract class VBABaseParser : Parser
             return false;
         }
         ErrorHandler.ReportError(this, re);
-        while (true)
+        while (_input.La(1) != TokenConstants.Eof && !BeginsAProcedureHeader(_input))
         {
-            int la = _input.La(1);
-            if (la == -1
-                || la == VBALexer.SUB || la == VBALexer.FUNCTION
-                || la == VBALexer.PROPERTY_GET || la == VBALexer.PROPERTY_LET || la == VBALexer.PROPERTY_SET
-                || la == VBALexer.PUBLIC || la == VBALexer.PRIVATE || la == VBALexer.FRIEND || la == VBALexer.STATIC)
+            var ends = _input.La(1) is VBALexer.END_SUB or VBALexer.END_FUNCTION or VBALexer.END_PROPERTY;
+            Consume();
+            if (ends)
             {
                 break;
             }
-            Consume();
         }
         return true;
     }

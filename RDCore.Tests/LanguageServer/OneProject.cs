@@ -1,4 +1,5 @@
 using NSubstitute;
+using RDCore.LanguageServer.Services.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Workspace;
 

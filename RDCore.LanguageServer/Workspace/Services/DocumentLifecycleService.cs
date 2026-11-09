@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Debugging;
 using RDCore.LanguageServer.Diagnostics;
 using RDCore.LanguageServer.Parsing;
+using RDCore.LanguageServer.Services.Workspace;
 using RDCore.LanguageServer.Symbols;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Declarations;

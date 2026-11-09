@@ -1,5 +1,6 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Serialization;
 using RDCore.SDK.Client;
+using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Protocol;
@@ -60,6 +61,15 @@ public sealed class RDCorePlatformJsonWireTests
             ErrorLineNumber = 100,
             ConditionError = "x",
             StackTrace = [new ExecuteStackFrame("Main", 1, 2, [5, 6])],
+        });
+        yield return Same(new ExecuteResult
+        {
+            Outcome = ExecutionOutcome.RuntimeError,
+            ErrorNumber = 6,
+            ErrorDetails = new VBErrorDetails("Overflow",
+                new VBErrorExpression("Binary", "Module1.Main.x", new SourceLocation(Module, Range)),
+                [new VBErrorFrame("node-1", [new VBErrorOperand("Long", "40000"), new VBErrorOperand("Variant", null)], new VBErrorCoercion(new VBErrorOperand("Long", "40000"), "Integer"))],
+                FramesTruncated: true),
         });
         yield return Same(new SessionDiscardParams { ModuleName = "Module1", EndProgram = true });
         yield return Same(new DiscardResult { Discarded = 2 });
@@ -204,7 +214,8 @@ public sealed class RDCorePlatformJsonWireTests
         ("SessionStatusParams", """{"waitMilliseconds":250}"""),
         ("SessionStatusResult", """{"isComposed":true,"projectName":"VBAProject","moduleCount":3,"referenceCount":2,"memory":{"reservedBytes":1,"availableBytes":2,"allocatedBytes":3,"freeBytes":4,"committedBytes":5,"largestFreeBlock":6}}"""),
         ("SessionExecuteParams", """{"source":"Debug.Print 1","moduleName":"Module1","entryPoint":"Main","debug":true,"immediate":true,"sessionModule":true}"""),
-        ("ExecuteResult", """{"outcome":7,"output":["1"],"streamedLines":7,"diagnostics":["RDC00001"],"errorNumber":13,"errorMessage":"Type mismatch","errorCode":"VBR00013","errorTitle":"Type mismatch","errorSource":"VBAProject","errorLine":3,"errorCharacter":4,"errorLineNumber":100,"conditionError":"x","stackTrace":[{"procedure":"Main","line":1,"character":2,"returnLines":[5,6]}]}"""),
+        ("ExecuteResult", """{"outcome":7,"output":["1"],"streamedLines":7,"diagnostics":["RDC00001"],"errorNumber":13,"errorMessage":"Type mismatch","errorCode":"VBR00013","errorTitle":"Type mismatch","errorSource":"VBAProject","errorLine":3,"errorCharacter":4,"errorLineNumber":100,"conditionError":"x","stackTrace":[{"procedure":"Main","line":1,"character":2,"returnLines":[5,6]}],"errorDetails":null}"""),
+        ("ExecuteResult", """{"outcome":3,"output":[],"streamedLines":0,"diagnostics":[],"errorNumber":6,"errorMessage":"","errorCode":"","errorTitle":"","errorSource":"","errorLine":-1,"errorCharacter":-1,"errorLineNumber":0,"conditionError":"","stackTrace":[],"errorDetails":{"message":"Overflow","expression":{"kind":"Binary","semanticId":"Module1.Main.x","location":{"uri":"file:///c:/workspace/Module1.bas","range":{"start":{"line":1,"character":2},"end":{"line":3,"character":4},"isEmpty":false}}},"frames":[{"nodeId":"node-1","inputs":[{"typeName":"Long","value":"40000"},{"typeName":"Variant","value":null}],"coercion":{"source":{"typeName":"Long","value":"40000"},"destinationTypeName":"Integer"}}],"framesTruncated":true}}"""),
         ("SessionDiscardParams", """{"moduleName":"Module1","endProgram":true}"""),
         ("DiscardResult", """{"discarded":2}"""),
         ("SessionPeekParams", """{"address":16}"""),

@@ -7,6 +7,7 @@ using RDCore.LanguageServer;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Server;
 using RDCore.LanguageServer.Server.Handlers.Workspace;
+using RDCore.LanguageServer.Services.Workspace;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Client;

@@ -1,3 +1,4 @@
+using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using System.Globalization;
@@ -81,8 +82,9 @@ public static class DebugValueFormatter
             case VBStringValue text:
                 return new DebugValueView($"\"{text.Value.Replace("\"", "\"\"")}\"", Type(text.TypeInfo.Name), null);
 
+            // a Date that is no day, which only its bytes can make (ValueConversions.TryMomentOf), is shown as the Double it holds.
             case VBDateValue date:
-                return new DebugValueView(Date(date.Value), Type("Date"), null);
+                return new DebugValueView(ValueConversions.TryMomentOf(date, out var moment) ? Date(moment) : Scalar(value), Type("Date"), null);
 
             case VBObjectValue obj:
                 return new DebugValueView(obj.IsNothing() ? "Nothing" : "<Object>", Type("Object"), null);
