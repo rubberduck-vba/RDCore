@@ -19,72 +19,44 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Refactoring;
 
-/// <summary>How a name is written where it occurs.</summary>
 internal enum OccurrenceKind
 {
-    /// <summary>The name a declaration declares.</summary>
     Declaration,
 
-    /// <summary>A simple name (<strong>MS-VBAL §5.6.10</strong>).</summary>
+    // MS-VBAL §5.6.10
     Name,
 
-    /// <summary>The name of a member, after a <c>.</c> (<strong>MS-VBAL §5.6.12</strong>).</summary>
+    // MS-VBAL §5.6.12
     Member,
 
-    /// <summary>The name of a named argument, before its <c>:=</c> (<strong>MS-VBAL §5.6.13.1</strong>).</summary>
+    // MS-VBAL §5.6.13.1
     NamedArgument,
 
-    /// <summary>The member a member's attribute is of (<c>Attribute Foo.VB_UserMemId</c>).</summary>
     Attribute,
 
-    /// <summary>
-    /// A string that a member of a library calls a procedure by: the procedure name of <c>CallByName</c> (<strong>MS-VBAL §6.1.2.8.1.1</strong>), a host's macro
-    /// (<c>Application.Run "Module1.Foo"</c>), the procedure a host calls later (<c>Application.OnTime</c>, <c>OnKey</c>), or the <c>OnAction</c> of a control.
-    /// What it names is only known when the code runs.
-    /// </summary>
+    // MS-VBAL §6.1.2.8.1.1
     String,
 }
 
-/// <summary>How a name is used where it is written: what tells the procedures of a property apart (<strong>MS-VBAL §5.3.1.7</strong>).</summary>
+// MS-VBAL §5.3.1.7
 internal enum NameAccess
 {
-    /// <summary>Its value is read, or it is called: what a <c>Property Get</c> is called for.</summary>
     Read,
 
-    /// <summary>It is the target of a Let-assignment (<strong>MS-VBAL §5.4.3.8</strong>): what a <c>Property Let</c> is called for.</summary>
+    // MS-VBAL §5.4.3.8
     Let,
 
-    /// <summary>It is the target of a Set-assignment (<strong>MS-VBAL §5.4.3.9</strong>): what a <c>Property Set</c> is called for.</summary>
+    // MS-VBAL §5.4.3.9
     Set,
 
-    /// <summary>
-    /// It is the result of the function or the <c>Property Get</c> whose body assigns it or reads it - its function result variable (<strong>MS-VBAL §5.3.1</strong>,
-    /// §5.6.2.1): the procedure's own name, which calls no procedure.
-    /// </summary>
+    // MS-VBAL §5.3.1, §5.6.2.1
     Result,
 }
 
-/// <summary>
-/// One place a name is written, and what it refers to there.
-/// </summary>
-/// <param name="Module">The module.</param>
-/// <param name="Range">Where the name is written, without a type-declaration character.</param>
-/// <param name="Binding">What it refers to; <see langword="null"/> when it is known to refer to nothing the workspace has, a late-bound member among them.</param>
-/// <param name="Kind">How it is written.</param>
-/// <param name="Scope">The scope it is written in.</param>
-/// <param name="Qualifier">For a name written in a string (<see cref="OccurrenceKind.String"/>), what qualifies it there: <c>Module1</c> of <c>"Module1.Foo"</c>.</param>
-/// <param name="Node">The node that writes the name: the expression, the declaration, the named argument or the attribute; <see langword="null"/> for a name no node writes.</param>
-/// <param name="Fact">What the static pass found of the expression that writes the name, when it evaluated it in a procedure.</param>
-/// <param name="Owner">For a member after a <c>.</c>, what the expression before the <c>.</c> refers to, when the static pass bound it in a procedure.</param>
 internal readonly record struct NameOccurrence(
     Uri Module, SourceRange Range, SemanticId? Binding, OccurrenceKind Kind, LexicalScope Scope, string? Qualifier = null,
     SyntaxNode? Node = null, ExpressionFact? Fact = null, SemanticId? Owner = null);
 
-/// <summary>
-/// The places a name is written, found in the syntax trees of the workspace and bound by the static semantics.
-/// </summary>
-/// <param name="Occurrences">Each place, with what the name refers to there.</param>
-/// <param name="Unknown">The places whose name the static semantics could not bind, and whose meaning is therefore not known.</param>
 internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occurrences, IReadOnlyList<NameOccurrence> Unknown)
 {
     private static readonly IReadOnlySet<MemberKind> Procedures = new HashSet<MemberKind>
@@ -92,9 +64,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         MemberKind.Procedure, MemberKind.Function, MemberKind.PropertyGet, MemberKind.PropertyLet, MemberKind.PropertySet,
     };
 
-    /// <summary>
-    /// The name written at <paramref name="position"/>, whatever writes it: a declaration, an expression, a named argument, an attribute.
-    /// </summary>
     public static string? NameAt(RenameModule module, SourcePosition position)
     {
         var lines = LinesOf(module.Source);
@@ -109,16 +78,9 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return null;
     }
 
-    /// <summary>
-    /// The name of the type an <c>As</c> clause declares at <paramref name="position"/> (<c>Dim c As Class1</c>), and where it is written; a type is no
-    /// expression, and <see cref="NameAt"/> does not see it.
-    /// </summary>
     public static (string Name, SourceRange Range)? TypeNameAt(RenameModule module, SourcePosition position)
         => TypeNamesIn(module).Select(written => ((string Name, SourceRange Range)?)written).FirstOrDefault(written => Contains(written!.Value.Range, position));
 
-    /// <summary>
-    /// The name of the type each <c>As</c> clause of a module declares, and where it is written, in the order they are written.
-    /// </summary>
     public static IEnumerable<(string Name, SourceRange Range)> TypeNamesIn(RenameModule module)
     {
         var lines = LinesOf(module.Source);
@@ -146,22 +108,7 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
     }
 
-    /// <summary>
-    /// How the names of a module that are not read are used, by where each begins: the target of a Let-assignment or a Set-assignment, a simple name or the
-    /// member after a <c>.</c>, called with arguments or not (<c>Title(1) = x</c>), and the result a function or a <c>Property Get</c> is. Every other name of
-    /// the module is read (<see cref="NameAccess.Read"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The name of a function or of a <c>Property Get</c> that its own body assigns is its result (<see cref="NameAccess.Result"/>), and so is the name its body
-    /// reads as a simple name: a name that refers to the enclosing procedure evaluates to its return value (<strong>MS-VBAL §5.6.2.1</strong>). Its name with an
-    /// argument list (<c>Fact(n - 1)</c>), in a call statement, or after a <c>.</c> (<c>Me.Value</c>) calls it again, and is read. A
-    /// <c>Property Let</c> or <c>Set</c> has no result, and its name that its body assigns calls it again.
-    /// </para>
-    /// <para>
-    /// An <c>LSet</c> or <c>RSet</c> assigns a variable (<strong>MS-VBAL §5.4.3.6</strong>, §5.4.3.7), as a Let-assignment does.
-    /// </para>
-    /// </remarks>
+    // MS-VBAL §5.6.2.1, §5.4.3.6, §5.4.3.7
     public static IReadOnlyDictionary<SourcePosition, NameAccess> AssignedIn(RenameModule module)
     {
         var assigned = new Dictionary<SourcePosition, NameAccess>();
@@ -214,12 +161,8 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         };
     }
 
-    /// <summary>The scope a position of a module is in.</summary>
     public static LexicalScope ScopeOf(RenameContext context, RenameModule module, SourcePosition position) => ScopeAt(context, module, position);
 
-    /// <summary>
-    /// Each name an expression writes in <paramref name="range"/> - a simple name, or the member after a <c>.</c> - once, whatever its case.
-    /// </summary>
     public static IEnumerable<string> NamesIn(RenameModule module, SourceRange range)
     {
         var lines = LinesOf(module.Source);
@@ -234,9 +177,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
     }
 
-    /// <summary>
-    /// Where each name a declaration declares in <paramref name="range"/> begins, in the order they are written.
-    /// </summary>
     public static IEnumerable<SourcePosition> DeclarationsIn(RenameModule module, SourceRange range)
     {
         var lines = LinesOf(module.Source);
@@ -249,13 +189,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
     }
 
-    /// <summary>
-    /// Every place <paramref name="name"/> is written in <paramref name="modules"/>, in any case, and what it refers to at each.
-    /// </summary>
-    /// <remarks>
-    /// The static pass binds each name, and recurses once for each level of an expression: it runs on a large-stack thread, one for the call (a hover, a rename,
-    /// the references of a name), and not one for each module or each expression.
-    /// </remarks>
     public static NameOccurrences Find(RenameContext context, string name, IEnumerable<RenameModule> modules)
     {
         if (!LargeStackThread.IsCurrent)
@@ -300,9 +233,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return new(occurrences, unknown);
     }
 
-    /// <summary>
-    /// The symbol whose identity is <paramref name="id"/>, when the workspace or what it references declares it.
-    /// </summary>
     public static Symbol? SymbolOf(RenameContext context, SemanticId id)
     {
         if (context.ScopeTree.TryGetScope(id.Uri, out var scope)
@@ -330,18 +260,15 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
     private static Symbol? FieldOf(VBUserDefinedTypeMemberSymbol type, string name)
         => type.Members.FirstOrDefault(field => string.Equals(field.Name, name, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The address of the module a symbol is declared in: the first part of its address.</summary>
     public static Uri ModuleOf(Uri symbol)
         => new UriBuilder(symbol) { Fragment = SymbolUri.ModuleNameOf(symbol) }.Uri;
 
-    /// <summary>Whether a module of the workspace declares the symbol.</summary>
     public static bool IsDeclaredBy(RenameContext context, Symbol symbol)
     {
         var module = ModuleOf(symbol.Uri).AbsoluteUri;
         return context.Modules.Any(candidate => candidate.Module.AbsoluteUri == module);
     }
 
-    /// <summary>The name of a module that implements the class as an interface (<c>Implements</c>), when one does.</summary>
     public static string? ImplementerOf(RenameContext context, VBClassModuleSymbol type)
     {
         foreach (var module in context.Modules)
@@ -365,9 +292,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return null;
     }
 
-    /// <summary>
-    /// What else is declared as <paramref name="name"/> where <paramref name="symbol"/> is declared: in its procedure, its module, or its type.
-    /// </summary>
     public static Symbol? SiblingNamed(RenameContext context, Symbol symbol, string name)
     {
         if (symbol is VBUserDefinedTypeFieldSymbol && SymbolOf(context, new SemanticId(symbol.ParentUri)) is VBUserDefinedTypeMemberSymbol type)
@@ -380,7 +304,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return declaring?.DeclaredAs(name).FirstOrDefault(declared => declared.SemanticId != symbol.SemanticId);
     }
 
-    /// <summary>What a symbol is, as a reader would name it: its qualified name in the workspace or its library (<see cref="SymbolUri.QualifiedNameOf"/>).</summary>
     public static string Describe(Symbol symbol) => SymbolUri.QualifiedNameOf(symbol.Uri) is { Length: > 0 } path ? path : symbol.Name;
 
     // what the static pass binds the expressions of each procedure of the module to: on a large-stack thread, which a caller that is on one already is.
@@ -684,10 +607,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         return string.Equals(procedure[(procedure.LastIndexOf('.') + 1)..], name, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// Every node of the tree with the node that holds it, as it is written.
-    /// </summary>
-    /// <param name="root">The node the walk starts from, which no node holds.</param>
     public static IEnumerable<(SyntaxNode Node, SyntaxNode? Parent)> Walk(SyntaxNode root)
     {
         var pending = new Stack<(SyntaxNode Node, SyntaxNode? Parent)>();
@@ -703,11 +622,6 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
         }
     }
 
-    /// <summary>
-    /// What each expression of a module refers to, as the static pass binds it: the pass is run once, for every procedure of the module, and an expression it
-    /// did not evaluate is evaluated on its own in the scope it is written in.
-    /// </summary>
-    /// <returns>What an expression refers to; <see langword="null"/> when its meaning is not known, or when it refers to no symbol.</returns>
     public static Func<ExpressionNode, SemanticId?> BindingsOf(RenameContext context, RenameModule module)
     {
         var facts = FactsOf(context, module);

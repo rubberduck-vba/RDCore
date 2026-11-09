@@ -20,36 +20,13 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Binding;
 
-/// <summary>
-/// What an expression binds to (IR lowering §3.3): its declared type, or the compile error it is, and for an operation the plan of the operation, made for
-/// the declared types of its operands.
-/// </summary>
-/// <param name="Node">The <c>Identity</c> of the expression.</param>
-/// <param name="Result">What the static semantics make of the expression.</param>
-/// <param name="Plan">
-/// The plan of the operation, for an operator expression whose operands have a declared type: final when the declared types decide it, deferred when the value
-/// of an operand does. <see langword="null"/> for an expression that is not an operation, and for the parentheses around one (a conversion).
-/// </param>
 public sealed record class BoundExpression(SyntaxNodeId Node, StaticSemanticsEvaluationResult Result, OperationPlan? Plan)
 {
-    /// <summary>
-    /// The declared type of the expression; <see langword="null"/> when it is a compile error.
-    /// </summary>
     public VBType? DeclaredType => Result.Result;
 
-    /// <summary>
-    /// The compile error the expression is, if it is one.
-    /// </summary>
     public VBCompileErrorInfo? Error => Result.ErrorInfo;
 }
 
-/// <summary>
-/// What the expressions of a tree bind to, recorded as the static semantics evaluate them: an operand before the expression that has it.
-/// </summary>
-/// <remarks>
-/// The bindings are those of the expressions the static semantics evaluate: an expression after an operand that is a compile error is not evaluated, and is not
-/// bound. Like the evaluation it records, a recorder is for one binding at a time: it is not thread-safe.
-/// </remarks>
 public sealed class ExpressionBindings
 {
     private readonly Dictionary<SyntaxNodeId, BoundExpression> _bound = [];
@@ -63,38 +40,14 @@ public sealed class ExpressionBindings
     // asked of after its argument, which it is not asked of again.
     private readonly Dictionary<ExpressionNode, bool> _constant = new(ReferenceEqualityComparer.Instance);
 
-    /// <summary>
-    /// The layout of the activations of the procedure the expressions are written in, which binds its parameters and variables to their slots;
-    /// <see langword="null"/> when the expressions are bound outside a procedure, and no variable is bound to a slot.
-    /// </summary>
     public FrameLayout? Frame { get; init; }
 
-    /// <summary>
-    /// What each expression bound to, by its <c>Identity</c>.
-    /// </summary>
     public IReadOnlyDictionary<SyntaxNodeId, BoundExpression> Bound => _bound;
 
-    /// <summary>
-    /// What the expression with this <c>Identity</c> bound to, if it was bound.
-    /// </summary>
     public BoundExpression? this[SyntaxNodeId node] => _bound.GetValueOrDefault(node);
 
-    /// <summary>
-    /// The bound tree of an expression that was bound (<see cref="BoundNode"/>); <see langword="null"/> for one that was not.
-    /// </summary>
-    /// <param name="expression">The expression.</param>
-    /// <remarks>
-    /// The tree is the one of this expression, and of no other that has the same <c>Identity</c>: an expression the runtime makes of another, to call what an
-    /// assignment writes through, has the identity of the one it was made of. What it binds to does not depend on which of them was bound last.
-    /// </remarks>
     public BoundNode? NodeOf(ExpressionNode expression) => _nodes.GetValueOrDefault(expression);
 
-    /// <summary>
-    /// Records what an expression the static semantics evaluated binds to. An expression that is evaluated again has its binding replaced.
-    /// </summary>
-    /// <param name="context">The context the expression was evaluated in: the scope its names resolve from.</param>
-    /// <param name="expression">The expression.</param>
-    /// <param name="result">What the static semantics made of it.</param>
     internal void Record(StaticEvaluationContext context, ExpressionNode expression, StaticSemanticsEvaluationResult result)
     {
         var plan = PlanOf(expression);
@@ -347,35 +300,10 @@ public sealed class ExpressionBindings
     private VBType? DeclaredTypeOf(ExpressionNode operand) => _results.GetValueOrDefault(operand)?.DeclaredType;
 }
 
-/// <summary>
-/// What an assignment binds to: its target and its value, and the plan of the let-coercion of the value to the target.
-/// </summary>
-/// <param name="Expressions">What the expressions of the target and of the value bind to.</param>
-/// <param name="Conversion">
-/// The plan of the let-coercion of the value to the declared type of the target, for a Let assignment whose target and value have one; <see langword="null"/>
-/// for a Set assignment, which is not a let-coercion, and when either is a compile error or the target's type is not known.
-/// </param>
 public sealed record class BoundAssignment(ExpressionBindings Expressions, ConversionPlan? Conversion);
 
-/// <summary>
-/// Binds expressions (IR lowering §3.3): each to its declared type, as the static semantics evaluate it, and each operation to its
-/// <see cref="OperationPlan"/>, made for the declared types of its operands - final when they decide it, deferred when a value does.
-/// </summary>
-/// <remarks>
-/// The binder is the static evaluation itself, with a recorder for what it evaluates (<see cref="StaticEvaluationContext.Bindings"/>): a declared type is the
-/// one the static semantics give the expression, by construction. The run time evaluates the bound tree of each expression it is given
-/// (<see cref="ExpressionBindings.NodeOf"/>): names read through their slots, operations by their plans, calls and members resolved once.
-/// </remarks>
 public static class ExpressionBinder
 {
-    /// <summary>
-    /// What an expression, and each expression in it, binds to.
-    /// </summary>
-    /// <param name="context">The context the expression is evaluated in. What the evaluation would record of its facts is not recorded: binding is not
-    /// analyzing.</param>
-    /// <param name="expression">The expression.</param>
-    /// <param name="frame">The layout of the activations of the procedure the expression is written in, which binds its variables to their slots;
-    /// <see langword="null"/> to bind none to a slot.</param>
     public static ExpressionBindings Bind(StaticEvaluationContext context, ExpressionNode expression, FrameLayout? frame = null)
     {
         var bindings = new ExpressionBindings { Frame = frame };
@@ -383,11 +311,6 @@ public static class ExpressionBinder
         return bindings;
     }
 
-    /// <summary>
-    /// What an assignment binds to: the expressions of its target and of its value, and the plan of the let-coercion of the value to the target.
-    /// </summary>
-    /// <param name="context">The context the assignment is evaluated in.</param>
-    /// <param name="assignment">The assignment.</param>
     public static BoundAssignment BindAssignment(StaticEvaluationContext context, AssignmentStatementNode assignment)
     {
         var bindings = new ExpressionBindings();

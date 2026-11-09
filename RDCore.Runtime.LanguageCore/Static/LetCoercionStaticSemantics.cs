@@ -11,9 +11,7 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// MS-VBAL 5.5.1.1 Let-coercion (static semantics)
-/// </summary>
+// MS-VBAL §5.5.1.1
 public record class LetCoercionStaticSemantics : StaticSemantics
 {
     private static readonly Lazy<LetCoercionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
@@ -74,12 +72,6 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             : StaticSemanticsEvaluationResult.Error(GetStaticCoercionTypeMismatchErrorInfo(expression, operandDeclaredTypes));
     }
 
-    /// <summary>
-    /// The name of the user-defined type a Variant can't hold a record of: the type's, when it is one a module of the project declares - a referenced
-    /// library's public type is one it holds (<see cref="VBExternalUserDefinedType"/>) - or an array of its records' type.
-    /// </summary>
-    /// <param name="type">The declared type of what is given to a Variant.</param>
-    /// <returns>The type's name, or <c>null</c> when a Variant holds what the type is.</returns>
     public static string? RecordOf(VBType type) => type switch
     {
         VBUserDefinedType { Symbol.Name: var name } and not VBExternalUserDefinedType => name,
@@ -87,14 +79,6 @@ public record class LetCoercionStaticSemantics : StaticSemantics
         _ => null,
     };
 
-    /// <summary>
-    /// NOTE: This section of the MS-VBAL specification is notoriously evil. 
-    /// The mind-bending double-negative logic underlying this implementation is fully intentional.
-    /// Readability tweaks welcome, but pattern-matching and helper functions are the only way to keep one's sanity here.
-    /// </summary>
-    /// <returns>
-    /// <c>true</c> if a let-coercion operation is <strong>invalid</strong> between the specified source and destination data types.
-    /// </returns>
     private static bool IsLetCoercionInvalid(VBType source, VBType destination) => source switch
     {
         VBType when destination is VBFixedSizeArrayType => true,
@@ -133,28 +117,7 @@ public record class LetCoercionStaticSemantics : StaticSemantics
             ? string.Equals(leftClass.Symbol.Uri.AbsoluteUri, rightClass.Symbol.Uri.AbsoluteUri, StringComparison.Ordinal)
             : left == right;
 
-    /// <summary>
-    /// Helper function to twist the rules exactly in the same manner they're specified.
-    /// </summary>
-    /// <param name="source">The let-coercion <em>source</em> data type.</param>
-    /// <param name="exceptTypeKinds">The kinds of type to exclude from the rule match.</param>
-    /// <returns>
-    /// <c>true</c> if the <c>source</c> type is not a kind of any of the <c>exceptTypeKinds</c>.
-    /// </returns>
-    /// <remarks>
-    /// 👉 Matches by <em>kind</em> (<see cref="Type.IsInstanceOfType(object?)"/>), not by value equality:
-    /// a parameterized type like <see cref="VBFixedSizeArrayType"/> has infinitely many instances (one
-    /// per element type), so comparing against a single representative instance would only ever exclude
-    /// that one specific element type.
-    /// </remarks>
     private static bool AnyTypeExceptNonByteResizableArrayOr(VBType source, params Type[] exceptTypeKinds)
         => !IsNonByteResizableArray(source) && !exceptTypeKinds.Any(kind => kind.IsInstanceOfType(source));
-    /// <summary>
-    /// Helper function to twist the rules exactly in the same manner they're specified.
-    /// </summary>
-    /// <param name="type">The data type to control.</param>
-    /// <returns>
-    /// <c>true</c> if the <c>type</c> is a <c>VBResizableArrayType</c> but not a <c>VBResizableByteArrayType</c>.
-    /// </returns>
     private static bool IsNonByteResizableArray(VBType type) => type is VBResizableArrayType and not VBResizableByteArrayType;
 }

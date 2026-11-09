@@ -13,36 +13,9 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// <strong>RD-VBAL §5.3.1.11</strong>: a public variable of an object, named as a member of it, or an element of one, given to a <c>ByRef</c> parameter is
-/// passed as a copy, as <strong>MS-VBA</strong> passes it (recorded in Excel), where <strong>MS-VBAL §5.6.12</strong> and <strong>§5.3.1.11</strong> pass it
-/// by reference.
-/// </summary>
-/// <remarks>
-/// <para>
-/// MS-VBA implements a public variable of a class as a property of the class's interface: what a caller is given of <c>b.Count</c> is the value its
-/// <c>Get</c> returns, and what the callee assigns to the parameter is lost. Whichever way the member is named - through a variable of the class, through
-/// <c>Me</c>, relative to a <c>With</c> block - and whatever takes it - a procedure of the workspace, a <c>ParamArray</c>, a <c>Declare</c>d procedure, a
-/// procedure called late, the handlers of a raised event - the call is the same, and so is an element of one, <c>b.V(0)</c> (oracle\s55 B, s58 B01, F01-F05,
-/// s59 M04). Named by itself in its own class, <c>Count</c> is the variable, and <c>V(0)</c> its element, as a variable of a standard module is however it
-/// is named (<c>Counter</c>, <c>Globals.Counter</c>).
-/// </para>
-/// <para>
-/// A member of an object bound late (<c>u.Count</c>, <c>u</c> an <c>Object</c> or a <c>Variant</c>) is passed as a copy too, but whether it is a variable is
-/// not known until the program runs, and it is not flagged. Nor is what a member of a referenced library is given, whose <c>ByRef</c> parameters are mostly
-/// what the library only reads.
-/// </para>
-/// </remarks>
+// RD-VBAL §5.3.1.11; MS-VBAL §5.6.12, §5.3.1.11
 public static class ObjectVariableArgumentStaticSemantics
 {
-    /// <summary>
-    /// Flags each argument of a call that is a public variable of an object named as its member, or an element of one: for a <c>ByRef</c> parameter of the
-    /// procedure called (<see cref="ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy"/>), or for any parameter of a procedure called late, which may
-    /// take it by reference (<see cref="ValueExpressionSemanticFlags.ObjectVariablePassedLateAsACopy"/>): a fact of the argument, for an analyzer to say.
-    /// </summary>
-    /// <param name="context">The compile-time context the call is evaluated against; nothing is recorded without its facts.</param>
-    /// <param name="callee">What the call calls.</param>
-    /// <param name="arguments">The arguments, as written; they have been evaluated.</param>
     public static void MarkPassedAsCopies(StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments)
     {
         if (context.Facts is null)
@@ -70,18 +43,7 @@ public static class ObjectVariableArgumentStaticSemantics
         }
     }
 
-    /// <summary>
-    /// Flags each argument given to <paramref name="parameters"/> that is a public variable of an object named as its member, or an element of one, for a
-    /// <c>ByRef</c> parameter or a <c>ParamArray</c> (<see cref="ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy"/>): a call's, or a
-    /// <c>RaiseEvent</c>'s, whose arguments are its event's.
-    /// </summary>
-    /// <remarks>
-    /// <strong>MS-VBAL §5.3.1.11</strong> passes such an argument of a <c>ByRef</c> parameter by reference, and so does <strong>§5.4.2.20</strong> for the
-    /// arguments of a <c>RaiseEvent</c>, which it processes as a call's; MS-VBA passes a copy (RD-VBAL §5.3.1.11).
-    /// </remarks>
-    /// <param name="context">The compile-time context the arguments are evaluated against; nothing is recorded without its facts.</param>
-    /// <param name="parameters">The parameters the arguments are given to, in order.</param>
-    /// <param name="arguments">The arguments, as written; they have been evaluated.</param>
+    // MS-VBAL §5.3.1.11, §5.4.2.20; RD-VBAL §5.3.1.11
     public static void MarkPassedAsCopies(StaticEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters, IReadOnlyList<ExpressionNode> arguments)
     {
         for (var index = 0; index < arguments.Count; index++)

@@ -12,26 +12,12 @@ using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
-/// <summary>
-/// MS-VBAL 5.6.10 Simple Name Expressions (static semantics).
-/// The declared type of a <em>simple name expression</em> is the declared type of the entity its
-/// identifier resolves to (<strong>RD-VBAL §2.3.1.2</strong> for the resolution order itself). A name written with a
-/// <em>type-declaration character</em> (<c>Left$</c>) binds as <see cref="SymbolResolverNameExtensions.ResolveValue"/>
-/// describes.
-/// </summary>
+// MS-VBAL §5.6.10; RD-VBAL §2.3.1.2
 public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<SimpleNameExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
     public static SimpleNameExpressionStaticSemantics Instance => _instance.Value;
 
-    /// <summary>
-    /// Determines the declared type of a <see cref="SimpleNameExpressionNode"/> from the entity its
-    /// identifier resolves to in <paramref name="context"/>.
-    /// </summary>
-    /// <param name="context">The compile-time context this expression is evaluated against.</param>
-    /// <param name="expression">The <see cref="SimpleNameExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">Unused: a simple name has no operands.</param>
-    /// <exception cref="ArgumentException"><paramref name="expression"/> is not a <see cref="SimpleNameExpressionNode"/>.</exception>
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not SimpleNameExpressionNode simpleName)
@@ -105,12 +91,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     private static bool IsReservedFunctionOfTheLibrary(SimpleNameExpressionNode name, Symbol symbol)
         => ReservedNameStaticSemantics.IsReservedName(name.IdentifierName) && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(symbol);
 
-    /// <summary>
-    /// Whether <paramref name="name"/> is a reserved function of the library written with a type character that does not match the function's declared type:
-    /// <strong>MS-VBAL §5.6.10</strong> makes it invalid, and MS-VBA ignores the character (<see cref="Flags.ValueExpressionSemanticFlags.IgnoredTypeCharacter"/>).
-    /// </summary>
-    /// <param name="name">The name.</param>
-    /// <param name="symbol">What it resolves to.</param>
+    // MS-VBAL §5.6.10
     internal static bool IgnoresTypeCharacter(SimpleNameExpressionNode name, Symbol symbol)
         => name.TypeHint is { Length: > 0 } hint && !string.Equals(symbol.Name, name.WrittenName, StringComparison.OrdinalIgnoreCase)
             && IsReservedFunctionOfTheLibrary(name, symbol) && symbol is ITypedSymbol { ResolvedType: var declared } && declared is not VBUnknownType

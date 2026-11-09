@@ -12,47 +12,18 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
-/// <summary>
-/// MS-VBAL 5.6.13 Index Expressions (static semantics). <c>callee(arguments)</c> is either an array
-/// element access, a call to a specific class's default member, or a call to whatever
-/// <see cref="IndexExpressionNode.Callee"/> itself already resolves to (a function or property-get
-/// reference, whose declared type already <em>is</em> its return type: see
-/// <see cref="SimpleNameExpressionStaticSemantics"/> and <see cref="MemberAccessExpressionStaticSemantics"/>).
-/// </summary>
+// MS-VBAL §5.6.13
 public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
 {
     private static readonly Lazy<IndexExpressionStaticSemantics> _instance = new(() => new(), LazyThreadSafetyMode.PublicationOnly);
 
-    /// <summary>
-    /// The shared instance: this rule has no state of its own.
-    /// </summary>
     public static IndexExpressionStaticSemantics Instance => _instance.Value;
 
-    /// <summary>
-    /// Whether <paramref name="index"/> is an empty argument list given to what was already given one, <c>f()()</c>: of an array, <strong>MS-VBAL 5.6.13.1</strong>
-    /// makes it invalid, and <strong>MS-VBA</strong> compiles it.
-    /// </summary>
-    /// <param name="index">The index expression.</param>
+    // MS-VBAL §5.6.13.1
     public static bool IsASecondEmptyArgumentList(IndexExpressionNode index)
         => IndexExpressionNode.IsEmptyArgumentList(index.Arguments) && index.Callee is IndexExpressionNode given && IndexExpressionNode.IsEmptyArgumentList(given.Arguments);
 
-    /// <summary>
-    /// Determines the declared type of an <see cref="IndexExpressionNode"/> from its
-    /// <see cref="IndexExpressionNode.Callee"/>'s already-determined declared type.
-    /// </summary>
-    /// <param name="context">
-    /// The compile-time context this expression is evaluated against. The classification is structural (the callee's declared type), except for a callee
-    /// that is a simple name of no type known yet: whether that name is declared at all is looked up from the context's scope.
-    /// </param>
-    /// <param name="expression">The <see cref="IndexExpressionNode"/> being evaluated.</param>
-    /// <param name="operandDeclaredTypes">
-    /// <see cref="IndexExpressionNode.Callee"/>'s already-determined declared type, at
-    /// <see cref="InputIndex.IndexExpressionCallee"/>. <see cref="IndexExpressionNode.Arguments"/>
-    /// carry no independent declared type this rule needs: MS-VBAL 5.6.13's argument-count/rank and
-    /// parameter-list compatibility checks are not modeled: <see cref="VBArrayType"/> doesn't carry a
-    /// rank, and no parameter-list representation exists for a resolved function/property-get type.
-    /// </param>
-    /// <exception cref="ArgumentException"><paramref name="expression"/> is not an <see cref="IndexExpressionNode"/>.</exception>
+    // MS-VBAL §5.6.13
     public StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, ExpressionNode expression, params VBType[] operandDeclaredTypes)
     {
         if (expression is not IndexExpressionNode index)

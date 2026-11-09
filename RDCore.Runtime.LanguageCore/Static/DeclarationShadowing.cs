@@ -6,26 +6,9 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Tells what a local or a parameter hides (<see cref="DeclarationFact.Hides"/>): what its name means in the rest of the module.
-/// </summary>
-/// <remarks>
-/// A simple name is first matched in its procedure (<strong>MS-VBAL §5.6.10</strong>), so a local or a parameter named like a member of its module, a
-/// <c>Public</c> member of another module, a member of a library (<c>Left</c>, <c>Date</c>) or a module, means itself in its procedure, and that other declaration
-/// everywhere else. What it hides is what the name resolves to as seen from the module, past the procedure's own names.
-/// </remarks>
+// MS-VBAL §5.6.10
 public static class DeclarationShadowing
 {
-    /// <summary>
-    /// What <paramref name="declared"/> hides.
-    /// </summary>
-    /// <param name="declared">A symbol the module declares.</param>
-    /// <param name="resolver">Resolves names as the session has them.</param>
-    /// <param name="module">The module that declares it.</param>
-    /// <returns>
-    /// What it hides, or <see langword="null"/> when it is not a local or a parameter, or its name means nothing else in the module, or means more than one thing
-    /// there (which is an error of its own).
-    /// </returns>
     public static HiddenDeclaration? Of(Symbol declared, ISymbolResolver resolver, Uri module)
     {
         // Me is the object a member is called on, which no other declaration can be named (MS-VBAL 5.3.1.5).

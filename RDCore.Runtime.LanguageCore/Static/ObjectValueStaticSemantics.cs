@@ -20,46 +20,9 @@ using RDCore.SDK;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// What an object is where a value is expected, at compile time: the static half of <strong>MS-VBAL §5.5.1.2.13</strong>'s <em>simple data value</em>
-/// (<strong>MS-VBAL §5.5.1.1</strong>).
-/// </summary>
-/// <remarks>
-/// <para>
-/// A value is expected of the value of a <c>Let</c> assignment to a variable of a value type, of an operand of any operator but <c>Is</c>, of an argument of a
-/// parameter declared with a value type - <c>ByVal</c>, or <c>ByRef</c> and given an expression - and of an argument of the standard library's parameters that
-/// read a value (<see cref="SymbolProperties.ValueDestination"/>). There, an object stands for what its default member returns, and what cannot have a value
-/// is a compile error, as MS-VBA has it (recorded in Excel):
-/// </para>
-/// <list type="bullet">
-/// <item>The <c>Nothing</c> literal: <see cref="VBCompileErrorId.InvalidUseOfObject"/>. An object variable that holds <c>Nothing</c> compiles, and raises error
-/// 91 when it runs.</item>
-/// <item>An object of a class whose default member takes an argument, as a <c>Collection</c>'s <c>Item</c> does: <see cref="VBCompileErrorId.ArgumentNotOptional"/>.</item>
-/// <item>An object of a class whose default member returns an object, where a value of a declared type is expected:
-/// <see cref="VBCompileErrorId.TypeMismatch"/> (<see cref="ValueDestination.TypedValue"/>). <c>Abs</c>, <c>Int</c> and <c>Fix</c> take one, and read it
-/// when they run (<see cref="ValueDestination.AnyValue"/>); <c>Len</c> and <c>LenB</c> take a <c>String</c> or a variable, which it is not
-/// (<see cref="ValueDestination.StringOrVariable"/>).</item>
-/// </list>
-/// <para>
-/// 👉 An object of a class that has no default member, where a value of a declared type is expected, is statically invalid by MS-VBAL §5.5.1.1. MS-VBA compiles
-/// it, and raises error 438 when it runs (91 when the object is <c>Nothing</c>): RD-VBA does the same (<strong>RD-VBAL §5.5.1.1</strong>), and states it
-/// (<see cref="MarkNoDefaultMember"/>).
-/// </para>
-/// </remarks>
+// MS-VBAL §5.5.1.2.13, §5.5.1.1; RD-VBAL §5.5.1.1
 public static class ObjectValueStaticSemantics
 {
-    /// <summary>
-    /// The declared type of the value <paramref name="expression"/> stands for where a value is expected, or the compile error that it has none.
-    /// </summary>
-    /// <param name="context">The compile-time context: the class of an object is read from it as the composition has it now (see <see cref="CurrentTypes"/>).</param>
-    /// <param name="expression">The expression whose value is expected.</param>
-    /// <param name="declaredType">The declared type of <paramref name="expression"/>.</param>
-    /// <param name="destination">What the place that expects a value expects of an object.</param>
-    /// <returns>
-    /// <paramref name="declaredType"/> for anything that is not an object of a class; the declared type of the class's default member for one that has a
-    /// default member; <see cref="VBObjectType"/> - late-bound - for one that has none, and where a value of any type is expected, for one whose default
-    /// member returns an object; or the error.
-    /// </returns>
     public static StaticSemanticsEvaluationResult ValueOf(StaticEvaluationContext context, ExpressionNode expression, VBType declaredType, ValueDestination destination)
     {
         if (IsNothingLiteral(expression))
@@ -113,16 +76,7 @@ public static class ObjectValueStaticSemantics
         return StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType);
     }
 
-    /// <summary>
-    /// Tells the fact of <paramref name="expression"/> that it is an object of a class that has no default member, Let-coerced to a value
-    /// (<see cref="ValueExpressionSemanticFlags.ValueOfObjectWithNoDefaultMember"/>).
-    /// </summary>
-    /// <param name="facts">Where the fact of <paramref name="expression"/> is; nothing is told without one.</param>
-    /// <param name="expression">The expression that is the object.</param>
-    /// <remarks>
-    /// 👉 <strong>MS-VBAL §5.5.1.1</strong> makes it statically invalid. MS-VBA compiles it, and raises error 438 (Object doesn't support this property or
-    /// method) when it runs, or 91 when the object is <c>Nothing</c>; RD-VBA does as MS-VBA does, and the fact is for an analyzer to report.
-    /// </remarks>
+    // MS-VBAL §5.5.1.1
     public static void MarkNoDefaultMember(IExpressionFactSink? facts, ExpressionNode expression)
     {
         if (facts is not null && facts.TryGet(expression.Identity, out var fact))
@@ -131,15 +85,6 @@ public static class ObjectValueStaticSemantics
         }
     }
 
-    /// <summary>
-    /// What <paramref name="parameter"/> expects of an object given to it; <see langword="null"/> when it takes an object as it is.
-    /// </summary>
-    /// <param name="parameter">A parameter of a procedure.</param>
-    /// <remarks>
-    /// A parameter declared with a value type expects a value of that type; a standard-library parameter declared <c>Variant</c> says what it expects, if it
-    /// reads a value at all (<see cref="SymbolProperties.ValueDestination"/>); any other parameter - <c>Variant</c>, an object, an array, a user-defined type,
-    /// a <c>ParamArray</c> - takes what it is given.
-    /// </remarks>
     public static ValueDestination? DestinationOf(VBParameterSymbol parameter)
     {
         if (parameter is ParamArrayParameterSymbol)
@@ -155,26 +100,10 @@ public static class ObjectValueStaticSemantics
         return IsValueType(parameter.ResolvedType) ? ValueDestination.TypedValue : null;
     }
 
-    /// <summary>
-    /// Whether <paramref name="type"/> is the declared type of a value - a number, a string, a <c>Boolean</c>, a <c>Date</c>, an enumeration - which a
-    /// variable or a parameter declared with it expects of what it is given.
-    /// </summary>
-    /// <param name="type">A declared type.</param>
     public static bool IsValueType(VBType type) => type is INumericType or VBStringType or VBBooleanType or VBDateType or VBEnumType
         || ExpressionStaticSemanticsEvaluator.AsOperand(type) is INumericType;
 
-    /// <summary>
-    /// The first compile error of the arguments of a call, each given to the parameter it is the argument of (<strong>MS-VBAL §5.3.1.11</strong>): an object
-    /// given to a parameter that expects a value of it must have one.
-    /// </summary>
-    /// <param name="context">The compile-time context the arguments are evaluated against.</param>
-    /// <param name="parameters">The parameters of the procedure called; an implicit <c>Me</c> is not one a call gives an argument to.</param>
-    /// <param name="arguments">The arguments of the call, positional and named, as they are written.</param>
-    /// <returns>The first error, or <see langword="null"/> when there is none.</returns>
-    /// <remarks>
-    /// An argument that matches no parameter is not this check's to report: the call's argument list is checked when it runs. A <c>ParamArray</c> takes what
-    /// it collects as it is.
-    /// </remarks>
+    // MS-VBAL §5.3.1.11
     public static VBCompileErrorInfo? ArgumentsError(StaticEvaluationContext context, ImmutableArray<VBParameterSymbol> parameters, IEnumerable<ExpressionNode> arguments)
     {
         var own = OwnParameters(parameters).ToImmutableArray();
@@ -231,16 +160,6 @@ public static class ObjectValueStaticSemantics
         return null;
     }
 
-    /// <summary>
-    /// The error of an argument that is a project, a module or an enumeration (<paramref name="error"/>, the argument's own), given to a parameter that takes a
-    /// <c>String</c> or a variable - what <c>Len</c> and <c>LenB</c> measure: MS-VBA requires a variable there (Excel-verified, oracle\s29 C05, C06, C35, O19).
-    /// </summary>
-    /// <param name="context">The compile-time context the call is evaluated against.</param>
-    /// <param name="callee">What is called.</param>
-    /// <param name="arguments">The arguments of the call.</param>
-    /// <param name="argument">The argument whose evaluation is <paramref name="error"/>.</param>
-    /// <param name="error">The argument's error.</param>
-    /// <returns>The error to report instead, or <see langword="null"/> when <paramref name="error"/> is the one.</returns>
     public static VBCompileErrorInfo? NotAValueArgumentError(
         StaticEvaluationContext context, ExpressionNode callee, ImmutableArray<ExpressionNode> arguments, ExpressionNode argument, VBCompileErrorInfo? error)
     {
@@ -318,21 +237,9 @@ public static class ObjectValueStaticSemantics
 
     private static bool IsAVariable(Symbol? symbol) => symbol is { Kind: SymbolKindExt.Variable or SymbolKindExt.Field } or VBParameterSymbol;
 
-    /// <summary>
-    /// The parameters of the procedure a call written on <paramref name="callee"/> calls - by its bare name, qualified by the project or module that declares
-    /// it, or as a member of an object of a class; <see langword="null"/> when it calls no procedure that is known (an array, a late-bound member).
-    /// </summary>
-    /// <param name="context">The compile-time context the callee is evaluated against.</param>
-    /// <param name="callee">The expression the call is written on.</param>
     public static ImmutableArray<VBParameterSymbol>? ParametersOfCallee(StaticEvaluationContext context, ExpressionNode callee)
         => MemberOfCallee(context, callee) is { } member ? ParametersOf(member) : null;
 
-    /// <summary>
-    /// The procedure a call written on <paramref name="callee"/> calls - by its bare name, qualified by the project or module that declares it, or as a
-    /// member of an object of a class; <see langword="null"/> when it calls no procedure that is known (an array, a late-bound member).
-    /// </summary>
-    /// <param name="context">The compile-time context the callee is evaluated against.</param>
-    /// <param name="callee">The expression the call is written on.</param>
     public static VBTypeMemberSymbol? MemberOfCallee(StaticEvaluationContext context, ExpressionNode callee)
     {
         var symbol = callee switch
@@ -350,12 +257,6 @@ public static class ObjectValueStaticSemantics
         return symbol is VBReturningMemberSymbol or VBProcedureMemberSymbol ? (VBTypeMemberSymbol)symbol : null;
     }
 
-    /// <summary>
-    /// The control of a form that <paramref name="target"/> names - by its bare name in the form's code, or as a member of the form (<c>Me.TextBox1</c>,
-    /// <c>UserForm1.TextBox1</c>); <see langword="null"/> when it names something else (<see cref="SymbolProperties.DesignerControl"/>).
-    /// </summary>
-    /// <param name="context">The compile-time context the target is evaluated against.</param>
-    /// <param name="target">The expression an assignment is written on.</param>
     public static VBTypeMemberSymbol? DesignerControlOf(StaticEvaluationContext context, ExpressionNode target)
     {
         var symbol = target switch

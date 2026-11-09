@@ -11,61 +11,9 @@ using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.LanguageCore.Instructions;
 
-/// <summary>
-/// Lowers a procedure body into an <see cref="InstructionList"/> — <strong>RD-VBAL §3.5</strong>. This
-/// is the statement-tree analogue of <see cref="StatementStaticSemanticsEvaluator"/>: where that walker
-/// recurses through the whole tree checking types and label references, lowering produces the flat,
-/// offset-addressable list a future interpreter drives with a program counter, because <c>GoTo</c>/
-/// <c>GoSub</c>/<c>On…GoTo</c>/<c>Resume</c> can jump anywhere in the procedure and a recursive tree
-/// walk cannot express that.
-/// </summary>
-/// <remarks>
-/// <strong>Scope of this pass.</strong> Every statement lexically inside <c>body</c>, at
-/// any nesting depth, through <c>If</c>/<c>ElseIf</c>/inline <c>If</c>/<c>Select Case</c>/a loop/
-/// <c>With</c>, is lowered. Structured statements stay instructions; block closers (a loop's back-edge,
-/// an <c>If</c>/<c>Case</c> branch's trailing jump) are synthesized, carry no source
-/// <see cref="StatementNode"/> (<see cref="Instruction.Node"/> is <c>null</c>), and are never keyed in
-/// <c>ByNode</c>. An unconditional "else" branch (<c>Else</c>, <c>Case Else</c>) gets no header
-/// instruction of its own — it has no condition to evaluate, so its chain's previous header branches
-/// straight to its body's first instruction. Any statement kind this pass does not recognize as one of
-/// the control-flow shapes above — an ordinary data-manipulation statement (Let/Set-assignment, a
-/// <c>Call</c>) chiefly — falls through as <see cref="InstructionKind.Simple"/>.
-/// <para>
-/// What is wrong with a body is not lowering's to find out: the <see cref="InstructionListLoweringResult.Errors"/> it reports are those of
-/// <see cref="StatementStaticSemanticsEvaluator.CheckStructure"/>, which is the one place the rules are written - every label a jump names must be
-/// defined exactly once in the procedure (<strong>MS-VBAL §5.4.1.1</strong>), an <c>Exit</c> statement must be where it may be
-/// (<see cref="ExitStatementStaticSemantics"/>), and a statement must exist in the language. Lowering only has to act on the outcome: a jump whose
-/// target does not resolve gets a <c>null</c> <see cref="Instruction.Target"/>/<see cref="Instruction.Targets"/> entry, a repeated label definition
-/// keeps its first offset, and an <c>Exit</c> that is where it may not be, or a bare <c>Print</c> in a language that has none, gets no instruction.
-/// </para>
-/// <para>
-/// A statement (or label) lexically inside a dead <c>#If</c>/<c>#ElseIf</c>/<c>#Else</c> branch — a
-/// <c>Lower</c> call's own <c>deadRanges</c> argument, from
-/// <c>RDCore.Runtime.Semantics.Precompiler.PrecompilerLiveBranchEvaluator</c> — is skipped entirely: no
-/// instruction, no <c>ByNode</c> entry, no label definition, exactly as if the excluded text had never
-/// been there.
-/// </para>
-/// </remarks>
+// RD-VBAL §3.5; MS-VBAL §5.4.1.1
 public static class InstructionListLowering
 {
-    /// <summary>
-    /// Lowers <paramref name="body"/> — a procedure's top-level statement list — into an
-    /// <see cref="InstructionList"/>.
-    /// </summary>
-    /// <param name="body">
-    /// A procedure body: a <see cref="MemberDeclarationNode"/>'s own <c>Children</c>, wrapped in a
-    /// <see cref="StatementBlock"/>. A label is scoped to the whole procedure, so passing a nested
-    /// block on its own would under-resolve every jump into or out of it.
-    /// </param>
-    /// <param name="options">
-    /// What the build being lowered for decides: which conditional-compilation branches are dead, and
-    /// whether <c>Debug</c> statements are lowered at all. The default is a debug build of a body with
-    /// no conditional compilation in it.
-    /// </param>
-    /// <param name="procedure">
-    /// The kind of the procedure <paramref name="body"/> belongs to, which the <c>Exit Sub</c>, <c>Exit Function</c> and <c>Exit Property</c>
-    /// statements are checked against. <see langword="null"/> - the default - when it is not known: those statements are not checked then.
-    /// </param>
     public static InstructionListLoweringResult Lower(StatementBlock body, InstructionLoweringOptions options = default, MemberKind? procedure = null)
     {
         var state = new LoweringState(options.Dead, options.IncludeDebugStatements, options.IsReleaseBuild, options.Language, procedure);

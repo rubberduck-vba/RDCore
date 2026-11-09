@@ -10,35 +10,10 @@ using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.Runtime.LanguageCore.Refactoring;
 
-/// <summary>
-/// The name of the parameter an argument is given to, shown before the argument (<strong>LSP 3.17</strong> §Inlay Hint Request).
-/// </summary>
-/// <param name="Position">Where the argument begins.</param>
-/// <param name="Name">The name of the parameter.</param>
 public readonly record struct ParameterHint(SourcePosition Position, string Name);
 
-/// <summary>
-/// The names of the parameters the positional arguments of the calls of a module are given to: <c>MsgBox Prompt: "Hello", Buttons: vbOKOnly</c>.
-/// </summary>
-/// <remarks>
-/// A call is an argument list after a name that the static pass binds to a procedure, a function or a property - of the workspace or of a library it references
-/// (<see cref="SignatureDescription"/>); the argument list of an array, or of anything else, has no hint. A named argument says its parameter itself, and the
-/// arguments after it are named too: none of them has a hint. Neither has an argument that is a name written as its parameter's, nor an argument of a
-/// <c>ParamArray</c> after its first.
-/// </remarks>
 public static class ParameterHints
 {
-    /// <summary>
-    /// The hints of the calls written in <paramref name="range"/> of <paramref name="module"/>.
-    /// </summary>
-    /// <param name="context">The workspace.</param>
-    /// <param name="module">The module.</param>
-    /// <param name="range">The range a client shows.</param>
-    /// <returns>The hints, in the order they are written.</returns>
-    /// <remarks>
-    /// The static pass that binds each callee recurses once for each level of an expression: the hints are made on a large-stack thread, one for the call, and
-    /// not one for each callee (<see cref="LargeStackThread"/>).
-    /// </remarks>
     public static IReadOnlyList<ParameterHint> In(RenameContext context, Uri module, SourceRange range)
     {
         if (!LargeStackThread.IsCurrent)

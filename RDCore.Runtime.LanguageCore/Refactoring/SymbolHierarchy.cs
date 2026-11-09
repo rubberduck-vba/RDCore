@@ -8,62 +8,24 @@ using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.Runtime.LanguageCore.Refactoring;
 
-/// <summary>
-/// A symbol of a hierarchy - a procedure that calls or is called, a class that implements or is implemented - and where it is declared.
-/// </summary>
-/// <param name="Symbol">The symbol.</param>
-/// <param name="Module">The address of the module that declares it.</param>
-/// <param name="Range">Its whole declaration; a module's is the start of its document.</param>
-/// <param name="SelectionRange">The name it declares.</param>
 public sealed record class HierarchyItem(Symbol Symbol, Uri Module, SourceRange Range, SourceRange SelectionRange);
 
-/// <summary>
-/// A call of a hierarchy: the procedure on the other side of it, and where the calls are written - in the caller, for an incoming call; in the procedure the
-/// hierarchy is of, for an outgoing one.
-/// </summary>
-/// <param name="Item">The caller of an incoming call, or what an outgoing call calls.</param>
-/// <param name="Ranges">Where each call is written: the name that calls.</param>
 public sealed record class HierarchyCall(HierarchyItem Item, IReadOnlyList<SourceRange> Ranges);
 
-/// <summary>
-/// The call hierarchy and the type hierarchy of the workspace (<strong>LSP 3.17</strong> §Call Hierarchy, §Type Hierarchy): which procedures call which, and
-/// which classes implement which (<strong>MS-VBAL §5.2.4.2</strong>). Names are bound the way a rename binds them (<see cref="SymbolNavigation"/>).
-/// </summary>
-/// <remarks>
-/// A procedure, a function and each procedure of a property are items of the call hierarchy; a call is a name that refers to one of them, whatever writes the
-/// name - a call statement, an expression, an argument passed <c>AddressOf</c>. What is declared outside of the workspace - a member of a library - is no item:
-/// it has no place to be shown at. A class module is an item of the type hierarchy; its supertypes are the classes it implements, and its subtypes the classes
-/// that implement it.
-/// </remarks>
+// MS-VBAL §5.2.4.2
 public static class SymbolHierarchy
 {
-    /// <summary>
-    /// The item of the call hierarchy named at <paramref name="position"/> of <paramref name="module"/>: a procedure of the workspace.
-    /// </summary>
-    /// <returns>The item; <see langword="null"/> for a name that names no procedure the workspace declares.</returns>
     public static HierarchyItem? PrepareCalls(RenameContext context, Uri module, SourcePosition position)
         => SymbolNavigation.SymbolAt(context, module, position) is { Symbol: var symbol } && IsCallable(context, symbol) ? ItemOf(context, symbol) : null;
 
-    /// <summary>
-    /// The item of the type hierarchy named at <paramref name="position"/> of <paramref name="module"/>: a class module of the workspace.
-    /// </summary>
-    /// <returns>The item; <see langword="null"/> for a name that names no class the workspace declares.</returns>
     public static HierarchyItem? PrepareTypes(RenameContext context, Uri module, SourcePosition position)
         => SymbolNavigation.SymbolAt(context, module, position) is { Symbol: VBClassModuleSymbol type } && NameOccurrences.IsDeclaredBy(context, type)
             ? ItemOf(context, type)
             : null;
 
-    /// <summary>
-    /// The symbol an item of a hierarchy is of, by its identity: what a client sends back to ask for the calls or the types of an item.
-    /// </summary>
-    /// <returns>The item, as the workspace declares it now; <see langword="null"/> when the workspace no longer declares it.</returns>
     public static HierarchyItem? ItemOf(RenameContext context, SemanticId id)
         => NameOccurrences.SymbolOf(context, id) is { } symbol && NameOccurrences.IsDeclaredBy(context, symbol) ? ItemOf(context, symbol) : null;
 
-    /// <summary>
-    /// The procedures that call the item, each with where in it the calls are written; a call from no procedure - a constant's expression, an attribute - is
-    /// from the module.
-    /// </summary>
     public static IReadOnlyList<HierarchyCall> IncomingCalls(RenameContext context, HierarchyItem item)
     {
         var calls = new List<(HierarchyItem From, SourceRange Range)>();
@@ -84,13 +46,6 @@ public static class SymbolHierarchy
         return Grouped(calls);
     }
 
-    /// <summary>
-    /// What the item calls, each with where in the item the calls are written.
-    /// </summary>
-    /// <remarks>
-    /// The references of each name the item writes are found by the static pass, which runs on a large-stack thread (<see cref="NameOccurrences.Find"/>): one
-    /// for the call, and not one for each name.
-    /// </remarks>
     public static IReadOnlyList<HierarchyCall> OutgoingCalls(RenameContext context, HierarchyItem item)
     {
         if (!LargeStackThread.IsCurrent)
@@ -122,17 +77,11 @@ public static class SymbolHierarchy
         return Grouped(calls);
     }
 
-    /// <summary>
-    /// The classes of the workspace that the item's class implements.
-    /// </summary>
     public static IReadOnlyList<HierarchyItem> Supertypes(RenameContext context, HierarchyItem item)
         => item.Symbol is VBClassModuleSymbol type
             ? [.. type.ImplementedInterfaces.Where(implemented => NameOccurrences.IsDeclaredBy(context, implemented)).Select(implemented => ItemOf(context, implemented))]
             : [];
 
-    /// <summary>
-    /// The classes of the workspace that implement the item's class.
-    /// </summary>
     public static IReadOnlyList<HierarchyItem> Subtypes(RenameContext context, HierarchyItem item)
         => item.Symbol is VBClassModuleSymbol type
             ? [.. SymbolNavigation.ImplementersOf(context, type).Select(implementer => ItemOf(context, implementer)).OrderBy(found => found.Symbol.Name, StringComparer.OrdinalIgnoreCase)]

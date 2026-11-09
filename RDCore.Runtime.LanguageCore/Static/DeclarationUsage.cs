@@ -11,36 +11,8 @@ using RDCore.SDK.Semantics;
 
 namespace RDCore.Runtime.LanguageCore.Static;
 
-/// <summary>
-/// Counts how the declarations of a module are used by its code, from the expression facts of its procedures, where the count is the whole truth.
-/// </summary>
-/// <remarks>
-/// A fact is stated only when it is true, and a count of the references to a declaration is true only when every reference to it is among the ones counted. That
-/// takes two things, and a declaration that lacks either has no count (<see cref="DeclarationFact.References"/> is <see langword="null"/>):
-/// <list type="bullet">
-/// <item>Nothing outside the code analyzed can refer to it: a local, a parameter, a <c>Private</c> variable or constant. A <c>Public</c> or <c>Friend</c>
-/// declaration can be referred to from another module; a procedure, a property or an event is also called by convention (an event handler, a member that implements
-/// an interface) or by name at run time, which no expression says.</item>
-/// <item>The code that could refer to it was analyzed completely (<see cref="ProcedureSemanticModel.IsFullyAnalyzed"/>): a procedure that has an error, or that
-/// the pass does not look into entirely, may refer to anything. For a local or a parameter that is its procedure; for a variable or a constant of the module,
-/// every procedure of it.</item>
-/// </list>
-/// What is counted is each expression bound to the declaration: written to when it is flagged <see cref="ValueExpressionSemanticFlags.AssignmentTarget"/>,
-/// passed as an argument that may be taken by reference when it is flagged <see cref="ValueExpressionSemanticFlags.PassedAsArgument"/>, read otherwise.
-/// </remarks>
 public static class DeclarationUsage
 {
-    /// <summary>
-    /// Counts the references to <paramref name="declared"/> by <paramref name="procedures"/>.
-    /// </summary>
-    /// <param name="declared">
-    /// The symbols the module declares, of which the variables, constants, parameters, procedures, properties and events are the declarations stated: its members,
-    /// and the parameters and locals of its procedures. Whatever else is among them is not a declaration of one of those kinds, and is left out.
-    /// </param>
-    /// <param name="procedures">The models of the procedures of the module.</param>
-    /// <param name="roles">What the members of a class module are there for (<see cref="MemberRoles"/>), or <see langword="null"/> when the module is not a class module.</param>
-    /// <param name="hides">What a declaration hides (<see cref="DeclarationShadowing"/>), or <see langword="null"/> when that is not stated.</param>
-    /// <returns>A fact for each declaration, in the order they are given.</returns>
     public static ImmutableArray<DeclarationFact> Of(
         IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
         Func<Symbol, HiddenDeclaration?>? hides = null)
@@ -106,10 +78,6 @@ public static class DeclarationUsage
             && (type is VBArrayType array ? array.ItemType : type) is VBClassType { Symbol: var created }
             && created.GetProperty(SymbolProperties.CreationAlwaysFails);
 
-    /// <summary>
-    /// Everything a module declares that <see cref="Of"/> states: its members, and the parameters and locals of each.
-    /// </summary>
-    /// <param name="members">The members declared by the module.</param>
     public static IEnumerable<Symbol> DeclaredBy(IEnumerable<VBTypeMemberSymbol> members)
         => members.SelectMany(member => new Symbol[] { member }
             .Concat(DeclarationStaticSemanticsEvaluator.ParametersOf(member))
