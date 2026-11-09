@@ -16,6 +16,7 @@ public sealed record class SymbolSite(Uri Module, SourceRange Range, SourceRange
 
 public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Symbol, IReadOnlyList<SymbolSite> Sites)
 {
+    // RD-VBAL §2.6.1
     public IReadOnlyList<SymbolSite> Unresolved { get; init; } = [];
 
     private static readonly ResourceManager Messages = new("RDCore.SDK.Semantics.Refactoring.RefactoringMessages", typeof(RefactoringTitles).Assembly);
@@ -33,7 +34,7 @@ public sealed record class SymbolNavigationTarget(SourceRange Origin, Symbol Sym
     }
 }
 
-// an #If branch whose state is not known yet counts as compiled; a late-bound member refers to no known symbol, and leads nowhere.
+// an #If branch whose state is not known counts as compiled; a late-bound member refers to no known symbol, and leads nowhere.
 public static class SymbolNavigation
 {
     public static SymbolNavigationTarget? DefinitionsAt(RenameContext context, Uri module, SourcePosition position)
@@ -65,6 +66,7 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
+    // MS-VBAL §5.3.1.7, §5.6.2.1
     public static SymbolNavigationTarget? ReferencesAt(RenameContext context, Uri module, SourcePosition position, bool includeDeclaration = true)
         => NamesOf(context, module, position, includeDeclaration, byAccess: true);
 
@@ -192,6 +194,7 @@ public static class SymbolNavigation
         return new SymbolNavigationTarget(origin, symbol, sites);
     }
 
+    // MS-VBAL §5.2.4.2
     public static SymbolNavigationTarget? ImplementationsAt(RenameContext context, Uri module, SourcePosition position)
     {
         if (RenameBinding.SymbolAt(context, module, position) is not { } named)

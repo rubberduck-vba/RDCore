@@ -9,8 +9,9 @@ public enum WorkspaceFolderRole
     Source = 1,
 }
 
-// a client sends folders it doesn't tell apart (a .vbp's ..\Shared): the first is always a project, a later one with its own .rdproj is a project, and one
+// a client sends folders it does not tell apart (a .vbp's ..\Shared): the first is always a project, a later one with its own .rdproj is a project, and one
 // without is a source folder when an earlier project lists files in it. Worked out on every ask, never remembered.
+// RD-VBAL §2.2.3
 public sealed class WorkspaceFolderRoles
 {
     private readonly WorkspaceFolders _folders;

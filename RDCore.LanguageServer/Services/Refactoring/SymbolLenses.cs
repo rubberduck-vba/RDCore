@@ -9,6 +9,7 @@ namespace RDCore.LanguageServer.Services.Refactoring;
 public sealed record class SymbolLens(string Name, SourceRange NameRange);
 
 // a function's own result, assigned or read in its body, is no reference of it; a recursive call is.
+// MS-VBAL §5.2.3, §5.3
 public static class SymbolLenses
 {
     public static IReadOnlyList<SymbolLens> In(RenameModule module)

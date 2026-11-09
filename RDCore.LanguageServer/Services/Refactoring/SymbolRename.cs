@@ -27,6 +27,7 @@ public enum RenameRefusalKind
 
     Type,
 
+    // MS-VBAL §5.2.3.1.2, §5.3.1.1
     NamedByConvention,
 
     Event,
@@ -67,6 +68,7 @@ public sealed record class RenameRefusal(RenameRefusalKind Kind, string Name, st
 
 public sealed record class RenameTarget(string Name, Uri Module, SourceRange Range, ImmutableArray<SemanticId> Symbols);
 
+// MS-VBAL §6.1.2.8.1.1, §5.6.12
 public readonly record struct RenameEdit(Uri Module, SourceRange Range, string NewText, bool IsInString = false, bool IsLateBound = false, bool IsBacked = false);
 
 public sealed record class RenamePreparation(RenameTarget? Target, RenameRefusal? Refusal);
@@ -78,6 +80,7 @@ public sealed record class RenamePlan(ImmutableArray<RenameEdit> Edits, RenameRe
 
 // a name whose meaning cannot be told is refused, never guessed at; late-bound and in-string edits are flagged for the user to confirm, since only the running
 // code knows what they name.
+// MS-VBAL §5.6.10, §5.6.12
 public static class SymbolRename
 {
     public static RenamePreparation Prepare(RenameContext context, Uri module, SourcePosition position)
