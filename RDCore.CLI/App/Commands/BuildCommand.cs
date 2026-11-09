@@ -77,7 +77,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         foreach (var module in workspace.Modules)
         {
             // the address each module is parsed with: what its instructions say they are written in.
-            builder.AddSource(new Uri(fileSystem.Path.Combine(workspace.Root, module.RelativePath)), module.Source);
+            builder.AddSource(workspace.DocumentOf(module), module.Source);
         }
 
         var built = await runner.BuildAsync(workspace, builder, profile, token);
@@ -100,7 +100,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         }
 
         builder.DefineEntryPoint(typeof(BuiltProgram).GetMethod(nameof(BuiltProgram.Run))!);
-        var image = new BuiltProgramImage(workspace.Project, new Uri(workspace.Root), BuiltEnvironment.Of(built.Environment), entryPoint.Module,
+        var image = new BuiltProgramImage(workspace.Project, workspace.RootUri, BuiltEnvironment.Of(built.Environment), entryPoint.Module,
             entryPoint.Procedure.Name, built.Definitions);
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));
 

@@ -292,7 +292,7 @@ internal sealed class BenchRunner(
     private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token,
         List<DefineSymbolsParams>? definitions = null)
     {
-        var root = new Uri(workspace.Root);
+        var root = workspace.RootUri;
         var provider = new EnvironmentSessionProvider(
             profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, ExternalWorld.None);
         try
@@ -317,7 +317,7 @@ internal sealed class BenchRunner(
         {
             // a module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a branch of a #If
             // that is excluded, which only the host knows.
-            var parse = new ModuleParser().Parse(new Uri(fileSystem.Path.Combine(workspace.Root, module.RelativePath)), module.Source);
+            var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source);
             if (parse.SyntaxTree is not null)
             {
                 parsed.Add((module, SymbolUri.Module(root, module.Name), parse));

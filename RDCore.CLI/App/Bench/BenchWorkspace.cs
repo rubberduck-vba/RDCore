@@ -1,4 +1,5 @@
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 
@@ -27,6 +28,21 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
 {
     /// <summary>The extensions of the module files of a folder that has no <c>.rdproj</c>.</summary>
     public static readonly IReadOnlyList<string> ModuleExtensions = [".bas", ".cls"];
+
+    /// <summary>
+    /// The root of the workspace as its <c>file</c> URI (<see cref="SymbolUri.Root"/>): what its modules are addressed under.
+    /// </summary>
+    public Uri RootUri => SymbolUri.Root(Root);
+
+    /// <summary>
+    /// The <c>file</c> URI of a module of the workspace: the document its parse, and the instructions made of it, say they are written in.
+    /// </summary>
+    /// <remarks>
+    /// Written as its URI, never as its path, as <see cref="SymbolUri.Root"/> writes a root: a parse travels as JSON, and the text of a path that begins with
+    /// <c>/</c> is read back as a relative URI.
+    /// </remarks>
+    /// <param name="module">A module of the workspace.</param>
+    public Uri DocumentOf(BenchModule module) => new(new Uri(Path.Combine(Root, module.RelativePath)).AbsoluteUri);
 
     /// <summary>
     /// The workspace at <paramref name="path"/>: a <c>.bas</c> or <c>.cls</c> file, or a folder.
