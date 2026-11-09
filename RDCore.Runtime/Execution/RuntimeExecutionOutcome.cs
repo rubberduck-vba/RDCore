@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Errors;
 namespace RDCore.Runtime.Execution;
 
 /// <summary>
-/// What executing one <see cref="RDCore.Runtime.LanguageCore.Instructions.Instruction"/> did to control flow —
+/// What executing one <see cref="RDCore.Runtime.LanguageCore.Instructions.Instruction"/> did to control flow:
 /// the executor loop's fetch/decode step reacts to this, deciding the next program-counter value.
 /// </summary>
 public enum RuntimeExecutionOutcomeKind
