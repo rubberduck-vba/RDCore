@@ -118,10 +118,8 @@ public sealed class StdLibSymbolProvider : ISymbolProvider
         // as a VB_PredeclaredId class module's default instance).
         yield return new VBPredeclaredInstanceSymbol(debugClass);
 
-        // MS-VBAL §6.1: the standard library, read off the SDK declarations that define it. The
-        // declaring assembly is this one, and is found through a type of it rather than named, so that
-        // a component with no reference to the concrete library still gets the symbols.
-        foreach (var symbol in new StdLibSymbolReader(_workspaceRoot, globalModule.Uri, _is64Bit).Read(typeof(StdLibSymbolProvider).Assembly))
+        // MS-VBAL §6.1: the standard library, read off the declarations that define it.
+        foreach (var symbol in new StdLibSymbolReader(_workspaceRoot, globalModule.Uri, _is64Bit).Read())
         {
             yield return symbol;
         }

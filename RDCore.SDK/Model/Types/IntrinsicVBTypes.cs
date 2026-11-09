@@ -116,8 +116,8 @@ public static class IntrinsicVBTypes
     /// </summary>
     /// <remarks>
     /// This is how a declaration written in C# states an intrinsic VBA type: naming the value a member
-    /// produces or a parameter accepts names the type, without restating it. The standard-library
-    /// interfaces in <see cref="RDCore.SDK.Runtime.Abstract.StdLib"/> are declared that way.
+    /// produces or a parameter accepts names the type, without restating it. The standard library's
+    /// interfaces are declared that way.
     /// <para>
     /// The mapping covers exactly the intrinsics a declaration can name, which is the same set
     /// <see cref="TryResolve(string, out VBType)"/> resolves by name. The values that have no declarable type (a

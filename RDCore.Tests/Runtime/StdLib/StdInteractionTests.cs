@@ -616,7 +616,7 @@ public sealed class StdInteractionTests
 
     private static readonly Uri Root = new("file://rdcore-test");
 
-    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read(typeof(IStdInteractionModule).Assembly);
+    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read();
 
     private static Symbol Member(string name)
     {

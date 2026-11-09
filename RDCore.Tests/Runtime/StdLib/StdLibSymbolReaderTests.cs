@@ -27,7 +27,7 @@ public sealed class StdLibSymbolReaderTests
 {
     private static readonly Uri Root = new("file://rdcore-test");
 
-    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read(typeof(IStdErrClass).Assembly);
+    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read();
 
     private static VBStandardModuleSymbol Module(string name)
         => Read().OfType<VBStandardModuleSymbol>().Single(module => module.Name == name);

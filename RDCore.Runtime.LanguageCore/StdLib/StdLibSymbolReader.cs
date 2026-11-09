@@ -19,8 +19,8 @@ using System.Reflection;
 namespace RDCore.Runtime.LanguageCore.StdLib;
 
 /// <summary>
-/// Reads the standard library's symbols off the SDK declarations that define it: the interfaces and
-/// enumerations in <see cref="RDCore.SDK.Runtime.Abstract.StdLib"/> marked with
+/// Reads the standard library's symbols off the declarations that define it: the interfaces and
+/// enumerations among <see cref="Declarations"/> marked with
 /// <see cref="StdLibModuleAttribute"/>, <see cref="StdLibClassAttribute"/> and
 /// <see cref="StdLibEnumAttribute"/>.
 /// </summary>
@@ -104,14 +104,22 @@ public sealed class StdLibSymbolReader
         => $"{declaringType.Name}.{method.Name}/{method.GetParameters().Length}";
 
     /// <summary>
-    /// Reads every standard-library declaration an assembly exports.
+    /// Every type the standard library is declared among: the types this assembly exports, which declare its modules, its classes and most of its
+    /// enumerations, and the types the SDK exports, which declare the enumerations its own contracts use (a session's calendar, a file's attributes,
+    /// a dialog's buttons).
     /// </summary>
-    /// <param name="assembly">
-    /// The assembly to scan. Nothing declares which modules a workspace gets: every VBA project has
-    /// the standard library whether or not a <c>.rdproj</c> mentions it (<strong>RD-VBAL §6.1</strong>),
-    /// so the set is whatever carries the markers.
-    /// </param>
-    public ImmutableArray<Symbol> Read(Assembly assembly) => Read(assembly.GetExportedTypes());
+    /// <remarks>
+    /// Nothing declares which modules a workspace gets: every VBA project has the standard library whether or not a <c>.rdproj</c> mentions it
+    /// (<strong>RD-VBAL §6.1</strong>), so the library is whatever carries the markers, in either assembly. Reading only one of them leaves a member
+    /// declared as an enumeration of the other with a type nothing can bind.
+    /// </remarks>
+    public static IEnumerable<Type> Declarations
+        => typeof(StdLibSymbolReader).Assembly.GetExportedTypes().Concat(typeof(StdLibEnumAttribute).Assembly.GetExportedTypes());
+
+    /// <summary>
+    /// Reads every standard-library declaration: the marked types among <see cref="Declarations"/>.
+    /// </summary>
+    public ImmutableArray<Symbol> Read() => Read(Declarations);
 
     /// <summary>
     /// Reads the given standard-library declarations.
