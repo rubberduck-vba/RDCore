@@ -133,4 +133,19 @@ public sealed class ExtractMethodRunTests
     [TestMethod]
     public async Task AStatementContinuedOverSeveralLines_RunsAsItDidInline()
         => Assert.AreEqual("4", await SameAsync("Dim x As Long\nx = n + _\n1\nDebug.Print x", 1, 2));
+
+    // the change the plan reports happens: the object the moved variable holds terminates when the new procedure ends, before what the source procedure
+    // prints after the call.
+    [TestMethod]
+    public async Task AnObjectWhoseVariableMovesIn_TerminatesWhenTheNewProcedureEnds_AsThePlanSays()
+    {
+        var (before, after, _, plan) = await ExtractionRuns.BeforeAndAfterAsync(
+            "Dim t As Thing\nSet t = New Thing\nDebug.Print \"made\"\nDebug.Print \"after\"", 0, 2,
+            classes: [("Thing", RDCore.Tests.Cli.ModuleWorkspace.ClassModule("Thing", "Private Sub Class_Terminate()", "Debug.Print \"terminate\"", "End Sub"))]);
+
+        var change = plan.BehaviourChanges.Single(change => change.Kind == ExtractionBehaviourChangeKind.ObjectReleasedEarlier);
+        CollectionAssert.AreEqual(new[] { "t" }, change.Variables.ToArray());
+        Assert.AreEqual("made | after | terminate", before.Output);
+        Assert.AreEqual("made | terminate | after", after.Output);
+    }
 }

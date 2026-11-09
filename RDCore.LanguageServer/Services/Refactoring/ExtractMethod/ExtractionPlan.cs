@@ -189,6 +189,16 @@ internal enum ExtractionBehaviourChangeKind
     /// does (observed in Excel).
     /// </summary>
     ErrClearedOnEntry,
+
+    /// <summary>
+    /// A variable that becomes the new procedure's own can hold an object: an object it holds last is released when the new procedure ends, and its
+    /// <c>Class_Terminate</c> runs then, before what the source procedure does after the call rather than when the source procedure ends.
+    /// </summary>
+    /// <remarks>
+    /// A variable declared as an object, an array of objects or a user-defined type with an object field can hold one; a <c>Variant</c> can when the
+    /// selection <c>Set</c>-assigns it, or a <c>For Each</c> of it gives it an element.
+    /// </remarks>
+    ObjectReleasedEarlier,
 }
 
 /// <summary>
@@ -198,7 +208,14 @@ internal enum ExtractionBehaviourChangeKind
 /// <param name="Handlers">The labels of the handlers it is about.</param>
 /// <param name="Resumes">The <c>Resume</c> statements of those handlers.</param>
 /// <param name="IsNote">Whether it is a note rather than a change to accept: what only <c>Erl</c> says.</param>
-internal sealed record class ExtractionBehaviourChange(ExtractionBehaviourChangeKind Kind, ImmutableArray<string> Handlers, ImmutableArray<SourceLocation> Resumes, bool IsNote);
+internal sealed record class ExtractionBehaviourChange(ExtractionBehaviourChangeKind Kind, ImmutableArray<string> Handlers, ImmutableArray<SourceLocation> Resumes, bool IsNote)
+{
+    /// <summary>
+    /// The names of the variables it is about, in the order the selection first uses them: those of an
+    /// <see cref="ExtractionBehaviourChangeKind.ObjectReleasedEarlier"/>.
+    /// </summary>
+    public ImmutableArray<string> Variables { get; init; } = [];
+}
 
 /// <summary>
 /// A reason the selection is not extracted, and where it is.

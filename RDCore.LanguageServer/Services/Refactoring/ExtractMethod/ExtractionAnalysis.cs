@@ -8,6 +8,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics;
 using ExpressionClassification = RDCore.SDK.Semantics.ExpressionClassification;
 
@@ -67,6 +68,7 @@ internal static class ExtractionAnalysis
         var locals = new List<ExtractionLocal>();
         var movedOut = new List<SemanticId>();
         var refusals = new List<ExtractionRefusal>();
+        var releasedEarlier = new List<string>();
         var assignsResult = false;
         var readsResult = false;
         foreach (var variable in touched)
@@ -132,6 +134,14 @@ internal static class ExtractionAnalysis
                 locals.Add(new ExtractionLocal(variable, local.Name, type,
                     MovesDeclaration: !usedOutside && local is not VBParameterSymbol && !isUndeclared, IsUndeclared: isUndeclared));
             }
+
+            // a variable that becomes the new procedure's own is released when the new procedure ends, and an object it holds last terminates then.
+            var setBySelection = definitions.Any(definition => definition.Variable == variable
+                && accesses.Instructions.Items[definition.Offset].Node is AssignmentStatementNode { Kind: AssignmentKind.Set } or ForEachStatementNode);
+            if (local is not ParamArrayParameterSymbol && !local.IsStatic && !input && !output && MayHoldAnObject(type, setBySelection))
+            {
+                releasedEarlier.Add(local.Name);
+            }
         }
 
         // the variable a With block names is given to the new procedure once, as the block's target, which the new procedure's own block names.
@@ -145,6 +155,11 @@ internal static class ExtractionAnalysis
         // the exits and jumps are of the code as it is written: one a literal condition never takes is still there, and an edit of the literal takes it.
         var (exits, jumps) = ExtractionControlFlow.Of(selection, ControlFlowGraph.Of(graph.Instructions, model, foldConstants: false));
         var (startsWithResumeNext, changes, errors) = ExtractionControlFlow.ErrorHandlingOf(region, states, ReadsErr(region, accesses.Instructions, scopes, model));
+        if (releasedEarlier.Count > 0)
+        {
+            changes.Add(new ExtractionBehaviourChange(ExtractionBehaviourChangeKind.ObjectReleasedEarlier, [], [], IsNote: false) { Variables = [.. releasedEarlier] });
+        }
+
         return new ExtractionPlan(selection, [.. parameters], [.. locals], [.. movedOut], assignsResult, readsResult, withTarget, [.. jumps, .. errors, .. refusals],
             [.. exits], startsWithResumeNext, [.. changes])
         {
@@ -182,6 +197,18 @@ internal static class ExtractionAnalysis
 
         return [.. inside.Select(read => read.Constant).Where(constant => !DeclaredInside(constant)).Select(constant => constant.SemanticId).Distinct()];
     }
+
+    // whether a variable of the type can hold an object: one declared as an object, an array of them, a user-defined type with an object field; a Variant, an
+    // element or a field of one, when the selection Set-assigns the variable or a For Each of it gives it an element. The type of a field the variable's own
+    // type does not bind is not known: it is an object's when the selection Set-assigns it.
+    private static bool MayHoldAnObject(VBType? type, bool setBySelection) => type switch
+    {
+        null or VBVariantType or VBUnknownType => setBySelection,
+        VBObjectType or VBClassType => true,
+        VBArrayType array => MayHoldAnObject(array.ItemType, setBySelection),
+        VBUserDefinedType record => record.Members.OfType<VBUserDefinedTypeFieldSymbol>().Any(field => MayHoldAnObject(field.ResolvedType, setBySelection)),
+        _ => false,
+    };
 
     // whether the selection reads the library's Err or Erl, which the library runs (an external target): a name the workspace declares is its own.
     private static bool ReadsErr(IReadOnlySet<int> region, InstructionList instructions, ScopeTree scopes, ProcedureSemanticModel model)
