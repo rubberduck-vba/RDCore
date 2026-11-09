@@ -754,8 +754,14 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
                 return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
 
-            // the result of a function of the String type, assigned the text as it is where its frame holds it.
+            // the result of a function of the String type, assigned the text as it is where its frame holds it - or what a call returns, once the call
+            // returned, as the interpreter assigns it.
             case BoundName { Symbol: var function } when ResultIsText && IsOwnFunction(function):
+                if (AssignedCallOf(assigned, offset) is { } textAssigned)
+                {
+                    return textAssigned;
+                }
+
                 return Text(assigned) is { } resultText ? new TextResultLetStep(offset, resultText) : null;
             default:
                 Refuse(IneligibilityKind.AssignmentTarget, ((SimpleNameExpressionNode)assignment.Target).IdentifierName, assignment.SourceLocation);
@@ -825,6 +831,13 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
+        // a member of Me whose result the statement assigns (AssignedCallOf): the object is the activation's own, held in its Me slot.
+        if (assigns && call is { DeclaredClass: not null, Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundInstance { Slot: { } me }, IsLateBound: false }
+            && MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot)
+        {
+            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns);
+        }
+
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: null, IsLateBound: false }
             && _enclosingWith is { } with)
         {
@@ -868,7 +881,7 @@ internal sealed partial class ProcedureAnalysis
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar or a Variant: what the Variant holds is let go of when the statement is over, as the interpreter
         // lets go of it (CompiledActivation.EndStatement); an object, or a String, it returned otherwise would be held by the statement until it ends. A
-        // call whose result the statement assigns returns a Variant or a scalar.
+        // call whose result the statement assigns returns a Variant, a scalar or a String.
         if (assigns ? !ReturnsAssignable(procedure)
             : resultKind is { } read ? ReturnedType(procedure) is not { } returned || ScalarKinds.Of(returned) != read
             : ReturnedType(procedure) is { } discarded && ScalarKinds.Of(discarded) is null && discarded is not VBVariantType)
@@ -943,10 +956,10 @@ internal sealed partial class ProcedureAnalysis
 
     /// <summary>
     /// Whether <paramref name="procedure"/> is a function whose result a statement assigns once the call returned (<see cref="CompiledCallee.AssignsResult"/>):
-    /// of the <c>Variant</c> type, or of a scalar type.
+    /// of the <c>Variant</c> type, of a scalar type, or of the <c>String</c> type of variable length.
     /// </summary>
     internal static bool ReturnsAssignable(VBTypeMemberSymbol procedure)
-        => ReturnedType(procedure) is { } returned && (returned is VBVariantType || ScalarKinds.Of(returned) is not null);
+        => ReturnedType(procedure) is { } returned && (returned is VBVariantType || ScalarKinds.Of(returned) is not null || IsText(returned));
 
     /// <summary>
     /// The type of what <paramref name="procedure"/> returns when it is a <c>Function</c> or a <c>Property Get</c> (MS-VBAL §5.3.1.6, §5.3.1.7);

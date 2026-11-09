@@ -32,6 +32,31 @@ public sealed class CompiledStringResultTests
             "End Function")),
     ];
 
+    // GridCoord through an interface, whose member returns what the class's own member does, called on Me.
+    private static readonly (string Name, string Source)[] Interfaced =
+    [
+        ("IGridCoord", ModuleWorkspace.ClassModule("IGridCoord", "Option Explicit",
+            "Public Function ToString() As String",
+            "End Function")),
+        ("GridCoord", ModuleWorkspace.ClassModule("GridCoord", "Option Explicit",
+            "Implements IGridCoord",
+            "Private Type TCoord",
+            "    X As Long",
+            "    Y As Long",
+            "End Type",
+            "Private this As TCoord",
+            "Public Sub Init(ByVal X As Long, ByVal Y As Long)",
+            "    this.X = X",
+            "    this.Y = Y",
+            "End Sub",
+            "Public Function ToString() As String",
+            "    ToString = \"(\" & this.X & \",\" & this.Y & \")\"",
+            "End Function",
+            "Private Function IGridCoord_ToString() As String",
+            "    IGridCoord_ToString = Me.ToString",
+            "End Function")),
+    ];
+
     private static void AssertCompiled(IReadOnlyDictionary<string, RDCore.Runtime.Compiled.CompilationResult> compiled, params string[] names)
     {
         foreach (var name in names)
@@ -86,6 +111,40 @@ public sealed class CompiledStringResultTests
             "    S = N",
             "    Digits = S & \"|\" & S",
             "End Function"), expected: "-45|-45"), "Digits");
+
+    // a String result assigned what a member of Me returns: the interface's member returns the class's own, called on the object it is.
+    [TestMethod]
+    public async Task AStringResultAssignedAMemberOfMe_IsWhatTheMemberReturns()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim C As New GridCoord",
+            "    Dim G As IGridCoord",
+            "    Dim N As Long",
+            "    For N = 1 To 3",
+            "        C.Init N, N * N",
+            "        Set G = C",
+            "        Debug.Print G.ToString",
+            "    Next",
+            "End Sub"), classes: Interfaced, expected: "(3,9)"), "ToString", "IGridCoord_ToString");
+
+    // a String result, and a Variant, assigned what a String function returns: the text it is, and a Variant that holds a String.
+    [TestMethod]
+    public async Task AResultAssignedWhatAStringFunctionReturns_IsItsText()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Outer(4); \"|\"; Kind(5)",
+            "End Sub",
+            "Private Function Outer(ByVal N As Long) As String",
+            "    Outer = Inner(N)",
+            "End Function",
+            "Private Function Kind(ByVal N As Long) As Long",
+            "    Dim V As Variant",
+            "    V = Inner(N)",
+            "    Kind = VarType(V) * 10 + N",
+            "End Function",
+            "Private Function Inner(ByVal N As Long) As String",
+            "    Inner = \"#\" & N",
+            "End Function"), expected: "#4| 85"), "Outer", "Inner");
 
     // a whole number given by value to a String parameter is given its digits.
     [TestMethod]
