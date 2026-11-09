@@ -49,16 +49,16 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// Invokes the procedure and returns the outcome of the call as a result, the way the semantics of the language do:
     /// an error raised in the procedure, that nothing handled, is in the result rather than thrown.
     /// </summary>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     /// <param name="args">The arguments of the call, without the <c>Me</c> of a member of a class, which the handle passes itself.</param>
     /// <returns>The result of the call: the value the procedure returns (the <c>Void</c> value for a <c>Sub</c>), or the run-time error it raised.</returns>
-    public RuntimeSemanticsEvaluationResult Call(ISymbolResolver resolver, IRuntimeValue[] args)
+    public RuntimeSemanticsEvaluationResult Call(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
         => Invoker.Invoke(Procedure, resolver, Receiver is null ? args : [Receiver, .. args]);
 
     /// <summary>
     /// Invokes the procedure and returns the runtime value it returns - the <c>HRESULT</c> <c>S_OK</c>, for a <c>Sub</c>.
     /// </summary>
-    /// <param name="resolver">A read-only interface over the current execution context.</param>
+    /// <param name="resolver">The running session's symbols and their storage.</param>
     /// <param name="args">The arguments of the call, without the <c>Me</c> of a member of a class, which the handle passes itself.</param>
     /// <remarks>
     /// 👉 A caller that handles the errors of the program, or needs the <em>typed</em> value of the call, uses <see cref="Call"/>, which
@@ -66,7 +66,7 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// </remarks>
     /// <exception cref="VBRuntimeErrorException">A run-time error was raised in the procedure and nothing handled it.</exception>
     /// <exception cref="InvalidOperationException">The invoker could not run the procedure, and has no error to say why.</exception>
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args)
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args)
     {
         var result = Call(resolver, args);
         if (result.ErrorInfo is { } error)
@@ -81,15 +81,18 @@ public record class CallableBindingHandle(VBTypeMemberSymbol Procedure, IProcedu
     /// <summary>
     /// Not supported: a procedure, including a property accessor, is never read as a value - see <see cref="Invoke"/>.
     /// </summary>
+    /// <param name="resolver">Unused.</param>
     /// <exception cref="NotSupportedException">Always.</exception>
-    public IRuntimeValue GetValue(ISymbolResolver resolver)
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver)
         => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it has no value to read.");
 
     /// <summary>
     /// Not supported: a procedure, including a property accessor, is never assigned as a value - see <see cref="Invoke"/>.
     /// </summary>
+    /// <param name="resolver">Unused.</param>
+    /// <param name="value">Unused.</param>
     /// <exception cref="NotSupportedException">Always.</exception>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value)
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value)
         => throw new NotSupportedException($"'{Procedure.Name}' is a procedure: it is invoked, it cannot be assigned.");
 
     /// <summary>

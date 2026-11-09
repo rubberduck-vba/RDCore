@@ -19,7 +19,7 @@ namespace RDCore.SDK.Workspace.Forms;
 /// here as a library's (<see cref="LibraryDescription"/>), read as one is (<see cref="LibrarySymbolReader"/>), with one class for each class of control. Its
 /// default member takes the index and returns the control, as the control's class; <c>Count</c>, <c>LBound</c> and <c>UBound</c> are <c>Integer</c>, as the
 /// Visual Basic 6.0 documentation gives them. It has no other member, and no event: the events of a control of the array are its class's, and a handler of one
-/// takes the control's index first (<see cref="Semantics.Static.MemberRoles"/>).
+/// takes the control's index first (<c>MemberRoles</c>).
 /// </para>
 /// <para>
 /// The name of the array's class is the platform's, not Visual Basic's: no code can name it, and what describes the array to a user names the class of its

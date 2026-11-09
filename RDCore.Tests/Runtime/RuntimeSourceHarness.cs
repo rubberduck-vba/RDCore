@@ -25,6 +25,7 @@ using RDCore.SDK.Services.VerboseMessages;
 using RDCore.Tests.Semantics.Runtime;
 using System.IO.Abstractions;
 using RDCore.Symbols;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Runtime;
 
@@ -129,7 +130,7 @@ internal static class RuntimeSourceHarness
         public List<ExternalCallRequest> Requests { get; } = [];
 
         /// <inheritdoc/>
-        public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, ISymbolResolver resolver)
+        public RuntimeSemanticsEvaluationResult Invoke(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
         {
             Requests.Add(request);
             return inner.Invoke(request, resolver);

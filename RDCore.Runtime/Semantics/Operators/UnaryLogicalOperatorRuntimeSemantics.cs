@@ -18,7 +18,7 @@ using RDCore.SDK.Semantics.Builders;
 using RDCore.SDK.Semantics.Context;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Plans;
 using RDCore.SDK.Services.VerboseMessages;
 using System.Numerics;
 
@@ -67,7 +67,7 @@ public abstract record class UnaryLogicalOperatorRuntimeSemantics(
     /// The effective type is the operation's plan (<see cref="OperationPlanner"/>), made once for each value type and kept.
     /// </remarks>
     protected sealed override DetermineOperatorEffectiveTypeResult DetermineOperatorEffectiveType(
-        ISymbolResolver resolver, 
+        IRuntimeSymbolResolver resolver, 
         ExpressionNode expression, 
         OperatorEvaluationFrame frame)
         => EffectiveTypeOf(OperationPlanner.ForValue(Operator, frame[InputIndex.UnaryOperand].TypeInfo), expression);

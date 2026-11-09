@@ -107,7 +107,7 @@ public enum CompletionMatch
 /// </summary>
 /// <remarks>
 /// <para>
-/// The names are the ones the resolver would bind (<see cref="ScopeTreeSymbolResolver"/>): a name declared nearer shadows one of the same name declared farther, and
+/// The names are the ones the resolver would bind (<c>ScopeTreeSymbolResolver</c>): a name declared nearer shadows one of the same name declared farther, and
 /// is the only one offered. What a scope declares that is not a name in the binding context the list is for is not offered - a user-defined type is no value, a
 /// local is no type (<strong>MS-VBAL §5.6.4</strong>). A member declared <c>Private</c> is offered only where it is accessible, which is in its own module
 /// (<strong>MS-VBAL §5.2.3</strong>), and a member a library hides (<c>VB_MemberFlags</c>, <see cref="SymbolProperties.HiddenMemberFlag"/>) is not offered at all,

@@ -34,8 +34,8 @@ result, a constant (by its name, or qualified by its project, its module or the 
 The position and the length are used as the runtime semantics uses them - as `Long` - and the value as a `String`, so each has to be Let-coercible to that
 ([**RD-VBAL §5.5.1** Let-coercion](rd-vbal.5.5.1.let-coercion.md)).
 
-The rule is [MidStatementStaticSemantics](../api/RDCore.SDK.Semantics.Static.MidStatementStaticSemantics.html)'s, which
-[StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) asks. An operand whose declared type is not known
+The rule is `MidStatementStaticSemantics`'s, which
+`StatementStaticSemanticsEvaluator` asks. An operand whose declared type is not known
 is deferred, not rejected.
 
 > [!NOTE]

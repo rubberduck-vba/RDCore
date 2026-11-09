@@ -56,5 +56,5 @@ activation raises run-time error 92, "For loop not initialized"; see
 
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `Jump` instructions
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
-- [InstructionListLowering](../api/RDCore.SDK.Semantics.Instructions.InstructionListLowering.html) resolves the
+- `InstructionListLowering` resolves the
   target label into `Instruction.Target`.

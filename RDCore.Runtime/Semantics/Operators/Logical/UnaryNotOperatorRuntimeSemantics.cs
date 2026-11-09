@@ -29,7 +29,7 @@ public record class UnaryNotOperatorRuntimeSemantics(
 
     protected override T EvaluateBitwiseOp<T>(T operand) => ~operand;
 
-    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(ISymbolResolver resolver,
+    protected override RuntimeSemanticsEvaluationResult EvaluateExpressionResult(IRuntimeSymbolResolver resolver,
         UnaryLogicalOperatorSemanticContext context,
         ExpressionNode expression,
         OperatorEvaluationFrame frame) =>

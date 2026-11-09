@@ -141,7 +141,7 @@ public sealed class ObjectInstanceTests
         Assert.AreEqual(firstValue.Handle.Value, first.GetValue(field).Value);
         Assert.AreEqual(secondValue.Handle.Value, second.GetValue(field).Value);
 
-        first.GetValue(field).SetValue(Substitute.For<ISymbolResolver>(), new VBLongValue(42).RuntimeValue);
+        first.GetValue(field).SetValue(Substitute.For<IRuntimeSymbolResolver>(), new VBLongValue(42).RuntimeValue);
 
         Assert.AreEqual(42, first.GetValue(field).Value.BoxedValue);
         Assert.AreEqual(2, second.GetValue(field).Value.BoxedValue, "unaffected by the write to the other instance");

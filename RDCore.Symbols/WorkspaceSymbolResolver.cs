@@ -9,6 +9,7 @@ using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Services;
 
 namespace RDCore.Symbols;
 

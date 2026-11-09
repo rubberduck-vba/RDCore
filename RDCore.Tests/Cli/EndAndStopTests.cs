@@ -26,15 +26,6 @@ public sealed class EndAndStopTests
         return Convert.ToInt64(session.Symbols.Resolver.GetValue(total!).Value.BoxedValue);
     }
 
-    // whether the program is past its first statement, which gave Total 3: in the cell the interpreter and compiled code both write it in. Not the frame's
-    // Pc, which compiled code does not keep while it runs: a frame says where the program is once it has stopped, which is when the debugger reads it.
-    private static bool GaveTotalThree(EnvironmentSessionProvider provider)
-    {
-        var symbols = provider.Session.Symbols;
-        return symbols.TryResolveValue("Program", GlobalSymbols.UnresolvedSymbol, out var module) && symbols.TryResolveValue("Total", module!, out var total)
-            && Convert.ToInt64(symbols.Resolver.GetValue(total!).Value.BoxedValue) == 3;
-    }
-
     private static async Task<(ExecuteResult Result, long Total, ExecuteResult Again, long TotalAgain)> RunTwiceAsync(string program)
     {
         ExecuteResult? first = null, second = null;
@@ -429,23 +420,33 @@ public sealed class EndAndStopTests
 
     // ---- a break from outside ----
 
+    // the program is in its loop from the moment its MsgBox is answered: every instruction after that is the Do's or the Loop's, so the break, asked for once the
+    // client answered, can only stop the loop, which proves the loop answers a break, compiled as it runs.
     [TestMethod]
     public async Task ABreakFromOutside_IsAStop_OfWhateverTheProgramWasDoing()
     {
-        ExecuteResult? result = null;
-        await ModuleWorkspace.InspectAsync(NoClasses, Program(
+        string[] lines =
+        [
             "Public Total As Long",
             "Public Sub Main()",
             "    Total = 3",
+            "    MsgBox \"in\"",
             "    Do",
             "    Loop",
-            "End Sub"), (_, outcome, _) =>
+            "End Sub",
+        ];
+        var client = new AnswersOk();
+        ExecuteResult? result = null;
+        long total = 0;
+        await ModuleWorkspace.InspectAsync(NoClasses, Program(lines), (provider, outcome, _) =>
         {
-            result = outcome;
+            (result, total) = (outcome, Total(provider));
             return Task.CompletedTask;
-        }, cancelWhen: GaveTotalThree);
+        }, cancelWhen: _ => client.Asked, interaction: client);
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result!.Outcome, result.ErrorMessage);
-        Assert.IsGreaterThanOrEqualTo(3, result.ErrorLine, "it stopped in the loop, and says which line it was on");
+        CollectionAssert.Contains(new[] { Array.IndexOf(lines, "    Do"), Array.IndexOf(lines, "    Loop") }, result.ErrorLine,
+            "it stopped in the loop, and says which line it was on");
+        Assert.AreEqual(3, total);
     }
 }

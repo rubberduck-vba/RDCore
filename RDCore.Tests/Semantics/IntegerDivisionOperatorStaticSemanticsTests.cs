@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
-using RDCore.SDK.Semantics.Static.Abstract;
-using RDCore.SDK.Semantics.Static.Operators;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static.Operators;
 using RDCore.Tests.Semantics.Abstract;
 using System.Reflection;
 

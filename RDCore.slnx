@@ -33,6 +33,7 @@
   <Project Path="RDCore.ParseServer/RDCore.ParseServer.csproj" />
   <Project Path="RDCore.Runtime/RDCore.Runtime.csproj" Id="4af376a2-f215-4064-96b0-c90c797ec5fa" />
   <Project Path="RDCore.Runtime.Generators/RDCore.Runtime.Generators.csproj" />
+  <Project Path="RDCore.Runtime.LanguageCore/RDCore.Runtime.LanguageCore.csproj" />
   <Project Path="RDCore.Runtime.Support/RDCore.Runtime.Support.csproj" />
   <Project Path="RDCore.Symbols/RDCore.Symbols.csproj" />
   <Project Path="RDCore.SDK/RDCore.SDK.csproj" Id="217682fc-e856-4902-bb85-e839ac0be988" />

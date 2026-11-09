@@ -38,16 +38,18 @@ public sealed record class IndeterminateBindingHandle : IBindingHandle
     public IRuntimeValue Value => Assumed.Value;
 
     /// <inheritdoc/>
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => Assumed.GetValue(resolver);
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver) => Assumed.GetValue(resolver);
 
     /// <inheritdoc/>
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => Assumed.Invoke(resolver, args);
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args) => Assumed.Invoke(resolver, args);
 
     /// <summary>
     /// Always throws: a value that is not known is not assigned.
     /// </summary>
+    /// <param name="resolver">Unused.</param>
+    /// <param name="value">Unused.</param>
     /// <exception cref="NotSupportedException">Always.</exception>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value)
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value)
         => throw new NotSupportedException("An indeterminate value cannot be assigned.");
 
     private bool PrintMembers(System.Text.StringBuilder builder)

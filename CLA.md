@@ -17,7 +17,7 @@ that the Project can stay open source **and** sustain itself commercially under 
 
 - **You keep the copyright** to everything you contribute. We are *not* asking you to
   assign or give up ownership.
-- **Your contributions stay open source** — under the MIT License (`RDCore.SDK`) or the
+- **Your contributions stay open source** — under the MIT License (`RDCore.SDK`, `RDCore.Forms`) or the
   GNU GPL v3 (any other project in this repository).
 - **In addition**, you give the Company permission to include your contribution in a
   separately-licensed commercial edition of the Project. Authorized partners could pay
@@ -62,7 +62,7 @@ receive compensation for doing so.
 #### 3.2 Continued Open Source Availability
 You acknowledge that the Company intends to continue making the Project, including Your
 accepted Contributions, available to the public under the Project's open source licenses
-(currently the **MIT License** for `RDCore.SDK` and the **GNU GPL v3** for the GPL
+(currently the **MIT License** for `RDCore.SDK` and `RDCore.Forms` and the **GNU GPL v3** for the GPL
 components named above). The licenses You grant in Section 3.1 are **in addition to** the
 Project's open source licensing and **do not remove, restrict, or diminish** any rights
 that You or any other person have under those open source licenses. The Company is not
@@ -152,7 +152,7 @@ Agreement. To sign, post one of these comments, exactly as written, on a pull re
 - `Je confirme avoir lu et accepté les conditions de la CLA, et je la signe par la présente` (in French)
 
 *A signature recorded by the CLA bot covers Your Contributions to every RDCore repository of
-the rubberduck-vba organization: RDCore, RDCore.SDK and RDCore.HexIDE.*
+the rubberduck-vba organization: RDCore, RDCore.SDK, RDCore.HexIDE and RDCore.Forms.*
 
 ---
 

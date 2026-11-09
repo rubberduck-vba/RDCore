@@ -27,6 +27,7 @@ using RDCore.Tests.Cli;
 using RDCore.Tests.Platform;
 using System.Globalization;
 using System.IO.Abstractions;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Workspace.Forms;
 

@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Source;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
 using RDCore.Tests.Parser;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 

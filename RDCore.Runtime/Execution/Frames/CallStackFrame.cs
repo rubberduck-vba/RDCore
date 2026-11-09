@@ -12,7 +12,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -92,7 +92,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 return null;
             }
 
-            var statement = body.Items[Pc].Location;
+            var statement = InstructionLocations.Of(body, Pc);
             return _call is { } call && _callPc == Pc && statement is { } at && call.Uri == at.Uri
                 && call.Range.Start >= at.Range.Start && call.Range.Start <= at.Range.End
                     ? call

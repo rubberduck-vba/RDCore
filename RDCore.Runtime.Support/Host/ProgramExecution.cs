@@ -7,8 +7,8 @@ using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
@@ -23,6 +23,7 @@ using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using System.Collections.Immutable;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Runtime.Support.Host;
 
@@ -143,6 +144,22 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     }
 
     /// <summary>
+    /// Raised each time the program's <see cref="State"/> changes, with the state it is now in: as it starts, as it waits, as it goes on, and as it ends.
+    /// </summary>
+    /// <remarks>
+    /// Raised with the execution's lock held, on the thread that changed the state: a handler says that it happened (it completes a task, or queues a message), and
+    /// does not wait for anything, nor ask anything of the execution but its <see cref="State"/>.
+    /// </remarks>
+    public event Action<ProgramState>? StateChanged;
+
+    // the state changes here and nowhere else, so that every change is told. Called with the lock held.
+    private void Become(ProgramState state)
+    {
+        _state = state;
+        StateChanged?.Invoke(state);
+    }
+
+    /// <summary>
     /// Runs a program from its entry point.
     /// </summary>
     /// <param name="pipeline">What runs it. Composed for this run: a run that is not under a debugger is cancelled through it.</param>
@@ -215,7 +232,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 EndSuspended(session, wipe: false);
             }
 
-            _state = ProgramState.Running;
+            Become(ProgramState.Running);
             _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
             _terminating = false;
             (_debugging, _stopWhenStarted) = (debug, false);
@@ -286,7 +303,8 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             }
 
             GoOnInTheEditedCode();
-            (execution, _state) = (suspended, ProgramState.Running);
+            execution = suspended;
+            Become(ProgramState.Running);
             _inspector.Forget();
             _output = NewSegmentOutput();
             provider.Output.Target = _output;
@@ -418,7 +436,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
     private static DebugGotoResult MovedTo(InstructionList body, int offset)
     {
-        var location = offset < body.Items.Length ? body.Items[offset].Location : null;
+        var location = InstructionLocations.Of(body, offset);
         return new DebugGotoResult
         {
             Moved = true,
@@ -468,7 +486,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         var bodies = provider.Image.BodiesOf(module.Uri);
         return new DebugBreakpointsResult
         {
-            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new DebugBreakpoint(breakpoint.Line, IBreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
+            Breakpoints = [.. breakpoints.Select((breakpoint, i) => new DebugBreakpoint(breakpoint.Line, BreakpointTable.Verify(bodies, breakpoint.Line), refused[i]))],
             Judged = bodies.Any(),
         };
     }
@@ -1006,7 +1024,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
                 return new ExecuteResult { Outcome = ExecutionOutcome.Halted, Output = output.Lines };
             }
 
-            _state = ProgramState.Suspended;
+            Become(ProgramState.Suspended);
             _suspendedWith = ProgramEdits.Of(session, provider.Image);
             provider.Output.Target = NullRuntimeOutput.Instance;
         }
@@ -1045,7 +1063,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             SessionWipe.End(session);
         }
 
-        _state = ProgramState.Idle;
+        Become(ProgramState.Idle);
         _inspector.Forget();
         provider.Output.Target = NullRuntimeOutput.Instance;
         session.Memory.Reclaim();
@@ -1067,7 +1085,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
 
         lock (_sync)
         {
-            _state = ProgramState.Idle;
+            Become(ProgramState.Idle);
             _inspector.Forget();
             LeaveTurn(session);
             _idle.TrySetResult();

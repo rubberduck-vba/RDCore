@@ -44,7 +44,7 @@ public sealed class CallStackAwareSymbolResolverTests
     public void GetValue_LocalSymbol_NoActiveFrame_FallsBackToTheInnerResolver()
     {
         var callStack = new RuntimeCallStack();
-        var inner = Substitute.For<ISymbolResolver>();
+        var inner = Substitute.For<IRuntimeSymbolResolver>();
         var local = Local("i");
         var expected = new VBLongValue(1).Handle;
         inner.GetValue(local).Returns(expected);
@@ -63,7 +63,7 @@ public sealed class CallStackAwareSymbolResolverTests
         var value = new VBLongValue(5);
         frame.Push(local, value);
         callStack.TryPush(frame);
-        var inner = Substitute.For<ISymbolResolver>();
+        var inner = Substitute.For<IRuntimeSymbolResolver>();
         inner.GetValue(local).Returns(_ => throw new InvalidOperationException("should not consult the inner resolver"));
         var sut = new CallStackAwareSymbolResolver(callStack, inner);
 
@@ -79,7 +79,7 @@ public sealed class CallStackAwareSymbolResolverTests
         var callStack = new RuntimeCallStack();
         callStack.TryPush(new CallStackFrame(NodeId, Procedure, [], storage));
         var local = Local("i");
-        var inner = Substitute.For<ISymbolResolver>();
+        var inner = Substitute.For<IRuntimeSymbolResolver>();
         var expected = new VBLongValue(9).Handle;
         inner.GetValue(local).Returns(expected);
         var sut = new CallStackAwareSymbolResolver(callStack, inner);
@@ -94,7 +94,7 @@ public sealed class CallStackAwareSymbolResolverTests
         var callStack = new RuntimeCallStack();
         callStack.TryPush(new CallStackFrame(NodeId, Procedure, [], storage));
         var field = ModuleField("Total");
-        var inner = Substitute.For<ISymbolResolver>();
+        var inner = Substitute.For<IRuntimeSymbolResolver>();
         var expected = new VBLongValue(42).Handle;
         inner.GetValue(field).Returns(expected);
         var sut = new CallStackAwareSymbolResolver(callStack, inner);
@@ -106,7 +106,7 @@ public sealed class CallStackAwareSymbolResolverTests
     public void Resolve_AlwaysDelegatesToTheInnerResolver()
     {
         var callStack = new RuntimeCallStack();
-        var inner = Substitute.For<ISymbolResolver>();
+        var inner = Substitute.For<IRuntimeSymbolResolver>();
         var expected = SymbolResolutionResult.Unbound;
         inner.ResolveValue("Foo", ScopeKind.Module, StaticSymbol.GlobalUri).Returns(expected);
         var sut = new CallStackAwareSymbolResolver(callStack, inner);
@@ -120,7 +120,7 @@ public sealed class CallStackAwareSymbolResolverTests
         // the same underlying ISessionStorage), so no frame-awareness is needed here.
     {
         var callStack = new RuntimeCallStack();
-        var inner = Substitute.For<ISymbolResolver>();
+        var inner = Substitute.For<IRuntimeSymbolResolver>();
         var address = new MemoryAddress(7);
         var expected = new VBLongValue(1).Handle;
         inner.TryRead(address, out Arg.Any<IBindingHandle?>()).Returns(call => { call[1] = expected; return true; });
@@ -144,7 +144,7 @@ public sealed class CallStackAwareSymbolResolverTests
         var local = Local("i");
         var value = new VBLongValue(5);
         var expectedAddress = new MemoryAddress(3);
-        var inner = Substitute.For<ISymbolResolver>();
+        var inner = Substitute.For<IRuntimeSymbolResolver>();
         inner.TryAllocate(local, value, out Arg.Any<MemoryAddress>()).Returns(call => { call[2] = expectedAddress; return true; });
         var sut = new CallStackAwareSymbolResolver(callStack, inner);
 

@@ -384,11 +384,11 @@ public interface ISessionSymbols
     bool TryResolveConditionalConstant(string name, Symbol scope, out Symbol? symbol);
 
     /// <summary>
-    /// The read face over this table: resolves a name visible from a scope by walking the scope tree
-    /// the currently-defined symbols form (tracks later <see cref="TryDefine"/> calls), and reads the
-    /// live run-time binding a defined symbol was allocated, if any.
+    /// The resolver over this table: resolves a name visible from a scope by walking the scope tree
+    /// the currently-defined symbols form (tracks later <see cref="TryDefine"/> calls), and reads and
+    /// allocates the run-time storage of the defined symbols (<see cref="ISymbolStorage"/>).
     /// </summary>
-    ISymbolResolver Resolver { get; }
+    IRuntimeSymbolResolver Resolver { get; }
 
     /// <summary>
     /// Creates a new, empty <see cref="ICallStackFrame"/> for an activation of

@@ -1,6 +1,7 @@
 using NSubstitute;
 using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform.Protocol;
@@ -301,6 +302,43 @@ public sealed class ResumeTests
 
             AssertCompleted(await Resume(run));
             Assert.AreEqual(11, run.Total());
+        });
+
+    // a step from the last statement of a block's branch stops before the jump that ends the branch, which is no statement of its own: it is shown on the
+    // block's closing line, as MS-VBA shows it, and so is the frame that waits there. The steps after it go on past the block. The block is written at
+    // line 3, after Total = 7; each line it stops at, in turn, is in "steps".
+    [TestMethod]
+    [DataRow("If Total = 7 Then|    Stop|Else|    Total = 0|End If", "7,8", DisplayName = "the Then branch of an If block with an Else")]
+    [DataRow("If Total = 0 Then|    Total = 0|ElseIf Total = 7 Then|    Stop|End If", "7,8", DisplayName = "an ElseIf branch")]
+    [DataRow("If Total = 0 Then|    Total = 0|Else|    Stop|End If", "7,8", DisplayName = "an Else branch")]
+    [DataRow("If Total = 7 Then|    If Total > 0 Then|        Stop|    End If|End If", "6,7,8", DisplayName = "an If block that ends an If block's branch")]
+    [DataRow("Select Case Total|    Case 7|        Stop|    Case Else|        Total = 0|End Select", "8,9", DisplayName = "a Case")]
+    [DataRow("Select Case Total|    Case 0|        Total = 0|    Case Else|        Stop|End Select", "8,9", DisplayName = "a Case Else")]
+    [DataRow("With New Collection|    Stop|End With", "5,6", DisplayName = "a With block")]
+    [DataRow("If Total = 7 Then Stop Else Total = 0", "3,4", DisplayName = "a single-line If with an Else")]
+    public async Task AStepToTheEndOfABlocksBranch_StopsAtTheBlocksClosingLine(string block, string steps)
+        => await WithRunAsync(Program([
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Total = 7",
+            .. block.Split('|').Select(line => "    " + line),
+            "    Total = Total + 1",
+            "End Sub"]), async run =>
+        {
+            Assert.IsTrue((await run.StartAsync()).IsSuspended);
+
+            var seen = new List<string>();
+            foreach (var _ in steps.Split(','))
+            {
+                var stop = await Step(run, StepKind.Into);
+                Assert.IsTrue(stop.IsSuspended, $"after the steps to {string.Join(",", seen)}");
+                var frame = (CallStackFrame)run.Session.CallStack.Frames.First();
+                seen.Add($"{stop.Location?.Range.Start.Line.ToString() ?? "?"}{(frame.CurrentLocation?.Range.Start.Line == stop.Location?.Range.Start.Line ? "" : " (frame elsewhere)")}");
+            }
+
+            Assert.AreEqual(steps, string.Join(",", seen));
+            AssertCompleted(await Resume(run));
+            Assert.AreEqual(8, run.Total());
         });
 
     [TestMethod]

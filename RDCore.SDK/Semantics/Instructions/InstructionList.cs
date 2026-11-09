@@ -6,7 +6,7 @@ namespace RDCore.SDK.Semantics.Instructions;
 /// <summary>
 /// The ordered, keyed instruction list of one procedure body: <strong>RD-VBAL §3.5</strong>
 /// (<strong>MS-VBAL §2.3.1</strong>: "sequentially evaluate each instruction in the frame"). Built by
-/// <see cref="InstructionListLowering"/>; immutable.
+/// <c>InstructionListLowering</c>; immutable.
 /// </summary>
 /// <remarks>
 /// <see cref="Items"/> is dense: index <c>i</c> is offset <c>i</c>, and every offset a program counter

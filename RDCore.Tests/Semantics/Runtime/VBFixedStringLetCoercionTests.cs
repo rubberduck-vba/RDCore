@@ -34,7 +34,7 @@ public sealed class VBFixedStringLetCoercionTests : LetCoercionRuntimeSemanticsT
         var provider = Substitute.For<ILetCoercionRuntimeSemanticsProvider>();
         provider.EvaluateLetCoercionSemantics(default!, default!, default)
             .ReturnsForAnyArgs(call => strings.EvaluateLetCoercion(
-                call.ArgAt<ISymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2)));
+                call.ArgAt<IRuntimeSymbolResolver>(0), call.ArgAt<VBOperatorExpression>(1), call.ArgAt<LetCoercionStackFrame>(2)));
         return provider;
     }
 
