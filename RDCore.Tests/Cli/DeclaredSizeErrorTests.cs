@@ -130,12 +130,12 @@ public sealed class DeclaredSizeErrorTests
     [TestMethod]
     public async Task AReservedNameWithoutItsArguments_InABound_IsWrittenWithThem_AndNoConstantExpression()
         => AssertErrors(await LoadErrorsAsync([], Modules, Program([], "Dim b(LenB) As Long")),
-            "Constant expression required", string.Format(RDCore.SDK.Exceptions.VBCompileError_ReservedNameArguments_Verbose, "LenB", 1));
+            "Constant expression required", string.Format(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_ReservedNameArguments_Verbose, "LenB", 1));
 
     [TestMethod]
     public async Task ACallEndingInAnOmittedArgument_InABound_IsATrailingOmittedArgument_AndNoConstantExpression()
         => AssertErrors(await LoadErrorsAsync([], Modules, Program(["Private Function F(ByVal a As Long, Optional ByVal b As Long) As Long", "End Function"],
-            "Dim a(F(1, )) As Long")), "Constant expression required", RDCore.SDK.Exceptions.VBCompileError_TrailingOmittedArgument_Verbose);
+            "Dim a(F(1, )) As Long")), "Constant expression required", RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_TrailingOmittedArgument_Verbose);
 
     // two errors: one that starts with what is said first, and one that says what is said second.
     private static void AssertErrors(string[] errors, string first, string second)
