@@ -1,9 +1,11 @@
+using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
+using System.Collections.Immutable;
 using System.Text;
 
 namespace RDCore.Runtime.Execution.Files;
@@ -19,7 +21,7 @@ namespace RDCore.Runtime.Execution.Files;
 /// specification's rather than .NET's default.
 /// <para>
 /// A UDT is written member by member, "in the order in which the members are declared", each by the row of its
-/// declared type.
+/// declared type. The specification has no row for an array member; its format here is MS-VBA's, recorded in Excel.
 /// </para>
 /// </remarks>
 internal static class RecordDataFormat
@@ -44,9 +46,15 @@ internal static class RecordDataFormat
         String = 8,
         Error = 10,
         Boolean = 11,
+        // the element types of an array a Variant holds, which the table has no row for: VarType's (MS-VBA, recorded in Excel).
+        Variant = 12,
         Decimal = 14,
+        Byte = 17,
         LongLong = 20,
     }
+
+    /// <summary>The second byte of the descriptor of a Variant that holds an array: VarType's <c>vbArray</c>, <c>&amp;H2000</c>.</summary>
+    private const byte ArrayDescriptor = 0x20;
 
     /// <summary>ANSI, "without NULL termination" — the encoding the format's String rows name.</summary>
     private static readonly Encoding Ansi = Encoding.Latin1;
@@ -101,6 +109,27 @@ internal static class RecordDataFormat
             return true;
         }
 
+        // a Variant that holds an array is described as its VarType is, vbArray with the element type in the low byte, then is the array with its bounds
+        // (MS-VBA, recorded in Excel).
+        if (unwrapped is VBArrayValue array)
+        {
+            if (DescriptorOf(array.ItemType) is not { } elementDescriptor)
+            {
+                return false;
+            }
+
+            stream.WriteByte((byte)elementDescriptor);
+            stream.WriteByte(ArrayDescriptor);
+            if (!TryWriteArray(stream, array, array.ItemType, withBounds: true, mode, out var arrayBytes))
+            {
+                return false;
+            }
+
+            written = DescriptorSize + arrayBytes;
+            stream.Flush();
+            return true;
+        }
+
         if (DescriptorOf(unwrapped) is not { } descriptor)
         {
             return false;
@@ -141,6 +170,12 @@ internal static class RecordDataFormat
                 return false;
             }
 
+            if (descriptorBytes[1] == ArrayDescriptor)
+            {
+                return DescribedType((VariantDescriptor)descriptorBytes[0]) is { } itemType
+                    && TryReadResizable(stream, itemType, mode, out value);
+            }
+
             return TryReadDescribed(stream, (VariantDescriptor)descriptorBytes[0], VBFileMode.Random, currentLength, out value);
         }
 
@@ -165,7 +200,8 @@ internal static class RecordDataFormat
     {
         for (var index = 0; index < udt.Fields.Length; index++)
         {
-            // a nested record is read into in place, so it keeps its identity the way the outer record does; any other field is let what was read in place (TryLetFieldAt): a ByRef parameter given it is bound to its cell (MS-VBAL §5.3.1.11).
+            // a nested record and a fixed-size array are read into in place, so they keep their identity the way the outer record does; any other field
+            // is let what was read in place (TryLetFieldAt): a ByRef parameter given it is bound to its cell (MS-VBAL §5.3.1.11).
             var current = udt.FieldAt(index);
             if (!TryReadMember(stream, udt.Fields[index].ResolvedType ?? VBVariantType.TypeInfo, current, mode, out var value)
                 || (!ReferenceEquals(value, current) && !udt.TryLetFieldAt(index, value!)))
@@ -178,7 +214,7 @@ internal static class RecordDataFormat
     }
 
     // the write side of the same walk. Each field is written by the row of its declared type, not of the value it holds: a Variant field has its type
-    // descriptor whatever it was last given, and a String * n field is its characters and nothing else.
+    // descriptor whatever it was last given, a String * n field is its characters and nothing else, and an array field is its elements.
     private static bool TryWriteFields(Stream stream, VBUserDefinedTypeValue udt, VBFileMode mode, out int written)
     {
         written = 0;
@@ -196,8 +232,10 @@ internal static class RecordDataFormat
         return true;
     }
 
-    // a field of a record as MS-VBA writes it (recorded in Excel): a String has its two-byte length in Binary mode as in Random, since nothing else in the
-    // record says where it ends; a String * n is padded with spaces to its length, or cut to it.
+    // a member of a record - a field, or an element of an array field - as MS-VBA writes it (recorded in Excel): a String has its two-byte length in
+    // Binary mode as in Random, since nothing else in the record says where it ends; a String * n is padded with spaces to its length, or cut to it; a
+    // fixed-size array is its elements, the first subscript varying fastest; a resizable array is its number of dimensions in two bytes, then the element
+    // count and lower bound of each in four bytes each, then its elements - and no more than the two bytes when it has none.
     private static bool TryWriteMember(Stream stream, VBType declared, VBTypedValue value, VBFileMode mode, out int written)
     {
         written = 0;
@@ -214,12 +252,44 @@ internal static class RecordDataFormat
                 written = WriteString(stream, Text(text), VBFileMode.Random);
                 return true;
 
+            case VBArrayType arrayType when Unwrapped(value) is VBArrayValue array:
+                return TryWriteArray(stream, array, arrayType.ItemType, withBounds: declared is not VBFixedSizeArrayType, mode, out written);
+
             default:
                 return TryWrite(stream, value, mode, isVariantTarget: false, out written);
         }
     }
 
-    // the read side of TryWriteMember. A record is read into the value the field holds, which is what value is then.
+    // the bounds come last dimension first, as a SAFEARRAY lists them; the elements first subscript fastest, the order the array holds them in.
+    private static bool TryWriteArray(Stream stream, VBArrayValue array, VBType itemType, bool withBounds, VBFileMode mode, out int written)
+    {
+        written = 0;
+        if (withBounds)
+        {
+            var dimensions = array.IsInitialized ? array.Dimensions : ImmutableArray<VBArrayValue.VBArrayDimension>.Empty;
+            written += WriteBytes(stream, BitConverter.GetBytes((short)dimensions.Length));
+            for (var dimension = dimensions.Length - 1; dimension >= 0; dimension--)
+            {
+                written += WriteBytes(stream, BitConverter.GetBytes(dimensions[dimension].Length));
+                written += WriteBytes(stream, BitConverter.GetBytes(dimensions[dimension].LowerBound));
+            }
+        }
+
+        for (var index = 0; index < (array.IsInitialized ? array.Length : 0); index++)
+        {
+            if (!TryWriteMember(stream, itemType, array.ElementAt(index) ?? itemType.DefaultValue, mode, out var elementBytes))
+            {
+                return false;
+            }
+
+            written += elementBytes;
+        }
+
+        return true;
+    }
+
+    // the read side of TryWriteMember. A record, and a fixed-size array, is read into the value the member holds, which is what value is then; a resizable
+    // array is a new one of the bounds the record gives, or one with none.
     private static bool TryReadMember(Stream stream, VBType declared, VBTypedValue? current, VBFileMode mode, out VBTypedValue? value)
     {
         value = null;
@@ -245,9 +315,59 @@ internal static class RecordDataFormat
             case VBStringType:
                 return TryReadString(stream, VBFileMode.Random, 0, out value);
 
+            case VBFixedSizeArrayType fixedArray when current is VBArrayValue elements:
+                value = elements;
+                return TryReadElements(stream, fixedArray.ItemType, elements, mode);
+
+            case VBArrayType arrayType:
+                return TryReadResizable(stream, arrayType.ItemType, mode, out value);
+
             default:
                 return TryReadTyped(stream, declared, mode, 0, out value);
         }
+    }
+
+    private static bool TryReadResizable(Stream stream, VBType itemType, VBFileMode mode, out VBTypedValue? value)
+    {
+        value = null;
+        if (!TryReadBytes(stream, sizeof(short), out var rank) || BitConverter.ToInt16(rank) < 0)
+        {
+            return false;
+        }
+
+        var dimensions = new (int, int)[BitConverter.ToInt16(rank)];
+        for (var dimension = dimensions.Length - 1; dimension >= 0; dimension--)
+        {
+            if (!TryReadBytes(stream, 2 * sizeof(int), out var bounds))
+            {
+                return false;
+            }
+
+            var lowerBound = BitConverter.ToInt32(bounds, sizeof(int));
+            dimensions[dimension] = (lowerBound, lowerBound + BitConverter.ToInt32(bounds, 0) - 1);
+        }
+
+        var cells = ElementCells.Of(itemType);
+        VBArrayValue array = itemType is VBByteType
+            ? new VBResizableByteArrayValue(dimensions, cells)
+            : new VBResizableArrayValue(dimensions, itemType, elementCell: cells);
+        value = array;
+        return TryReadElements(stream, itemType, array, mode);
+    }
+
+    private static bool TryReadElements(Stream stream, VBType itemType, VBArrayValue array, VBFileMode mode)
+    {
+        for (var index = 0; index < (array.IsInitialized ? array.Length : 0); index++)
+        {
+            var current = array.ElementAt(index);
+            if (!TryReadMember(stream, itemType, current, mode, out var element)
+                || (!ReferenceEquals(element, current) && !array.TryLetElementAt(index, element!)))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static int WriteValue(Stream stream, VBTypedValue value, VBFileMode mode) => value switch
@@ -403,6 +523,8 @@ internal static class RecordDataFormat
         VariantDescriptor.Boolean => VBBooleanType.TypeInfo,
         VariantDescriptor.Decimal => VBDecimalType.TypeInfo,
         VariantDescriptor.LongLong => VBLongLongType.TypeInfo,
+        VariantDescriptor.Variant => VBVariantType.TypeInfo,
+        VariantDescriptor.Byte => VBByteType.TypeInfo,
         // the table's "Unknown", "User Defined Type" and "Object" rows are all ERROR - there is no descriptor
         // byte that means them, so one that means nothing else is a record this cannot read.
         _ => null,
@@ -426,6 +548,25 @@ internal static class RecordDataFormat
         // a Byte has no row in the descriptor table at all, so a Variant holding one cannot be written as a
         // Variant - MS-VBA widens it to Integer, and so does this.
         VBByteValue => VariantDescriptor.Integer,
+        _ => null,
+    };
+
+    // the element type of an array a Variant holds, as VarType describes it; an array of records or of objects has no descriptor this format writes.
+    private static VariantDescriptor? DescriptorOf(VBType itemType) => itemType switch
+    {
+        VBVariantType => VariantDescriptor.Variant,
+        VBByteType => VariantDescriptor.Byte,
+        VBIntegerType => VariantDescriptor.Integer,
+        VBLongType or VBEnumType => VariantDescriptor.Long,
+        VBSingleType => VariantDescriptor.Single,
+        VBDoubleType => VariantDescriptor.Double,
+        VBCurrencyType => VariantDescriptor.Currency,
+        VBDateType => VariantDescriptor.Date,
+        VBStringType => VariantDescriptor.String,
+        VBErrorType => VariantDescriptor.Error,
+        VBBooleanType => VariantDescriptor.Boolean,
+        VBDecimalType => VariantDescriptor.Decimal,
+        VBLongLongType => VariantDescriptor.LongLong,
         _ => null,
     };
 
@@ -462,9 +603,11 @@ internal static class RecordDataFormat
     // a Variant's own TypeInfo mirrors whatever it wraps, so what is written is the wrapped value's format -
     // after the Variant's own type descriptor, which is why the two are decided separately. A Variant holds
     // either a typed value or the managed value directly, so both shapes unwrap here: the second needs its
-    // type to build a value of, which is the TypeInfo the Variant is already reporting.
+    // type to build a value of, which is the TypeInfo the Variant is already reporting. An array has no binding of its own to read
+    // (VBResizableArrayValue's handle is inert): the one a Variant holds is its typed value.
     private static VBTypedValue Unwrapped(VBTypedValue value) => value switch
     {
+        VBVariantValue { TypedValue: VBArrayValue array } => array,
         VBVariantValue when value.Handle.Value.BoxedValue is VBTypedValue wrapped => wrapped,
         VBVariantValue variant when variant.TypeInfo is not VBVariantType => variant.TypeInfo.CreateValue(variant.Handle),
         _ => value,
