@@ -430,6 +430,21 @@ public sealed class LetAssignmentEvaluator(
             return RuntimeExecutionOutcome.Error(setResult.ErrorInfo!);
         }
 
+        // a Variant field is not read from its cell: the record holds the value, so the field is replaced by a Variant that holds the object, as a Let of it is.
+        if (fieldType is VBVariantType)
+        {
+            var index = record.Fields.IndexOf(declared);
+            var held = ObjectReferences.HeldInField(record, index);
+            var assigned = setResult.Result is VBVariantValue variant ? variant : new VBVariantValue(setResult.Result!);
+            if (!record.TryLetFieldAt(index, assigned))
+            {
+                return RuntimeExecutionOutcome.InternalError;
+            }
+
+            ObjectReferences.RebindField(session, record, index, held);
+            return RuntimeExecutionOutcome.Next;
+        }
+
         var before = ObjectReferences.HeldIn(session, handle);
         handle.Store(session.Symbols.Resolver, setResult.Result!);
         ObjectReferences.Rebind(session, handle, before);
