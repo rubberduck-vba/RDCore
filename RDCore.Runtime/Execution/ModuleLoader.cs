@@ -19,10 +19,11 @@ using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Semantics.Flow;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Services.VerboseMessages;
 using RDCore.SDK.Workspace.Forms;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Runtime.Execution;
 
@@ -256,7 +257,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IV
 
     // directly, or in a record that is a field of it. A type that holds itself is not one MS-VBA compiles, and is looked into once. The fields are the type's
     // as the session has it now (CurrentTypes).
-    private static bool HasFixedSizeArrayField(ISymbolResolver resolver, VBUserDefinedType declared, HashSet<VBUserDefinedType> seen)
+    private static bool HasFixedSizeArrayField(IRuntimeSymbolResolver resolver, VBUserDefinedType declared, HashSet<VBUserDefinedType> seen)
         => CurrentTypes.Of(resolver, declared) is var record && seen.Add(record) && record.Fields().Any(field => field.ResolvedType switch
         {
             VBFixedSizeArrayType => true,

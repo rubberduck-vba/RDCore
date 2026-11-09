@@ -16,9 +16,9 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Instructions;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Plans;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;

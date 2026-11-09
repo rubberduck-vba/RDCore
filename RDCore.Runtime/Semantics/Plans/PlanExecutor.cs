@@ -10,7 +10,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics.Context.Abstract;
 using RDCore.SDK.Semantics.Facts;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Plans;
 using System.Diagnostics.CodeAnalysis;
 
 namespace RDCore.Runtime.Semantics.Plans;

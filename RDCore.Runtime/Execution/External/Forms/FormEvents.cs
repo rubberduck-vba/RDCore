@@ -9,7 +9,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 using RDCore.SDK.Workspace.Forms;
 
 namespace RDCore.Runtime.Execution.External.Forms;

@@ -158,7 +158,7 @@ The argument list of a `RaiseEvent` takes no `ByVal` at all: there it is a synta
 A parameter declared `ByVal` and an array (`ByVal a() As Long`) is `VBC09371` too, wherever it is declared
 ([**RD-VBAL §5.3.1.5**](rd-vbal.5.3.1.5.parameter-lists.md)).
 
-[ByValArgumentStaticSemantics](../api/RDCore.SDK.Semantics.Static.ByValArgumentStaticSemantics.html) checks each `ByVal` argument against its parameter,
+`ByValArgumentStaticSemantics` checks each `ByVal` argument against its parameter,
 and records the redundant ones as a fact of the argument
 ([ValueExpressionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html)`.RedundantByVal`). Which library parameters the
 type library declares by reference is the parameter's `SymbolProperties.TypeLibraryByRef`, read off the declarations (a `Variant` parameter, or

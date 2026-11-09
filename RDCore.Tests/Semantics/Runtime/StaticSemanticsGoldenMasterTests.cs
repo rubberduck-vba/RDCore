@@ -10,8 +10,8 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using System.Text;
 
 namespace RDCore.Tests.Semantics.Runtime;

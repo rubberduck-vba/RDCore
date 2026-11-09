@@ -11,7 +11,7 @@
 
 ## Static Semantics
 
-[StatementStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.StatementStaticSemanticsEvaluator.html) checks that:
+`StatementStaticSemanticsEvaluator` checks that:
 
 - the event is one the enclosing class module declares ([**RD-VBAL §5.2.4.3**](rd-vbal.5.2.4.class-module-declarations.md)), reported as [VBC09322](../diagnostics/vbc09322.md) otherwise. A standard module declares no events, so a `RaiseEvent` written in one names none;
 - the arguments are compatible with the event's parameter list, reported as [VBC09323](../diagnostics/vbc09323.md): there are as many as it requires and no more than it has, and a `ByVal` argument can be Let-coerced to a parameter that is neither a class nor `Object`.

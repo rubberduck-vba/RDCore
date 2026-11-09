@@ -13,6 +13,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.Symbols;
 using RDCore.Tests.Cli;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Parser;
 

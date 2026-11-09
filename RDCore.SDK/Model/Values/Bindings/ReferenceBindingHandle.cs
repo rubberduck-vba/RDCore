@@ -27,12 +27,12 @@ public record class ReferenceBindingHandle : IKnowledgeBinding
 
     // follows the reference through the resolver's runtime memory map; a reference that doesn't (yet)
     // resolve to anything bound falls back to yielding itself, e.g. Nothing or a dangling address.
-    public IRuntimeValue GetValue(ISymbolResolver resolver) => GetValue(resolver, [_value.Value]);
+    public IRuntimeValue GetValue(IRuntimeSymbolResolver resolver) => GetValue(resolver, [_value.Value]);
 
     // a chain of references can cycle (Set a = b : Set b = a) or self-reference (Set x = x); each hop
     // through another ReferenceBindingHandle is tracked by the address it targets next, so a repeat
     // stops the walk instead of recursing until the stack overflows.
-    private IRuntimeValue GetValue(ISymbolResolver resolver, HashSet<MemoryAddress> visited)
+    private IRuntimeValue GetValue(IRuntimeSymbolResolver resolver, HashSet<MemoryAddress> visited)
     {
         if (!resolver.TryRead(_value.Value, out var bound))
         {
@@ -50,7 +50,9 @@ public record class ReferenceBindingHandle : IKnowledgeBinding
     /// <remarks>
     /// Stores a reference that is known: a write that may be of one that is not says so with <see cref="Store"/>.
     /// </remarks>
-    public void SetValue(ISymbolResolver resolver, IRuntimeValue value) => Store(value, isKnown: true);
+    /// <param name="resolver">Unused: the reference is held by the handle.</param>
+    /// <param name="value">The reference to store.</param>
+    public void SetValue(IRuntimeSymbolResolver resolver, IRuntimeValue value) => Store(value, isKnown: true);
 
     /// <inheritdoc/>
     public void Store(IRuntimeValue value, bool isKnown)
@@ -63,5 +65,5 @@ public record class ReferenceBindingHandle : IKnowledgeBinding
     /// <inheritdoc/>
     public void Forget() => _isKnown = false;
 
-    public IRuntimeValue Invoke(ISymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
+    public IRuntimeValue Invoke(IRuntimeSymbolResolver resolver, IRuntimeValue[] args) => throw new NotSupportedException();
 }

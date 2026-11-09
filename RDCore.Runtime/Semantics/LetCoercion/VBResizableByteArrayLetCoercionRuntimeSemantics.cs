@@ -24,7 +24,7 @@ public record class VBResizableByteArrayLetCoercionRuntimeSemantics(
     : LetCoercionRuntimeSemantics<VBResizableByteArrayType>(FormatterService)
 {
     public override LetCoercionResult EvaluateLetCoercion(
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
         => frame.SourceValue switch
@@ -49,7 +49,7 @@ public record class VBResizableByteArrayLetCoercionRuntimeSemantics(
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame) => builder.AddFlags(ConversionSemanticFlags.ArrayTarget | ConversionSemanticFlags.ByteArrayTarget);
 

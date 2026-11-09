@@ -30,7 +30,7 @@ public sealed class ScopeTree
 
     /// <summary>
     /// What each name means as a value, where it was looked up from: a name is resolved against this tree once
-    /// (<see cref="ScopeTreeSymbolResolver.ResolveValue"/>).
+    /// (<c>ScopeTreeSymbolResolver.ResolveValue</c>).
     /// </summary>
     /// <remarks>
     /// The resolution of a name is a function of the tree, which does not change once it is built: a symbol table that changes builds another tree, whose

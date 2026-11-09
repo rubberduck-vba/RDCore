@@ -17,7 +17,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.Execution;

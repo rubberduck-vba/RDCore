@@ -2,7 +2,7 @@
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Static;
+using RDCore.SDK.Model.Symbols;
 
 namespace RDCore.SDK.Runtime.Abstract.StdLib;
 

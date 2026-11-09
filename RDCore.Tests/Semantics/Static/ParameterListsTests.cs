@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Semantics.Static;
+using RDCore.Runtime.LanguageCore.Static;
 
 namespace RDCore.Tests.Semantics.Static;
 

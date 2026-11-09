@@ -4,7 +4,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
-using RDCore.SDK.Semantics.Binding;
+using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.Compiled;

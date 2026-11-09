@@ -13,8 +13,8 @@ using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Static;
-using RDCore.SDK.Semantics.Static.Abstract;
+using RDCore.Runtime.LanguageCore.Static;
+using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.Symbols;
 
 namespace RDCore.Tests.LanguageServer;

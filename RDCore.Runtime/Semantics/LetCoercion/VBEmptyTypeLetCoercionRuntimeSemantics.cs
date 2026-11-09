@@ -25,7 +25,7 @@ namespace RDCore.Runtime.Semantics.LetCoercion;
 public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilder FormatterService) 
     : LetCoercionRuntimeSemantics<VBEmptyType>(FormatterService)
 {
-    public override LetCoercionResult EvaluateLetCoercion(ISymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame) =>
+    public override LetCoercionResult EvaluateLetCoercion(IRuntimeSymbolResolver resolver, ExpressionNode expression, LetCoercionStackFrame frame) =>
         frame.DestinationTypeDesc.Target switch
         {
             // MS-VBAL 5.5.1.2.11: "The result is 0." — the runtime value of Empty is only its VT_EMPTY tag
@@ -55,7 +55,7 @@ public record class VBEmptyTypeLetCoercionRuntimeSemantics(IVerboseMessageBuilde
 
     protected override ILetCoercionSemanticContextBuilder AnalyzeLetCoercionOperation(
         ILetCoercionSemanticContextBuilder builder,
-        ISymbolResolver resolver,
+        IRuntimeSymbolResolver resolver,
         ExpressionNode expression,
         LetCoercionStackFrame frame)
     {

@@ -5,6 +5,7 @@ using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Reflection;
 using System.Reflection.Emit;
+using RDCore.Runtime.LanguageCore.Instructions;
 
 namespace RDCore.Tests.Cli;
 
@@ -455,7 +456,7 @@ public sealed class CompiledExecutionTests
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
-        var list = SDK.Semantics.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
+        var list = RDCore.Runtime.LanguageCore.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
             SDK.Semantics.Instructions.InstructionLoweringOptions.Default, SDK.Model.AST.Declarations.MemberKind.Procedure).InstructionList;
         var compiler = new ProcedureCompiler();
         Exception? reported = null;
@@ -477,7 +478,7 @@ public sealed class CompiledExecutionTests
         var root = new Uri("file://rdcore-test");
         var procedure = new SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol(root, root, "Broken", SDK.Model.Symbols.Abstract.ScopeKind.Module,
             SDK.Model.Source.SymbolKindExt.Procedure, SDK.Model.Types.Complex.VBVoidType.TypeInfo, default, default, SDK.Model.AccessModifier.Public) { Parameters = default };
-        var list = SDK.Semantics.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
+        var list = RDCore.Runtime.LanguageCore.Instructions.InstructionListLowering.Lower(new SDK.Model.AST.Statements.StatementBlock([]),
             SDK.Semantics.Instructions.InstructionLoweringOptions.Default, SDK.Model.AST.Declarations.MemberKind.Procedure).InstructionList;
         var compiler = new ProcedureCompiler();
         var told = 0;

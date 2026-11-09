@@ -20,8 +20,8 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Binding;
-using RDCore.SDK.Semantics.Plans;
+using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.Runtime.LanguageCore.Plans;
 
 namespace RDCore.Runtime.Semantics;
 

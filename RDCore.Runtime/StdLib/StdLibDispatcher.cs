@@ -135,7 +135,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     public bool CanDispatch(ExternalCallRequest request) => StdLibSymbolProvider.IsLibraryMember(request.Member);
 
     /// <inheritdoc/>
-    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, ISymbolResolver resolver)
+    public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)
     {
         if (EntryOf(request.Member) is not { } entry)
         {
@@ -229,7 +229,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     // a variable passed to a ByRef parameter (StdLibByRefAttribute) arrives as its address: what the member is given is the value the variable holds, read
     // as the variable is declared - a Variant, or what a Variant parameter was given instead (VBRuntimeReference.DeclaredType), which it is told of.
     private static bool TryDereference(
-        IRuntimeValue argument, ParameterInfo parameter, VBParameterSymbol? symbol, ISymbolResolver resolver, out object? marshalled)
+        IRuntimeValue argument, ParameterInfo parameter, VBParameterSymbol? symbol, IRuntimeSymbolResolver resolver, out object? marshalled)
     {
         marshalled = null;
         if (argument is not VBRuntimeReference reference || symbol is null || !resolver.TryRead(reference.Value, out var handle))
@@ -246,7 +246,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
 
     // the reader built each parameter's declared type from the method's own, so this runs that backwards: a
     // VBTypedValue parameter takes the argument as it is, and a CLR enum parameter takes its numeric value.
-    private static bool TryMarshalArguments(StdLibEntry entry, ExternalCallRequest request, ISymbolResolver resolver, out object?[] arguments)
+    private static bool TryMarshalArguments(StdLibEntry entry, ExternalCallRequest request, IRuntimeSymbolResolver resolver, out object?[] arguments)
     {
         var parameters = entry.Parameters;
         arguments = new object?[parameters.Length];

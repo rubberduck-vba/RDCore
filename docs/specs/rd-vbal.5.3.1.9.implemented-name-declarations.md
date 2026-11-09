@@ -10,7 +10,7 @@ method of that class, the _interface member_. It is the same naming that handles
 and a lifecycle event ([**RD-VBAL §5.3.1.10**](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)).
 [VBClassModuleSymbol](../api/RDCore.SDK.Model.Symbols.VBClassModuleSymbol.html)`.FindImplementation` finds it, of the kind the member calls for.
 
-[ImplementsSemantics](../api/RDCore.SDK.Semantics.Static.ImplementsSemantics.html) reports an implemented name declaration that does not
+`ImplementsSemantics` reports an implemented name declaration that does not
 correspond to its member as [VBC09330](../diagnostics/vbc09330.md):
 
 |Interface member|The implemented name declaration|
@@ -52,7 +52,7 @@ s.Draw              ' Disc's IShape_Draw
 A public variable of the interface is read through the `Property Get` that implements it.
 
 The declared type of the expression the object is reached through is what the runtime asks, of the rules that type an expression at compile time
-([ExpressionStaticSemanticsEvaluator](../api/RDCore.SDK.Semantics.Static.ExpressionStaticSemanticsEvaluator.html)): a value carries the object and
+(`ExpressionStaticSemanticsEvaluator`): a value carries the object and
 nothing of how it was declared. It is asked only of an object whose class implements an interface, and of an expression it can type. A
 with-relative member (`.Area`) is a member of the target of the innermost enclosing `With` block, so what is asked is the declared type of the
 expression the target was written as (`RuntimeEvaluationContext.EnclosingWithTargetExpression`): `With s` where `s` is declared as the interface
