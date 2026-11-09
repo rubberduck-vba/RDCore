@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.StdLib;
 using System.IO.Abstractions.TestingHelpers;
 using RDCore.Runtime.LanguageCore.Errors;
 

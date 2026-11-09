@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using System.Collections.Immutable;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -273,7 +274,7 @@ public static class ConstantExpressionStaticSemantics
             _ => null,
         };
 
-        return symbol is VBFunctionMemberSymbol function && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(function)
+        return symbol is VBFunctionMemberSymbol function && RDCore.SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(function)
             && (admits.HasFlag(IntrinsicCalls.Len) && string.Equals(function.Name, "Len", StringComparison.OrdinalIgnoreCase)
                 || admits.HasFlag(IntrinsicCalls.LenB) && string.Equals(function.Name, "LenB", StringComparison.OrdinalIgnoreCase)
                 || admits.HasFlag(IntrinsicCalls.Others) && OtherIntrinsicFunctions.Contains(function.Name));

@@ -1,7 +1,7 @@
+using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
-using RDCore.SDK.Runtime.StdLib;
 using System.Collections;
 using System.Globalization;
 using System.Resources;

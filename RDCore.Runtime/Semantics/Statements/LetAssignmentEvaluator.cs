@@ -23,6 +23,7 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Facts;
 using RDCore.SDK.Semantics.Flags;
@@ -601,7 +602,7 @@ public sealed class LetAssignmentEvaluator(
     private static VBClassModuleSymbol? DispatchedClassOf(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBObjectValue owner)
         => session.Symbols.TryGetInstance(owner.Value, out var instance)
-            && instance.ClassModule.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName
+            && instance.ClassModule.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StandardLibrary.LibraryName
             && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, memberAccess.Owner ?? context.EnclosingWithTargetExpression) is VBObjectType or VBVariantType
                 ? instance.ClassModule
                 : null;

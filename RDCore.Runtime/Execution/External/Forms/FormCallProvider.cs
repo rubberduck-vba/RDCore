@@ -2,6 +2,8 @@
 using RDCore.External.Automation;
 using RDCore.External.Forms;
 using RDCore.Runtime.Execution.External.Automation;
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -12,9 +14,7 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.Runtime.LanguageCore.Errors;
 

@@ -1,6 +1,6 @@
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.StdLib;
-using RDCore.SDK.Runtime.Abstract.StdLib;
-using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using System.Reflection;
 

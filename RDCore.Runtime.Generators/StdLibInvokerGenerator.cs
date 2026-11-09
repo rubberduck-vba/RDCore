@@ -18,7 +18,7 @@ namespace RDCore.Runtime.Generators;
 [Generator(LanguageNames.CSharp)]
 public sealed class StdLibInvokerGenerator : IIncrementalGenerator
 {
-    private const string DeclarationsNamespace = "RDCore.SDK.Runtime.Abstract.StdLib";
+    private const string DeclarationsNamespace = "RDCore.Runtime.LanguageCore.StdLib.Abstract";
     private const string InvokersType = "RDCore.Runtime.StdLib.StdLibInvokers";
     private const string ResultNamespace = "RDCore.SDK.Runtime.Shared";
     private const string ResultName = "RuntimeSemanticsEvaluationResult";

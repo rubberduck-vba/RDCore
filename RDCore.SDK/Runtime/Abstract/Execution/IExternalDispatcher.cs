@@ -74,9 +74,9 @@ public sealed record class ExternalCallRequest(
     /// an administrator means by automation, as distinct from the standard library and from a <c>Declare</c>d import.
     /// </summary>
     public bool IsAutomation => Obtains is not null || (IsCreation
-        ? Creates!.GetProperty(SymbolProperties.Library) is { } created && created != StdLibSymbolProvider.LibraryName
+        ? Creates!.GetProperty(SymbolProperties.Library) is { } created && created != StandardLibrary.LibraryName
         : Member.GetProperty(SymbolProperties.ExternalTarget) is { Length: > 0 }
-            && Member.GetProperty(SymbolProperties.Library) is { } library && library != StdLibSymbolProvider.LibraryName);
+            && Member.GetProperty(SymbolProperties.Library) is { } library && library != StandardLibrary.LibraryName);
 
     /// <summary>
     /// Whether this call is to a native library a <c>Declare</c> named: the calls an administrator most

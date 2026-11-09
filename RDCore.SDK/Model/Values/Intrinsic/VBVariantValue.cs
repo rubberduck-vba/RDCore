@@ -24,7 +24,7 @@ public record class VBVariantValue : VBTypedValue, IVBTypedValue<VBVariantValue,
     /// <summary>
     /// The declared type of the variable this is the value of, when it was passed by reference to a <c>Variant</c> parameter of the standard library
     /// and is declared as another type - an array, a number - which MS-VBA tells apart from a <c>Variant</c> that holds the same value
-    /// (<see cref="RDCore.SDK.Runtime.Abstract.StdLib.StdLibByRefAttribute"/>); <see langword="null"/> otherwise.
+    /// (<c>StdLibByRefAttribute</c>); <see langword="null"/> otherwise.
     /// </summary>
     public Types.Abstract.VBType? ReferencedType { get; init; }
 

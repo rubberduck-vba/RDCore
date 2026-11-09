@@ -112,7 +112,7 @@ public sealed class CompletionServiceTests
         source ??= new InMemoryLibrarySource(Lab);
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
-            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, references.Select(name => new LibraryIdentity(name)), [StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
+            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(source, references.Select(name => new LibraryIdentity(name)), [StandardLibrary.LibraryName])).ProvideSymbols()]);
         libraries.DescribedSymbolsOf(Arg.Any<Uri>(), Arg.Any<string>()).Returns(call => LibrarySymbolProvider.ReadDescribed(source, call.Arg<Uri>(), call.Arg<string>()));
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = language } });
         return new CompletionService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, source, _verbs, options, NullLogger<CompletionService>.Instance, OneProject.Registry());
@@ -1050,7 +1050,7 @@ public sealed class CompletionServiceTests
         });
 
         var source = new InMemoryLibrarySource(Lab);
-        IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> symbols = [.. new LibrarySymbolProvider(new Uri(Root), ReferencedLibraries.Load(source, [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols()];
+        IReadOnlyList<RDCore.SDK.Model.Symbols.Abstract.Symbol> symbols = [.. new LibrarySymbolProvider(new Uri(Root), ReferencedLibraries.Load(source, [], [StandardLibrary.LibraryName])).ProvideSymbols()];
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(symbols);
         var compositions = new WorkspaceCompositionCache();

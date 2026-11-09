@@ -1,5 +1,7 @@
 using RDCore.External;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Errors;
@@ -11,7 +13,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
@@ -133,7 +134,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     /// name of the library (<see cref="SymbolProperties.Library"/>); those are its provider's, and answering
     /// them here would report as unimplemented what only has not been asked of the right provider.
     /// </remarks>
-    public bool CanDispatch(ExternalCallRequest request) => StdLibSymbolProvider.IsLibraryMember(request.Member);
+    public bool CanDispatch(ExternalCallRequest request) => StandardLibrary.IsLibraryMember(request.Member);
 
     /// <inheritdoc/>
     public RuntimeSemanticsEvaluationResult Dispatch(ExternalCallRequest request, IRuntimeSymbolResolver resolver)

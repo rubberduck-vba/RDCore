@@ -196,7 +196,7 @@ public static class SymbolProperties
     /// does, <c>Round</c>'s does not (<see cref="Model.Symbols.ValueDestination"/>).
     /// </summary>
     /// <remarks>
-    /// Set by the standard library's reader, off <see cref="Runtime.Abstract.StdLib.StdLibValueAttribute"/>. Absent on every other parameter: one declared
+    /// Set by the standard library's reader, off <c>StdLibValueAttribute</c>. Absent on every other parameter: one declared
     /// with a value type expects a value of that type, which its declared type says, and a <c>Variant</c> one a workspace declares takes an object as it is.
     /// </remarks>
     public static readonly SymbolProperty<Model.Symbols.ValueDestination> ValueDestination = new(nameof(ValueDestination));

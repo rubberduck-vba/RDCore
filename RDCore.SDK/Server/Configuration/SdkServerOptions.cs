@@ -528,7 +528,7 @@ public record class SdkWorkspaceOptions
     /// server it connects to, in the <c>initializationOptions</c> of its <c>initialize</c> request
     /// (<see cref="Platform.Protocol.RDCoreInitializationOptions"/>). It decides what is built from the workspace: where the variable an
     /// undeclared name declares lives (<see cref="Workspace.SupportedLanguage.ImplicitDeclarationScope"/>), and which statements exist.
-    /// The standard library is not one of them: it is <c>VBA</c> whatever the language (<see cref="Runtime.StdLib.StdLibSymbolProvider.LibraryName"/>).
+    /// The standard library is not one of them: it is <c>VBA</c> whatever the language (<see cref="Runtime.StdLib.StandardLibrary.LibraryName"/>).
     /// </remarks>
     public string Language { get; set; } = Workspace.SupportedLanguages.RDVBA.Id;
 

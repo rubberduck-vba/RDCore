@@ -3,6 +3,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;

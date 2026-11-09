@@ -1,9 +1,9 @@
-﻿using RDCore.SDK.Model.Symbols;
+﻿using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Runtime.StdLib;
 using static RDCore.Tests.Runtime.Libraries.LibraryFixtures;
 using RDCore.Runtime.LanguageCore.Services;
 

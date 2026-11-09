@@ -18,6 +18,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
@@ -544,7 +545,7 @@ public sealed partial class RuntimeExpressionEvaluator
     {
         if (returned is not { IsSuccess: false, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow }
             || call.Procedure is not VBFunctionMemberSymbol { Name: var name } function || !string.Equals(name, "Abs", StringComparison.OrdinalIgnoreCase)
-            || !SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(function)
+            || !SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(function)
             || call.Call.Arguments is not [var argument]
             || Evaluate(session, argument, context) is not { IsSuccess: true, Result: { } given })
         {

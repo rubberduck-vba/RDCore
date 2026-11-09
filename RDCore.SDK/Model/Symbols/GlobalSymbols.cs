@@ -20,7 +20,7 @@ namespace RDCore.SDK.Model.Symbols;
 /// names nobody could resolve, because nothing ever put them in a scope.
 /// </para>
 /// <para>
-/// The real thing they gestured at is <see cref="RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider"/>: a
+/// The real thing they gestured at is <c>StdLibSymbolProvider</c>: a
 /// symbol provider whose symbols reach the scope tree, so a name like <c>vbNullString</c> actually
 /// binds. Anything from the old nests that is genuinely part of the language belongs there (declared
 /// once, resolvable) rather than here as a static field.

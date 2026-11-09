@@ -4,6 +4,8 @@ using RDCore.External;
 using RDCore.External.Interaction;
 using RDCore.External.Settings;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.StdLib;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;

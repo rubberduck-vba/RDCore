@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Symbols;
@@ -10,7 +11,6 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -74,7 +74,7 @@ internal sealed class StdEnumVariant : IStdEnumVariantClass, IStdLibReceiverBoun
     {
         // the standard library's class, named by its library: stdole declares an IEnumVARIANT too (Next, Skip, Reset, Clone), and a project that references it - or
         // MSForms, which depends on it - would otherwise make every enumerator one of stdole's, with no MoveNext to call.
-        if (VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StdLibSymbolProvider.LibraryName, "IEnumVARIANT", StaticSymbol.GlobalUri).Symbol
+        if (VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, "IEnumVARIANT", StaticSymbol.GlobalUri).Symbol
             is not VBClassModuleSymbol enumerator)
         {
             return null;
