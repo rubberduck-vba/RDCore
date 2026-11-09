@@ -201,12 +201,14 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
     // CompiledActivation.
     private CompiledBody Emit(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, InstructionList list)
     {
+        // what only a build does, done before the type is defined: a type of the assembly a build saves that is never created fails the save of all of them.
+        var lines = persist?.LinesOf(list);
         var type = _module.Value.DefineType($"P{++_types}.{procedure.Name}", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Abstract);
         var entry = type.DefineMethod("Body", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), ParametersOf(analysis));
         var method = type.DefineMethod("Run", MethodAttributes.Public | MethodAttributes.Static, typeof(RuntimeExecutionOutcome), [typeof(CompiledActivation)]);
 
         var directs = analysis.Callees.Select(callee => Link(session, evaluator, procedure, entry, list, callee, analysis.NeedsFrame)).ToArray();
-        ProcedureEmitter.Emit(analysis, method, entry, directs, persist?.LinesOf(list));
+        ProcedureEmitter.Emit(analysis, method, entry, directs, lines);
 
         // a type of the assembly a build saves is created to be saved, and runs only once it is loaded: its typed entry is what its compiled callers call.
         if (persist is not null)
