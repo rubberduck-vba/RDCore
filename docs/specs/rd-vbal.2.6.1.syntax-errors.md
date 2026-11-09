@@ -62,7 +62,10 @@ A numeric literal whose value does not fit its type is the `NumericLiteralOverfl
 
 A procedure whose blocks do not match - a `Next` with no `For`, a block `If` with no `End If`, and so on - is the syntax error MS-VBA names for it (`VBC00043`–`VBC00053`), at the statement that does not fit, rather than what the grammar expected where it could no longer parse.
 
-A procedure with no `End Sub` (`End Function`, `End Property`) ends where the next procedure's header begins, its `Public`, `Private`, `Friend` or `Static` included. It is a syntax error (`VBC00001`) at that header, and the next procedure is read as its own. **MS-VBA** names it "Expected End Sub", which RD-VBA does not report yet. A word that ends a block where no block around it ends, such as a `Loop` with no `Do` inside a `With`, is read as a statement of its own: the statements after it stay in the procedure, which still ends at its `End Sub`.
+A procedure with no `End Sub` (`End Function`, `End Property`) ends where the next procedure's header begins, its `Public`, `Private`, `Friend`, `Global` or `Static` included. It is a syntax error (`VBC00001`) at that header, and the next procedure is read as its own. A word that ends a block where no block around it ends, such as a `Loop` with no `Do` inside a `With`, is read as a statement of its own: the statements after it stay in the procedure, which still ends at its `End Sub`.
+
+> [!NOTE]
+> **Not implemented.** **MS-VBA** reports a procedure with no `End Sub` as "Expected End Sub". RD-VBA reports `VBC00001`.
 
 An argument list that ends with an omitted argument - `Total(1, )`, `Report 1,` - is a syntax error (`VBC00001`), at the omitted argument, for an `Optional` parameter too: **MS-VBAL §5.6.13.1** makes the last positional argument of a list a required one, and MS-VBA refuses it (recorded in Excel). The RD-VBA grammar reads the list, and the declaration pass refuses it. An omitted argument before another is valid (`Total(1, , 3)`), and so is a list of no argument at all (`Total()`).
 

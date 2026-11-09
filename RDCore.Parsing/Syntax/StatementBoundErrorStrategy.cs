@@ -31,7 +31,7 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
     // what ends a statement, as recovery sees it: the end of a statement, a comment's included, or the end of the module.
     internal static bool EndsAStatement(int type) => BeginsAnEndOfStatement(type) || type == TokenConstants.Eof;
 
-    // a procedure's header is never one token too many either: where End Sub is missing, `Sub` was deleted, and the procedure after it was read as the rest of
+    // a procedure's header is never one token too many either: where End Sub is missing, deleting `Sub` would read the procedure after it as the rest of
     // this one.
     protected override IToken SingleTokenDeletion(Parser recognizer)
         => EndsAStatement(((ITokenStream)recognizer.InputStream).La(1)) || VBABaseParser.BeginsAProcedureHeader((ITokenStream)recognizer.InputStream)

@@ -191,7 +191,8 @@ public abstract class VBABaseParser : Parser
     }
 
     // MS-VBAL §5.3.1: a procedure's header is no statement of the procedure before it, which is missing its End Sub: the statements of that procedure end
-    // there. Without this, `Public Sub B()` was read as a declaration (`Public` declares variables), refused, and the procedure went on with B's statements.
+    // there. Read as a statement, `Public Sub B()` would be a declaration (`Public` declares variables), refused, and the procedure would go on with B's
+    // statements.
     protected bool IsProcedureHeaderAhead() => BeginsAProcedureHeader(_input);
 
     // a procedure's header, next in the stream: at the start of a line, its modifiers (Public, Private, Friend, Global, then Static), then Sub, Function or
@@ -313,7 +314,7 @@ public abstract class VBABaseParser : Parser
         return true;
     }
 
-    // Bounds recovery to the procedure's boundary - for a rule whose body can span many lines (Sub/Function/Property), where stopping at just the next newline
+    // Bounds recovery to the procedure's boundary, for a rule whose body can span many lines (Sub/Function/Property), where stopping at just the next newline
     // would still leave the parser trying to resume mid-procedure. The procedure ends at its End Sub (End Function, End Property), which is read as its own,
     // or before the next procedure's header, its modifiers included (`Public Sub Foo()`), when it has none: the procedure after it is read on its own.
     protected bool RecoverToProcedureBoundary(RecognitionException re)
