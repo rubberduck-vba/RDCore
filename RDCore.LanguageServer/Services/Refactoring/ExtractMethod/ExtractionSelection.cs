@@ -139,7 +139,7 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
                 return false;
             }
 
-            selection =new ExtractionSelection(range, statements, [.. run.Where(IsDeclaration)], RegionOf(statements, range, instructions))
+            selection = new ExtractionSelection(range, statements, [.. run.Where(IsDeclaration)], RegionOf(statements, range, instructions))
             {
                 Labels = [.. run.OfType<LineLabelNode>().Select(label => label.Name)],
             };
