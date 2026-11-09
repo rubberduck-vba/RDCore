@@ -17,8 +17,8 @@ that the Project can stay open source **and** sustain itself commercially under 
 
 - **You keep the copyright** to everything you contribute. We are *not* asking you to
   assign or give up ownership.
-- **Your contributions stay open source** — under the MIT License (`RDCore.SDK`, `RDCore.Forms`) or the
-  GNU GPL v3 (any other project in this repository).
+- **Your contributions stay open source** — under the license of the repository you contribute to:
+  the MIT License (`RDCore.SDK`, `RDCore.Forms`) or the GNU GPL v3 (`RDCore`, `RDCore.HexIDE`).
 - **In addition**, you give the Company permission to include your contribution in a
   separately-licensed commercial edition of the Project. Authorized partners could pay
   for a non-GPL license: this is how the Company can fund continued open development.
@@ -62,8 +62,9 @@ receive compensation for doing so.
 #### 3.2 Continued Open Source Availability
 You acknowledge that the Company intends to continue making the Project, including Your
 accepted Contributions, available to the public under the Project's open source licenses
-(currently the **MIT License** for `RDCore.SDK` and `RDCore.Forms` and the **GNU GPL v3** for the GPL
-components named above). The licenses You grant in Section 3.1 are **in addition to** the
+(currently the **MIT License** for the `RDCore.SDK` and `RDCore.Forms` repositories and the
+**GNU GPL v3** for the `RDCore` and `RDCore.HexIDE` repositories). The licenses You grant in
+Section 3.1 are **in addition to** the
 Project's open source licensing and **do not remove, restrict, or diminish** any rights
 that You or any other person have under those open source licenses. The Company is not
 obligated to use or include any Contribution.
