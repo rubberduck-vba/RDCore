@@ -588,7 +588,7 @@ internal sealed partial class ProcedureAnalysis
                 {
                     BoundCall bound when CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made => made,
                     BoundMember member when MemberCallOf(member, CallStep.NoResult, instruction.Offset, resultKind: null) is { } madeOn => madeOn,
-                    _ => SupportCallOf(instruction, mark) ?? RefusedCall(call.Callee, location),
+                    _ => SupportCallOf(instruction, mark),
                 };
 
             case InstructionKind.Simple when ArrayStatementOf(instruction) is { } arrayStatement:
