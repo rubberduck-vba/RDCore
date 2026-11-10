@@ -253,9 +253,25 @@ public sealed partial class RuntimeExpressionEvaluator
         return session.CallStack.Current is CallStackFrame { Known: { } operands } && operands.TryGet(node.Expression, out known);
     }
 
+    // the object a call compiled code made returned, before it handed the instruction over: the statement's temporaries hold it, as they hold what a call the
+    // interpreter makes returns, until the instruction is over.
+    private static bool TryKnownObject(IRuntimeSession session, BoundNode node, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out VBTypedValue? known)
+    {
+        known = null;
+        if (session.CallStack.Current is not CallStackFrame { Known: { } operands } || !operands.TryGetObject(node.Expression, out known))
+        {
+            return false;
+        }
+
+        System.Diagnostics.Debug.Assert(known is not VBObjectValue held || held.IsNothing() || session.Symbols.TryGetInstance(held.Value, out _),
+            "a known object outlived the temporary that held it");
+        return true;
+    }
+
     private RuntimeSemanticsEvaluationResult EvaluateBoundNode(IRuntimeSession session, BoundNode node, RuntimeEvaluationContext context) => node switch
     {
         _ when KnownOperands.AnyHeld && TryKnown(session, node, out var known) => RuntimeSemanticsEvaluationResult.Success(known.Type.CreateValue(new ValueBindingHandle(known.Box()))),
+        _ when KnownOperands.AnyHeld && TryKnownObject(session, node, out var knownObject) => RuntimeSemanticsEvaluationResult.Success(knownObject),
         BoundLiteral literal => LiteralExpressionRuntimeSemantics.Instance.Evaluate(session, new(), literal.Literal),
         BoundVariable variable => ReadBoundVariable(session, variable),
         BoundName name => ReadSymbol(session, context, name.Symbol, nameOfEnclosingFunctionIsItsResult: true, call: name.Name),

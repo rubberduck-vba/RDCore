@@ -156,6 +156,19 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         => Run(session, frame, list, context, once: false);
 
     /// <summary>
+    /// Runs <paramref name="frame"/> as <see cref="Run(IRuntimeSession, ICallStackFrame, InstructionList, RuntimeEvaluationContext)"/> does, the instruction
+    /// at its <c>Pc</c> one compiled code handed over in the middle of: the temporaries its statement holds are those held since <paramref name="held"/>
+    /// (<see cref="ISessionObjects.TemporaryCount"/> when compiled code began the statement), which the instruction lets go of when it is over, as any.
+    /// </summary>
+    /// <param name="session">The session the activation runs in.</param>
+    /// <param name="frame">The activation.</param>
+    /// <param name="list">Its instructions.</param>
+    /// <param name="context">The context it is evaluated in.</param>
+    /// <param name="held">The temporary count when compiled code began the statement; <see langword="null"/> when it began none.</param>
+    internal RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int? held)
+        => Run(session, frame, list, context, once: false, held);
+
+    /// <summary>
     /// Runs the one instruction of <paramref name="list"/> at <paramref name="frame"/>'s <c>Pc</c>, as <see cref="Run(IRuntimeSession, ICallStackFrame,
     /// InstructionList, RuntimeEvaluationContext)"/> runs each - its error given the activation's handler - or, given the <paramref name="failed"/> outcome
     /// of that instruction, which a caller other than this executor ran, the outcome alone. What compiled code hands over of an activation that has an error
@@ -165,29 +178,44 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// <see cref="RuntimeExecutionOutcome.Next"/> when the activation goes on, at the frame's <c>Pc</c>; otherwise what it returns, or what stopped it.
     /// </returns>
     internal RuntimeExecutionOutcome Step(IRuntimeSession session, CallStackFrame frame, InstructionList list, RuntimeEvaluationContext context,
-        RuntimeExecutionOutcome? failed)
+        RuntimeExecutionOutcome? failed, int? held = null)
     {
         if (failed is not { } outcome)
         {
-            return Run(session, frame, list, context, once: true);
+            return Run(session, frame, list, context, once: true, held);
         }
 
         if (InterceptError(session, frame, list, frame.Pc, outcome) is { } unhandled)
         {
-            return unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
+            var propagated = unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
                 ? halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break
                 : unhandled;
+            LetGoOfStatement(session, held, propagated);
+            return propagated;
         }
 
+        LetGoOfStatement(session, held, outcome);
         return RuntimeExecutionOutcome.Next;
     }
 
-    private RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, bool once)
+    // the statement compiled code began (held), which an error a caller other than this executor ran ended: what its temporaries hold is let go of before the
+    // handler runs, as an instruction this executor runs lets go of its own when it ends, unless the program stopped.
+    private static void LetGoOfStatement(IRuntimeSession session, int? held, RuntimeExecutionOutcome outcome)
+    {
+        if (held is { } mark && outcome.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
+        {
+            ObjectReferences.ReleaseTemporaries(session, mark);
+        }
+    }
+
+    private RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, bool once,
+        int? held = null)
     {
         // the temporaries of this activation's statements are those made from here on (ObjectReferences.HoldTemporarily): each statement lets go of
         // its own before the next runs, and the last one before the activation returns. A program that was stopped does not unwind (an End runs no
-        // Terminate; a break keeps everything as it is), and what it leaves is the session's to clear.
-        var temporaries = session.Objects.TemporaryCount;
+        // Terminate; a break keeps everything as it is), and what it leaves is the session's to clear. An instruction compiled code handed over in the
+        // middle of holds the temporaries made since compiled code began it (held), which are this activation's too.
+        var temporaries = held ?? session.Objects.TemporaryCount;
         RuntimeExecutionOutcome outcome;
         try
         {
@@ -343,18 +371,20 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             }
 
             // the instruction before this one is over: what its expressions made is let go of, and so is what a block the program is no longer in
-            // held - a With's target, a For Each's enumerator - after its End With or its Next, or a jump out of it.
-            ObjectReferences.ReleaseTemporaries(session, temporaries);
-            foreach (var holder in activation.TakeBlockHoldersOutside(activation.Pc))
-            {
-                ObjectReferences.Release(session, holder);
-            }
-
+            // held (a With's target, a For Each's enumerator) after its End With or its Next, or a jump out of it. What compiled code evaluated of an
+            // instruction it handed over is let go of with its temporaries, never after them: an object it knew is held by them alone. The instruction it
+            // handed over in the middle of is not over: it goes on, holding what compiled code made of it.
             var resumed = inside;
             inside = false;
             if (!resumed)
             {
                 activation.Forget();
+                ObjectReferences.ReleaseTemporaries(session, temporaries);
+            }
+
+            foreach (var holder in activation.TakeBlockHoldersOutside(activation.Pc))
+            {
+                ObjectReferences.Release(session, holder);
             }
 
             // a program waits only before an instruction that is on a line (a statement, a block's closer). The jump that ends a branch is on none: it is
@@ -1642,17 +1672,19 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// does not return.
     /// </summary>
     internal RuntimeExecutionOutcome RunAfter(IRuntimeSession session, CallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int pc,
-        RuntimeExecutionOutcome outcome)
+        RuntimeExecutionOutcome outcome, int? held = null)
     {
         frame.Pc = pc;
         if (InterceptError(session, frame, list, pc, outcome) is { } unhandled)
         {
-            return unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
+            var propagated = unhandled.Kind is RuntimeExecutionOutcomeKind.InternalError && session.Halt.Pending is { } halt
                 ? halt is RuntimeHaltKind.End ? RuntimeExecutionOutcome.Halt : RuntimeExecutionOutcome.Break
                 : unhandled;
+            LetGoOfStatement(session, held, propagated);
+            return propagated;
         }
 
-        return Run(session, frame, list, context);
+        return Run(session, frame, list, context, once: false, held);
     }
 
     // Central error-handling interception point (MS-VBAL §5.4.4): every instruction dispatch above that
