@@ -111,6 +111,7 @@ internal sealed partial class ProcedureAnalysis
         null => false,
         BoundCall => true,
         BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol),
+        BoundQualifiedName { Member: var qualified } => IsCompiledLibrary(qualified),
         // a member of Err compiled code reads where the session holds it calls nothing.
         BoundMember member when ErrNumberOf(member) is not null || ErrTextOf(member) is not null => false,
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
@@ -209,6 +210,7 @@ internal sealed partial class ProcedureAnalysis
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
         KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
+        LibraryCallNode library => library.Arguments.All(argument => argument is VariantOfNode { Value: var value } && Admits(value)),
         ConvertNode convert => Admits(convert.Operand),
         IntegralNode integral => Admits(integral.Left) && Admits(integral.Right),
         LogicalNode logical => Admits(logical.Left) && Admits(logical.Right),
@@ -229,6 +231,7 @@ internal sealed partial class ProcedureAnalysis
         WidenNode widen => Admits(widen.Operand),
         ExtendedOperationNode operation => Admits(operation.Left) && Admits(operation.Right),
         ExtendedNegateNode negate => Admits(negate.Operand),
+        ExtendedApplyNode applied => Admits(applied.Argument),
         _ => false,
     };
 
@@ -294,6 +297,7 @@ internal sealed partial class ProcedureAnalysis
         {
             CallNode call => [.. call.Arguments, .. ReceiverCallsOf(call).SelectMany(made => made.Arguments)],
             MemberFieldNode or ObjectArgumentNode => ReceiverCallsOf(node).SelectMany(made => made.Arguments),
+            LibraryCallNode library => library.Arguments.OfType<VariantOfNode>().Select(argument => argument.Value),
             KnownNode known => [known.Value],
             ConvertNode convert => [convert.Operand],
             IntegralNode integral => [integral.Left, integral.Right],
@@ -319,6 +323,7 @@ internal sealed partial class ProcedureAnalysis
         WidenNode widen => [widen.Operand],
         ExtendedOperationNode operation => [.. Within(operation.Left), .. Within(operation.Right)],
         ExtendedNegateNode negate => Within(negate.Operand),
+        ExtendedApplyNode applied => Within(applied.Argument),
         _ => [],
     };
 }

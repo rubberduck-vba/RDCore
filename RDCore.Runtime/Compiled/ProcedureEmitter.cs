@@ -1367,6 +1367,7 @@ internal sealed partial class ProcedureEmitter
         StoreNode store => ReadsVariant(store.Value),
         ExtendedCompareNode compare => ReadsVariant(compare.Left) || ReadsVariant(compare.Right),
         TemporaryNode temporary => ReadsVariant(temporary.Value),
+        LibraryCallNode library => library.Arguments.Any(argument => argument is not VariantOfNode { Value: var value } || ReadsVariant(value)),
         _ => false,
     };
 
@@ -1375,6 +1376,7 @@ internal sealed partial class ProcedureEmitter
         WidenNode widen => ReadsVariant(widen.Operand),
         ExtendedOperationNode operation => ReadsVariant(operation.Left) || ReadsVariant(operation.Right),
         ExtendedNegateNode negate => ReadsVariant(negate.Operand),
+        ExtendedApplyNode applied => ReadsVariant(applied.Argument),
         _ => false,
     };
 
@@ -2001,6 +2003,10 @@ internal sealed partial class ProcedureEmitter
             case CallNode call:
                 return EmitNestedCall(call, failure);
 
+            // a function of the standard library (ProcedureEmitter.Libraries.cs).
+            case LibraryCallNode library:
+                return EmitLibraryCall(library, failure);
+
             default:
                 return EmitArrayPayload(node, failure);
         }
@@ -2291,6 +2297,15 @@ internal sealed partial class ProcedureEmitter
                 var operand = EmitExtended(negate.Operand, failure);
                 _il.Emit(OpCodes.Ldloc, operand);
                 _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Compiled.Extended.Negate))!);
+                break;
+            }
+
+            case ExtendedApplyNode applied:
+            {
+                var argument = EmitExtended(applied.Argument, failure);
+                _il.Emit(OpCodes.Ldstr, applied.Function);
+                _il.Emit(OpCodes.Ldloc, argument);
+                _il.Emit(OpCodes.Call, typeof(Extended).GetMethod(nameof(Compiled.Extended.Apply))!);
                 break;
             }
         }
