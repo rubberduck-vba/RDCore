@@ -4,7 +4,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 namespace RDCore.Runtime.Compiled;
 
 // what compiled code calls of the standard library itself: a member that only computes what it returns from its arguments, called as the library's
-// implementation is - an argument it raises an error for is the interpreter's, which makes the call again and raises it.
+// implementation is. An argument it raises an error for is the interpreter's, which makes the call again and raises it.
 public sealed partial class CompiledActivation
 {
     // the library's members of the Strings module, as the session's: what they compute depends on the session's environment (its code page) alone.
@@ -17,7 +17,7 @@ public sealed partial class CompiledActivation
     /// <param name="code">The character code.</param>
     /// <param name="text">The character, as a String of one.</param>
     /// <returns>
-    /// <see langword="false"/> when the interpreter makes the call: the code is no <c>Long</c>, or names no character, which is an error the interpreter
+    /// <see langword="false"/> when the interpreter makes the call: the code is outside the range of a <c>Long</c>, or names no character, which is an error the interpreter
     /// raises; or the String made ends with a lone byte, which the interpreter holds.
     /// </returns>
     public bool TryChr(long code, out string? text)

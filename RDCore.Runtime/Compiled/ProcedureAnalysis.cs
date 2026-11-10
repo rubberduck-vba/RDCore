@@ -754,7 +754,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
                 return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
 
-            // the result of a function of the String type, assigned the text as it is where its frame holds it - or what a call returns, once the call
+            // the result of a function of the String type, assigned the text as it is where its frame holds it, or what a call returns, once the call
             // returned, as the interpreter assigns it.
             case BoundName { Symbol: var function } when ResultIsText && IsOwnFunction(function):
                 if (AssignedCallOf(assigned, offset) is { } textAssigned)
@@ -958,6 +958,7 @@ internal sealed partial class ProcedureAnalysis
     /// Whether <paramref name="procedure"/> is a function whose result a statement assigns once the call returned (<see cref="CompiledCallee.AssignsResult"/>):
     /// of the <c>Variant</c> type, of a scalar type, or of the <c>String</c> type of variable length.
     /// </summary>
+    /// <param name="procedure">The procedure called.</param>
     internal static bool ReturnsAssignable(VBTypeMemberSymbol procedure)
         => ReturnedType(procedure) is { } returned && (returned is VBVariantType || ScalarKinds.Of(returned) is not null || IsText(returned));
 

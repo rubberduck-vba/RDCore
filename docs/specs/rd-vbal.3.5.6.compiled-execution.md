@@ -40,7 +40,8 @@ The result of a function of the `Variant` type, or declared without a type, stay
 reads it there whenever it holds a value of a scalar type, as above.
 
 A `Let` of what a call returns to a `Variant` variable or to the function's own `Variant` result (`V = F()`, `V = C.Item(K)`) is compiled whatever the
-call returns, a function of the `String` type included. Compiled code makes the call, then assigns its result as the interpreter assigns the value of the statement's expression:
+call returns, a function of the `String` type included. Compiled code makes the call, then assigns its result as the interpreter assigns the value of
+the statement's expression:
 
 - a value of any type is assigned as it is (MS-VBAL §5.5.1.2.12): `Empty` and `Null` stay `Empty` and `Null`, a `String` and an error value keep their
   type, and an array is copied;
@@ -71,8 +72,7 @@ no character is error 5, which the interpreter raises at that statement.
 
 The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads nothing of
 it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `Let` of what a call returns to it (`F = G(N)`, `F = Me.ToString`) is
-compiled as the `Let` of a call to a `Variant` is (see Variant function results, above). A member of `Me` is called so only there, for the result such a
-`Let` assigns.
+compiled as the `Let` of a call to a `Variant` is (see Variant function results, above). Compiled code calls a member of `Me` only in such a `Let`.
 
 Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
 parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`
@@ -325,7 +325,8 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
 - `ObjectOperations`: the reference an object variable holds, read where its frame keeps it, and `Is` of two of them or of one and `Nothing`. A
   variable whose reference compiled code cannot read fails.
 - `StringOperations`: the text a `String` variable holds, read where its frame keeps it, two texts joined, a whole number written as text, and a text
-  written as a `Let` assigns it. A `String` that ends with a lone byte fails its read. Compiled code compares two texts with the interpreter's own comparison of the module's mode.
+  written as a `Let` assigns it. A `String` that ends with a lone byte fails its read. Compiled code compares two texts with the interpreter's own
+  comparison of the module's mode.
 
 When an operation fails or declines, compiled code hands the activation to the interpreter at that instruction. It writes every variable back into its
 cell, the function result into its variable, the state of each `For` loop whose `For` statement ran, and the selector of each `Select Case` whose `Select`
