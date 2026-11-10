@@ -1,4 +1,4 @@
-﻿# RDCore SDK 
+﻿# RDCore user documentation
 <sup>_Ce document est disponible en [français](index.fr.html)_</sup>
 
 ---
@@ -6,44 +6,34 @@
 
 ![VIVAT CUCUMIS™](images/vivat-cucumis-stonecore.png)
 
-**RDCore** ("Rubberduck Core") is the spiritual successor to **Rubberduck VBA**™, the popular _legacy_ open-source project (2015-2025, now [archived](https://github.com/rubberduck-vba/Rubberduck)).  
+**RDCore** ("Rubberduck Core") is the spiritual successor to **Rubberduck VBA**™, the popular _legacy_ open-source project (2015-2025, now [archived](https://github.com/rubberduck-vba/Rubberduck)).
 
-**RDCore is NOT** an add-in for the VBIDE.  
-**RDCore is a re-implementation of VBA** from its specifications.  
+RDCore runs and analyzes **VBA** and **Visual Basic 6** code outside the VBA editor. It implements the language from its [specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74), with a runtime of its own.
 
-
-Legacy VBA today:  
-- implicit rules
-- difficult to analyze
-- stuck in its runtime
-- impossible to evolve
-
-**RDCore**:  
-- **formalizes** the semantics
-- **exposes** the structure
-- execution **becomes observable**
-- the language _itself_ **becomes extensible**
-
-
-**Repository and project status** (GitHub): [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)  
-**HexIDE add-in** (GitHub): [rubberduck-vba/RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE), which brings RDCore into [HexIDE](https://github.com/hexide-io/HexIDE)
-
-
-### Objectives
-- **Integral implementation** of the [MS-VBAL specification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74)
-- Implement an **independent runtime library** that brings the language to life completely without MS-VBA
-- Publish an official **RD-VBA specification**
-- Implement a _Language Server ecosystem_ (LSP) and **analytics platform** for RD-VBA
-
+> [!NOTE]
+> **The platform is pre-alpha**, and has no published release. To try it, build it from its source (see [Getting started](getting-started.md)).
 
 ---
-## Documentation
+## What you can do with it
 
-The documentation in the **SDK** section of this site is generated from comments (xmldoc) directly in the source code, and therefore is **only available in English** so as to maximize its reach and reduce its weight in the source code.
+|To...|See|
+|---|---|
+|Try RDCore, and bring a VBA project over|[Getting started](getting-started.md)|
+|Run code in the RD-VBA shell, or run and build a project's program from the command line|[The shell and the rdc commands](rdc.md)|
+|Work on a Visual Basic 6 project|[VB6 projects](vb6-projects.md)|
+|Write, run and debug your code in an IDE|[RDCore in HexIDE](hexide.md)|
+|Change your code while your program is stopped, and go on|[Edit and Continue](edit-and-continue.md)|
+|Understand a problem RDCore reports|[Diagnostics](diagnostics/index.md)|
 
-With the exception of the _SDK and language platform specification/documentation_ (**RD-VBAL**), all content that is not generated directly from source code is also available in French.
+---
+## For contributors
 
-Happy reading!
+- [Building on RDCore](building-on-rdcore.md): contributing, building the platform, and writing an extension or a client.
+- [**RD-VBAL**](specs/rd-vbal.md): the specification of the RD-VBA language and platform, in English.
+- [SDK](https://rubberduck-vba.github.io/RDCore.SDK/): the API reference of the RDCore.SDK package, generated from its source code, in English.
+
+**Repository and project status** (GitHub): [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)  
+**HexIDE add-in** (GitHub): [rubberduck-vba/RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE)
 
 
 ---
