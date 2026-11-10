@@ -6,7 +6,8 @@ namespace RDCore.Tests.Cli;
 /// A <c>Function</c> or a <c>Property Get</c> of the object of a <c>With</c> block (MS-VBAL §5.4.2.21) read by compiled code inside an expression: as an
 /// operand, in a condition, given an argument, in nested blocks. Compiled code calls the member on the object the interpreter holds for the block, as the
 /// interpreter does; the <c>With</c> statement is the interpreter's, and so is a read of a member of a block whose object is <c>Nothing</c>, which raises
-/// error 91. The <c>End With</c> is compiled code's, the variable still holding the object. A program runs the same either way.
+/// error 91. The <c>End With</c> is compiled code's: letting go of the block's object destroys nothing, since a variable still holds it. A program runs
+/// the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledWithMemberReadTests
