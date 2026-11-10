@@ -467,13 +467,28 @@ public sealed partial class CompiledActivation : ILightActivation
         var called = _body.Callees[callee];
         if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
             || !_session.Symbols.TryGetInstance(instance, out var target)
-            || _executor.Expressions.MemberOf(called.Site!, target.ClassModule) is not { } member || !Takes(called, member))
+            || MemberOf(called, target.ClassModule) is not { } member || !Takes(called, member))
         {
             return false;
         }
 
         (_member, _receiver, _memberInstance) = (member, Unsafe.As<ValueBindingHandle>(cell!).Value, target);
         return true;
+    }
+
+    // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
+    // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
+    // one implementing it, of a class that implements that class as an interface.
+    private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
+    {
+        if (called.Procedure is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol) || called.Site?.DeclaredClass is not { } declared)
+        {
+            return _executor.Expressions.MemberOf(called.Site!, actual);
+        }
+
+        return ReferenceEquals(actual, declared) ? called.Procedure
+            : actual.ImplementedInterfaces.Any(implemented => implemented.Uri.AbsoluteUri == declared.Uri.AbsoluteUri) ? actual.FindImplementation(declared, called.Procedure)
+            : null;
     }
 
     // whether a member is called as the member a call was bound to: itself, or one whose parameters after Me, and what it returns, are of the same kinds. The

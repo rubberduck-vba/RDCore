@@ -183,7 +183,8 @@ public sealed class CompiledPropertyReadTests
             "    Next",
             "End Function"), "Boxes", direct: 6, expected: "246");
 
-    // a Property Get of the object of a With block, for the whole value a variable is given. The With statement and its End With are the interpreter's.
+    // a Property Get of the object of a With block, for the whole value a variable is given. The With statement is the interpreter's; the End With is
+    // compiled code's, the variable still holding the object.
     [TestMethod]
     public async Task APropertyOfAWithBlocksObject_IsReadForTheWholeValue()
         => await AssertReadAsync(Program(
@@ -202,7 +203,7 @@ public sealed class CompiledPropertyReadTests
             "        End With",
             "        Within = Within * 10 + V",
             "    Next",
-            "End Function"), "Within", direct: 6, recoveries: 6, expected: "123");
+            "End Function"), "Within", direct: 6, recoveries: 3, expected: "123");
 
     // a read of a Property Get of Nothing raises error 91: to the handler, which resumes after it, and to the caller, with nothing to catch it. The
     // interpreter makes the read (no call is compiled code's), and so each error is the interpreter's: two; each read of Err.Number is compiled code's.

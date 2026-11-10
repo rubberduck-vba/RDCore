@@ -5,9 +5,10 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The blocks whose state the frame holds, stepped by the interpreter inside compiled code: a <c>With</c> and its <c>End With</c>,
-/// and a <c>Select Case</c> or a <c>Case</c> compiled code does not compare; and a <c>For Each</c> and its <c>Next</c>, which the interpreter runs for
-/// compiled code. What a block holds is let go of where the interpreter lets go of it, so a <c>Class_Terminate</c> runs at the same place either way.
+/// The blocks whose state the frame holds, stepped by the interpreter inside compiled code: a <c>With</c>, and its <c>End With</c>
+/// when letting go of the block's object destroys it (any other is compiled code's), and a <c>Select Case</c> or a <c>Case</c> compiled code does not
+/// compare; and a <c>For Each</c> and its <c>Next</c>, which the interpreter runs for compiled code. What a block holds is let go of where the interpreter
+/// lets go of it, so a <c>Class_Terminate</c> runs at the same place either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledBlockTests
@@ -34,8 +35,8 @@ public sealed class CompiledBlockTests
 
     private static string WithHelpers(params string[] lines) => Program([.. lines, .. Helpers]);
 
-    // the With and its End With are the interpreter's; each call of .Add is a support call, made on the object the block holds; the For loop inside the
-    // block is compiled code's, and so is the call of .Count inside an expression.
+    // the With is the interpreter's; each call of .Add is a support call, made on the object the block holds; the For loop inside the block is compiled
+    // code's, and so are the call of .Count inside an expression and the End With, the variable still holding the object.
     [TestMethod]
     public async Task AWith_IsSteppedByTheInterpreter_AroundACompiledLoop()
     {
@@ -53,7 +54,7 @@ public sealed class CompiledBlockTests
             "        Next",
             "        Filled = Filled + .Count",
             "    End With",
-            "End Function"), "Filled", recoveries: 2);
+            "End Function"), "Filled", recoveries: 1);
 
         Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.With) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
@@ -208,7 +209,8 @@ public sealed class CompiledBlockTests
             "End Sub"), "Ended", recoveries: 0, classes: Noisy);
 
     // the target of an inner With is evaluated against the outer one's object; each End With lets go of its own, the Collection's two objects with the outer.
-    // The two calls of Add are support calls, made on the object the outer block holds.
+    // The two calls of Add are support calls, made on the object the outer block holds. The inner End With is compiled code's, the Collection still holding
+    // its object; the outer one, which destroys the Collection, is the interpreter's.
     [TestMethod]
     public async Task AnInnerWith_IsEvaluatedAgainstTheOuter_AndEachEndWithLetsGoOfItsOwn()
         => await AssertAlikeAsync(WithHelpers(
@@ -230,7 +232,7 @@ public sealed class CompiledBlockTests
             "        Report Nested",
             "    End With",
             "    Report Nested + 1",
-            "End Function"), "Nested", recoveries: 6, classes: Noisy);
+            "End Function"), "Nested", recoveries: 5, classes: Noisy);
 
     // an Exit For out of a With inside the loop leaves the With without its End With: compiled code lets its object go where the interpreter does.
     [TestMethod]
