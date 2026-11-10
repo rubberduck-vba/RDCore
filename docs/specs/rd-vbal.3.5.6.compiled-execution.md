@@ -304,8 +304,9 @@ Compiled code calls these functions of the standard library inside an expression
 Each argument is a number, a `Boolean` or a `Date` that compiled code evaluates, or a `Variant` that holds one. Compiled code calls the function as the
 interpreter does, through the same binding and with the session's locale. When a `Variant` argument holds anything else, such as a `String`, the
 interpreter runs the statement on its own. An error the function raises, such as the overflow of `CByte(300)`, is raised where the interpreter raises it.
-`Abs` of the least value of a type is the one exception: the interpreter runs the statement, because the result depends on the call. Of the least `Long` in
-a constant expression it is that `Long`, of a `Variant` it is the next wider type, and of a variable it is error 6.
+`Abs` of the least value of a type, on which the function overflows, is the interpreter's: compiled code hands it the statement, and the interpreter
+decides the result by how the argument is written. Of the least `Long` written as a constant expression (`Abs(CLng(-2147483647) - 1)`) it is that
+`Long`, of a `Variant` it is the next wider type, and of a `Long` variable it is error 6.
 
 An argument that is a `Single`, `Double` or `Date` operation is computed in the 80-bit format (see `Extended`, under The semantics are the
 interpreter's, below), and the function is given that value as the interpreter gives it, outside its binding, which would take the value as stored.
