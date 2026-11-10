@@ -256,13 +256,13 @@ internal sealed partial class ProcedureEmitter
 
             // every instruction boundary is a safepoint: under the random walk-back the activation may be handed to the interpreter at any of them, and not only
             // where it polls for a program to stop - which a step that polls already does, before it.
-            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep or VariantForNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
+            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep or VariantForNextStep or ForEachNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
             {
                 EmitPoll(step.Offset);
             }
 
             BeginKnowing(step.Offset);
-            EmitStep(step);
+            EmitObjectStatement(step);
         }
 
         // the end of the body (MS-VBAL §5.4.2.17): as an Exit.
@@ -414,6 +414,14 @@ internal sealed partial class ProcedureEmitter
                 EmitForNext(next);
                 break;
 
+            case ForEachOpenStep forEachOpen:
+                EmitForEachOpen(forEachOpen);
+                break;
+
+            case ForEachNextStep forEachNext:
+                EmitForEachNext(forEachNext);
+                break;
+
             case ExitStep exit:
                 EmitExit(exit.Offset);
                 break;
@@ -561,8 +569,16 @@ internal sealed partial class ProcedureEmitter
                 EmitTextLet(textLet);
                 break;
 
+            case TextResultLetStep textResultLet:
+                EmitTextResultLet(textResultLet);
+                break;
+
             case SupportCallStep support:
                 EmitSupportCall(support);
+                break;
+
+            case EndWithStep endWith:
+                EmitEndWith(endWith);
                 break;
 
             case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
@@ -754,6 +770,9 @@ internal sealed partial class ProcedureEmitter
     // the call made, what it returned in integral or floating, by its kind.
     private (LocalBuilder Integral, LocalBuilder Floating) EmitCallOf(CallStep call, Label failure)
     {
+        // a member of what a call returns: that call made first, as the interpreter evaluates the owner of a member before its arguments.
+        var returnedTo = call.ReceiverCall is { } receiverCall ? EmitObjectCall(receiverCall, failure) : null;
+
         // the arguments, each held where it is - a variable, a constant - or in a local of its own; one that fails fails the instruction before anything is called.
         // A String compiled code reads nothing of - one that ends with a lone byte, or is held in no cell of its own - is the interpreter's: the instruction
         // is run by it alone, as a Let of one is.
@@ -770,6 +789,17 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
             _il.Emit(OpCodes.Ldloc, _objects[receiver]);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
+            _il.Emit(OpCodes.Brfalse, Fail(ReceiverFailure(receiver, failure)));
+        }
+
+        // a member of the object an object field of a record holds, in the cell the record holds it in, as a variable's.
+        if (call.ReceiverField is { } field)
+        {
+            var cell = EmitObjectFieldCell(new ObjectFieldNode(field));
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Ldloc, cell);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
             _il.Emit(OpCodes.Brfalse, Fail(failure));
         }
 
@@ -783,9 +813,20 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Brfalse, Fail(failure));
         }
 
+        // a member of what a call returned, in the cell compiled code took it into: Nothing is the interpreter's, given the object, which raises error 91.
+        if (returnedTo is not null)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Ldloc, returnedTo);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
+            _il.Emit(OpCodes.Brfalse, Fail(failure));
+        }
+
         // a statement whose call returns what the session holds as its temporaries is begun before the call, and ended once the call returned and what it
-        // returned was assigned, as the interpreter begins and ends it: what it returned is let go of there, before anything else runs.
-        var holds = _analysis.Callees[call.Callee].HoldsWhatItReturns;
+        // returned was assigned, as the interpreter begins and ends it: what it returned is let go of there, before anything else runs. A statement that
+        // calls for an object was begun before its first call, and is ended when it is over (EmitObjectStatement).
+        var holds = _analysis.Callees[call.Callee].HoldsWhatItReturns && !_inObjectStatement;
         if (holds)
         {
             _il.Emit(OpCodes.Ldarg_0);
@@ -806,9 +847,10 @@ internal sealed partial class ProcedureEmitter
         // a callee that is compiled is called through its typed entry, with the arguments as they are (IR lowering S2.3b), while the activation can be made that
         // way (CompiledActivation.EnterDirectly); through the invoker otherwise. A member of an object is the object's class's to say: its typed entry is the
         // one EnterMemberDirectly entered, called through its pointer, of the signature the member it was bound to has. A member given an object is called
-        // through its binding, which gives the object to its parameter as the interpreter gives it.
-        var direct = _directs[call.Callee];
-        if (direct is not null || call.IsOfAMember && _analysis.Callees[call.Callee].ObjectParameters.Count == 0)
+        // through its binding, which gives the object to its parameter as the interpreter gives it. One that returns an object is called through the invoker,
+        // which holds what it returns as the statement's temporary.
+        var direct = _analysis.Callees[call.Callee].ReturnsObject ? null : _directs[call.Callee];
+        if (direct is not null || call.IsOfAMember && _analysis.Callees[call.Callee].ObjectParameters.Count == 0 && !_analysis.Callees[call.Callee].ReturnsObject)
         {
             var indirect = _il.DefineLabel();
             var callee = _il.DeclareLocal(typeof(CompiledActivation));
@@ -900,6 +942,12 @@ internal sealed partial class ProcedureEmitter
                     _il.Emit(OpCodes.Ldloc, _objects[held]);
                     _il.Emit(OpCodes.Ldc_I4_0);
                 }
+                else if (given.Call is not null)
+                {
+                    // what a call returned, in the cell compiled code took it into when the argument was evaluated.
+                    _il.Emit(OpCodes.Ldloc, arguments[i].Local!);
+                    _il.Emit(OpCodes.Ldc_I4_0);
+                }
                 else
                 {
                     _il.Emit(OpCodes.Ldnull);
@@ -907,7 +955,7 @@ internal sealed partial class ProcedureEmitter
                 }
 
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObject))!);
-                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
                 continue;
             }
 
@@ -915,7 +963,7 @@ internal sealed partial class ProcedureEmitter
             {
                 _il.Emit(OpCodes.Ldc_I4, variable.Slot);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObjectReference))!);
-                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
                 continue;
             }
 
@@ -1174,6 +1222,12 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Stloc, loop.Opened);
         _il.Emit(OpCodes.Ldc_I4_0);
         _il.Emit(OpCodes.Stloc, loop.Spilled);
+
+        // the opener is over once the counter is given the start: what its calls returned is let go of before its first test (EmitObjectStatement).
+        if (_inObjectStatement)
+        {
+            EmitEndStatement();
+        }
 
         EmitPastTheEnd(loop, open.Counter, _instructions[open.Past]);
     }
@@ -1620,6 +1674,10 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 return new Operand(_texts[reference.Slot], 0, 0);
 
+            // what a call returns, made where the argument is evaluated, in a cell of its own (EmitObjectCall).
+            case ObjectArgumentNode { Call: { } returned }:
+                return new Operand(EmitObjectCall(returned, failure), 0, 0);
+
             // an object is read from its cell, or given its address, as the call is made (CompiledActivation.SetObject, SetObjectReference).
             case ObjectArgumentNode or ObjectReferenceNode:
                 return default;
@@ -1673,6 +1731,12 @@ internal sealed partial class ProcedureEmitter
 
             case FieldNode field:
                 return EmitField(field, failure);
+
+            case MemberFieldNode memberField:
+                return EmitMemberField(memberField, failure);
+
+            case ErrNumberNode:
+                return EmitErrNumber(failure);
 
             case OperandNode evaluated:
                 return evaluated.Operand;

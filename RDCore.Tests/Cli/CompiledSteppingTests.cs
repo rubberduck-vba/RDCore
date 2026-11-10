@@ -270,7 +270,7 @@ public sealed class CompiledSteppingTests
             "        Fact = Fact(N - 1)",
             "        Fact = Fact * N",
             "    End If",
-            "End Function"), "Fact", recoveries: 5);
+            "End Function"), "Fact", recoveries: 0);
 
     // a compiled caller calls a callee whose frame holds a String through the invoker, which makes it its frame.
     [TestMethod]
@@ -295,7 +295,7 @@ public sealed class CompiledSteppingTests
             "End Function");
 
         await AssertAlikeAsync(program, "Outer", recoveries: 0);
-        await AssertAlikeAsync(program, "Labelled", recoveries: 6);
+        await AssertAlikeAsync(program, "Labelled", recoveries: 3);
     }
 
     // a variable a statement the interpreter runs gives an address - its VarPtr, an argument passed by reference to a Declare - is read back and written
@@ -390,7 +390,7 @@ public sealed class CompiledSteppingTests
             "    Counted = N * 2",
             "End Function"), "Counted", recoveries: 0);
 
-    // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled.
+    // an error in a statement the interpreter runs, under On Error GoTo: the handler is gone to, and goes on compiled, Err.Number included.
     [TestMethod]
     public async Task AnErrorInAStatementTheInterpreterRuns_GoesToTheHandler()
         => await AssertAlikeAsync(Program(
@@ -407,7 +407,7 @@ public sealed class CompiledSteppingTests
             "    Exit Function",
             "Failed:",
             "    Guarded = Guarded * 100 + Err.Number",
-            "End Function"), "Guarded", recoveries: 2);
+            "End Function"), "Guarded", recoveries: 1);
 
     // a GoSub to a statement the interpreter runs, and a Return to one: at each of 2 passes, the statement GoSub lands on and the one Return lands on, 4.
     [TestMethod]
@@ -537,13 +537,13 @@ public sealed class CompiledSteppingTests
     {
         var compiled = await AssertAlikeAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print Joined(\"a\", \"b\")",
+            "    Debug.Print UBound(Joined(\"a\", \"b\"))",
             "End Sub",
-            "Private Function Joined(ByVal A As String, ByVal B As String) As String",
+            "Private Function Joined(ByVal A As String, ByVal B As String) As Byte()",
             "    Joined = A & B",
             "End Function"));
 
-        // the reasons are what the interpreter would have run alone: its one statement, which assigns a String.
+        // the reasons are what the interpreter would have run alone: its one statement, which assigns a Byte array.
         var joined = compiled["Joined"];
         Assert.IsNull(joined.Body);
         Assert.IsEmpty(joined.Stepped);

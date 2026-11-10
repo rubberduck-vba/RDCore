@@ -33,10 +33,13 @@ internal sealed partial class ProcedureAnalysis
     // whether a field is held on Me: an activation of the body is then a call on an object, which the frame is made for.
     private bool HasObjectFields => _fields.Exists(reached => reached.Scope is FieldScope.Object);
 
-    // the slot of a field compiled code reaches and holds (TakesFieldOfKind), numbered the first time it is named.
-    private int? FieldSlotOf(BoundVariable variable)
+    // the slot of a field compiled code reaches and holds (TakesFieldOfKind), numbered the first time it is named. A variable declared As New is made
+    // when it is read (MS-VBAL §5.2.3.1.4), which is the interpreter's: but the default instance of a class is held as an object field is when it is the
+    // object a member is called on (receiver), whose call compiled code makes only when the variable already holds an object (CompiledActivation.CanCallMember).
+    private int? FieldSlotOf(BoundVariable variable, bool receiver = false)
     {
-        if (variable.IsAutoInstantiated || ScopeOf(variable.Variable) is not { } scope || variable.Variable is not ITypedSymbol typed)
+        if (variable.IsAutoInstantiated && !(receiver && variable.Variable is VBPredeclaredInstanceSymbol)
+            || ScopeOf(variable.Variable) is not { } scope || variable.Variable is not ITypedSymbol typed)
         {
             return null;
         }
@@ -69,6 +72,9 @@ internal sealed partial class ProcedureAnalysis
     {
         VBModuleFieldVariableMemberSymbol { ScopeKind: ScopeKind.Instance } field when field.ParentUri.AbsoluteUri == _procedure.ParentUri.AbsoluteUri => FieldScope.Object,
         VBModuleFieldVariableMemberSymbol { ScopeKind: ScopeKind.Module or ScopeKind.Global } => FieldScope.Session,
+
+        // the default instance of a class, a variable of the session (MS-VBAL §5.2.4.1.2).
+        VBPredeclaredInstanceSymbol => FieldScope.Session,
         VBLocalVariableSymbol { IsStatic: true } local when local.ParentUri.AbsoluteUri == _procedure.Uri.AbsoluteUri
             => MeSlot is null ? FieldScope.Session : FieldScope.Object,
         _ => null,

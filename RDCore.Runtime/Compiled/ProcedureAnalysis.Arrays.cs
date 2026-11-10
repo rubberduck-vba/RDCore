@@ -45,7 +45,8 @@ internal sealed partial class ProcedureAnalysis
 
         if (!_arrays.TryGetValue(slot.Index, out var array))
         {
-            array = ScalarKinds.Of(item) is { } kind ? new CompiledArray(slot.Index, ElementClass.Scalar, kind)
+            // an element of an enumeration is a Long the interpreter keeps in no payload cell (ElementCells.Of), which compiled code reads none of.
+            array = item is not SDK.Model.Types.Complex.VBEnumType && ScalarKinds.Of(item) is { } kind ? new CompiledArray(slot.Index, ElementClass.Scalar, kind)
                 : item is VBVariantType ? new CompiledArray(slot.Index, ElementClass.Variant, null)
                 : IsObjectType(item) ? new CompiledArray(slot.Index, ElementClass.Object, null)
                 : new CompiledArray(slot.Index, ElementClass.Other, null);

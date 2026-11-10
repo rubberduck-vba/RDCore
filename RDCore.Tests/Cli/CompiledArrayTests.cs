@@ -100,7 +100,7 @@ public sealed class CompiledArrayTests
             "End Function"), "Grid", recoveries: 0);
 
     // a subscript outside its dimension is error 9, raised by the interpreter at the statement, which Resume Next goes past: a read and a write each
-    // recovered once at each end of the array - and Err.Number, the interpreter's, at each of the 7 times round; Err.Clear is a support call.
+    // recovered once at each end of the array; Err.Number is compiled code's to read, and Err.Clear is a support call.
     [TestMethod]
     public async Task ASubscriptOutOfRange_UnderResumeNext_IsGonePast()
         => await AssertAlikeAsync(Program(
@@ -117,7 +117,7 @@ public sealed class CompiledArrayTests
             "        Ranged = Ranged + Err.Number",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Ranged", recoveries: 4 + 7);
+            "End Function"), "Ranged", recoveries: 4);
 
     // a subscript outside its dimension with no handler: error 9, at the statement, with the stack the interpreter gives it - in the middle of the loop,
     // after the 6 Debug.Print the interpreter ran.
@@ -136,8 +136,8 @@ public sealed class CompiledArrayTests
             "    Next",
             "End Function"), "Walked", recoveries: 6, walkBacks: 1);
 
-    // Option Base 1 gives a dimension declared by its upper bound alone a lower bound of 1: LBound reads it, and an element at 0 is error 9 (and Err.Number
-    // the interpreter's).
+    // Option Base 1 gives a dimension declared by its upper bound alone a lower bound of 1: LBound reads it, and an element at 0 is error 9, which Err.Number
+    // reads.
     [TestMethod]
     public async Task OptionBase1_GivesTheLowerBound_ThatLBoundReads()
         => await AssertAlikeAsync("Option Base 1\r\n" + Program(
@@ -155,10 +155,10 @@ public sealed class CompiledArrayTests
             "    Based = LBound(V) * 1000 + UBound(V) * 100 + LBound(G, 1) * 10 + LBound(G, 2) + UBound(G, 2) * 10000",
             "    V(0) = 7",
             "    Based = Based + Err.Number * 100000",
-            "End Function"), "Based", recoveries: 1 + 1);
+            "End Function"), "Based", recoveries: 1);
 
-    // LBound and UBound of a dimension the array doesn't have, 0 and 3: error 9, the interpreter's - as Err.Number is, 4 times round; Err.Clear is a
-    // support call.
+    // LBound and UBound of a dimension the array doesn't have, 0 and 3: error 9, the interpreter's; Err.Number is compiled code's to read, and Err.Clear
+    // is a support call.
     [TestMethod]
     public async Task ABoundOfADimensionTheArrayHasNot_IsTheInterpretersError()
         => await AssertAlikeAsync(Program(
@@ -174,7 +174,7 @@ public sealed class CompiledArrayTests
             "        Bounded = Bounded + Err.Number * 1000",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Bounded", recoveries: 2 + 4);
+            "End Function"), "Bounded", recoveries: 2);
 
     // a ReDim Preserve inside a loop over the array grows it as the loop goes: compiled code finds each element in the array the cell holds after it.
     [TestMethod]
@@ -203,7 +203,7 @@ public sealed class CompiledArrayTests
             "End Function"), "Grown", recoveries: 0);
 
     // an element of an array Erase emptied, and a ReDim to bounds the program can't have, and UBound of the array it left
-    // erased: the interpreter's errors, given to the handler - and the two Err.Number. The two Err.Clear are support calls.
+    // erased: the interpreter's errors, given to the handler, which Err.Number reads. The two Err.Clear are support calls.
     [TestMethod]
     public async Task AnErasedArray_AndAReDimThatFails_AreTheInterpretersErrors()
         => await AssertAlikeAsync(Program(
@@ -225,7 +225,7 @@ public sealed class CompiledArrayTests
             "    Emptied = Emptied * 100 + Err.Number",
             "    Err.Clear",
             "    Emptied = Emptied * 100 + UBound(V)",
-            "End Function"), "Emptied", recoveries: 3 + 2);
+            "End Function"), "Emptied", recoveries: 3);
 
     // an array passed by reference whole - to a callee compiled code runs, which writes its elements, and to one the interpreter runs, whose loop counts
     // with a parameter passed by reference - and an element passed by reference, which the interpreter passes: what each callee writes is in the caller's

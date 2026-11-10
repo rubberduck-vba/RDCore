@@ -1,3 +1,4 @@
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.Runtime.LanguageCore.Flow;
@@ -12,6 +13,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Workspace;
 using RDCore.Symbols;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.Runtime.LanguageCore.Refactoring;
 
 namespace RDCore.Tests.Semantics.Flow;
 
@@ -56,6 +58,31 @@ internal static class FlowFixture
     internal sealed record class Analyzed(
         MemberDeclarationNode Procedure, InstructionList Instructions, ProcedureSemanticModel Model, DefinitionsAndUses Accesses, ControlFlowGraph Graph, ScopeTree Scopes, int FirstBodyLine)
     {
+        /// <summary>
+        /// The module's syntax tree.
+        /// </summary>
+        public ModuleNode Module { get; init; } = null!;
+
+        /// <summary>
+        /// The module's text.
+        /// </summary>
+        public string Text { get; init; } = string.Empty;
+
+        /// <summary>
+        /// The workspace, bound, as the refactorings see it.
+        /// </summary>
+        public RenameContext Context { get; init; } = null!;
+
+        /// <summary>
+        /// The <c>#If</c> blocks of the module.
+        /// </summary>
+        public ExtractionDirectives Directives { get; init; } = ExtractionDirectives.None;
+
+        /// <summary>
+        /// The module's address in <see cref="Context"/>.
+        /// </summary>
+        public Uri ModuleAddress => ModuleUri("Main");
+
         public LiveVariables Live => LiveVariables.Of(Graph, Accesses);
 
         public ReachingDefinitions Reaching => ReachingDefinitions.Of(Graph, Accesses);
@@ -75,16 +102,42 @@ internal static class FlowFixture
     }
 
     /// <summary>
+    /// The module whose text is <paramref name="text"/>, its names bound as <see cref="Analyze"/> binds them, analyzed as an extraction analyzes it.
+    /// </summary>
+    /// <param name="text">The module's text: its name is <c>Main</c>.</param>
+    /// <param name="classes">The name and the source of each class module of the workspace beside the module; none when omitted.</param>
+    public static ExtractionModuleAnalysis Module(string text, IReadOnlyList<(string Name, string Source)>? classes = null)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), text);
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            Root, [(ModuleUri("Main"), ModuleType.StdModule, parse), .. ClassesOf(classes)], new IntrinsicSymbolResolver());
+        return ExtractionModuleAnalysis.Of(ModuleUri("Main"), text, parse, composition.Resolver, composition.ScopeTree);
+    }
+
+    private static IEnumerable<(Uri, ModuleType, ModuleParseResult)> ClassesOf(IReadOnlyList<(string Name, string Source)>? classes)
+        => (classes ?? []).Select(module =>
+        {
+            var classParse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{module.Name}.cls"), module.Source);
+            Assert.IsTrue(classParse.IsSuccess, string.Join("; ", classParse.SyntaxErrors.Select(error => error.Verbose)));
+            return (ModuleUri(module.Name), ModuleType.ClassModule, classParse);
+        });
+
+    /// <summary>
     /// Analyzes a procedure <c>Run</c> whose body is <paramref name="body"/>, in a module that declares what <paramref name="declarations"/> says before the rest.
     /// </summary>
-    public static Analyzed Analyze(string body, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true, string declarations = "")
+    /// <param name="classes">The name and the source of each class module of the workspace beside the module; none when omitted.</param>
+    public static Analyzed Analyze(
+        string body, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true, string declarations = "",
+        IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         var moduleLevel = $"{declarations}\r\n{Others}".ReplaceLineEndings("\r\n");
         var prefix = $"Attribute VB_Name = \"Main\"\r\n{(optionExplicit ? "Option Explicit" : "' no Option Explicit")}\r\n{moduleLevel}\r\n{header}\r\n";
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), $"{prefix}{body.ReplaceLineEndings("\r\n")}\r\n{end}\r\n");
+        var text = $"{prefix}{body.ReplaceLineEndings("\r\n")}\r\n{end}\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), text);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(ModuleUri("Main"), ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            Root, [(ModuleUri("Main"), ModuleType.StdModule, parse), .. ClassesOf(classes)], new IntrinsicSymbolResolver());
         Assert.IsTrue(composition.ScopeTree.TryGetScope(ModuleUri("Main.Run"), out var scope));
         var run = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single(member => member.Name == "Run");
         var block = new StatementBlock([.. run.Children]);
@@ -94,6 +147,12 @@ internal static class FlowFixture
 
         var instructions = InstructionListLowering.Lower(block, default, run.MemberKind).InstructionList;
         var graph = ControlFlowGraph.Of(instructions, model);
-        return new Analyzed(run, instructions, model, DefinitionsAndUses.Of(instructions, model, composition.ScopeTree), graph, composition.ScopeTree, prefix.Split("\r\n").Length - 1);
+        return new Analyzed(run, instructions, model, DefinitionsAndUses.Of(instructions, model, composition.ScopeTree), graph, composition.ScopeTree, prefix.Split("\r\n").Length - 1)
+        {
+            Module = parse.SyntaxTree!,
+            Text = text,
+            Context = new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(ModuleUri("Main"), parse.SyntaxTree!, text)]),
+            Directives = ExtractionDirectives.Of(parse.PrecompilerTrivia, text),
+        };
     }
 }

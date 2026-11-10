@@ -5,9 +5,10 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// The blocks whose state the frame holds, stepped by the interpreter inside compiled code (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, a
-/// <c>For Each</c> and its <c>Next</c>, and a <c>Select Case</c> or a <c>Case</c> compiled code does not compare. What a block holds is let go of where
-/// the interpreter lets go of it, so a <c>Class_Terminate</c> runs at the same place either way.
+/// The blocks whose state the frame holds, stepped by the interpreter inside compiled code: a <c>With</c>, and its <c>End With</c>
+/// when letting go of the block's object destroys it (any other is compiled code's), and a <c>Select Case</c> or a <c>Case</c> compiled code does not
+/// compare; and a <c>For Each</c> and its <c>Next</c>, which the interpreter runs for compiled code. What a block holds is let go of where the interpreter
+/// lets go of it, so a <c>Class_Terminate</c> runs at the same place either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledBlockTests
@@ -34,7 +35,8 @@ public sealed class CompiledBlockTests
 
     private static string WithHelpers(params string[] lines) => Program([.. lines, .. Helpers]);
 
-    // the With and its End With, and the statements that use its object, are the interpreter's; the For loop inside the block is compiled code's.
+    // the With is the interpreter's; each call of .Add is a support call, made on the object the block holds; the For loop inside the block is compiled
+    // code's, and so are the call of .Count inside an expression and the End With, the variable still holding the object.
     [TestMethod]
     public async Task AWith_IsSteppedByTheInterpreter_AroundACompiledLoop()
     {
@@ -52,7 +54,7 @@ public sealed class CompiledBlockTests
             "        Next",
             "        Filled = Filled + .Count",
             "    End With",
-            "End Function"), "Filled", recoveries: 6);
+            "End Function"), "Filled", recoveries: 1);
 
         Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.With) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
@@ -77,9 +79,9 @@ public sealed class CompiledBlockTests
             "End Function"), "Held", recoveries: 2, classes: Noisy);
 
     // the element a For Each assigns V each pass is in V's cell, which compiled code reads: the statements of the body are its own. The Add of the
-    // Collection is a support call.
+    // Collection is a support call, and so are the For Each and its Next.
     [TestMethod]
-    public async Task AForEach_IsSteppedByTheInterpreter_AroundACompiledBody()
+    public async Task AForEach_IsRunByTheInterpreterForCompiledCode_AroundACompiledBody()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Summed()",
@@ -95,7 +97,7 @@ public sealed class CompiledBlockTests
             "        I = I + 1",
             "    Next",
             "    Summed = Summed + I",
-            "End Function"), "Summed", recoveries: 5);
+            "End Function"), "Summed", recoveries: 0);
 
     // the array a For Each reads is let go of when the loop ends, at its Next: the element V does not hold is gone before the call compiled code makes next.
     [TestMethod]
@@ -111,7 +113,7 @@ public sealed class CompiledBlockTests
             "    Next",
             "    Report I",
             "    Ended = I",
-            "End Function"), "Ended", recoveries: 3, classes: Noisy);
+            "End Function"), "Ended", recoveries: 0, classes: Noisy);
 
     // an Exit For is a jump of compiled code out of the block: where it lands, what the block held is let go of before the call compiled code makes there.
     [TestMethod]
@@ -128,7 +130,7 @@ public sealed class CompiledBlockTests
             "    Next",
             "    Report I",
             "    Left1 = I",
-            "End Function"), "Left1", recoveries: 1, classes: Noisy);
+            "End Function"), "Left1", recoveries: 0, classes: Noisy);
 
     // a Return from inside a For Each to a GoSub outside it leaves the block too.
     [TestMethod]
@@ -148,7 +150,7 @@ public sealed class CompiledBlockTests
             "        If Back = 1 Then Return",
             "    Next",
             "    Return",
-            "End Function"), "Back", recoveries: 1, classes: Noisy);
+            "End Function"), "Back", recoveries: 0, classes: Noisy);
 
     // a GoTo out of the block is a jump of compiled code too: the label it lands on lets go of what the block held, before the call compiled code makes there.
     [TestMethod]
@@ -166,7 +168,7 @@ public sealed class CompiledBlockTests
             "Out:",
             "    Report I",
             "    Jumped = I",
-            "End Function"), "Jumped", recoveries: 2, classes: Noisy);
+            "End Function"), "Jumped", recoveries: 1, classes: Noisy);
 
     // an error in the loop goes to a handler outside it: the interpreter runs the instruction that fails, and what the block held is let go of before
     // compiled code goes on in the handler.
@@ -187,7 +189,7 @@ public sealed class CompiledBlockTests
             "Handler:",
             "    Report I",
             "    Caught = I",
-            "End Function"), "Caught", recoveries: 2, classes: Noisy);
+            "End Function"), "Caught", recoveries: 1, classes: Noisy);
 
     // an End in the loop ends the program there, in either engine, with what the block held.
     [TestMethod]
@@ -204,9 +206,11 @@ public sealed class CompiledBlockTests
             "        Report I",
             "        If I = 1 Then End",
             "    Next",
-            "End Sub"), "Ended", recoveries: 1, classes: Noisy);
+            "End Sub"), "Ended", recoveries: 0, classes: Noisy);
 
     // the target of an inner With is evaluated against the outer one's object; each End With lets go of its own, the Collection's two objects with the outer.
+    // The two calls of Add are support calls, made on the object the outer block holds. The inner End With is compiled code's, the Collection still holding
+    // its object; the outer one, which destroys the Collection, is the interpreter's.
     [TestMethod]
     public async Task AnInnerWith_IsEvaluatedAgainstTheOuter_AndEachEndWithLetsGoOfItsOwn()
         => await AssertAlikeAsync(WithHelpers(
@@ -228,7 +232,7 @@ public sealed class CompiledBlockTests
             "        Report Nested",
             "    End With",
             "    Report Nested + 1",
-            "End Function"), "Nested", recoveries: 8, classes: Noisy);
+            "End Function"), "Nested", recoveries: 5, classes: Noisy);
 
     // an Exit For out of a With inside the loop leaves the With without its End With: compiled code lets its object go where the interpreter does.
     [TestMethod]
@@ -267,7 +271,7 @@ public sealed class CompiledBlockTests
             "                Named = Named + 10",
             "        End Select",
             "    Next",
-            "End Function"), "Named", recoveries: 11);
+            "End Function"), "Named", recoveries: 8);
 
     // a Case of a value that is no scalar is compared by the interpreter, with the selector compiled code gave the frame; the other Cases are compiled code's.
     [TestMethod]
@@ -290,9 +294,9 @@ public sealed class CompiledBlockTests
             "    Next",
             "End Function"), "Mixed", recoveries: 3);
 
-    // a For Each the interpreter would run whole - every instruction of it stepped - keeps the procedure in the interpreter.
+    // a For Each whose body the interpreter runs keeps the procedure in the interpreter: its Next, which the interpreter runs too, is no gain.
     [TestMethod]
-    public async Task AForEachTheInterpreterWouldRunWhole_KeepsItsProcedureInterpreted()
+    public async Task AForEachWhoseBodyTheInterpreterRuns_KeepsItsProcedureInterpreted()
     {
         var compiled = await AssertAlikeAsync(Program(
             "Public Sub Main()",
@@ -310,7 +314,7 @@ public sealed class CompiledBlockTests
             "End Function"));
 
         Assert.IsNull(compiled["Listed"].Body);
-        Assert.IsTrue(compiled["Listed"].Reasons.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.ForEachNext) }),
+        Assert.IsTrue(compiled["Listed"].Reasons.Any(reason => reason is { Kind: IneligibilityKind.Statement, Detail: "DebugPrint" }),
             string.Join("; ", compiled["Listed"].Reasons.Select(reason => $"{reason.Kind} {reason.Detail}")));
     }
 }

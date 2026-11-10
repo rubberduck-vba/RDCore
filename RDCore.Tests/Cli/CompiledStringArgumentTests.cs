@@ -82,7 +82,7 @@ public sealed class CompiledStringArgumentTests
     }
 
     // a String variable given by reference: the callee writes the caller's variable, which the caller reads after the call. Built = S, a Let of the
-    // function's String result, is the interpreter's: 1.
+    // function's String result, is compiled code's too: none.
     [TestMethod]
     public async Task AStringGivenByReference_IsTheCallersVariable()
     {
@@ -101,13 +101,13 @@ public sealed class CompiledStringArgumentTests
             "End Function",
             "Private Sub Appended(ByRef T As String)",
             "    T = T & \"!\"",
-            "End Sub"), "Built", recoveries: 1);
+            "End Sub"), "Built", recoveries: 0);
 
         AssertCalledThroughInvoker(result, 4);
     }
 
     // one String variable given to two parameters by reference: both are second names for it, and each write is seen through the other, as the interpreter
-    // aliases them. Built = S, a Let of the function's String result, is the interpreter's: 1.
+    // aliases them. Built = S, a Let of the function's String result, is compiled code's too: none.
     [TestMethod]
     public async Task OneStringGivenTwiceByReference_IsBothParameters()
     {
@@ -125,13 +125,13 @@ public sealed class CompiledStringArgumentTests
             "    A = A & \"a\"",
             "    B = B & \"b\"",
             "    A = A & B",
-            "End Sub"), "Built", recoveries: 1);
+            "End Sub"), "Built", recoveries: 0);
 
         AssertCalledThroughInvoker(result, 1);
     }
 
     // a String given by reference to a callee that gives it on by reference: the second callee writes the first caller's variable. Built = S, a Let of
-    // the function's String result, is the interpreter's: 1.
+    // the function's String result, is compiled code's too: none.
     [TestMethod]
     public async Task AStringGivenOnByReference_IsTheFirstCallersVariable()
     {
@@ -151,14 +151,14 @@ public sealed class CompiledStringArgumentTests
             "End Sub",
             "Private Sub Appended(ByRef U As String)",
             "    U = U & \"!\"",
-            "End Sub"), "Built", recoveries: 1);
+            "End Sub"), "Built", recoveries: 0);
 
         AssertCalledThroughInvoker(result, 1);
     }
 
     // a String given by reference to a callee that assigns it, then raises an error, which the caller's handler handles: the caller's variable was assigned
     // before the error, as the interpreter sees it, and Resume Next goes on after the call. The call that raised, whose error the interpreter gives the
-    // handler; the Resume Next, always the interpreter's; and Caught = S, a Let of the function's String result: 3.
+    // handler; and the Resume Next, always the interpreter's: 2. Caught = S, a Let of the function's String result, is compiled code's.
     [TestMethod]
     public async Task AStringAssignedByACalleeThatRaises_IsAssignedWhenTheHandlerRuns()
         => await AssertAlikeAsync(Program(
@@ -179,12 +179,13 @@ public sealed class CompiledStringArgumentTests
             "Private Sub Failing(ByRef T As String)",
             "    T = T & \"!\"",
             "    Err.Raise 5",
-            "End Sub"), "Caught", recoveries: 3);
+            "End Sub"), "Caught", recoveries: 2);
 
-    // a Variant holding a String, and a Long, given to a String parameter by value: each is let-coerced to a String, which the interpreter does, making the
-    // call. V = "ab", a String assigned to a Variant, and the two calls are the interpreter's: 3.
+    // a Variant holding a String, and a Boolean, given to a String parameter by value: each is let-coerced to a String, which the interpreter does, making
+    // the call. V = "ab", a String assigned to a Variant, and the two calls are the interpreter's: 3. A whole number is given its digits by compiled code
+    // (CompiledStringResultTests).
     [TestMethod]
-    public async Task AVariantAndALongGivenToAString_AreTheInterpretersToCoerce()
+    public async Task AVariantAndABooleanGivenToAString_AreTheInterpretersToCoerce()
     {
         var program = Program(
             "Public Sub Main()",
@@ -192,17 +193,17 @@ public sealed class CompiledStringArgumentTests
             "End Sub",
             "Private Function Given() As Long",
             "    Dim V As Variant",
-            "    Dim L As Long",
+            "    Dim L As Boolean",
             "    Dim N As Long",
             "    V = \"ab\"",
-            "    L = 42",
+            "    L = True",
             "    N = Size(V)",
             "    Given = N",
             "    N = Size(L)",
             "    Given = Given * 10 + N",
             "End Function",
             "Private Function Size(ByVal S As String) As Long",
-            "    If S = \"ab\" Then Size = 2 Else If S = \"42\" Then Size = 4",
+            "    If S = \"ab\" Then Size = 2 Else If S = \"True\" Then Size = 4",
             "End Function");
         var result = await AssertAlikeAsync(program, "Given", recoveries: 3);
 

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- What is wrong with a name for the procedure Extract Method writes (ExtractionNameProblem): {0} is the name, {1} what else it is, {2} where, {3} the longest a name can be. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ExtractMethodName_Empty" xml:space="preserve">
+    <value>La nouvelle procédure a besoin d'un nom.</value>
+  </data>
+  <data name="ExtractMethodName_NotAnIdentifier" xml:space="preserve">
+    <value>« {0} » n'est pas un nom : un nom est une lettre, suivie de lettres, de chiffres et de traits de soulignement.</value>
+  </data>
+  <data name="ExtractMethodName_Reserved" xml:space="preserve">
+    <value>« {0} » est un mot clé du langage : rien ne peut être nommé « {0} ».</value>
+  </data>
+  <data name="ExtractMethodName_TooLong" xml:space="preserve">
+    <value>Un nom compte au plus {3} caractères.</value>
+  </data>
+  <data name="ExtractMethodName_Collision" xml:space="preserve">
+    <value>« {0} » nomme déjà {1} à {2}.</value>
+  </data>
+  <data name="ExtractMethodName_Rebinds" xml:space="preserve">
+    <value>« {0} » à {2} désigne {1} : il désignerait plutôt la nouvelle procédure.</value>
+  </data>
+  <data name="ExtractMethodName_Shadows" xml:space="preserve">
+    <value>« {0} » est aussi {1}, que la nouvelle procédure masque dans ce module.</value>
+  </data>
+</root>

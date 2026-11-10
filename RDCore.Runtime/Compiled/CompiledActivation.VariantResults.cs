@@ -6,11 +6,12 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a function result of the Variant type: its own, assigned and read where its frame holds it; and what a call returned, which
-// the statement that made the call assigns, then lets go of.
+// what compiled code does of a function result of the Variant type, or of the String type: its own, assigned (and a Variant read) where its frame holds
+// it; and what a call returned, which the statement that made the call assigns, then lets go of.
 public sealed partial class CompiledActivation
 {
     /// <summary>
@@ -34,6 +35,23 @@ public sealed partial class CompiledActivation
         }
 
         frame.ReturnValue = ObjectReferences.AssignResult(_session, frame.ResultCell, converted);
+        return true;
+    }
+
+    /// <summary>
+    /// Assigns the function result variable, of the <c>String</c> type, the text <paramref name="text"/> as it is (MS-VBAL §5.3.1, §5.4.3.8): as the
+    /// interpreter assigns it, where the frame holds it, until the function returns it.
+    /// </summary>
+    /// <param name="text">The text assigned; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns><see langword="false"/> when the interpreter runs the statement: the activation has no frame to hold the result.</returns>
+    public bool TryAssignResultText(string? text)
+    {
+        if (FailsAccessAtRandom() || Frame is not { } frame)
+        {
+            return false;
+        }
+
+        frame.ReturnValue = ObjectReferences.AssignResult(_session, frame.ResultCell, new VBStringValue(new ValueBindingHandle(new VBRuntimeValue<string>(text!))));
         return true;
     }
 
@@ -69,13 +87,29 @@ public sealed partial class CompiledActivation
     /// Begins a statement whose calls return what the session holds as its temporaries (<see cref="CompiledCallee.HoldsWhatItReturns"/>), before its
     /// first call: what they return is held until <see cref="EndStatement"/>, as the interpreter holds a statement's temporaries.
     /// </summary>
-    public void BeginStatement() => _statementTemporaries = _session.Objects.TemporaryCount;
+    public void BeginStatement() => (_statementTemporaries, _inStatement) = (_session.Objects.TemporaryCount, true);
 
     /// <summary>
     /// Ends the statement <see cref="BeginStatement"/> began, once it assigned what it assigns: what its calls returned is let go of, as the interpreter
     /// lets go of a statement's temporaries before the next instruction, which is where an object only they held is destroyed.
     /// </summary>
-    public void EndStatement() => ObjectReferences.ReleaseTemporaries(_session, _statementTemporaries);
+    public void EndStatement()
+    {
+        _inStatement = false;
+        ObjectReferences.ReleaseTemporaries(_session, _statementTemporaries);
+    }
+
+    // whether a statement compiled code began is not over: one handed to the interpreter is the interpreter's to end.
+    private bool _inStatement;
+
+    // the temporaries the statement compiled code hands to the interpreter holds (ProcedureExecutor.Run), which the interpreter lets go of when it is over;
+    // none of a statement that was not begun, or is over.
+    private int? HandStatement()
+    {
+        var held = _inStatement ? _statementTemporaries : (int?)null;
+        _inStatement = false;
+        return held;
+    }
 
     // the statement of a call that raised an error, or whose result's assignment did, ends as the interpreter ends it (ProcedureExecutor.RunInstructions):
     // what it held is let go of before the error is handled - unless the program stopped, which lets go of nothing.

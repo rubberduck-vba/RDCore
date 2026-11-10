@@ -247,6 +247,14 @@ internal sealed record class TextSlotNode(int Slot) : TextNode;
 // two Strings joined, by & or by + of two Strings (MS-VBAL §5.6.9.4, §5.6.5).
 internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNode;
 
+// a Byte, an Integer, a Long or a LongLong let-coerced to String (MS-VBAL §5.5.1.2.4): its digits, after a minus sign when it is negative, which no
+// regional setting changes (StringOperations.OfWhole).
+internal sealed record class WholeTextNode(PayloadNode Value) : TextNode;
+
+// Chr$ of a Byte, an Integer, a Long or a LongLong (MS-VBAL §6.1.2.11.1.4): the character the code names, as the library's Chr$ makes it
+// (CompiledActivation.TryChr); a code it names none for is the interpreter's, which raises the error.
+internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
+
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
 
@@ -260,9 +268,12 @@ internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(defa
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
-// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none. Only an argument of a call;
-// its Kind is not read.
-internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default(ScalarKind));
+// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none; or what the call Call
+// returns, made when the argument is evaluated. Only an argument of a call; its Kind is not read.
+internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default(ScalarKind))
+{
+    public ObjectCallNode? Call { get; init; }
+}
 
 // the argument of an object parameter passed by reference that is an object variable of the activation of the parameter's very type (MS-VBAL §5.3.1.11):
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
@@ -290,6 +301,10 @@ internal sealed record class VariantForNextStep(int Offset, int Opener, int Body
 
 // a Let of a String variable of the activation - not a fixed-length one: the text written into its cell as it is (MS-VBAL §5.4.3.8).
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
+
+// a Let of the function result variable of a function of the String type: the text assigned where its frame holds it, as the interpreter assigns it
+// (CompiledActivation.TryAssignResultText).
+internal sealed record class TextResultLetStep(int Offset, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).
 internal sealed record class LetStep(int Offset, int Slot, PayloadNode Value) : CompiledStep(Offset);
@@ -352,20 +367,35 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
 // an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
-// slot of the object variable it is made on (Receiver), or the offset of the With statement whose block's object it is made on (WithAt).
+// slot of the object variable it is made on (Receiver), the object field of a record it is made on (ReceiverField), or the offset of the With statement
+// whose block's object it is made on (WithAt).
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
 
     public int? WithAt { get; init; }
 
-    public bool IsOfAMember => Receiver is not null || WithAt is not null;
+    public FieldPath? ReceiverField { get; init; }
+
+    // the call whose object the member is called on: made first, inside the instruction (ObjectCallNode).
+    public ObjectCallNode? ReceiverCall { get; init; }
+
+    public bool IsOfAMember => Receiver is not null || WithAt is not null || ReceiverField is not null || ReceiverCall is not null;
 }
 
 // a call of a function of the workspace inside an expression, made as a CallStep makes one, with arguments as a CallStep's: what it returns is of the
 // callee's kind (Kind). Once it is made, the instruction is handed to the interpreter in the middle of it, with what was evaluated of it known
-// (Execution.Frames.KnownOperands): this call by where it is in its statement (Syntax), which the interpreter does not make again.
-internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
+// (Execution.Frames.KnownOperands): this call by where it is in its statement (Syntax), which the interpreter does not make again. A call of a member of
+// an object is made on an object variable (Receiver), on an object field of a record (ReceiverField), or on the object of a With block (WithAt), as a
+// CallStep's is.
+internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, ScalarKind Kind, int Syntax) : PayloadNode(Kind)
+{
+    public int? WithAt { get; init; }
+
+    public FieldPath? ReceiverField { get; init; }
+
+    public ObjectCallNode? ReceiverCall { get; init; }
+}
 
 // a variable of the activation, or the function result variable, read in an instruction that calls a function inside an expression (CallNode): what was
 // read is what the interpreter is given of it, by where it is in its statement (Syntax), when the instruction is handed to it after a call that may have
@@ -407,6 +437,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public bool HoldsWhatItReturns { get; init; }
 
     /// <summary>
+    /// Whether the call is of a function or a <c>Property Get</c> that returns an object, which compiled code calls a member of, or reads a public variable
+    /// of (<see cref="ObjectCallNode"/>): the call is made through the invoker, and what it returns held as a temporary of the statement, which is begun before
+    /// its first call and ended once it is over. <see cref="Result"/> is then <see langword="null"/>.
+    /// </summary>
+    public bool ReturnsObject { get; init; }
+
+    /// <summary>
     /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.
     /// Empty when the call has no object parameter.
     /// </summary>
@@ -417,6 +454,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
     /// </summary>
     public LanguageCore.Binding.BoundMember? Site { get; init; }
+
+    /// <summary>
+    /// Whether the call is of a member of the class whose code runs, named bare (MS-VBAL §5.6.10). The call is of <see cref="Procedure"/> itself, made on
+    /// the activation's own <c>Me</c> as a call of a member of an object is made (<see cref="CompiledActivation.CanCallMember"/>,
+    /// <see cref="CompiledActivation.CallMember"/>). <see cref="Site"/> is then <see langword="null"/>.
+    /// </summary>
+    public bool CallsOwnMember { get; init; }
 
     /// <summary>
     /// Where the call expression is: what the activation that makes the call is located at while the callee runs (<c>CallStackFrame.EnterCall</c>), as the

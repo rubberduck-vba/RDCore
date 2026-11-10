@@ -183,7 +183,8 @@ public sealed class CompiledPropertyReadTests
             "    Next",
             "End Function"), "Boxes", direct: 6, expected: "246");
 
-    // a Property Get of the object of a With block, for the whole value a variable is given. The With statement and its End With are the interpreter's.
+    // a Property Get of the object of a With block, for the whole value a variable is given. The With statement is the interpreter's; the End With is
+    // compiled code's, the variable still holding the object.
     [TestMethod]
     public async Task APropertyOfAWithBlocksObject_IsReadForTheWholeValue()
         => await AssertReadAsync(Program(
@@ -202,10 +203,10 @@ public sealed class CompiledPropertyReadTests
             "        End With",
             "        Within = Within * 10 + V",
             "    Next",
-            "End Function"), "Within", direct: 6, recoveries: 6, expected: "123");
+            "End Function"), "Within", direct: 6, recoveries: 3, expected: "123");
 
     // a read of a Property Get of Nothing raises error 91: to the handler, which resumes after it, and to the caller, with nothing to catch it. The
-    // interpreter makes the read (no call is compiled code's), and so each error and each read of Err.Number is the interpreter's: two of each.
+    // interpreter makes the read (no call is compiled code's), and so each error is the interpreter's: two; each read of Err.Number is compiled code's.
     [TestMethod]
     public async Task APropertyReadOfNothing_RaisesError91()
         => await AssertReadAsync(Program(
@@ -226,10 +227,10 @@ public sealed class CompiledPropertyReadTests
             "Private Function Unhandled() As Long",
             "    Dim P As Point",
             "    Unhandled = P.X + 1",
-            "End Function"), "Handled", direct: 0, recoveries: 4, expected: "9191");
+            "End Function"), "Handled", direct: 0, recoveries: 2, expected: "9191");
 
     // an error a Property Get raises is the caller's: to its handler, which resumes after the statement, the variable not assigned what the property was
-    // given before it raised it. The two errors given to the handler are recoveries, and so are the three reads of Err.Number.
+    // given before it raised it. The two errors given to the handler are recoveries; the three reads of Err.Number are compiled code's.
     [TestMethod]
     public async Task AnErrorAPropertyRaises_IsTheCallersToHandle()
         => await AssertReadAsync(Program(
@@ -249,5 +250,5 @@ public sealed class CompiledPropertyReadTests
             "        Raised = Raised * 100 + V * 10 + Err.Number",
             "        Err.Clear",
             "    Next",
-            "End Function"), "Raised", direct: 6, recoveries: 5, expected: "99495");
+            "End Function"), "Raised", direct: 6, recoveries: 2, expected: "99495");
 }

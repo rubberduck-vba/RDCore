@@ -163,7 +163,7 @@ public sealed class CompiledRecordObjectFieldTests
             "    Exit Function",
             "Mismatch:",
             "    If H.O Is A Then Guarded = Err.Number",
-            "End Function"), "Guarded", recoveries: 3, classes: Noisy(), expected: "13");
+            "End Function"), "Guarded", recoveries: 2, classes: Noisy(), expected: "13");
 
     // an error compiled code does not handle walks the activation back with the record as compiled code left it: the object a field was Set to is the
     // caller's record's, counted there, and the caller's handler reads it.

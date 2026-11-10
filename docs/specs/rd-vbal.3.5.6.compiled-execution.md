@@ -13,8 +13,9 @@ A program does the same thing in either engine: what it prints, the errors it ra
 
 Any `Sub`, `Function` or `Property` procedure can be compiled, in a standard module or in a class. Compiled code holds the procedure's scalar parameters,
 passed `ByVal` or `ByRef`, its scalar variables, and the result of a function that returns a scalar. The scalars are `Byte`, `Integer`, `Long`, `LongLong`,
-`Boolean`, `Currency`, `Single`, `Double` and `Date`. Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`,
-an object, a `String`, a `Variant`, an array and a record.
+`Boolean`, `Currency`, `Single`, `Double` and `Date`. An enumeration is a `Long` (MS-VBAL §5.2.3.4): a variable, a parameter, a field or a function
+result declared as one is held as a `Long`. Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`, an
+object, a `String`, a `Variant`, an array and a record.
 
 ### Variants
 
@@ -40,7 +41,8 @@ The result of a function of the `Variant` type, or declared without a type, stay
 reads it there whenever it holds a value of a scalar type, as above.
 
 A `Let` of what a call returns to a `Variant` variable or to the function's own `Variant` result (`V = F()`, `V = C.Item(K)`) is compiled whatever the
-call returns. Compiled code makes the call, then assigns its result as the interpreter assigns the value of the statement's expression:
+call returns, a function of the `String` type included. Compiled code makes the call, then assigns its result as the interpreter assigns the value of
+the statement's expression:
 
 - a value of any type is assigned as it is (MS-VBAL §5.5.1.2.12): `Empty` and `Null` stay `Empty` and `Null`, a `String` and an error value keep their
   type, and an array is copied;
@@ -58,14 +60,27 @@ A `Variant` result assigned to a variable of a scalar type (`N = F()`) is the in
 Compiled code reads and writes a `String` parameter or variable where its frame keeps it, too, unless it is a fixed-length `String`, which pads or truncates
 what it is assigned. A `Let` of a literal, of another `String` variable, or of `String`s joined by `&` (or by `+`, of two `String`s) assigns the text it is
 (MS-VBAL §5.6.9.4, §5.6.5), and two such `String`s are compared under the module's `Option Compare` (MS-VBAL §5.6.9.5), as the interpreter compares them.
-`vbNullString` reads as the zero-length string, and a copy of it is still `vbNullString`. A `String` that ends with a lone byte (`ChrB(65)`) is the
-interpreter's to join and compare: compiled code hands it each statement that reads one. So is a call of a library function that takes or returns a
-`String`, such as `Len(S)` or `CStr(I)`.
+`vbNullString` reads as the zero-length string, and a copy of it is still `vbNullString`. Compiled code also reads, as such `String`s, `Err.Description`
+and `Err.Source` (MS-VBAL §6.1.3.2.2.1, §6.1.3.2.2.6), where the session keeps the error, and a `String` public variable of an object (see Objects,
+below). A `String` that ends with a lone byte (`ChrB(65)`) is the interpreter's to join and compare: compiled code hands it each statement that reads
+one. So is a call of a library function that takes or returns a `String`, such as `Len(S)` or `CStr(I)`, except `Chr$` of a whole number (below).
+
+A `Byte`, an `Integer`, a `Long` or a `LongLong` joined to a `String`, or assigned to one, is its digits, after a minus sign when it is negative
+(MS-VBAL §5.5.1.2.4): `"(" & X & "," & Y & ")"`. Regional settings do not change how a whole number is written. A `Currency`, a `Single`, a `Double`, a
+`Boolean` and a `Date` are written in the session's regional settings, which the interpreter applies: a statement that joins one is the interpreter's.
+
+`Chr$` of a whole number is the character the code names in the session's code page, as the library makes it (MS-VBAL §6.1.2.11.1.4). A code that names
+no character is error 5, which the interpreter raises at that statement.
+
+The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads nothing of
+it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `Let` of what a call returns to it or to a `String` variable
+(`F = G(N)`, `S = Me.ToString`) is compiled as the `Let` of a call to a `Variant` is (see Variant function results, above).
 
 Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
 parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`
-variable given. Either way the callee holds its own frame, which the interpreter makes. A `Variant` or a number given to a `String` parameter, a constant,
-a fixed-length `String`, a field and an element of an array are the interpreter's to give, and it makes the call.
+variable given. Either way the callee holds its own frame, which the interpreter makes. A whole number given by value is given its digits. A `Variant` or
+any other number given to a `String` parameter, a constant, a fixed-length `String`, a field and an element of an array are the interpreter's to give, and
+it makes the call.
 
 ### Fields of `Me`
 
@@ -109,6 +124,20 @@ object's class implements it with. It then calls that member as the interpreter 
 the call. A call on `Nothing` is the interpreter's, which raises error 91, and so is a call of a variable declared `Object` or `Variant`, which is
 late-bound.
 
+Compiled code calls a member of the default instance of a class (MS-VBAL §5.2.4.1.2, `Board.Grow 1`, `N = Board.Size`) the same way, on the object
+the default instance holds. A default instance that holds no object yet, or holds none since a `Set` of it to `Nothing`, is the interpreter's: it makes
+the object, and runs its `Class_Initialize`, as it does for any variable declared `As New` (MS-VBAL §5.2.3.1.4). Compiled code calls the members of the
+object it made.
+
+Compiled code reads a public variable of a scalar type of an object variable declared as a class, of the default instance of a class, or of the
+object of a `With` block (`N = C.Size`, `.X + 1`) where the object keeps it (MS-VBAL §5.6.12). Each time, it finds the variable the object's class
+has for it, as the interpreter does. It reads a `String` public variable the same way (`S = C.Name`), unless it is a fixed-length `String`. A read of a
+variable of `Nothing` is the interpreter's, which raises error 91, and so is a read of a variable given arguments, which index it.
+
+In a procedure of a class, compiled code calls a member of `Me` the same way, whether the call names `Me` (`Me.Add 1`) or only the member
+(`Add 1`, `N = Twice(N)`, `If IsEmpty Then`). A member named alone is a member of the current instance (MS-VBAL §5.6.10). Either way it is the class's own
+member, called with the procedure's own `Me`.
+
 Compiled code gives an object to a procedure or a member it calls as the interpreter does (MS-VBAL §5.3.1.11):
 
 - By value, the parameter gets the object held by a variable or field of the procedure, by `Me`, or `Nothing`, Set-coerced to the parameter's declared
@@ -116,8 +145,10 @@ Compiled code gives an object to a procedure or a member it calls as the interpr
 - By reference, the parameter is a second name for an object variable of the procedure of exactly the parameter's type. Whatever the callee `Set`s it to,
   the variable holds after the call.
 
-A field given by reference, a `WithEvents` variable, and a call, a member or `New` given as an argument are the interpreter's to give, and it makes the
-call. A call that gives an object goes through the interpreter's binding of the callee, never straight into the callee's compiled code.
+What a function or a `Property Get` returns is given by value the same way (`N = Doubled(S.Pos)`), in a statement that calls inside an expression (see
+Calls inside an expression, below). A field given by reference, a `WithEvents` variable, a member or `New` given as an argument, and a call given as one
+in any other statement are the interpreter's to give, and it makes the call. A call that gives an object goes through the interpreter's binding of the
+callee, never straight into the callee's compiled code.
 
 When the member is compiled too, compiled code calls the member's compiled code directly. A member that keeps nothing in its frame but `Me` and values of
 scalar types runs without a frame, as a compiled procedure called directly does. Its activation still holds `Me`, so an object is let go of, and its
@@ -141,9 +172,11 @@ field of a record that is itself a record (`P.Inner.X`) is read and written in p
   (`Set Owner = this.Owner`, in a `Property Get`), is Set to the object a field holds. Each object field holds its object in a place of its own, where
   the reference is counted, so the object lives exactly as long as in the interpreter. The interpreter runs on its own the same `Set`s of a field as of
   a variable: one whose object does not Set-coerce, and one that lets go of the last reference to an object.
+- A member of the object an object field holds is called, and a scalar public variable of it read, as a member of an object variable is (see Objects,
+  above): `this.Random.Maybe(Sometimes)`, `If this.Player.Kind = Human Then`.
 
-The interpreter does the rest on its own: a `String` field, an enumeration field, an array in a record, a field declared `As New`, a call of a member of an
-object field (`this.Owner.Name`), and a field passed to a procedure, which the interpreter binds to the field itself when it is passed `ByRef`.
+The interpreter does the rest on its own: a `String` field, an array in a record, a field declared `As New`, and a field passed to a procedure, which
+the interpreter binds to the field itself when it is passed `ByRef`.
 
 ### Members of objects and `With` blocks
 
@@ -159,18 +192,29 @@ assigned. A member of `Nothing` raises error 91 after the value is evaluated. Co
 reads them back after it, as around a call, because a `Property Let` runs code of its own. An error the assignment raises goes to the procedure's error
 handler, and the statement is not run again. What the statement held while it ran is let go of when it is over, as in the interpreter.
 
-Compiled code also calls a member of the object of a `With` block (`.Add 1`, `N = .Total()`) as it calls a member of an object variable (see Objects,
-above). The `With` statement and its `End With` are the interpreter's: it evaluates the object and holds it for the block (MS-VBAL §5.4.2.21), and lets
-go of it at the `End With`, or when the procedure is left. Compiled code reads the object where the interpreter holds it, each time it needs it, so a jump
-out of the block and back in finds the same object. A block whose `With` statement did not run (jumped into), or whose object raised an error that
-`On Error Resume Next` went past, has no object, and neither does a block of `Nothing`: a member of it raises error 91, as in the interpreter.
+A `Let` or `Set` of a property of one of the procedure's object variables, or of the object of the enclosing `With` block (`.X = A`,
+`Set .Strategy = S`), is a call compiled code makes (MS-VBAL §5.4.3.8, §5.4.3.9): it calls the `Property Let` or `Property Set` of the class the object is
+declared as, or the one implementing it when the object's class implements that class as an interface, with the value as its last argument. The value is
+passed as a value, even to a parameter declared `ByRef`: what the property procedure writes to its parameter is not written to the variable the value was
+read from. While the property procedure runs, its caller is located at the statement. Compiled code makes this call only for a value it converts to the
+parameter's type without rounding: a value of the parameter's type, an integer or a `Boolean` (except a `LongLong` given to a `Single`), or a `Single` or
+`Double` given to a `Single`, a `Double` or a `Boolean`. Any other value (a `Double` given to a `Long`, a `Currency`, a `Variant`, a `Date`), a member of
+`Me`, and a public field are assigned by the interpreter, as above.
+
+Compiled code also calls a member of the object of a `With` block (`.Add 1`, `N = .Total()`, `If .IsSunken Then`) as it calls a member of an object
+variable (see Objects, above), inside an expression too (see Calls inside an expression, below). The `With` statement is the interpreter's: it evaluates
+the object and holds it for the block (MS-VBAL §5.4.2.21). The `End With` is compiled code's: the block has no object from there on, and what it held is
+let go of. The interpreter runs the `End With` instead under a debugger, and when letting go of the object destroys it, whose `Class_Terminate` then runs.
+What the block holds is also let go of when the procedure is left. Compiled code reads the object where the interpreter holds it, each time it needs it,
+so a jump out of the block and back in finds the same object. A block whose `With` statement did not run (jumped into), or whose object raised an error
+that `On Error Resume Next` went past, has no object, and neither does a block of `Nothing`: a member of it raises error 91, as in the interpreter.
 
 The interpreter keeps the rest:
 
 - a member of an object declared `Object` or `Variant`, which is late-bound;
 - a `With` block whose object is a record;
-- a `Set` of a member, and a `Set` inside a `With` block;
-- a member of the object of a `With` block inside an expression, read (`.X + 1`) or called (`.Total() + 1`);
+- a `Set` of a public field of an object (`Set .Other = Q`), and a `Set` of a variable to a member of the object of a `With` block (`Set F = .Self`),
+  which it runs as a call compiled code makes (see What compiled code does itself, below);
 - a `String` assigned to a member.
 
 ### Arrays
@@ -192,7 +236,7 @@ The interpreter does the rest on its own:
 - A `Set` of an element of an array of objects.
 - A `ReDim` or an `Erase` of an array of `Variant`s or of objects, which can release objects.
 - An element passed `ByRef`: the array cannot be resized while the callee holds its element.
-- An element of an array of `String`s or of records.
+- An element of an array of `String`s, of records or of an enumeration.
 
 ### Calls inside an expression
 
@@ -200,19 +244,38 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
 
 - a `Let` of a scalar variable of the procedure or of the function's result;
 - a call statement;
-- the condition of an `If`, an `ElseIf` or a loop.
+- the condition of an `If`, an `ElseIf` or a loop;
+- the start, the end or the step of a `For` (`For X = P.Left To P.Left + P.Width - 1`), which are evaluated once, in that order, before the counter is
+  given the start (MS-VBAL §5.4.2.3). Each is the value it had when it was evaluated: `For I = A To Bump(A)` starts at what `A` held before the call.
 
 A function given no argument and called by its name alone is called this way too, and so is a `Property Get` of one of the procedure's object
-variables (`X = C.Count + 1`). The function itself may be compiled or not: one the interpreter
-runs is called as the interpreter calls it.
+variables (`X = C.Count + 1`), of `Me` (`X = Count + 1`), of the default instance of a class, or of the object of a `With` block (`X = .Count + 1`). The function itself may be
+compiled or not: one the interpreter runs is called as the interpreter calls it.
+
+Compiled code also calls a member of what such a function or `Property Get` returns, when it is declared as a class (`Y = S.Pos.Y`,
+`N = S.Pos.Twice + 1`, `Make().Pos.Bump`). It also reads a scalar public variable of it, and gives it to an object parameter by value (see Objects,
+above). The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as the interpreter does:
+if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10). An object something else holds lives on. The statement is over:
+
+- after its assignment or its call;
+- for an `If`, an `ElseIf` or a loop, once its condition is evaluated, before the jump the condition decides;
+- for a `For`, once the counter is given the start, before the first test of the counter.
+
+A member of a call that returns `Nothing` is the interpreter's, which raises error 91, and so is a member of what a call returns as `Object` or
+`Variant`, which is late-bound. Where compiled code cannot make a call that returns an object, such as one given an object variable
+(`Take Echo(P)`), the statement is translated as if the call returned no object, and the interpreter makes the call, as it makes any call
+compiled code does not.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
-function's result variable, a call, or an operation of these. The interpreter runs a statement with any other operand on its own, as described below: a
-`Variant`, a `String`, an object, a field or an element of an array. Such an operand would be read a second time after a call that may have changed it.
+function's result variable, a scalar public variable of an object (see Objects, above), `Err.Number`, a call, or an operation of these. The
+interpreter runs a statement with any other operand on its own, as described below: a `Variant`, a `String`, an object, a field or an element of an
+array. Such an operand would be read a second time after a call that may have changed it.
+An object given to a call as its argument (`If B.Hit(Target) Then`) is no operand: compiled code reads it when it makes the call, after the calls left of
+it, as the interpreter does.
 
 A statement can read a variable that a call in it may change: one it also passes `ByRef` to the call, such as `X = A + Bump(A)`; a `ByRef` parameter,
-while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module, which any call
-may change. Compiled code runs such a statement when every operation in it is of
+while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module or a public
+variable of an object, which any call may change. Compiled code runs such a statement when every operation in it is of
 type `Byte`, `Boolean`, `Integer`, `Long`, `LongLong` or `Currency`, and the variable is an operand, not an argument of a call. It reads the variable
 where it is written, as MS-VBA does ([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)). The interpreter runs
 any other such statement on its own: one that computes a `Single`, a `Double` or a `Date`, and one that gives the variable to a call as an argument.
@@ -226,7 +289,9 @@ the program waited in the callee, and when the code was edited meanwhile. The in
 - after an edit made while the program waited in the callee, the statement finishes as it was, and the activation goes on after it in the edited code.
   When the call is made by the condition of an `If`, an `ElseIf` or a loop, the edit is not applied yet, as in the interpreter.
 
-An error the statement raises after the call goes to the handler as any error does. A `Resume` runs the statement again, calls included.
+An error the statement raises after the call goes to the handler as any error does. A `Resume` runs the statement again, calls included. An object a
+call of the statement returned is let go of before the handler's first statement, as the interpreter lets go of it. When no handler of the procedure
+takes the error, it is let go of as the procedure is left, before the caller goes on with the error.
 
 ### What compiled code does itself
 
@@ -234,16 +299,16 @@ Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, a `Variant` one included, and parentheses.|
-|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
-|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
-|Calls|A call statement with arguments, a function's result assigned whole, or a function's result assigned to a `Variant` (see Variant function results, above) or to a member of an object, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. A function or `Property Get` so called, other than a member of the object of a `With` block, can also be called inside an expression (see Calls inside an expression, below).|
-|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
+|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `Chr$` of a whole number, and parentheses.|
+|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
+|Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
+|Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above) or to a member of an object, of a procedure of a standard module, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above). A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
+|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `For Each` … `Next`, which the interpreter runs for compiled code (see below); `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
 The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
 `Resume Next`, `Resume` a label and the `Error` statement (see Error handling, below); a statement that uses something that stays in the frame (a
-fixed-length `String`, an object other than as above, a field or a `Static` that is neither a scalar nor an object); a call of a member of anything other than one of the procedure's object variables and fields (`Err.Number` is one); an element of an array that compiled code does not handle (see Arrays, above); and a `For` whose counter or bounds
+fixed-length `String`, an object other than as above, a field or a `Static` that is neither a scalar nor an object); a call of a member of anything other than one of the procedure's object variables and fields, a default instance or the object of a `With` block (`Err.HelpContext` is one), and a member of what a call returns in any statement but one that calls inside an expression (see Calls inside an expression, above); an element of an array that compiled code does not handle (see Arrays, above); and a `For` whose counter or bounds
 compiled code does not do. Compiled code first writes its variables into the frame. The interpreter runs the statement, and compiled code reads
 the variables back and goes on wherever the statement left the procedure. A statement the interpreter runs this way behaves exactly as it does in the
 interpreter, errors included.
@@ -252,8 +317,9 @@ The interpreter runs a call statement that compiled code does not make (`Err.Cle
 argument), and a `Set` it does not do (see Objects, above), as a call that compiled code makes: compiled code writes its variables into the
 frame, the interpreter runs the statement, and compiled code reads the variables back after it, as after any call it makes. An error the statement raises
 reaches the activation's handler as an error a callee raises does (see Error handling, below). Such a statement never keeps a procedure in the
-interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the interpreter runs it on its own, as
-above.
+interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the statement is evaluated against the
+object the block holds, as the interpreter evaluates it: a jump out of the block and back in finds the same object, and a block with no object raises
+error 91 at a member of it.
 
 A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
 address from then on. Bytes a debugger writes at that address while the program waits are the variable's, and compiled code reads them when it goes on. If
@@ -268,19 +334,31 @@ selector, `4#` included, since only a `Single` converts exactly to a `Double` an
 such as a `String`, on its own, with the selector compiled code evaluated. When compiled code declines the selector itself as it evaluates it (an operation
 that declines, such as `D \ 1` with `D` a `Double`), the interpreter runs the rest of the activation, from the `Select Case`.
 
-The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` and its `End With`, and each statement in
-the block that uses its object other than as compiled code does (see Members of objects and `With` blocks, above); a `For Each` and its `Next`; and a
-`Select Case` and its `Case`s when the selector is no scalar, such as a `String` or a `Variant`, or is a scalar compiled code cannot evaluate, such as `Len(S)` with `S` a `String`. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
-same place in either engine: the object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop,
-by its `Next`, an `Exit For`, a jump or a `Return`.
+The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With`, and its `End With` when letting go of
+the block's object destroys it, and each statement in the block that uses its object other than as compiled code does (see Members of objects and `With`
+blocks, above); a `For Each` statement inside a `With` block, which is evaluated against the block's object; and a `Select Case` and its `Case`s when the
+selector is no scalar, such as a `String` or a `Variant`, or is a scalar compiled code cannot evaluate, such as `Len(S)` with `S` a `String`. Compiled code
+does the rest of the block. What a block holds is let go of at the same place in either engine, so a `Class_Terminate` runs at the same place too: the
+object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop, by its `Next`, an `Exit For`, a
+jump or a `Return`.
+
+The interpreter runs a `For Each` statement and its `Next` for compiled code (MS-VBAL §5.4.2.4), as it runs a call statement compiled code does not make.
+The frame holds the loop: the enumerator of an object, or the array and the position in it. The control variable is a `Variant` or an object, which the
+frame holds too.
+
+- Before the `For Each` statement compiled code writes its variables into the frame, since the collection expression may read them, and reads them back
+  after it.
+- The `Next` reads no variable but the control variable, so compiled code writes its variables into the frame before it only under a debugger, and reads
+  them back after it only when the program waited.
+- An error either raises goes to the procedure's error handler, as an error of a call does, and the statement is not run again.
 
 These keep the whole procedure in the interpreter:
 
 - a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
-- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop (a `For Each` is one), and compiled code does
-  nothing at each pass of it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`. The loop is the innermost
-  one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
-  its variables into the frame and read them back, which costs more than it saves.
+- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does nothing at each pass of
+  it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`, no `End With`. The `Next` of a `For Each` is
+  none of these, since the interpreter runs it. The loop is the innermost one around the statement: what an outer loop or a loop beside it does is no gain
+  for this one. Around each such statement compiled code would only write its variables into the frame and read them back, which costs more than it saves.
 
 A procedure whose frame holds something compiled code does not hold is always called with its frame, through the interpreter's call, never through the
 compiled code of its caller. `rdc compilation` lists, for each procedure of a workspace, whether it is compiled and what keeps it in the interpreter, and,
@@ -311,8 +389,9 @@ Compiled code evaluates an expression exactly as the interpreter evaluates it on
   and a `Variant` written as one fails when it holds an object.
 - `ObjectOperations`: the reference an object variable holds, read where its frame keeps it, and `Is` of two of them or of one and `Nothing`. A
   variable whose reference compiled code cannot read fails.
-- `StringOperations`: the text a `String` variable holds, read where its frame keeps it, two texts joined, and a text written as a `Let` assigns it. A
-  `String` that ends with a lone byte fails its read. Compiled code compares two texts with the interpreter's own comparison of the module's mode.
+- `StringOperations`: the text a `String` variable holds, read where its frame keeps it, two texts joined, a whole number written as text, and a text
+  written as a `Let` assigns it. A `String` that ends with a lone byte fails its read. Compiled code compares two texts with the interpreter's own
+  comparison of the module's mode.
 
 When an operation fails or declines, compiled code hands the activation to the interpreter at that instruction. It writes every variable back into its
 cell, the function result into its variable, the state of each `For` loop whose `For` statement ran, and the selector of each `Select Case` whose `Select`
@@ -364,7 +443,7 @@ The rest of the activation runs in the interpreter instead when any of these hol
 |`PayloadOperations`|The operations compiled code and the interpreter share.|
 |`VariantOperations`|What compiled code does with a `Variant`: reads and writes it in the frame, and runs its operations through the interpreter's own code.|
 |`ObjectOperations`|What compiled code does with an object variable: reads the reference it holds in the frame, and compares references with `Is`.|
-|`StringOperations`|What compiled code does with a `String`: reads and writes its text in the frame, and joins two texts.|
+|`StringOperations`|What compiled code does with a `String`: reads and writes its text in the frame, joins two texts, and writes a whole number as text.|
 |`Extended`|The floating-point arithmetic of compiled code: in `Double` where the result is exact, and in the 80-bit format otherwise. The interpreter computes the same operations with `ExtendedIntermediates`.|
 
 The IL calls only members of `RDCore.Runtime.Compiled`, and a test checks it.

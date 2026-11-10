@@ -6,6 +6,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -179,7 +180,7 @@ public sealed partial class CompiledActivation : ILightActivation
     private ScalarCell? CellOf(int number, long integral, double floating)
     {
         var slot = _body.CellSlots[number];
-        var type = ((ITypedSymbol)_body.SlotSymbols[slot]).ResolvedType;
+        var type = VBEnumType.AsDeclaredType(((ITypedSymbol)_body.SlotSymbols[slot]).ResolvedType);
         if (_frame is { } frame && frame.IsSlotFilled(slot))
         {
             var held = frame.TryGetSlotCell(slot, out var cell) && cell is ScalarCell scalar && scalar.Type.Equals(type) ? scalar : null;
@@ -454,7 +455,8 @@ public sealed partial class CompiledActivation : ILightActivation
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
     /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
     /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called: its parameters after <c>Me</c> of the same
-    /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
+    /// kinds, passed the same way, and what it returns of the same kind. A member of the class whose code runs, named bare, is called on <c>Me</c> as
+    /// itself (<see cref="CompiledCallee.CallsOwnMember"/>), as the interpreter calls it. Not when the variable holds no reference compiled code reads, holds
     /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
     /// member: the interpreter makes the call.
     /// </summary>
@@ -466,13 +468,34 @@ public sealed partial class CompiledActivation : ILightActivation
         var called = _body.Callees[callee];
         if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
             || !_session.Symbols.TryGetInstance(instance, out var target)
-            || _executor.Expressions.MemberOf(called.Site!, target.ClassModule) is not { } member || !Takes(called, member))
+            || MemberOf(called, target.ClassModule) is not { } member || !Takes(called, member))
         {
             return false;
         }
 
         (_member, _receiver, _memberInstance) = (member, Unsafe.As<ValueBindingHandle>(cell!).Value, target);
         return true;
+    }
+
+    // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
+    // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
+    // one implementing it, of a class that implements that class as an interface. A member of the class whose code runs, named bare, has no site: it is
+    // called on Me, which is of that class.
+    private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
+    {
+        if (called.Site is not { } site)
+        {
+            return called.Procedure;
+        }
+
+        if (called.Procedure is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol) || site.DeclaredClass is not { } declared)
+        {
+            return _executor.Expressions.MemberOf(site, actual);
+        }
+
+        return ReferenceEquals(actual, declared) ? called.Procedure
+            : actual.ImplementedInterfaces.Any(implemented => implemented.Uri.AbsoluteUri == declared.Uri.AbsoluteUri) ? actual.FindImplementation(declared, called.Procedure)
+            : null;
     }
 
     // whether a member is called as the member a call was bound to: itself, or one whose parameters after Me, and what it returns, are of the same kinds. The
@@ -489,8 +512,9 @@ public sealed partial class CompiledActivation : ILightActivation
         var returned = ScalarKinds.Of(returnedType);
         if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
-            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult
-            || (called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
+            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject
+            || (called.ReturnsObject ? returnedType is not (SDK.Model.Types.VBObjectType or VBClassType)
+                : called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
                 : called.Result is { } read ? returned != read
                 : returnedType is { } discarded && returned is null && discarded is not SDK.Model.Types.VBVariantType))
         {
@@ -552,6 +576,14 @@ public sealed partial class CompiledActivation : ILightActivation
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
             EndStatementAfter(called, _failed.Value);
             return false;
+        }
+
+        // an object, which the statement's temporaries hold (RuntimeProcedureInvoker.ReleaseLocals): compiled code takes it (TakeReturnedObject).
+        if (called.ReturnsObject)
+        {
+            _returnedObject = result.Result;
+            _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
+            return result.Result is not null;
         }
 
         if (called.Result is null)
@@ -943,10 +975,10 @@ public sealed partial class CompiledActivation : ILightActivation
         if (_failed is not { } outcome)
         {
             frame.Pc = pc;
-            return _executor.Run(_session, frame, list, _context);
+            return _executor.Run(_session, frame, list, _context, HandStatement());
         }
 
-        return _executor.RunAfter(_session, frame, list, _context, pc, outcome);
+        return _executor.RunAfter(_session, frame, list, _context, pc, outcome, HandStatement());
     }
 
     /// <summary>
@@ -1013,7 +1045,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         scalar = frame.TryGetAddressedSlot(slot, out var bound) && bound is ScalarCell held
-            && _body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && held.Type.Equals(type)
+            && _body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && held.Type.Equals(VBEnumType.AsDeclaredType(type))
             ? held
             : null;
         return scalar is not null;
@@ -1261,7 +1293,8 @@ public sealed partial class CompiledActivation : ILightActivation
 
         // an activation of a call compiled code made through the callee's typed entry holds no cell until it needs one (EnterDirectly): it is given the cell
         // it would have been given at the call, holding what the variable holds now.
-        if (_body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var type } && ScalarPayload.IsScalar(type))
+        if (_body.SlotSymbols.TryGetValue(slot, out var symbol) && symbol is ITypedSymbol { ResolvedType: var declared }
+            && VBEnumType.AsDeclaredType(declared) is var type && ScalarPayload.IsScalar(type))
         {
             frame.PushPayload(symbol, new ScalarPayload(type, integral, floating), slot);
         }
@@ -1311,7 +1344,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         _body.WalkedBack(pc < list.Items.Length ? BreakpointTable.LocationOf(list.Items[pc]) : null);
-        return _executor.Run(_session, frame, list, _context);
+        return _executor.Run(_session, frame, list, _context, HandStatement());
     }
 
     private RuntimeExecutionOutcome _recovered;
@@ -1351,7 +1384,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         var suspensions = Suspensions;
-        var outcome = _executor.Step(_session, frame, list, _context, failed);
+        var outcome = _executor.Step(_session, frame, list, _context, failed, HandStatement());
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)
         {
             _recovered = outcome;
@@ -1630,6 +1663,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// The classes the body's <c>TypeOf</c> expressions test against, by the number compiled code knows each by (<see cref="ProcedureAnalysis.Classes"/>).
     /// </summary>
     public IReadOnlyList<VBClassModuleSymbol> Classes { get; init; } = [];
+
+    /// <summary>
+    /// The public variables of objects the body reads, by the number compiled code knows each by (<see cref="ProcedureAnalysis.MemberFields"/>).
+    /// </summary>
+    public IReadOnlyList<CompiledMemberField> MemberFields { get; init; } = [];
 
     /// <summary>
     /// The safepoint the next activation of the body is handed to the interpreter at, under the random walk-back: how many safepoints it passes first -

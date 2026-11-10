@@ -99,8 +99,8 @@ public sealed class CompiledSetFromCallTests
             "End Function"), [("Fresh", 0)], classes: Classes);
 
     // what the call returns is not of the variable's class: the call is made once, and error 13 is raised at the Set, after it - to the handler, which
-    // resumes after the Set, and to the caller, with nothing to catch it. Each error given to the handler is the interpreter's, and so is each read of
-    // Err.Number: two of each.
+    // resumes after the Set, and to the caller, with nothing to catch it. Each error given to the handler is the interpreter's: two; each read of
+    // Err.Number is compiled code's.
     [TestMethod]
     public async Task WhatACallReturnsOfAnotherClass_IsATypeMismatch_AfterTheCallIsMadeOnce()
         => await AssertAlikeAsync(Program(
@@ -127,5 +127,5 @@ public sealed class CompiledSetFromCallTests
             "        Set Item = Wrong()",
             "        Unhandled = Unhandled + I",
             "    Next",
-            "End Function"), [("Handled", 4)], classes: Classes);
+            "End Function"), [("Handled", 2)], classes: Classes);
 }

@@ -53,6 +53,17 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, failure);
     }
 
+    // the text assigned to the function result variable where its frame holds it (CompiledActivation.TryAssignResultText).
+    private void EmitTextResultLet(TextResultLetStep resultLet)
+    {
+        var failure = RecoverAt(resultLet.Offset);
+        var text = EmitTextInto(resultLet.Value, failure);
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldloc, text);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryAssignResultText))!);
+        _il.Emit(OpCodes.Brfalse, failure);
+    }
+
     // the bool of two texts compared, on the stack (CompiledActivation.CompareText).
     private void EmitTextCompare(TextCompareNode compared, Label failure)
     {
@@ -89,12 +100,39 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 break;
 
+            case MemberTextNode member:
+                EmitMemberText(member, text, failure);
+                break;
+
+            case ErrTextNode err:
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(err.Source ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReadErrText))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+
             case ConcatNode concat:
                 var left = EmitTextInto(concat.Left, failure);
                 var right = EmitTextInto(concat.Right, failure);
                 _il.Emit(OpCodes.Ldloc, left);
                 _il.Emit(OpCodes.Ldloc, right);
                 _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.Concat))!);
+                _il.Emit(OpCodes.Stloc, text);
+                break;
+
+            case ChrTextNode chr:
+                var code = EmitPayload(chr.Code, failure);
+                _il.Emit(OpCodes.Ldarg_0);
+                Load(code, chr.Code.Kind);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryChr))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+
+            case WholeTextNode whole:
+                Load(EmitPayload(whole.Value, failure), whole.Value.Kind);
+                _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.OfWhole))!);
                 _il.Emit(OpCodes.Stloc, text);
                 break;
         }
