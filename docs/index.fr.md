@@ -1,4 +1,4 @@
-﻿# RDCore SDK 
+﻿# Documentation utilisateur de RDCore
 <sup>_This document is available in [English](index.html)_</sup>
 
 ---
@@ -6,44 +6,35 @@
 
 ![VIVAT CUCUMIS™](images/vivat-cucumis-stonecore.png)
 
-**RDCore** ("Rubberduck Core") est le successeur spirituel de **Rubberduck VBA**™, projet open-source _legacy_ populaire (2015-2025, aujourd'hui [archivé](https://github.com/rubberduck-vba/Rubberduck)). 
+**RDCore** ("Rubberduck Core") est le successeur spirituel de **Rubberduck VBA**™, projet open-source _legacy_ populaire (2015-2025, aujourd'hui [archivé](https://github.com/rubberduck-vba/Rubberduck)).
 
-**RDCore n'est PAS** un add-in pour le VBIDE.  
-**RDCore est une nouvelle implémentation de VBA** à partir de ses spécifications.  
+RDCore exécute et analyse du code **VBA** et **Visual Basic 6** hors de l'éditeur VBA. Il implémente le langage à partir de sa [spécification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74), avec son propre _runtime_.
 
-
-Legacy VBA aujourd'hui :  
-- règles implicites
-- difficile à analyser
-- figé dans son runtime
-- impossible à faire évoluer
-
-**RDCore** :  
-- **formalise** les sémantiques
-- **expose** les structures
-- **rend observable** l'exécution
-- **rend extensible** le langage même
-
-
-**Référentiel et état du projet** (GitHub) : [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)  
-**Module d'extension pour HexIDE** (GitHub) : [rubberduck-vba/RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE), qui intègre RDCore à [HexIDE](https://github.com/hexide-io/HexIDE)
-
-
-### Objectifs
-- **Implémentation intégrale** de la spécification MS-VBAL
-- Implémentation d'une **librairie runtime indépendante** de MS-VBA
-- Publication d'une **spécification RD-VBA** officielle
-- Implémentation d'un écosystème _Language Server_ (LSP) et **plateforme analytique** pour RD-VBA
-
+> [!NOTE]
+> **La plateforme est en pré-alpha**, et n'a aucune version publiée. Pour l'essayer, construisez-la à partir de son code source (voir [Démarrer avec RDCore](getting-started.fr.md)).
 
 ---
-## Documentation
+## Ce que vous pouvez en faire
 
-La documentation de la section **SDK** de ce site est générée à partir des commentaires (xmldoc) directement dans le code source, et n'est donc **disponible qu'en anglais** afin d'en maximiser la portée et d'en réduire l'importante empreinte.
+|Pour...|Voir|
+|---|---|
+|Essayer RDCore, et apporter un projet VBA|[Démarrer avec RDCore](getting-started.fr.md)|
+|Exécuter du code dans le _shell_ RD-VBA, ou exécuter et construire le programme d'un projet en ligne de commande|[Le _shell_ et les commandes rdc](rdc.fr.md)|
+|Travailler sur un projet Visual Basic 6|[Projets VB6](vb6-projects.fr.md)|
+|Écrire, exécuter et déboguer votre code dans un IDE|[RDCore dans HexIDE](hexide.fr.md)|
+|Modifier votre code pendant que votre programme est interrompu, et reprendre|[Modifier et continuer](edit-and-continue.fr.md)|
+|Comprendre un problème que RDCore signale|[Diagnostics](diagnostics/index.md)|
 
-À l'exception de la spécification/documentation de la plateforme de langage et de son SDK (**RD-VBAL**), tout contenu non directement issu du code source est disponible en français.
+---
+## Pour les contributeurs
 
-Bonne lecture!
+- [Bâtir sur RDCore](building-on-rdcore.fr.md) : contribuer, compiler la plateforme, et écrire une extension ou un client.
+- [**RD-VBAL**](specs/rd-vbal.md) : la spécification du langage et de la plateforme RD-VBA, en anglais.
+- [SDK](https://rubberduck-vba.github.io/RDCore.SDK/) : la référence de l'API du paquet RDCore.SDK, générée à partir de son code source, en anglais.
+
+**Référentiel et état du projet** (GitHub) : [rubberduck-vba/RDCore](https://github.com/rubberduck-vba/RDCore)  
+**Module d'extension pour HexIDE** (GitHub) : [rubberduck-vba/RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE)
+
 
 ---
 ACCUEIL • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

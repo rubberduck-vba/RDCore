@@ -2,13 +2,21 @@
   href: introduction.md
 - name: Getting Started
   href: getting-started.md
-- name: Building on RDCore
-  href: building-on-rdcore.md
+- name: The Shell and the rdc Commands
+  href: rdc.md
+- name: VB6 Projects
+  href: vb6-projects.md
+- name: RDCore in HexIDE
+  href: hexide.md
 - name: Edit and Continue
   href: edit-and-continue.md
-- name: RD-VBAL
-  href: specs/rd-vbal.md
 - name: Diagnostics
   href: diagnostics/index.md
-- name: SDK
-  href: https://rubberduck-vba.github.io/RDCore.SDK/
+- name: Contributors
+  items:
+  - name: Building on RDCore
+    href: building-on-rdcore.md
+  - name: RD-VBAL
+    href: specs/rd-vbal.md
+  - name: SDK
+    href: https://rubberduck-vba.github.io/RDCore.SDK/
