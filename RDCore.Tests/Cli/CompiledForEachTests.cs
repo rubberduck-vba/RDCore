@@ -146,7 +146,7 @@ public sealed class CompiledForEachTests
             "    Exit Function",
             "Handler:",
             "    Caught = Err.Number",
-            "End Function"), "Caught", recoveries: 2, expected: "91"));
+            "End Function"), "Caught", recoveries: 1, expected: "91"));
 
     // with no handler, the error of the For Each statement goes to the caller's handler, after what compiled code did before it.
     [TestMethod]
