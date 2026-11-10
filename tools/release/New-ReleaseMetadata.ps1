@@ -85,7 +85,7 @@ $English = @(
     ""
     "The scripts that built and packaged it (``PlatformPublish.ps1``, ``tools/release/``, ``.github/workflows/release.yml``) are part of that source."
     ""
-    "The licence text, ``LICENSE-GPLv3.md``, is included in this archive; ``NOTICE.md`` says what it covers, and ``THIRD-PARTY-NOTICES.txt`` lists the packages the archive contains and their licences, the MIT-licensed RDCore.SDK and RDCore.SDK.Protocol among them."
+    "The licence text, ``LICENSE-GPLv3.md``, is included in this archive; ``NOTICE.md`` says what it covers, and ``THIRD-PARTY-NOTICES.txt`` lists the packages the archive contains and their licences, the MIT-licensed RDCore.SDK package among them, with the RDCore.SDK.Protocol assembly inside it."
 ) | Where-Object { $null -ne $_ }
 
 $French = @(
@@ -109,7 +109,7 @@ $French = @(
     ""
     "Les scripts qui l'ont compilée et empaquetée (``PlatformPublish.ps1``, ``tools/release/``, ``.github/workflows/release.yml``) font partie de ce code source."
     ""
-    "Le texte de licence, ``LICENSE-GPLv3.md``, est inclus dans cette archive; ``NOTICE.md`` précise ce qu'il couvre, et ``THIRD-PARTY-NOTICES.txt`` énumère les paquets que contient l'archive et leurs licences, dont RDCore.SDK et RDCore.SDK.Protocol, sous licence MIT."
+    "Le texte de licence, ``LICENSE-GPLv3.md``, est inclus dans cette archive; ``NOTICE.md`` précise ce qu'il couvre, et ``THIRD-PARTY-NOTICES.txt`` énumère les paquets que contient l'archive et leurs licences, dont le paquet RDCore.SDK, sous licence MIT, qui contient l'assembly RDCore.SDK.Protocol."
 ) | Where-Object { $null -ne $_ }
 
 Write-TextFile (Join-Path $Root "SOURCE.md") ($English + @("", "---", "") + $French)

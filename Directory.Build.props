@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- the single version source for every project; a release tag must equal v<VersionPrefix>[-suffix], the suffix passed as -p:VersionSuffix. -->
     <VersionPrefix>0.1.0</VersionPrefix>
-    <!-- the RDCore.SDK package every project builds on (RDCore.SDK.Protocol comes with it): one version for all of them. -->
+    <!-- the RDCore.SDK package every project builds on (the RDCore.SDK.Protocol assembly is inside it): one version for all of them. -->
     <RDCoreSdkVersion>0.1.0-alpha</RDCoreSdkVersion>
   </PropertyGroup>
 
