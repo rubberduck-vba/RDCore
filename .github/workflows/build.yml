@@ -83,7 +83,7 @@ jobs:
       retention-days: 7
 
  # the same two runs on Windows and macOS, without coverage: what differs from Linux there is the file system, the processes and
- # the pipes the platform starts and talks through, not the language
+ # the pipes the platform starts and talks through; the language is the same
  build-and-test-os:
   strategy:
    fail-fast: false
