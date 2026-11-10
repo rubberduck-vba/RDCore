@@ -11,7 +11,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `LSet`)|`Simple`|The same node shape as `Let`, `Set` and `RSet`, which share `AssignmentStatementNode` and are distinguished by its [AssignmentKind](../api/RDCore.SDK.Model.AST.Statements.AssignmentKind.html) `Kind`.|
+|[AssignmentStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `LSet`)|`Simple`|The same node shape as `Let`, `Set` and `RSet`, which share `AssignmentStatementNode` and are distinguished by its [AssignmentKind](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentKind.html) `Kind`.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
@@ -21,7 +21,7 @@ A program written against MS-VBA that uses `LSet` over a record holding a variab
 on what MS-VBA does with it (see [UDT form](#udt-form)). The statement says so with a semantic flag, and not with an error: it is not wrong.
 
 `FixedAssignmentRuntimeSemantics``.Analyze` sets the
-[FixedAssignmentSemanticFlags](../api/RDCore.SDK.Semantics.Flags.FixedAssignmentSemanticFlags.html) of the statement, the way an operator's `Analyze` sets its own:
+[FixedAssignmentSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.FixedAssignmentSemanticFlags.html) of the statement, the way an operator's `Analyze` sets its own:
 
 |Flag|Set when|
 |---|---|
@@ -65,7 +65,7 @@ Both count characters: a trailing byte of the value is not one, and is not part 
 between two UDTs is how VBA emulates a union.
 
 1. The source record is laid out through its own layout
-   ([VBUserDefinedTypeLayout](../api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html)), for the environment's
+   ([VBUserDefinedTypeLayout](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUserDefinedTypeLayout.html)), for the environment's
    pointer width ([**RD-VBAL §2.5.2.1.3**](rd-vbal.2.5.2.1.3.udt-values.md#pointer-width)).
 2. Only the bytes both types have are copied.
 3. The copied bytes are read back through the destination's layout, place by place: each field, each field of a

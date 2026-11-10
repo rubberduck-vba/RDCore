@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|`Token`: `Write`.|
+|[PrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|`Token`: `Write`.|
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
@@ -38,6 +38,6 @@ reads back.
 ## Implementation
 
 `Write #` writes through the channel's character output surface,
-[IFileChannelOutput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html), which it shares with
+[IFileChannelOutput](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html), which it shares with
 `Print #`. `Width #` sets that surface's maximum line length
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).

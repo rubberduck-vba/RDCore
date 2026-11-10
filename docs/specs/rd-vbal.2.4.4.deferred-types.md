@@ -13,8 +13,8 @@ A _deferred type_ is a valid RD-VBA data type representing an _undefined_ type. 
 
 A deferred type may statically be one of the following data types:
 
-- [VBVariantType](../api/RDCore.SDK.Model.Types.VBVariantType.html)
-- [VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html)
+- [VBVariantType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBVariantType.html)
+- [VBObjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBObjectType.html)
 
 ## Unresolved Names
 
@@ -44,13 +44,13 @@ Deferred parameters are also defined from _named arguments_:
 
 ## Member Ownership
 
-Deferred types cannot implement [IVBMemberOwnerType](../api/RDCore.SDK.Model.Types.Abstract.IVBMemberOwnerType.html), because the related symbols are _unbound_.
+Deferred types cannot implement [IVBMemberOwnerType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.IVBMemberOwnerType.html), because the related symbols are _unbound_.
 
 Deferred types implement `IVBInferableType` instead of `IVBMemberOwnerType`. `IVBInferableType` exposes an immutable hashset of _candidate types_ that would be legal to materialize the deferred type with.
 
 ## 2.4.4.1 VBDeferredModuleType
 
-`VBDeferredModuleType` represents a deferred [VBStdModuleType](../api/RDCore.SDK.Model.Types.Complex.VBStdModuleType.html).
+`VBDeferredModuleType` represents a deferred [VBStdModuleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBStdModuleType.html).
 
 A deferred member is presumed to belong to a deferred module, unless the deferred member is qualified:
 
@@ -64,7 +64,7 @@ Only one unnamed deferred module may be _semantically_ (but not _statically_) de
 
 ## 2.4.4.2 VBDeferredClassType
 
-`VBDeferredClassType` represents a deferred [VBClassType](../api/RDCore.SDK.Model.Types.Complex.VBClassType.html).
+`VBDeferredClassType` represents a deferred [VBClassType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBClassType.html).
 
 Deferred class types cannot be presumed to have a _default instance_. A default instance is set by a `VB_PredeclaredId` module attribute with the value `True`; see [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) and [**RD-VBAL §5.2.4** Class Module Declarations](rd-vbal.5.2.4.class-module-declarations.md).
 
@@ -117,7 +117,7 @@ RD-VBAL groups the following descriptors under `VBDeferredMemberDesc`:
 
 ### Deferred Parameters
 
-The parameters of a deferred member are [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)s, as the parameters of any member are; see [**RD-VBAL §2.4.3.2** VBMemberDesc](rd-vbal.2.4.3.meta-and-advanced-types.md#2432-vbmemberdesc).
+The parameters of a deferred member are [VBParameterSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)s, as the parameters of any member are; see [**RD-VBAL §2.4.3.2** VBMemberDesc](rd-vbal.2.4.3.meta-and-advanced-types.md#2432-vbmemberdesc).
 
 Deferred parameters are inferred from the arguments provided at the call sites of deferred members.
 
@@ -125,16 +125,16 @@ The data type of a deferred parameter depends on how many call sites supply an a
 
 |Call-site arguments|Deferred parameter data type|Parameter|
 |---|---|---|
-|Only [VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html) arguments|[VBBooleanType](../api/RDCore.SDK.Model.Types.VBBooleanType.html)|`ByVal`|
-|Only [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html) arguments|`VBObjectType`|`ByVal`|
+|Only [VBBooleanValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html) arguments|[VBBooleanType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBBooleanType.html)|`ByVal`|
+|Only [VBObjectValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html) arguments|`VBObjectType`|`ByVal`|
 |Only `VBObjectValue` arguments whose class type is resolvable (whether deferred or not)|That specific class type|`ByVal`|
-|Any number of `VBStringType` (string) arguments|[VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)|`ByVal`|
-|Any number of `VBEnumType` (enum) arguments|[VBIntegerType](../api/RDCore.SDK.Model.Types.VBIntegerType.html)|`ByVal`|
+|Any number of `VBStringType` (string) arguments|[VBStringType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBStringType.html)|`ByVal`|
+|Any number of `VBEnumType` (enum) arguments|[VBIntegerType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBIntegerType.html)|`ByVal`|
 |Any number of `IIntegralNumericType` arguments|The largest of the _candidate types_|`ByVal`|
-|Any number of `IFixedPointNumericType` arguments|[VBCurrencyType](../api/RDCore.SDK.Model.Types.VBCurrencyType.html)|`ByVal`|
-|Any number of `IFloatingPointNumericType` arguments|[VBDoubleType](../api/RDCore.SDK.Model.Types.VBDoubleType.html)|`ByVal`|
-|A specific [VBUserDefinedTypeValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue.html)|The data type of the specified UDT|`ByRef`|
-|Any number of [VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html) arguments|`Variant`|`ByRef`|
+|Any number of `IFixedPointNumericType` arguments|[VBCurrencyType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBCurrencyType.html)|`ByVal`|
+|Any number of `IFloatingPointNumericType` arguments|[VBDoubleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBDoubleType.html)|`ByVal`|
+|A specific [VBUserDefinedTypeValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBUserDefinedTypeValue.html)|The data type of the specified UDT|`ByRef`|
+|Any number of [VBArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html) arguments|`Variant`|`ByRef`|
 |Mixed-bag (heterogeneous) arguments|`Variant`|`ByRef`|
 
 A deferred `ByVal` parameter is _passed by value_. A deferred `ByRef` parameter must be _passed by reference_.

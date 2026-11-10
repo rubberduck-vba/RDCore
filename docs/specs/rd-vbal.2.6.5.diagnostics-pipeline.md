@@ -4,7 +4,7 @@ The language server does not compute diagnostics itself. Diagnostics are served 
 
 ## Providers
 
-A *diagnostics provider* is a platform extension whose manifest advertises the [DiagnoseDocument](../api/RDCore.SDK.Client.DiagnoseDocument.html) capability. The extension declares it with the assembly attribute `[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]` ([`ProvidesCorePlatformClientCapabilityAttribute<T>`](../api/RDCore.SDK.Client.ProvidesCorePlatformClientCapabilityAttribute-1.html)). `rdc.exe describe-ext` records the declaration in the extension's `extension.manifest.json`; see [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md).
+A *diagnostics provider* is a platform extension whose manifest advertises the [DiagnoseDocument](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.DiagnoseDocument.html) capability. The extension declares it with the assembly attribute `[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]` ([`ProvidesCorePlatformClientCapabilityAttribute<T>`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.ProvidesCorePlatformClientCapabilityAttribute-1.html)). `rdc.exe describe-ext` records the declaration in the extension's `extension.manifest.json`; see [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md).
 
 The set of registered capabilities, not a hard-coded list, determines which extensions the language server asks for diagnostics.
 
@@ -21,13 +21,13 @@ Diagnostics use the **LSP 3.17 pull model** (`textDocument/diagnostic`). When th
 
 1. It resolves the workspace document and its current version.
 2. It parses the document. This parse is the authoritative parse.
-3. It fans the parsed [ModuleParseResult](../api/RDCore.SDK.Model.AST.ModuleParseResult.html) (see [**RD-VBAL §3.0** Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.md)) out to every registered provider, over the internal `rdcore/diagnostics/document` request.
+3. It fans the parsed [ModuleParseResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.ModuleParseResult.html) (see [**RD-VBAL §3.0** Abstract Syntax Tree](rd-vbal.3.0.syntax-tree.md)) out to every registered provider, over the internal `rdcore/diagnostics/document` request.
 4. It aggregates the LSP `Diagnostic`s the providers return, collapsing exact duplicates (the same range, code, source and message).
 5. It answers the pull.
 
 The language server owns the document and parser state and pushes them down to the diagnostics providers. A diagnostics provider therefore needs no parser or file-system access of its own.
 
-Each diagnostics provider projects its own findings to LSP `Diagnostic`s through [ICoreDiagnosticsFactory](../api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html).
+Each diagnostics provider projects its own findings to LSP `Diagnostic`s through [ICoreDiagnosticsFactory](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Diagnostics.ICoreDiagnosticsFactory.html).
 
 > [!NOTE]
 > **Not implemented.** Proactive push of diagnostics (`textDocument/publishDiagnostics`) and workspace-wide diagnostics (`workspace/diagnostic`) are not implemented. Diagnostics are served by the document pull only.
@@ -37,11 +37,11 @@ Each diagnostics provider projects its own findings to LSP `Diagnostic`s through
 |Hop|Protocol|
 |---|---|
 |Editor → language server|plain LSP (`textDocument/diagnostic`)|
-|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentParams](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentParams.html), answered by a [DiagnoseDocumentResult](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentResult.html))|
+|Language server → diagnostics provider|RDCore request `rdcore/diagnostics/document` ([DiagnoseDocumentParams](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentParams.html), answered by a [DiagnoseDocumentResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentResult.html))|
 
 The editor edge of the diagnostics pipeline stays plain LSP throughout. Only the language-server-to-provider hop is an RDCore request.
 
-The `rdcore/diagnostics/document` request carries the parse result ([DiagnoseDocumentPayload](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentPayload.html)) as a [PlatformJson](../api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic.
+The `rdcore/diagnostics/document` request carries the parse result ([DiagnoseDocumentPayload](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnoseDocumentPayload.html)) as a [PlatformJson](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic.
 
 > [!NOTE]
 > **Not implemented.** The `rdcore/diagnostics/document` request does not carry a `SemanticContext` (resolver output). It carries the parse result.

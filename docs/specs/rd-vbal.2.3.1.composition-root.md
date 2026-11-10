@@ -13,13 +13,13 @@ The _environment host_ is the composition root of an **RD-VBA** application. It 
 1. The environment host composes the application, as above.
 2. The environment host resolves an _entry point_.
 3. The environment host initiates an _execution session_ ([**RD-VBAL §2.3.1.1** Execution Session](rd-vbal.2.3.1.1.execution-session.md)).
-4. The environment host constructs an [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) and pushes it to the _evaluation engine_.
+4. The environment host constructs an [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) and pushes it to the _evaluation engine_.
 5. The evaluation engine sequentially evaluates each instruction in the pushed frame ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
 ## Symbol composition
 
 A session is composed from several _symbol providers_, each an
-[ISymbolProvider](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolProvider.html): configuration flags, AST
+[ISymbolProvider](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolProvider.html): configuration flags, AST
 declarations, reflected referenced libraries, and the environment host's own runtime and standard library
 ([**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md)).
 

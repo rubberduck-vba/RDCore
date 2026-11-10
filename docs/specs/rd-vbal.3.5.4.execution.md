@@ -3,7 +3,7 @@
 `RDCore.Runtime.Execution.ProcedureExecutor` executes a procedure's instructions in a fetch/decode loop.
 `ProcedureExecutor.Run` is that loop: the evaluation engine that "sequentially evaluate[s] each instruction in the
 frame" ([**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md)). The environment host
-constructs an [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) and pushes it
+constructs an [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) and pushes it
 to the evaluation engine, which evaluates each instruction in that frame in turn.
 
 The runtime semantics of each statement are defined on the statement's own page, linked from the dispatch table
@@ -101,20 +101,20 @@ statements, among others, to their statement runtime semantics:
 
 |Statement|Node|Semantics|
 |---|---|---|
-|Let-assignment|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (implicit or explicit `Let`)|[**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)|
+|Let-assignment|[AssignmentStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (implicit or explicit `Let`)|[**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)|
 |Set-assignment|`AssignmentStatementNode` (`Set`)|[**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)|
 |`LSet`, `RSet`|`AssignmentStatementNode` (`LSet`, `RSet`)|[**RD-VBAL §5.4.3.6** LSet Statement](rd-vbal.5.4.3.6.lset-statement.md), [**RD-VBAL §5.4.3.7** RSet Statement](rd-vbal.5.4.3.7.rset-statement.md)|
-|`Mid`, `Mid$`, `MidB`, `MidB$`|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html)|[**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md)|
-|`Call`, bare call|[CallStatementNode](../api/RDCore.SDK.Model.AST.Statements.CallStatementNode.html)|[**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md)|
-|`Debug.Assert`|[DebugAssertStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugAssertStatementNode.html)|[**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)|
-|`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|None|
-|`Open`|[OpenStatementNode](../api/RDCore.SDK.Model.AST.Statements.OpenStatementNode.html)|[**RD-VBAL §5.4.5.1** Open Statement](rd-vbal.5.4.5.1.open-statement.md)|
-|`Close`, `Reset`|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|[**RD-VBAL §5.4.5.2** Close and Reset Statements](rd-vbal.5.4.5.2.close-and-reset-statements.md)|
+|`Mid`, `Mid$`, `MidB`, `MidB$`|[MidStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html)|[**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md)|
+|`Call`, bare call|[CallStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.CallStatementNode.html)|[**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md)|
+|`Debug.Assert`|[DebugAssertStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DebugAssertStatementNode.html)|[**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)|
+|`Debug.Print`|[DebugPrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|None|
+|`Open`|[OpenStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OpenStatementNode.html)|[**RD-VBAL §5.4.5.1** Open Statement](rd-vbal.5.4.5.1.open-statement.md)|
+|`Close`, `Reset`|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|[**RD-VBAL §5.4.5.2** Close and Reset Statements](rd-vbal.5.4.5.2.close-and-reset-statements.md)|
 |`Seek`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.3** Seek Statement](rd-vbal.5.4.5.3.seek-statement.md)|
-|`Lock`, `Unlock`|[FileLockStatementNode](../api/RDCore.SDK.Model.AST.Statements.FileLockStatementNode.html)|[**RD-VBAL §5.4.5.4** Lock Statement](rd-vbal.5.4.5.4.lock-statement.md), [**RD-VBAL §5.4.5.5** Unlock Statement](rd-vbal.5.4.5.5.unlock-statement.md)|
+|`Lock`, `Unlock`|[FileLockStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.FileLockStatementNode.html)|[**RD-VBAL §5.4.5.4** Lock Statement](rd-vbal.5.4.5.4.lock-statement.md), [**RD-VBAL §5.4.5.5** Unlock Statement](rd-vbal.5.4.5.5.unlock-statement.md)|
 |`Line Input #`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.6** Line Input Statement](rd-vbal.5.4.5.6.line-input-statement.md)|
 |`Width #`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.7** Width Statement](rd-vbal.5.4.5.7.width-statement.md)|
-|`Print #`, `Write #`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|[**RD-VBAL §5.4.5.8** Print Statement](rd-vbal.5.4.5.8.print-statement.md), [**RD-VBAL §5.4.5.9** Write Statement](rd-vbal.5.4.5.9.write-statement.md)|
+|`Print #`, `Write #`|[PrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|[**RD-VBAL §5.4.5.8** Print Statement](rd-vbal.5.4.5.8.print-statement.md), [**RD-VBAL §5.4.5.9** Write Statement](rd-vbal.5.4.5.9.write-statement.md)|
 |`Input #`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.10** Input Statement](rd-vbal.5.4.5.10.input-statement.md)|
 |`Put`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.11.put-statement.md)|
 |`Get`|`KeywordStatementNode`|[**RD-VBAL §5.4.5.12** Get Statement](rd-vbal.5.4.5.12.get-statement.md)|
@@ -153,10 +153,10 @@ The executor keeps the following state on each activation. Each item is read thr
 |---|---|---|---|---|---|
 |Program counter|The offset of the instruction to fetch.|None (one value per activation)|`Pc`|`Pc`|Every instruction.|
 |Block state|A single value: the `Select` selector, or the `With` target.|The opener's offset.|`TryGetBlockState`|`SetBlockState`|`Select`, `With`, `Case` headers, with-expressions.|
-|`For` loop state|A [ForLoopState](../api/RDCore.SDK.Runtime.Shared.ForLoopState.html): counter symbol, counter expression, end and step.|The `ForOpener`'s offset.|`TryGetForLoopState`|`SetForLoopState`|`ForOpener`, `ForNext`|
-|`For Each` state|A [ForEachState](../api/RDCore.SDK.Runtime.Shared.ForEachState.html), an enumeration cursor: control symbol/expression, the array, and a flat index.|The `ForEachOpener`'s offset.|`TryGetForEachState`|`SetForEachState`|`ForEachOpener`, `ForEachNext`|
+|`For` loop state|A [ForLoopState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ForLoopState.html): counter symbol, counter expression, end and step.|The `ForOpener`'s offset.|`TryGetForLoopState`|`SetForLoopState`|`ForOpener`, `ForNext`|
+|`For Each` state|A [ForEachState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ForEachState.html), an enumeration cursor: control symbol/expression, the array, and a flat index.|The `ForEachOpener`'s offset.|`TryGetForEachState`|`SetForEachState`|`ForEachOpener`, `ForEachNext`|
 |GoSub Resumption List|A LIFO stack of return offsets.|None (a plain stack)|`GoSubDepth` (a count)|`PushGoSubReturn`, `TryPopGoSubReturn`|`GoSub`, `GoSubTable`, `Return`|
-|Error handler|An [ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html): the error-handling mode, the handler target, the active error, and the fault-statement offset.|None (one value per activation)|`ErrorHandler`|`ErrorHandler`|`On Error`, `Resume`, error interception.|
+|Error handler|An [ErrorHandlerState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html): the error-handling mode, the handler target, the active error, and the fault-statement offset.|None (one value per activation)|`ErrorHandler`|`ErrorHandler`|`On Error`, `Resume`, error interception.|
 |Function result|The function result variable, a single slot.|None (one value per activation)|`ReturnValue`|`ReturnValue`|[**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md)|
 
 ### Block state

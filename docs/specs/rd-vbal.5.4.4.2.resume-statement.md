@@ -7,9 +7,9 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[ResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeStatementNode.html)|`ResumeCurrentStatement`|A bare `Resume` (`LabelExpression` is `null`), or `Resume 0`.|
+|[ResumeStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ResumeStatementNode.html)|`ResumeCurrentStatement`|A bare `Resume` (`LabelExpression` is `null`), or `Resume 0`.|
 |`ResumeStatementNode`|`ResumeLabel`|`Resume <label>`. `Target`: the label's offset.|
-|[ResumeNextStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeNextStatementNode.html)|`ResumeNext`|`Resume Next`.|
+|[ResumeNextStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ResumeNextStatementNode.html)|`ResumeNext`|`Resume Next`.|
 
 - `ResumeStatementNode.LabelExpression` is nullable.
 - `Resume Next` has its own node type, `ResumeNextStatementNode`. It is not a `ResumeStatementNode` with a "Next"
@@ -33,7 +33,7 @@ statement that failed. `Resume 0` is not a jump, so `VBC09309` is not raised for
 
 `Resume`, `Resume Next` and `Resume <label>` all require an active error. The active error and the offset of the
 fault statement are held on the activation's
-[ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html); see
+[ErrorHandlerState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html); see
 [**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md).
 
 1. If the activation has no active error, run-time error 20, "Resume without error", is raised.

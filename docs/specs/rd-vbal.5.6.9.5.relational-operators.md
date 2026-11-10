@@ -10,7 +10,7 @@ Relational operators are simple data operators: they validate their operands thr
 ([**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)).
 
 Relational operators compare in the effective type, and yield a
-[VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html). With a `Variant` operand, it is held in a `Variant`
+[VBBooleanValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html). With a `Variant` operand, it is held in a `Variant`
 ([An expression over a Variant](#an-expression-over-a-variant)).
 
 |Effective type|Compared in|

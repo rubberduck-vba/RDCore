@@ -2,7 +2,7 @@
 
 > **RDCore.Diagnostics** is the *core platform extension* responsible for issuing all *language core diagnostics*. Additional first-party or third-party extensions may provide additional or advanced diagnostics to the LSP *orchestration layer*.
 
-A *diagnostics provider* is a platform extension whose manifest advertises the [DiagnoseDocument](../api/RDCore.SDK.Client.DiagnoseDocument.html) capability. RDCore.Diagnostics is the core-bundled diagnostics provider; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
+A *diagnostics provider* is a platform extension whose manifest advertises the [DiagnoseDocument](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.DiagnoseDocument.html) capability. RDCore.Diagnostics is the core-bundled diagnostics provider; see [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
 
 The role of *analyzers* in extensions like RDCore.Diagnostics is to inspect the flags and errors in *semantic contexts*, and issue diagnostics. Semantic flags are described in [**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md).
 
@@ -38,7 +38,7 @@ The `00000` numeric portion of a diagnostic code is a five-digit zero-padded cod
 
 ## Declaring a Prefix
 
-An extension declares the prefix of its diagnostic codes with an assembly attribute, [DiagnosticPrefixAttribute](../api/RDCore.SDK.Extensibility.DiagnosticPrefixAttribute.html):
+An extension declares the prefix of its diagnostic codes with an assembly attribute, [DiagnosticPrefixAttribute](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.DiagnosticPrefixAttribute.html):
 
 ```csharp
 [assembly: DiagnosticPrefix("XYZ")]
@@ -70,7 +70,7 @@ A diagnostic gets a link to its page in the RDCore documentation only when its c
 
 A clean separation of *application-defined* errors from specified *semantic runtime errors* is compliant with MS-VBAL. The MS-VBA implementation weakly separates them using the `vbObjectError` constant. The proper use of this constant has historically been misunderstood, and MS-VBA makes no effective distinction between run-time errors and application errors.
 
-RDCore removes the need for the `vbObjectError` constant by internally representing run-time errors and application errors as different error metadata types: [VBRuntimeErrorInfo](../api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html) and [VBApplicationErrorInfo](../api/RDCore.SDK.Model.Errors.VBApplicationErrorInfo.html). This clarifies their origin before they reach the runtime.
+RDCore removes the need for the `vbObjectError` constant by internally representing run-time errors and application errors as different error metadata types: [VBRuntimeErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBRuntimeErrorInfo.html) and [VBApplicationErrorInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Errors.VBApplicationErrorInfo.html). This clarifies their origin before they reach the runtime.
 
 ## Error Descriptions
 

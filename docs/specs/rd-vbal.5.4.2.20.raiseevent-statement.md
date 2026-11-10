@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `RaiseEvent`)|`Simple`|No dedicated node type; see [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md). The first input is the event's name, a `SimpleNameExpressionNode` that is not evaluated; the rest are the event arguments.|
+|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `RaiseEvent`)|`Simple`|No dedicated node type; see [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md). The first input is the event's name, a `SimpleNameExpressionNode` that is not evaluated; the rest are the event arguments.|
 
 ## Static Semantics
 

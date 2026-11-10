@@ -1,6 +1,6 @@
 # 1.1.6 Capabilities Provider
 
-An *environment host* must implement [IExtensionCapabilityProvider](../api/RDCore.SDK.Extensibility.IExtensionCapabilityProvider.html), and must provide all available extension capabilities through it.
+An *environment host* must implement [IExtensionCapabilityProvider](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.IExtensionCapabilityProvider.html), and must provide all available extension capabilities through it.
 
 `IExtensionCapabilityProvider` allows a host to determine whether certain extension capabilities should be enabled. The mechanisms by which a capability provider decides are implementation-dependent. They may include, but are not restricted to, the validation of an active subscription to the extended capabilities.
 
@@ -12,7 +12,7 @@ All platform extensions must *gracefully* handle being denied their extended cap
 - responding to an LSP `shutdown` request;
 - cleanly terminating upon an LSP `exit` notification from the environment host.
 
-An abstract server application in the SDK, [RDCoreServerApp](../api/RDCore.SDK.Server.RDCoreServerApp.html), should handle these lifecycle events correctly, without further configuration.
+An abstract server application in the SDK, [RDCoreServerApp](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.RDCoreServerApp.html), should handle these lifecycle events correctly, without further configuration.
 
 |Capability registration|Outcome|
 |---|---|

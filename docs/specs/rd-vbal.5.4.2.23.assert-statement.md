@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[DebugAssertStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugAssertStatementNode.html)|`Simple`|Represents `Debug.Assert`.|
+|[DebugAssertStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DebugAssertStatementNode.html)|`Simple`|Represents `Debug.Assert`.|
 
 ## Static Semantics
 

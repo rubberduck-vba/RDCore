@@ -1,12 +1,12 @@
 # 2.5.1 Runtime Entities
 
-A _runtime entity_ is a simple abstraction that associates a [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html) with a [Symbol](../api/RDCore.SDK.Model.Symbols.Abstract.Symbol.html).
+A _runtime entity_ is a simple abstraction that associates a [VBType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBType.html) with a [Symbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.Symbol.html).
 
 Because a runtime entity associates a `Symbol`, every RD-VBA runtime entity is addressable with a `Uri` that is unique across the _workspace_.
 
 ## 2.5.1.1 Symbols
 
-A _symbol_ necessarily has a `Uri` and a `Name`. A symbol also has a [ScopeKind](../api/RDCore.SDK.Model.Symbols.Abstract.ScopeKind.html) and an (extended) LSP symbol kind, [SymbolKindExt](../api/RDCore.SDK.Model.Source.SymbolKindExt.html).
+A _symbol_ necessarily has a `Uri` and a `Name`. A symbol also has a [ScopeKind](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.ScopeKind.html) and an (extended) LSP symbol kind, [SymbolKindExt](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Source.SymbolKindExt.html).
 
 |Member|Meaning|
 |---|---|
@@ -17,7 +17,7 @@ A _symbol_ necessarily has a `Uri` and a `Name`. A symbol also has a [ScopeKind]
 
 ### Uri
 
-The `Uri` of a symbol is a _semantic ID_ that uniquely identifies the symbol across an entire workspace. Symbol `Uri` namespaces are defined in the SDK; see [RDCoreUriNamespaces](../api/RDCore.SDK.Extensibility.RDCoreUriNamespaces.html).
+The `Uri` of a symbol is a _semantic ID_ that uniquely identifies the symbol across an entire workspace. Symbol `Uri` namespaces are defined in the SDK; see [RDCoreUriNamespaces](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.RDCoreUriNamespaces.html).
 
 A symbol `Uri` is assembled from the _workspace root_ `Uri` and a relative `Uri`:
 
@@ -41,9 +41,9 @@ Name resolution is described in [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.
 
 |Value|Level|Allocation|
 |---|---|---|
-|`Unallocated`|A pseudo-scope for pseudo-symbols.|Not allocated in memory. Example: [VBVoidValue](../api/RDCore.SDK.Model.Values.VBVoidValue.html).|
-|`Global`|Mostly [StaticSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.StaticSymbol.html) instances and symbols obtained from referenced libraries.|Lives in the _globals_ heap.|
-|`Local`|Procedure level.|Scoped to the local [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html).|
+|`Unallocated`|A pseudo-scope for pseudo-symbols.|Not allocated in memory. Example: [VBVoidValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.VBVoidValue.html).|
+|`Global`|Mostly [StaticSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.StaticSymbol.html) instances and symbols obtained from referenced libraries.|Lives in the _globals_ heap.|
+|`Local`|Procedure level.|Scoped to the local [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html).|
 |`Module`|Module level.|Lives in the _workspace statics_ heap.|
 |`Instance`|Instance level.|Lives in the _object_ heap.|
 |`External`|Allocated externally.|Lives out of process, at a known address.|
@@ -101,10 +101,10 @@ The extension symbol kinds may or may not be supported by an LSP client (editor)
 
 ### Typed and Member Symbols
 
-[ITypedSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.ITypedSymbol.html) unifies bound and unbound typed symbols; see [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
+[ITypedSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.ITypedSymbol.html) unifies bound and unbound typed symbols; see [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
 
-[VBReturningMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html) is the base type of a `Function`'s and a `Property Get`'s member symbol. `Const`, `EnumConst`, module-level and instance fields, and UDT fields share this base type with `Function` and `Property Get` symbols.
+[VBReturningMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html) is the base type of a `Function`'s and a `Property Get`'s member symbol. `Const`, `EnumConst`, module-level and instance fields, and UDT fields share this base type with `Function` and `Property Get` symbols.
 
-[VBProcedureMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol.html)`.Locals` and `VBReturningMemberSymbol.Locals` list every `Dim`, `Static` and `Const` declared in the procedure body. The `Locals` property of a procedure member symbol mirrors its `Parameters` property; see [**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md).
+[VBProcedureMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol.html)`.Locals` and `VBReturningMemberSymbol.Locals` list every `Dim`, `Static` and `Const` declared in the procedure body. The `Locals` property of a procedure member symbol mirrors its `Parameters` property; see [**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md).
 
-A class module with `VB_PredeclaredId = True` has a [VBPredeclaredInstanceSymbol](../api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html): a global variable named after the class, whose declared type is that class. It is an automatic instantiation variable ([SymbolProperties](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.AutoInstantiated`, [**MS-VBAL §2.5.1** Automatic Object Instantiation](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fef06761-45b9-48c2-825c-b75c28aee9b5)), as is any variable declared with an `As New` clause. See [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) and [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md).
+A class module with `VB_PredeclaredId = True` has a [VBPredeclaredInstanceSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html): a global variable named after the class, whose declared type is that class. It is an automatic instantiation variable ([SymbolProperties](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.AutoInstantiated`, [**MS-VBAL §2.5.1** Automatic Object Instantiation](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fef06761-45b9-48c2-825c-b75c28aee9b5)), as is any variable declared with an `As New` clause. See [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md) and [**RD-VBAL §5.2.3** Module Declarations](rd-vbal.5.2.3.module-declarations.md).

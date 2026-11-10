@@ -3,7 +3,7 @@
 > [!NOTE]
 > This specification may be incomplete at this time.
 
-The RD-VBA _type system_ begins with [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html). `VBType` is at the core of RD-VBA _static semantics_; runtime values are described in [**RD-VBAL §2.5** Runtime Values](rd-vbal.2.5.runtime-values.md).
+The RD-VBA _type system_ begins with [VBType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBType.html). `VBType` is at the core of RD-VBA _static semantics_; runtime values are described in [**RD-VBAL §2.5** Runtime Values](rd-vbal.2.5.runtime-values.md).
 
 All representations of a _data type_ inherit the `VBType` class. A representation often inherits `VBType` indirectly, through other abstract types that semantically specialize `VBType`.
 
@@ -15,11 +15,11 @@ The type system defines abstractions that formalize the implicit type classifica
 
 |Abstraction|Kind|Classifies|Described in|
 |---|---|---|---|
-|[VBIntrinsicType](../api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html)|Abstract type|Intrinsic types|[**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md)|
-|[VBNumericType](../api/RDCore.SDK.Model.Types.Abstract.VBNumericType.html)|Abstract type|Numeric types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
-|[IIntegralNumericType](../api/RDCore.SDK.Model.Types.Abstract.IIntegralNumericType.html)|Marker interface|Integer types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
-|[IFixedPointNumericType](../api/RDCore.SDK.Model.Types.Abstract.IFixedPointNumericType.html)|Marker interface|Fixed-point numeric types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
-|[IFloatingPointNumericType](../api/RDCore.SDK.Model.Types.Abstract.IFloatingPointNumericType.html)|Marker interface|Floating-point numeric types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
+|[VBIntrinsicType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBIntrinsicType.html)|Abstract type|Intrinsic types|[**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md)|
+|[VBNumericType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBNumericType.html)|Abstract type|Numeric types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
+|[IIntegralNumericType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.IIntegralNumericType.html)|Marker interface|Integer types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
+|[IFixedPointNumericType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.IFixedPointNumericType.html)|Marker interface|Fixed-point numeric types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
+|[IFloatingPointNumericType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.IFloatingPointNumericType.html)|Marker interface|Floating-point numeric types|[**RD-VBAL §2.4.1.1** VBNumericType](rd-vbal.2.4.1.intrinsic-types.md#2411-vbnumerictype)|
 
 These abstract types and interfaces support pattern-matching of types and values, in both static-semantics and runtime-semantics implementations.
 

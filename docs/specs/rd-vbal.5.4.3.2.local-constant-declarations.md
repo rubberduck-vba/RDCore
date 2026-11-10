@@ -7,7 +7,7 @@
 
 |Declaration|AST node|Symbol on the procedure's `Locals`|
 |---|---|---|
-|`Const` (in a procedure body)|[ConstantDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.ConstantDeclarationNode.html)|[VBLocalConstantSymbol](../api/RDCore.SDK.Model.Symbols.VBLocalConstantSymbol.html)|
+|`Const` (in a procedure body)|[ConstantDeclarationNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.ConstantDeclarationNode.html)|[VBLocalConstantSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBLocalConstantSymbol.html)|
 
 `VBProcedureMemberSymbol.Locals` and `VBReturningMemberSymbol.Locals` list every `Dim`, `Static` and `Const`
 declared in the procedure body; see

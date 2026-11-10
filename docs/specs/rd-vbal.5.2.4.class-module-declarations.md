@@ -17,8 +17,8 @@ other members need an instance to be reached through, but a declared type needs 
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.2.4.1** Non-Syntactic Class Characteristics](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/73a89f41-1c32-460e-a2b5-73a0c1971636).
 
-[VBClassModuleSymbol](../api/RDCore.SDK.Model.Symbols.VBClassModuleSymbol.html).`AutomationKind`
-([VBAutomationKind](../api/RDCore.SDK.Model.Symbols.VBAutomationKind.html)) distinguishes an Automation-capable
+[VBClassModuleSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBClassModuleSymbol.html).`AutomationKind`
+([VBAutomationKind](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBAutomationKind.html)) distinguishes an Automation-capable
 class module from an `IUnknown`-only class module:
 
 |`AutomationKind`|Class module|
@@ -77,7 +77,7 @@ setters it uses to initialize the object are `Friend` members that only the fact
 #### Static Semantics
 
 - A class module with `VB_PredeclaredId = True` has a
-  [VBPredeclaredInstanceSymbol](../api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html): a global
+  [VBPredeclaredInstanceSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBPredeclaredInstanceSymbol.html): a global
   variable named after the class, whose declared type is that class.
 - The predeclared instance variable is created as if declared `As New`. It is an _automatic instantiation variable_
   (`SymbolProperties.AutoInstantiated`,
@@ -107,7 +107,7 @@ Deferred class types cannot be presumed to have a default instance
 >   ([**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)).
 
 The language server reads the attribute off the module, with the module's other directives
-([ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.PredeclaredId`, beside `.Creatable` and
+([ModuleDirectives](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.PredeclaredId`, beside `.Creatable` and
 `.Extensible`), and the environment host is told it when the module's symbols are defined. The host defines the
 default instance then, before the code of any module is loaded, so that the code of every module can name it.
 
@@ -130,7 +130,7 @@ keeps the object it holds.
 #### Semantic Flags
 
 The semantic model of a class module (`ModuleSemanticModel.Class`) carries
-[ClassModuleSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ClassModuleSemanticFlags.html), the facts an analyzer
+[ClassModuleSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.ClassModuleSemanticFlags.html), the facts an analyzer
 needs to tell a stateless default instance - the factory - from one that holds state
 ([**RD-VBAL §1.1.3** Core Semantic Flags](rd-vbal.1.1.3.core-semantic-flags.md)). A standard module has none.
 
@@ -157,7 +157,7 @@ The `Implements` directive specifies that the (class) module _implements_ an _in
 
 If a class module specifies any `Implements` directives, the interfaces specified by those directives are included
 in the class type's `SuperTypes` array
-([VBClassType](../api/RDCore.SDK.Model.Types.Complex.VBClassType.html);
+([VBClassType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBClassType.html);
 [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
 A class module also implements `Class` implicitly, which is among its implemented interfaces without a directive

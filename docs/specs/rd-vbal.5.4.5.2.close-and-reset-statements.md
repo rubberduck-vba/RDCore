@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|`Simple`|`Token`: `Close` or `Reset`.|
+|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|`Simple`|`Token`: `Close` or `Reset`.|
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
@@ -24,5 +24,5 @@ See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 ## Implementation
 
 Like every file statement, `Close` and `Reset` run through the session's file-channel shim,
-[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)
+[IFileChannels](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).

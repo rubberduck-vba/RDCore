@@ -25,7 +25,7 @@ When an array declaration specifies no _item type_, the declared item type of th
 Any variable declared with an `As New` clause is an _automatic instantiation variable_
 ([**MS-VBAL §2.5.1** Automatic Object Instantiation](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fef06761-45b9-48c2-825c-b75c28aee9b5)).
 Its symbol carries the `AutoInstantiated` property of
-[SymbolProperties](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)
+[SymbolProperties](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)
 ([**RD-VBAL §2.5.1** Runtime Entities](rd-vbal.2.5.1.runtime-entities.md);
 [**RD-VBAL §3.1.1** Attributes](rd-vbal.3.1.1.attributes.md)).
 
@@ -57,9 +57,9 @@ An _array declaration_ creates an _array value_ of the appropriate _array type_ 
 
 |Array-dim clause|Example|Declared type|Array value created|
 |---|---|---|---|
-|One or more _bounds_ (dimension specifications)|`Dim g(1 To 3, 0 To 4) As Long`|[VBFixedSizeArrayType](../api/RDCore.SDK.Model.Types.VBFixedSizeArrayType.html)|[VBFixedSizeArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|
-|An empty `()` clause|`Dim b() As Long`|[VBResizableArrayType](../api/RDCore.SDK.Model.Types.VBResizableArrayType.html)|[VBResizableArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html)|
-|An empty `()` clause, with a `Byte` _item type_|`Dim b() As Byte`|[VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html)|[VBResizableByteArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableByteArrayValue.html)|
+|One or more _bounds_ (dimension specifications)|`Dim g(1 To 3, 0 To 4) As Long`|[VBFixedSizeArrayType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBFixedSizeArrayType.html)|[VBFixedSizeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|
+|An empty `()` clause|`Dim b() As Long`|[VBResizableArrayType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBResizableArrayType.html)|[VBResizableArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html)|
+|An empty `()` clause, with a `Byte` _item type_|`Dim b() As Byte`|[VBResizableByteArrayType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html)|[VBResizableByteArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBResizableByteArrayValue.html)|
 
 An array has up to 60 dimensions.
 
@@ -204,7 +204,7 @@ within the enclosing module.
 |Access modifier|An Enum member has no access modifier of its own.|
 |Visibility|An Enum member takes its visibility from its Enum's own access modifier.|
 |Symbol parent|An enum constant (Enum member) symbol parents to its Enum rather than to a scope.|
-|Scope placement|[ScopeTreeBuilder](../api/RDCore.SDK.Model.Symbols.ScopeTreeBuilder.html) resolves an Enum member's scope placement through its Enum ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).|
+|Scope placement|[ScopeTreeBuilder](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ScopeTreeBuilder.html) resolves an Enum member's scope placement through its Enum ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).|
 
 Because Enum members are placed through their Enum, an Enum member such as `vbSunday` is a name on its own,
 resolvable without qualification.

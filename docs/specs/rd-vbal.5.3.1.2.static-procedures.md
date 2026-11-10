@@ -9,7 +9,7 @@ with an explicit `Static` keyword.
 ## Syntax
 
 A `Sub`, a `Function` and each property accessor can be declared `Static`
-([MemberDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.IsStatic`).
+([MemberDeclarationNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.MemberDeclarationNode.html)`.IsStatic`).
 
 ## Semantics
 

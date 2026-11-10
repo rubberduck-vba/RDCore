@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `ImplicitLet` or `ExplicitLet`)|`Simple`|`[Let] lExpression = expression`. The `Target` of an `AssignmentStatementNode` is always an `lExpression`; see [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).|
+|[AssignmentStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `ImplicitLet` or `ExplicitLet`)|`Simple`|`[Let] lExpression = expression`. The `Target` of an `AssignmentStatementNode` is always an `lExpression`; see [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).|
 
 The target of an implicit Let is never the `Print` of an object with an output list, since an l-expression has none: `Debug.Print x = 0` is the
 print of the comparison `x = 0` ([**RD-VBAL §5.4.5.8** Print Statement](rd-vbal.5.4.5.8.print-statement.md)). `Let Debug.Print x = 0`, with
@@ -97,7 +97,7 @@ A Let-assignment to a bare reference to a procedure's own name, from within its 
   `LetAssignmentEvaluator.Assign`.
 - A bare reference to the function result variable never goes through `"__let_op"`. The function result variable
   is not an addressable `Symbol` with an
-  [IBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html).
+  [IBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html).
 - The self-reference branch of `LetAssignmentEvaluator.Assign` Let-coerces the assigned value directly.
 - That direct Let-coercion is the same lower-level call that `ByVal` and `ByRef`-fallback parameter passing make,
   for the same reason: there is no addressable symbol. See
@@ -179,5 +179,5 @@ floating-point operation, and RD-VBA follows MS-VBA. As text, an infinity is `in
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider.ExecuteLetAssignment`|Evaluates the value expression and passes it to `LetAssignmentEvaluator`.|
 |`RDCore.Runtime.Semantics.Statements.LetAssignmentEvaluator.Assign`|Assigns an evaluated value to the target: the function result variable, a UDT field, or a variable through `"__let_op"`.|
 |`LetAssignmentEvaluator.TryResolveTarget`|Resolves the symbol a target names; shared with `Input #`, `Line Input #` and `Get`.|
-|[OperatorSymbolNames](../api/RDCore.SDK.Model.Symbols.Operators.OperatorSymbolNames.html)`.BinaryAssignmentValueOp`|The name of the `"__let_op"` Let-assignment operator (**RDCore.SDK**).|
-|[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`|The function result variable.|
+|[OperatorSymbolNames](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Operators.OperatorSymbolNames.html)`.BinaryAssignmentValueOp`|The name of the `"__let_op"` Let-assignment operator (**RDCore.SDK**).|
+|[ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`|The function result variable.|

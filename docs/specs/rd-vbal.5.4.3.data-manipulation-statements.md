@@ -10,17 +10,17 @@ it lowers to, and the RD-VBAL page that describes its implementation. The node c
 
 |Statement|AST node|Instruction kind|RD-VBAL|
 |---|---|---|---|
-|`Dim`, `Static` (in a procedure body)|[VariableDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.VariableDeclarationNode.html)|None (a declaration node; the local is hoisted when the procedure is invoked)|[**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)|
-|`Const` (in a procedure body)|[ConstantDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.ConstantDeclarationNode.html)|None (a declaration node)|[**RD-VBAL §5.4.3.2** Local Constant Declarations](rd-vbal.5.4.3.2.local-constant-declarations.md)|
-|`ReDim`, `ReDim Preserve`|[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|None (a declaration node)|[**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)|
-|`Erase`|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `Erase`)|`Simple`|[**RD-VBAL §5.4.3.4** Erase Statement](rd-vbal.5.4.3.4.erase-statement.md)|
-|`Mid`, `Mid$`, `MidB`, `MidB$`|[MidStatementNode](../api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html)|`Simple`|[**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md)|
-|`LSet`|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `LSet`)|`Simple`|[**RD-VBAL §5.4.3.6** LSet Statement](rd-vbal.5.4.3.6.lset-statement.md)|
+|`Dim`, `Static` (in a procedure body)|[VariableDeclarationNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.VariableDeclarationNode.html)|None (a declaration node; the local is hoisted when the procedure is invoked)|[**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)|
+|`Const` (in a procedure body)|[ConstantDeclarationNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.ConstantDeclarationNode.html)|None (a declaration node)|[**RD-VBAL §5.4.3.2** Local Constant Declarations](rd-vbal.5.4.3.2.local-constant-declarations.md)|
+|`ReDim`, `ReDim Preserve`|[RedimDeclarationNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|None (a declaration node)|[**RD-VBAL §5.4.3.3** ReDim Statement](rd-vbal.5.4.3.3.redim-statement.md)|
+|`Erase`|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `Erase`)|`Simple`|[**RD-VBAL §5.4.3.4** Erase Statement](rd-vbal.5.4.3.4.erase-statement.md)|
+|`Mid`, `Mid$`, `MidB`, `MidB$`|[MidStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.MidStatementNode.html)|`Simple`|[**RD-VBAL §5.4.3.5** Mid/MidB/Mid$/MidB$ Statement](rd-vbal.5.4.3.5.mid-statement.md)|
+|`LSet`|[AssignmentStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `LSet`)|`Simple`|[**RD-VBAL §5.4.3.6** LSet Statement](rd-vbal.5.4.3.6.lset-statement.md)|
 |`RSet`|`AssignmentStatementNode` (`Kind`: `RSet`)|`Simple`|[**RD-VBAL §5.4.3.7** RSet Statement](rd-vbal.5.4.3.7.rset-statement.md)|
 |`Let` assignment (`[Let] lExpression = expression`)|`AssignmentStatementNode` (`Kind`: `ImplicitLet` or `ExplicitLet`)|`Simple`|[**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md)|
 |`Set` assignment|`AssignmentStatementNode` (`Kind`: `Set`)|`Simple`|[**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md)|
 
 `Let`, `Set`, `LSet` and `RSet` share one node type, `AssignmentStatementNode`, distinguished by its
-[AssignmentKind](../api/RDCore.SDK.Model.AST.Statements.AssignmentKind.html) `Kind`. A `Simple` instruction's
+[AssignmentKind](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentKind.html) `Kind`. A `Simple` instruction's
 statement is dispatched by its own type to its statement runtime semantics; see
 [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).

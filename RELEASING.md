@@ -162,10 +162,9 @@ Never delete or move a released tag: the attestation records it, and so do the r
 rdcore.json                  platform manifest: platformVersion, commit, rid, generatedUtc, entry points
 release.json                 release metadata: version, runtime, launch, source, SHA-256 of every file
 SOURCE.md                    where to get the corresponding source
-NOTICE.md                    copyright, licence map, third-party code, trademarks
+NOTICE.md                    copyright, licence, third-party code, trademarks
 LICENSE-GPLv3.md
-LICENSE-MIT.md
-THIRD-PARTY-NOTICES.txt      third-party packages and their licences
+THIRD-PARTY-NOTICES.txt      packages (RDCore.SDK included) and their licences
 RDCore.CLI/                  rdc.exe (hostService)
 RDCore.LanguageServer/       RDCore.LanguageServer.exe (langService)
 RDCore.Parsing/              RDCore.ParseServer.exe (parseServer)

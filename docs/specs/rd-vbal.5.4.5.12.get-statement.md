@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|`Simple`|`Token`: `Get`.|
+|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|`Simple`|`Token`: `Get`.|
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
@@ -46,6 +46,6 @@ one statement.
 
 |Name|Role|
 |---|---|
-|[IFileChannel](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html)|A file channel. Its record surface is the one `Put` and `Get` use.|
+|[IFileChannel](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html)|A file channel. Its record surface is the one `Put` and `Get` use.|
 |`RecordDataFormat`|Implements the `Put`/`Get` record format.|
 |`LetAssignmentEvaluator.TryResolveTarget`|Resolves the target: the same target resolution `Input #`, `Line Input #` and the Let assignment statement use.|

@@ -45,6 +45,7 @@ public sealed class RefactoringWireTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-refactoring-wire-ws");
     private const string Program = "10 Dim strName As String\r\n20 strName = \"a\"\r\n";
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // a client that says it takes a WorkspaceEdit's documentChanges is sent them, each with the version of the document its edits are of; one that does not
     // reads changes alone (LSP 3.17 §WorkspaceEdit), and is sent the same edits as changes.
     [TestMethod]
@@ -134,7 +135,9 @@ public sealed class RefactoringWireTests
         StringAssert.Contains(refused.Message, "Next", "the message of the refusal is the client's to show");
         Assert.AreEqual(-32803, refused.ErrorCode, "RequestFailed: an answer, which a client does not log as a fault");
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // a procedure a library calls by its name in a string is renamed there too if the user confirms it: a client that takes change annotations is sent the edit
     // annotated, to ask its user itself; one that does not is asked by the server, and sent what the user chose - or nothing, when they chose nothing. A client
     // with no user to ask is sent the rest of the rename.
@@ -232,7 +235,9 @@ public sealed class RefactoringWireTests
             Assert.IsFalse(edits.Any(edit => edit is AnnotatedTextEdit), "a client that can't ask is sent no annotation");
         }
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // a member of a class that may be what a late-bound access calls is renamed there too if the user confirms it, as a string is, an access the code backs
     // apart from one that is only possible; a client that can't ask its user is sent the rest of the rename, and none of the late-bound edits.
     [TestMethod]
@@ -341,6 +346,7 @@ public sealed class RefactoringWireTests
                 break;
         }
     }
+#endif
 
     // the edits of the document, in the form the client takes: documentChanges with the version they are edits of, or changes, and not the other.
     private static void AssertEditsOf(WorkspaceEdit edit, bool takesDocumentChanges, DocumentUri document, int expected)

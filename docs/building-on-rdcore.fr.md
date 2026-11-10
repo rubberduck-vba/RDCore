@@ -151,7 +151,7 @@ Dans les deux cas, l'application configure ses _capacités_ LSP, et les _handler
 
 
 > [!IMPORTANT]
-> **Les extensions de la plateforme RDCore** requièrent un _manifest_ (`extension.manifest.json`, schéma [ExtensionInfo](./api/RDCore.SDK.Extensibility.ExtensionInfo.html)) pour que le serveur de langage puisse les _découvrir_ et les démarrer lors de l'assemblage de la plateforme. Le manifest est généré par la CLI en _mode commande_ :
+> **Les extensions de la plateforme RDCore** requièrent un _manifest_ (`extension.manifest.json`, schéma [ExtensionInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.ExtensionInfo.html)) pour que le serveur de langage puisse les _découvrir_ et les démarrer lors de l'assemblage de la plateforme. Le manifest est généré par la CLI en _mode commande_ :
 >
 > ```
 > rdc.exe describe-ext RDCore.Diagnostics.exe --description "…" --unsafe-dev-mode
@@ -160,7 +160,7 @@ Dans les deux cas, l'application configure ses _capacités_ LSP, et les _handler
 > `describe-ext` reflète les capacités déclarées par l'exécutable d'extension (ses déclarations `[assembly: ProvidesCorePlatformClientCapability<T>]`) dans le manifest. `PlatformPublish.ps1` l'exécute une fois par extension lors de l'assemblage de la plateforme.
 
 > [!IMPORTANT]
-> **Les bibliothèques référencées** (`Excel`, `Word`, `Access`, `ADODB`, `Scripting`, …) sont connues d'un projet par leur _nom_, comme si la bibliothèque était du code VBA, et ce que chacune déclare est livré avec la plateforme sous forme de _description de bibliothèque_ dans `Symbols/<Nom>.json` (format : [LibraryDescription](./api/RDCore.SDK.Runtime.Libraries.LibraryDescription.html)). Un projet est vérifié contre la description : il peut donc être analysé sur une machine qui n'a pas la bibliothèque. Une bibliothèque dont la plateforme n'a pas de description est une référence qui ne peut pas être résolue, et les types qui la nomment sont des erreurs de compilation. Les bibliothèques qui dépendent les unes des autres sont rejetées, non résolues.
+> **Les bibliothèques référencées** (`Excel`, `Word`, `Access`, `ADODB`, `Scripting`, …) sont connues d'un projet par leur _nom_, comme si la bibliothèque était du code VBA, et ce que chacune déclare est livré avec la plateforme sous forme de _description de bibliothèque_ dans `Symbols/<Nom>.json` (format : [LibraryDescription](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Libraries.LibraryDescription.html)). Un projet est vérifié contre la description : il peut donc être analysé sur une machine qui n'a pas la bibliothèque. Une bibliothèque dont la plateforme n'a pas de description est une référence qui ne peut pas être résolue, et les types qui la nomment sont des erreurs de compilation. Les bibliothèques qui dépendent les unes des autres sont rejetées, non résolues.
 >
 > Une description indique la bibliothèque de types dont elle est tirée, par son identifiant et sa version, et chaque bibliothèque dont elle dépend (`dependsOn`) par son nom et l'identifiant et la version de la bibliothèque de types contre laquelle elle a été construite. Une référence qui donne un identifiant et une version désigne la description tirée de cette bibliothèque de types : `Symbols/<Nom>.<qualificatif>.json` décrit une autre bibliothèque de types du même nom, comme `DAO.dao2535.json` à côté de `DAO.json` ([**RD-VBAL §2.3.1.2** The library a reference is](specs/rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 >
@@ -177,7 +177,7 @@ Dans les deux cas, l'application configure ses _capacités_ LSP, et les _handler
 
 ### Capacités
 
-Le serveur de langage démarre chaque extension qui a un _manifest_ valide, et entame avec elle un _LSP handshake_. Les paramètres d'initialisation de l'extension doivent déclarer chaque **capacité** qu'elle a : celles que définit le protocole (LSP), et celles que définit l'_hôte de l'environnement_. Une extension déclare une capacité de plateforme telle que [`CliCommand`](./api/RDCore.SDK.Client.CliCommand.html) au moyen d'un attribut d'assembly :
+Le serveur de langage démarre chaque extension qui a un _manifest_ valide, et entame avec elle un _LSP handshake_. Les paramètres d'initialisation de l'extension doivent déclarer chaque **capacité** qu'elle a : celles que définit le protocole (LSP), et celles que définit l'_hôte de l'environnement_. Une extension déclare une capacité de plateforme telle que [`CliCommand`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.CliCommand.html) au moyen d'un attribut d'assembly :
 
 ```csharp
 [assembly: ProvidesCorePlatformClientCapability<CliCommand>]
@@ -197,6 +197,6 @@ Le _coeur de langage_ est conçu pour être étendu à travers des extensions de
 Voir [RD-VBAL § 1.1](specs/rd-vbal.1.1.philosophy.md) pour les détails et la philosophie d'extension de la plateforme à ce niveau.
 
 ---
-[ACCUEIL](index.fr.md) • [HOME](./index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](/RDCore/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
+[ACCUEIL](index.fr.md) • [HOME](./index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
 ---

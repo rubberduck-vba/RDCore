@@ -3,9 +3,11 @@
   <PropertyGroup>
     <!-- the single version source for every project; a release tag must equal v<VersionPrefix>[-suffix], the suffix passed as -p:VersionSuffix. -->
     <VersionPrefix>0.1.0</VersionPrefix>
+    <!-- the RDCore.SDK package every project builds on (RDCore.SDK.Protocol comes with it): one version for all of them. -->
+    <RDCoreSdkVersion>0.1.0-alpha</RDCoreSdkVersion>
   </PropertyGroup>
 
-  <!-- what every assembly of the platform says about itself. A project states its own title and description, and its licence when it is not GPLv3. -->
+  <!-- what every assembly of the platform says about itself. A project states its own title and description. -->
   <PropertyGroup>
     <Company>9562-7303 Québec inc.</Company>
     <Authors>$(Company)</Authors>
@@ -13,7 +15,7 @@
     <Copyright>Copyright © 2026 $(Company)</Copyright>
     <!-- the strings in a project's .resx are English; the .fr.resx beside it is the French satellite. -->
     <NeutralLanguage>en</NeutralLanguage>
-    <!-- the licence's text is LICENSE-GPLv3.md; the SDK and its protocol are MIT (LICENSE-MIT.md) and say so in their project. -->
+    <!-- the licence's text is LICENSE-GPLv3.md. -->
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <PackageProjectUrl>https://rubberduckvba.ca</PackageProjectUrl>
     <RepositoryUrl>https://github.com/rubberduck-vba/RDCore</RepositoryUrl>

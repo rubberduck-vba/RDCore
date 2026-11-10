@@ -1,6 +1,6 @@
 # 2.3.1.1 Execution Session
 
-An _execution session_ ([IExecutionSession](../api/RDCore.SDK.Runtime.Abstract.Execution.IExecutionSession.html))
+An _execution session_ ([IExecutionSession](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IExecutionSession.html))
 holds the _state_ of the execution engine and exposes methods that advance execution _steps_. The environment
 host initiates an execution session after resolving an _entry point_
 ([**RD-VBAL §2.3.1** Composition Root](rd-vbal.2.3.1.composition-root.md)).

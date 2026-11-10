@@ -3,7 +3,7 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.6.9** Operator Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/4d159cdd-6796-43c7-8a61-021cc81d0594).
 
-At runtime, operators evaluate a [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html) from their
+At runtime, operators evaluate a [VBTypedValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html) from their
 _operands_ ([**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md)).
 
 See [**RD-VBAL §3.3.0** Operator Expressions](rd-vbal.3.3.0.operators.md) for the operator node hierarchy, and

@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[OpenStatementNode](../api/RDCore.SDK.Model.AST.Statements.OpenStatementNode.html)|`Simple`|`Mode`, `Access` and `Lock` are keyword choices, not expressions. They are typed [VBFileMode](../api/RDCore.SDK.Model.AST.Statements.VBFileMode.html), [VBFileAccessMode](../api/RDCore.SDK.Model.AST.Statements.VBFileAccessMode.html) and [VBFileLockMode](../api/RDCore.SDK.Model.AST.Statements.VBFileLockMode.html).|
+|[OpenStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OpenStatementNode.html)|`Simple`|`Mode`, `Access` and `Lock` are keyword choices, not expressions. They are typed [VBFileMode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.VBFileMode.html), [VBFileAccessMode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.VBFileAccessMode.html) and [VBFileLockMode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.VBFileLockMode.html).|
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
@@ -27,7 +27,7 @@ default record length; see [**RD-VBAL §5.4.5.11** Put Statement](rd-vbal.5.4.5.
 
 |Name|Role|
 |---|---|
-|[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)|Holds the numbered channels, each with the mode it was opened under.|
+|[IFileChannels](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)|Holds the numbered channels, each with the mode it was opened under.|
 |`FileStatementAccess`|Holds **MS-VBAL §5.4.5.1**'s statement/mode/access table.|
 
 ## 5.4.5.1.1 File Numbers

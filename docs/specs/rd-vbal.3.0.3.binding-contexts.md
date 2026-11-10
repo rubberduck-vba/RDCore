@@ -15,7 +15,7 @@ See also [**RD-VBAL §5.6.4** Expression Binding Contexts](rd-vbal.5.6.4.express
 ## RDCore Model
 
 In **RDCore**, _name lookups_ are an _explicit evaluation step_ involving specific AST nodes, such as
-[SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)
+[SimpleNameExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)
 ([**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)).
 
 The binding context is chosen by the node being evaluated, never by a parameter:
@@ -24,20 +24,20 @@ The binding context is chosen by the node being evaluated, never by a parameter:
 |---|---|---|
 |A `SimpleNameExpressionNode`|Default binding context|`ISymbolResolver.ResolveValue`|
 |An `As` clause|Type binding context|`ISymbolResolver.ResolveType`|
-|The operand of a [NewExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html)|Type binding context|`ISymbolResolver.ResolveType`|
+|The operand of a [NewExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html)|Type binding context|`ISymbolResolver.ResolveType`|
 |The _qualifier_ of a qualified type name|Bound as a namespace, not under the type binding context|`ISymbolResolver.ResolveQualifier`|
 
-The [ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html) members `ResolveValue`,
+The [ISymbolResolver](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html) members `ResolveValue`,
 `ResolveType` and `ResolveQualifier` are described in
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 
 Evaluation returns an _evaluation result record_,
-[RuntimeSemanticsEvaluationResult](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html). The
+[RuntimeSemanticsEvaluationResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html). The
 record describes and encapsulates either the evaluation result or runtime error metadata
 ([**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md)).
 
 The **RD-VBA** type system includes and uses _meta-types_ such as
-[VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html)
+[VBTypeDescValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html)
 ([**RD-VBAL §2.4.3** Meta and Advanced Types](rd-vbal.2.4.3.meta-and-advanced-types.md)). Because of this, the
 binding context can be inferred from the managed type of a provided value.
 

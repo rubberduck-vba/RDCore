@@ -490,7 +490,8 @@ if ($HostRows.Count) {
     Add-Line "is not listed here. The .NET application host is part of it: RDCore's .exe files are copies of it, listed below."
 }
 else { Add-Line "is not listed here." }
-Add-Line "RDCore's own license terms are in NOTICE.md and the LICENSE-*.md files at the root of this package."
+Add-Line "RDCore's own license terms are in NOTICE.md and LICENSE-GPLv3.md at the root of this package. RDCore.SDK and"
+Add-Line "RDCore.SDK.Protocol, listed below, are the MIT-licensed packages RDCore is built on, from the same authors."
 Add-Line
 Add-Line "Platform components: $((ConvertTo-OrdinalOrder $Components) -join ', ')"
 Add-Line "Third-party packages: $($Rows.Count)"

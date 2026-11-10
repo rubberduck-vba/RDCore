@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
     <!-- the parser itself: this process is the platform's stateless parsing server around it. -->
     <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
   </ItemGroup>

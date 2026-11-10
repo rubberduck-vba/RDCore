@@ -25,7 +25,7 @@ written with the token `this`.
 
 - The runtime injects an implicit `Me` (`ByVal`) parameter into all _instance member calls_, pointed at the current
   object.
-- The runtime context supplies `Me` as a [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html)
+- The runtime context supplies `Me` as a [VBObjectValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html)
   presenting the _default interface_ of the enclosing class type.
 - The `Me` value is pushed to the _stack frame_ of instance member calls as any parameter is. See
   [**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md).

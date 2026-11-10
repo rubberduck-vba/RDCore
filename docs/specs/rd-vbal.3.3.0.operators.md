@@ -19,11 +19,11 @@ _operand_ inputs. The semantics of operator expressions are described in
 All operators ultimately inherit `SyntaxNode`, which represents any type of AST node
 ([**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md)):
 
-- [SyntaxNode](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html)
-  - [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
-    - [VBOperatorExpression](../api/RDCore.SDK.Model.AST.Expressions.VBOperatorExpression.html)
-      - [VBUnaryOperatorExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.VBUnaryOperatorExpressionNode.html)
-      - [VBBinaryOperatorExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.VBBinaryOperatorExpressionNode.html)
+- [SyntaxNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html)
+  - [ExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
+    - [VBOperatorExpression](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.VBOperatorExpression.html)
+      - [VBUnaryOperatorExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.VBUnaryOperatorExpressionNode.html)
+      - [VBBinaryOperatorExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.VBBinaryOperatorExpressionNode.html)
 
 Each layer of this inheritance hierarchy refines its members with more specialized signatures in
 _templated methods_. The layers usually seal their overrides, leaving only one or two methods to implement at the

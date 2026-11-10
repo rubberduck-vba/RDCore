@@ -27,7 +27,7 @@ of the list. `Items.Length` itself is valid to hold:
 |Key|Method|Looks up|Used for|
 |---|---|---|---|
 |`Labels`|`TryGetLabelOffset`|A *line label* or *line number* name → its offset ([**MS-VBAL §5.4.1.1** Statement Labels](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/825de02b-0e13-4783-8527-de14fbb7104f)).|Resolving a jump's target.|
-|`ByNode`|`TryGetOffset`|A statement's [SyntaxNodeId](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeId.html) → its offset.|The fault-statement identity that a breakpoint or a runtime error anchors to.|
+|`ByNode`|`TryGetOffset`|A statement's [SyntaxNodeId](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeId.html) → its offset.|The fault-statement identity that a breakpoint or a runtime error anchors to.|
 
 Label names are looked up case-insensitively, and a label is scoped to the whole procedure; see
 [**RD-VBAL §5.4.1.1** Statement Labels](rd-vbal.5.4.1.1.statement-labels.md).

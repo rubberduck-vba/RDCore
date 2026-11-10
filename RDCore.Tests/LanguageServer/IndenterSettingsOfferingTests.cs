@@ -251,6 +251,7 @@ public sealed class IndenterSettingsOfferingTests
         Assert.AreEqual(0, platform.Questions.Count);
     }
 
+#if SDK_SEAM // needs the SDK's internal ClientConfigurationFollower, which a server app starts
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AClientThatAnswersTheEditorsTabSize_IsOffered_AsTheUserSetNothing()
@@ -328,6 +329,7 @@ public sealed class IndenterSettingsOfferingTests
         Assert.IsNotNull(outcome, "so the offer is made");
         Assert.AreEqual(1, questions.Count);
     }
+#endif
 
     [TestMethod]
     public async Task TheApplyRequest_SetsTheSettingsOfAnImport_AndNoOthers()

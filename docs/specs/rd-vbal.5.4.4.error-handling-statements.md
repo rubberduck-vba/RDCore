@@ -8,13 +8,13 @@ lowers to, and the RD-VBAL page that describes its implementation.
 
 |Statement|AST node|Instruction kind|RD-VBAL|
 |---|---|---|---|
-|`On Error GoTo <label>`|[OnErrorGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html)|`OnErrorGoTo`|[**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md)|
+|`On Error GoTo <label>`|[OnErrorGoToStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html)|`OnErrorGoTo`|[**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md)|
 |`On Error GoTo 0`, `On Error GoTo -1`|`OnErrorGoToStatementNode`|`OnErrorDisable`|[**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md)|
-|`On Error Resume Next`|[OnErrorResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html)|`OnErrorResumeNext`|[**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md)|
-|Bare `Resume`, `Resume 0`|[ResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeStatementNode.html)|`ResumeCurrentStatement`|[**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)|
+|`On Error Resume Next`|[OnErrorResumeStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html)|`OnErrorResumeNext`|[**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md)|
+|Bare `Resume`, `Resume 0`|[ResumeStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ResumeStatementNode.html)|`ResumeCurrentStatement`|[**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)|
 |`Resume <label>`|`ResumeStatementNode`|`ResumeLabel`|[**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)|
-|`Resume Next`|[ResumeNextStatementNode](../api/RDCore.SDK.Model.AST.Statements.ResumeNextStatementNode.html)|`ResumeNext`|[**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)|
-|`Error <number>`|[ErrorStatementNode](../api/RDCore.SDK.Model.AST.Statements.ErrorStatementNode.html)|`RaiseError`|[**RD-VBAL §5.4.4.3** Error Statement](rd-vbal.5.4.4.3.error-statement.md)|
+|`Resume Next`|[ResumeNextStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ResumeNextStatementNode.html)|`ResumeNext`|[**RD-VBAL §5.4.4.2** Resume Statement](rd-vbal.5.4.4.2.resume-statement.md)|
+|`Error <number>`|[ErrorStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ErrorStatementNode.html)|`RaiseError`|[**RD-VBAL §5.4.4.3** Error Statement](rd-vbal.5.4.4.3.error-statement.md)|
 
 ## Error interception
 
@@ -23,7 +23,7 @@ can yield an error routes it through `ProcedureExecutor.InterceptError`, which a
 error-handling policy. See [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).
 
 Each activation carries a single
-[ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html): the error-handling mode, the handler
+[ErrorHandlerState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html): the error-handling mode, the handler
 target, the active error, and the fault-statement offset. The error-handling modes are described in
 [**RD-VBAL §5.4.4.1** On Error Statement](rd-vbal.5.4.4.1.on-error-statement.md).
 

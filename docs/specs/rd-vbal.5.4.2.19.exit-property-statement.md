@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `"Exit Property"`)|`ExitProcedure`|`Target`: the `End Property` closer ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md#procedure-exits)).|
+|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `"Exit Property"`)|`ExitProcedure`|`Target`: the `End Property` closer ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md#procedure-exits)).|
 
 `Exit Property` lowers to the same
 `InstructionKind` as `Exit Sub` and
@@ -33,4 +33,4 @@ explicit `Exit Property`, or reaching the end of the body. The value read back i
 
 - `RDCore.Runtime.Execution.ProcedureExecutor` dispatches `ExitProcedure` instructions.
 - `RDCore.Runtime.Execution.RuntimeProcedureInvoker` reads the function result variable back from
-  [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`.
+  [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`.

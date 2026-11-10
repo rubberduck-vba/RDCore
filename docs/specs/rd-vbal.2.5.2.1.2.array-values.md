@@ -1,6 +1,6 @@
 # 2.5.2.1.2 Array Values
 
-An array value is a [VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html), or one of its specialized array values.
+An array value is a [VBArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html), or one of its specialized array values.
 
 ## Array Declarations
 
@@ -8,9 +8,9 @@ An _array declaration_ creates an _array value_ of the appropriate _array type_ 
 
 |Array declaration|Array value created|
 |---|---|
-|With dimension specifications|[VBFixedSizeArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|
-|Without dimension specifications|[VBResizableArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html)|
-|Resizable, with a `Byte` _item type_|[VBResizableByteArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableByteArrayValue.html)|
+|With dimension specifications|[VBFixedSizeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|
+|Without dimension specifications|[VBResizableArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html)|
+|Resizable, with a `Byte` _item type_|[VBResizableByteArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBResizableByteArrayValue.html)|
 
 The specialized array values exist to simplify pattern-matching in both static and runtime semantics.
 
@@ -85,10 +85,10 @@ The entire runtime payload of an intrinsic scalar is the one managed value its b
 Storage keeps the array value itself:
 
 1. A symbol's storage allocation is performed by `SymbolAddressTable`, which `ICallStackFrame` and the module/global resolver share; see [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md).
-2. For an array symbol, `SymbolAddressTable` boxes the array value itself, not a derived scalar, into the handle it allocates. It boxes the array value via [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html).
-3. On every subsequent read, [VBArrayType](../api/RDCore.SDK.Model.Types.VBArrayType.html)`.CreateValue(`[IBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html)`)` unboxes the array value back out unchanged. It does not attempt to reconstruct an array value from a bare handle.
+2. For an array symbol, `SymbolAddressTable` boxes the array value itself, not a derived scalar, into the handle it allocates. It boxes the array value via [VBRuntimeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html).
+3. On every subsequent read, [VBArrayType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBArrayType.html)`.CreateValue(`[IBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html)`)` unboxes the array value back out unchanged. It does not attempt to reconstruct an array value from a bare handle.
 
-Array values therefore round-trip through storage. When a plain array-typed variable is read back as an expression ([SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html), the ordinary shape of `arr` in `For Each item In arr`), `VBArrayType.CreateValue` unboxes the `VBRuntimeArrayValue` and returns the same instance, with its cells intact. See [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
+Array values therefore round-trip through storage. When a plain array-typed variable is read back as an expression ([SimpleNameExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html), the ordinary shape of `arr` in `For Each item In arr`), `VBArrayType.CreateValue` unboxes the `VBRuntimeArrayValue` and returns the same instance, with its cells intact. See [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md).
 
 `VBRuntimeArrayValue` is a plain (non-`record`) wrapper. Boxing the array through a structurally-equatable type would make comparing two array-typed `VBTypedValue`s recurse back into the array's own equality, through the same boxed value.
 

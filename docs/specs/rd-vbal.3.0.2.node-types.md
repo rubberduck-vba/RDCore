@@ -1,20 +1,20 @@
 # 3.0.2 Node Types
 
-All AST nodes inherit [SyntaxNode](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html). `SyntaxNode` is an
+All AST nodes inherit [SyntaxNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html). `SyntaxNode` is an
 _abstract_ node type. It associates a _semantic ID_
-([SyntaxNodeId](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeId.html)) with a specific _location_ in a
+([SyntaxNodeId](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeId.html)) with a specific _location_ in a
 _workspace source file_.
 
 The node types derived directly from `SyntaxNode` are as follows:
 
 |Node type|Described in|
 |---|---|
-|[DirectiveNode](../api/RDCore.SDK.Model.AST.Abstract.DirectiveNode.html)|[**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md)|
-|[ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)|[**RD-VBAL §3.2.0** Literal Expressions](rd-vbal.3.2.0.literals.md), [**RD-VBAL §3.3.0** Operator Expressions](rd-vbal.3.3.0.operators.md), [**RD-VBAL §5.6** Expressions](rd-vbal.5.6.expressions.md)|
-|[StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html)|[**RD-VBAL §3.4.0** Statements](rd-vbal.3.4.0.statements.md)|
+|[DirectiveNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.DirectiveNode.html)|[**RD-VBAL §3.1** Attributes and Directives](rd-vbal.3.1.attributes-directives.md)|
+|[ExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)|[**RD-VBAL §3.2.0** Literal Expressions](rd-vbal.3.2.0.literals.md), [**RD-VBAL §3.3.0** Operator Expressions](rd-vbal.3.3.0.operators.md), [**RD-VBAL §5.6** Expressions](rd-vbal.5.6.expressions.md)|
+|[StatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.StatementNode.html)|[**RD-VBAL §3.4.0** Statements](rd-vbal.3.4.0.statements.md)|
 
 Every statement node derives from `StatementNode`, which implements
-[IExecutableNode](../api/RDCore.SDK.Model.AST.Abstract.IExecutableNode.html). A statement node's `Inputs` are the
+[IExecutableNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.IExecutableNode.html). A statement node's `Inputs` are the
 expressions evaluated immediately before the statement executes.
 
 ## Expression Nodes
@@ -23,12 +23,12 @@ The following expression node types have their own semantics pages:
 
 |Expression|Node type|Described in|
 |---|---|---|
-|A bare name|[SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)|[**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)|
-|Member access|[MemberAccessExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.MemberAccessExpressionNode.html)|[**RD-VBAL §5.6.12** Member Access Expressions](rd-vbal.5.6.12.member-access-expressions.md)|
-|Index|[IndexExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html)|[**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)|
-|Dictionary access|[DictionaryAccessExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.DictionaryAccessExpressionNode.html)|[**RD-VBAL §5.6.14** Dictionary Access Expressions](rd-vbal.5.6.14.dictionary-access-expressions.md)|
-|`New <class>`|[NewExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html)|[**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md)|
-|`TypeOf <expr> Is <type>`|[TypeOfIsExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.TypeOfIsExpressionNode.html)|[**RD-VBAL §5.6.7** TypeOf...Is Expressions](rd-vbal.5.6.7.typeof-is-expressions.md)|
+|A bare name|[SimpleNameExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)|[**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)|
+|Member access|[MemberAccessExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.MemberAccessExpressionNode.html)|[**RD-VBAL §5.6.12** Member Access Expressions](rd-vbal.5.6.12.member-access-expressions.md)|
+|Index|[IndexExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html)|[**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)|
+|Dictionary access|[DictionaryAccessExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.DictionaryAccessExpressionNode.html)|[**RD-VBAL §5.6.14** Dictionary Access Expressions](rd-vbal.5.6.14.dictionary-access-expressions.md)|
+|`New <class>`|[NewExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html)|[**RD-VBAL §5.6.8** New Expressions](rd-vbal.5.6.8.new-expressions.md)|
+|`TypeOf <expr> Is <type>`|[TypeOfIsExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.TypeOfIsExpressionNode.html)|[**RD-VBAL §5.6.7** TypeOf...Is Expressions](rd-vbal.5.6.7.typeof-is-expressions.md)|
 
 The target of an assignment statement draws from the first four: member access, index, dictionary access, or a bare
 name ([**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md)).
@@ -40,8 +40,8 @@ the AST. It is never folded into an unrelated node either. It is preserved as an
 
 |Position|Node type|
 |---|---|
-|Expression|[UnbuiltExpressionTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.UnbuiltExpressionTriviaNode.html)|
-|Statement|[UnbuiltStatementTriviaNode](../api/RDCore.SDK.Model.AST.Abstract.UnbuiltStatementTriviaNode.html), the statement-position counterpart of `UnbuiltExpressionTriviaNode`|
+|Expression|[UnbuiltExpressionTriviaNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.UnbuiltExpressionTriviaNode.html)|
+|Statement|[UnbuiltStatementTriviaNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.UnbuiltStatementTriviaNode.html), the statement-position counterpart of `UnbuiltExpressionTriviaNode`|
 
 An Unbuilt trivia node carries:
 

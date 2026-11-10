@@ -7,7 +7,7 @@
 
 |Expression|AST node|Binding context|Resolver call|
 |---|---|---|---|
-|A bare name|[SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)|Default binding context|[ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html)`.ResolveValue`|
+|A bare name|[SimpleNameExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html)|Default binding context|[ISymbolResolver](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html)`.ResolveValue`|
 
 In **RDCore**, name lookups are an explicit evaluation step involving specific AST nodes such as
 `SimpleNameExpressionNode`. A simple name expression calls `ISymbolResolver.ResolveValue`, which binds under the
@@ -39,9 +39,9 @@ The name of a class that is not predeclared, used in an expression, is an undefi
 
 |Resolved entity|Declared type of the simple name expression|
 |---|---|
-|A `Symbol` that determines its own declared type ([ITypedSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.ITypedSymbol.html))|That type, directly.|
+|A `Symbol` that determines its own declared type ([ITypedSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.ITypedSymbol.html))|That type, directly.|
 |A bare procedure reference|The procedure's return type.|
-|A bare reference to a `Sub`|[VBVoidType](../api/RDCore.SDK.Model.Types.Complex.VBVoidType.html).|
+|A bare reference to a `Sub`|[VBVoidType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBVoidType.html).|
 
 - `ITypedSymbol` unifies bound and unbound typed symbols. See
   [**RD-VBAL §2.5.1** Runtime Entities](rd-vbal.2.5.1.runtime-entities.md).
@@ -68,13 +68,13 @@ outcome is a
 |---|---|
 |Ambiguous: `Duplicate` or `Ambiguous` (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#resolution-results))|An `Error` carrying `AmbiguousName` or `DuplicateDeclaration` (`VBCompileErrorId`).|
 |Unresolved, under `Option Explicit`|An `Error` carrying `VariableNotDefined` (`VBCompileErrorId`).|
-|Unresolved, without `Option Explicit`|`Success(VBUnknownType)` ([VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html)).|
+|Unresolved, without `Option Explicit`|`Success(VBUnknownType)` ([VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html)).|
 
 `SimpleNameExpressionStaticSemantics` consumes `ResolveValue`'s error outcomes, and reports an ambiguous or duplicate
 name as a coded compile-time error. See
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#duplicate-and-ambiguous-names).
 
-The static-semantics layer consumes [ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html) to
+The static-semantics layer consumes [ModuleDirectives](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ModuleDirectives.html) to
 decide whether an unresolved simple name is a deferred `VBUnknownType` or a **VBC09302** _Variable not defined_
 compile-time error. See [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md) and
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#module-directives).
@@ -123,7 +123,7 @@ resolves to:
 
 |Resolved symbol|Evaluation|
 |---|---|
-|A `Sub`, `Function` or `Property Get`, referenced by a bare name (other than the executing `Function` or `Property Get` itself, below)|An implicit call: the procedure is invoked through [IProcedureInvoker](../api/RDCore.SDK.Runtime.Abstract.Execution.IProcedureInvoker.html), with zero arguments.|
+|A `Sub`, `Function` or `Property Get`, referenced by a bare name (other than the executing `Function` or `Property Get` itself, below)|An implicit call: the procedure is invoked through [IProcedureInvoker](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IProcedureInvoker.html), with zero arguments.|
 |The executing `Function` or `Property Get`: a bare reference to a procedure's own name, from within its own body|Reads the `ReturnValue` slot instead of the general symbol table.|
 |A `Const`, `EnumConst`, module or instance field, or UDT field|A plain value read, not an implicit call attempt.|
 
@@ -143,10 +143,10 @@ other's, whichever object it is, the class's default instance included
 
 `RuntimeExpressionEvaluator`'s bare `SimpleName` dispatch decides whether a name is an implicit call by checking the
 two callable leaf symbol types,
-[VBFunctionMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol.html) and
-[VBPropertyGetMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol.html). It does not
+[VBFunctionMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol.html) and
+[VBPropertyGetMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBPropertyGetMemberSymbol.html). It does not
 check their shared base type,
-[VBReturningMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html).
+[VBReturningMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html).
 
 `VBReturningMemberSymbol` is the base type of a `Function`'s and a `Property Get`'s member symbol. `Const`,
 `EnumConst`, module-level and instance fields, and UDT fields share this base type with `Function` and `Property Get`
@@ -160,7 +160,7 @@ arguments. See [**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-exp
 ### Function Result Variable
 
 A bare reference to a procedure's own name, from within its own body, reads the `ReturnValue` slot
-([ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`) instead of the
+([ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`) instead of the
 general symbol table. See
 [**RD-VBAL §5.3.1.6** Subroutine and Function Declarations](rd-vbal.5.3.1.6.subroutine-and-function-declarations.md).
 

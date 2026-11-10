@@ -58,6 +58,7 @@ public sealed class WorkspaceDiagnosticWireTests
         });
     }
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // a server of the pull, and its client: each message the server writes is kept as it is written, to read what the client's own types would hide.
     private async Task<(OmniSharpLanguageServer Server, LanguageClient Client, List<JObject> Wire)> ConnectAsync(CancellationToken token)
     {
@@ -108,6 +109,7 @@ public sealed class WorkspaceDiagnosticWireTests
         await Task.WhenAll(serving, connecting);
         return (await serving, await connecting, wire);
     }
+#endif
 
     // the messages a buffer holds whole: a Content-Length header, then that many bytes of JSON.
     private static void Frames(StringBuilder pending, List<JObject> wire)
@@ -133,6 +135,7 @@ public sealed class WorkspaceDiagnosticWireTests
     private static string[] Reported(JToken items)
         => [.. items.Select(item => $"{Path.GetFileName(DocumentUri.From(item.Value<string>("uri")!).GetFileSystemPath())} {item.Value<string>("kind")} {item.Value<string>("resultId")} v={(item["version"] is JValue { Type: JTokenType.Null } ? "null" : item.Value<int>("version").ToString())} {item["items"]?.Count() ?? 0}")];
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task EveryModule_IsReported_OpenOrNot_AndUnchanged_WhenTheClientHasItsResult()
@@ -155,7 +158,9 @@ public sealed class WorkspaceDiagnosticWireTests
         }, timeout.Token);
         CollectionAssert.AreEqual(new[] { "Closed.bas unchanged v1.0 v=null 0", "Open.bas unchanged v3.0 v=3 0" }, Reported(second["items"]!));
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // a module the project no longer lists: what the client shows of it is cleared, and there is no result id for it to send again.
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
@@ -174,7 +179,9 @@ public sealed class WorkspaceDiagnosticWireTests
 
         CollectionAssert.Contains(Reported(answer["items"]!), "Gone.bas full  v=null 0");
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AClientThatGivesAPartialResultToken_IsSentEachModulesReportAsItIsMade_AndAnEmptyAnswer()
@@ -196,7 +203,9 @@ public sealed class WorkspaceDiagnosticWireTests
         CollectionAssert.AreEqual(new[] { "Closed.bas full v1.0 v=null 1", "Open.bas full v3.0 v=3 1" },
             progress.SelectMany(message => Reported(message["params"]!["value"]!["items"]!)).ToArray(), "one module at a time");
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // a change to any document gives the pull up at once: the change, and the client's next request, do not wait for the whole workspace.
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
@@ -221,7 +230,9 @@ public sealed class WorkspaceDiagnosticWireTests
         var modified = await Assert.ThrowsAsync<OmniSharp.Extensions.JsonRpc.Server.ContentModifiedException>(() => pulling);
         Assert.IsNotNull(modified);
     }
+#endif
 
+#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // a program that waits for its client to answer a dialog: the host takes no other text until it is answered. The pull would wait for it, and is
     // declined at once instead, ServerCancelled, which the client is told not to retrigger: it is asked to pull again once the dialog is answered.
     [TestMethod]
@@ -265,4 +276,5 @@ public sealed class WorkspaceDiagnosticWireTests
         var again = await PullAsync(client, new WorkspaceDiagnosticParams { PreviousResultIds = new Container<PreviousResultId>() }, timeout.Token);
         CollectionAssert.AreEqual(new[] { "Closed.bas full v1.0 v=null 1", "Open.bas full v3.0 v=3 1" }, Reported(again["items"]!));
     }
+#endif
 }

@@ -21,7 +21,7 @@ interface, because a constant is substituted where it is used, never called.
 |`vbNullChar`|`String`|`Chr$(0)`|
 |`vbTab`|`String`|`Chr$(9)`|
 |`vbVerticalTab`|`String`|`Chr$(11)`|
-|`vbNullString`|`String`|A `String` bound to a null pointer rather than to a zero-length string ([VBStringValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html)`.VBNullString`).|
+|`vbNullString`|`String`|A `String` bound to a null pointer rather than to a zero-length string ([VBStringValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html)`.VBNullString`).|
 |`vbObjectError`|`Long`|`-2147221504`|
 
 **MS-VBAL §6.1.2.2** leaves `vbNewLine` and `vbNullString` implementation-defined. `vbNewLine` is the line break of a

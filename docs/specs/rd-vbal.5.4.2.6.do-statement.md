@@ -9,11 +9,11 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[DoLoopStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoLoopStatementNode.html)|`Jump`|Bare `Do` … `Loop`. The back-edge `Jump` carries the loop's own node; its `Target` is the body's first instruction.|
-|[DoWhileLoopStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoWhileLoopStatementNode.html)|`ConditionalBranch`, `Jump`|Pre-test `Do While` … `Loop`. The header's `Else` is right past the loop; a synthesized back-edge `Jump` (`Node = null`) targets the header.|
-|[DoUntilLoopStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoUntilLoopStatementNode.html)|`ConditionalBranch`, `Jump`|Pre-test `Do Until` … `Loop`; the same shape as `Do While`.|
-|[DoLoopWhileStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoLoopWhileStatementNode.html)|`LoopBack`|Post-test `Do` … `Loop While`. The `LoopBack` closer carries the loop's own node; its `Target` is the body's first instruction.|
-|[DoLoopUntilStatementNode](../api/RDCore.SDK.Model.AST.Statements.DoLoopUntilStatementNode.html)|`LoopBack`|Post-test `Do` … `Loop Until`; the same shape as `Loop While`.|
+|[DoLoopStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DoLoopStatementNode.html)|`Jump`|Bare `Do` … `Loop`. The back-edge `Jump` carries the loop's own node; its `Target` is the body's first instruction.|
+|[DoWhileLoopStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DoWhileLoopStatementNode.html)|`ConditionalBranch`, `Jump`|Pre-test `Do While` … `Loop`. The header's `Else` is right past the loop; a synthesized back-edge `Jump` (`Node = null`) targets the header.|
+|[DoUntilLoopStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DoUntilLoopStatementNode.html)|`ConditionalBranch`, `Jump`|Pre-test `Do Until` … `Loop`; the same shape as `Do While`.|
+|[DoLoopWhileStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DoLoopWhileStatementNode.html)|`LoopBack`|Post-test `Do` … `Loop While`. The `LoopBack` closer carries the loop's own node; its `Target` is the body's first instruction.|
+|[DoLoopUntilStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DoLoopUntilStatementNode.html)|`LoopBack`|Post-test `Do` … `Loop Until`; the same shape as `Loop While`.|
 
 The `…Until` half of each pre-test and post-test pair shares its node shape with the `…While` half. `Loop` has no AST
 node of its own ([**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md);

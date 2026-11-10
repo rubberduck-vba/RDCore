@@ -1,6 +1,6 @@
 # 2.3.1.3 Name Resolution
 
-Name resolution binds an _identifier name_, as seen from a scope, to the [Symbol](../api/RDCore.SDK.Model.Symbols.Abstract.Symbol.html) it refers to. The static
+Name resolution binds an _identifier name_, as seen from a scope, to the [Symbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.Symbol.html) it refers to. The static
 semantics ([**RD-VBAL §5.0** Semantics](rd-vbal.5.0.semantics.md)) and the simple name expression
 ([**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)) resolve names as this
 section specifies.
@@ -11,15 +11,15 @@ The name-resolution algorithm is a separate concern from the workspace's ordered
 ## ISymbolResolver
 
 The static and runtime semantic layers read symbols through
-[ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html):
+[ISymbolResolver](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html):
 
 |Member|Description|
 |---|---|
-|`ResolveValue`|Resolves a specified _identifier name_ in the _default binding context_, as seen from the scope that the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](../api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html).|
+|`ResolveValue`|Resolves a specified _identifier name_ in the _default binding context_, as seen from the scope that the symbol at a specified _handle_ `Uri` belongs to, to a [SymbolResolutionResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.SymbolResolutionResult.html).|
 |`ResolveType`|Resolves a specified _identifier name_ in the _type binding context_, as seen from the scope that the symbol at a specified _handle_ `Uri` belongs to, to a `SymbolResolutionResult`.|
 |`ResolveQualifier`|Resolves a specified _identifier name_ as the _qualifier_ of a qualified type name (the `A` in `A.B`). It binds the project, or a procedural or class module, and never a user-defined type or an Enum type.|
-|`GetValue`|Gets the [IBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html) currently bound to a specified `Symbol`.|
-|`TryRead`|Gets the `IBindingHandle` held at a specified [MemoryAddress](../api/RDCore.SDK.Runtime.Shared.MemoryAddress.html), if any.|
+|`GetValue`|Gets the [IBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html) currently bound to a specified `Symbol`.|
+|`TryRead`|Gets the `IBindingHandle` held at a specified [MemoryAddress](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.MemoryAddress.html), if any.|
 |`TryGetAddress`|Resolves the address that a `ByRef` parameter binding aliases ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).|
 |`TryAllocate`|Allocates a `Static` local's own module-extent storage, in the session's module-level heap ([**RD-VBAL §5.4.3.1** Local Variable Declarations](rd-vbal.5.4.3.1.local-variable-declarations.md)).|
 
@@ -51,9 +51,9 @@ parameter ([**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts
 
 |Node|Binding context|Resolver call|
 |---|---|---|
-|A simple name expression ([SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html))|Default|`ResolveValue`|
+|A simple name expression ([SimpleNameExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html))|Default|`ResolveValue`|
 |A type name: an `As` clause|Type|`ResolveType`|
-|A type name: the operand of `New` ([NewExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html))|Type|`ResolveType`|
+|A type name: the operand of `New` ([NewExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html))|Type|`ResolveType`|
 |The part of a qualified type name that precedes a dot|Namespace (qualifier)|`ResolveQualifier`, instead of `ResolveType`|
 
 `ISessionSymbols` mirrors the `ResolveValue` / `ResolveType` pair as `TryResolveValue` and `TryResolveType`
@@ -188,10 +188,10 @@ library's `Constants` module, which is not a type, and Excel's Enum is `Excel.Co
 
 ## Scope tree
 
-The mechanism behind the ordered lookup is a [ScopeTree](../api/RDCore.SDK.Model.Symbols.ScopeTree.html). A
-[ScopeTreeBuilder](../api/RDCore.SDK.Model.Symbols.ScopeTreeBuilder.html) folds the composed symbols into a tree of
-[LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html)s, of the kinds in
-[LexicalScopeKind](../api/RDCore.SDK.Model.Symbols.LexicalScopeKind.html):
+The mechanism behind the ordered lookup is a [ScopeTree](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ScopeTree.html). A
+[ScopeTreeBuilder](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ScopeTreeBuilder.html) folds the composed symbols into a tree of
+[LexicalScope](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.LexicalScope.html)s, of the kinds in
+[LexicalScopeKind](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.LexicalScopeKind.html):
 
 |`LexicalScopeKind`|Scopes|Position in the tree|
 |---|---|---|
@@ -247,7 +247,7 @@ do not form a valid property (see [ScopeTreeSymbolResolver](#scopetreesymbolreso
 
 ## Module directives
 
-A module's `LexicalScope` carries its [ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html).
+A module's `LexicalScope` carries its [ModuleDirectives](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ModuleDirectives.html).
 `ModuleDirectives` holds the module-level facts a static semantics rule needs:
 
 |Member|Description|
@@ -263,7 +263,7 @@ The static-semantics layer consumes `ModuleDirectives` to decide what an _unreso
 
 |Module declares `Option Explicit`|An unresolved simple name is|
 |---|---|
-|No|A deferred [VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html) ([**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md)).|
+|No|A deferred [VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html) ([**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md)).|
 |Yes|A **VBC09302** _Variable not defined_ compile-time error.|
 
 Without a qualifier, a deferred symbol is deemed to be an undeclared local variable, as per MS-VBAL scoping rules.
@@ -314,7 +314,7 @@ From the highest reference precedence to the lowest, the projects a name can be 
 2. The `VBA` standard library, which every project has, though its `.rdproj` lists no reference to it
    ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.projectfile.md#2231-rdcoreproject)).
 3. The libraries that every project of its language has, though its `.rdproj` lists no reference to them
-   ([SupportedLanguage.ImplicitReferences](../api/RDCore.SDK.Workspace.SupportedLanguage.html)), in the order the language gives them.
+   ([SupportedLanguage.ImplicitReferences](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.SupportedLanguage.html)), in the order the language gives them.
 4. The references of the `.rdproj` file of the _workspace folder_, in the order they appear in it
    ([**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md)). A reference to `VBA` is left out, and so is a second reference to a library listed earlier.
 5. The libraries that are loaded only because another library depends on them, in the order they are loaded.

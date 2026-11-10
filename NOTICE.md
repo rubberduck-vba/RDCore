@@ -7,13 +7,11 @@ Ce fichier accompagne le code source de RDCore et chaque archive publiée de la 
 
 ## Licences
 
-Dans une archive de la plateforme :
-
-- ⚖️ **MIT** — voir [LICENSE-MIT.md](LICENSE-MIT.md) : **RDCore.SDK**, soit `RDCore.SDK.dll`, ses symboles de débogage `RDCore.SDK.pdb` et son _assembly_ satellite français `fr/RDCore.SDK.resources.dll`, ainsi que **RDCore.SDK.Protocol**, soit `RDCore.SDK.Protocol.dll` et ses symboles de débogage `RDCore.SDK.Protocol.pdb`, copiés dans le dossier de chaque composant.
-- ⚖️ **GPLv3 ou toute version ultérieure** — voir [LICENSE-GPLv3.md](LICENSE-GPLv3.md) : **tout le reste** construit autour de RDCore.SDK, soit `rdc` et RDCore.Runtime (`RDCore.CLI/`), RDCore.LanguageServer (`RDCore.LanguageServer/`), RDCore.ParseServer (`RDCore.Parsing/`), RDCore.Diagnostics (`Extensions/RDCore.Diagnostics/`), ainsi que les manifests de la plateforme (`rdcore.json`, `extension.manifest.json`).
+- ⚖️ **GPLv3 ou toute version ultérieure** — voir [LICENSE-GPLv3.md](LICENSE-GPLv3.md) : **RDCore**, soit tout le code source de ce référentiel et, dans une archive de la plateforme, `rdc` et RDCore.Runtime (`RDCore.CLI/`), RDCore.LanguageServer (`RDCore.LanguageServer/`), RDCore.ParseServer (`RDCore.Parsing/`), RDCore.Diagnostics (`Extensions/RDCore.Diagnostics/`), ainsi que les manifests de la plateforme (`rdcore.json`, `extension.manifest.json`).
+- ⚖️ **RDCore.SDK** — une archive de la plateforme contient aussi `RDCore.SDK.dll` et `RDCore.SDK.Protocol.dll`, avec leurs _assemblies_ satellites françaises `fr/RDCore.SDK.resources.dll` et `fr/RDCore.SDK.Protocol.resources.dll`, copiés dans le dossier de chaque composant. Ils proviennent des paquets NuGet **RDCore.SDK** et **RDCore.SDK.Protocol**, publiés sous licence **MIT** à partir de [rubberduck-vba/RDCore.SDK](https://github.com/rubberduck-vba/RDCore.SDK); `THIRD-PARTY-NOTICES.txt` reproduit le texte de cette licence.
 - 📚 **Descriptions de bibliothèques** — les fichiers `Symbols/*.json` décrivent les interfaces de programmation des bibliothèques qu'un projet VBA peut référencer (Excel, Word, Access, Office, MSForms, VBIDE, DAO, ADODB, Scripting, stdole) : les noms, signatures et constantes de leurs types et membres, exportés de leurs bibliothèques de types. Ils ne contiennent aucun code de ces bibliothèques. Les bibliothèques, leurs noms et leur documentation appartiennent à leurs propriétaires.
 
-Les fichiers de licence reproduisent le texte officiel de chaque licence, en anglais. Une version française de ces licences est disponible sur demande.
+Le fichier de licence reproduit le texte officiel de la licence, en anglais. Une version française de cette licence est disponible sur demande.
 
 Les paquets tiers redistribués dans l'archive demeurent sous leurs propres licences (voir plus bas).
 
@@ -52,13 +50,11 @@ This file accompanies the RDCore source code and every published archive of the 
 
 ## Licences
 
-In a platform archive:
-
-- ⚖️ **MIT** — see [LICENSE-MIT.md](LICENSE-MIT.md): **RDCore.SDK**, that is `RDCore.SDK.dll`, its debug symbols `RDCore.SDK.pdb` and its French satellite assembly `fr/RDCore.SDK.resources.dll`, and **RDCore.SDK.Protocol**, that is `RDCore.SDK.Protocol.dll` and its debug symbols `RDCore.SDK.Protocol.pdb`, copied into each component's folder.
-- ⚖️ **GPLv3 or later** — see [LICENSE-GPLv3.md](LICENSE-GPLv3.md): **everything else** built around RDCore.SDK, that is `rdc` and RDCore.Runtime (`RDCore.CLI/`), RDCore.LanguageServer (`RDCore.LanguageServer/`), RDCore.ParseServer (`RDCore.Parsing/`), RDCore.Diagnostics (`Extensions/RDCore.Diagnostics/`), and the platform manifests (`rdcore.json`, `extension.manifest.json`).
+- ⚖️ **GPLv3 or later** — see [LICENSE-GPLv3.md](LICENSE-GPLv3.md): **RDCore**, that is all the source code in this repository and, in a platform archive, `rdc` and RDCore.Runtime (`RDCore.CLI/`), RDCore.LanguageServer (`RDCore.LanguageServer/`), RDCore.ParseServer (`RDCore.Parsing/`), RDCore.Diagnostics (`Extensions/RDCore.Diagnostics/`), and the platform manifests (`rdcore.json`, `extension.manifest.json`).
+- ⚖️ **RDCore.SDK** — a platform archive also contains `RDCore.SDK.dll` and `RDCore.SDK.Protocol.dll`, with their French satellite assemblies `fr/RDCore.SDK.resources.dll` and `fr/RDCore.SDK.Protocol.resources.dll`, copied into each component's folder. They come from the **RDCore.SDK** and **RDCore.SDK.Protocol** NuGet packages, published under the **MIT** licence from [rubberduck-vba/RDCore.SDK](https://github.com/rubberduck-vba/RDCore.SDK); `THIRD-PARTY-NOTICES.txt` reproduces that licence's text.
 - 📚 **Library descriptions** — `Symbols/*.json` describe the programming interfaces of libraries a VBA project can reference (Excel, Word, Access, Office, MSForms, VBIDE, DAO, ADODB, Scripting, stdole): the names, signatures and constants of their types and members, exported from their type libraries. They contain no code from those libraries. The libraries, their names and their documentation belong to their owners.
 
-The licence files reproduce the official text of each licence, in English. A French version of these licences is available on request.
+The licence file reproduces the official text of the licence, in English. A French version of this licence is available on request.
 
 Third-party packages redistributed in the archive remain under their own licences (see below).
 

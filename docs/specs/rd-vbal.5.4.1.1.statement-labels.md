@@ -7,8 +7,8 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)|None|A line label. Its name is a key of `InstructionList.Labels`.|
-|[LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html)|None|A line number. Its number is a key of `InstructionList.Labels`.|
+|[LineLabelNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)|None|A line label. Its name is a key of `InstructionList.Labels`.|
+|[LineNumberNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html)|None|A line number. Its number is a key of `InstructionList.Labels`.|
 
 Statement labels and line numbers are captured as separate nodes. A jump statement's target is an expression naming
 or numbering a label, with no static link to the label node

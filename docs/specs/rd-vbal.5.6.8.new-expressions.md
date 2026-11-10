@@ -7,14 +7,14 @@
 
 |Expression|AST node|
 |---|---|
-|`New <class>`|[NewExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html)|
+|`New <class>`|[NewExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.NewExpressionNode.html)|
 
 See [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
 
 ## Static Semantics
 
 The operand of a `NewExpressionNode` binds under the _type binding context_, through
-[ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html)`.ResolveType`. See
+[ISymbolResolver](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html)`.ResolveType`. See
 [**RD-VBAL §3.0.3** Binding Contexts](rd-vbal.3.0.3.binding-contexts.md) and
 [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 

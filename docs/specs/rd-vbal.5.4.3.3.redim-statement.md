@@ -7,8 +7,8 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[RedimDeclarationNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|`Simple`|One node per comma-separated `ReDim` target. The node is a declaration and a statement at once: it declares the name it may introduce, and it executes where it appears. Its `Target` is an expression: a `SimpleNameExpressionNode` (`a`), or a `MemberAccessExpressionNode` (`obj.Buffer`, `Me.Buffer`, `.Buffer`) with the owner as the expression it is.|
-|[RedimBoundsNode](../api/RDCore.SDK.Model.AST.Declarations.RedimBoundsNode.html)|None|The dimension clause of one target, holding one [RedimDimensionNode](../api/RDCore.SDK.Model.AST.Declarations.RedimDimensionNode.html) per dimension.|
+|[RedimDeclarationNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.RedimDeclarationNode.html)|`Simple`|One node per comma-separated `ReDim` target. The node is a declaration and a statement at once: it declares the name it may introduce, and it executes where it appears. Its `Target` is an expression: a `SimpleNameExpressionNode` (`a`), or a `MemberAccessExpressionNode` (`obj.Buffer`, `Me.Buffer`, `.Buffer`) with the owner as the expression it is.|
+|[RedimBoundsNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.RedimBoundsNode.html)|None|The dimension clause of one target, holding one [RedimDimensionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Declarations.RedimDimensionNode.html) per dimension.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
@@ -44,7 +44,7 @@ MS-VBA as in RD-VBA (recorded in Excel).
 For an implicit `ReDim` declaration:
 
 - The declaration pass introduces a procedure-local
-  [VBResizableArrayType](../api/RDCore.SDK.Model.Types.VBResizableArrayType.html) symbol.
+  [VBResizableArrayType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBResizableArrayType.html) symbol.
 - The procedure-local symbol is marked as `ReDim`-introduced.
 - The implicit declaration is legal under `Option Explicit`; see
   [**RD-VBAL §5.2.1** Option Directives](rd-vbal.5.2.1.option-directives.md).
@@ -140,7 +140,7 @@ index now outside the array's bounds is discarded.
 A `ReDim` of a variable that is currently locked is runtime error 10, `This array is fixed or temporarily locked` (**MS-VBAL §5.4.3.3**: "locked by a ByRef
 formal parameter"). An array is locked, as MS-VBA has it, while an activation on the call stack has an element of it as a `ByRef` parameter (`Hold arr(1)`), or
 while a `For Each` over it runs; the lock is gone once the call returns, or the loop is over
-([ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.LocksArray`). A locked array is not erased either, nor assigned another
+([ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.LocksArray`). A locked array is not erased either, nor assigned another
 array (`arr = other`): error 10 too.
 
 A fixed-size array can't be re-dimensioned either. A `ReDim` of one is a compile error where it is declared, but a
@@ -164,7 +164,7 @@ it (`oracle\s56` D01-D04, D11).
 ### The most elements an array holds
 
 RD-VBA holds each element of an array in a cell of its own, and an array holds at most 16,777,216 (2<sup>24</sup>) elements, in every dimension together
-([VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html)`.MaximumLength`). A `ReDim` of more, with `Preserve` or without, is runtime error 7,
+([VBArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html)`.MaximumLength`). A `ReDim` of more, with `Preserve` or without, is runtime error 7,
 `Out of memory`, before any element is made. A fixed-size array declared with more is the compile error [VBC09380](../diagnostics/vbc09380.md) _Out of memory_.
 
 A `ReDim` without `Preserve` that is out of memory has let go of what the variable held: a variable declared as an array loses its dimensions, a local or a
@@ -200,6 +200,6 @@ member is as it was afterwards - a `Variant` that holds no object is error 424.
 |---|---|
 |`RedimDeclarationNode`|One `ReDim` target (**RDCore.SDK**).|
 |`RedimBoundsNode`, `RedimDimensionNode`|The dimension clause, as expression nodes (**RDCore.SDK**).|
-|[VBLocalVariableSymbol](../api/RDCore.SDK.Model.Symbols.VBLocalVariableSymbol.html)`.DeclaredBy`|[LocalDeclarationKind](../api/RDCore.SDK.Model.Symbols.LocalDeclarationKind.html)`.ReDim` marks a local introduced by an implicit `ReDim` declaration.|
-|[ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.Base`|The module's `Option Base`, which an omitted lower bound takes (**RDCore.SDK**).|
+|[VBLocalVariableSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBLocalVariableSymbol.html)`.DeclaredBy`|[LocalDeclarationKind](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.LocalDeclarationKind.html)`.ReDim` marks a local introduced by an implicit `ReDim` declaration.|
+|[ModuleDirectives](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)`.Base`|The module's `Option Base`, which an omitted lower bound takes (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.ArrayStatementRuntimeSemantics`|Evaluates the bounds and re-allocates the array; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
