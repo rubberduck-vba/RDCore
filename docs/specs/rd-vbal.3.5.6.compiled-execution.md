@@ -175,8 +175,10 @@ field of a record that is itself a record (`P.Inner.X`) is read and written in p
 - A member of the object an object field holds is called, and a scalar public variable of it read, as a member of an object variable is (see Objects,
   above): `this.Random.Maybe(Sometimes)`, `If this.Player.Kind = Human Then`.
 
-The interpreter does the rest on its own: a `String` field, an array in a record, a field declared `As New`, and a field passed to a procedure, which
-the interpreter binds to the field itself when it is passed `ByRef`.
+- An array field (`this.State(X, Y)`, `UBound(this.State, 1)`) is an array compiled code handles (see Arrays, below).
+
+The interpreter does the rest on its own: a `String` field, a field declared `As New`, and a field passed to a procedure, which the interpreter binds to
+the field itself when it is passed `ByRef`.
 
 ### Members of objects and `With` blocks
 
@@ -220,13 +222,16 @@ The interpreter keeps the rest:
 ### Arrays
 
 Compiled code handles an array parameter or local array variable of the procedure, except a `Static` array, a `ParamArray` and an array declared
-`As New`. An array field of `Me` or of a module, and an array in a record, are the interpreter's.
+`As New`. It also handles an array field of a record it handles (see Records, above): of a record variable of the procedure, or of the record `Me` or a
+standard module keeps (`this.State`, of `Private this As TState`). An array field of `Me` or of a module that is not in a record is the interpreter's.
 
 - `LBound` and `UBound` read the array's bounds, whatever its element type (**MS-VBAL §3.3.5.2**).
-- It finds an element in the array the frame holds each time it reads or writes one (**MS-VBAL §5.6.13**), so after a `ReDim` it finds the element in
-  the new array. Each subscript is converted to a `Long`. The array has up to three dimensions.
+- It finds an element in the array the frame or the record holds each time it reads or writes one (**MS-VBAL §5.6.13**), so after a `ReDim` it finds
+  the element in the new array, and after the interpreter assigns the whole record it finds the element in the record as assigned. Each subscript is
+  converted to a `Long`. The array has up to three dimensions.
 - An element of an array of a scalar type is read and written as a variable of that type, and an element of an array of `Variant`s as a `Variant`.
-  An element of an array of objects can be compared with `Is` and tested with `TypeOf`.
+  An element of an array of an enumeration is a `Long` (**MS-VBAL §5.2.3.4**). An element of an array of objects can be compared with `Is` and tested
+  with `TypeOf`.
 - The interpreter runs a `ReDim` of an array of a scalar type whose bounds compiled code computes, and an `Erase` of such an array, for compiled code.
   An error either raises goes to the procedure's error handler, as an error of a call does.
 
@@ -236,7 +241,8 @@ The interpreter does the rest on its own:
 - A `Set` of an element of an array of objects.
 - A `ReDim` or an `Erase` of an array of `Variant`s or of objects, which can release objects.
 - An element passed `ByRef`: the array cannot be resized while the callee holds its element.
-- An element of an array of `String`s, of records or of an enumeration.
+- An element of an array of `String`s or of records.
+- A `ReDim` or an `Erase` of an array field (`ReDim Preserve this.Items(1 To N)`).
 
 ### Calls inside an expression
 
@@ -253,8 +259,9 @@ variables (`X = C.Count + 1`), of `Me` (`X = Count + 1`), of the default instanc
 compiled or not: one the interpreter runs is called as the interpreter calls it.
 
 Compiled code also calls a member of what such a function or `Property Get` returns, when it is declared as a class (`Y = S.Pos.Y`,
-`N = S.Pos.Twice + 1`, `Make().Pos.Bump`). It also reads a scalar public variable of it, and gives it to an object parameter by value (see Objects,
-above). The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as the interpreter does:
+`N = S.Pos.Twice + 1`, `Make().Pos.Bump`). It also reads a scalar public variable of it, gives it to an object parameter by value (see Objects,
+above), and compares it with `Nothing` or with what another such call returns, using `Is` (`OK = Fits(P) And Overlaps(P) Is Nothing`,
+**MS-VBAL §5.6.9.7**). The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as the interpreter does:
 if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10). An object something else holds lives on. The statement is over:
 
 - after its assignment or its call;
@@ -267,9 +274,10 @@ A member of a call that returns `Nothing` is the interpreter's, which raises err
 compiled code does not.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
-function's result variable, a scalar public variable of an object (see Objects, above), `Err.Number`, a call, or an operation of these. The
-interpreter runs a statement with any other operand on its own, as described below: a `Variant`, a `String`, an object, a field or an element of an
-array. Such an operand would be read a second time after a call that may have changed it.
+function's result variable, a scalar public variable of an object (see Objects, above), `Err.Number`, `LBound` or `UBound` of an array, a call,
+`IIf` of these (see Functions of the standard library, below), or an operation of these, the operations of the `Variant` `IIf` returns included. The
+interpreter runs a statement with any other operand on its own, as described below: a `Variant` variable, a `String`, an object, a field or an element
+of an array. Such an operand would be read a second time after a call that may have changed it.
 An object given to a call as its argument (`If B.Hit(Target) Then`) is no operand: compiled code reads it when it makes the call, after the calls left of
 it, as the interpreter does.
 
@@ -299,7 +307,8 @@ Compiled code calls these functions of the standard library inside an expression
 
 - the conversions `CBool`, `CByte`, `CCur`, `CDate`, `CDbl`, `CInt`, `CLng`, `CLngLng` and `CSng`;
 - `Int`, `Fix` and `Abs` of a number;
-- `Rnd`, named alone (`Rnd`, `Rnd(-1)`) or qualified (`VBA.Math.Rnd`).
+- `Rnd`, named alone (`Rnd`, `Rnd(-1)`) or qualified (`VBA.Math.Rnd`);
+- `IIf`.
 
 Each argument is a number, a `Boolean` or a `Date` that compiled code evaluates, or a `Variant` that holds one. Compiled code calls the function as the
 interpreter does, through the same binding and with the session's locale. When a `Variant` argument holds anything else, such as a `String`, the
@@ -312,6 +321,11 @@ interpreter's, below), and the function is given that value as the interpreter g
 `Abs`, `Int`, `Fix`, `CDbl` and `CSng` are computed on the 80-bit value. `CByte`, `CInt`, `CLng`, `CLngLng`, `CCur` and `CBool` convert it:
 `CLng(D + E)` of `D = 2.5` and `E = 2^-60` is 3, where the `Double` it would be stored as gives 2.
 
+`IIf` is given both its parts, evaluated, the true part first, whichever it returns (**MS-VBAL §6.1.2.8.1.11**): `IIf(C, F(1), F(2))` calls both. It
+returns a `Variant`, and an operation of it is the `Variant`'s: `IIf(C, 32767, 1) + 1` is the `Long` 32768, not an overflow. When it returns a
+`String` or anything else that is not a number, a `Boolean` or a `Date`, the interpreter runs the statement on its own. `IIf` keeps nothing from call
+to call, so when compiled code hands its statement to the interpreter, the interpreter calls it again, with the parts compiled code evaluated.
+
 `Rnd` moves the random number generator at each call, so compiled code calls it only in a statement listed under Calls inside an expression, above. When
 compiled code hands that statement to the interpreter after the call, it gives the interpreter the number `Rnd` returned, so no number is drawn twice. A
 `Resume` runs the statement again, and draws again, as in the interpreter.
@@ -322,8 +336,8 @@ Compiled code does these itself:
 
 |Kind|What compiled code does|
 |---|---|
-|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, `LBound` and `UBound` of its arrays (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `Chr$` of a whole number, and parentheses.|
-|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
+|Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, and of such array fields of its records, `LBound` and `UBound` of its arrays and of the array fields of its records (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `Chr$` of a whole number, and parentheses.|
+|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, what a call returns (see Calls inside an expression, above), and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
 |Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above) or to a member of an object, of a procedure of a standard module, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above), and so can the functions listed under Functions of the standard library, above. A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `For Each` … `Next`, which the interpreter runs for compiled code (see below); `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
