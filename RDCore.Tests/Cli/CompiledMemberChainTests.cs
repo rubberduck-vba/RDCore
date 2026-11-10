@@ -252,6 +252,33 @@ public sealed class CompiledMemberChainTests
         AssertNoneStepped(result);
     }
 
+    // a call for an object that compiled code does not make, one given an object variable: the statement is the interpreter's, which runs it alone (one
+    // recovery) and makes both calls, and the procedure is still compiled.
+    [TestMethod]
+    public async Task AStatementWhoseCallForAnObjectIsNotCompiled_IsTheInterpreters_TheProcedureCompiled()
+    {
+        var result = await AssertAlikeAsync(Program([
+            "Public Sub Main()",
+            "    Debug.Print Placed() & \";\" & Log",
+            "End Sub",
+            "Private Function Placed() As Long",
+            "    Dim P As Pos",
+            "    Set P = New Pos",
+            "    P.Y = 7",
+            "    Placed = Doubled(Echo(P))",
+            "    Mark \"e\"",
+            "End Function",
+            "Private Function Echo(ByVal X As Pos) As Pos",
+            "    Set Echo = X",
+            "End Function",
+            "Private Function Doubled(ByVal P As Pos) As Long",
+            "    Mark \"d\"",
+            "    Doubled = P.Y * 2",
+            "End Function",
+            .. Shared]), "Placed", recoveries: 1, classes: Ships, expected: "14;d e T7 ");
+        Assert.IsNotEmpty(result.Stepped, "the statement is the interpreter's");
+    }
+
     // a call that returns an object something else holds: the statement lets go of its temporary, and the object lives on.
     [TestMethod]
     public async Task AMemberOfAnObjectAFieldHolds_IsNotDestroyed()

@@ -8,12 +8,15 @@ namespace RDCore.Runtime.Compiled;
 // (`CurrentShip.GridPosition.Y`, `Make().Pos.Move 1`), as the interpreter evaluates the member's owner before the member (EvaluateBoundMember).
 internal sealed partial class ProcedureAnalysis
 {
+    // whether the instruction is translated again with no call made for an object, the interpreter making each as it did (AnalyzeInstruction).
+    private bool _withoutObjectCalls;
+
     // a function of a standard module, or a function or Property Get member of an object, that returns an object, called in an instruction that calls inside
     // an expression (NestingOf), by where it is in its statement: what it returns is the statement's temporary, which the interpreter holds as it holds what a
     // call it makes returns (RuntimeProcedureInvoker.ReleaseLocals), and is let go of when the statement is over.
     private ObjectCallNode? ObjectCallOf(BoundNode node)
     {
-        if (_nesting is null || node is not (BoundCall or BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol })
+        if (_nesting is null || _withoutObjectCalls || node is not (BoundCall or BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol })
             || KnownOperands.IndexOf(_nesting, node.Expression) is not (>= 0 and var syntax))
         {
             return null;

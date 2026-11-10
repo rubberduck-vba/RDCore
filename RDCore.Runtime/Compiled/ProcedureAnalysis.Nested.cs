@@ -27,7 +27,24 @@ internal sealed partial class ProcedureAnalysis
         _nesting = NestingOf(instruction);
         try
         {
+            var before = _reasons.Count;
             var step = AnalyzeStep(instruction);
+
+            // a statement compiled code cannot make with the calls it makes for an object is translated again, as it is when the interpreter makes them.
+            if (step is not null && _nesting is not null && CallsForAnObject(step) && (!Admits(step) || ReadAndPassed(step) is not null))
+            {
+                _reasons.RemoveRange(before, _reasons.Count - before);
+                _withoutObjectCalls = true;
+                try
+                {
+                    step = AnalyzeStep(instruction);
+                }
+                finally
+                {
+                    _withoutObjectCalls = false;
+                }
+            }
+
             if (step is not null && _nesting is not null && !Admits(step))
             {
                 Refuse(IneligibilityKind.Call, StatementNameOf(instruction.Node), instruction.Node?.SourceLocation);
