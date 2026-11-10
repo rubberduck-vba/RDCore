@@ -251,12 +251,12 @@ public sealed class IndenterSettingsOfferingTests
         Assert.AreEqual(0, platform.Questions.Count);
     }
 
-#if SDK_SEAM // needs the SDK's internal ClientConfigurationFollower, which a server app starts
     [TestMethod]
     [Timeout(60_000, CooperativeCancellation = true)]
     public async Task AClientThatAnswersTheEditorsTabSize_IsOffered_AsTheUserSetNothing()
     {
-        // the follower and the offering as the language server starts them, over a client that has configuration to pull and an editor with a tab size.
+        // the client's settings and the offering as the language server sets and starts them, over a client that has configuration to pull and an editor with a
+        // tab size.
         var options = new SdkAppOptions();
         var schema = SettingsSchema.Platform;
         var live = new LiveSettings([new LiveSettingsTarget(schema, string.Empty, options)], schema, Path.Combine(Path.GetTempPath(), "rdcore-nowhere", UserSettingsStore.FileName));
@@ -274,7 +274,6 @@ public sealed class IndenterSettingsOfferingTests
             new MockFileSystem(new Dictionary<string, MockFileData> { [RubberduckIndenterSettingsReader.ConfigPathIn(AppData)] = new(Config) }), AppData, new NoRegistry(), isWindows: true);
         var questions = new List<string>();
         var offering = new TaskCompletionSource<IndenterSettingsOffering>();
-        var services = new ServiceCollection().AddSingleton<ILiveSettings>(live).BuildServiceProvider();
 
         var toServer = new Pipe();
         var toClient = new Pipe();
@@ -284,10 +283,17 @@ public sealed class IndenterSettingsOfferingTests
             .WithConfigurationSection(LiveSettingsProtocol.Section)
             .OnStarted((ILanguageServer started, CancellationToken cancellation) =>
             {
-                ClientConfigurationFollower.StartFollowing(services, started, () => Task.CompletedTask, _ => { });
-                offering.SetResult(new IndenterSettingsOffering(
-                    started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { },
-                    new ManualClock()));
+                // what a server app sets once its client is initialized, before the offering is made: the live settings the client said, with the tab size of the
+                // client's editor for an indentation the user never set.
+                _ = Task.Run(async () =>
+                {
+                    var said = LiveSettingsProtocol.Read(started.Configuration);
+                    var tabSize = await FormattingTabSize.RequestEditorTabSizeAsync(started, CancellationToken.None);
+                    _ = await live.ApplyAsync(said, FormattingTabSize.AdoptedFrom(said, tabSize), () => true);
+                    offering.SetResult(new IndenterSettingsOffering(
+                        started, capabilities, new IndenterSettingsOffer(new MockFileSystem(), IndenterSettingsOffer.MarkerIn(UserFolder)), live, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), _ => { },
+                        new ManualClock()));
+                });
                 return Task.CompletedTask;
             }));
         var connecting = LanguageClient.From(client =>
@@ -329,7 +335,6 @@ public sealed class IndenterSettingsOfferingTests
         Assert.IsNotNull(outcome, "so the offer is made");
         Assert.AreEqual(1, questions.Count);
     }
-#endif
 
     [TestMethod]
     public async Task TheApplyRequest_SetsTheSettingsOfAnImport_AndNoOthers()

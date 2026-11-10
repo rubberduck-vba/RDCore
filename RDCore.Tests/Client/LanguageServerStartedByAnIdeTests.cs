@@ -18,7 +18,6 @@ public sealed class LanguageServerStartedByAnIdeTests
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(90);
 
-#if SDK_SEAM // needs the SDK's internal OmniSharpPlatformChannel, to speak the platform handshake over an LSP client
     [TestMethod]
     [Timeout(180_000, CooperativeCancellation = true)]
     public async Task TheLanguageServer_StartedWithAPipeAndAWorkspace_AnswersInitialize_AndThePlatformHandshake()
@@ -79,5 +78,4 @@ public sealed class LanguageServerStartedByAnIdeTests
             }
         }
     }
-#endif
 }
