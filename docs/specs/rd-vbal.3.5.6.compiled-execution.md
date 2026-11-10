@@ -103,6 +103,10 @@ scalar one. It compares two such references with `Is`, or one with `Nothing`, an
 §5.6.7). `TypeOf` of `Nothing` is the interpreter's, which raises error 91. So is a variable or field declared `As New`, which the interpreter makes when
 it is read.
 
+Compiled code also tests a `Variant` variable of the procedure with `TypeOf`, where its frame keeps it. A `Variant` that holds an object is tested for that
+object, and one that holds no object (a number, `Empty`, `Null` or a `String`) is an instance of no class, so the test is `False`. A `Variant` that holds
+`Nothing` is the interpreter's, which raises error 91. So is a `Variant` parameter given an object by value.
+
 Compiled code does a `Set` of such a variable or field, or of the result of a function that returns an object, to another such variable or field, to `Me` or to `Nothing`
 (MS-VBAL §5.4.3.9). It Set-coerces the object to the declared type of what it is assigned to, stores it, and counts the reference as the interpreter does
 (MS-VBAL §5.3.1.10), so the object lives exactly as long as in the interpreter. The interpreter runs these `Set`s on its own, and compiled code reads the
@@ -221,9 +225,13 @@ The interpreter keeps the rest:
 
 ### Arrays
 
-Compiled code handles an array parameter or local array variable of the procedure, except a `Static` array, a `ParamArray` and an array declared
-`As New`. It also handles an array field of a record it handles (see Records, above): of a record variable of the procedure, or of the record `Me` or a
-standard module keeps (`this.State`, of `Private this As TState`). An array field of `Me` or of a module that is not in a record is the interpreter's.
+Compiled code handles an array parameter or local array variable of the procedure, except a `Static` array and an array declared `As New`. It also
+handles an array field of a record it handles (see Records, above): of a record variable of the procedure, or of the record `Me` or a standard module
+keeps (`this.State`, of `Private this As TState`). An array field of `Me` or of a module that is not in a record is the interpreter's.
+
+A `ParamArray` is a 0-based array of `Variant`s whose elements are the caller's arguments (**MS-VBAL §5.3.1.5**). An element given a `Variant` variable
+is that variable, so a `Let` of the element writes the variable. Compiled code also handles the array that a `Variant` variable of the procedure holds:
+it finds the array in the `Variant` each time it reads it, and reads its elements as `Variant`s.
 
 - `LBound` and `UBound` read the array's bounds, whatever its element type (**MS-VBAL §3.3.5.2**).
 - It finds an element in the array the frame or the record holds each time it reads or writes one (**MS-VBAL §5.6.13**), so after a `ReDim` it finds
@@ -238,6 +246,9 @@ standard module keeps (`this.State`, of `Private this As TState`). An array fiel
 The interpreter does the rest on its own:
 
 - A subscript outside its dimension, which raises error 9 at that statement, and `LBound` or `UBound` of a dimension the array does not have.
+- `LBound` or `UBound` of a `Variant` that holds no array, which raises error 13.
+- An element of an array a `Variant` holds whose elements are not `Variant`s: compiled code reads only that array's bounds.
+- An element of a `ParamArray` given a variable of another type than `Variant`, which converts what is assigned to it to the variable's type.
 - A `Set` of an element of an array of objects.
 - A `ReDim` or an `Erase` of an array of `Variant`s or of objects, which can release objects.
 - An element passed `ByRef`: the array cannot be resized while the callee holds its element.
@@ -339,7 +350,7 @@ Compiled code does these itself:
 |Kind|What compiled code does|
 |---|---|
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, and of such array fields of its records, `LBound` and `UBound` of its arrays and of the array fields of its records (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `Chr$` of a whole number, and parentheses.|
-|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, what a call returns (see Calls inside an expression, above), and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
+|Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, what a call returns (see Calls inside an expression, above), and `Nothing`, and `TypeOf` of one of its object variables or fields, of an element of one of its arrays of objects, or of one of its `Variant` variables.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
 |Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above) or to a member of an object, of a procedure of a standard module, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above), and so can the functions listed under Functions of the standard library, above. A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `For Each` … `Next`, which the interpreter runs for compiled code (see below); `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
