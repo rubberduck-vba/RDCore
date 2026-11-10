@@ -8,6 +8,7 @@ Built from commit [`{SHORT}`]({REPOSITORY}/commit/{COMMIT}) by [this workflow ru
 |---|---|
 | Windows x64 | `rdcore-{VERSION}-win-x64.zip` |
 | Linux x64 | `rdcore-{VERSION}-linux-x64.tar.gz` |
+| macOS on Intel (x64) | `rdcore-{VERSION}-osx-x64.tar.gz` |
 | macOS on Apple silicon (arm64) | `rdcore-{VERSION}-osx-arm64.tar.gz` |
 
 Each archive has its release metadata beside it, `rdcore-{VERSION}-<system>.release.json` (the `release.json` it contains), and `SHA256SUMS` covers them all.

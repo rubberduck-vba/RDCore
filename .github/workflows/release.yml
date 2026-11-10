@@ -5,11 +5,12 @@
 #   1. prepare (ubuntu-latest): resolves the version, <VersionPrefix> from Directory.Build.props plus a suffix taken from
 #      the tag (v0.1.0-rc.1 -> rc.1), the pull request (pr.<number>) or the run (ci.<run_number>); on a tag run, checks the
 #      tag is on main and the `release` environment is protected; writes the release notes.
-#   2. build, one job per RID, each on its own system (win-x64 on windows-latest, linux-x64 on ubuntu-latest, osx-arm64 on
-#      macos-latest): tests, publishes the platform tree (PlatformPublish.ps1: Release, that RID, framework-dependent),
-#      writes THIRD-PARTY-NOTICES.txt, SOURCE.md and release.json into it, gates it (tools/release/Test-PlatformTree.ps1),
-#      smoke-launches the language server, and archives it (a zip on Windows, a tar.gz elsewhere, which keeps the execute
-#      bit) with its release.json and SHA256SUMS alongside.
+#   2. build, one job per RID, each on its own system (win-x64 on windows-latest, linux-x64 on ubuntu-latest, osx-x64 on
+#      macos-15-intel, osx-arm64 on macos-latest): tests, publishes the platform tree (PlatformPublish.ps1: Release, that
+#      RID, framework-dependent), writes THIRD-PARTY-NOTICES.txt, SOURCE.md and release.json into it, gates it
+#      (tools/release/Test-PlatformTree.ps1), smoke-launches the language server, and archives it (a zip on Windows, a
+#      tar.gz elsewhere, which keeps the execute bit) with its release.json and SHA256SUMS alongside. The osx-arm64 job is
+#      optional: when it fails, the release goes ahead without its archive, and the publish job says so.
 #   3. publish, tag runs only, once a required reviewer approves the `release` environment: checks the tag still points at
 #      the built commit and has no release (or draft) yet, joins the checksums, attests the build provenance of every archive
 #      and release.json, creates a draft prerelease and uploads the assets. The draft stays a draft: a maintainer publishes it.
@@ -212,7 +213,8 @@ jobs:
   build:
     needs: prepare
     strategy:
-      # one system's failure does not hide another's: every leg runs to its end, and publish needs all of them
+      # one system's failure does not hide another's: every leg runs to its end. publish needs every required one; an optional
+      # one that fails uploads nothing, and the release goes without it.
       fail-fast: false
       matrix:
         include:
@@ -222,11 +224,17 @@ jobs:
           - rid: linux-x64
             os: ubuntu-latest
             archive: tar.gz
+          # macos-15-intel is GitHub's Intel image: osx-x64 is built, tested and smoke-tested natively, not under Rosetta
+          - rid: osx-x64
+            os: macos-15-intel
+            archive: tar.gz
           - rid: osx-arm64
             os: macos-latest
             archive: tar.gz
+            optional: true
     name: build (${{ matrix.rid }})
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional == true }}
     timeout-minutes: 60
     permissions:
       contents: read
@@ -417,21 +425,38 @@ jobs:
           name: release-notes
           path: notes
 
-      # every RID's checksums checked where they were written, then joined into the one SHA256SUMS the release carries
+      # every RID's checksums checked where they were written, then joined into the one SHA256SUMS the release carries. A
+      # build job uploads its assets only once every gate before it has passed, so an optional RID's folder is there only if
+      # its job passed; without it, its line comes out of the notes.
       - name: Join the assets and their checksums
+        env:
+          REQUIRED: win-x64 linux-x64 osx-x64
+          OPTIONAL: osx-arm64
         run: |
           mkdir assets
-          for rid in win-x64 linux-x64 osx-arm64; do
+          rids=""
+          for rid in $REQUIRED $OPTIONAL; do
             folder="built/release-assets-$rid"
-            [ -f "$folder/SHA256SUMS" ] || { echo "::error::No release assets for $rid."; exit 1; }
+            if [ ! -f "$folder/SHA256SUMS" ]; then
+              if grep -qwx -- "$rid" <<< "${OPTIONAL// /$'\n'}"; then
+                echo "::warning::The $rid build failed: the release goes without its archive, and the notes leave it out."
+                grep -v -- "-$rid\." notes/release-notes.md > notes/release-notes.tmp && mv notes/release-notes.tmp notes/release-notes.md
+                continue
+              fi
+              echo "::error::No release assets for $rid."
+              exit 1
+            fi
             (cd "$folder" && sha256sum -c SHA256SUMS) || exit 1
             cat "$folder/SHA256SUMS" >> sums.unsorted
             find "$folder" -maxdepth 1 -type f ! -name SHA256SUMS -exec cp {} assets/ \;
+            rids="$rids $rid"
           done
           LC_ALL=C sort -k 2 sums.unsorted > assets/SHA256SUMS
           (cd assets && sha256sum -c SHA256SUMS)
+          built=$(wc -w <<< "$rids")
           count=$(find assets -maxdepth 1 -type f | wc -l)
-          [ "$count" -eq 7 ] || { echo "::error::Expected 3 archives, 3 .release.json and SHA256SUMS; found $(ls assets | tr '\n' ' ')"; exit 1; }
+          [ "$count" -eq $((2 * built + 1)) ] || { echo "::error::Expected an archive and a .release.json for each of$rids, and SHA256SUMS; found $(ls assets | tr '\n' ' ')"; exit 1; }
+          echo "Releasing$rids."
 
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:

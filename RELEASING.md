@@ -10,7 +10,10 @@ This is the maintainer runbook for publishing a **preview build** of the RDCore 
   |---|---|---|---|---|
   | Windows x64 | `win-x64` | `rdcore-<version>-win-x64.zip` | `rdcore-<version>-win-x64.release.json` | `windows-latest` |
   | Linux x64 | `linux-x64` | `rdcore-<version>-linux-x64.tar.gz` | `rdcore-<version>-linux-x64.release.json` | `ubuntu-latest` |
+  | macOS, Intel | `osx-x64` | `rdcore-<version>-osx-x64.tar.gz` | `rdcore-<version>-osx-x64.release.json` | `macos-15-intel` |
   | macOS, Apple silicon | `osx-arm64` | `rdcore-<version>-osx-arm64.tar.gz` | `rdcore-<version>-osx-arm64.release.json` | `macos-latest` |
+
+  `osx-arm64` is optional: when its build job fails, the release goes ahead without its archive and its metadata, the publish job warns about it, and the release notes leave it out. Every other system is required.
 
 - Each archive is the **platform root** itself (`rdcore.json` at its top level), used as extracted. It is not an installer, and it is not a certified build. A Linux or macOS archive is a tar.gz, which keeps the executables' execute bit.
 - The release metadata of an archive is the `release.json` it contains, named after the archive so that the metadata of every archive can sit side by side in one release.
@@ -79,8 +82,8 @@ Only people on the bypass list can then create, move or delete a release tag, an
    git push origin v0.1.0
    ```
 
-1. **Let the prepare and build jobs run.** Open the run under **Actions → Release**. The prepare job resolves the version, checks the tag and the `release` environment, and writes the release notes (`tools/release/release-notes.template.md`). Then one build job per RID, each on its own system, runs the tests, publishes the platform tree (`PlatformPublish.ps1`, Release, that RID), writes `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json` into it (`tools/release/New-ThirdPartyNotices.ps1`, `New-ReleaseMetadata.ps1`), gates it (`Test-PlatformTree.ps1`), smoke-launches the language server on a copy (`Test-LanguageServerStartup.ps1`) and archives it (`New-ReleaseArchive.ps1`). There is nothing to approve until every build job has finished; one that fails stops the release.
-1. **Review, then approve.** Once the build jobs are green, the run pauses on the `release` environment. Before approving, open the prepare job: **Resolve version** must print `Version <version> (tag run: True)` with the version you meant, and **Write the release notes** prints the notes the release will carry. Then **Review deployments** → tick `release` → **Approve and deploy**, within 30 days (the build jobs' assets are kept that long on a tag run).
+1. **Let the prepare and build jobs run.** Open the run under **Actions → Release**. The prepare job resolves the version, checks the tag and the `release` environment, and writes the release notes (`tools/release/release-notes.template.md`). Then one build job per RID, each on its own system, runs the tests, publishes the platform tree (`PlatformPublish.ps1`, Release, that RID), writes `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json` into it (`tools/release/New-ThirdPartyNotices.ps1`, `New-ReleaseMetadata.ps1`), gates it (`Test-PlatformTree.ps1`), smoke-launches the language server on a copy (`Test-LanguageServerStartup.ps1`) and archives it (`New-ReleaseArchive.ps1`). There is nothing to approve until every build job has finished. A required one that fails stops the release; when the `osx-arm64` one fails, the run still reaches approval, without that archive.
+1. **Review, then approve.** Once the build jobs are green, the run pauses on the `release` environment. Before approving, open the prepare job: **Resolve version** must print `Version <version> (tag run: True)` with the version you meant, and **Write the release notes** prints the notes the release will carry. If the `osx-arm64` build job failed, approving releases the other systems only. Then **Review deployments** → tick `release` → **Approve and deploy**, within 30 days (the build jobs' assets are kept that long on a tag run).
    - **Tagged the wrong commit?** **Reject** the waiting deployment (**Review deployments** → **Reject**) before you delete or move the tag: runs for the same tag go one at a time, so the run the new tag starts waits behind this one. Should this run be approved after the tag has moved, its publish job stops without creating a draft.
 1. **Let the publish job run.** It checks that the tag still points at the commit the build jobs built and that the tag has no release or draft yet, checks each build job's checksums and joins them into one `SHA256SUMS`, attests the build provenance of every archive and `.release.json`, then creates a **draft** prerelease and uploads every asset. It does not publish it.
 1. **If the publish job fails**, what to do depends on the step that stopped it. A re-run (**Re-run failed jobs**) waits for approval again.
@@ -126,7 +129,7 @@ Get-Content .\SHA256SUMS | ForEach-Object {
 gh attestation verify rdcore-<version>-win-x64.zip -R rubberduck-vba/RDCore --signer-workflow rubberduck-vba/RDCore/.github/workflows/release.yml --source-ref refs/tags/<tag>
 ```
 
-The same goes for each archive (`rdcore-<version>-linux-x64.tar.gz`, `rdcore-<version>-osx-arm64.tar.gz`) and each `.release.json`. This checks that the file was built by the Release workflow (`.github/workflows/release.yml`) of `rubberduck-vba/RDCore`, running for the tag `<tag>`. With `-R` alone, an attestation made by any workflow of the repository, on any branch, would pass.
+The same goes for each archive (`rdcore-<version>-linux-x64.tar.gz`, `rdcore-<version>-osx-x64.tar.gz`, `rdcore-<version>-osx-arm64.tar.gz`) and each `.release.json`. This checks that the file was built by the Release workflow (`.github/workflows/release.yml`) of `rubberduck-vba/RDCore`, running for the tag `<tag>`. With `-R` alone, an attestation made by any workflow of the repository, on any branch, would pass.
 
 **Per-file hashes.** Once extracted, `release.json` lists every file of the tree with its size and SHA-256 (except `release.json` itself and `SHA256SUMS`). In PowerShell (PowerShell 7 on Linux and macOS), this prints the path of every listed file that is missing or differs, then of every file that isn't listed (nothing means the tree matches `release.json`):
 
@@ -193,7 +196,7 @@ There is no `Logs/` folder: the platform writes its logs to its user's folders (
 
 - **Unsigned.** On Windows, SmartScreen may warn about the executables, and Windows 11 _Smart App Control_ may block them. On macOS, Gatekeeper refuses to start a downloaded program that Apple has not notarized; `xattr -dr com.apple.quarantine <folder>` clears the quarantine of an extracted archive.
 - **Framework-dependent.** The .NET 10 runtime (`Microsoft.NETCore.App`) for the archive's architecture must be installed; `release.json` records the minimum version.
-- **64-bit only**: `win-x64`, `linux-x64` and `osx-arm64`. On Windows, what the process loads must be 64-bit too.
+- **64-bit only**: `win-x64`, `linux-x64`, `osx-x64` and `osx-arm64`. On Windows, what the process loads must be 64-bit too.
   - **UserForms** host Microsoft Forms 2.0, which needs **64-bit Office** (the 64-bit `FM20.DLL`); with 32-bit Office, a form fails to load.
   - A **`Declare`** statement's library must be a 64-bit DLL.
   - **Office automation** (`CreateObject("Excel.Application")` and the like) needs the Office application installed.

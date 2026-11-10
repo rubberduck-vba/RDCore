@@ -5,7 +5,7 @@ param(
     [switch]$Silent,
     [string]$Configuration = "Debug",
     [string]$PlatformRoot = "artifacts/rdcore-dev",
-    # e.g. win-x64, linux-x64, osx-arm64: a framework-dependent publish for that runtime; omitted, the build is portable (no RID), with the
+    # e.g. win-x64, linux-x64, osx-x64, osx-arm64: a framework-dependent publish for that runtime; omitted, the build is portable (no RID), with the
     # executables of the system it is built on.
     [string]$RuntimeIdentifier,
     # appended to the Directory.Build.props VersionPrefix, e.g. rc.1 -> 0.1.0-rc.1.
