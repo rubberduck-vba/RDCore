@@ -3,12 +3,13 @@ using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Expressions;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 
 namespace RDCore.Runtime.Compiled;
 
 /// <summary>
 /// What compiled code does of an array parameter or variable: it finds an element in the array held in the cell its frame holds the
-/// variable in (<see cref="CompiledActivation.ArrayCellOf"/>), as the interpreter's evaluation on payloads finds it (<c>ElementCellOf</c>), and reads the
+/// variable in (<see cref="CompiledActivation.ArrayCellOf"/>), or in the array an array field of a record is (<see cref="RecordOperations.ArrayField"/>), as the interpreter's evaluation on payloads finds it (<c>ElementCellOf</c>), and reads the
 /// bounds of a dimension as <c>LBound</c> and <c>UBound</c> do (<c>ArrayBoundRuntimeSemantics</c>). What it does not find (a subscript outside its dimension,
 /// an array of another rank, one with no dimensions, one that is not known, an element held in a cell of another kind) is the interpreter's: each operation
 /// returns <see langword="null"/> or <see langword="false"/>, and the interpreter runs the statement, which raises the error (9) where there is one.
@@ -49,7 +50,7 @@ public static class ArrayOperations
     public static bool Bound(object? holder, bool upper, long dimension, out long bound)
     {
         bound = 0;
-        if (RuntimeExpressionEvaluator.KnownArrayOf(holder as IBindingHandle) is not { } array
+        if (KnownArrayIn(holder) is not { } array
             || dimension is < int.MinValue or > int.MaxValue
             || !ArrayBoundRuntimeSemantics.TryBoundOf(array, upper ? ArrayBoundKind.Upper : ArrayBoundKind.Lower, (int)dimension, out var found))
         {
@@ -60,10 +61,14 @@ public static class ArrayOperations
         return true;
     }
 
+    // the array a holder holds, known: the cell of an array variable, or the array an array field of a record is (RecordOperations.ArrayField).
+    private static VBArrayValue? KnownArrayIn(object? holder)
+        => holder is VBArrayValue { IsIndeterminate: false } field ? field : RuntimeExpressionEvaluator.KnownArrayOf(holder as IBindingHandle);
+
     // the cell at the subscripts (MS-VBAL §5.6.13), in the order VBArrayValue.IndexOf numbers them: none outside a dimension, or of an array of another rank.
     private static IBindingHandle? ElementOf(object? holder, int rank, long first, long second, long third)
     {
-        if (RuntimeExpressionEvaluator.PayloadArrayOf(holder as IBindingHandle) is not { } array || array.Rank != rank)
+        if (KnownArrayIn(holder) is not { } array || array.Rank != rank)
         {
             return null;
         }

@@ -10,6 +10,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.Runtime.LanguageCore.Binding;
 
 namespace RDCore.Runtime.Compiled;
@@ -36,6 +37,11 @@ internal sealed partial class ProcedureAnalysis
     // that is no Static.
     private CompiledArray? ArrayOf(BoundNode node)
     {
+        if (node is BoundMember && RecordFieldOf(node) is ({ } path, VBArrayType { ItemType: var fieldItem }))
+        {
+            return FieldArrayOf(path, fieldItem);
+        }
+
         if (node is not BoundVariable { IsAutoInstantiated: false, Slot: { } slot } variable || !ReferenceEquals(slot.Layout, _layout)
             || variable.Variable is not (VBLocalVariableSymbol { IsStatic: false } or VBParameterSymbol) || variable.Variable is ParamArrayParameterSymbol
             || variable.Variable is not ITypedSymbol { ResolvedType: VBArrayType { ItemType: var item } })
@@ -45,17 +51,52 @@ internal sealed partial class ProcedureAnalysis
 
         if (!_arrays.TryGetValue(slot.Index, out var array))
         {
-            // an element of an enumeration is a Long the interpreter keeps in no payload cell (ElementCells.Of), which compiled code reads none of.
-            array = item is not SDK.Model.Types.Complex.VBEnumType && ScalarKinds.Of(item) is { } kind ? new CompiledArray(slot.Index, ElementClass.Scalar, kind)
-                : item is VBVariantType ? new CompiledArray(slot.Index, ElementClass.Variant, null)
-                : IsObjectType(item) ? new CompiledArray(slot.Index, ElementClass.Object, null)
-                : new CompiledArray(slot.Index, ElementClass.Other, null);
+            array = ArrayOfItems(slot.Index, item);
             _arrays[slot.Index] = array;
             _slotSymbols[slot.Index] = variable.Variable;
         }
 
         return array;
     }
+
+    // an array whose elements are of item, numbered number: an element of an enumeration is a Long, held in a cell of the Long type (ElementCells.Of).
+    private CompiledArray ArrayOfItems(int number, VBType item)
+        => ScalarKinds.Of(item) is { } kind ? new CompiledArray(number, ElementClass.Scalar, kind)
+            : item is VBVariantType ? new CompiledArray(number, ElementClass.Variant, null)
+            : IsObjectType(item) ? new CompiledArray(number, ElementClass.Object, null)
+            : new CompiledArray(number, ElementClass.Other, null);
+
+    /// <summary>
+    /// The array fields of records compiled code reads and writes elements of: the one at <c>i</c> is numbered <c>~i</c>, apart from the slots, and found
+    /// through its record each time, as a field of a scalar type is.
+    /// </summary>
+    public IReadOnlyList<FieldPath> FieldArrays => _fieldArrays;
+
+    private readonly List<FieldPath> _fieldArrays = [];
+
+    // an array field of a record of the activation (RecordFieldOf): `this.State`, of Me's `Private this As TState`.
+    private CompiledArray FieldArrayOf(FieldPath path, VBType item)
+    {
+        var at = _fieldArrays.FindIndex(known => known.Holder == path.Holder && known.Indexes.SequenceEqual(path.Indexes));
+        if (at < 0)
+        {
+            at = _fieldArrays.Count;
+            _fieldArrays.Add(path);
+        }
+
+        return ArrayOfItems(~at, item) with { Field = path };
+    }
+
+    // an element of an array field of a record - `this.Cells(X, Y)`, which is bound as a member of the record given what follows it in parentheses
+    // (EvaluateBoundMember indexes the field it reads) - as the element of an array it is: the field, indexed by each subscript.
+    private BoundIndex? FieldElementOf(BoundNode node)
+        => node is BoundMember { Arguments: { } index, Member: null, DeclaredClass: null, IsLateBound: false } member
+            && RecordFieldOf(member with { Arguments = null, BoundArguments = null }) is (_, VBArrayType)
+                ? new BoundIndex(index, member with { Expression = member.Access, Arguments = null, BoundArguments = null }, [.. index.Arguments.Select(Bind)])
+                : null;
+
+    // an element of an array, whichever way it is bound.
+    private BoundIndex? ElementOf(BoundNode node) => node as BoundIndex ?? FieldElementOf(node);
 
     // an element of an array of a scalar kind: TryEvaluatePayload's BoundIndex.
     private PayloadNode? Element(BoundIndex index)
@@ -106,10 +147,11 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        return new ArrayBoundNode(array.Slot, bound.ArrayBound.Kind == ArrayBoundKind.Upper, dimension);
+        // a Long, which MS-VBA reads where it is written: in an instruction that calls inside an expression, known as it was read, before a call right of it.
+        return Read(new ArrayBoundNode(array.Slot, bound.ArrayBound.Kind == ArrayBoundKind.Upper, dimension), bound);
     }
 
-    private bool IsVariantElement(BoundNode node) => node is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };
+    private bool IsVariantElement(BoundNode node) => ElementOf(node) is { } index && ArrayOf(index.Callee) is { Class: ElementClass.Variant };
 
     // an element of an array of Variants, read in the Variant's cell the array holds it in: Dynamic's BoundIndex.
     private VariantNode? VariantElement(BoundIndex index)
@@ -119,7 +161,8 @@ internal sealed partial class ProcedureAnalysis
     // element of an array of Variants, the value as it is, of its own type, as a Variant variable is assigned it (MS-VBAL §5.5.1.2.12).
     private CompiledStep? AnalyzeElementLet(int offset, AssignmentStatementNode assignment)
     {
-        var target = Bind(assignment.Target);
+        var bound = Bind(assignment.Target);
+        var target = FieldElementOf(bound) ?? bound;
         if (target is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Scalar })
         {
             return Element(index) is ElementNode element && PayloadAs(Bind(assignment.Value), element.Kind) is { } value
@@ -138,7 +181,7 @@ internal sealed partial class ProcedureAnalysis
         return null;
     }
 
-    private bool IsObjectElement(BoundNode node) => node is BoundIndex index && ArrayOf(index.Callee) is { Class: ElementClass.Object };
+    private bool IsObjectElement(BoundNode node) => ElementOf(node) is { } index && ArrayOf(index.Callee) is { Class: ElementClass.Object };
 
     // an object held where compiled code finds its cell each time it reads it: an element of an array of objects, or an object field of a record.
     private bool IsHeldObject(BoundNode node) => IsObjectElement(node) || ObjectFieldOf(node) is not null;
@@ -153,7 +196,7 @@ internal sealed partial class ProcedureAnalysis
         read = null;
         switch (operand)
         {
-            case BoundIndex index when IsObjectElement(index):
+            case BoundIndex or BoundMember when IsObjectElement(operand) && ElementOf(operand) is { } index:
                 if (Subscripts(index) is not { } subscripts)
                 {
                     return false;

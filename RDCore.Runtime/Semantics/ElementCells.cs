@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
@@ -30,7 +31,9 @@ internal static class ElementCells
             return null;
         }
 
-        if (ScalarPayload.TryOf(itemType, itemType.DefaultValue.RuntimeValue, out var initial))
+        // an element of an enumeration is a Long (MS-VBAL §5.2.3.4), held in a cell of the Long type as a variable declared as the enumeration is.
+        var stored = VBEnumType.AsDeclaredType(itemType);
+        if (ScalarPayload.TryOf(stored, stored.DefaultValue.RuntimeValue, out var initial))
         {
             return () => ScalarCell.Of(initial);
         }

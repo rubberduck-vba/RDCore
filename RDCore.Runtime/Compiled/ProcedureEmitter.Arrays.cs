@@ -42,6 +42,20 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
+    // the cell an array is held in, onto the stack: an array slot's local, or the cell an array field holds its array in, found through its record now -
+    // none when there is no record, which ArrayOperations finds nothing in.
+    private void LoadArrayHolder(int array)
+    {
+        if (array >= 0)
+        {
+            _il.Emit(OpCodes.Ldloc, _arrays[array]);
+            return;
+        }
+
+        LoadRecordOf(_analysis.FieldArrays[~array]);
+        _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.ArrayField))!);
+    }
+
     private void EmitArrayCellOf(int slot)
     {
         _il.Emit(OpCodes.Ldarg_0);
@@ -120,7 +134,7 @@ internal sealed partial class ProcedureEmitter
             {
                 var dimension = bound.Dimension is { } given ? EmitPayload(given, failure) : new Operand(null, 1, 0);
                 var result = _il.DeclareLocal(typeof(long));
-                _il.Emit(OpCodes.Ldloc, _arrays[bound.Array]);
+                LoadArrayHolder(bound.Array);
                 _il.Emit(bound.Upper ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 Load(dimension, ScalarKind.Long);
                 _il.Emit(OpCodes.Ldloca, result);
@@ -221,7 +235,7 @@ internal sealed partial class ProcedureEmitter
         }
 
         var cell = _il.DeclareLocal(typeof(object));
-        _il.Emit(OpCodes.Ldloc, _arrays[array]);
+        LoadArrayHolder(array);
         if (kind is { } scalar)
         {
             _il.Emit(OpCodes.Ldc_I4, (int)scalar);

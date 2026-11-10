@@ -1363,8 +1363,8 @@ internal sealed partial class ProcedureAnalysis
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsHeldObject(elementCompared.Left) || IsHeldObject(elementCompared.Right):
                 return ElementIs(elementCompared);
 
-            case BoundTypeOf { Operand: BoundIndex element } elementTypeOf when IsObjectElement(element):
-                return ElementTypeOf(elementTypeOf, element);
+            case BoundTypeOf { Operand: BoundIndex or BoundMember } elementTypeOf when IsObjectElement(elementTypeOf.Operand):
+                return ElementTypeOf(elementTypeOf, ElementOf(elementTypeOf.Operand)!);
 
             case BoundTypeOf { Operand: BoundMember tested } fieldTypeOf when ObjectFieldOf(tested) is { } field:
                 return new ElementTypeOfNode(new ObjectFieldNode(field), ClassNumberOf(fieldTypeOf.Class));
@@ -1425,6 +1425,10 @@ internal sealed partial class ProcedureAnalysis
                 return PlanOf(binary) is { } binaryPlan && Payload(binary.Left) is { } left && Payload(binary.Right) is { } right
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
+
+            // an element of an array field of a record of the activation.
+            case BoundMember member when FieldElementOf(member) is { } fieldElement:
+                return Element(fieldElement);
 
             // a field of a record of the activation.
             case BoundMember member when RecordFieldOf(member) is { } field:
@@ -1487,8 +1491,8 @@ internal sealed partial class ProcedureAnalysis
             case BoundName { Symbol: var function } when ResultIsVariant && IsOwnFunction(function):
                 return new VariantResultNode();
 
-            case BoundIndex index when IsVariantElement(index):
-                return VariantElement(index);
+            case BoundIndex or BoundMember when IsVariantElement(node):
+                return VariantElement(ElementOf(node)!);
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Dynamic(enclosed);

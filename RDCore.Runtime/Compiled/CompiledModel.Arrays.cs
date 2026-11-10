@@ -13,8 +13,12 @@ internal enum ElementClass
     Other,
 }
 
-// an array parameter or variable of the activation, and its elements: of Kind when they are scalars.
-internal sealed record class CompiledArray(int Slot, ElementClass Class, ScalarKind? Kind);
+// an array parameter or variable of the activation, and its elements: of Kind when they are scalars. An array field of a record (Field) is numbered apart
+// from the slots, by the complement of its place among the body's array fields (ProcedureAnalysis.FieldArrays), and found through its record each time.
+internal sealed record class CompiledArray(int Slot, ElementClass Class, ScalarKind? Kind)
+{
+    public FieldPath? Field { get; init; }
+}
 
 // an element of an array of a scalar kind, at subscripts each let-coerced to a Long (MS-VBAL §5.6.13), read in the cell the array holds it in
 // (ArrayOperations.ScalarElement).
