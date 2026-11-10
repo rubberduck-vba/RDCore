@@ -10,8 +10,8 @@ internal sealed partial class ProcedureEmitter
     // whether the step emitted is a statement that calls for an object, begun (CompiledActivation.BeginStatement) and not yet ended.
     private bool _inObjectStatement;
 
-    // the step, begun and ended around what it does when it calls for an object: ended where it is over - after its assignment, before the jump its
-    // condition decides, before a For's first test - and not where it is handed to the interpreter, which ends it.
+    // the step, begun and ended around what it does when it calls for an object: ended where it is over (after its assignment, before the jump its
+    // condition decides, before a For's first test), and not where it is handed to the interpreter, which ends it.
     private void EmitObjectStatement(CompiledStep step)
     {
         if (!ProcedureAnalysis.CallsForAnObject(step))

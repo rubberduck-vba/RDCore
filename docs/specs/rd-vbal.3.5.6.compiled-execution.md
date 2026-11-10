@@ -130,7 +130,8 @@ Compiled code gives an object to a procedure or a member it calls as the interpr
 
 What a function or a `Property Get` returns is given by value the same way (`N = Doubled(S.Pos)`), in a statement that calls inside an expression (see
 Calls inside an expression, below). A field given by reference, a `WithEvents` variable, a member or `New` given as an argument, and a call given as one
-in any other statement are the interpreter's to give, and it makes the call. A call that gives an object goes through the interpreter's binding of the callee, never straight into the callee's compiled code.
+in any other statement are the interpreter's to give, and it makes the call. A call that gives an object goes through the interpreter's binding of the
+callee, never straight into the callee's compiled code.
 
 When the member is compiled too, compiled code calls the member's compiled code directly. A member that keeps nothing in its frame but `Me` and values of
 scalar types runs without a frame, as a compiled procedure called directly does. Its activation still holds `Me`, so an object is let go of, and its
@@ -223,11 +224,16 @@ variables (`X = C.Count + 1`), of the default instance of a class, or of the obj
 compiled or not: one the interpreter runs is called as the interpreter calls it.
 
 Compiled code also calls a member of what such a function or `Property Get` returns, when it is declared as a class (`Y = S.Pos.Y`,
-`N = S.Pos.Twice + 1`, `Make().Pos.Bump`), and reads a scalar public variable of it, and gives it to an object parameter by value (see Objects, above).
-The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as the interpreter does: if
-nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10). A statement is over after its assignment or its call, before the jump its
-condition decides, and before a `For`'s first test. An object something else holds lives on. A member of `Nothing` is the interpreter's, which raises
-error 91, and so is a member of what a call returns as `Object` or `Variant`, which is late-bound.
+`N = S.Pos.Twice + 1`, `Make().Pos.Bump`). It also reads a scalar public variable of it, and gives it to an object parameter by value (see Objects,
+above). The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as the interpreter does:
+if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10). An object something else holds lives on. The statement is over:
+
+- after its assignment or its call;
+- for an `If`, an `ElseIf` or a loop, once its condition is evaluated, before the jump the condition decides;
+- for a `For`, once the counter is given the start, before the first test of the counter.
+
+A member of a call that returns `Nothing` is the interpreter's, which raises error 91, and so is a member of what a call returns as `Object` or
+`Variant`, which is late-bound.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
 function's result variable, a scalar public variable of an object (see Objects, above), `Err.Number`, a call, or an operation of these. The
@@ -251,8 +257,8 @@ the program waited in the callee, and when the code was edited meanwhile. The in
   When the call is made by the condition of an `If`, an `ElseIf` or a loop, the edit is not applied yet, as in the interpreter.
 
 An error the statement raises after the call goes to the handler as any error does. A `Resume` runs the statement again, calls included. An object a
-call of the statement returned is let go of before the handler's first statement, as the interpreter lets go of it, and before the caller's when no
-handler of the procedure takes the error.
+call of the statement returned is let go of before the handler's first statement, as the interpreter lets go of it. When no handler of the procedure
+takes the error, it is let go of as the procedure is left, before the caller goes on with the error.
 
 ### What compiled code does itself
 

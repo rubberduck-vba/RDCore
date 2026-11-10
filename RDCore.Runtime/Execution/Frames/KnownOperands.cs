@@ -19,7 +19,7 @@ internal sealed class KnownOperands
 
     private readonly Dictionary<SyntaxNode, ScalarPayload> _values;
 
-    // the objects calls returned (a member of what a call returns, `S.Pos.Y`): each held by the statement's temporaries, and by nothing of these - an
+    // the objects calls returned (a member of what a call returns, `S.Pos.Y`): each held by the statement's temporaries, and by nothing of these: an
     // object is known only for as long as its temporary holds it, which the activation lets go of when it lets go of these (CallStackFrame.Forget).
     private readonly Dictionary<SyntaxNode, VBTypedValue>? _objects;
 

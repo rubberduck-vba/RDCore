@@ -260,7 +260,7 @@ internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(defa
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
-// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none - or what the call Call
+// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none; or what the call Call
 // returns, made when the argument is evaluated. Only an argument of a call; its Kind is not read.
 internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default(ScalarKind))
 {

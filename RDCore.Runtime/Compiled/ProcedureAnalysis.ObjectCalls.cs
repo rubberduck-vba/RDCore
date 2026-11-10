@@ -36,6 +36,7 @@ internal sealed partial class ProcedureAnalysis
     /// Whether <paramref name="step"/> calls a function or a <c>Property Get</c> that returns an object (<see cref="ObjectCallNode"/>): the statement is begun
     /// before its first call, and ended once it is over (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>).
     /// </summary>
+    /// <param name="step">The step.</param>
     internal static bool CallsForAnObject(CompiledStep step)
         => step is CallStep { ReceiverCall: not null } || PayloadsOf(step).SelectMany(Within).Any(node => ReceiverCallsOf(node).Any());
 

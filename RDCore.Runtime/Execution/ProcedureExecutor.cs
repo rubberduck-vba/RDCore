@@ -160,6 +160,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     /// at its <c>Pc</c> one compiled code handed over in the middle of: the temporaries its statement holds are those held since <paramref name="held"/>
     /// (<see cref="ISessionObjects.TemporaryCount"/> when compiled code began the statement), which the instruction lets go of when it is over, as any.
     /// </summary>
+    /// <param name="session">The session the activation runs in.</param>
+    /// <param name="frame">The activation.</param>
+    /// <param name="list">Its instructions.</param>
+    /// <param name="context">The context it is evaluated in.</param>
+    /// <param name="held">The temporary count when compiled code began the statement; <see langword="null"/> when it began none.</param>
     internal RuntimeExecutionOutcome Run(IRuntimeSession session, ICallStackFrame frame, InstructionList list, RuntimeEvaluationContext context, int? held)
         => Run(session, frame, list, context, once: false, held);
 
@@ -194,7 +199,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // the statement compiled code began (held), which an error a caller other than this executor ran ended: what its temporaries hold is let go of before the
-    // handler runs, as an instruction this executor runs lets go of its own when it ends - unless the program stopped.
+    // handler runs, as an instruction this executor runs lets go of its own when it ends, unless the program stopped.
     private static void LetGoOfStatement(IRuntimeSession session, int? held, RuntimeExecutionOutcome outcome)
     {
         if (held is { } mark && outcome.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
@@ -366,7 +371,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             }
 
             // the instruction before this one is over: what its expressions made is let go of, and so is what a block the program is no longer in
-            // held - a With's target, a For Each's enumerator - after its End With or its Next, or a jump out of it. What compiled code evaluated of an
+            // held (a With's target, a For Each's enumerator) after its End With or its Next, or a jump out of it. What compiled code evaluated of an
             // instruction it handed over is let go of with its temporaries, never after them: an object it knew is held by them alone. The instruction it
             // handed over in the middle of is not over: it goes on, holding what compiled code made of it.
             var resumed = inside;

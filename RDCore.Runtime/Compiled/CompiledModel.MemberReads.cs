@@ -4,7 +4,7 @@ namespace RDCore.Runtime.Compiled;
 
 // a scalar public variable of an object, read: the one numbered Field of the body's MemberFields, of the object an object variable holds (Receiver), an
 // object field of a record holds (ReceiverField), of the object of the With block opened at WithAt, or of the object a call returns (ReceiverCall); of its
-// kind (Kind). Where the object holds no such variable of the kind, or is Nothing, the instruction is the interpreter's, from its start - or from where what
+// kind (Kind). Where the object holds no such variable of the kind, or is Nothing, the instruction is the interpreter's, from its start, or from where what
 // was evaluated of it is known.
 internal sealed record class MemberFieldNode(int Field, int? Receiver, ScalarKind Kind) : PayloadNode(Kind)
 {

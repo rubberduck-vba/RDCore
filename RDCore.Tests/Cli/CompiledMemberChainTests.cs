@@ -5,7 +5,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A member of what a call returns (<c>S.Pos.Y</c>, <c>S.Pos.Twice</c>, <c>Make().Pos.Y</c>), made by compiled code: the call that returns the object made
-/// once, the object held by the statement's temporaries, and let go of when the statement is over, as the interpreter lets go of it - which is where its
+/// once, the object held by the statement's temporaries, and let go of when the statement is over, as the interpreter lets go of it, which is where its
 /// <c>Class_Terminate</c> runs (MS-VBAL §5.3.1.10). An error after the call is the interpreter's, given the object: the call is not made again, and the
 /// object is let go of before the error is handled. A program runs the same either way.
 /// </summary>
