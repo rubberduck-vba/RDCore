@@ -67,7 +67,12 @@ public sealed class CompiledForBoundCallTests
             "    Next",
             "End Function"), "Summed", recoveries: 0, classes: Spans, expected: "90;15");
         AssertNoneStepped(result);
-        Assert.AreEqual(16L, result.Body!.DirectCalls, "Init, and the three bounds five times");
+
+        // under the random walk-back the interpreter may make some of these calls, which is what that run is for.
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(16L, result.Body!.DirectCalls, "Init, and the three bounds five times");
+        }
     }
 
     // the start, the end and the step each a call of a function of a standard module: called in that order, once each time the For runs.
