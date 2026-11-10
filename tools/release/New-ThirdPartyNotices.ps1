@@ -220,11 +220,12 @@ function Get-CodeSectionHash([string]$Path) {
     $null
 }
 
-# whether a file of the tree is an apphost to account for: an .exe, or, as Linux and macOS name them, a file with no extension that is an ELF or a
-# Mach-O executable. a native library has an extension (.dll, .so, .dylib) and its package's deps.json entry accounts for it.
+# whether a file of the tree is an apphost to account for: an .exe, or, as Linux and macOS name them, an ELF or a Mach-O file that is not named as a
+# native library (.so, .so.<version>, .dylib), which its package's deps.json entry accounts for. not by its extension: RDCore.LanguageServer has one,
+# .LanguageServer, as far as Path.GetExtension can tell.
 function Test-Executable([IO.FileInfo]$File) {
     if ($File.Extension -ieq ".exe") { return $true }
-    if ($File.Extension -or $File.Length -lt 4) { return $false }
+    if ($File.Name -match '\.(so(\.\d+)*|dylib|dll)$' -or $File.Length -lt 4) { return $false }
     $stream = $File.OpenRead()
     try {
         $magic = [byte[]]::new(4)
