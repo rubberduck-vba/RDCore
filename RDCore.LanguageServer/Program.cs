@@ -19,6 +19,8 @@ using RDCore.SDK.Client;
 [assembly: ProvidesCorePlatformClientCapability<SessionInteraction>]
 // and asks a client that reads them for the indenter settings its user had in Rubberduck, and to take the ones it maps:
 [assembly: ProvidesCorePlatformClientCapability<RubberduckIndenterSettings>]
+// and says what a refactoring asks, to a client that shows a dialog of its own before it is applied:
+[assembly: ProvidesCorePlatformClientCapability<Refactoring>]
 namespace RDCore.LanguageServer;
 
 public class Program

@@ -132,6 +132,8 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<WorkspaceSymbolHandler>();
         builder.WithHandler<Navigation.HoverHandler>();
         builder.WithHandler<CodeActionHandler>();
+        builder.WithHandler<RefactorPrepareHandler>();
+        builder.WithHandler<RefactorApplyHandler>();
         builder.WithHandler<Server.Handlers.Workspace.ExecuteCommandHandler>();
         builder.WithHandler<InlayHintHandler>();
         builder.WithHandler<CodeLensHandler>();
@@ -183,6 +185,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton(_ => ExternalServices.GetRequiredService<Formatting.ICodeFormattingService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<ICompletionService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IRenameService>());
+        services.AddSingleton(_ => ExternalServices.GetRequiredService<IExtractMethodService>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IClientVerbRegistry>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkProgressReporter>());
         services.AddSingleton(_ => ExternalServices.GetRequiredService<IWorkspaceDocumentService>());

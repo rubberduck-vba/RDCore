@@ -52,8 +52,9 @@ public sealed class CodeActionHandlerTests
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
             => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols()]);
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
-        return new CodeActionHandler(new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry()),
-            _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem());
+        var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
+        return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
+            Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>(), new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
     }
 
     private static DocumentUri Document => DocumentUri.From(Path.Combine(Root, "Main.rdc"));

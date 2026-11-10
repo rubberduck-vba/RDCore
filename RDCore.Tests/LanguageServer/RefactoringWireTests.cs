@@ -91,7 +91,8 @@ public sealed class RefactoringWireTests
             .WithSerializer(new PullDiagnosticsLspSerializer())
             .AddHandler(new DocumentDiagnosticHandler(diagnostics, Substitute.For<IDocumentLifecycleService>(), new WorkProgressReporter(), new IncomingDocumentChanges(),
                 new RDCore.LanguageServer.Runtime.OpenDialogs()))
-            .AddHandler(new CodeActionHandler(rename, documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem()))
+            .AddHandler(new CodeActionHandler(rename, documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, parsing, options),
+                Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>(), new PullDiagnosticsLspSerializer()))
             // the rename handler asks the client through the server it is a handler of.
             .WithServices(services => services.AddSingleton<IRenameService>(rename))
             .WithHandler<RenameHandler>()

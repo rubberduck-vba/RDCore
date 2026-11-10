@@ -159,19 +159,25 @@ internal sealed class RenameService(
         }
 
         // the libraries a project references are the primary project's: another project sees the standard library, and its own modules.
+        var projectName = primary || string.IsNullOrEmpty(name) ? null : name;
+        var implicitScope = options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope;
+        var libraries = primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null;
+        var documentHosts = modules.Where(module => module.Document.Super is not null)
+            .GroupBy(module => SymbolUri.ModuleNameOf(module.Module), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Document.Super!.Value, StringComparer.OrdinalIgnoreCase);
         var composition = _compositions.GetOrCompose(
             workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Parse))], resolver,
-            projectName: primary || string.IsNullOrEmpty(name) ? null : name,
-            implicitScope: options.Value.Workspace.SupportedLanguage.ImplicitDeclarationScope,
-            libraries: primary ? referencedLibraries.SymbolsUnder(workspaceRoot) : null,
-            documentHosts: modules.Where(module => module.Document.Super is not null)
-                .GroupBy(module => SymbolUri.ModuleNameOf(module.Module), StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.First().Document.Super!.Value, StringComparer.OrdinalIgnoreCase));
+            projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
+
+        // the project again, one of its modules parsed from another text: what an edit of it would be composed as, which the cache does not keep.
+        WorkspaceComposition Recompose(Uri edited, SDK.Model.AST.ModuleParseResult parse) => WorkspaceSymbolResolver.ComposeWithScopes(
+            workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Module.AbsoluteUri == edited.AbsoluteUri ? parse : module.Parse))], resolver,
+            projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
             [.. modules.Select(module => new RenameModule(module.Module, module.Parse.SyntaxTree!, module.Source))],
             new StaticEnvironment(options.Value.Environment.Is64Bit));
-        return new RenameWorkspace.ProjectPart(context, modules);
+        return new RenameWorkspace.ProjectPart(context, modules, Recompose);
     }
 }
 
@@ -181,8 +187,18 @@ internal sealed class RenameService(
 /// </summary>
 internal sealed class RenameWorkspace
 {
-    /// <summary>A project, composed: what its modules resolve in, and the document of each.</summary>
-    internal sealed record class ProjectPart(RenameContext Context, IReadOnlyList<DocumentModule> Modules);
+    /// <summary>
+    /// A project, composed: what its modules resolve in, the document of each, and the project composed again with one of its modules parsed from another
+    /// text (<see langword="null"/> for a project that is composed of nothing else).
+    /// </summary>
+    internal sealed record class ProjectPart(
+        RenameContext Context, IReadOnlyList<DocumentModule> Modules, Func<Uri, SDK.Model.AST.ModuleParseResult, WorkspaceComposition>? Recompose = null);
+
+    /// <summary>
+    /// The project and the module of a document; <see langword="null"/> for a document of no project.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    internal (ProjectPart Part, DocumentModule Module)? DocumentOf(Uri documentUri) => ModuleOf(documentUri) is { } module ? (PartOf(module), module) : null;
 
     // the projects of the workspace, the primary one first; a document is asked of the first that has it, which is the project that loaded it first. A file that
     // several projects list is a module of each, and each project's copy of it resolves in that project.
@@ -566,7 +582,7 @@ internal sealed class RenameWorkspace
     // a position is named the way the document names it: its file, and the line of its text - for a program of the BASIC, the number it labels the line with.
     private static string Say(ProjectPart part, RenameRefusal refusal) => refusal.ToMessage(Locator(part));
 
-    private static Func<Uri, SourcePosition, string> Locator(ProjectPart part) => (module, position) =>
+    internal static Func<Uri, SourcePosition, string> Locator(ProjectPart part) => (module, position) =>
         part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } document
             ? document.Locate(position)
             : $"{SymbolUri.ModuleNameOf(module)} {position.Line + 1}:{position.Character + 1}";
