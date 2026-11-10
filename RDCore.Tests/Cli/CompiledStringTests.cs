@@ -81,8 +81,8 @@ public sealed class CompiledStringTests
         "    If R >= L & \"\" Then Compared = Compared * 2 + 1 Else Compared = Compared * 2",
         "End Function");
 
-    // vbNullString is a constant, which the interpreter assigns; compiled code then reads it as the zero-length string it compares equal to, joins it as one,
-    // and copies it as the null pointer it is. S = vbNullString, and the two Ifs that call StrPtr of a String, are the interpreter's: 3.
+    // vbNullString is a constant, which compiled code assigns, reads as the zero-length string it compares equal to, joins as one, and copies as the null
+    // pointer it is. The two Ifs that call StrPtr of a String are the interpreter's: 2.
     [TestMethod]
     public async Task VbNullString_IsReadAsTheZeroLengthString_AndCopiedAsItIs()
         => await AssertAlikeAsync(Program(
@@ -99,7 +99,7 @@ public sealed class CompiledStringTests
             "    If S = \"\" Then Nulls = Nulls * 2 + 1 Else Nulls = Nulls * 2",
             "    If StrPtr(T) = 0 Then Nulls = Nulls * 2 + 1 Else Nulls = Nulls * 2",
             "    If StrPtr(U) = 0 Then Nulls = Nulls * 2 + 1 Else Nulls = Nulls * 2",
-            "End Function"), "Nulls", recoveries: 3);
+            "End Function"), "Nulls", recoveries: 2);
 
     // a String that ends with a lone byte is joined byte by byte, by the interpreter: compiled code reads no text of it, and hands it each statement that does.
     // S = ChrB(65) and the two Lets that call LenB call a function of a String; T = S & "x" joins the lone byte; T = S & "!" is compiled: 4.

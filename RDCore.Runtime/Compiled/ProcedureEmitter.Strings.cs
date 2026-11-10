@@ -135,8 +135,101 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.OfWhole))!);
                 _il.Emit(OpCodes.Stloc, text);
                 break;
+
+            case TypeNameTextNode typeName:
+                EmitTypeName(typeName, text);
+                break;
+
+            case LibraryTextNode library:
+                EmitLibraryText(library, text, failure);
+                break;
         }
 
         return text;
+    }
+
+    // the text of every item, evaluated before any is written, so that the interpreter, given the statement when one fails, writes none twice; then each
+    // written, and the line ended (CompiledActivation.Print, PrintLine).
+    private void EmitPrint(PrintStep print)
+    {
+        var failure = RecoverAt(print.Offset);
+        var texts = new LocalBuilder[print.Items.Count];
+        for (var i = 0; i < texts.Length; i++)
+        {
+            texts[i] = EmitTextInto(print.Items[i], failure);
+        }
+
+        foreach (var text in texts)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldloc, text);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.Print))!);
+        }
+
+        if (print.EndsLine)
+        {
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.PrintLine))!);
+        }
+
+        // a break asked for while the output was written is answered before the next instruction, as the interpreter answers it.
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.WantsInterpreterAfterCall))!.GetMethod!);
+        _il.Emit(OpCodes.Brtrue, WalkBackAt(print.Offset + 1));
+    }
+
+    // TypeName of the object an object slot holds, or of Nothing (CompiledActivation.TryTypeNameOf); a call the function fails, or a cell that holds no
+    // object compiled code reads, gives the interpreter the call.
+    private void EmitTypeName(TypeNameTextNode node, LocalBuilder text)
+    {
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, _knowingAt);
+        _il.Emit(OpCodes.Ldc_I4, node.Library);
+        if (node.Slot is { } slot)
+        {
+            _il.Emit(OpCodes.Ldloc, _objects[slot]);
+            _il.Emit(OpCodes.Ldc_I4_0);
+        }
+        else
+        {
+            _il.Emit(OpCodes.Ldnull);
+            _il.Emit(OpCodes.Ldc_I4_1);
+        }
+
+        _il.Emit(OpCodes.Ldloca, text);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryTypeNameOf))!);
+        _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(_knowingAt)));
+    }
+
+    // the texts of the arguments, each evaluated into a local before anything is called; then the call (CompiledActivation.TryCallLibraryText), of which an
+    // error, or what is no String compiled code holds, gives the interpreter the call.
+    private void EmitLibraryText(LibraryTextNode node, LocalBuilder text, Label failure)
+    {
+        var arguments = new LocalBuilder[node.Arguments.Count];
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            arguments[i] = EmitTextInto(node.Arguments[i], failure);
+        }
+
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, _knowingAt);
+        _il.Emit(OpCodes.Ldc_I4, node.Library);
+        _il.Emit(OpCodes.Ldc_I4, arguments.Length);
+        for (var i = 0; i < 3; i++)
+        {
+            if (i < arguments.Length)
+            {
+                _il.Emit(OpCodes.Ldloc, arguments[i]);
+            }
+            else
+            {
+                _il.Emit(OpCodes.Ldnull);
+            }
+        }
+
+        _il.Emit(OpCodes.Ldloca, text);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryCallLibraryText),
+            [typeof(int), typeof(int), typeof(int), typeof(string), typeof(string), typeof(string), typeof(string).MakeByRefType()])!);
+        _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(_knowingAt)));
     }
 }

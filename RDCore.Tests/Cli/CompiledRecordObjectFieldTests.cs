@@ -111,7 +111,7 @@ public sealed class CompiledRecordObjectFieldTests
             "    Set H.O = Nothing",
             "    Debug.Print \"cleared\"",
             "    Swap = N",
-            "End Function"), "Swap", recoveries: 11, classes: Noisy(), expected: "set 1 ; gone n1 ; set 2 ; gone n2 ; set 3 ; loop done ; gone n3 ; cleared");
+            "End Function"), "Swap", recoveries: 9, classes: Noisy(), expected: "set 1 ; gone n1 ; set 2 ; gone n2 ; set 3 ; loop done ; gone n3 ; cleared");
 
     // a variable Set to the object a field holds holds a counted reference of its own: the field can let go of it and the object lives on, and the Set that
     // lets go of the last reference to what the variable held before is the interpreter's, which runs its Class_Terminate there.
@@ -139,7 +139,7 @@ public sealed class CompiledRecordObjectFieldTests
             "    Debug.Print \"taken\"",
             "    Set H.P = Nothing",
             "    Debug.Print \"kept\"; X.Name",
-            "End Function"), "Take", recoveries: 5, classes: Noisy(), expected: "gone first ; taken ; keptsecond ; gone second ; 3");
+            "End Function"), "Take", recoveries: 3, classes: Noisy(), expected: "gone first ; taken ; keptsecond ; gone second ; 3");
 
     // a Set of a field to an object of another class than it is declared as does not Set-coerce (MS-VBAL §5.5.2.2): the interpreter runs the Set, and raises
     // the error to the handler, and the field holds what it held before.
@@ -212,7 +212,7 @@ public sealed class CompiledRecordObjectFieldTests
             "    Debug.Print \"a cleared\"; B.O Is Nothing",
             "    Set B.O = Nothing",
             "    Debug.Print \"b cleared\"",
-            "End Function"), "Copy", recoveries: 5, classes: Noisy(), expected: "a clearedFalse ; gone x ; b cleared ; 1");
+            "End Function"), "Copy", recoveries: 4, classes: Noisy(), expected: "a clearedFalse ; gone x ; b cleared ; 1");
 
     // a call that passes a field is the interpreter's, run as a support call, which binds a parameter by reference to the field's cell: what the callee Sets the parameter to is in
     // the field, counted there, and read by compiled code after the call; a parameter by value is given a counted copy of the reference.
@@ -240,7 +240,7 @@ public sealed class CompiledRecordObjectFieldTests
             "    If Not H.P Is H.O Then Passes = 1",
             "    Set H.P = Nothing",
             "    Debug.Print \"p cleared\"",
-            "End Function"), "Passes", recoveries: 2, classes: Noisy(), expected: "p cleared");
+            "End Function"), "Passes", recoveries: 1, classes: Noisy(), expected: "p cleared");
         Assert.IsFalse(result.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Call, Detail: "Renew" }),
             $"a call given a field is a support call, which steps nothing: {string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}"))}");
     }

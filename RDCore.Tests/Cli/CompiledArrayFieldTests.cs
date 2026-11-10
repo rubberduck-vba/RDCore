@@ -63,7 +63,8 @@ public sealed class CompiledArrayFieldTests
         {
             Assert.IsTrue(results.TryGetValue(name, out var result), $"{name} was not called");
             Assert.IsNotNull(result.Body, $"{name}: {string.Join("; ", result.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}"))}");
-            CollectionAssert.AreEquivalent(stepped, result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}").ToArray(), $"{name}'s stepped statements");
+            var steppedHere = result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}").ToArray();
+            CollectionAssert.AreEquivalent(stepped, steppedHere, $"{name}'s stepped statements: {string.Join("; ", steppedHere)}");
             if (!CompiledExecution.HandsOverAtRandom)
             {
                 Assert.AreEqual(recoveries, result.Body.Recoveries, $"{name}'s recoveries");

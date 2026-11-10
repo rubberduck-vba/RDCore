@@ -533,6 +533,35 @@ public sealed partial class RuntimeExpressionEvaluator
         => TryReadConstant(session, node, constant, out payload);
 
     /// <summary>
+    /// The value of a constant named at <paramref name="node"/>, folded, when it is a <c>String</c> with no lone byte at its end: what compiled code reads
+    /// it as (MS-VBAL §5.2.3.2).
+    /// </summary>
+    /// <param name="session">The session the constant is read in.</param>
+    /// <param name="node">The place the constant is named, for which it is read once.</param>
+    /// <param name="constant">The constant.</param>
+    /// <param name="text">The text of the value; <see langword="null"/> for a null string (<c>vbNullString</c>).</param>
+    /// <returns>Whether the constant's value is such a <c>String</c>.</returns>
+    internal bool TryFoldTextConstant(IRuntimeSession session, BoundNode node, Symbol constant, out string? text)
+    {
+        // read as TryReadConstant reads a constant of a scalar type.
+        if (!_constantTexts.TryGetValue(node, out var known))
+        {
+            var read = ReadSymbol(session, new RuntimeEvaluationContext(constant.ParentUri), constant, nameOfEnclosingFunctionIsItsResult: false);
+            known = read is { IsSuccess: true, Result: VBStringValue { TrailingByte: null } folded }
+                ? new ConstantText(true, folded.IsNullString ? null : folded.Value)
+                : default;
+            _constantTexts[node] = known;
+        }
+
+        text = known.Text;
+        return known.IsText;
+    }
+
+    private readonly record struct ConstantText(bool IsText, string? Text);
+
+    private readonly ConcurrentDictionary<BoundNode, ConstantText> _constantTexts = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
     /// Whether <paramref name="node"/> is an extended intermediate (<c>ExtendedIntermediates</c>), and the type of its expression: what compiled code
     /// computes in the extended format, as this evaluation does.
     /// </summary>

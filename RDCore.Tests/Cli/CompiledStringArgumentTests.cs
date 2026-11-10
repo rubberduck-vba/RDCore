@@ -210,8 +210,7 @@ public sealed class CompiledStringArgumentTests
         AssertCallsAreStepped(program, result, "= Size(");
     }
 
-    // a String literal, and a String constant, given to a String parameter: the literal is given its text. A constant is the interpreter's to read, and
-    // so to give, making the call: 1.
+    // a String literal, and a String constant, given to a String parameter: each is given its text, and no call is the interpreter's.
     [TestMethod]
     public async Task AStringLiteralAndAStringConstant_AreGivenTheirText()
     {
@@ -229,12 +228,12 @@ public sealed class CompiledStringArgumentTests
             "End Function",
             "Private Function Size(ByVal S As String) As Long",
             "    If S = \"ab\" Then Size = 2 Else If S = \"cd\" Then Size = 4",
-            "End Function"), "Given", recoveries: 1);
+            "End Function"), "Given", recoveries: 0);
 
-        AssertCalledThroughInvoker(result, 1);
+        AssertCalledThroughInvoker(result, 2);
     }
 
-    // vbNullString given by value is given as itself, the null pointer it is, which the callee sees: S = vbNullString, a constant, is the interpreter's: 1.
+    // vbNullString given by value is given as itself, the null pointer it is, which the callee sees; S = vbNullString, a constant, is compiled code's.
     [TestMethod]
     public async Task VbNullStringGivenByValue_IsGivenAsItself()
     {
@@ -249,7 +248,7 @@ public sealed class CompiledStringArgumentTests
             "End Function",
             "Private Function Pointed(ByVal S As String) As Long",
             "    If StrPtr(S) = 0 Then Pointed = 1 Else Pointed = 2",
-            "End Function"), "Given", recoveries: 1);
+            "End Function"), "Given", recoveries: 0);
 
         AssertCalledThroughInvoker(result, 1);
     }
