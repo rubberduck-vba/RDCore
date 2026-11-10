@@ -1,5 +1,6 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -76,6 +77,15 @@ public sealed partial class CompiledActivation
         }
 
         var result = bindings.ForMember(called.Function).Call(_session.Symbols.Resolver, arguments);
+
+        // Abs of the least value of a type overflows, but the interpreter decides it of the call (AbsOfTheLeast): the least Long of a constant expression is
+        // itself, and of a Variant the next wider type. Compiled code declines, and the interpreter evaluates the instruction.
+        if (result is { IsSuccess: false, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow }
+            && called.Function.GetProperty(SDK.Model.Symbols.Abstract.SymbolProperties.ExternalTarget) is "IStdMathModule.Abs/1")
+        {
+            return false;
+        }
+
         if (!result.IsSuccess)
         {
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);

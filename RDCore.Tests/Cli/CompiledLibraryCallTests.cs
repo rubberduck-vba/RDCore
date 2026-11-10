@@ -140,6 +140,27 @@ public sealed class CompiledLibraryCallTests
             "    Next",
             "End Function"), [("Bytes", 2)], walkBacks: 1);
 
+    // Abs of the least value of a type, which the function overflows on, is the call's to decide, as the interpreter decides it: of the least Long in a
+    // constant expression, that Long; of a Long variable, error 6. Compiled code hands each to the interpreter once.
+    [TestMethod]
+    public async Task AbsOfTheLeastValueOfAType_IsTheInterpreters()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print LeastConstant(3)",
+            "    Debug.Print LeastOfALong(-2147483647)",
+            "End Sub",
+            "Private Function LeastConstant(ByVal N As Long) As Double",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        LeastConstant = LeastConstant * 2 + Abs(CLng(-2147483647) - 1)",
+            "    Next",
+            "End Function",
+            "Private Function LeastOfALong(ByVal N As Long) As Long",
+            "    Dim L As Long",
+            "    L = N - 1",
+            "    LeastOfALong = Abs(L)",
+            "End Function"), [("LeastConstant", 0), ("LeastOfALong", 0)], walkBacks: 1);
+
     // with a comma for its decimal separator (fr-FR): a number converted is the same in any locale, and a String a Variant holds - "2,5" - is converted
     // by the interpreter, which reads it in the session's locale.
     [TestMethod]
