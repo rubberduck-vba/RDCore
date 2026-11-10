@@ -203,7 +203,8 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
 - the condition of an `If`, an `ElseIf` or a loop.
 
 A function given no argument and called by its name alone is called this way too, and so is a `Property Get` of one of the procedure's object
-variables (`X = C.Count + 1`). The function itself may be compiled or not: one the interpreter
+variables (`X = C.Count + 1`). In a procedure of a class, a `Function` or a `Property Get` of the same class that takes no argument, named by itself
+(`X = NextValue + 1`), is called on `Me`, as in the interpreter. The function itself may be compiled or not: one the interpreter
 runs is called as the interpreter calls it.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the

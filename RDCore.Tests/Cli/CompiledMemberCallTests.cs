@@ -228,4 +228,34 @@ public sealed class CompiledMemberCallTests
             "    Next",
             "    Late = 1",
             "End Function"), "Late", recoveries: 0, direct: 0);
+
+    // a Property Get and a Function of the class, named by themselves in a member of it, are called on Me (MS-VBAL §5.6.10): alone, as a function's
+    // result, and inside an expression in a loop, after the result read before the call. Each call moves the object's field on, which the number folds in.
+    [TestMethod]
+    public async Task AMemberOfTheClassNamedByItself_IsCalledOnMe()
+        => await CompiledModuleFieldTests.AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim S As New Sequence",
+            "    Debug.Print S.Drawn(); S.Summed(3); S.Drawn(); S.Counted()",
+            "End Sub"), [("Drawn", 0), ("Summed", 0), ("Counted", 0)], classes: [("Sequence", ModuleWorkspace.ClassModule("Sequence", "Option Explicit",
+                "Private mIndex As Long",
+                "Public Property Get NextValue() As Single",
+                "    mIndex = mIndex + 1",
+                "    NextValue = mIndex * 1.5",
+                "End Property",
+                "Private Function Index() As Long",
+                "    Index = mIndex * 10",
+                "End Function",
+                "Public Function Drawn() As Single",
+                "    Drawn = NextValue",
+                "End Function",
+                "Public Function Summed(ByVal N As Long) As Double",
+                "    Dim I As Long",
+                "    For I = 1 To N",
+                "        Summed = Summed * 2 + NextValue",
+                "    Next",
+                "End Function",
+                "Public Function Counted() As Long",
+                "    Counted = Index + 1",
+                "End Function"))]);
 }

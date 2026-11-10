@@ -414,7 +414,8 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 
     /// <summary>
     /// The member access a call of a member of an object was bound from, whose <see cref="Procedure"/> is the member of the class the object is declared as;
-    /// <see langword="null"/> for a call of a procedure of a standard module. Which member the call invokes is the object's class's to say, each time.
+    /// <see langword="null"/> for a call of a procedure of a standard module, and for a call <see cref="OnMe"/>. Which member the call invokes is the object's
+    /// class's to say, each time.
     /// </summary>
     public LanguageCore.Binding.BoundMember? Site { get; init; }
 
@@ -429,6 +430,12 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// <see cref="Procedure"/> is (<see cref="CompiledActivation.CanCallMember"/>): one implementing it, of an object declared as an interface.
     /// </summary>
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
+
+    /// <summary>
+    /// Whether the call is of a member of the class of the caller, named by itself in it (MS-VBAL §5.6.10): it is made on <c>Me</c>, of the member
+    /// <see cref="Procedure"/> itself, which is the one <c>Me</c>'s class has.
+    /// </summary>
+    public bool OnMe { get; init; }
 
     /// <summary>
     /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).

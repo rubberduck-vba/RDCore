@@ -282,7 +282,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         foreach (var callee in analysis.Callees)
         {
-            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}");
+            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}|{callee.OnMe}");
         }
 
         return Convert.ToHexString(hash.GetHashAndReset());
@@ -334,7 +334,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         CompiledCallee callee, bool callerNeedsFrame)
     {
         // a member of an object is called through its binding, the object given as Me (CompiledActivation.CallMember).
-        if (callee.Site is not null || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
+        if (callee.Site is not null || callee.OnMe || callee.Parameters.Contains(null) || evaluator.ScalarInvokerOf(callee.Procedure) is not { } invoker)
         {
             return null;
         }

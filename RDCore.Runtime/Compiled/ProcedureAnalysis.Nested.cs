@@ -86,7 +86,7 @@ internal sealed partial class ProcedureAnalysis
     {
         null => false,
         BoundCall => true,
-        BoundName { Symbol: VBFunctionMemberSymbol function } => !IsOwnFunction(function),
+        BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol),
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
         BoundMember member => Calls(member.Owner) || member.BoundArguments is { } arguments && arguments.Any(argument => Calls(argument.Value)),
         BoundBinary binary => Calls(binary.Left) || Calls(binary.Right),
@@ -118,16 +118,23 @@ internal sealed partial class ProcedureAnalysis
         return made is null or { WithAt: not null } ? Unsupported(node) : new CallNode(made.Callee, made.Arguments, made.Receiver, kind, syntax);
     }
 
-    // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10).
+    // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10); or a Function or a Property Get of the
+    // class of a member, named by itself in it, which is a call of it on Me given no argument, as the interpreter makes it (InvokeProcedureFrom): the member
+    // itself, which is the one Me's class has.
     private CallStep? BareCallOf(VBTypeMemberSymbol function, ScalarKind kind, SourceLocation at)
     {
-        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null
-            || RuntimeProcedureInvoker.GetParameters(function) is not { Length: 0 } parameters)
+        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null)
         {
             return null;
         }
 
-        return CallWith(function, parameters.AsSpan(), [], CallStep.NoResult, -1, kind, site: null, receiver: null, assigns: false, at);
+        var parameters = RuntimeProcedureInvoker.GetParameters(function);
+        if (parameters is [{ Name: SDK.Model.Tokens.Me }] && MeSlot is { } me && function.ParentUri.AbsoluteUri == _procedure.ParentUri.AbsoluteUri)
+        {
+            return CallWith(function, [], [], CallStep.NoResult, -1, kind, site: null, receiver: me, assigns: false, at);
+        }
+
+        return parameters.Length == 0 ? CallWith(function, [], [], CallStep.NoResult, -1, kind, site: null, receiver: null, assigns: false, at) : null;
     }
 
     // a variable, or the function result variable, read in an instruction that calls inside an expression: known as it was read.

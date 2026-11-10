@@ -927,6 +927,7 @@ internal sealed partial class ProcedureAnalysis
         Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference)
         {
             Site = site,
+            OnMe = site is null && receiver is not null,
             CallLocation = at,
             AssignsResult = assigns,
             HoldsWhatItReturns = assigns || resultKind is null && ReturnedType(procedure) is VBVariantType,
@@ -1348,7 +1349,8 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and var function } member when _nesting is not null:
                 return NestedCall(member, function);
 
-            case BoundName { Symbol: VBFunctionMemberSymbol function } name when _nesting is not null && !IsOwnFunction(function):
+            case BoundName { Symbol: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol function } name
+                when _nesting is not null && !IsOwnFunction(function):
                 return NestedCall(name, function);
 
             default:
