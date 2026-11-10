@@ -91,6 +91,8 @@ internal sealed partial class ProcedureAnalysis
         null => false,
         BoundCall => true,
         BoundName { Symbol: VBFunctionMemberSymbol function } => !IsOwnFunction(function),
+        // a member of Err compiled code reads where the session holds it calls nothing.
+        BoundMember member when ErrNumberOf(member) is not null || ErrTextOf(member) is not null => false,
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
         BoundMember member => Calls(member.Owner) || member.BoundArguments is { } arguments && arguments.Any(argument => Calls(argument.Value)),
         BoundBinary binary => Calls(binary.Left) || Calls(binary.Right),

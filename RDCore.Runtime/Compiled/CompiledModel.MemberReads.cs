@@ -12,8 +12,20 @@ internal sealed record class MemberFieldNode(int Field, int? Receiver, ScalarKin
     public FieldPath? ReceiverField { get; init; }
 }
 
+// a String public variable of variable length of an object, read: the one numbered Field of the body's MemberFields, of the object a receiver holds, as
+// a MemberFieldNode reads a scalar one.
+internal sealed record class MemberTextNode(int Field, int? Receiver) : TextNode
+{
+    public int? WithAt { get; init; }
+
+    public FieldPath? ReceiverField { get; init; }
+}
+
 // Err.Number: the number of the session's error, a Long, read where the session holds it (CompiledActivation.TryReadErrNumber).
 internal sealed record class ErrNumberNode() : PayloadNode(ScalarKind.Long);
+
+// Err.Description, or Err.Source: the text of the session's error, read where the session holds it (CompiledActivation.TryReadErrText).
+internal sealed record class ErrTextNode(bool Source) : TextNode;
 
 /// <summary>
 /// A public variable of an object a compiled body reads: the member access as it is written, which the variable the object's class has for it is found

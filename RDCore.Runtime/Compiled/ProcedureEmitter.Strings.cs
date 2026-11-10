@@ -89,6 +89,18 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Brfalse, failure);
                 break;
 
+            case MemberTextNode member:
+                EmitMemberText(member, text, failure);
+                break;
+
+            case ErrTextNode err:
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(err.Source ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Ldloca, text);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReadErrText))!);
+                _il.Emit(OpCodes.Brfalse, failure);
+                break;
+
             case ConcatNode concat:
                 var left = EmitTextInto(concat.Left, failure);
                 var right = EmitTextInto(concat.Right, failure);

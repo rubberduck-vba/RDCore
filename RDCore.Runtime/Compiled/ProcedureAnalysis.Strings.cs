@@ -47,6 +47,12 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when TextSlotOf(variable) is { } slot:
                 return new TextSlotNode(slot);
 
+            case BoundMember member when ErrTextOf(member) is { } errText:
+                return errText;
+
+            case BoundMember member when MemberTextOf(member) is { } memberText:
+                return memberText;
+
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Text(enclosed);
 
