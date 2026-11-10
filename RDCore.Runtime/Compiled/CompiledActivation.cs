@@ -455,7 +455,8 @@ public sealed partial class CompiledActivation : ILightActivation
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
     /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
     /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called: its parameters after <c>Me</c> of the same
-    /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
+    /// kinds, passed the same way, and what it returns of the same kind. A member of the class whose code runs, named bare, is called on <c>Me</c> as
+    /// itself (<see cref="CompiledCallee.CallsOwnMember"/>), as the interpreter calls it. Not when the variable holds no reference compiled code reads, holds
     /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
     /// member: the interpreter makes the call.
     /// </summary>
@@ -467,7 +468,7 @@ public sealed partial class CompiledActivation : ILightActivation
         var called = _body.Callees[callee];
         if (_executor.Observation is not null || !ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
             || !_session.Symbols.TryGetInstance(instance, out var target)
-            || _executor.Expressions.MemberOf(called.Site!, target.ClassModule) is not { } member || !Takes(called, member))
+            || (called.Site is { } site ? _executor.Expressions.MemberOf(site, target.ClassModule) : called.Procedure) is not { } member || !Takes(called, member))
         {
             return false;
         }

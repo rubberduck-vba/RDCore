@@ -588,6 +588,8 @@ internal sealed partial class ProcedureAnalysis
                 {
                     BoundCall bound when CallOf(bound, CallStep.NoResult, instruction.Offset, resultKind: null) is { } made => made,
                     BoundMember member when MemberCallOf(member, CallStep.NoResult, instruction.Offset, resultKind: null) is { } madeOn => madeOn,
+                    BoundName { Symbol: (VBProcedureMemberSymbol or VBFunctionMemberSymbol) and VBTypeMemberSymbol named }
+                        when BareCallOf(named, instruction.Offset, kind: null, call.Callee) is { } bare => bare,
                     _ => SupportCallOf(instruction, mark) ?? RefusedCall(call.Callee, location),
                 };
 
@@ -784,24 +786,47 @@ internal sealed partial class ProcedureAnalysis
     // reference is given the cell of a variable of the activation of its kind, which is held in one from then on, the address of a String variable, or a
     // cell of its own holding a value that is no variable (MS-VBAL §5.3.1.11). It is made with RuntimeProcedureInvoker.InvokeScalars, as
     // RuntimeExpressionEvaluator.TryInvokeScalars makes a call of a procedure that has parameters - and with the arguments as the interpreter passes them
-    // (CellReference, VBRuntimeReference) when any is passed by reference.
+    // (CellReference, VBRuntimeReference) when any is passed by reference. A member of the class whose code runs, named bare, is called on Me as
+    // MemberCallOf calls one (OwnMemberReceiver), a Property Get of it for what it returns.
     private CallStep? CallOf(BoundCall call, int result, int offset, ScalarKind? resultKind, bool assigns = false)
     {
         if (call is not { Procedure: VBTypeMemberSymbol procedure, BoundArguments: { } arguments, ResultType: null }
             || procedure.GetProperty(SymbolProperties.Library) is not null || procedure.GetProperty(SymbolProperties.ExternalTarget) is not null
-            || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol))
+            || procedure is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol))
         {
             return null;
         }
 
-        var parameters = RuntimeProcedureInvoker.GetParameters(procedure);
-        if (parameters.Length != arguments.Length || parameters is [{ Name: "Me" }, ..])
+        var parameters = RuntimeProcedureInvoker.GetParameters(procedure).AsSpan();
+        int? receiver = null;
+        if (parameters is [{ Name: Tokens.Me }, ..])
+        {
+            if (OwnMemberReceiver(procedure, call.Call.Callee) is not { } me || procedure is VBPropertyGetMemberSymbol && resultKind is null && !assigns)
+            {
+                return null;
+            }
+
+            parameters = parameters[1..];
+            receiver = me;
+        }
+        else if (procedure is VBPropertyGetMemberSymbol)
         {
             return null;
         }
 
-        return CallWith(procedure, parameters.AsSpan(), arguments, result, offset, resultKind, site: null, receiver: null, assigns, call.Call.SourceLocation);
+        if (parameters.Length != arguments.Length)
+        {
+            return null;
+        }
+
+        return CallWith(procedure, parameters, arguments, result, offset, resultKind, site: null, receiver, assigns, call.Call.SourceLocation);
     }
+
+    // a member of the class whose code runs, named bare - `Helper`, `Twice(3)` - is a member of the current instance (MS-VBAL §5.6.10), called on the
+    // activation's own Me, as the interpreter calls it (InvokeProcedureFrom): the Me slot is the object it is called on. A member of another module, named
+    // through it, is no such call.
+    private int? OwnMemberReceiver(VBTypeMemberSymbol procedure, ExpressionNode callee)
+        => MeSlot is { } meSlot && callee is SimpleNameExpressionNode && procedure.ParentUri.AbsoluteUri == _procedure.ParentUri.AbsoluteUri ? meSlot : null;
 
     // a call of a function of the Variant type, or of a scalar type, whose result the statement assigns to a Variant - a variable of the activation, or the
     // result of its own function - as the interpreter assigns it (CompiledCallee.AssignsResult). An expression that is no such call is evaluated as any
@@ -813,6 +838,8 @@ internal sealed partial class ProcedureAnalysis
         {
             BoundCall bound => CallOf(bound, CallStep.NoResult, offset, resultKind: null, assigns: true),
             BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } member => MemberCallOf(member, CallStep.NoResult, offset, resultKind: null, assigns: true),
+            BoundName { Symbol: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol named } when !IsOwnFunction(named)
+                => BareCallOf(named, offset, kind: null, assigned.Expression, assigns: true),
             _ => null,
         };
 
@@ -837,8 +864,8 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        // a member of Me whose result the statement assigns (AssignedCallOf): the object is the activation's own, held in its Me slot.
-        if (assigns && call is { DeclaredClass: not null, Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundInstance { Slot: { } me }, IsLateBound: false }
+        // a member of Me: the object is the activation's own, held in its Me slot.
+        if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundInstance { Slot: { } me }, IsLateBound: false }
             && MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot)
         {
             return MemberCallWith(call, result, offset, resultKind, meSlot, assigns);
@@ -920,7 +947,7 @@ internal sealed partial class ProcedureAnalysis
             }
 
             // a String of a procedure of a standard module, given its text or the cell of a String of the activation.
-            if (parameters[i] is not ParamArrayParameterSymbol && site is null && IsText(parameters[i].ResolvedType))
+            if (parameters[i] is not ParamArrayParameterSymbol && site is null && receiver is null && IsText(parameters[i].ResolvedType))
             {
                 if (TextArgumentOf(arguments[i]) is not { } text)
                 {
@@ -952,6 +979,7 @@ internal sealed partial class ProcedureAnalysis
         Callees.Add(new CompiledCallee(procedure, kinds, resultKind, byReference)
         {
             Site = site,
+            CallsOwnMember = site is null && receiver is not null,
             CallLocation = at,
             AssignsResult = assigns,
             HoldsWhatItReturns = assigns || resultKind is null && ReturnedType(procedure) is VBVariantType,
@@ -1374,7 +1402,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundMember { Member: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and var function } member when _nesting is not null:
                 return NestedCall(member, function);
 
-            case BoundName { Symbol: VBFunctionMemberSymbol function } name when _nesting is not null && !IsOwnFunction(function):
+            case BoundName { Symbol: (VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) and VBTypeMemberSymbol function } name when _nesting is not null && !IsOwnFunction(function):
                 return NestedCall(name, function);
 
             default:

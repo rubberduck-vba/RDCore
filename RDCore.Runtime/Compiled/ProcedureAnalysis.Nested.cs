@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
@@ -81,12 +82,13 @@ internal sealed partial class ProcedureAnalysis
         _ => Calls(node),
     };
 
-    // whether evaluating node calls a procedure: a function, called with arguments or by its bare name, or a function or Property Get member of an object.
+    // whether evaluating node calls a procedure: a function, called with arguments or by its bare name, a Property Get named so, or a function or Property
+    // Get member of an object.
     private bool Calls(BoundNode? node) => node switch
     {
         null => false,
         BoundCall => true,
-        BoundName { Symbol: VBFunctionMemberSymbol function } => !IsOwnFunction(function),
+        BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol),
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
         BoundMember member => Calls(member.Owner) || member.BoundArguments is { } arguments && arguments.Any(argument => Calls(argument.Value)),
         BoundBinary binary => Calls(binary.Left) || Calls(binary.Right),
@@ -111,23 +113,41 @@ internal sealed partial class ProcedureAnalysis
         {
             BoundCall call => CallOf(call, CallStep.NoResult, -1, kind),
             BoundMember member => MemberCallOf(member, CallStep.NoResult, -1, kind),
-            _ => BareCallOf(function, kind, node.Expression.SourceLocation),
+            _ => BareCallOf(function, -1, kind, node.Expression),
         };
 
         // a member of the object of a With block is the interpreter's inside an expression: a call there is made of an object variable's member alone.
         return made is null or { WithAt: not null } ? Unsupported(node) : new CallNode(made.Callee, made.Arguments, made.Receiver, kind, syntax);
     }
 
-    // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10).
-    private CallStep? BareCallOf(VBTypeMemberSymbol function, ScalarKind kind, SourceLocation at)
+    // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10); and a member of the class whose code runs
+    // named so, called on Me (OwnMemberReceiver): a Function or a Property Get for what it returns, or whose result the statement assigns (AssignedCallOf), and
+    // a Sub or a Function as a statement, whose kind is null.
+    private CallStep? BareCallOf(VBTypeMemberSymbol function, int offset, ScalarKind? kind, ExpressionNode named, bool assigns = false)
     {
-        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null
-            || RuntimeProcedureInvoker.GetParameters(function) is not { Length: 0 } parameters)
+        if (function.GetProperty(SymbolProperties.Library) is not null || function.GetProperty(SymbolProperties.ExternalTarget) is not null)
         {
             return null;
         }
 
-        return CallWith(function, parameters.AsSpan(), [], CallStep.NoResult, -1, kind, site: null, receiver: null, assigns: false, at);
+        var parameters = RuntimeProcedureInvoker.GetParameters(function).AsSpan();
+        int? receiver = null;
+        if (parameters is [{ Name: Tokens.Me }, ..])
+        {
+            if (OwnMemberReceiver(function, named) is not { } me || function is VBPropertyGetMemberSymbol && kind is null && !assigns)
+            {
+                return null;
+            }
+
+            parameters = parameters[1..];
+            receiver = me;
+        }
+        else if (function is VBPropertyGetMemberSymbol || kind is null && !assigns)
+        {
+            return null;
+        }
+
+        return parameters.IsEmpty ? CallWith(function, parameters, [], CallStep.NoResult, offset, kind, site: null, receiver, assigns, named.SourceLocation) : null;
     }
 
     // a variable, or the function result variable, read in an instruction that calls inside an expression: known as it was read.
