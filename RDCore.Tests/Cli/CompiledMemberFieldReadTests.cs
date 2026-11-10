@@ -119,7 +119,7 @@ public sealed class CompiledMemberFieldReadTests
             "        Next",
             "        Bumps = Bumps * 100 + .Bump() * 10 + .X",
             "    End With",
-            "End Function"]), "Bumps", direct: 4, recoveries: 2, expected: "1122344");
+            "End Function"]), "Bumps", direct: 4, recoveries: 1, expected: "1122344");
 
     // a variable of the default instance of a class.
     [TestMethod]
