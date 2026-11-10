@@ -5,7 +5,7 @@
 
 ## Static Semantics
 
-[VBVoidType](../api/RDCore.SDK.Model.Types.Complex.VBVoidType.html) is the data type returned by `Sub`,
+[VBVoidType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBVoidType.html) is the data type returned by `Sub`,
 `Property Let` and `Property Set` procedures; see
 [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md).
 
@@ -19,7 +19,7 @@ A `Sub`'s own symbol already carries `VBVoidType` as its type. See
 
 - Each invocation of a `Function` or `Property Get` gets a fresh function result variable.
 - The function result variable is modeled as
-  [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`, a
+  [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ReturnValue`, a
   single per-activation slot.
 - `ICallStackFrame.ReturnValue` is read-only on the SDK interface, like `ICallStackFrame.Pc`; it is mutable on
   the runtime's `CallStackFrame`.
@@ -43,7 +43,7 @@ type or as a `Variant` that holds the object.
 |Procedure|Result of a successful invocation|
 |---|---|
 |`Function`, `Property Get`|The value of its own function result variable.|
-|`Sub`|[VBVoidValue](../api/RDCore.SDK.Model.Values.VBVoidValue.html)|
+|`Sub`|[VBVoidValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.VBVoidValue.html)|
 
 `RuntimeProcedureInvoker` reads `frame.ReturnValue` back once `ExitProcedure` is reached, and reports it as the
 call's result. See

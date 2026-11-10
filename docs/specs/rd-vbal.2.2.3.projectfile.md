@@ -3,9 +3,9 @@
 > [!NOTE]
 > This specification may be incomplete at this time.
 
-RD-VBA discovers a _file system folder_ as a _workspace folder_ when the folder contains a text file named `.rdproj` that can be successfully _deserialized_ into a [`ProjectFile`](../api/RDCore.SDK.Workspace.ProjectFile.html). That folder is then the _root_ of that _workspace folder_.
+RD-VBA discovers a _file system folder_ as a _workspace folder_ when the folder contains a text file named `.rdproj` that can be successfully _deserialized_ into a [`ProjectFile`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectFile.html). That folder is then the _root_ of that _workspace folder_.
 
-A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes one in memory ([`IProjectFileLoader.LoadOrSynthesizeAsync`](../api/RDCore.SDK.Workspace.IProjectFileLoader.html)), and opening the folder writes nothing into it.
+A folder that contains no `.rdproj` is the project it holds: RD-VBA synthesizes one in memory ([`IProjectFileLoader.LoadOrSynthesizeAsync`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.IProjectFileLoader.html)), and opening the folder writes nothing into it.
 
 - Every source file of the workspace's language (**RD-VBAL §2.0.2.1.1**) under the folder, at any depth, is a module. A folder whose name starts with a dot (`.git`, `.github`) is not searched, nor a link to another folder.
 - Each folder that holds a module, at any depth, is a folder of the project.
@@ -65,7 +65,7 @@ Who is asked:
 
 ## 2.2.3.1 RDCoreProject
 
-[`RDCoreProject`](../api/RDCore.SDK.Workspace.RDCoreProject.html) is a _serializable_ model representing an RD-VBA _project_.
+[`RDCoreProject`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.RDCoreProject.html) is a _serializable_ model representing an RD-VBA _project_.
 
 ```javascript
 {
@@ -96,7 +96,7 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 
 ## 2.2.3.2 RDCoreReference
 
-[`RDCoreReference`](../api/RDCore.SDK.Workspace.RDCoreReference.html) describes a _reference_ within a _project_.
+[`RDCoreReference`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.RDCoreReference.html) describes a _reference_ within a _project_.
 
 ```javascript
 {
@@ -120,15 +120,15 @@ The _standard library_ symbols are present in a project whether or not its `.rdp
 
 A reference with a `Guid` is resolved against the library descriptions that ship with the platform, without the Windows registry: each description states the identifier and version of the type library it was made from. A reference whose identifier and version match no description cannot be resolved, and the library of its name is not used in its place ([**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md#the-library-a-reference-is)).
 
-An `RDCoreReference` for a reference to a [`VBHostProjectType`](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
+An `RDCoreReference` for a reference to a [`VBHostProjectType`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html) project must have the "unremovable" flag (`IsUnremovable`) set (see [**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
 The order in which project references appear in the `.rdproj` file of a _workspace folder_ determines their _reference precedence_: a reference that appears earlier has the higher precedence (**MS-VBAL §4.1**), and the `VBA` standard library comes before every reference the file lists (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#reference-precedence)).
 
-[`IRuntimeSession`](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeSession.html)`.References` is the runtime-facing view of the `.rdproj` `RDCoreReference` list (see [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
+[`IRuntimeSession`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeSession.html)`.References` is the runtime-facing view of the `.rdproj` `RDCoreReference` list (see [**RD-VBAL §2.3.1.2** Session Services](rd-vbal.2.3.1.2.session-services.md)).
 
 ## 2.2.3.3 RDCoreModule
 
-[`RDCoreModule`](../api/RDCore.SDK.Workspace.RDCoreModule.html) describes the modules (source files) of a _workspace folder_. A standard or class module is its path, relative to the root; a document module is an object that also says its document:
+[`RDCoreModule`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.RDCoreModule.html) describes the modules (source files) of a _workspace folder_. A standard or class module is its path, relative to the root; a document module is an object that also says its document:
 
 ```javascript
 "Modules": [
@@ -143,7 +143,7 @@ The order in which project references appear in the `.rdproj` file of a _workspa
 |`RelativeUri`|The path of the module's source file, relative to the root of the _workspace folder_, separated by `/`.|
 |`Super`|A `string` value that can be parsed as a member of the [`DocClassType`](#22331-docclasstype-enum) enumeration: `"ExcelWorksheet"`. A number (`2`) is read the same, and written as the name.|
 
-A module whose `Super` is set is a _document module_, whatever its text and its file name say: its export (a `.doccls`, or a `.cls` from the VBE) has no header that would say so. Any other module is a class module when its text has a `VERSION` header, and a standard module otherwise. The environment host and the language server decide it the same way ([`ModuleKinds.Of`](../api/RDCore.SDK.Workspace.ModuleKinds.html)). An object with no `Super`, or a `null` one, is read as the module's path alone.
+A module whose `Super` is set is a _document module_, whatever its text and its file name say: its export (a `.doccls`, or a `.cls` from the VBE) has no header that would say so. Any other module is a class module when its text has a `VERSION` header, and a standard module otherwise. The environment host and the language server decide it the same way ([`ModuleKinds.Of`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ModuleKinds.html)). An object with no `Super`, or a `null` one, is read as the module's path alone.
 
 > [!IMPORTANT]
 > A module's name **must** be unique within its _project_. A project is its own namespace: two projects of a _workspace_ can each have a `Module1`.
@@ -157,7 +157,7 @@ A module's name is its `VB_Name` _attribute_ (see [**RD-VBAL §3.1.1** Attribute
 > [!NOTE]
 > This `enum` type is an extension point: it is intended to be extended as additional _document modules_ are explicitly supported.
 
-The [`DocClassType`](../api/RDCore.SDK.Workspace.DocClassType.html) enumeration defines constants that map _document modules_ to the class of the host library their document is an object of ([`ModuleKinds.HostClassOf`](../api/RDCore.SDK.Workspace.ModuleKinds.html)):
+The [`DocClassType`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.DocClassType.html) enumeration defines constants that map _document modules_ to the class of the host library their document is an object of ([`ModuleKinds.HostClassOf`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ModuleKinds.html)):
 
 |Name|Value|Host class|
 |---|---|---|
@@ -185,7 +185,7 @@ RD-VBA is not hosted: it runs VBA outside of any host application, and automates
 
 ## 2.2.3.4 RDCoreFile
 
-[`RDCoreFile`](../api/RDCore.SDK.Workspace.RDCoreFile.html) describes additional (non-source) files contained in a _workspace folder_, but not necessarily given to a _language server_ for processing.
+[`RDCoreFile`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.RDCoreFile.html) describes additional (non-source) files contained in a _workspace folder_, but not necessarily given to a _language server_ for processing.
 
 > [!TIP]
 > For example, an `RDCoreProject` could include `README.md`, `CONTRIBUTING.md`, and `LICENCE.md` text/markdown files as `RDCoreFile` entries. These files would always be bundled with the project, but ignored by the RD-VBA _language core_.
@@ -200,7 +200,7 @@ An object with a `RelativeUri` member is read the same.
 
 ## 2.2.3.5 Importing a VB6 Project
 
-A VB6 project (`.vbp`) is imported as the `RDCoreProject` of its folder ([`VbpProjectImporter`](../api/RDCore.SDK.Workspace.VbpProjectImporter.html)): the `.rdproj` is written next to the `.vbp`, which is read and left as it is. A `.vbp` is read in the ANSI code page of the environment, as VB6 writes it, unless it starts with a byte-order mark (a copy re-encoded in UTF-8); its keys are read up to its first `[section]`, the settings of add-ins.
+A VB6 project (`.vbp`) is imported as the `RDCoreProject` of its folder ([`VbpProjectImporter`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.VbpProjectImporter.html)): the `.rdproj` is written next to the `.vbp`, which is read and left as it is. A `.vbp` is read in the ANSI code page of the environment, as VB6 writes it, unless it starts with a byte-order mark (a copy re-encoded in UTF-8); its keys are read up to its first `[section]`, the settings of add-ins.
 
 |`.vbp` key|Becomes|
 |---|---|
@@ -229,7 +229,7 @@ What cannot be carried over is skipped, and the import says what and why, in the
 |The project's type (`Type=Exe`, `OleDll`, `OleExe`, `Control`)|A project file does not say it yet: whether the project is run, or used by being referenced.|
 |Conditional compilation arguments VB6 refuses|VB6 refuses the whole line.|
 
-A folder that has a `.rdproj` already keeps what the `.vbp` does not describe ([`VbpImport.Into`](../api/RDCore.SDK.Workspace.VbpImport.html)). The `.vbp` describes the project's name, references, modules and other files, their folders, and its conditional compilation arguments, which replace what the `.rdproj` says of them: a file the `.vbp` no longer lists is no longer the project's. The project file's settings files (`Configuration`), the document class of a module (`Super`, by its path), and the type library information of a reference (`TypeLibInfoPath`, by its name) are kept, so a client that keeps a `.vbp` and a `.rdproj` in step can import the `.vbp` again after each change. A `.rdproj` that cannot be read is replaced whole. The `.rdproj` the import writes records the `.vbp` it was made of (`SourceProject`).
+A folder that has a `.rdproj` already keeps what the `.vbp` does not describe ([`VbpImport.Into`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.VbpImport.html)). The `.vbp` describes the project's name, references, modules and other files, their folders, and its conditional compilation arguments, which replace what the `.rdproj` says of them: a file the `.vbp` no longer lists is no longer the project's. The project file's settings files (`Configuration`), the document class of a module (`Super`, by its path), and the type library information of a reference (`TypeLibInfoPath`, by its name) are kept, so a client that keeps a `.vbp` and a `.rdproj` in step can import the `.vbp` again after each change. A `.rdproj` that cannot be read is replaced whole. The `.rdproj` the import writes records the `.vbp` it was made of (`SourceProject`).
 
 `rdcore.importProject` imports a VB6 project in a client of the platform ([**RD-VBAL §2.0.2**](rd-vbal.2.0.2.client-server-capabilities.md#workspaceexecutecommand)). `rdc import <path>` does in command mode, without starting the platform: `<path>` is the `.vbp`, or a folder with one. It writes what was skipped as warnings. A folder that has a `.rdproj` already keeps it, unless `--force` is given. It exits with `1` when `<path>` is not found, or is a folder with no `.vbp` or several.
 

@@ -7,10 +7,10 @@
 
 |Form|AST node|Instruction kind(s)|Notes|
 |---|---|---|---|
-|`Print #`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The file-number form. `Token`: `Print`.|
-|`Print`|[PrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The bare form, with no file number (`FileNumber` is `null`): `Print "x"`. See below.|
-|`Owner.Print`|[ObjectPrintExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|None|The object-qualified form.|
-|`Debug.Print`|[DebugPrintStatementNode](../api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|`Simple`|The object-qualified form whose owner is `Debug`.|
+|`Print #`|[PrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The file-number form. `Token`: `Print`.|
+|`Print`|[PrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.PrintStatementNode.html)|`Simple`|The bare form, with no file number (`FileNumber` is `null`): `Print "x"`. See below.|
+|`Owner.Print`|[ObjectPrintExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.ObjectPrintExpressionNode.html)|None|The object-qualified form.|
+|`Debug.Print`|[DebugPrintStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.DebugPrintStatementNode.html)|`Simple`|The object-qualified form whose owner is `Debug`.|
 
 `Debug` is written only as this statement and `Debug.Assert`: any other use of the name is a syntax error, as it is in
 MS-VBA (see [**RD-VBAL §5.4.2.23** Assert Statement](rd-vbal.5.4.2.23.assert-statement.md)).
@@ -25,7 +25,7 @@ The output list these nodes carry is described in [5.4.5.8.1 Output Lists](#5458
 ### The bare `Print`
 
 Whether there is a bare `Print` at all is the language's to say
-([`SupportedLanguage.HasBarePrint`](../api/RDCore.SDK.Workspace.SupportedLanguage.html)):
+([`SupportedLanguage.HasBarePrint`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.SupportedLanguage.html)):
 
 |Language|A `Print` with no file number|
 |---|---|
@@ -65,7 +65,7 @@ whose default member takes an argument (a `Collection`) error 450.
 ## Implementation
 
 `Print #` writes through the channel's character output surface,
-[IFileChannelOutput](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html), which it shares with
+[IFileChannelOutput](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannelOutput.html), which it shares with
 `Write #`. `Width #` sets that surface's maximum line length
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
 
@@ -78,9 +78,9 @@ whose default member takes an argument (a `Collection`) error 450.
 
 |Node|Represents|
 |---|---|
-|[PrintOutputItemNode](../api/RDCore.SDK.Model.AST.Expressions.PrintOutputItemNode.html)|An output item: a value and/or a `;` or `,` separator.|
-|[PrintSpcClauseNode](../api/RDCore.SDK.Model.AST.Expressions.PrintSpcClauseNode.html)|A `Spc` clause.|
-|[PrintTabClauseNode](../api/RDCore.SDK.Model.AST.Expressions.PrintTabClauseNode.html)|A `Tab` clause.|
+|[PrintOutputItemNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.PrintOutputItemNode.html)|An output item: a value and/or a `;` or `,` separator.|
+|[PrintSpcClauseNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.PrintSpcClauseNode.html)|A `Spc` clause.|
+|[PrintTabClauseNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.PrintTabClauseNode.html)|A `Tab` clause.|
 
 > [!TIP]
 > In a parsed output list, a value and the `;` or `,` after it are always two separate `PrintOutputItemNode`s: one

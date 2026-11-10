@@ -8,7 +8,7 @@ A procedure of a class module is an implemented name declaration when its name i
 the module implements ([**RD-VBAL §5.2.4.2**](rd-vbal.5.2.4.class-module-declarations.md)), an underscore, and the name of a public variable or
 method of that class, the _interface member_. It is the same naming that handles an event ([**RD-VBAL §5.3.1.8**](rd-vbal.5.3.1.8.event-handler-declarations.md))
 and a lifecycle event ([**RD-VBAL §5.3.1.10**](rd-vbal.5.3.1.10.lifecycle-handler-declarations.md)).
-[VBClassModuleSymbol](../api/RDCore.SDK.Model.Symbols.VBClassModuleSymbol.html)`.FindImplementation` finds it, of the kind the member calls for.
+[VBClassModuleSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBClassModuleSymbol.html)`.FindImplementation` finds it, of the kind the member calls for.
 
 `ImplementsSemantics` reports an implemented name declaration that does not
 correspond to its member as [VBC09330](../diagnostics/vbc09330.md):

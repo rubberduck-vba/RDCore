@@ -13,14 +13,14 @@ The meta types are:
 
 |Meta type|Section|
 |---|---|
-|[VBTypeDesc](../api/RDCore.SDK.Model.Types.Meta.VBTypeDesc.html)|[§2.4.3.1](#2431-vbtypedesc)|
-|[VBMemberDesc](../api/RDCore.SDK.Model.Types.Meta.VBMemberDesc.html)|[§2.4.3.2](#2432-vbmemberdesc)|
+|[VBTypeDesc](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Meta.VBTypeDesc.html)|[§2.4.3.1](#2431-vbtypedesc)|
+|[VBMemberDesc](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Meta.VBMemberDesc.html)|[§2.4.3.2](#2432-vbmemberdesc)|
 
 ## 2.4.3.1 VBTypeDesc
 
-`VBTypeDesc` represents (describes) a [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html) within the type system.
+`VBTypeDesc` represents (describes) a [VBType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBType.html) within the type system.
 
-A value of the `VBTypeDesc` meta type, a [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html), is used in the implementation of:
+A value of the `VBTypeDesc` meta type, a [VBTypeDescValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html), is used in the implementation of:
 
 - the `Is` relational operator (see [**RD-VBAL §5.6.9.7** Is Operator](rd-vbal.5.6.9.7.is-operator.md));
 - _let-coercion_ (see [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md)).
@@ -35,7 +35,7 @@ Both use a `VBTypeDescValue` because their semantics demand knowledge of a _data
 
 ## 2.4.3.2 VBMemberDesc
 
-`VBMemberDesc` is an _abstract_ descriptor that represents (describes) any [VBTypeMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol.html). It holds the member's parameters as they are declared, each a [VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html).
+`VBMemberDesc` is an _abstract_ descriptor that represents (describes) any [VBTypeMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol.html). It holds the member's parameters as they are declared, each a [VBParameterSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html).
 
 RD-VBAL groups the following member descriptors under `VBMemberDesc`:
 
@@ -48,19 +48,19 @@ RD-VBAL groups the following member descriptors under `VBMemberDesc`:
 
 ### 2.4.3.2.1 VBProcedureMemberDesc
 
-[VBProcedureMemberDesc](../api/RDCore.SDK.Model.Types.Meta.VBProcedureMemberDesc.html) is a descriptor that represents (describes) any [VBProcedureMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol.html).
+[VBProcedureMemberDesc](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Meta.VBProcedureMemberDesc.html) is a descriptor that represents (describes) any [VBProcedureMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBProcedureMemberSymbol.html).
 
 ### 2.4.3.2.2 VBPropertyLetProcedureDesc
 
-[VBPropertyLetProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBPropertyLetProcedureDesc.html) is a descriptor that represents (describes) a [VBPropertyLetMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBPropertyLetMemberSymbol.html).
+[VBPropertyLetProcedureDesc](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Meta.VBPropertyLetProcedureDesc.html) is a descriptor that represents (describes) a [VBPropertyLetMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBPropertyLetMemberSymbol.html).
 
 ### 2.4.3.2.3 VBPropertySetProcedureDesc
 
-[VBPropertySetProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBPropertySetProcedureDesc.html) is a descriptor that represents (describes) a [VBPropertySetMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBPropertySetMemberSymbol.html).
+[VBPropertySetProcedureDesc](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Meta.VBPropertySetProcedureDesc.html) is a descriptor that represents (describes) a [VBPropertySetMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBPropertySetMemberSymbol.html).
 
 ### 2.4.3.2.4 VBReturningMemberDesc
 
-[VBReturningMemberDesc](../api/RDCore.SDK.Model.Types.Meta.VBReturningMemberDesc.html) is an _abstract_ descriptor that represents (describes) any [VBReturningMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html).
+[VBReturningMemberDesc](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Meta.VBReturningMemberDesc.html) is an _abstract_ descriptor that represents (describes) any [VBReturningMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html).
 
 RD-VBAL groups the following descriptors under `VBReturningMemberDesc`:
 
@@ -70,4 +70,4 @@ RD-VBAL groups the following descriptors under `VBReturningMemberDesc`:
 
 #### 2.4.3.2.4.1 VBFunctionProcedureDesc
 
-[VBFunctionProcedureDesc](../api/RDCore.SDK.Model.Types.Meta.VBFunctionProcedureDesc.html) is a descriptor that represents (describes) a [VBFunctionMemberSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol.html).
+[VBFunctionProcedureDesc](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Meta.VBFunctionProcedureDesc.html) is a descriptor that represents (describes) a [VBFunctionMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBFunctionMemberSymbol.html).

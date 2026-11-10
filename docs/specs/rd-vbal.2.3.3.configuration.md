@@ -6,8 +6,8 @@ deployed `appsettings.json` is never written to.
 
 ## Settings
 
-The settings of the platform are read off its settings types ([`SettingsSchema`](../api/RDCore.SDK.Server.Configuration.SettingsSchema.html)): the platform's
-own ([`SdkAppOptions`](../api/RDCore.SDK.Server.Configuration.SdkAppOptions.html)), the console's (`CLI`), and those of each extension, which its manifest carries
+The settings of the platform are read off its settings types ([`SettingsSchema`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SettingsSchema.html)): the platform's
+own ([`SdkAppOptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SdkAppOptions.html)), the console's (`CLI`), and those of each extension, which its manifest carries
 ([**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)). A setting is named by its key: its sections and its name, separated by dots
 (`Server.Verbose`), compared without regard to case.
 
@@ -19,7 +19,7 @@ own ([`SdkAppOptions`](../api/RDCore.SDK.Server.Configuration.SdkAppOptions.html
 |Text|Any text, to the end of the line.|
 |List of texts|Texts separated by commas (`Platform.Extensions.Allowed RDCore.Diagnostics, Other`).|
 
-When a change of a setting takes effect is part of the setting ([`SettingAttribute`](../api/RDCore.SDK.Server.Configuration.SettingAttribute.html)):
+When a change of a setting takes effect is part of the setting ([`SettingAttribute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SettingAttribute.html)):
 
 |Reach|Takes effect|Examples|
 |---|---|---|
@@ -31,7 +31,7 @@ A `Deployment` setting is read before there is a client to ask: which component 
 would keep the platform from starting, and with it the client that could put it back.
 
 A setting that decides what a program may do to the machine it runs on is _trust-sensitive_
-([`TrustSensitiveSettingAttribute`](../api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)): `Environment.AllowDllImports`,
+([`TrustSensitiveSettingAttribute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)): `Environment.AllowDllImports`,
 `Environment.AllowAutomation`, `Environment.LegacyRegistrySettings`, and `Platform.Extensions.*`. Setting one says so, with a caution callout.
 
 ### Run-time Error Details
@@ -66,7 +66,7 @@ The engine is independent of the other two: a release build lowers the same stat
 ### User Interface Language
 
 `Environment.Regional.Language` is the language of the platform's messages: the shell's, the language server's, the diagnostics', and those of every other
-component ([`UserInterfaceLanguage`](../api/RDCore.SDK.Server.UserInterfaceLanguage.html)). The platform's messages are in English and French.
+component ([`UserInterfaceLanguage`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.UserInterfaceLanguage.html)). The platform's messages are in English and French.
 
 |Value|The messages are in|Said once, as a component starts|
 |---|---|---|
@@ -91,10 +91,10 @@ what `Format` writes. Under `fr`, `CStr(2.5)` is `2.5`.
 
 What a user sets is kept in `user.settings.json`, in the user's folder of the platform: `RDCore` in the user's roaming application data (`%APPDATA%` on Windows,
 `~/.config` elsewhere; `RDCORE_USER_DATA` names another folder). The file has the shape of an `appsettings.json`, and holds only what the user set
-([`UserSettingsStore`](../api/RDCore.SDK.Server.Configuration.UserSettingsStore.html)).
+([`UserSettingsStore`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.UserSettingsStore.html)).
 
 Each component reads it after its deployed `appsettings.json`, and before the environment variables and the command line it is started with
-([`UserSettingsConfiguration`](../api/RDCore.SDK.Server.Configuration.UserSettingsConfiguration.html)):
+([`UserSettingsConfiguration`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.UserSettingsConfiguration.html)):
 
 |Source|Precedence|
 |---|---|
@@ -121,7 +121,7 @@ A `Live` setting takes effect while the platform runs. The client says it, as **
    component's, and is passed on as it is.
 
 A server asks for the section when it is initialized, too. A live setting the client says nothing of takes the value the component started with back. A value
-a setting cannot be is not set ([`LiveSettings`](../api/RDCore.SDK.Server.Configuration.LiveSettings.html)).
+a setting cannot be is not set ([`LiveSettings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.LiveSettings.html)).
 
 A live setting is set on the object the component reads its settings off, in place. What reads a setting each time it uses it reads the new value:
 
@@ -137,8 +137,8 @@ A live setting is set on the object the component reads its settings off, in pla
 
 ## Formatting
 
-The `Formatting` section is what formats and completes code ([`SdkFormattingOptions`](../api/RDCore.SDK.Server.Configuration.SdkFormattingOptions.html)). A
-formatting engine is told the options these settings say ([`CodeFormattingOptions`](../api/RDCore.SDK.Formatting.CodeFormattingOptions.html)); the numbers
+The `Formatting` section is what formats and completes code ([`SdkFormattingOptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SdkFormattingOptions.html)). A
+formatting engine is told the options these settings say ([`CodeFormattingOptions`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Formatting.CodeFormattingOptions.html)); the numbers
 are kept to the limits of their settings. The indentation is made of spaces, as VBA code is.
 
 The settings take effect with the formatter, which reads them each time it formats: the platform keeps them and hands them to it as it arrives, and until then they
@@ -188,7 +188,7 @@ RDCore's own:
 A client owns its configuration (**LSP 3.17** §Configuration Request), so the platform sets nothing of it and tells the editor nothing: the flow is one way, from the
 client to the server. A change of the editor's tab size is a change of configuration like any other: the client says so (`workspace/didChangeConfiguration`), and the
 server asks (`workspace/configuration`) for the section `rdcore`, which holds `Formatting.IndentSpaces` when the user set it, and for `editor.tabSize`
-([`FormattingTabSize`](../api/RDCore.SDK.Formatting.FormattingTabSize.html)).
+([`FormattingTabSize`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Formatting.FormattingTabSize.html)).
 
 |The user set `IndentSpaces`|The editor has a tab size|The server has `Formatting.IndentSpaces` =|
 |---|---|---|
@@ -226,12 +226,12 @@ The shell completes the arguments of `CONFIG` a part at a time: the sections, th
 
 |Type or member|Role|
 |---|---|
-|[`SettingsSchema`](../api/RDCore.SDK.Server.Configuration.SettingsSchema.html)|The settings, read off the settings types; parses a value as a setting has it.|
-|[`SettingAttribute`](../api/RDCore.SDK.Server.Configuration.SettingAttribute.html), [`TrustSensitiveSettingAttribute`](../api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)|When a change of a setting takes effect; whether it is trust-sensitive.|
-|[`UserSettingsStore`](../api/RDCore.SDK.Server.Configuration.UserSettingsStore.html)|Reads, sets and resets what the user set.|
-|[`UserSettingsConfiguration.AddUserSettings`](../api/RDCore.SDK.Server.Configuration.UserSettingsConfiguration.html)|Adds the user's settings to a component's configuration, checked against its settings.|
-|[`LiveSettings`](../api/RDCore.SDK.Server.Configuration.LiveSettings.html), [`LiveSettingsTarget`](../api/RDCore.SDK.Server.Configuration.LiveSettingsTarget.html)|Sets the live settings a client said on a component's settings objects; what it hands down.|
-|[`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)|The section `rdcore`: what a client answers `workspace/configuration` with, and what a server reads of it.|
-|[`AppHost.Settings`](../api/RDCore.SDK.Server.AppHost-1.html)|The settings of a component: the platform's, combined with the component's own.|
-|[`UserInterfaceLanguage`](../api/RDCore.SDK.Server.UserInterfaceLanguage.html)|Applies `Environment.Regional.Language` as a component starts, and says what came of it.|
-|[`ExtensionSettingsAttribute`](../api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html)|The settings an extension is configured with, written into its manifest.|
+|[`SettingsSchema`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SettingsSchema.html)|The settings, read off the settings types; parses a value as a setting has it.|
+|[`SettingAttribute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.SettingAttribute.html), [`TrustSensitiveSettingAttribute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.TrustSensitiveSettingAttribute.html)|When a change of a setting takes effect; whether it is trust-sensitive.|
+|[`UserSettingsStore`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.UserSettingsStore.html)|Reads, sets and resets what the user set.|
+|[`UserSettingsConfiguration.AddUserSettings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.UserSettingsConfiguration.html)|Adds the user's settings to a component's configuration, checked against its settings.|
+|[`LiveSettings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.LiveSettings.html), [`LiveSettingsTarget`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.LiveSettingsTarget.html)|Sets the live settings a client said on a component's settings objects; what it hands down.|
+|[`LiveSettingsProtocol`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)|The section `rdcore`: what a client answers `workspace/configuration` with, and what a server reads of it.|
+|[`AppHost.Settings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.AppHost-1.html)|The settings of a component: the platform's, combined with the component's own.|
+|[`UserInterfaceLanguage`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.UserInterfaceLanguage.html)|Applies `Environment.Regional.Language` as a component starts, and says what came of it.|
+|[`ExtensionSettingsAttribute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.ExtensionSettingsAttribute.html)|The settings an extension is configured with, written into its manifest.|

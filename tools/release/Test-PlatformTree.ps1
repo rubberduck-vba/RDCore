@@ -134,9 +134,11 @@ if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Conta
     }
 }
 
-# (c) every first-party assembly carries the same informational version, <platformVersion>+<commit>
+# (c) every first-party assembly carries the same informational version, <platformVersion>+<commit>. RDCore.SDK and
+# RDCore.SDK.Protocol come from their NuGet package and carry its version instead: the same one in every folder.
+$SdkAssemblyNames = @("RDCore.SDK.dll", "RDCore.SDK.Protocol.dll")
 $Assemblies = @(Get-ChildItem -LiteralPath $Root -Recurse -File |
-    Where-Object { ($_.Name -like "RDCore.*.dll" -or $_.Name -eq "rdc.dll") -and $_.Name -notlike "*.resources.dll" })
+    Where-Object { ($_.Name -like "RDCore.*.dll" -or $_.Name -eq "rdc.dll") -and $_.Name -notlike "*.resources.dll" -and $_.Name -notin $SdkAssemblyNames })
 if ($Assemblies.Count -eq 0) {
     Add-Failure "no first-party assemblies (RDCore.*.dll, rdc.dll) found."
 }
@@ -149,12 +151,18 @@ if ($Manifest -and $Manifest.platformVersion -and $Manifest.commit) {
         }
     }
 }
+foreach ($name in $SdkAssemblyNames) {
+    $copies = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Filter $name)
+    if ($copies.Count -eq 0) { Add-Failure "$name is missing from the tree."; continue }
+    $versions = @($copies | ForEach-Object { [Diagnostics.FileVersionInfo]::GetVersionInfo($_.FullName).ProductVersion } | Sort-Object -Unique)
+    if ($versions.Count -ne 1) { Add-Failure "$($name): the component folders ship different versions ($($versions -join ', '))." }
+}
 if ($ExpectedCommit -and $Manifest -and $Manifest.commit -cne $ExpectedCommit.ToLowerInvariant()) {
     Add-Failure "rdcore.json: commit '$($Manifest.commit)' is not the expected commit '$ExpectedCommit'."
 }
 
 # (d) the documents every tree ships, and with -RequireReleaseFiles the release files and release.json's inventory
-$Required = @("LICENSE-GPLv3.md", "LICENSE-MIT.md", "NOTICE.md")
+$Required = @("LICENSE-GPLv3.md", "NOTICE.md")
 if ($RequireReleaseFiles) { $Required += @("THIRD-PARTY-NOTICES.txt", "SOURCE.md", "release.json") }
 foreach ($file in $Required) {
     if (-not (Test-Path -LiteralPath (Join-Path $Root $file) -PathType Leaf)) { Add-Failure "$file is missing from the platform root." }

@@ -7,7 +7,7 @@ _Let-coercion_ is the implicit conversion applied to an operand, or to an assign
 required _destination declared type_.
 
 In the operator evaluation pipeline, the validation step let-coerces all non-null operands
-(non-[VBNullValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)) to the determined _effective type_ of
+(non-[VBNullValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)) to the determined _effective type_ of
 the operation ([**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)).
 
 
@@ -23,13 +23,13 @@ destination type.
    performed once, by the provider, on behalf of every strategy. It is recursive, because a `Variant` may wrap
    another `Variant`.
 2. The provider resolves the strategy by walking the base-type chain of the destination
-   [VBType](../api/RDCore.SDK.Model.Types.Abstract.VBType.html). One strategy keyed on `VBNumericType` serves every
+   [VBType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBType.html). One strategy keyed on `VBNumericType` serves every
    concrete numeric type
    ([**RD-VBAL §5.5.1.2.1** Let-coercion between numeric types](#55121-let-coercion-between-numeric-types)).
 
 Every let-coercion strategy casts `frame.SourceValue` directly to its own concrete value type. The provider unwraps a
 `Variant` source before dispatch so that the direct cast of every strategy sees the wrapped value rather than the
-[VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html).
+[VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html).
 
 Strategy dispatch is keyed on the destination type. It selects the right strategy for a `Variant` source as well,
 because the `Variant`'s `TypeInfo` mirrors its wrapped value's
@@ -45,7 +45,7 @@ reached only by a direct call of the provider.
 
 `LetCoercionRuntimeSemanticsProvider.Analyze` asks the destination's strategy, which says nothing about a `Null`
 source. The provider itself flags a `Null` source whose coercion raises an error as
-[ConversionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ConversionSemanticFlags.html)`.Failed`, whether the `Null`
+[ConversionSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.ConversionSemanticFlags.html)`.Failed`, whether the `Null`
 is the source or the value a `Variant` source holds: `L = Null` and `L = v`, with `v` a `Variant` holding `Null` and
 `L` a `Long`, are both a failed coercion. An `Error` source is not flagged `Failed`.
 
@@ -53,25 +53,25 @@ is the source or the value a `Variant` source holds: `L = Null` and `L = v`, wit
 ## Coercion frame stack
 
 The let-coercion provider maintains a coercion frame stack (see
-[LetCoercionStackFrame](../api/RDCore.SDK.Runtime.Shared.LetCoercionStackFrame.html)).
+[LetCoercionStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.LetCoercionStackFrame.html)).
 
 A _recursive let-coercion_ is a strategy that must coerce through an intermediate type, e.g.
 `Date → Double → Integer`. The coercion frame stack detects a recursive let-coercion and reports it as
 `OutOfStackSpace` (`VBRuntimeErrorId`) rather than overflowing
 the call stack.
 
-A [VBTypeDescValue](../api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html) is used in the implementation of
+A [VBTypeDescValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Meta.VBTypeDescValue.html) is used in the implementation of
 let-coercion, where semantics demand knowledge of a _data type_ where a _value_ is normally required
 ([**RD-VBAL §2.4.3** Meta and Advanced Types](rd-vbal.2.4.3.meta-and-advanced-types.md)).
 
 
 ## Let-coercion result
 
-Each let-coercion step yields a [LetCoercionResult](../api/RDCore.SDK.Runtime.Shared.LetCoercionResult.html):
+Each let-coercion step yields a [LetCoercionResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.LetCoercionResult.html):
 
 |Result|Carries|
 |---|---|
-|`Success`|The coerced [VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).|
+|`Success`|The coerced [VBTypedValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).|
 |`Error`|A run-time error, such as `TypeMismatch` or `Overflow` (`VBRuntimeErrorId`).|
 |`NotApplicable`|None|
 
@@ -79,10 +79,10 @@ Each let-coercion step yields a [LetCoercionResult](../api/RDCore.SDK.Runtime.Sh
 ## Let-coercion strategies
 
 The let-coercion strategy contract is
-[ILetCoercionRuntimeSemantics](../api/RDCore.SDK.Runtime.Abstract.ILetCoercionRuntimeSemantics.html).
+[ILetCoercionRuntimeSemantics](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.ILetCoercionRuntimeSemantics.html).
 `ILetCoercionRuntimeSemantics.EvaluateLetCoercion` and `ILetCoercionRuntimeSemantics.Analyze` take the coerced value's
-own [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html) rather than a
-[VBOperatorExpression](../api/RDCore.SDK.Model.AST.Expressions.VBOperatorExpression.html).
+own [ExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html) rather than a
+[VBOperatorExpression](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.VBOperatorExpression.html).
 
 Every let-coercion strategy treats the node parameter as opaque: it reads only the node's identity and location, for
 error reporting. No strategy therefore depends on the narrower `VBOperatorExpression` type.
@@ -99,7 +99,7 @@ parameter of the operator runtime semantics follows the same rule
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.5.1.2.1** Let-coercion between numeric types](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/56fb78c3-a0ea-4bf0-8ee4-eb5f89bda4f7).
 
-One let-coercion strategy keyed on [VBNumericType](../api/RDCore.SDK.Model.Types.Abstract.VBNumericType.html),
+One let-coercion strategy keyed on [VBNumericType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBNumericType.html),
 `VBNumericLetCoercionTypeRuntimeSemantics`, serves every concrete numeric type.
 
 Let-coercion between numeric types validates that the source value is within the destination's representable range.
@@ -114,7 +114,7 @@ When the source value is outside that range, it raises `Overflow`. Otherwise:
 |`Single` → `Decimal`|The value to 7 significant digits, ties to even, as **MS-VBA** has it: `CDec(CSng(0.1))` is `0.1`, a `Single` of `16777217` is `16777220` (recorded in Excel). A `Double` keeps 15 digits; a `Currency` is the exact value.|
 
 A `Date` source let-coerced to a numeric destination reports `ConversionSemanticFlags.DateSerial`
-([ConversionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ConversionSemanticFlags.html)).
+([ConversionSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.ConversionSemanticFlags.html)).
 `VBNumericLetCoercionTypeRuntimeSemantics.DateSerialFlagsOf` computes the `DateSerial` flag for a `Date` source.
 
 > [!NOTE]
@@ -182,13 +182,13 @@ A number is a `Date` when it is strictly between -657435 and 2958466: a time of 
 > This section describes the implementation of [**MS-VBAL §5.5.1.2.4** Let-coercion to and from String](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/00113388-401b-41c2-8107-dc3fc0485554).
 
 Floating-point types define a `SignificantIntegerDigits` constant, declared on the `VBType`. It is used to represent
-floating-point values correctly as [VBStringValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html) in
+floating-point values correctly as [VBStringValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html) in
 conversions and coercions to `String` ([**RD-VBAL §2.5.2.1.1** Numeric Values](rd-vbal.2.5.2.1.1.numeric-values.md)):
 
 |Value type|VBType|Significant digits (`SignificantIntegerDigits`)|
 |---|---|---|
-|[VBSingleValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBSingleValue.html)|[VBSingleType](../api/RDCore.SDK.Model.Types.VBSingleType.html)|7|
-|[VBDoubleValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBDoubleValue.html)|[VBDoubleType](../api/RDCore.SDK.Model.Types.VBDoubleType.html)|15|
+|[VBSingleValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBSingleValue.html)|[VBSingleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBSingleType.html)|7|
+|[VBDoubleValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBDoubleValue.html)|[VBDoubleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBDoubleType.html)|15|
 
 A floating-point zero keeps its sign, as in MS-VBA (recorded in Excel): a negative zero is written `-0`, as
 `Round(-0.5)` gives ([**RD-VBAL §6.1.2.10** Math](rd-vbal.6.1.2.10.math.md)).
@@ -212,8 +212,8 @@ copy of `vbNullString` is `vbNullString`. An assignment `u = s`, a `ByVal` argum
 **MS-VBAL §5.5.1.2.4** writes a number "using the host-defined regional decimal symbol", and a date in the regional
 Short Date and Long Time formats, and it reads a `String` as a number or a date "according to the host-defined regional
 settings". RD-VBA has one set of regional settings for both directions, as MS-VBA has the machine's: the **platform's**,
-[IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)`.Regional`
-([RegionalSettings](../api/RDCore.SDK.Runtime.RegionalSettings.html)), bound from the `Environment.Regional` section of `appsettings.json`
+[IRuntimeEnvironmentProfile](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)`.Regional`
+([RegionalSettings](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.RegionalSettings.html)), bound from the `Environment.Regional` section of `appsettings.json`
 ([**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)). They are en-US unless it says otherwise, whatever the machine's culture and
 whatever the session's `Lcid`, so that a program writes `2.5` and reads `"1,000"` the same wherever it runs, and what `CStr` writes, `CDbl` and `CDate`
 read back.
@@ -283,9 +283,9 @@ This section corresponds to [**MS-VBAL §5.5.1.2.5** Let-coercion to String * le
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §5.5.1.2.6** Let-coercion to and from resizable Byte()](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/acf31907-ebaf-4830-9892-bfabe6fe1416).
 
-[VBResizableByteArrayType](../api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html) has its own let-coercion
+[VBResizableByteArrayType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBResizableByteArrayType.html) has its own let-coercion
 semantics, which allow implicit conversion to and from
-[VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)
+[VBStringType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBStringType.html)
 ([**RD-VBAL §2.4.1** Intrinsic Types](rd-vbal.2.4.1.intrinsic-types.md)).
 
 Both directions reinterpret the string's own data, "the implementation-defined binary format used to store String
@@ -373,12 +373,12 @@ unwrapped value.
 ### Storage
 
 Storage holds a `VBVariantValue` as a
-[VBRuntimeVariantValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html) box, and reads it back as a
+[VBRuntimeVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html) box, and reads it back as a
 `VBVariantValue`. The box holds the wrapped `VBTypedValue` of the `Variant` itself.
 
 The `VBRuntimeVariantValue` box follows the same pattern a
-[VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html) uses via
-[VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html)
+[VBArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html) uses via
+[VBRuntimeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html)
 ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).
 
 > A `Variant` read back from a variable, array element, or field carries the exact value that was stored in it,

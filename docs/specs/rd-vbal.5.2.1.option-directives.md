@@ -13,8 +13,8 @@ _Directives_ include the `Option` statements
 |`Option Explicit`|Implicit declarations become compile-time errors (§5.2.1.3).|
 |`Option Private Module`|Determines the _accessibility_ of a module (§5.2.1.4).|
 
-A module's [LexicalScope](../api/RDCore.SDK.Model.Symbols.LexicalScope.html) carries its
-[ModuleDirectives](../api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)
+A module's [LexicalScope](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.LexicalScope.html) carries its
+[ModuleDirectives](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ModuleDirectives.html)
 ([**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)):
 
 |Member|Description|
@@ -30,7 +30,7 @@ A class module's directives govern its code as a standard module's do: `Option E
 the class a compile error, which keeps the class from loading; `Option Compare` is how its relational operators
 compare `String` values, whatever the mode of the module that calls it; and `Option Base` is the lower bound its
 arrays take when they state none. The host finds the module by its name among the session's modules
-([ISessionSymbols](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionSymbols.html)`.TryGetModule`), both when it
+([ISessionSymbols](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISessionSymbols.html)`.TryGetModule`), both when it
 gives the module's symbol its directives and when a new activation takes its frame's directives from the module its
 procedure is declared in. This is a lookup of the modules themselves, not a binding of the name: in code, the name of a
 class with a default instance is that instance, and a class module's name is no value at all
@@ -86,7 +86,7 @@ Whether the enclosing module declares `Option Explicit` is the module-level fact
 
 |Module declares `Option Explicit`|An unresolved simple name is|
 |---|---|
-|No|A deferred [VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html).|
+|No|A deferred [VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html).|
 |Yes|A **VBC09302** _Variable not defined_ compile-time error: an `Error` carrying `VariableNotDefined` (`VBCompileErrorId`).|
 
 An implicit declaration by an unqualified `ReDim` target is legal under `Option Explicit`

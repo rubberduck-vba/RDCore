@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RDCore.SDK\RDCore.SDK.csproj" />
+    <PackageReference Include="RDCore.SDK" Version="$(RDCoreSdkVersion)" />
     <!-- the static front end the runtime binds and plans the code it runs with: what the language server analyses it with. -->
     <ProjectReference Include="..\RDCore.Runtime.LanguageCore\RDCore.Runtime.LanguageCore.csproj" />
     <!-- what the runtime reaches the outside world through: abstractions only, whatever the platform implements them with. -->

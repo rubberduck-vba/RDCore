@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `Erase`)|`Simple`|See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).|
+|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `Erase`)|`Simple`|See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).|
 
 ## Static Semantics
 
@@ -47,4 +47,4 @@ emptied replacement is written back through it, as an assignment to it is. A fix
 |Type or member|Role|
 |---|---|
 |`RDCore.Runtime.Semantics.Statements.ArrayStatementRuntimeSemantics`|Erases each element; see [**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md).|
-|[VBResizableArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html), [VBFixedSizeArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|The two kinds of array the statement tells apart (**RDCore.SDK**).|
+|[VBResizableArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBResizableArrayValue.html), [VBFixedSizeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBFixedSizeArrayValue.html)|The two kinds of array the statement tells apart (**RDCore.SDK**).|

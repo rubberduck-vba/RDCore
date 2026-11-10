@@ -16,7 +16,7 @@ Name "C:\MYDIR\OLDFILE" As "C:\YOURDIR\NEWFILE"   ' Move and rename a file.
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|`Simple`|`Token`: `Name`. Two inputs: the old path name, then the new one.|
+|[KeywordStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html)|`Simple`|`Token`: `Name`. Two inputs: the old path name, then the new one.|
 
 See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4.3.file-statements.md).
 
@@ -50,5 +50,5 @@ The open-file rule is the file-channel shim's, because the channels are what kno
 
 |Type or member|Role|
 |---|---|
-|[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)`.TryRename`|Renames, and says why it could not (**RDCore.SDK**).|
+|[IFileChannels](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)`.TryRename`|Renames, and says why it could not (**RDCore.SDK**).|
 |`RDCore.Runtime.Semantics.Statements.FileStatementRuntimeSemantics.ExecuteName`|Evaluates the operands and raises the error (**RDCore.Runtime**).|

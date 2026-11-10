@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[ForStatementNode](../api/RDCore.SDK.Model.AST.Statements.ForStatementNode.html)|`ForOpener`|The `For` opener. Its `End` is the offset right past the `Next` closer.|
+|[ForStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ForStatementNode.html)|`ForOpener`|The `For` opener. Its `End` is the offset right past the `Next` closer.|
 |None (synthesized)|`ForNext`|The `Next` closer; `Node` is `null`. Its `Target` is the body's first instruction; its `Matching` is the offset of its `ForOpener`.|
 
 `Next` has no AST node of its own: the whole `For...Next` construct is one `ForStatementNode` with a `Body`
@@ -19,13 +19,13 @@
 Reassigning a `For` loop counter inside the loop body is legal VBA.
 
 Performance-related diagnostics should be issued when a
-[VBCollectionType](../api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) is accessed by index within the body
+[VBCollectionType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) is accessed by index within the body
 of a `For...Next` loop ([**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
 ## Runtime Semantics
 
 A `For` loop needs per-activation state. Its opener stores a
-[ForLoopState](../api/RDCore.SDK.Runtime.Shared.ForLoopState.html) on the activation, and its closer reads it back.
+[ForLoopState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ForLoopState.html) on the activation, and its closer reads it back.
 
 ### ForOpener
 
@@ -162,7 +162,7 @@ MS-VBAL does not say what a loop is when its start, end or step raises an error 
   that work ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).
 - `ForOpener` stores `end`, `step`, the counter symbol and the counter's own expression node as a
   `RDCore.SDK.Runtime.Shared.ForLoopState`. The state is read back via
-  [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetForLoopState`, and
+  [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetForLoopState`, and
   written via `CallStackFrame.SetForLoopState`.
 - A `For` loop's state holds more than a single value: counter symbol, counter expression, end and step. It therefore
   has its own SDK type, `ForLoopState`, rather than the single block-state value that `With` and `Select Case` use
@@ -175,7 +175,7 @@ MS-VBAL does not say what a loop is when its start, end or step raises an error 
 - Every location-bearing node passed to the loop's operator calls is a node the loop already has, never a synthesized
   one: the counter's own expression or, for the first assignment, the loop's start expression.
   The same rule applies to `Case` clause matching, which relies on the operator node parameter being typed
-  [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
+  [ExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
   ([**RD-VBAL §5.4.2.10** Select Case Statement](rd-vbal.5.4.2.10.select-case-statement.md)).
 - The verbose message of `ForLoopNotInitialized`, when a `Next` closer runs without its opener, is the resx entry
   `VBForLoopNotInitialized_Verbose`, provided in both languages.

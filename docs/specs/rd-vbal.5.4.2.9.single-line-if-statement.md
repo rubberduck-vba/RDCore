@@ -7,8 +7,8 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[InlineIfStatementNode](../api/RDCore.SDK.Model.AST.Statements.InlineIfStatementNode.html)|`ConditionalBranch`|`ThenBody` and `ElseBody` may each hold several colon-separated statements instead of a full `block`.|
-|[GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html) (synthesized by the parser)|`Jump`|A bare line-number target in either branch, e.g. `If x Then 100`.|
+|[InlineIfStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.InlineIfStatementNode.html)|`ConditionalBranch`|`ThenBody` and `ElseBody` may each hold several colon-separated statements instead of a full `block`.|
+|[GoToStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html) (synthesized by the parser)|`Jump`|A bare line-number target in either branch, e.g. `If x Then 100`.|
 
 A bare line-number target in either branch is not modelled as its own AST shape. MS-VBAL specifies such a target as
 equivalent to a `GoTo` statement targeting that line, so the parser synthesizes a `GoToStatementNode` as that

@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[FileLockStatementNode](../api/RDCore.SDK.Model.AST.Statements.FileLockStatementNode.html)|`Simple`|`Token`: `Unlock`. `StartRecord` and `EndRecord` are named properties rather than positional inputs.|
+|[FileLockStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.FileLockStatementNode.html)|`Simple`|`Token`: `Unlock`. `StartRecord` and `EndRecord` are named properties rather than positional inputs.|
 
 `Lock` and `Unlock` share one AST node, `FileLockStatementNode`. Their `record-range` has three shapes, and
 `StartRecord` and `EndRecord` are named because `Lock #1, 5` and `Lock #1, To 5` are different record ranges that
@@ -26,5 +26,5 @@ each carry one expression. See [**RD-VBAL §3.4.3** File Statements](rd-vbal.3.4
 ## Implementation
 
 Like every file statement, `Unlock` runs through the session's file-channel shim,
-[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)
+[IFileChannels](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html)
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).

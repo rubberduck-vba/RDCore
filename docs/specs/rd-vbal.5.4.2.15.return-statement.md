@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[ReturnStatementNode](../api/RDCore.SDK.Model.AST.Statements.ReturnStatementNode.html)|`Return`|No resolved target.|
+|[ReturnStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ReturnStatementNode.html)|`Return`|No resolved target.|
 
 `Return` lowers to the `InstructionKind`
 `Return` ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).

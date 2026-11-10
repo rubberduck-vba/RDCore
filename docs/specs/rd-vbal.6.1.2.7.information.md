@@ -57,11 +57,11 @@ the nearest preceding numbered line. A program that numbers no lines gets `0` fo
 MS-VBA's `Erl` reports the faulting line only when every line is numbered.
 
 What RD-VBA's `Erl` counts is a setting of the environment, `ErlLineNumbering`, a member of
-[IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html).
+[IRuntimeEnvironmentProfile](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html).
 `ErlLineNumbering` is bound from `appsettings.json`, like the rest of the runtime profile
 ([**RD-VBAL §2.1** Implicit Storage](rd-vbal.2.1.implicit-storage.md)).
 
-|`ErlLineNumbering` mode ([VBErlLineNumbering](../api/RDCore.SDK.Runtime.Abstract.Execution.VBErlLineNumbering.html))|`Erl` reports|
+|`ErlLineNumbering` mode ([VBErlLineNumbering](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.VBErlLineNumbering.html))|`Erl` reports|
 |---|---|
 |`DocumentLine` (the default)|The document line of the faulting statement, counted from `1` as an editor counts it.|
 |`LineLabel`|The last line-number label at or before the faulting statement, or `0` when no line-number label precedes it. This matches MS-VBA's `Erl`.|
@@ -86,7 +86,7 @@ an `Err.Clear` in the procedure, the caller sees what `Err.Clear` left: `Err.Num
 What `Err.Clear` does to `Erl` is a second environment setting, `ErlAfterErrClear`, bound from `appsettings.json` like
 `ErlLineNumbering`. It applies to `Err.Clear` only.
 
-|`ErlAfterErrClear` value ([VBErlAfterErrClear](../api/RDCore.SDK.Runtime.Abstract.Execution.VBErlAfterErrClear.html))|`Erl` after `Err.Clear`|
+|`ErlAfterErrClear` value ([VBErlAfterErrClear](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.VBErlAfterErrClear.html))|`Erl` after `Err.Clear`|
 |---|---|
 |`Reset` (the default)|`0`, as there is no error any more.|
 |`Kept`|The line of the error `Err.Clear` cleared. This matches MS-VBA's `Erl`.|
@@ -101,7 +101,7 @@ For this reason, RD-VBA's `Erl` returns a `Long`, in which every legal line numb
 #### Implementation
 
 The line number `Erl` reports is carried on
-[ISessionErrorState](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionErrorState.html)`.LineNumber`. It is
+[ISessionErrorState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISessionErrorState.html)`.LineNumber`. It is
 captured at the one point where every run-time error reaches the session error state: the interpreter's
 error-interception point ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 

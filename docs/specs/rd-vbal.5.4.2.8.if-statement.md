@@ -7,9 +7,9 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[IfBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.IfBlockStatementNode.html)|`ConditionalBranch`|The `If` header.|
-|[ElseIfBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseIfBlockStatementNode.html)|`ConditionalBranch`|An `ElseIf` header.|
-|[ElseBlockStatementNode](../api/RDCore.SDK.Model.AST.Statements.ElseBlockStatementNode.html)|None|The `Else` branch needs no condition. The last header's `Else` offset names the first instruction of its body.|
+|[IfBlockStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.IfBlockStatementNode.html)|`ConditionalBranch`|The `If` header.|
+|[ElseIfBlockStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ElseIfBlockStatementNode.html)|`ConditionalBranch`|An `ElseIf` header.|
+|[ElseBlockStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ElseBlockStatementNode.html)|None|The `Else` branch needs no condition. The last header's `Else` offset names the first instruction of its body.|
 |None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is the `End If` closer.|
 |None (synthesized)|`Jump`|The `End If` closer, on the `End If` line: a jump to the next instruction. Every branch ends there.|
 

@@ -1,10 +1,10 @@
 # 3.2.0 Literal Expressions
 
-[LiteralExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.LiteralExpressionNode.html) is the AST node for
+[LiteralExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.LiteralExpressionNode.html) is the AST node for
 [**MS-VBAL §5.6.5** Literal Expressions](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/13557712-af01-4c82-acfa-01a440a27262)
 ([**RD-VBAL §5.6.5** Literal Expressions](rd-vbal.5.6.5.literal-expressions.md)). A `LiteralExpressionNode`
 represents a value that is statically resolved to a
-[VBTypedValue](../api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).
+[VBTypedValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Abstract.VBTypedValue.html).
 
 The parser resolves a literal's _declared type_ from the source token. A `LiteralExpressionNode` already carries a
 fully-typed `VBTypedValue` when the parser produces it. That value includes the effect of any
@@ -92,16 +92,16 @@ literal type rules.
 ## 3.2.0.2 Static Symbols
 
 The _environment host_ defines a number of globally defined _static symbols_
-([StaticSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.StaticSymbol.html)). They are defined on top of the global
+([StaticSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.StaticSymbol.html)). They are defined on top of the global
 `IStdConstantsModule`.
 
 |Literal (token)|Type|Value|
 |---|---|---|
-|`True`, `False`|[VBBooleanType](../api/RDCore.SDK.Model.Types.VBBooleanType.html)|[VBBooleanValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html)|
-|`VBEmptyString`|[VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)|[VBStringValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html)|
-|`Null`|[VBNullType](../api/RDCore.SDK.Model.Types.VBNullType.html)|[VBNullValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)|
-|`Empty`|[VBVariantType](../api/RDCore.SDK.Model.Types.VBVariantType.html)|[VBEmptyValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBEmptyValue.html)|
-|`Nothing`|[VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html)|[VBNothingValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBNothingValue.html)|
+|`True`, `False`|[VBBooleanType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBBooleanType.html)|[VBBooleanValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBBooleanValue.html)|
+|`VBEmptyString`|[VBStringType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBStringType.html)|[VBStringValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBStringValue.html)|
+|`Null`|[VBNullType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBNullType.html)|[VBNullValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBNullValue.html)|
+|`Empty`|[VBVariantType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBVariantType.html)|[VBEmptyValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBEmptyValue.html)|
+|`Nothing`|[VBObjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBObjectType.html)|[VBNothingValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBNothingValue.html)|
 
 The parser resolves the `Null` literal keyword to a `LiteralExpressionNode` carrying a `VBNullValue`, so a `Null`
 value can be written as a literal, for example as a `Select Case` selector

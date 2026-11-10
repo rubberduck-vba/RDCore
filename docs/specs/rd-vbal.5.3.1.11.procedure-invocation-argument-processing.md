@@ -4,10 +4,10 @@
 > This section describes the implementation of [**MS-VBAL §5.3.1.11** Procedure Invocation Argument Processing](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/1fb9af32-fc48-4c4f-998a-ed8047048ca5).
 
 Procedures are invoked through
-[IProcedureInvoker](../api/RDCore.SDK.Runtime.Abstract.Execution.IProcedureInvoker.html).
+[IProcedureInvoker](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IProcedureInvoker.html).
 `RDCore.Runtime.Execution.RuntimeProcedureInvoker` is the `IProcedureInvoker` implementation.
 
-`IProcedureInvoker` and [CallableBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.CallableBindingHandle.html)
+`IProcedureInvoker` and [CallableBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.CallableBindingHandle.html)
 are the call contract: given a procedure symbol, a resolver, and arguments, run the procedure.
 `RuntimeProcedureInvoker` implements the call: frame setup, `ByVal`/`ByRef` parameter binding,
 function result values, and the call-depth guard. See
@@ -21,7 +21,7 @@ Each of these invokes a procedure through `IProcedureInvoker`:
 |---|---|
 |A `Call` statement, or a bare call statement|[**RD-VBAL §5.4.2.1** Call Statement](rd-vbal.5.4.2.1.call-statement.md)|
 |A bare reference to a `Sub`, `Function` or `Property Get`|[**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)|
-|An [IndexExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html) whose `Callee` is a bare name resolving to a `Sub`, `Function` or `Property Get`|[**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)|
+|An [IndexExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html) whose `Callee` is a bare name resolving to a `Sub`, `Function` or `Property Get`|[**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.index-expressions.md)|
 
 An index expression whose `Callee` is a bare name is checked for a procedure before the general recursive
 `Evaluate(Callee)`. An index expression with a procedure `Callee` is the only shape that recurses (e.g.
@@ -72,7 +72,7 @@ A procedure invocation runs these steps:
    arguments, as MS-VBA reads it. With `Bump` adding 1 to the variable it is given by reference, and `a` at `1`,
    `Sum2(a, Bump(a))` gives `Sum2` the values `2` and `2`.
 3. `RuntimeProcedureInvoker` looks up the callee's own lowered body by symbol.
-4. `RuntimeProcedureInvoker` pushes a fresh [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)
+4. `RuntimeProcedureInvoker` pushes a fresh [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)
    for the callee. Exceeding the call-depth limit raises run-time error 28.
 5. For a `Function` or `Property Get`, `ICallStackFrame.ReturnValue` is seeded to the default value of the
    declared return type.
@@ -95,9 +95,9 @@ argument-mapping algorithm of **MS-VBAL §5.3.1.11**:
 
 1. Each argument is mapped to a parameter:
    - Positional arguments map to parameters left to right.
-   - A [NamedArgumentNode](../api/RDCore.SDK.Model.AST.Expressions.NamedArgumentNode.html) maps to its
+   - A [NamedArgumentNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.NamedArgumentNode.html) maps to its
      parameter by name.
-   - A [MissingArgumentNode](../api/RDCore.SDK.Model.AST.Expressions.MissingArgumentNode.html) mapped to a
+   - A [MissingArgumentNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.MissingArgumentNode.html) mapped to a
      non-`Optional` parameter raises error 448. Error 448 is checked during argument mapping, per
      **MS-VBAL §5.3.1.11**; it is not part of the general error-449 sweep that follows.
    - An extra positional argument beyond the parameter count raises error 450.
@@ -111,7 +111,7 @@ The errors are listed in [Run-time Errors](#run-time-errors).
 ### Optional Parameters
 
 An unmapped `Optional` parameter takes the value `RuntimeExpressionEvaluator.OmittedArgument` gives it, from
-[VBParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)`.DefaultValue`, the parameter's
+[VBParameterSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.VBParameterSymbol.html)`.DefaultValue`, the parameter's
 own default-value clause ([**RD-VBAL §5.3.1.5** Parameter Lists](rd-vbal.5.3.1.5.parameter-lists.md)):
 
 |The `Optional` parameter|Value bound to it when it is unmapped|
@@ -145,7 +145,7 @@ depends on an omitted argument's parameter being `Variant` (see
   can hold the `DISP_E_PARAMNOTFOUND` sentinel.
 
 RD-VBA models that value as Missing
-([VBMissingValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBMissingValue.html)), an `Error` value of code `448` with a
+([VBMissingValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBMissingValue.html)), an `Error` value of code `448` with a
 type of its own:
 
 - An omitted `Variant` parameter with no default holds Missing, and `IsMissing` of it is `True`. So is `IsMissing` of a
@@ -160,7 +160,7 @@ type of its own:
 The arguments passed to a `ParamArray` parameter are collected by
 `RuntimeExpressionEvaluator.CollectParamArrayArguments`.
 
-- A trailing [ParamArrayParameterSymbol](../api/RDCore.SDK.Model.Symbols.VBProject.ParamArrayParameterSymbol.html)
+- A trailing [ParamArrayParameterSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.VBProject.ParamArrayParameterSymbol.html)
   collects every positional argument from its own position onward (**MS-VBAL §5.3.1.11**), instead of mapping
   1:1.
 - `RuntimeExpressionEvaluator.CollectParamArrayArguments` collects the arguments into a fresh, 0-based array of
@@ -199,7 +199,7 @@ An element given a variable keeps the variable's declared type, as MS-VBA does (
 |`n`, passed on as `Bump b(0)` from another `ParamArray b()`|`a(0) = a(0) + 1`|`n` is written.|
 
 Read, the element is a `Variant` holding the variable's value as its declared type: `TypeName(a(0))` of a `Long` is
-`Long`. The element's cell is a [VariantReferenceBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.VariantReferenceBindingHandle.html)
+`Long`. The element's cell is a [VariantReferenceBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.VariantReferenceBindingHandle.html)
 over the variable's own cell. An assignment to the element is coerced to the type it gives
 (`VariantReferenceBindingHandle.DeclaredTypeOf`), and an object the variable holds is the variable's to let go of, not the
 array's. A variable that is an array, a record or a fixed-length `String` is still given as a copy: MS-VBA's behaviour
@@ -234,7 +234,7 @@ its bounds kept.
 
 |Parameter|Argument|Binding|
 |---|---|---|
-|`ByVal`|Any|A fresh, Let-coerced [ValueBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.ValueBindingHandle.html), which never aliases the caller's storage.|
+|`ByVal`|Any|A fresh, Let-coerced [ValueBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.ValueBindingHandle.html), which never aliases the caller's storage.|
 |`ByRef`|An addressable, writable variable whose declared type exactly matches the parameter's: a name (`x`), that name through its module (`Module1.x`), or an element of an array a variable holds (`arr(1)`, `v(1)`)|A reference binding.|
 |`ByRef`|A public variable of an object, named as its member (`obj.Count`, `Me.Count`, `.Count`), or an element of one (`obj.V(0)`)|A copy, as **MS-VBA** passes it; see [A public variable of an object](#a-public-variable-of-an-object).|
 |`ByRef`, declared `Variant`|An addressable, writable variable, of either of those|A reference binding.|
@@ -246,12 +246,12 @@ its bounds kept.
 A reference binding is made as follows:
 
 1. When a `ByRef` argument is aliasable, the argument is passed as a
-   [VBRuntimeReference](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeReference.html), which carries the
+   [VBRuntimeReference](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeReference.html), which carries the
    variable's address itself.
 2. `RuntimeProcedureInvoker` binds the aliased `ByRef` parameter through `CallStackFrame.PushByRef`.
 3. `CallStackFrame.PushByRef` creates a name-aliasing binding onto the same address as the caller's
    variable, not a copy.
-4. [ISymbolResolver](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html)`.TryGetAddress` and
+4. [ISymbolResolver](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolResolver.html)`.TryGetAddress` and
    `ICallStackFrame.TryGetAddress` resolve the `ByRef`-aliased parameter to the aliased address. See
    [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md).
 
@@ -386,8 +386,8 @@ for the same reason; see [**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.l
 |Callee outcome|Invocation result|
 |---|---|
 |`ExitProcedure`, from a `Function` or `Property Get`|A successful result: the value of its own function result variable.|
-|`ExitProcedure`, from a `Sub`|A successful result: [VBVoidValue](../api/RDCore.SDK.Model.Values.VBVoidValue.html).|
-|`Error`|A [RuntimeSemanticsEvaluationResult](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) error.|
+|`ExitProcedure`, from a `Sub`|A successful result: [VBVoidValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.VBVoidValue.html).|
+|`Error`|A [RuntimeSemanticsEvaluationResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) error.|
 
 A `Function` or `Property Get` return value is held in `ICallStackFrame.ReturnValue`, which models the function
 result variable. `RuntimeProcedureInvoker` reads `frame.ReturnValue` back once `ExitProcedure` is reached, and

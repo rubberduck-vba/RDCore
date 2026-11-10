@@ -7,10 +7,10 @@
 
 |Expression|AST node|
 |---|---|
-|`TypeOf <expr> Is <type>`|[TypeOfIsExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.TypeOfIsExpressionNode.html)|
+|`TypeOf <expr> Is <type>`|[TypeOfIsExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.TypeOfIsExpressionNode.html)|
 
 See [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md). An intrinsic type written as the type is a
-[BuiltInTypeExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.BuiltInTypeExpressionNode.html), so that it can be
+[BuiltInTypeExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.BuiltInTypeExpressionNode.html), so that it can be
 refused where it is written.
 
 ## Static semantics

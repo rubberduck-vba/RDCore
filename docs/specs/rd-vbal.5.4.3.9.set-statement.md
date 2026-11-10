@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[AssignmentStatementNode](../api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `Set`)|`Simple`|The same node type as `Let`, `LSet` and `RSet`, distinguished by `Kind`.|
+|[AssignmentStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.AssignmentStatementNode.html) (`Kind`: `Set`)|`Simple`|The same node type as `Let`, `LSet` and `RSet`, distinguished by `Kind`.|
 
 See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
@@ -87,4 +87,4 @@ the operator pipeline. Let-assignment, by contrast, reuses the operator pipeline
 |Type or member|Role|
 |---|---|
 |`RDCore.Runtime.Semantics.Statements.StatementRuntimeSemanticsProvider`|Dispatches an `AssignmentStatementNode` whose `Kind` is `Set`.|
-|[ISetCoercionRuntimeSemantics](../api/RDCore.SDK.Runtime.Abstract.ISetCoercionRuntimeSemantics.html)`.EvaluateSetCoercion`|The direct Set-coercion entry point, shared with `WithStatementRuntimeSemantics`.|
+|[ISetCoercionRuntimeSemantics](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.ISetCoercionRuntimeSemantics.html)`.EvaluateSetCoercion`|The direct Set-coercion entry point, shared with `WithStatementRuntimeSemantics`.|

@@ -40,10 +40,10 @@ An argument of a standard-library call reaches the member as follows:
 1. The evaluator coerces the argument to the parameter's declared type on the way in
    ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).
 2. The external call carries the argument as an
-   [IRuntimeValue](../api/RDCore.SDK.Model.Values.Runtime.IRuntimeValue.html): a runtime value rather than a typed
+   [IRuntimeValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.IRuntimeValue.html): a runtime value rather than a typed
    value.
 3. At external dispatch, the typed value of a `Variant` argument is taken off the runtime variant itself
-   ([VBRuntimeVariantValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html)), not from its
+   ([VBRuntimeVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html)), not from its
    `BoxedValue`. A `Variant`'s own `BoxedValue` unwraps all the way to the managed value
    ([**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md)).
 
@@ -97,8 +97,8 @@ A standard-library declaration states its return type in its own signature:
 
 |Declaration result type|Return type of the member|
 |---|---|
-|[RuntimeSemanticsEvaluationResult&lt;TValue&gt;](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult-1.html)|Stated: `TValue` names the value the member produces.|
-|[RuntimeSemanticsEvaluationResult](../api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) (non-generic)|None. This is what makes the member a `Sub`.|
+|[RuntimeSemanticsEvaluationResult&lt;TValue&gt;](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult-1.html)|Stated: `TValue` names the value the member produces.|
+|[RuntimeSemanticsEvaluationResult](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.RuntimeSemanticsEvaluationResult.html) (non-generic)|None. This is what makes the member a `Sub`.|
 
 ### Attributes
 
@@ -108,7 +108,7 @@ An attribute states what a declaration's signature cannot express, and is used o
 |---|---|
 |`StdLibModuleAttribute`|Marks a declaration as a standard-library module, and may name it.|
 |`StdLibClassAttribute`|Marks a declaration as a standard-library class, and may name it.|
-|[StdLibEnumAttribute](../api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibEnumAttribute.html)|Marks a declaration as a standard-library enum, and may name it. `FormShowConstants` is a name no naming convention recovers, so the attribute states it.|
+|[StdLibEnumAttribute](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.StdLib.StdLibEnumAttribute.html)|Marks a declaration as a standard-library enum, and may name it. `FormShowConstants` is a name no naming convention recovers, so the attribute states it.|
 |`StdLibConstantAttribute`|The name of a constant, a member of an enum or of a module ([**RD-VBAL §6.1.2.2** Constants Module](rd-vbal.6.1.2.2.constants-module.md)), that no naming convention recovers.|
 |`StdLibMemberAttribute`|Any of: a member name no naming convention recovers (for example `Hex` beside `Hex$`); an accessor kind (`StdLibMemberKind`); a return type that is a _class_ or an _enum_ rather than an intrinsic type; whether the member is hidden; a `VB_UserMemId` (`0` for the default member of a class, `-4` for its enumeration member), which is what a workspace class says with `Attribute Item.VB_UserMemId = 0`.|
 |`StdLibArrayAttribute`|The element type of an array parameter (`ValueArray() As Double`), which `VBResizableArrayValue` alone reads as `Variant()`. It is refused on anything but a required `ByVal` array parameter.|
@@ -140,7 +140,7 @@ intrinsic types ([**RD-VBAL §2.0.2** Client/Server Capabilities](rd-vbal.2.0.2.
 ### Library Name
 
 The standard library is a project of its own, named `VBA` in every language
-([StandardLibrary.LibraryName](../api/RDCore.SDK.Runtime.StdLib.StandardLibrary.html#RDCore_SDK_Runtime_StdLib_StandardLibrary_LibraryName)): it is what a project-qualified reference to the library names
+([StandardLibrary.LibraryName](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.StdLib.StandardLibrary.html#RDCore_SDK_Runtime_StdLib_StandardLibrary_LibraryName)): it is what a project-qualified reference to the library names
 (`VBA.Strings.LenB`, `VBA.LenB`; [**MS-VBAL §5.6.12**](rd-vbal.5.6.12.member-access-expressions.md)), and what the library's members say they belong to
 (`SymbolProperties.Library`).
 
@@ -148,7 +148,7 @@ VB6 loads the very same `VBA` library. The `VB` library of VB6 is another thing:
 which the platform does not model.
 
 > [!NOTE]
-> **Not implemented.** The library is the same whole in every language ([SupportedLanguage](../api/RDCore.SDK.Workspace.SupportedLanguage.html)). Where a
+> **Not implemented.** The library is the same whole in every language ([SupportedLanguage](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.SupportedLanguage.html)). Where a
 > language has more or fewer members than another - VB6 has `VBA`-only members the platform does not hide from it, and a BASIC has no library of its own to
 > speak of - the intent is for the members to say which languages they belong to, with an attribute on the declaration, and not for the library to change
 > its name.
@@ -163,4 +163,4 @@ pointer width. `LongPtr` is a different type in each pointer width
 The pointer width belongs to the environment. The environment host passes
 `StdLibSymbolProvider` the pointer width of its own
 runtime profile
-([IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)).
+([IRuntimeEnvironmentProfile](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html)).

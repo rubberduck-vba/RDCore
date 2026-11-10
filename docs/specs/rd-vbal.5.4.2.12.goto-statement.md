@@ -7,11 +7,11 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[GoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html)|`Jump`|`Instruction.Target` holds the offset of the target label.|
+|[GoToStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.GoToStatementNode.html)|`Jump`|`Instruction.Target` holds the offset of the target label.|
 
 A `GoTo` statement's target is an expression naming or numbering a label or line. There is no static link
-between the `GoToStatementNode` and the [LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)
-or [LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html) it targets
+between the `GoToStatementNode` and the [LineLabelNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)
+or [LineNumberNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html) it targets
 ([**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md)).
 
 A bare line-number target in a single-line `If` branch (`If x Then 100`) is not modelled as its own shape. The

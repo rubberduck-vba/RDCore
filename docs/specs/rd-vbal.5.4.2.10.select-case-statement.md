@@ -7,21 +7,21 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[SelectCaseStatementNode](../api/RDCore.SDK.Model.AST.Statements.SelectCaseStatementNode.html)|`Select`|The `Select Case` opener. Its `End` is the `End Select` closer.|
-|[CaseExpressionStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseExpressionStatementNode.html)|`ConditionalBranch`|A `Case` header. Its `Matching` names the offset of its `Select` opener. Its `Else` is the offset to go to on no match: the next header in the chain, the first instruction of the `Case Else` body, or the `End Select` closer.|
-|[CaseElseClauseStatementNode](../api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|None|`Case Else` needs no condition.|
+|[SelectCaseStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.SelectCaseStatementNode.html)|`Select`|The `Select Case` opener. Its `End` is the `End Select` closer.|
+|[CaseExpressionStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.CaseExpressionStatementNode.html)|`ConditionalBranch`|A `Case` header. Its `Matching` names the offset of its `Select` opener. Its `Else` is the offset to go to on no match: the next header in the chain, the first instruction of the `Case Else` body, or the `End Select` closer.|
+|[CaseElseClauseStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.CaseElseClauseStatementNode.html)|None|`Case Else` needs no condition.|
 |None (synthesized)|`Jump`|The trailing jump at the end of each branch's body. `Node` is `null`; `Target` is the `End Select` closer.|
 |None (synthesized)|`Jump`|The `End Select` closer, on the `End Select` line: a jump to the next instruction. Every `Case` ends there, as does a selector no `Case` matches.|
 
 Each `Case` line's comma-separated conditions form their own node hierarchy under the abstract
-[CaseRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseRangeClauseNode.html). The three condition forms
+[CaseRangeClauseNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.CaseRangeClauseNode.html). The three condition forms
 of **MS-VBAL §5.4.2.10** are modelled independently, as three node types:
 
 |Condition form|Example|AST node|
 |---|---|---|
-|Single value|`Case 5`|[CaseValueRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseValueRangeClauseNode.html)|
-|Comparison|`Case Is > 5`|[CaseComparisonRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseComparisonRangeClauseNode.html)|
-|Inclusive range|`Case 1 To 10`|[CaseToRangeClauseNode](../api/RDCore.SDK.Model.AST.Statements.CaseToRangeClauseNode.html)|
+|Single value|`Case 5`|[CaseValueRangeClauseNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.CaseValueRangeClauseNode.html)|
+|Comparison|`Case Is > 5`|[CaseComparisonRangeClauseNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.CaseComparisonRangeClauseNode.html)|
+|Inclusive range|`Case 1 To 10`|[CaseToRangeClauseNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.CaseToRangeClauseNode.html)|
 
 See [**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md) and
 [**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md).
@@ -130,7 +130,7 @@ that departure is the expression's, not the clause's.
 
 - `ProcedureExecutor` dispatches `Select`, and the `ConditionalBranch` of a `Case` header.
 - The selector is stored through `CallStackFrame.SetBlockState` and read back through
-  [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetBlockState`, keyed by
+  [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetBlockState`, keyed by
   the opener's offset. A single block-state value is enough for the selector. There is no separate closer
   instruction to pop the stored state on exit
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
@@ -151,5 +151,5 @@ that departure is the expression's, not the clause's.
 - `CaseMatchEvaluator` passes the clause's own operand expression as the location-bearing node of each operator
   call, never a fabricated node standing in for the already-evaluated selector.
 - This relies on the node parameter of `OperatorRuntimeSemantics<TContext,TFlags>` being typed
-  [ExpressionNode](../api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
+  [ExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.ExpressionNode.html)
   ([**RD-VBAL §5.6.9.2** Simple Data Operators](rd-vbal.5.6.9.2.simple-data-operators.md)).

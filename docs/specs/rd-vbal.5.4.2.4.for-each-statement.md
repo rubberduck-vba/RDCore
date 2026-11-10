@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[ForEachStatementNode](../api/RDCore.SDK.Model.AST.Statements.ForEachStatementNode.html)|`ForEachOpener`|The `For Each` opener. Its `End` is the offset right past the `Next` closer.|
+|[ForEachStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.ForEachStatementNode.html)|`ForEachOpener`|The `For Each` opener. Its `End` is the offset right past the `Next` closer.|
 |None (synthesized)|`ForEachNext`|The `Next` closer; `Node` is `null`. Its `Target` is the body's first instruction; its `Matching` is the offset of its `ForEachOpener`.|
 
 The resolved targets have the same shape as a `For` loop's
@@ -28,7 +28,7 @@ refuses, RD-VBA refuses the same way (recorded in Excel):
 A `Variant` is iterated as what it holds when the loop runs: one that holds no array and no object is run-time error
 13, and a `Next` reached after it is run-time error 92 (see [Errors](#errors)).
 
-A [VBCollectionType](../api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) can be efficiently iterated using
+A [VBCollectionType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) can be efficiently iterated using
 a `For Each...Next` loop. `For Each...Next` enumeration is intended to be used with collections containing objects
 ([**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
 
@@ -44,7 +44,7 @@ run-time error.
 1. Evaluate the collection expression once.
 2. When the collection is a `Variant` holding an array, unwrap it: `For Each x In v` enumerates a `Variant` holding an
    array in the same way as a declared array.
-3. When the collection is a [VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html):
+3. When the collection is a [VBArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html):
    1. If the array was never initialized (`VBArrayValue.IsInitialized` is false: a `Dim` with no bounds, never
       `ReDim`'d), raise error 92.
    2. If the array's declared bounds hold zero elements, empty the control variable (see
@@ -52,7 +52,7 @@ run-time error.
       branching to `Instruction.End`, per
       **MS-VBAL §5.4.2.4**'s "if the array has no elements".
    3. Otherwise, assign the first element to the control variable, store a
-      [ForEachState](../api/RDCore.SDK.Runtime.Shared.ForEachState.html), and fall through into the body. The
+      [ForEachState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ForEachState.html), and fall through into the body. The
       assignment is a Set-assignment when the array's item type is `Object`, and a Let-assignment otherwise
       (**MS-VBAL §5.4.2.4**'s rule).
 4. When the collection is `Nothing`, raise error 91: enumerating it would invoke `_NewEnum` on an unset reference.
@@ -156,23 +156,23 @@ subscript arithmetic. The index a `ForEachState` holds is this flat index.
 ## Implementation
 
 - `ProcedureExecutor.ExecuteForEachOpener` unwraps a
-  [VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) before matching a wrapped array
+  [VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) before matching a wrapped array
   ([**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md), Let-coercion to Variant).
 - `ForEachOpener` stores a `ForEachState` holding the control symbol and expression, the array, and a flat index.
-  The state is read via [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetForEachState`, and
+  The state is read via [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.TryGetForEachState`, and
   written via `CallStackFrame.SetForEachState`.
 - A `For Each` loop's state is an enumeration cursor, so it has its own type, `ForEachState`
   ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 - `ForEachNext` reads the state back via `Instruction.Matching`, the same field that `ForNext` and `Case` headers use.
 - The enumeration-member lookup uses
-  [VBReturningMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html),
-  [SymbolProperties](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.UserMemId` and
-  [WellKnownDispIds](../api/RDCore.SDK.Model.WellKnownDispIds.html)`.NewEnum`: the same lookup `VBCollectionType`'s
+  [VBReturningMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html),
+  [SymbolProperties](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.UserMemId` and
+  [WellKnownDispIds](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.WellKnownDispIds.html)`.NewEnum`: the same lookup `VBCollectionType`'s
   constructor uses ([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)).
 - A plain array-typed variable read back as an expression
-  ([SimpleNameExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html), the ordinary
+  ([SimpleNameExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html), the ordinary
   shape of `arr` in `For Each item In arr`) yields the array value stored in it:
-  [VBArrayType](../api/RDCore.SDK.Model.Types.VBArrayType.html)`.CreateValue` unboxes the
-  [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html) that `SymbolAddressTable`
+  [VBArrayType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBArrayType.html)`.CreateValue` unboxes the
+  [VBRuntimeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html) that `SymbolAddressTable`
   boxed for the variable, and returns the same instance with its cells intact
   ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).

@@ -29,18 +29,18 @@ An implementation that commands client-side _workspace edits_ must ensure that t
 
 |Message|Type|Member|Description|
 |---|---|---|---|
-|Request|[`PlatformInitializeParams`](../api/RDCore.SDK.Platform.Protocol.PlatformInitializeParams.html)|`ExpectedComponent`|The [`CoreServerComponent`](../api/RDCore.SDK.Client.CoreServerComponent.html) the caller believes it is connecting to.|
-|||`Expected`|A [`CorePlatformClientCapabilities`](../api/RDCore.SDK.Client.CorePlatformClientCapabilities.html) describing the capabilities the caller expects the peer to provide.|
-|Response|[`PlatformInitializeResult`](../api/RDCore.SDK.Platform.Protocol.PlatformInitializeResult.html)|`Component`|The peer's own `CoreServerComponent`.|
+|Request|[`PlatformInitializeParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.PlatformInitializeParams.html)|`ExpectedComponent`|The [`CoreServerComponent`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.CoreServerComponent.html) the caller believes it is connecting to.|
+|||`Expected`|A [`CorePlatformClientCapabilities`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.CorePlatformClientCapabilities.html) describing the capabilities the caller expects the peer to provide.|
+|Response|[`PlatformInitializeResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.PlatformInitializeResult.html)|`Component`|The peer's own `CoreServerComponent`.|
 |||`Provided`|The flat list of _capability type names_ (e.g. `"ParseFullDocument"`) the peer provides.|
 
-The responding side builds `Provided` by _reflecting_ the `[assembly: ProvidesCorePlatformClientCapability<T>]` attributes ([`ProvidesCorePlatformClientCapabilityAttribute<T>`](../api/RDCore.SDK.Client.ProvidesCorePlatformClientCapabilityAttribute-1.html)) declared on its entry assembly. A component's platform capability set is therefore a compile-time property of the build rather than runtime configuration.
+The responding side builds `Provided` by _reflecting_ the `[assembly: ProvidesCorePlatformClientCapability<T>]` attributes ([`ProvidesCorePlatformClientCapabilityAttribute<T>`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.ProvidesCorePlatformClientCapabilityAttribute-1.html)) declared on its entry assembly. A component's platform capability set is therefore a compile-time property of the build rather than runtime configuration.
 
 The `rdcore/platform/initialize` method is answered by a handler (`PlatformInitializeHandler`) that the SDK registers on every RDCore server, alongside the LSP `shutdown`, `exit`, and `$/setTrace` handlers.
 
 The handshake is _informational_:
 
-- the response is retained, as [`IRDCoreClientApp`](../api/RDCore.SDK.Client.IRDCoreClientApp.html)`.PlatformInfo`;
+- the response is retained, as [`IRDCoreClientApp`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.IRDCoreClientApp.html)`.PlatformInfo`;
 - the response is logged;
 - `PlatformInitializeResult.Provides<T>()` lets a caller test for a capability.
 
@@ -49,13 +49,13 @@ The handshake is _informational_:
 
 ## 2.0.2.1.1 The language
 
-The platform serves several members of the BASIC family ([`SupportedLanguages`](../api/RDCore.SDK.Workspace.SupportedLanguages.html)): RD-VBA (`vba`, the
+The platform serves several members of the BASIC family ([`SupportedLanguages`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.SupportedLanguages.html)): RD-VBA (`vba`, the
 default), VB6 (`vb6`) and the platform's BASIC (`basic`, which an interactive shell is written in). The language is what decides the dialect's table: where the variable an undeclared name declares lives
 ([**MS-VBAL §5.6.10**](rd-vbal.5.6.10.simple-name-expressions.md)), and which statements exist at all ([**RD-VBAL §5.4.5.8**](rd-vbal.5.4.5.8.print-statement.md)).
 The standard library is not part of the table: it is `VBA` whatever the language ([**RD-VBAL §6.0**](rd-vbal.6.0.standard-library.md)).
 
 A client says which one it is in the `initializationOptions` of its LSP `initialize` request, the part of the protocol that exists for a setting no standard
-capability describes ([RDCoreInitializationOptions](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)):
+capability describes ([RDCoreInitializationOptions](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)):
 
 ```json
 { "language": "basic" }
@@ -87,7 +87,7 @@ including the answer of a handler that fails, of a client whose user cannot be a
 
 So before it answers `initialize`, the server asks only a client whose `initializationOptions` say both of these:
 
-- `answersDuringInitialize` is `true` ([`AnswersDuringInitialize`](../api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)): the client
+- `answersDuringInitialize` is `true` ([`AnswersDuringInitialize`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.html)): the client
   answers with a choice or with none, and never with an error;
 - the client is not `unattended`.
 
@@ -114,30 +114,30 @@ The **RDCore.Diagnostics** extension is always brought up during platform assemb
 
 ## 2.0.2.3 Defined capabilities
 
-This catalogue lists the platform capabilities the SDK defines. Each capability is a [`CorePlatformClientCapability`](../api/RDCore.SDK.Client.CorePlatformClientCapability.html) record. Where a capability implies an out-of-band request, it also has a non-LSP method.
+This catalogue lists the platform capabilities the SDK defines. Each capability is a [`CorePlatformClientCapability`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.CorePlatformClientCapability.html) record. Where a capability implies an out-of-band request, it also has a non-LSP method.
 
 |Capability|Method|Provided by|Description|
 |---|---|---|---|
-|[`ParseFullDocument`](../api/RDCore.SDK.Client.ParseFullDocument.html)|`rdcore/parser/document`|`ParsingServer`|Lets the language server request a parse result for a source fragment it supplies directly. The parser never reads source from the filesystem. A request may optionally be anchored at a position within a larger document, so that the locations reported for a sub-range fragment are in that document's coordinates.|
-|[`ParseTokens`](../api/RDCore.SDK.Client.ParseTokens.html)|`rdcore/parser/tokens`|`ParsingServer`|Lets the language server request the lexical tokens of a text, which is what a document is highlighted by.|
-|[`DefineSymbols`](../api/RDCore.SDK.Client.DefineSymbols.html)|`rdcore/host/symbols/define`|`EnvironmentHost`|Lets the language server send a module's member symbol descriptors to the environment host for definition in its runtime session (see [below](#rdcorehostsymbolsdefine)).|
-|[`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)|`rdcore/host/project/reload`|`EnvironmentHost`|Lets the language server ask the environment host to compose its runtime session again from the project file as it is now, once a client said the `.rdproj` changed (see [below](#workspacedidchangewatchedfiles)).|
-|[`SemanticAnalysis`](../api/RDCore.SDK.Client.SemanticAnalysis.html)|`rdcore/host/semantics`|`EnvironmentHost`|Runs the semantic analysis pass over the code the environment host holds, and answers with its model, which is what a diagnostics extension analyzes.|
-|[`SessionStatus`](../api/RDCore.SDK.Client.SessionStatus.html)|`rdcore/session/status`, `rdcore/host/session/status`|`LanguageServer`, `EnvironmentHost`|Reports the state of the runtime session, including how much of its memory is reserved, allocated and free. The language server answers its client, and asks the environment host that owns the session.|
-|[`SessionExecute`](../api/RDCore.SDK.Client.SessionExecute.html)|`rdcore/session/execute`, `rdcore/host/execute`|`LanguageServer`, `EnvironmentHost`|Runs a procedure of a module the client supplies, and reports what it printed (see [below](#rdcoresessionexecute)).|
-|[`SessionDiscard`](../api/RDCore.SDK.Client.SessionDiscard.html)|`rdcore/session/discard`, `rdcore/host/discard`|`LanguageServer`, `EnvironmentHost`|Takes a module out of the runtime session: what it declared and what it held go, as a program's variables do when the program is cleared.|
-|[`ProgramDebugging`](../api/RDCore.SDK.Client.ProgramDebugging.html)|`rdcore/session/debug/*`, `rdcore/host/debug/*`|`LanguageServer`, `EnvironmentHost`|Runs a program under a debugger: it waits where a `Stop` or a break puts it (**MS-VBAL §5.4.2.11**), and is resumed, stepped, paused or ended.|
-|[`SessionMemoryAccess`](../api/RDCore.SDK.Client.SessionMemoryAccess.html)|`rdcore/session/memory/peek`, `.../poke`, `rdcore/host/memory/peek`, `.../poke`|`LanguageServer`, `EnvironmentHost`|Reads and writes single bytes of the runtime session's memory (`PEEK` and `POKE`), unchecked.|
-|[`SessionAnalyze`](../api/RDCore.SDK.Client.SessionAnalyze.html)|`rdcore/session/analyze`|`LanguageServer`|Analyzes a module the client supplies, and reports the diagnostics its providers found: the counterpart to the LSP diagnostics pull for a client with no editor.|
-|[`CliCommand`](../api/RDCore.SDK.Client.CliCommand.html)|_(none: in-process CLI dispatch)_|`ClientApp`, `Extension`|Advertises that the declaring component contributes `rdc.exe` command-mode verbs. The CLI (`rdc.exe`) declares it for its native verbs. An extension declares it so that `rdc.exe describe-ext` records the capability in the extension's manifest (see [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)).|
-|[`DiagnoseDocument`](../api/RDCore.SDK.Client.DiagnoseDocument.html)|`rdcore/diagnostics/document`|`Extension`|Advertised by a _diagnostics provider_: a platform extension whose manifest advertises this capability. A provider declares it with `[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]` (see [below](#rdcorediagnosticsdocument)).|
-|[`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
-|[`Unattended`](../api/RDCore.SDK.Client.Unattended.html)|_(none: expected by the client)_|`LanguageServer`|Says that nobody is there to answer a dialog: a client that expects it runs programs unattended (a CI run, `rdc --unattended`). A dialog a program opens (`MsgBox`, `InputBox`, a form shown) then fails the run with `VBR50001`, which no `On Error` of the program catches. It wins over `SessionInteraction`.|
-|[`SessionCompletion`](../api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
-|[`SessionSignatureHelp`](../api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
-|[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/formatting/indenterSettings`, `rdcore/formatting/indenterSettings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcoreformattingindentersettings)).|
-|[`SessionSemanticTokens`](../api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
-|[`Refactoring`](../api/RDCore.SDK.Client.Refactoring.html)|`rdcore/refactor/prepare`, `rdcore/refactor/apply`|`LanguageServer`|Says what a refactoring asks its user, and answers the edit it makes with the user's answers: for a client that shows a dialog of its own before a refactoring is applied (see [below](#rdcorerefactorprepare-and-rdcorerefactorapply)).|
+|[`ParseFullDocument`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.ParseFullDocument.html)|`rdcore/parser/document`|`ParsingServer`|Lets the language server request a parse result for a source fragment it supplies directly. The parser never reads source from the filesystem. A request may optionally be anchored at a position within a larger document, so that the locations reported for a sub-range fragment are in that document's coordinates.|
+|[`ParseTokens`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.ParseTokens.html)|`rdcore/parser/tokens`|`ParsingServer`|Lets the language server request the lexical tokens of a text, which is what a document is highlighted by.|
+|[`DefineSymbols`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.DefineSymbols.html)|`rdcore/host/symbols/define`|`EnvironmentHost`|Lets the language server send a module's member symbol descriptors to the environment host for definition in its runtime session (see [below](#rdcorehostsymbolsdefine)).|
+|[`ProjectReload`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.ProjectReload.html)|`rdcore/host/project/reload`|`EnvironmentHost`|Lets the language server ask the environment host to compose its runtime session again from the project file as it is now, once a client said the `.rdproj` changed (see [below](#workspacedidchangewatchedfiles)).|
+|[`SemanticAnalysis`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SemanticAnalysis.html)|`rdcore/host/semantics`|`EnvironmentHost`|Runs the semantic analysis pass over the code the environment host holds, and answers with its model, which is what a diagnostics extension analyzes.|
+|[`SessionStatus`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionStatus.html)|`rdcore/session/status`, `rdcore/host/session/status`|`LanguageServer`, `EnvironmentHost`|Reports the state of the runtime session, including how much of its memory is reserved, allocated and free. The language server answers its client, and asks the environment host that owns the session.|
+|[`SessionExecute`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionExecute.html)|`rdcore/session/execute`, `rdcore/host/execute`|`LanguageServer`, `EnvironmentHost`|Runs a procedure of a module the client supplies, and reports what it printed (see [below](#rdcoresessionexecute)).|
+|[`SessionDiscard`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionDiscard.html)|`rdcore/session/discard`, `rdcore/host/discard`|`LanguageServer`, `EnvironmentHost`|Takes a module out of the runtime session: what it declared and what it held go, as a program's variables do when the program is cleared.|
+|[`ProgramDebugging`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.ProgramDebugging.html)|`rdcore/session/debug/*`, `rdcore/host/debug/*`|`LanguageServer`, `EnvironmentHost`|Runs a program under a debugger: it waits where a `Stop` or a break puts it (**MS-VBAL §5.4.2.11**), and is resumed, stepped, paused or ended.|
+|[`SessionMemoryAccess`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionMemoryAccess.html)|`rdcore/session/memory/peek`, `.../poke`, `rdcore/host/memory/peek`, `.../poke`|`LanguageServer`, `EnvironmentHost`|Reads and writes single bytes of the runtime session's memory (`PEEK` and `POKE`), unchecked.|
+|[`SessionAnalyze`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionAnalyze.html)|`rdcore/session/analyze`|`LanguageServer`|Analyzes a module the client supplies, and reports the diagnostics its providers found: the counterpart to the LSP diagnostics pull for a client with no editor.|
+|[`CliCommand`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.CliCommand.html)|_(none: in-process CLI dispatch)_|`ClientApp`, `Extension`|Advertises that the declaring component contributes `rdc.exe` command-mode verbs. The CLI (`rdc.exe`) declares it for its native verbs. An extension declares it so that `rdc.exe describe-ext` records the capability in the extension's manifest (see [**RD-VBAL §1.1.5** Extension Manifest](rd-vbal.1.1.5.extension-manifest.md)).|
+|[`DiagnoseDocument`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.DiagnoseDocument.html)|`rdcore/diagnostics/document`|`Extension`|Advertised by a _diagnostics provider_: a platform extension whose manifest advertises this capability. A provider declares it with `[assembly: ProvidesCorePlatformClientCapability<DiagnoseDocument>]` (see [below](#rdcorediagnosticsdocument)).|
+|[`SessionInteraction`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionInteraction.html)|`rdcore/session/interaction/msgBox`, `.../inputBox`|`LanguageServer`|Relays the dialogs a program opens (`MsgBox`, `InputBox`) to a client that expects this capability, which answers them. The interactive shell expects it, and asks at its console (see [below](#rdcoresessioninteraction)).|
+|[`Unattended`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Unattended.html)|_(none: expected by the client)_|`LanguageServer`|Says that nobody is there to answer a dialog: a client that expects it runs programs unattended (a CI run, `rdc --unattended`). A dialog a program opens (`MsgBox`, `InputBox`, a form shown) then fails the run with `VBR50001`, which no `On Error` of the program catches. It wins over `SessionInteraction`.|
+|[`SessionCompletion`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionCompletion.html)|`rdcore/session/completion`|`LanguageServer`|Lists what can be written at a position of a module the client supplies, with the list `textDocument/completion` answers with. For a line typed at a prompt, which is in no document (see [below](#textdocumentcompletion-and-rdcoresessioncompletion)).|
+|[`SessionSignatureHelp`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
+|[`RubberduckIndenterSettings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/formatting/indenterSettings`, `rdcore/formatting/indenterSettings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcoreformattingindentersettings)).|
+|[`SessionSemanticTokens`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
+|[`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html)|`rdcore/refactor/prepare`, `rdcore/refactor/apply`|`LanguageServer`|Says what a refactoring asks its user, and answers the edit it makes with the user's answers: for a client that shows a dialog of its own before a refactoring is applied (see [below](#rdcorerefactorprepare-and-rdcorerefactorapply)).|
 
 > [!NOTE]
 > The handshake for every capability listed is _informational_ (see [**RD-VBAL §2.0.2.1** The `rdcore/platform/initialize` handshake](#2021-the-rdcoreplatforminitialize-handshake)).
@@ -150,13 +150,13 @@ Capability providers for extensions distributed through the RDCore Platform Clou
 
 The project scope is an ancestor of a module's own scope and of nothing else (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md)).
 
-In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](../api/RDCore.SDK.Model.Types.VBUnknownType.html).
+In the host session, `Dim d As VbDayOfWeek` binds to the standard library's `VbDayOfWeek` type, not to [`VBUnknownType`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html).
 
 ### `rdcore/diagnostics/document`
 
 Diagnostics use the LSP 3.17 pull model (`textDocument/diagnostic`). The language server sends the parsed `ModuleParseResult` to every registered provider over the internal `rdcore/diagnostics/document` request. Only this language-server-to-provider hop of the diagnostics pipeline is an RDCore request.
 
-The request carries the parse result as a [`PlatformJson`](../api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic. See [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
+The request carries the parse result as a [`PlatformJson`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.PlatformJson.html) string, because the syntax tree is polymorphic. See [**RD-VBAL §2.6.5** Diagnostics Pipeline](rd-vbal.2.6.5.diagnostics-pipeline.md).
 
 ### `PlatformJson` payloads
 
@@ -186,12 +186,12 @@ parentheses, is written and read with the same stack as one addition.
 
 A payload is written and read start to end in one call, so the document a location or an identity is read with is the one written before it. The payload of
 one module writes its path once or twice, rather than three times a node: for a module of 2,150 lines, the parse result is about 1.3 MB of JSON. Anything
-serialized with the same options outside a payload ([`SyntaxNodeJson.Options`](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.html), directly)
+serialized with the same options outside a payload ([`SyntaxNodeJson.Options`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.SyntaxNodeJson.html), directly)
 writes every document.
 
 ### `rdcore/session/execute`
 
-The `rdcore/session/execute` result ([`ExecuteResult`](../api/RDCore.SDK.Platform.Protocol.ExecuteResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
+The `rdcore/session/execute` result ([`ExecuteResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.ExecuteResult.html)) carries a run-time error's code, title, source, position, line number and a structured stack trace.
 
 The interactive shell renders a run-time error from this result, as:
 
@@ -202,7 +202,7 @@ The interactive shell renders a run-time error from this result, as:
 - the stack trace.
 
 The module a client runs is a module of the runtime session. A client can also run a module of its own, which the project does not list, by saying so with
-`sessionModule` ([`SessionExecuteParams.SessionModule`](../api/RDCore.SDK.Platform.Protocol.SessionExecuteParams.html)).
+`sessionModule` ([`SessionExecuteParams.SessionModule`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.SessionExecuteParams.html)).
 The interactive shell does this for its program. When the session has no module of that name, the module is defined as a standard module of the runtime session at
 the workspace root, as the code of an Immediate window is, and the project file is not changed. From then on the session has it: a later run finds it, with or
 without `sessionModule`, until the project is reloaded and the session composed again. Without `sessionModule`, a module the session does not have is not found.
@@ -222,18 +222,18 @@ A document is addressed by the URI the client gives it (**LSP 3.17** §URI), of 
 |---|---|
 |A file of the workspace's folder (`file:`)|A module of the workspace's project, as its project file lists it.|
 |A file outside the workspace's folder|A module of the workspace's project too, while the client has it open: a program a shell loads is one.|
-|A document that is no file (`untitled:Untitled-1`, or any other scheme)|The client's alone: a project of its own, addressed under its own URI ([`SymbolUri.RootOf`](../api/RDCore.SDK.Model.Symbols.SymbolUri.html)). It is parsed and gets its syntax diagnostics, its outline, its folding ranges and its completions, which offer nothing of the workspace's modules; it is no module of the workspace, and the environment host has no module of it. It is gone once the client closes it.|
+|A document that is no file (`untitled:Untitled-1`, or any other scheme)|The client's alone: a project of its own, addressed under its own URI ([`SymbolUri.RootOf`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.SymbolUri.html)). It is parsed and gets its syntax diagnostics, its outline, its folding ranges and its completions, which offer nothing of the workspace's modules; it is no module of the workspace, and the environment host has no module of it. It is gone once the client closes it.|
 |Any document of a server started on no folder (`rootUri` of `null`)|A project of its own, as a document that is no file is.|
 
-A URI is the document's however the client spells it: `file:///c%3A/Work/Module1.bas` is the document `file:///C:/Work/Module1.bas` is, and a root of a project given as a URI is the root its path is ([`SymbolUri.Root`](../api/RDCore.SDK.Model.Symbols.SymbolUri.html)). A relative path is no URI, and addresses no root.
+A URI is the document's however the client spells it: `file:///c%3A/Work/Module1.bas` is the document `file:///C:/Work/Module1.bas` is, and a root of a project given as a URI is the root its path is ([`SymbolUri.Root`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.SymbolUri.html)). A relative path is no URI, and addresses no root.
 
 ### Requests while the client edits
 
-An RDCore server answers every request it receives, and runs a notification that changes a document (`textDocument/didOpen`, `didChange`, `didClose`) in order, after the requests already running ([`ServerRequestScheduling.WithEveryRequestAnswered`](../api/RDCore.SDK.Server.ServerRequestScheduling.html)).
+An RDCore server answers every request it receives, and runs a notification that changes a document (`textDocument/didOpen`, `didChange`, `didClose`) in order, after the requests already running ([`ServerRequestScheduling.WithEveryRequestAnswered`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.ServerRequestScheduling.html)).
 An RDCore client answers every request a server makes in the same way: a `window/showMessageRequest` that waits for its user is still answered when a
-`$/progress` or a `window/workDoneProgress/create` arrives in the meantime ([`RDCoreClientApp`](../api/RDCore.SDK.Client.RDCoreClientApp.html)).
+`$/progress` or a `window/workDoneProgress/create` arrives in the meantime ([`RDCoreClientApp`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.RDCoreClientApp.html)).
 
-A request that is made of what a document was would make a keystroke wait for it, and the completion a client sends after the keystroke too. So `textDocument/diagnostic` and `textDocument/semanticTokens/full` give way to a change ([`IncomingDocumentChanges`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)):
+A request that is made of what a document was would make a keystroke wait for it, and the completion a client sends after the keystroke too. So `textDocument/diagnostic` and `textDocument/semanticTokens/full` give way to a change ([`IncomingDocumentChanges`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.IncomingDocumentChanges.html)):
 
 - **The change is known as it arrives.** The server reads which document a change is to as the message arrives, long before its turn comes.
 - **A request about that document stops.** It is answered `ContentModified` (-32801), which **LSP 3.17** §Response Message has a server answer "if it detects a content change in its unprocessed messages". The client asks again for the document as it is now.
@@ -258,7 +258,7 @@ A pull analyzes every module, so:
 
 - **A client that gives a `partialResultToken` is sent each module's report as it is made,** as a partial result (`$/progress`), and an empty answer. A client that does not is answered every report at once.
 - **The work is reported to the `workDoneToken`,** module by module.
-- **A change to any document gives the pull up,** answered `ContentModified` (-32801) as the change arrives: the keystroke, and the client's next request, don't wait for the whole workspace ([`IncomingDocumentChanges.WhileWorkspaceCurrentAsync`](../api/RDCore.SDK.Server.IncomingDocumentChanges.html)). The client pulls again, sending the result ids it has, and is answered `unchanged` for every module that did not change.
+- **A change to any document gives the pull up,** answered `ContentModified` (-32801) as the change arrives: the keystroke, and the client's next request, don't wait for the whole workspace ([`IncomingDocumentChanges.WhileWorkspaceCurrentAsync`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.IncomingDocumentChanges.html)). The client pulls again, sending the result ids it has, and is answered `unchanged` for every module that did not change.
 - **A dialog of a program that is open declines the pull,** as it does `textDocument/diagnostic`'s ([below](#rdcoresessioninteraction)).
 
 ### Refreshing what the client shows
@@ -305,14 +305,14 @@ The interactive shell asks for the hints of its program once for the whole listi
 
 The language server answers `textDocument/completion` (**LSP 3.17** §Completion Request) for the documents it holds, a `.rdc` program included. Its trigger characters are `.` and `!`, and `(`, `,` and a space, which ask for the list of an argument as a value of it starts: that list is answered only for an argument whose parameter is an `Enum`, and only where a value starts, which is after the `(`, a comma, a `:=` or the name of a call statement, or after an operator that combines flags (`+`, `Or`, `And`, `Xor`, `Not`: `MsgBox "a", vbYesNo + `). Nothing is answered anywhere else, a space after an operand included, so that a client is not given a whole list at every comma, and the workspace is not composed for nothing. The list is complete (`isIncomplete = false`): a client narrows it by what is typed after it. Items are not resolved (`resolveProvider = false`).
 
-What is typed of the name when the list is asked for narrows it already: an item is in the list when its label has the letters typed, in their order, in any case ([`CompletionCandidates.Matching`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.html)): `gtc` keeps `GetCount`. Whatever a client narrows by as more is typed (the start of a label, a part of it, letters apart), an item it could show is in the list, so the list stays complete. A list asked for where nothing is typed yet (`Ctrl+Space` after a space) has every name. An item has no `insertText` and no `filterText`: both are its label, which is what a client takes without them.
+What is typed of the name when the list is asked for narrows it already: an item is in the list when its label has the letters typed, in their order, in any case ([`CompletionCandidates.Matching`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Completion.CompletionCandidates.html)): `gtc` keeps `GetCount`. Whatever a client narrows by as more is typed (the start of a label, a part of it, letters apart), an item it could show is in the list, so the list stays complete. A list asked for where nothing is typed yet (`Ctrl+Space` after a space) has every name. An item has no `insertText` and no `filterText`: both are its label, which is what a client takes without them.
 
 In the interactive shell's prompt, an item that is a snippet of one line (`insertTextFormat` `Snippet`) is put in place with its tab stops: the first is selected, and what is typed replaces it in each of its places at once. <kbd>Tab</kbd> goes to the next tab stop and <kbd>Shift</kbd>+<kbd>Tab</kbd> back to the one before, unless a completion list is open, as one opens on a word typed in a tab stop: then <kbd>Tab</kbd> puts the selected name in place, and the next <kbd>Tab</kbd> goes on, as an editor has it. The snippet is done at its last tab stop, at <kbd>Esc</kbd>, at <kbd>Enter</kbd>, or once the cursor leaves the tab stop. A snippet of more lines than one, or one larger than a snippet to insert once written, is put in place as its name.
 
 What the list offers depends on what is being written, and where. The language server reads two things:
 
-- **The line before the cursor** ([`CompletionSite`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionSite.html)): the name being typed, and the statement it is in, as tokens ([`CompletionStatement`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionStatement.html)). Is a statement, an operand or an operator next?
-- **Where the line is in the module** ([`CompletionPlacement`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionPlacement.html)): in the declarations section or in a procedure, which kind of procedure, which blocks are open around it, and the procedure's labels. This is read off the text, not the parse: a `For` whose `Next` is not written yet is still open.
+- **The line before the cursor** ([`CompletionSite`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Completion.CompletionSite.html)): the name being typed, and the statement it is in, as tokens ([`CompletionStatement`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Completion.CompletionStatement.html)). Is a statement, an operand or an operator next?
+- **Where the line is in the module** ([`CompletionPlacement`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Completion.CompletionPlacement.html)): in the declarations section or in a procedure, which kind of procedure, which blocks are open around it, and the procedure's labels. This is read off the text, not the parse: a `For` whose `Next` is not written yet is still open.
 
 |Written|Offered|
 |---|---|
@@ -328,15 +328,15 @@ What the list offers depends on what is being written, and where. The language s
 |A class, after `New`|The classes that can be created, and the projects and the libraries.|
 |In a comment or a string literal|Nothing.|
 
-Which keyword is legal where is decided by [`CompletionRules`](../api/RDCore.SDK.Model.Symbols.Completion.CompletionRules.html). A `Private` member is offered only in its own module. A member a library hides (`VB_MemberFlags`) is never offered.
+Which keyword is legal where is decided by [`CompletionRules`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Completion.CompletionRules.html). A `Private` member is offered only in its own module. A member a library hides (`VB_MemberFlags`) is never offered.
 
 An `Object` or a `Variant` has no members known when the code is written. For a variable of one, the list offers the members of every class the module `Set`s it to an object of with `CreateObject` and a constant identifier (`Set o = CreateObject("Scripting.Dictionary")`), wherever the module does it (`ObjectClassInference`). A class of a library the project does not reference is read from the library's description, and its names are still not names of the project. This is a fact for tooling only: the variable keeps its declared type, nothing about the class is a compile error, and the member stays late-bound when the code runs.
 
 The line being typed seldom parses. The language server takes it out of the module before the module is parsed. For a member access, it puts it back as an assignment of the expression the member is accessed on, whose type comes from the static semantics. The module is composed with the rest of the workspace and the referenced libraries. Nothing of it is sent to the environment host.
 
-`rdcore/session/completion` ([`SessionCompletionParams`](../api/RDCore.SDK.Platform.Protocol.SessionCompletionParams.html)) answers the same list for a module the client supplies with its source. The module stands for the workspace module of the same name. The interactive shell asks it for the line at its prompt, which is not in the program until it is entered.
+`rdcore/session/completion` ([`SessionCompletionParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.SessionCompletionParams.html)) answers the same list for a module the client supplies with its source. The module stands for the workspace module of the same name. The interactive shell asks it for the line at its prompt, which is not in the program until it is entered.
 
-A line at a client's prompt can also be one of the client's own commands. A client registers the verbs of its commands with `rdcore/session/commands` ([`SessionCommandsParams`](../api/RDCore.SDK.Platform.Protocol.SessionCommandsParams.html)), each described by a [`VerbDescriptor`](../api/RDCore.SDK.Platform.Commands.VerbDescriptor.html): the forms its arguments take, which are keywords, choices, line numbers, expressions, paths, text, settings and their values.
+A line at a client's prompt can also be one of the client's own commands. A client registers the verbs of its commands with `rdcore/session/commands` ([`SessionCommandsParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.SessionCommandsParams.html)), each described by a [`VerbDescriptor`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Commands.VerbDescriptor.html): the forms its arguments take, which are keywords, choices, line numbers, expressions, paths, text, settings and their values.
 
 A verb is registered once. It is registered again only when its descriptor changes (a choice of what the client has more or fewer of), and then it replaces what it was. A completion request names the verb and what is typed after it (`Command`), and nothing more of the verb travels. The language server completes each argument as described (`VerbCompletion`):
 
@@ -353,7 +353,7 @@ A verb the client did not register is offered nothing. The interactive shell reg
 
 The language server answers `textDocument/signatureHelp` (**LSP 3.17** §Signature Help) for the documents it holds. Its trigger characters are `(`, `,` and a space, which starts the arguments of a call statement; `)` triggers it again, for the call around the one it closes.
 
-The call is read off the line before the cursor ([`SignatureSite`](../api/RDCore.SDK.Model.Symbols.Completion.SignatureSite.html)):
+The call is read off the line before the cursor ([`SignatureSite`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Completion.SignatureSite.html)):
 
 |Written|The call|
 |---|---|
@@ -363,9 +363,9 @@ The call is read off the line before the cursor ([`SignatureSite`](../api/RDCore
 
 The argument at the cursor is counted by the commas before it in its argument list. A named argument (`Title:=`) is the parameter it names; an argument after the last parameter is the `ParamArray`'s, when the last parameter is one.
 
-What is called is found as a completion list finds it: a name in the scope of the line, or a member of what its qualifier is, an object created by name included. The answer has one signature ([`SignatureDescription`](../api/RDCore.SDK.Model.Symbols.Completion.SignatureDescription.html)): the procedure's signature on one line, each parameter by its range in the line, the active parameter, and what the procedure and each parameter do. An instance member's implicit `Me` is none of its parameters. The answer is `null` where no call is written, or what is called is no procedure.
+What is called is found as a completion list finds it: a name in the scope of the line, or a member of what its qualifier is, an object created by name included. The answer has one signature ([`SignatureDescription`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Completion.SignatureDescription.html)): the procedure's signature on one line, each parameter by its range in the line, the active parameter, and what the procedure and each parameter do. An instance member's implicit `Me` is none of its parameters. The answer is `null` where no call is written, or what is called is no procedure.
 
-What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)), a sentence:
+What a procedure does is its doc string ([`SymbolProperties.DocString`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)), a sentence:
 
 |Procedure|Doc string|
 |---|---|
@@ -376,13 +376,13 @@ What a procedure does is its doc string ([`SymbolProperties.DocString`](../api/R
 > [!NOTE]
 > The standard library's doc strings cover the `Strings`, `Interaction`, `Conversion`, `Math`, `Information` and `DateTime` modules, and the parameters of the members of `Strings`, `Interaction` and `DateTime` that take several, and of `Round` and `RGB`. The other modules' members have a signature and no doc string; a parameter with none shows none.
 
-`rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](../api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
+`rdcore/session/signatureHelp` ([`SessionSignatureHelpParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.SessionSignatureHelpParams.html)) answers the same for a module the client supplies with its source. The interactive shell asks it for the line at its prompt, and draws the signature under the line with the active parameter underlined, and what the procedure and that parameter do under it. A line that is one of the shell's commands is no call.
 
 ### `textDocument/semanticTokens/full` and `rdcore/session/semanticTokens`
 
-The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](../api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the module declares (a constant is `readonly`, the name of an enumeration, a user-defined type or a class module of the workspace is a `class`), unless it follows a `.` or a `!`, which makes it a member of something.
+The language server answers `textDocument/semanticTokens/full` (**LSP 3.17** §Semantic Tokens) for the documents it holds, with the legend of [`SemanticTokenLegend`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Source.SemanticTokenLegend.html): the lexical tokens of the parsing server, with a name told apart by what the module declares (a constant is `readonly`, the name of an enumeration, a user-defined type or a class module of the workspace is a `class`), unless it follows a `.` or a `!`, which makes it a member of something.
 
-`rdcore/session/semanticTokens` ([`SessionSemanticTokensParams`](../api/RDCore.SDK.Platform.Protocol.SessionSemanticTokensParams.html)) answers the same for code fragments the client supplies, which are in no document: the condition of a breakpoint, say. The request has the complete source of a module and its name, which the names of the fragments are resolved against, and the fragments. The answer has the tokens of each fragment, in the order they were asked, encoded as `textDocument/semanticTokens/full` encodes them, with the first line of a fragment as line 0. Many fragments are asked in one request, so that coloring a list of them costs one round trip, not one each.
+`rdcore/session/semanticTokens` ([`SessionSemanticTokensParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.SessionSemanticTokensParams.html)) answers the same for code fragments the client supplies, which are in no document: the condition of a breakpoint, say. The request has the complete source of a module and its name, which the names of the fragments are resolved against, and the fragments. The answer has the tokens of each fragment, in the order they were asked, encoded as `textDocument/semanticTokens/full` encodes them, with the first line of a fragment as line 0. Many fragments are asked in one request, so that coloring a list of them costs one round trip, not one each.
 
 The interactive shell asks it once for the conditions of all the breakpoints `BREAK` lists, and draws each condition as `LIST` draws the same code. A server without the capability, or one that does not answer, leaves the conditions plain.
 
@@ -417,13 +417,13 @@ A member accessed late-bound (on an `Object` or a `Variant`) with the symbol's n
 
 An access on an object whose known classes include the symbol's class is backed by what is known, and labeled so (`Late-bound: the object holds a Class1`). Any other access that is proposed is only possible (`Late-bound: the object may hold a Class1`). Each kind is confirmed on its own.
 
-A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: once for the strings, once for the backed late-bound accesses, and once for the possible ones. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is asked nothing: it is sent the rest of the rename, without the edits of strings and of late-bound accesses.
+A client that takes change annotations is sent the edits of strings and of late-bound accesses annotated, with `needsConfirmation`, and asks its user itself. Any other client is asked first, with `window/showMessageRequest`: once for the strings, once for the backed late-bound accesses, and once for the possible ones. For each question it is sent the edits with them or without them, and nothing at all when the user chooses neither. A client that expects [`Unattended`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Unattended.html) is asked nothing: it is sent the rest of the rename, without the edits of strings and of late-bound accesses.
 
 A rename that is refused is answered with an error (`RequestFailed`) whose message says why, in the language of the user interface, and where:
 
 |Refused|Because|
 |---|---|
-|The new name is empty, not an identifier, or a keyword (**MS-VBAL §3.3.5**, §3.3.5.2)|Code cannot declare it ([`VBIdentifier`](../api/RDCore.SDK.Model.VBIdentifier.html)). A letter of another script is a letter: `Données` is a name.|
+|The new name is empty, not an identifier, or a keyword (**MS-VBAL §3.3.5**, §3.3.5.2)|Code cannot declare it ([`VBIdentifier`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.VBIdentifier.html)). A letter of another script is a letter: `Données` is a name.|
 |The new name is declared where the symbol is|Two declarations would have one name.|
 |The new name means something nearer, or as near, where the code refers to the symbol|The code would refer to that instead.|
 |The symbol would be nearer, or as near, than what the new name means where the code writes it already|The code would refer to the symbol instead.|
@@ -527,7 +527,7 @@ Names that match alike come by name. An empty query matches every symbol. At mos
 
 The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename` and `source.rdcore.importProject`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
 
-An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
+An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
 
 |Offered|Kind|Does|
 |---|---|---|
@@ -536,7 +536,7 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](../api/RDCo
 |A rename of each name the range declares, or of the name at the position of an empty range|`refactor.rename`|Its `command` is `rdcore.rename`.|
 |An import of each VB6 project (`.vbp`) of the workspace's folder, when it has no `.rdproj`|`source.rdcore.importProject`|Its `command` is `rdcore.importProject`, with the URI of the `.vbp`. Offered in every document.|
 
-`rdcore.rename` ([`RefactoringCommands.Rename`](../api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
+`rdcore.rename` ([`RefactoringCommands.Rename`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
 
 |Diagnostic|Fixed by|
 |---|---|
@@ -547,12 +547,12 @@ The interactive shell asks for them with `DUCKY`, for its program as the documen
 
 ### `rdcore/refactor/prepare` and `rdcore/refactor/apply`
 
-A refactoring is offered to any client as a code action, which completes with its defaults. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](../api/RDCore.SDK.Client.Refactoring.html), and asks with two requests, the same for every refactoring.
+A refactoring is offered to any client as a code action, which completes with its defaults. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html), and asks with two requests, the same for every refactoring.
 
 > [!NOTE]
 > **Not implemented.** No refactoring is served by these requests, and the language server does not provide the capability.
 
-**`rdcore/refactor/prepare`** ([`RefactorPrepareParams`](../api/RDCore.SDK.Platform.Protocol.RefactorPrepareParams.html)) names the refactoring by the kind of its code action, with the document and the range. It is answered what the refactoring asks its user, each choice with the answer it takes by default, and its notices ([`RefactorPrepareResult`](../api/RDCore.SDK.Platform.Protocol.RefactorPrepareResult.html)):
+**`rdcore/refactor/prepare`** ([`RefactorPrepareParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorPrepareParams.html)) names the refactoring by the kind of its code action, with the document and the range. It is answered what the refactoring asks its user, each choice with the answer it takes by default, and its notices ([`RefactorPrepareResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorPrepareResult.html)):
 
 |A choice of kind|Is answered with|
 |---|---|
@@ -563,13 +563,13 @@ A refactoring is offered to any client as a code action, which completes with it
 
 A notice is a `Refusal`, which no answer changes, or a `Change` of what the code does, which the user accepts by its `code`. It says where (`location`) and, when it concerns another place too, that place (`related`).
 
-**`rdcore/refactor/apply`** ([`RefactorApplyParams`](../api/RDCore.SDK.Platform.Protocol.RefactorApplyParams.html)) sends the same kind, document and range, with the answers and the codes of the changes the user accepts. A choice that is not answered takes its default. It is answered the edit ([`RefactorWorkspaceEdit`](../api/RDCore.SDK.Platform.Protocol.RefactorWorkspaceEdit.html)): the documents it creates, then the text edits of each document, of the version the client has. The client applies it as one change. A refactoring that is refused, or that would make a change the user did not accept, is answered with an error (`RequestFailed`, -32803) whose message says why, in the language of the user interface.
+**`rdcore/refactor/apply`** ([`RefactorApplyParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorApplyParams.html)) sends the same kind, document and range, with the answers and the codes of the changes the user accepts. A choice that is not answered takes its default. It is answered the edit ([`RefactorWorkspaceEdit`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorWorkspaceEdit.html)): the documents it creates, then the text edits of each document, of the version the client has. The client applies it as one change. A refactoring that is refused, or that would make a change the user did not accept, is answered with an error (`RequestFailed`, -32803) whose message says why, in the language of the user interface.
 
 The messages are plain records of `RDCore.SDK.Protocol`, with no OmniSharp type: a client that has only that package writes and reads them.
 
 ### `workspace/executeCommand`
 
-The language server runs the commands it advertises (`executeCommandProvider.commands`) when a client sends `workspace/executeCommand` (**LSP 3.17** §Execute a command) ([`IServerCommand`](../api/RDCore.SDK.Server.Commands.IServerCommand.html)). A command a client runs itself, such as `rdcore.rename`, is not advertised. A command that is refused is answered with an error (`RequestFailed`, `-32803`) whose message says why, in the language of the user interface, for the client to show its user. What a command asks its user is asked with `window/showMessageRequest`, its choices as the request's actions.
+The language server runs the commands it advertises (`executeCommandProvider.commands`) when a client sends `workspace/executeCommand` (**LSP 3.17** §Execute a command) ([`IServerCommand`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Commands.IServerCommand.html)). A command a client runs itself, such as `rdcore.rename`, is not advertised. A command that is refused is answered with an error (`RequestFailed`, `-32803`) whose message says why, in the language of the user interface, for the client to show its user. What a command asks its user is asked with `window/showMessageRequest`, its choices as the request's actions.
 
 |Command|Arguments|Does|
 |---|---|---|
@@ -590,7 +590,7 @@ A lens is answered without its command (`resolveProvider = true`), since its ref
 |Resolved lens|Is|
 |---|---|
 |`command.title`|The count, in the language of the user interface: `0 references`, `1 reference`, `3 references` (`0 référence`, `1 référence`, `3 références`).|
-|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](../api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
+|`command.command`|`rdcore.showReferences` ([`RefactoringCommands.ShowReferences`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)), a command a client runs itself: it shows its user the references.|
 |`command.arguments`|The URI of the document, the position of the name, and the references (`Location[]`): the arguments of VS Code's `editor.action.showReferences`.|
 
 ### `textDocument/typeDefinition` and `textDocument/implementation`
@@ -616,7 +616,7 @@ owns its user's settings, and a server asks for them.
 |`workspace/diagnostic/refresh`, and the other refreshes|Server to client|Asks a client to pull again what it shows of every document, once the settings changed ([Refreshing what the client shows](#refreshing-what-the-client-shows)).|
 
 Every client of the platform says it answers `workspace/configuration` (`workspace.configuration`), and answers with what its component hands down
-([`LiveSettingsProtocol`](../api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)): the interactive shell, with the live settings of its user's
+([`LiveSettingsProtocol`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Configuration.LiveSettingsProtocol.html)): the interactive shell, with the live settings of its user's
 settings; the language server, as the client of its components, with what its own client said. Every server asks, and sets what it is told on its settings
 ([**RD-VBAL §2.3.3** Configuration](rd-vbal.2.3.3.configuration.md#live-settings)). The language server says each change to the components it is the client of.
 
@@ -632,7 +632,7 @@ A position that no node is written around is answered with the empty range at it
 The language server answers `textDocument/formatting` (**LSP 3.17** §Document Formatting Request) with the edits that indent every line of a module, and
 `textDocument/rangeFormatting` (§Document Range Formatting Request) with those of the lines a range is on; a range that ends at the start of a line, a selection
 of whole lines, does not take in that line, and a range that starts or ends inside a continued statement takes in all of its lines. Only whitespace changes
-([`ModuleIndenter`](../api/RDCore.SDK.Formatting.ModuleIndenter.html)). A line ends with a carriage return, a line feed, or both, as the protocol counts them.
+([`ModuleIndenter`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Formatting.ModuleIndenter.html)). A line ends with a carriage return, a line feed, or both, as the protocol counts them.
 
 A line is indented a level (`Formatting.IndentSpaces` spaces) for each body that encloses it in the syntax tree, whatever the range:
 
@@ -693,7 +693,7 @@ is what a client says changed, as **LSP 3.17** has it (§DidChangeWatchedFiles N
 |---|---|---|
 |`client/registerCapability`|Server to client|Asks a client that registers capabilities dynamically (`workspace.didChangeWatchedFiles.dynamicRegistration`) to watch `**/.rdproj`, created or changed, and the source files of every language the platform serves (`**/*.{bas,cls,frm,doccls,rdc}`), created, changed or deleted. A client that does not is not asked.|
 |`workspace/didChangeWatchedFiles`|Client to server|Says files of the workspace changed. The server serves it whether or not it asked for it: a client that registers nothing sends it all the same. The workspace's `.rdproj`, created or changed, is read again (below); another folder's `.rdproj`, and a deletion, are left alone, and so is a project file that lists what the workspace is, as the one the server wrote does when a client that watches it says it changed. A file the project lists is read again ([below](#a-file-changed-outside-the-editor)); one it does not list is nothing of the workspace.|
-|`rdcore/host/project/reload`|Language server to environment host|Asks the host to compose its runtime session again from the project file as it is now ([`ProjectReload`](../api/RDCore.SDK.Client.ProjectReload.html)). A class module's symbol is the project's, so a class the project gained is a type only once the session is composed again. A program that is running or waits keeps the session it runs in.|
+|`rdcore/host/project/reload`|Language server to environment host|Asks the host to compose its runtime session again from the project file as it is now ([`ProjectReload`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.ProjectReload.html)). A class module's symbol is the project's, so a class the project gained is a type only once the session is composed again. A program that is running or waits keeps the session it runs in.|
 |`workspace/diagnostic/refresh`, and the other refreshes|Server to client|Asks a client to pull again what it shows of every document, once the workspace is defined again ([Refreshing what the client shows](#refreshing-what-the-client-shows)).|
 |`window/showMessage`|Server to client|Says why the workspace is as it was (the project file could not be read), or that a running program keeps its modules.|
 
@@ -745,7 +745,7 @@ diagnostics are asked to be pulled again once they are done.
 
 > [!NOTE]
 > OmniSharp 0.19.9 reads `workspace/didRenameFiles` with a `FileRename` that has only a `uri`, and neither the `oldUri` nor the `newUri` a client sends. RDCore reads it
-> with a type of its own ([`DidRenameWorkspaceFilesParams`](../api/RDCore.SDK.Platform.Protocol.DidRenameWorkspaceFilesParams.html)), as the protocol states it.
+> with a type of its own ([`DidRenameWorkspaceFilesParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.DidRenameWorkspaceFilesParams.html)), as the protocol states it.
 
 A folder with no `.rdproj` is the project it holds (**RD-VBAL §2.2.3**): the first file operation writes it, and opening the folder does not.
 
@@ -759,11 +759,11 @@ The language server reports the progress of its work to a client that shows it (
   - composing the project: each module defined, then its code loaded;
   - the first analysis of every document.
 
-Progress is for work that takes longer than an answer does. Work that is done within the threshold ([`WorkProgressReporter.DefaultThreshold`](../api/RDCore.SDK.Server.Progress.WorkProgressReporter.html), 300 ms) is reported nothing, and no token is created for it. Work that is still going on then begins, with the last step it reported. Once begun, it always ends, whatever comes of it; work that fails ends with its error's message. Its percentage only goes up.
+Progress is for work that takes longer than an answer does. Work that is done within the threshold ([`WorkProgressReporter.DefaultThreshold`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Progress.WorkProgressReporter.html), 300 ms) is reported nothing, and no token is created for it. Work that is still going on then begins, with the last step it reported. Once begun, it always ends, whatever comes of it; work that fails ends with its error's message. Its percentage only goes up.
 
-The code that does the work reports to an `IProgress<WorkProgressStep>` ([`IWorkProgress`](../api/RDCore.SDK.Server.Progress.IWorkProgress.html)), and knows nothing of LSP.
+The code that does the work reports to an `IProgress<WorkProgressStep>` ([`IWorkProgress`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Server.Progress.IWorkProgress.html)), and knows nothing of LSP.
 
-A client tracks what it is reported with [`WorkProgressTracker`](../api/RDCore.SDK.Client.Progress.WorkProgressTracker.html). It shows the work for its requests (`TrackWorkDone`) and the work the server begins (`WorkProgressOrigin.Server`). The interactive shell draws each piece of work as a bar, as PowerShell's `Write-Progress` does:
+A client tracks what it is reported with [`WorkProgressTracker`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Progress.WorkProgressTracker.html). It shows the work for its requests (`TrackWorkDone`) and the work the server begins (`WorkProgressOrigin.Server`). The interactive shell draws each piece of work as a bar, as PowerShell's `Write-Progress` does:
 
 - while a line is edited at the prompt, under it;
 - while a command runs, the work for that command, on the line its output starts on, cleared before the output is written.
@@ -792,7 +792,7 @@ workspace: the supertypes of a class are the classes of the workspace it impleme
 A program runs in the environment host; the person it asks is at a client. A `MsgBox` or an `InputBox` travels in two hops, and the program waits for the answer as it waits for a dialog:
 
 1. The environment host asks the language server (`rdcore/host/interaction/msgBox`, `rdcore/host/interaction/inputBox`).
-2. The language server asks its client (`rdcore/session/interaction/msgBox`, `.../inputBox`) when the client expects [`SessionInteraction`](../api/RDCore.SDK.Client.SessionInteraction.html). Otherwise it answers that nobody was asked (`Handled = false`), and the environment host shows the dialog of the platform it runs on: a Windows dialog on Windows, and none elsewhere (the dialog answers as though it had been confirmed at once).
+2. The language server asks its client (`rdcore/session/interaction/msgBox`, `.../inputBox`) when the client expects [`SessionInteraction`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionInteraction.html). Otherwise it answers that nobody was asked (`Handled = false`), and the environment host shows the dialog of the platform it runs on: a Windows dialog on Windows, and none elsewhere (the dialog answers as though it had been confirmed at once).
 
 The request carries the lines the program completed before it opened the dialog (`Output`), so that the client shows them first; they are not repeated in the answer to `rdcore/session/execute`. An `InputBox` that was cancelled answers `Cancelled = true`, which the program is told with `vbNullString`.
 
@@ -804,7 +804,7 @@ The interactive shell draws a dialog as a box with a border, centred on the cons
 
 A user who had Rubberduck has indenter settings (**RD-VBAL §2.3.3**, the `Formatting` settings). Rubberduck keeps them on the user's machine, in its own configuration and in the
 registry, and a client owns its configuration: the language server does not read the machine of the user, and writes none of the client's settings. A client that expects
-[`RubberduckIndenterSettings`](../api/RDCore.SDK.Client.RubberduckIndenterSettings.html) reads them for it, and takes the mapped settings as its own. Two requests, both sent by the
+[`RubberduckIndenterSettings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.RubberduckIndenterSettings.html) reads them for it, and takes the mapped settings as its own. Two requests, both sent by the
 language server to the client:
 
 **`rdcore/formatting/indenterSettings`** (params `{}`) asks what the client found. The client answers what it read, _as it is_, and maps nothing:
@@ -820,7 +820,7 @@ language server to the client:
 |`tabWidth`|`TabWidth` of the VBA editor (`HKCU\Software\Microsoft\VBA\6.0\Common`, or `7.0`) for `SmartIndenterRegistry`, which the Smart Indenter indented by; `null` otherwise.|
 
 Rubberduck's own configuration is read when it has indenter settings, and the registry otherwise. The language server maps what the client read to `Formatting` settings
-([`IndenterSettingsImport`](../api/RDCore.SDK.Formatting.IndenterSettingsImport.html)), so that every client says the same thing and the mapping is made once. A name of
+([`IndenterSettingsImport`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Formatting.IndenterSettingsImport.html)), so that every client says the same thing and the mapping is made once. A name of
 `RubberduckConfig` is the setting of that name. For `SmartIndenterRegistry`:
 
 |Value|Setting|
@@ -851,7 +851,7 @@ The language server sends the requests only to a client that expects the capabil
 - **On the first start**, once. When the client's first settings are in, the user set no `Formatting` setting, a file in the platform's user folder (`indenter-import.offered`) does not say it was offered, and the client found settings, the language server asks the user (`window/showMessageRequest`: _Import_ or _No thanks_) and remembers that it asked, whatever the answer:
   - a user who closes the question has answered it;
   - a client with nobody there to answer answers the request with an error instead, as the `rdc` shell does when its input is a script or it has ended, and the server asks again at the next start;
-  - a client that expects [`Unattended`](../api/RDCore.SDK.Client.Unattended.html) is not asked at all that start, and is asked at a start where it does not expect it;
+  - a client that expects [`Unattended`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Unattended.html) is not asked at all that start, and is asked at a start where it does not expect it;
   - when the user chooses _Import_ and the client cannot apply the settings, the server asks again at the next start.
 - **On request.** The command `rdcore.importIndenterSettings` ([`workspace/executeCommand`](#workspaceexecutecommand)) runs the two requests against the client that sent it, and answers `{ "source", "found", "applied", "message" }`. A client that does not expect the capability is refused with a message. That nothing was found is an answer, not a refusal.
 

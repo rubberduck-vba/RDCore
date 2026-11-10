@@ -1,7 +1,7 @@
 # 2.3.1.2 Session Services
 
 An _execution session_'s services are rooted at an
-[IRuntimeSession](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeSession.html).
+[IRuntimeSession](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeSession.html).
 
 ## IRuntimeSession
 
@@ -9,7 +9,7 @@ An _execution session_'s services are rooted at an
 
 |Exposes|Description|
 |---|---|
-|`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](../api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). With `Environment.OperatingSystem`, it sets the [predefined conditional-compilation constants](#predefined-conditional-compilation-constants).|
+|`Environment.Is64Bit`|The environment bitness, on the session's [IRuntimeEnvironmentProfile](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IRuntimeEnvironmentProfile.html). With `Environment.OperatingSystem`, it sets the [predefined conditional-compilation constants](#predefined-conditional-compilation-constants).|
 |`Environment.OperatingSystem`|The operating system the environment host runs on: Windows, macOS, Linux, or another. It decides which of `Win32`, `Win64`, `Mac`, `Linux` and `Linux64` is `1` ([below](#predefined-conditional-compilation-constants)).|
 |`Environment.Culture`|The culture of the environment, which its `Lcid` selects; `0` is the invariant culture. Text compares in it (`Option Compare Text`, `Like`), and `Format` writes in it given a format.|
 |`Environment.Regional`|The regional settings of the environment: a number or a date let-coerced to `String` is written in them, and a `String` let-coerced to a number or a date is read in them ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)). en-US unless the platform says otherwise.|
@@ -20,7 +20,7 @@ An _execution session_'s services are rooted at an
 ## Predefined conditional-compilation constants
 
 The environment host defines these constants in every session, from the environment
-([PredefinedConditionalConstants](../api/RDCore.SDK.Runtime.PredefinedConditionalConstants.html)). The language server
+([PredefinedConditionalConstants](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.PredefinedConditionalConstants.html)). The language server
 decides which `#If` branch is live from the same session, so every part of the platform sees the same values.
 
 |Constant|`1` when|Otherwise|
@@ -53,9 +53,9 @@ report such a condition as [**RDC11031** True value that is not -1](../diagnosti
 
 |Service|Responsibility|Members|
 |---|---|---|
-|[ISessionMemoryAllocator](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionMemoryAllocator.html)|Allocates and frees blocks in the session's memory space, and reports allocation / fragmentation statistics.|`TryAllocate`, `TryDeallocate`, `Info`|
-|[ISessionSymbols](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionSymbols.html)|The session's symbol table.|`TryDefine` defines a [Symbol](../api/RDCore.SDK.Model.Symbols.Abstract.Symbol.html) in a scope. `TryResolveValue` resolves a name visible from a scope; `TryResolveType` is its type binding context counterpart. `Resolver` is the session's symbol resolver.|
-|[ISessionObjects](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionObjects.html)|Object lifetime.|`CreateObject`; `AddRef` / `RemoveRef` (reference counting); `TryRemoveObject` removes an instance whose reference count has reached zero.|
+|[ISessionMemoryAllocator](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISessionMemoryAllocator.html)|Allocates and frees blocks in the session's memory space, and reports allocation / fragmentation statistics.|`TryAllocate`, `TryDeallocate`, `Info`|
+|[ISessionSymbols](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISessionSymbols.html)|The session's symbol table.|`TryDefine` defines a [Symbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.Symbol.html) in a scope. `TryResolveValue` resolves a name visible from a scope; `TryResolveType` is its type binding context counterpart. `Resolver` is the session's symbol resolver.|
+|[ISessionObjects](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISessionObjects.html)|Object lifetime.|`CreateObject`; `AddRef` / `RemoveRef` (reference counting); `TryRemoveObject` removes an instance whose reference count has reached zero.|
 
 `ISessionMemoryAllocator` is an _accounting_ layer: it tracks sizes and addresses, in the manner of MSVBVM. It does
 not hold the values themselves.
@@ -76,7 +76,7 @@ no `.rdproj` lists it ([**RD-VBAL §2.2.3.1** RDCoreProject](rd-vbal.2.2.3.proje
 libraries every project of its language has come after the standard library and before the listed references, in the
 order the language gives them: `VBRUN` and `VB` for a VB6 project, and none for RD-VBA.
 
-Each [ReferencePriorityInfo](../api/RDCore.SDK.Model.Symbols.ReferencePriorityInfo.html) entry carries only:
+Each [ReferencePriorityInfo](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.ReferencePriorityInfo.html) entry carries only:
 
 |Member|Description|
 |---|---|
@@ -88,7 +88,7 @@ The list is in the order of reference precedence that global-scope name resoluti
 which the language server provides the references.
 
 A referenced library's own members are not taken from this list: they are contributed by an
-[ISymbolProvider](../api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolProvider.html) (see [below](#isymbolprovider))
+[ISymbolProvider](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISymbolProvider.html) (see [below](#isymbolprovider))
 and resolved through `ISymbolResolver`.
 
 Name resolution does not read this list. It takes the same order from the libraries the project loads: each symbol of a
@@ -150,10 +150,10 @@ structures:
 
 |Internal structure|Holds|
 |---|---|
-|_Global heap_|An [IBindingHandle](../api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html) for any globally-scoped `Symbol`.|
+|_Global heap_|An [IBindingHandle](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Bindings.IBindingHandle.html) for any globally-scoped `Symbol`.|
 |_Workspace heap_|An `IBindingHandle` for any workspace-scoped `Symbol`.|
 |_Static locals heap_|An `IBindingHandle` for any module-scoped `Symbol`.|
-|_Object heap_|The `Symbol` references and their associated bindings for any [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html).|
+|_Object heap_|The `Symbol` references and their associated bindings for any [VBObjectValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html).|
 |_Symbol table_|A map of a `Uri` to its associated `Symbol`.|
 |_Name table_|The current representation (casing) of all loaded symbols.|
 
@@ -178,7 +178,7 @@ is the environment's (`IRuntimeEnvironmentProfile.Is64Bit`): 8 bytes, or 4.
 
 The _memory map_ (`MemoryAddress` → `IBindingHandle`) is held by the session storage (`SessionStorage`, below):
 it binds the `IBindingHandle` of a value to the
-[MemoryAddress](../api/RDCore.SDK.Runtime.Shared.MemoryAddress.html) reserved for it.
+[MemoryAddress](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.MemoryAddress.html) reserved for it.
 
 > [!NOTE]
 > **Not implemented.** The _raw address map_ (`MemoryAddress` → `Uri`) is not implemented: what is at an address is
@@ -192,10 +192,10 @@ memory, laid out as **MS-VBA** lays it out when they are read (`PEEK`) and read 
 written (`POKE`). See the [memory model](#memory-model).
 
 A symbol's storage allocation is performed by `SymbolAddressTable`, which
-[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) and the module/global resolver
+[ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html) and the module/global resolver
 share ([**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md)).
 `SymbolAddressTable.FreshBinding` re-boxes a `Variant`'s wrapped value into a fresh
-[VBRuntimeVariantValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html) on every store
+[VBRuntimeVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html) on every store
 ([**RD-VBAL §2.5.2.1.5** Variant Values](rd-vbal.2.5.2.1.5.variant-values.md)).
 
 ### Zero-size storage
@@ -306,8 +306,8 @@ Of the GoSub Resumption List, the SDK interface `ICallStackFrame` exposes only `
 entries; it does not expose the list's push/pop mutators ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
 All file statements run through one session-level shim, the
-[IFileChannels](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html) /
-[IFileChannel](../api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html) interfaces
+[IFileChannels](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannels.html) /
+[IFileChannel](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.IFileChannel.html) interfaces
 ([**RD-VBAL §5.4.5** File Statements](rd-vbal.5.4.5.file-statements.md)).
 
 ## Thread safety

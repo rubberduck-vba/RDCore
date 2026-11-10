@@ -7,10 +7,10 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[OnErrorGoToStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html)|`OnErrorGoTo`|`On Error GoTo <label>`. `Target`: the label's offset.|
+|[OnErrorGoToStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnErrorGoToStatementNode.html)|`OnErrorGoTo`|`On Error GoTo <label>`. `Target`: the label's offset.|
 |`OnErrorGoToStatementNode`|`OnErrorDisable`|`On Error GoTo 0`.|
 |`OnErrorGoToStatementNode`|`OnErrorReset`|`On Error GoTo -1`, which MS-VBAL does not document and MS-VBA compiles.|
-|[OnErrorResumeStatementNode](../api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html)|`OnErrorResumeNext`|`On Error Resume Next`.|
+|[OnErrorResumeStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.OnErrorResumeStatementNode.html)|`OnErrorResumeNext`|`On Error Resume Next`.|
 
 - `On Error Resume Next` and `On Error GoTo` are parsed by the same grammar rule, disambiguated by the keyword that
   follows `On Error`.
@@ -34,7 +34,7 @@ defines a line `0`.
 ## Runtime Semantics
 
 An `On Error` statement sets the error-handling policy of the current activation. The policy is an
-[ErrorHandlingMode](../api/RDCore.SDK.Runtime.Shared.ErrorHandlingMode.html):
+[ErrorHandlingMode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ErrorHandlingMode.html):
 
 |Policy (`ErrorHandlingMode`)|Set by|When an error is raised|
 |---|---|---|
@@ -102,7 +102,7 @@ propagates like any other runtime error, so the caller's own error-handling poli
 
 ### Per-activation state
 
-`activation.ErrorHandler`, of type [ErrorHandlerState](../api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html), is a
+`activation.ErrorHandler`, of type [ErrorHandlerState](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Shared.ErrorHandlerState.html), is a
 single mutable value per activation, like `Pc`. It holds the error-handling mode, the handler target, the active
 error, and the fault-statement offset.
 
@@ -117,5 +117,5 @@ scoped to one block.
 |`RDCore.Runtime.Execution.ProcedureExecutor.InterceptError`|The one point every run-time error passes through; applies the activation's error-handling policy.|
 |`ErrorHandlerState`|The activation's error-handling mode, handler target, active error and fault-statement offset; while a handler runs (`IsHandling`), the policy after it (`AfterHandling`, `HandlingOver`) (**RDCore.SDK**).|
 |`ErrorHandlingMode`|`Disabled`, `ResumeNext`, `GoTo` (**RDCore.SDK**).|
-|[ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ErrorHandler`|Reads the activation's `ErrorHandlerState`; read-only on the SDK interface, and written only by the executor through `CallStackFrame.ErrorHandler`. See [**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md).|
+|[ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.ErrorHandler`|Reads the activation's `ErrorHandlerState`; read-only on the SDK interface, and written only by the executor through `CallStackFrame.ErrorHandler`. See [**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md).|
 |`InstructionListLowering`|Lowers `On Error GoTo 0` as `OnErrorDisable`, `On Error GoTo -1` as `OnErrorReset`, and `On Error GoTo <label>` as `OnErrorGoTo` (**RDCore.SDK**).|

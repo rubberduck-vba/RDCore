@@ -7,7 +7,7 @@
 
 |AST node|Instruction kind(s)|Notes|
 |---|---|---|
-|[WhileWendStatementNode](../api/RDCore.SDK.Model.AST.Statements.WhileWendStatementNode.html)|`ConditionalBranch`|The pre-test loop header. Its `Else` is right past the whole loop.|
+|[WhileWendStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.WhileWendStatementNode.html)|`ConditionalBranch`|The pre-test loop header. Its `Else` is right past the whole loop.|
 |None (synthesized)|`Jump`|The back-edge at the end of the body; `Node` is `null`. Its `Target` is the loop's header.|
 
 `Wend` has no AST node of its own ([**RD-VBAL §3.4.1** Block Statements](rd-vbal.3.4.1.block-statements.md);

@@ -13,7 +13,7 @@ which of the resolved-target fields to consult, if any.
 |Field|Holds|
 |---|---|
 |`Offset`|The instruction's own offset: its index in `InstructionList.Items`.|
-|`Node`|The [StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html) the instruction was lowered from; `null` for a synthesized instruction ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).|
+|`Node`|The [StatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.StatementNode.html) the instruction was lowered from; `null` for a synthesized instruction ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md)).|
 |`Kind`|The `InstructionKind`.|
 |`Target`|A single resolved offset, for the kinds that branch to one place.|
 |`Targets`|One resolved offset per label, in source order, for `JumpTable` and `GoSubTable`.|

@@ -28,9 +28,15 @@ if ($Titles.Count -eq 0) { throw "No extension manifests under $($Manifest.exten
 
 # a refused extension is only a warning in the log. its text comes from the resources, where {$NAME} may or may not
 # have been substituted, so it matches as a wildcard.
-$Resources = [xml](Get-Content -LiteralPath (Join-Path $PSScriptRoot "../../RDCore.SDK/Exceptions.resx") -Raw)
-$InvalidExtension = ($Resources.root.data | Where-Object name -eq "InvalidExtension_Message").value
-if (-not $InvalidExtension) { throw "InvalidExtension_Message not found in RDCore.SDK/Exceptions.resx." }
+# the resources are RDCore.SDK's, read from the copy the language server ships (the package's), loaded from its bytes so the file stays unlocked.
+$SdkAssemblyPath = Join-Path $Source (Join-Path ([IO.Path]::GetDirectoryName($Manifest.langService)) "RDCore.SDK.dll")
+$SdkAssembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($SdkAssemblyPath))
+$ResourceStream = $SdkAssembly.GetManifestResourceStream("RDCore.SDK.Exceptions.resources")
+if (-not $ResourceStream) { throw "RDCore.SDK.Exceptions.resources not found in $SdkAssemblyPath." }
+$ResourceReader = [Resources.ResourceReader]::new($ResourceStream)
+try { $InvalidExtension = ($ResourceReader | Where-Object Key -eq "InvalidExtension_Message").Value }
+finally { $ResourceReader.Dispose() }
+if (-not $InvalidExtension) { throw "InvalidExtension_Message not found in the resources of $SdkAssemblyPath." }
 $FailurePatterns = @(
     "\[(ERR|FTL)\]",
     (($InvalidExtension -split [regex]::Escape('{$NAME}') | ForEach-Object { [regex]::Escape($_) }) -join ".*"),

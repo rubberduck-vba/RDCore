@@ -4,7 +4,7 @@ _Directives_ are **non-executable statements**. A directive influences the seman
 in, or of the member it refers to.
 
 In the AST, the base node type for directives is
-[DirectiveNode](../api/RDCore.SDK.Model.AST.Abstract.DirectiveNode.html), which derives directly from
+[DirectiveNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.DirectiveNode.html), which derives directly from
 `SyntaxNode` ([**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md)).
 
 ## Option Statements
@@ -27,19 +27,19 @@ Directives include the `Def<Type>` _implicit definition_ statements:
 
 |Directive|Configures implicit definitions for|
 |---|---|
-|`DefBool`|[VBBooleanType](../api/RDCore.SDK.Model.Types.VBBooleanType.html)|
-|`DefByte`|[VBByteType](../api/RDCore.SDK.Model.Types.VBByteType.html)|
-|`DefInt`|[VBIntegerType](../api/RDCore.SDK.Model.Types.VBIntegerType.html)|
-|`DefLng`|[VBLongType](../api/RDCore.SDK.Model.Types.VBLongType.html)|
-|`DefLngLng`|[VBLongLongType](../api/RDCore.SDK.Model.Types.VBLongLongType.html), in 64-bit environments|
-|`DefLngPtr`|[VBLongPtrType_x86](../api/RDCore.SDK.Model.Types.VBLongPtrType_x86.html) in a 32-bit environment; [VBLongPtrType_x64](../api/RDCore.SDK.Model.Types.VBLongPtrType_x64.html) in a 64-bit environment|
-|`DefCur`|[VBCurrencyType](../api/RDCore.SDK.Model.Types.VBCurrencyType.html)|
-|`DefSng`|[VBSingleType](../api/RDCore.SDK.Model.Types.VBSingleType.html)|
-|`DefDbl`|[VBDoubleType](../api/RDCore.SDK.Model.Types.VBDoubleType.html)|
-|`DefDate`|[VBDateType](../api/RDCore.SDK.Model.Types.VBDateType.html)|
-|`DefStr`|[VBStringType](../api/RDCore.SDK.Model.Types.VBStringType.html)|
-|`DefObj`|[VBObjectType](../api/RDCore.SDK.Model.Types.VBObjectType.html)|
-|`DefVar`|[VBVariantType](../api/RDCore.SDK.Model.Types.VBVariantType.html)|
+|`DefBool`|[VBBooleanType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBBooleanType.html)|
+|`DefByte`|[VBByteType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBByteType.html)|
+|`DefInt`|[VBIntegerType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBIntegerType.html)|
+|`DefLng`|[VBLongType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongType.html)|
+|`DefLngLng`|[VBLongLongType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongLongType.html), in 64-bit environments|
+|`DefLngPtr`|[VBLongPtrType_x86](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongPtrType_x86.html) in a 32-bit environment; [VBLongPtrType_x64](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBLongPtrType_x64.html) in a 64-bit environment|
+|`DefCur`|[VBCurrencyType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBCurrencyType.html)|
+|`DefSng`|[VBSingleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBSingleType.html)|
+|`DefDbl`|[VBDoubleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBDoubleType.html)|
+|`DefDate`|[VBDateType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBDateType.html)|
+|`DefStr`|[VBStringType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBStringType.html)|
+|`DefObj`|[VBObjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBObjectType.html)|
+|`DefVar`|[VBVariantType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBVariantType.html)|
 
 The semantics of the `Def<Type>` statements are described in
 [**RD-VBAL §5.2.2** Implicit Definition Directives](rd-vbal.5.2.2.implicit-definition-directives.md).

@@ -1,23 +1,17 @@
 ﻿using RDCore.LanguageServer;
 using RDCore.LanguageServer.Services.Platform;
 using RDCore.ParseServer;
-using RDCore.SDK.Client;
-using RDCore.SDK.Platform;
 using RDCore.SDK.Server;
-using RDCore.SDK.Server.Services;
 
 namespace RDCore.Tests.Server;
 
 [TestClass]
 public class HealthCheckTargetTests
 {
-    // a server app watches its owning client process; a client app watches the server process it started.
+    // a server app watches its owning client process, and the platform's servers are server apps.
     [TestMethod]
-    [DataRow(typeof(IRDCoreServerApp), true)]
-    [DataRow(typeof(IRDCoreClientApp), false)]
-    [DataRow(typeof(CoreLanguageServerApp), true)]
-    [DataRow(typeof(RDCoreParserApp), true)]
-    [DataRow(typeof(RDCoreServerProxy), false)]
-    public void IsOwnedByClient(Type appType, bool expected)
-        => Assert.AreEqual(expected, HealthCheckTarget.IsOwnedByClient(appType));
+    [DataRow(typeof(CoreLanguageServerApp))]
+    [DataRow(typeof(RDCoreParserApp))]
+    public void APlatformServer_IsAServerApp(Type appType)
+        => Assert.IsTrue(typeof(IRDCoreServerApp).IsAssignableFrom(appType));
 }

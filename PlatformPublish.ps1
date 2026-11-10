@@ -69,7 +69,7 @@ if ($PlatformPrefix.StartsWith($StagingPrefix, [StringComparison]::OrdinalIgnore
 }
 
 # shipped at the top of every platform root; checked now so a missing file fails before a long publish.
-$RootDocuments = @("LICENSE-GPLv3.md", "LICENSE-MIT.md", "NOTICE.md")
+$RootDocuments = @("LICENSE-GPLv3.md", "NOTICE.md")
 foreach ($document in $RootDocuments)
 {
     if (-not (Test-Path -LiteralPath (Join-Path $RepoRoot $document) -PathType Leaf))

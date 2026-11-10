@@ -1,6 +1,6 @@
 # 2.5.2.1.5 Variant Values
 
-A `Variant` value is a [VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html). A value let-coerced to `Variant` is wrapped in a `VBVariantValue`; see [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md) ([**MS-VBAL §5.5.1.2.12** Let-coercion to Variant](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2ae5553a-6515-4967-9b91-e06b527b137f)).
+A `Variant` value is a [VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html). A value let-coerced to `Variant` is wrapped in a `VBVariantValue`; see [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md) ([**MS-VBAL §5.5.1.2.12** Let-coercion to Variant](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/2ae5553a-6515-4967-9b91-e06b527b137f)).
 
 A `VBVariantValue` wraps the whole value, which need not be a scalar. A `Variant` may wrap another `Variant`.
 
@@ -14,13 +14,13 @@ The C# instance of a `Variant` value stays a `VBVariantValue`. It is not an inst
 >
 > Any code that short-circuits on a `TypeInfo` match, or pattern-matches a `VBTypedValue` operand against a concrete value type directly, must unwrap a `VBVariantValue` first. The unwrap is recursive, because a `Variant` may wrap another `Variant`. See [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md).
 
-`VBVariantValue` computes its `VarType` on construction: its [VBVarType](../api/RDCore.SDK.Model.Values.Runtime.VBVarType.html) tag, the COM `VARENUM`-compatible tag, via the `VBType`-to-`VBVarType` mapping. See [**RD-VBAL §6.1.1** Predefined Enums](rd-vbal.6.1.1.predefined-enums.md) (`VbVarType`).
+`VBVariantValue` computes its `VarType` on construction: its [VBVarType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBVarType.html) tag, the COM `VARENUM`-compatible tag, via the `VBType`-to-`VBVarType` mapping. See [**RD-VBAL §6.1.1** Predefined Enums](rd-vbal.6.1.1.predefined-enums.md) (`VbVarType`).
 
 ## Storage
 
 `VBVariantValue.Value` is computed from `VBVariantValue.Handle`. `Handle` is the single source of truth for a `Variant`'s value.
 
-Storage holds the wrapped `VBTypedValue` of a `Variant` itself inside a [VBRuntimeVariantValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html) box.
+Storage holds the wrapped `VBTypedValue` of a `Variant` itself inside a [VBRuntimeVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeVariantValue.html) box.
 
 |Step|Behaviour|
 |---|---|
@@ -29,7 +29,7 @@ Storage holds the wrapped `VBTypedValue` of a `Variant` itself inside a [VBRunti
 |Read|The `VBRuntimeVariantValue` box is read back with the wrapped value intact.|
 
 - A `Variant`'s `VBVarType` tag is carried on its `VBRuntimeVariantValue` box. The tag round-trips through storage alongside the value itself.
-- `Variant` values use the same boxing pattern for storage as arrays (`VBArrayType.CreateValue`, [VBRuntimeArrayValue](../api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html)); see [**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md). Three kinds of value are location-identified this way: an array, a `Variant`, and a UDT ([**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md)).
+- `Variant` values use the same boxing pattern for storage as arrays (`VBArrayType.CreateValue`, [VBRuntimeArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Runtime.VBRuntimeArrayValue.html)); see [**RD-VBAL §2.5.2.1.2** Array Values](rd-vbal.2.5.2.1.2.array-values.md). Three kinds of value are location-identified this way: an array, a `Variant`, and a UDT ([**RD-VBAL §2.5.2.1.3** User-Defined Type (UDT) Values](rd-vbal.2.5.2.1.3.udt-values.md)).
 - A `Variant` value round-trips through storage intact. A `Variant` read back from a variable, array element, or field carries the value that was stored, not a new, unrelated `Empty`.
 - A `Variant`'s own `BoxedValue` unwraps all the way to the managed value. See [**RD-VBAL §6.0** Standard Library](rd-vbal.6.0.standard-library.md).
 
@@ -45,7 +45,7 @@ The specified internal representation (struct) has three members:
 |Member|Type|Description|
 |---|---|---|
 |`ValueType`|`VBVariantValueType`|A flag that identifies the _variant value type_, such as `Empty`, `Integer`, `Dispatch` or `BString`.|
-|`ValueAlloc`|[ScopeKind](../api/RDCore.SDK.Model.Symbols.Abstract.ScopeKind.html)|Gives the host the _allocation scope_ of the value.|
+|`ValueAlloc`|[ScopeKind](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.ScopeKind.html)|Gives the host the _allocation scope_ of the value.|
 |`ValuePtr`|`long`|A pointer to the value, in the memory space specified by the `ScopeKind` (`ValueAlloc`).|
 
 A `VBVariantValue` is always allocated in the _heap memory_, in the same memory space as _object values_ ([**RD-VBAL §2.5.2.1.4** Object Values](rd-vbal.2.5.2.1.4.object-values.md)).

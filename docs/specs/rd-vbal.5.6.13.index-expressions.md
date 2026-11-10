@@ -7,7 +7,7 @@
 
 |Expression|AST node|
 |---|---|
-|Index|[IndexExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html)|
+|Index|[IndexExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html)|
 
 See [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
 
@@ -66,8 +66,8 @@ The argument list written after a function that returns an array is the call's, 
 ### Variant Holding an Array
 
 `RuntimeExpressionEvaluator.EvaluateIndex` unwraps a
-[VBVariantValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) before matching a wrapped
-[VBArrayValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html), so `v(0)` indexes a `Variant` holding an
+[VBVariantValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBVariantValue.html) before matching a wrapped
+[VBArrayValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBArrayValue.html), so `v(0)` indexes a `Variant` holding an
 array the same as a declared array. See
 [**RD-VBAL §5.5.1.2.12** Let-coercion to Variant](rd-vbal.5.5.1.2.runtime-semantics.md#551212-let-coercion-to-variant).
 
@@ -106,7 +106,7 @@ An array written with an empty argument list is the array itself (**MS-VBAL §5.
 |`Debug.Print f()`, as `Debug.Print f`|[VBC09310](../diagnostics/vbc09310.md) _Type mismatch_, when it compiles: an array is no value `Debug.Print` writes.|
 
 The parser reads `f()` as one missing argument;
-[IndexExpressionNode.IsEmptyArgumentList](../api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html) says whether an argument list is empty,
+[IndexExpressionNode.IsEmptyArgumentList](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.IndexExpressionNode.html) says whether an argument list is empty,
 written either way.
 
 > [!IMPORTANT]
@@ -128,7 +128,7 @@ The target of an assignment is the same call: `c(1) = 5` assigns `c.Item(1)` ([*
 This section corresponds to [**MS-VBAL §5.6.13.1** Argument Lists](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/5b35d806-1305-4427-a120-d25a71c45c02).
 
 The `ByVal` keyword (`argument-expression = ["byval"] expression`) is written before one argument. It is a token of the source and stays one in the
-tree: a [ByValArgumentExpressionNode](../api/RDCore.SDK.Model.AST.Expressions.ByValArgumentExpressionNode.html) wraps the argument it is written
+tree: a [ByValArgumentExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.ByValArgumentExpressionNode.html) wraps the argument it is written
 before, in an argument list of a call, of a call statement and of a named argument alike. Such an argument is a value bound to nothing, so it is never
 aliased to a `ByRef` parameter ([**RD-VBAL §5.3.1.11**](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md)).
 
@@ -160,7 +160,7 @@ A parameter declared `ByVal` and an array (`ByVal a() As Long`) is `VBC09371` to
 
 `ByValArgumentStaticSemantics` checks each `ByVal` argument against its parameter,
 and records the redundant ones as a fact of the argument
-([ValueExpressionSemanticFlags](../api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html)`.RedundantByVal`). Which library parameters the
+([ValueExpressionSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.ValueExpressionSemanticFlags.html)`.RedundantByVal`). Which library parameters the
 type library declares by reference is the parameter's `SymbolProperties.TypeLibraryByRef`, read off the declarations (a `Variant` parameter, or
 `StdLibTypeLibraryByRefAttribute`); it says nothing of how the argument is passed. [VBC09327](../diagnostics/vbc09327.md), MS-VBAL's own error, is no
 longer raised.

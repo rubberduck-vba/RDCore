@@ -7,11 +7,11 @@
 
 |AST node|Instruction kind|Notes|
 |---|---|---|
-|[GoSubStatementNode](../api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html)|`GoSub`|`Instruction.Target` holds the resolved offset of the target label.|
+|[GoSubStatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.GoSubStatementNode.html)|`GoSub`|`Instruction.Target` holds the resolved offset of the target label.|
 
 A `GoSub` statement's target is an expression naming or numbering a label or line. There is no static link
-between the `GoSubStatementNode` and the [LineLabelNode](../api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)
-or [LineNumberNode](../api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html) it targets
+between the `GoSubStatementNode` and the [LineLabelNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.LineLabelNode.html)
+or [LineNumberNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.LineNumberNode.html) it targets
 ([**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md)).
 
 As for `GoTo`, lowering alone resolves a `GoSub` target label. A `GoSub` statement lowers to
@@ -55,6 +55,6 @@ had reached the end of the procedure body
   `CallStackFrame.TryPopGoSubReturn`.
 - The GoSub Resumption List is a plain stack, not a per-offset dictionary like the other three activation
   states (block state, `For` loop state, `For Each` state).
-- [ICallStackFrame](../api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.GoSubDepth` exposes the
+- [ICallStackFrame](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ICallStackFrame.html)`.GoSubDepth` exposes the
   number of entries in the GoSub Resumption List, not its top entry. No member exposes the entries themselves
   ([**RD-VBAL §3.5.5** Placement and Licensing](rd-vbal.3.5.5.placement-and-licensing.md)).

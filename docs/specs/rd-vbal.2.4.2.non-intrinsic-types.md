@@ -6,13 +6,13 @@ The non-intrinsic types are:
 
 |Type|Section|
 |---|---|
-|[VBStdModuleType](../api/RDCore.SDK.Model.Types.Complex.VBStdModuleType.html)|[§2.4.2.1](#2421-vbstdmoduletype)|
-|[VBClassType](../api/RDCore.SDK.Model.Types.Complex.VBClassType.html)|[§2.4.2.2](#2422-vbclasstype)|
-|[VBCollectionType](../api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html)|[§2.4.2.3](#2423-vbcollectiontype)|
-|[VBEnumType](../api/RDCore.SDK.Model.Types.Complex.VBEnumType.html)||
-|[VBProjectType](../api/RDCore.SDK.Model.Types.Abstract.VBProjectType.html)|[§2.4.2.4](#2424-vbprojecttype)|
-|[VBUnknownType](../api/RDCore.SDK.Model.Types.VBUnknownType.html)|[§2.4.2.5](#2425-vbunknowntype)|
-|[VBVoidType](../api/RDCore.SDK.Model.Types.Complex.VBVoidType.html)|[§2.4.2.6](#2426-vbvoidtype)|
+|[VBStdModuleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBStdModuleType.html)|[§2.4.2.1](#2421-vbstdmoduletype)|
+|[VBClassType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBClassType.html)|[§2.4.2.2](#2422-vbclasstype)|
+|[VBCollectionType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html)|[§2.4.2.3](#2423-vbcollectiontype)|
+|[VBEnumType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBEnumType.html)||
+|[VBProjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBProjectType.html)|[§2.4.2.4](#2424-vbprojecttype)|
+|[VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html)|[§2.4.2.5](#2425-vbunknowntype)|
+|[VBVoidType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBVoidType.html)|[§2.4.2.6](#2426-vbvoidtype)|
 
 ## 2.4.2.1 VBStdModuleType
 
@@ -24,7 +24,7 @@ A standard module is defined by workspace source code, or imported from a _refer
 
 `VBClassType` represents an _object type_ defined by workspace source code in a _class module_.
 
-`VBClassType` implements [IVBMemberOwnerType](../api/RDCore.SDK.Model.Types.Abstract.IVBMemberOwnerType.html). Through this interface, it exposes an _immutable array_ of [VBTypeMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol.html), where each element describes a _member_ of the class type.
+`VBClassType` implements [IVBMemberOwnerType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.IVBMemberOwnerType.html). Through this interface, it exposes an _immutable array_ of [VBTypeMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBTypeMemberSymbol.html), where each element describes a _member_ of the class type.
 
 ### 2.4.2.2.1 SuperTypes
 
@@ -64,7 +64,7 @@ The default member of a class type can be implicitly invoked through _let-coerci
 
 ## 2.4.2.3 VBCollectionType
 
-> **Extension point:** _Object value_ types (inheriting [VBObjectValue](../api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html)) that represent an instance of a collection type should implement [IEnumerableObject](../api/RDCore.SDK.Model.Types.Abstract.IEnumerableObject.html).
+> **Extension point:** _Object value_ types (inheriting [VBObjectValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html)) that represent an instance of a collection type should implement [IEnumerableObject](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.IEnumerableObject.html).
 
 `VBCollectionType` is a subclass of `VBClassType` that exposes a `NewEnum` member.
 
@@ -89,9 +89,9 @@ The types inherited from `VBProjectType` correspond to the _project types_ defin
 
 |Project type|Section|
 |---|---|
-|[VBSourceProjectType](../api/RDCore.SDK.Model.Types.Complex.VBSourceProjectType.html)|[§2.4.2.4.1](#24241-vbsourceprojecttype)|
-|[VBLibraryProjectType](../api/RDCore.SDK.Model.Types.Complex.VBLibraryProjectType.html)|[§2.4.2.4.2](#24242-vblibraryprojecttype)|
-|[VBHostProjectType](../api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html)|[§2.4.2.4.3](#24243-vbhostprojecttype)|
+|[VBSourceProjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBSourceProjectType.html)|[§2.4.2.4.1](#24241-vbsourceprojecttype)|
+|[VBLibraryProjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBLibraryProjectType.html)|[§2.4.2.4.2](#24242-vblibraryprojecttype)|
+|[VBHostProjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBHostProjectType.html)|[§2.4.2.4.3](#24243-vbhostprojecttype)|
 
 ### 2.4.2.4.1 VBSourceProjectType
 
@@ -113,7 +113,7 @@ A `VBHostProjectType` project can be introduced into the _RD-VBA environment_ by
 
 Additional workspace source code may be added to a host project if it is _open_ ("an open host project"). Workspace source code is added to an open host project by agents other than the host application.
 
-> An [RDCoreReference](../api/RDCore.SDK.Workspace.RDCoreReference.html) for a reference to a `VBHostProjectType` project must have the "unremovable" flag set; see [**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md).
+> An [RDCoreReference](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.RDCoreReference.html) for a reference to a `VBHostProjectType` project must have the "unremovable" flag set; see [**RD-VBAL §2.2.3** ProjectFile](rd-vbal.2.2.3.projectfile.md).
 
 ## 2.4.2.5 VBUnknownType
 

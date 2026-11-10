@@ -4,11 +4,11 @@ A _statement_ is an executable unit inside a member's body.
 
 ## Statement Nodes
 
-Every statement node derives from [StatementNode](../api/RDCore.SDK.Model.AST.Abstract.StatementNode.html). `StatementNode` derives directly from [SyntaxNode](../api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html); see [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
+Every statement node derives from [StatementNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.StatementNode.html). `StatementNode` derives directly from [SyntaxNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.SyntaxNode.html); see [**RD-VBAL §3.0.2** Node Types](rd-vbal.3.0.2.node-types.md).
 
-`StatementNode` implements [IExecutableNode](../api/RDCore.SDK.Model.AST.Abstract.IExecutableNode.html). A statement node's `Inputs`, from `IExecutableNode`, are the expressions evaluated immediately before the statement executes.
+`StatementNode` implements [IExecutableNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Abstract.IExecutableNode.html). A statement node's `Inputs`, from `IExecutableNode`, are the expressions evaluated immediately before the statement executes.
 
-A block statement's nested statements are held in a [StatementBlock](../api/RDCore.SDK.Model.AST.Statements.StatementBlock.html). The `StatementBlock` is independent of the statement node's `Inputs`.
+A block statement's nested statements are held in a [StatementBlock](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Statements.StatementBlock.html). The `StatementBlock` is independent of the statement node's `Inputs`.
 
 ## Statement Node Families
 

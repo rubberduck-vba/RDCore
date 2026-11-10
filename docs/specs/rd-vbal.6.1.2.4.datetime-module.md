@@ -12,7 +12,7 @@ and the functions of a part of a date an `Integer`, and `DateAdd`, `DateSerial`,
 
 ## The Session Is the System
 
-The properties read the clock of the session ([ISessionClock](../api/RDCore.SDK.Runtime.Abstract.Execution.ISessionClock.html)), and `Calendar` is its
+The properties read the clock of the session ([ISessionClock](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Runtime.Abstract.Execution.ISessionClock.html)), and `Calendar` is its
 state too. The session is the program's *system*: assigning `Time` ("Sets the system time") sets the time of the session's clock, which goes on from there as
 the machine's does; the machine's own clock is never changed. An `End` resets both, to the machine's clock and the Gregorian calendar.
 
