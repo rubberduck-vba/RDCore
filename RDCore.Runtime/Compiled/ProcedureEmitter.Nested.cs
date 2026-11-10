@@ -13,7 +13,8 @@ internal sealed partial class ProcedureEmitter
     private readonly List<KnownLocal> _known = [];
     private readonly List<(Label Label, KnownLocal[] Known, Label Failure)> _knownFailures = [];
 
-    private sealed record class KnownLocal(int Syntax, ScalarKind Kind, LocalBuilder Local);
+    // a payload of its kind, or the object a call returned (IsObject: CompiledActivation.KnowObject).
+    private sealed record class KnownLocal(int Syntax, ScalarKind Kind, LocalBuilder Local, bool IsObject = false);
 
     private void BeginKnowing(int offset)
     {
@@ -49,6 +50,15 @@ internal sealed partial class ProcedureEmitter
     {
         foreach (var each in known)
         {
+            if (each.IsObject)
+            {
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldc_I4, each.Syntax);
+                _il.Emit(OpCodes.Ldloc, each.Local);
+                _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.KnowObject))!);
+                continue;
+            }
+
             _il.Emit(OpCodes.Ldarg_0);
             _il.Emit(OpCodes.Ldc_I4, each.Syntax);
             _il.Emit(OpCodes.Ldc_I4, (int)each.Kind);
@@ -86,12 +96,19 @@ internal sealed partial class ProcedureEmitter
         var offset = _knowingAt;
         var (integral, floating) = EmitCallOf(new CallStep(offset, node.Callee, node.Arguments, CallStep.NoResult, node.Receiver)
         {
-            WithAt = node.WithAt, ReceiverField = node.ReceiverField,
+            WithAt = node.WithAt, ReceiverField = node.ReceiverField, ReceiverCall = node.ReceiverCall,
         }, failure);
         var returned = ScalarKinds.IsIntegral(node.Kind) ? integral : floating;
         _called = true;
         _known.Add(new KnownLocal(node.Syntax, node.Kind, returned));
+        EmitAfterNestedCall(offset);
+        return new Operand(returned, 0, 0);
+    }
 
+    // after a call inside an expression: the activation handed to the interpreter in the middle of the instruction, what was evaluated of it known, when
+    // compiled code cannot go on with it.
+    private void EmitAfterNestedCall(int offset)
+    {
         var current = _il.DefineLabel();
         var unread = _il.DefineLabel();
         _il.Emit(OpCodes.Ldarg_0);
@@ -117,7 +134,5 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Call, Activation.GetProperty(nameof(CompiledActivation.ShouldWalkBack))!.GetMethod!);
             _il.Emit(OpCodes.Brtrue, Fail(WalkBackAt(offset)));
         }
-
-        return new Operand(returned, 0, 0);
     }
 }

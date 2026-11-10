@@ -35,18 +35,25 @@ internal sealed partial class ProcedureAnalysis
 
     // a scalar public variable of an object declared as a class, read (MS-VBAL §5.6.12): the variable the object's class has for it is found when it is read
     // (CompiledActivation.TryReadMemberField), as the interpreter finds it (EvaluateBoundMember), and read in its cell. Given arguments, it is an array the
-    // arguments index, which is the interpreter's; so is a variable of Me's own class, named through Me.
+    // arguments index, which is the interpreter's; so is a variable of Me's own class, named through Me. A variable of what a call returns (`S.Pos.Y`) is
+    // read once the call is made (ObjectCallOf).
     private PayloadNode? MemberFieldOf(BoundMember member)
     {
         if (member is not { DeclaredClass: not null, Member: VBModuleFieldVariableMemberSymbol field, Arguments: null, IsLateBound: false }
-            || ScalarKinds.Of(field.ResolvedType) is not { } kind || !TryReceiverOf(member, out var receiver, out var with, out var held))
+            || ScalarKinds.Of(field.ResolvedType) is not { } kind)
+        {
+            return null;
+        }
+
+        ObjectCallNode? returned = null;
+        if (!TryReceiverOf(member, out var receiver, out var with, out var held) && (member.Owner is not { } owner || (returned = ObjectCallOf(owner)) is null))
         {
             return null;
         }
 
         var number = _memberFields.Count;
         _memberFields.Add(new CompiledMemberField(member, kind));
-        return new MemberFieldNode(number, receiver, kind) { WithAt = with, ReceiverField = held };
+        return new MemberFieldNode(number, receiver, kind) { WithAt = with, ReceiverField = held, ReceiverCall = returned };
     }
 
     // a String public variable of variable length of an object declared as a class, read as a scalar one is (MemberFieldOf): the text its cell holds

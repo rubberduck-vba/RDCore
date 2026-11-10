@@ -490,8 +490,9 @@ public sealed partial class CompiledActivation : ILightActivation
         var returned = ScalarKinds.Of(returnedType);
         if (member is not (VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) || parameters is not [{ Name: SDK.Model.Tokens.Me }, ..]
             || parameters.Length - 1 != called.Parameters.Count
-            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult
-            || (called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
+            || member is VBPropertyGetMemberSymbol && called.Result is null && !called.AssignsResult && !called.ReturnsObject
+            || (called.ReturnsObject ? returnedType is not (SDK.Model.Types.VBObjectType or VBClassType)
+                : called.AssignsResult ? !ProcedureAnalysis.ReturnsAssignable(member)
                 : called.Result is { } read ? returned != read
                 : returnedType is { } discarded && returned is null && discarded is not SDK.Model.Types.VBVariantType))
         {
@@ -553,6 +554,14 @@ public sealed partial class CompiledActivation : ILightActivation
             _failed = result.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(result.ErrorInfo!);
             EndStatementAfter(called, _failed.Value);
             return false;
+        }
+
+        // an object, which the statement's temporaries hold (RuntimeProcedureInvoker.ReleaseLocals): compiled code takes it (TakeReturnedObject).
+        if (called.ReturnsObject)
+        {
+            _returnedObject = result.Result;
+            _failed = result.Result is null ? RuntimeExecutionOutcome.InternalError : null;
+            return result.Result is not null;
         }
 
         if (called.Result is null)
@@ -944,10 +953,10 @@ public sealed partial class CompiledActivation : ILightActivation
         if (_failed is not { } outcome)
         {
             frame.Pc = pc;
-            return _executor.Run(_session, frame, list, _context);
+            return _executor.Run(_session, frame, list, _context, HandStatement());
         }
 
-        return _executor.RunAfter(_session, frame, list, _context, pc, outcome);
+        return _executor.RunAfter(_session, frame, list, _context, pc, outcome, HandStatement());
     }
 
     /// <summary>
@@ -1313,7 +1322,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         _body.WalkedBack(pc < list.Items.Length ? BreakpointTable.LocationOf(list.Items[pc]) : null);
-        return _executor.Run(_session, frame, list, _context);
+        return _executor.Run(_session, frame, list, _context, HandStatement());
     }
 
     private RuntimeExecutionOutcome _recovered;
@@ -1353,7 +1362,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         var suspensions = Suspensions;
-        var outcome = _executor.Step(_session, frame, list, _context, failed);
+        var outcome = _executor.Step(_session, frame, list, _context, failed, HandStatement());
         if (outcome.Kind is not RuntimeExecutionOutcomeKind.Next)
         {
             _recovered = outcome;

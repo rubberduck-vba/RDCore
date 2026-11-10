@@ -81,7 +81,8 @@ internal sealed partial class ProcedureAnalysis
     private bool CallsInside(BoundNode node) => node switch
     {
         BoundCall { BoundArguments: { } arguments } => arguments.Any(argument => Calls(argument.Value)),
-        BoundMember { Member: VBFunctionMemberSymbol or VBProcedureMemberSymbol, BoundArguments: { } arguments } => arguments.Any(argument => Calls(argument.Value)),
+        BoundMember { Member: VBFunctionMemberSymbol or VBProcedureMemberSymbol, BoundArguments: { } arguments } member
+            => arguments.Any(argument => Calls(argument.Value)) || Calls(member.Owner),
         _ => Calls(node),
     };
 
@@ -122,7 +123,7 @@ internal sealed partial class ProcedureAnalysis
 
         return made is null ? Unsupported(node) : new CallNode(made.Callee, made.Arguments, made.Receiver, kind, syntax)
         {
-            WithAt = made.WithAt, ReceiverField = made.ReceiverField,
+            WithAt = made.WithAt, ReceiverField = made.ReceiverField, ReceiverCall = made.ReceiverCall,
         };
     }
 
@@ -157,7 +158,7 @@ internal sealed partial class ProcedureAnalysis
     {
         SupportCallStep => true,
         LetStep let => Admits(let.Value),
-        CallStep call => call.Arguments.All(Admits),
+        CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
@@ -166,8 +167,10 @@ internal sealed partial class ProcedureAnalysis
 
     private static bool Admits(PayloadNode node) => node switch
     {
+        KnownNode { Value: MemberFieldNode { ReceiverCall: { } returned } } => Admits(returned),
+        ObjectArgumentNode { Call: { } returned } => Admits(returned),
         KnownNode or ConstantNode or ReferenceNode => true,
-        CallNode call => call.Arguments.All(Admits),
+        CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
         ConvertNode convert => Admits(convert.Operand),
         IntegralNode integral => Admits(integral.Left) && Admits(integral.Right),
         LogicalNode logical => Admits(logical.Left) && Admits(logical.Right),
@@ -179,6 +182,9 @@ internal sealed partial class ProcedureAnalysis
         TemporaryNode temporary => Admits(temporary.Value),
         _ => false,
     };
+
+    // a call whose object a member is called on, or read of: none, or one made with arguments that are.
+    private static bool Admits(ObjectCallNode? call) => call is null || call.Arguments.All(Admits) && Admits(call.ReceiverCall);
 
     private static bool Admits(ExtendedNode node) => node switch
     {
@@ -199,9 +205,11 @@ internal sealed partial class ProcedureAnalysis
         // the arguments of each call: of one inside the expression, and of the call of the statement itself - a call statement, a function whose result
         // is assigned whole.
         var given = nodes.OfType<CallNode>().Select(call => call.Arguments).ToList();
+        given.AddRange(nodes.SelectMany(ReceiverCallsOf).Select(call => call.Arguments));
         if (step is CallStep statement)
         {
             given.Add(statement.Arguments);
+            given.AddRange(ObjectCallsOf(statement.ReceiverCall).Select(call => call.Arguments));
         }
 
         var passed = given.SelectMany(list => list.OfType<ReferenceNode>()).Select(reference => reference.Slot).ToHashSet();
@@ -221,10 +229,19 @@ internal sealed partial class ProcedureAnalysis
     private static bool IsReadWhereWritten(ScalarKind kind)
         => kind is ScalarKind.Byte or ScalarKind.Boolean or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong or ScalarKind.Currency;
 
+    // the calls whose objects a call or a read of a public variable is made on, the outermost first.
+    private static IEnumerable<ObjectCallNode> ReceiverCallsOf(PayloadNode node) => node switch
+    {
+        CallNode call => ObjectCallsOf(call.ReceiverCall),
+        MemberFieldNode field => ObjectCallsOf(field.ReceiverCall),
+        ObjectArgumentNode argument => ObjectCallsOf(argument.Call),
+        _ => [],
+    };
+
     private static IEnumerable<PayloadNode> PayloadsOf(CompiledStep step) => step switch
     {
         LetStep let => [let.Value],
-        CallStep call => call.Arguments,
+        CallStep call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
         BranchStep branch => [branch.Condition],
         LoopBackStep loop => [loop.Condition],
         ForOpenStep open => [open.Start, open.End, open.Step],
@@ -237,7 +254,8 @@ internal sealed partial class ProcedureAnalysis
         yield return node;
         var operands = node switch
         {
-            CallNode call => call.Arguments,
+            CallNode call => [.. call.Arguments, .. ReceiverCallsOf(call).SelectMany(made => made.Arguments)],
+            MemberFieldNode or ObjectArgumentNode => ReceiverCallsOf(node).SelectMany(made => made.Arguments),
             KnownNode known => [known.Value],
             ConvertNode convert => [convert.Operand],
             IntegralNode integral => [integral.Left, integral.Right],

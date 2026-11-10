@@ -260,9 +260,12 @@ internal sealed record class TextArgumentNode(TextNode Value) : PayloadNode(defa
 internal sealed record class TextReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // the argument of an object parameter passed by value, or passed by reference and given no variable (CompiledCallee.ObjectParameters): the object held in
-// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none. Only an argument of a call;
-// its Kind is not read.
-internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default(ScalarKind));
+// the object slot Slot (an object variable of the activation, an object field it reaches, or Me), or Nothing when there is none - or what the call Call
+// returns, made when the argument is evaluated. Only an argument of a call; its Kind is not read.
+internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default(ScalarKind))
+{
+    public ObjectCallNode? Call { get; init; }
+}
 
 // the argument of an object parameter passed by reference that is an object variable of the activation of the parameter's very type (MS-VBAL §5.3.1.11):
 // the variable's address, which the parameter is a second name for, as the interpreter gives it. Only an argument of a call; its Kind is not read.
@@ -362,7 +365,10 @@ internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<Payl
 
     public FieldPath? ReceiverField { get; init; }
 
-    public bool IsOfAMember => Receiver is not null || WithAt is not null || ReceiverField is not null;
+    // the call whose object the member is called on: made first, inside the instruction (ObjectCallNode).
+    public ObjectCallNode? ReceiverCall { get; init; }
+
+    public bool IsOfAMember => Receiver is not null || WithAt is not null || ReceiverField is not null || ReceiverCall is not null;
 }
 
 // a call of a function of the workspace inside an expression, made as a CallStep makes one, with arguments as a CallStep's: what it returns is of the
@@ -375,6 +381,8 @@ internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arg
     public int? WithAt { get; init; }
 
     public FieldPath? ReceiverField { get; init; }
+
+    public ObjectCallNode? ReceiverCall { get; init; }
 }
 
 // a variable of the activation, or the function result variable, read in an instruction that calls a function inside an expression (CallNode): what was
@@ -415,6 +423,13 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// (<see cref="CompiledActivation.BeginStatement"/>, <see cref="CompiledActivation.EndStatement"/>), as the interpreter begins and ends it.
     /// </summary>
     public bool HoldsWhatItReturns { get; init; }
+
+    /// <summary>
+    /// Whether the call is of a function or a <c>Property Get</c> that returns an object, which compiled code calls a member of, or reads a public variable
+    /// of (<see cref="ObjectCallNode"/>): the call is made through the invoker, and what it returns held as a temporary of the statement, which is begun before
+    /// its first call and ended once it is over. <see cref="Result"/> is then <see langword="null"/>.
+    /// </summary>
+    public bool ReturnsObject { get; init; }
 
     /// <summary>
     /// For each parameter, the object parameter it is, whose <see cref="Parameters"/> kind is <see langword="null"/>; <see langword="null"/> for any other.

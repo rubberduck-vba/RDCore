@@ -17,14 +17,16 @@ internal sealed partial class ProcedureEmitter
         return new Operand(number, 0, 0);
     }
 
-    // the variable read of the object a variable or an object field of a record refers to, or of the object of a With block
-    // (CompiledActivation.TryReadMemberField); one compiled code cannot read fails the instruction, which the interpreter makes from its start, or from where
-    // what was evaluated of it is known.
+    // the variable read of the object a variable or an object field of a record refers to, of the object of a With block, or of what a call returned, in
+    // the cell compiled code took it into (CompiledActivation.TryReadMemberField); one compiled code cannot read fails the instruction, which the interpreter
+    // makes from its start, or from where what was evaluated of it is known.
     private Operand EmitMemberField(MemberFieldNode field, Label failure)
     {
         var integral = _il.DeclareLocal(typeof(long));
         var floating = _il.DeclareLocal(typeof(double));
-        var held = field.ReceiverField is { } path ? EmitObjectFieldCell(new ObjectFieldNode(path)) : null;
+        var held = field.ReceiverField is { } path ? EmitObjectFieldCell(new ObjectFieldNode(path))
+            : field.ReceiverCall is { } returned ? EmitObjectCall(returned, failure)
+            : null;
         _il.Emit(OpCodes.Ldarg_0);
         _il.Emit(OpCodes.Ldc_I4, field.Field);
         if (field.WithAt is { } with)

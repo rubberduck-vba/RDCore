@@ -10,12 +10,15 @@ internal sealed partial class ProcedureAnalysis
 {
     // the argument of an object parameter, as the interpreter gives it (MS-VBAL §5.3.1.11): an object variable of the activation of the parameter's very
     // type, given by reference, is given its address, which the parameter is a second name for; one given by value, or to a parameter passed by value, is
-    // given the object it holds, Set-coerced to the parameter's type when the call is made (CompiledActivation.SetObject). Any other argument - a field given
-    // by reference, a WithEvents variable, a call, a member, New - is the interpreter's to give, which makes the call.
+    // given the object it holds, Set-coerced to the parameter's type when the call is made (CompiledActivation.SetObject). A call that returns an object, in
+    // an instruction that calls inside an expression, gives what it returns (ObjectCallOf). Any other argument - a field given by reference, a WithEvents
+    // variable, a member, New - is the interpreter's to give, which makes the call.
     private PayloadNode? ObjectArgumentOf(BoundArgument argument)
     {
         switch (argument)
         {
+            case { Passing: ArgumentPassing.Value, Value: { } called } when ObjectCallOf(called) is { } returned:
+                return new ObjectArgumentNode(null) { Call = returned };
             case { Passing: ArgumentPassing.Reference, Value: BoundVariable variable }
                 when variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _objectSlots.Contains(slot.Index)
                     && !variable.Variable.GetProperty(SymbolProperties.WithEvents)
