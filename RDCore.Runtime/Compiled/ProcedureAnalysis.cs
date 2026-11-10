@@ -726,7 +726,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundName { Symbol: var function } when ResultKind is { } result && IsOwnFunction(function):
                 return assigned switch
                 {
-                    BoundCall resultCall when !IsCompiledLibrary(resultCall.Procedure)
+                    BoundCall resultCall when !IsCompiledLibrary(resultCall.Procedure) && !IsVariantLibrary(resultCall.Procedure)
                         => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
                     BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember when ErrNumberOf(resultMember) is null
                         => MemberCallOf(resultMember, -1, offset, result)
@@ -736,7 +736,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when SlotOf(variable) is { } slot:
                 return assigned switch
                 {
-                    BoundCall slotCall when !IsCompiledLibrary(slotCall.Procedure)
+                    BoundCall slotCall when !IsCompiledLibrary(slotCall.Procedure) && !IsVariantLibrary(slotCall.Procedure)
                         => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
                     BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember when ErrNumberOf(slotMember) is null
                         => MemberCallOf(slotMember, slot, offset, _slots[slot])
@@ -1312,9 +1312,10 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), an element of an
-    // array of Variants, or a Variant field of a record.
+    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant.
     private bool IsVariant(BoundNode node)
-        => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType };
+        => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType }
+            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called);
 
     private static bool IsExtended(BoundNode node) => RuntimeExpressionEvaluator.ExtendedTypeOf(node) is not null;
 
@@ -1359,12 +1360,13 @@ internal sealed partial class ProcedureAnalysis
     {
         switch (node)
         {
-            // an element of an array of objects, or an object field of a record, compared, and tested.
-            case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsHeldObject(elementCompared.Left) || IsHeldObject(elementCompared.Right):
+            // an element of an array of objects, an object field of a record, or what a call returns, compared, and tested.
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsHeldObject(elementCompared.Left) || IsHeldObject(elementCompared.Right)
+                || IsReturnedObject(elementCompared.Left) || IsReturnedObject(elementCompared.Right):
                 return ElementIs(elementCompared);
 
-            case BoundTypeOf { Operand: BoundIndex element } elementTypeOf when IsObjectElement(element):
-                return ElementTypeOf(elementTypeOf, element);
+            case BoundTypeOf { Operand: BoundIndex or BoundMember } elementTypeOf when IsObjectElement(elementTypeOf.Operand):
+                return ElementTypeOf(elementTypeOf, ElementOf(elementTypeOf.Operand)!);
 
             case BoundTypeOf { Operand: BoundMember tested } fieldTypeOf when ObjectFieldOf(tested) is { } field:
                 return new ElementTypeOfNode(new ObjectFieldNode(field), ClassNumberOf(fieldTypeOf.Class));
@@ -1378,6 +1380,10 @@ internal sealed partial class ProcedureAnalysis
             // MS-VBAL §5.6.7: what TypeOf tests is the interpreter's own test (RuntimeExpressionEvaluator.IsInstanceOf).
             case BoundTypeOf { Operand: BoundVariable tested } typeOf when ObjectSlotOf(tested) is { } typed:
                 return new TypeOfNode(typed, ClassNumberOf(typeOf.Class));
+
+            // of a Variant, the object it holds; one that holds no object is no instance of any class.
+            case BoundTypeOf { Operand: BoundVariable tested } variantTypeOf when VariantSlotOf(tested) is { } held:
+                return new ElementTypeOfNode(new VariantObjectOperand(held), ClassNumberOf(variantTypeOf.Class));
 
             // MS-VBAL §5.6.9.5: two Strings compared, as TryEvaluatePayload compares them (TryCompareText).
             case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } compared:
@@ -1425,6 +1431,10 @@ internal sealed partial class ProcedureAnalysis
                 return PlanOf(binary) is { } binaryPlan && Payload(binary.Left) is { } left && Payload(binary.Right) is { } right
                     ? Operate(binaryPlan, left, right, binary)
                     : null;
+
+            // an element of an array field of a record of the activation.
+            case BoundMember member when FieldElementOf(member) is { } fieldElement:
+                return Element(fieldElement);
 
             // a field of a record of the activation.
             case BoundMember member when RecordFieldOf(member) is { } field:
@@ -1487,11 +1497,16 @@ internal sealed partial class ProcedureAnalysis
             case BoundName { Symbol: var function } when ResultIsVariant && IsOwnFunction(function):
                 return new VariantResultNode();
 
-            case BoundIndex index when IsVariantElement(index):
-                return VariantElement(index);
+            case BoundIndex or BoundMember when IsVariantElement(node):
+                return VariantElement(ElementOf(node)!);
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Dynamic(enclosed);
+
+            // MS-VBAL §5.6.9.7: Is compares two object references, whose plan is deferred to the objects, for a Boolean: an operand of a Variant operation as
+            // a Boolean is.
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp }:
+                return Payload(node) is { } compared ? new VariantOfNode(compared) : null;
 
             case BoundBinary { Plan: { IsDeferred: true } plan } binary:
                 if (!IsPayloadOperator(plan.Operator))
@@ -1507,6 +1522,10 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
                 return new VariantFieldNode(field.Path);
+
+            // a function of the standard library that returns a Variant (ProcedureAnalysis.Libraries.cs).
+            case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):
+                return LibraryVariantOf(call, library);
 
             default:
                 return Payload(node) is { } payload ? new VariantOfNode(payload) : null;

@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
@@ -30,13 +31,26 @@ internal static class ElementCells
             return null;
         }
 
-        if (ScalarPayload.TryOf(itemType, itemType.DefaultValue.RuntimeValue, out var initial))
+        // an element of an enumeration is a Long (MS-VBAL §5.2.3.4), held in a cell of the Long type as a variable declared as the enumeration is.
+        var stored = VBEnumType.AsDeclaredType(itemType);
+        if (ScalarPayload.TryOf(stored, stored.DefaultValue.RuntimeValue, out var initial))
         {
             return () => ScalarCell.Of(initial);
         }
 
         return itemType is VBVariantType && itemType.DefaultValue.RuntimeValue is VBRuntimeVariantValue empty ? () => VariantCell.Of(empty) : null;
     }
+
+    /// <summary>
+    /// The cell of an element of a <c>Variant</c> array made of the values it holds (by <c>Array</c>, or a <c>ParamArray</c> that collects a copy of an
+    /// argument): a Variant's cell holding <paramref name="value"/>, as the cells of <see cref="Of"/> are, and a cell of its own when it is not known.
+    /// </summary>
+    /// <param name="value">The element's value, a Variant's, which the cell holds as it is.</param>
+    public static IBindingHandle OfVariant(VBVariantValue value)
+        => UnboxedEvaluation.IsEnabled && value is { IsIndeterminate: false, TypedValue: var held }
+            && VariantCell.TryCreate(VBVariantType.TypeInfo, new VBRuntimeVariantValue(held.TypeInfo.VarType(), held), out var cell)
+                ? cell!
+                : BindingKnowledge.NewCell(value);
 
     /// <summary>
     /// Stores <paramref name="value"/> as the element of <paramref name="array"/> at <paramref name="subscripts"/>: in the element's own cell when the
