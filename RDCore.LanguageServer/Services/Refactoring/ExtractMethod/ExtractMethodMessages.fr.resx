@@ -59,7 +59,7 @@
     <value>Aucune</value>
   </data>
   <data name="ExtractMethodChoice_RouteExits" xml:space="preserve">
-    <value>Router les sorties</value>
+    <value>Acheminer les sorties</value>
   </data>
   <data name="ExtractMethodChoice_RouteExitsDescription" xml:space="preserve">
     <value>La nouvelle procédure renvoie l'endroit où la sélection sort, et l'appel s'y rend.</value>
@@ -116,7 +116,7 @@
     <value>Le Return à {1} revient à un GoSub hors de la sélection : convertissez d'abord la routine en procédure.</value>
   </data>
   <data name="ExtractMethodRefusal_ErrorHandlingChanged" xml:space="preserve">
-    <value>Le On Error à {1} laisse la gestion des erreurs autrement que la sélection l'a trouvée.</value>
+    <value>Le On Error à {1} laisse la gestion des erreurs différente de ce qu'elle était au début de la sélection.</value>
   </data>
   <data name="ExtractMethodRefusal_HandlerOutsideTheSelection" xml:space="preserve">
     <value>Le On Error GoTo à {1} nomme un gestionnaire hors de la sélection.</value>
@@ -140,7 +140,7 @@
     <value>La sélection lit Err ou Erl sous On Error Resume Next : le On Error Resume Next par lequel la nouvelle procédure commence les efface.</value>
   </data>
   <data name="ExtractMethodChange_ObjectReleasedEarlier" xml:space="preserve">
-    <value>Ces variables deviennent propres à la nouvelle procédure : {1}. Un objet que l'une d'elles détient en dernier est libéré à la fin de la nouvelle procédure, et son Class_Terminate s'exécute avant le code qui suit l'appel.</value>
+    <value>Ces variables deviennent propres à la nouvelle procédure : {1}. Lorsque l'une d'elles détient la dernière référence à un objet, l'objet est libéré à la fin de la nouvelle procédure, et son Class_Terminate s'exécute avant le code qui suit l'appel.</value>
   </data>
   <data name="ExtractMethodEdit_NotAReturnCandidate" xml:space="preserve">
     <value>« {0} » n'est pas une valeur que la sélection rend.</value>
@@ -149,7 +149,7 @@
     <value>Un On…GoTo quitte la sélection : aucun code de sortie d'une seule instruction ne peut représenter ses différentes cibles.</value>
   </data>
   <data name="ExtractMethodEdit_ExitRoutingDeclined" xml:space="preserve">
-    <value>La sélection quitte la procédure, ou une boucle ou un bloc qui l'entoure, et les sorties ne sont pas routées.</value>
+    <value>La sélection quitte la procédure, ou une boucle ou un bloc qui l'entoure, et les sorties ne sont pas acheminées.</value>
   </data>
   <data name="ExtractMethodEdit_NotAccepted" xml:space="preserve">
     <value>L'extraction changerait ce que fait le code, et le changement n'a pas été accepté : {0}</value>
@@ -161,13 +161,13 @@
     <value>Le module modifié ne serait pas analysable ({0}).</value>
   </data>
   <data name="ExtractMethodVerification_NameDoesNotBind" xml:space="preserve">
-    <value>Un nom déclarerait une variable du seul fait d'être écrit ({0}).</value>
+    <value>Un nom déclarerait implicitement une variable ({0}).</value>
   </data>
   <data name="ExtractMethodVerification_NewCompileError" xml:space="preserve">
     <value>Le module modifié aurait une erreur de compilation qu'il n'avait pas ({0}).</value>
   </data>
   <data name="ExtractMethodVerification_DataFlowDiffers" xml:space="preserve">
-    <value>L'appel ne recevrait pas, ne rendrait pas ou ne laisserait pas vivant ce que la sélection recevait, rendait ou laissait vivant.</value>
+    <value>L'appel ne recevrait pas, ne rendrait pas ou ne garderait pas pour le code qui le suit les mêmes valeurs que la sélection.</value>
   </data>
   <data name="ExtractMethodVerification_ExitNotReached" xml:space="preserve">
     <value>L'appel ne quitterait pas la procédure vers chacun des endroits vers lesquels la sélection la quittait.</value>

@@ -116,7 +116,7 @@
     <value>The Return at {1} returns to a GoSub outside the selection: convert the routine to a procedure first.</value>
   </data>
   <data name="ExtractMethodRefusal_ErrorHandlingChanged" xml:space="preserve">
-    <value>The On Error at {1} leaves the error handling other than the selection found it.</value>
+    <value>The On Error at {1} leaves the error handling different from what it was at the start of the selection.</value>
   </data>
   <data name="ExtractMethodRefusal_HandlerOutsideTheSelection" xml:space="preserve">
     <value>The On Error GoTo at {1} names a handler outside the selection.</value>
@@ -140,7 +140,7 @@
     <value>The selection reads Err or Erl under On Error Resume Next: the On Error Resume Next the new procedure starts with clears them.</value>
   </data>
   <data name="ExtractMethodChange_ObjectReleasedEarlier" xml:space="preserve">
-    <value>These variables become the new procedure's own: {1}. An object one of them holds last is released when the new procedure ends, and its Class_Terminate runs before the code after the call.</value>
+    <value>These variables become the new procedure's own: {1}. When one of them holds the last reference to an object, the object is released when the new procedure ends, and its Class_Terminate runs before the code after the call.</value>
   </data>
   <data name="ExtractMethodEdit_NotAReturnCandidate" xml:space="preserve">
     <value>'{0}' is not a value the selection gives back.</value>
@@ -161,13 +161,13 @@
     <value>The edited module would not parse ({0}).</value>
   </data>
   <data name="ExtractMethodVerification_NameDoesNotBind" xml:space="preserve">
-    <value>A name would declare a variable by being written ({0}).</value>
+    <value>A name would declare a variable implicitly ({0}).</value>
   </data>
   <data name="ExtractMethodVerification_NewCompileError" xml:space="preserve">
     <value>The edited module would have a compile error it did not have ({0}).</value>
   </data>
   <data name="ExtractMethodVerification_DataFlowDiffers" xml:space="preserve">
-    <value>The call would not take in, give back or leave live what the selection did.</value>
+    <value>The call would not take in, give back or keep for the code after it the same values as the selection.</value>
   </data>
   <data name="ExtractMethodVerification_ExitNotReached" xml:space="preserve">
     <value>The call would not leave the procedure for every place the selection left it for.</value>
