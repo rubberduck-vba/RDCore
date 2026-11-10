@@ -303,10 +303,9 @@ frame holds too.
 These keep the whole procedure in the interpreter:
 
 - a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
-- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does
-  nothing at each pass of it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`. The `Next` of a `For Each`
-  is none of these, since the interpreter runs it. The loop is the innermost
-  one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
+- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does nothing at each pass of
+  it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`. The `Next` of a `For Each` is none of these, since
+  the interpreter runs it. The loop is the innermost one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
   its variables into the frame and read them back, which costs more than it saves.
 
 A procedure whose frame holds something compiled code does not hold is always called with its frame, through the interpreter's call, never through the

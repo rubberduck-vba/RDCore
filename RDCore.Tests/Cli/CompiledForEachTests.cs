@@ -7,8 +7,8 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A <c>For Each</c> in compiled code: its statement and its <c>Next</c> run by the interpreter for compiled code, as a support call is, with the state the
-/// frame holds of the loop. A procedure whose loop is a <c>For Each</c> is compiled code's, and nothing of the loop is stepped. And a call given an object
-/// inside a condition, and a member called on a record's object field, made by compiled code: what the program does is what it does in the interpreter.
+/// frame holds of the loop. A procedure whose loop is a <c>For Each</c> is compiled code's, and nothing of the loop is stepped. Compiled code also makes a
+/// call given an object inside a condition, and a call of a member of a record's object field. A program does the same thing either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledForEachTests
@@ -186,7 +186,7 @@ public sealed class CompiledForEachTests
             "    Report Ended",
             "End Function"), "Ended", recoveries: 0, classes: Boxes);
 
-    // a For Each in a With block is evaluated against the block's object, which the interpreter steps; its Next is compiled code's.
+    // a For Each in a With block is evaluated against the block's object, which the interpreter steps; its Next is run for compiled code, as the Next of any For Each is.
     [TestMethod]
     public async Task AForEachInAWithBlock_IsSteppedByTheInterpreter_AndItsNextIsCompiledCodes()
     {
