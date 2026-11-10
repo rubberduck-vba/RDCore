@@ -163,7 +163,8 @@ public sealed class FinancialParityTests
     [DataRow(-216.867884489, 0xBFB92A992B27E664UL)]
     [DataRow(1.940461144, 0xC004A5777D83E158UL)]
     // .NET's System.Math.Sin and Cos, whose quotient this tangent is, call the platform's libm, and IEEE 754 does not require a sine or a cosine to be
-    // correctly rounded: macOS's tangent of this angle is 2 units in the last place above MS-VBA's, measured on macos-15-intel and macos-latest (Apple silicon). Windows and Linux give MS-VBA's bits.
+    // correctly rounded. macOS's tangent of this angle is 2 units in the last place above MS-VBA's, measured on macos-15-intel and macos-latest
+    // (Apple silicon). Windows and Linux give MS-VBA's bits.
     [DataRow(-3062.332434609, 0x3FEC16C72E2D8372UL, 2)]
     [DataRow(262.262974289, 0x4030A4ABC104E66DUL)]
     [DataRow(0.003041009, 0x3F68E97A4ED642B3UL)]

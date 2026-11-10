@@ -37,8 +37,8 @@ public sealed class WorkspaceCurrentDirectoryTests
     public void Initialize()
     {
         _saved = Directory.GetCurrentDirectory();
-        // in the temporary folder as the system finds it: on macOS /var is a link to /private/var, and the directory a session is in, which CurDir gives, is
-        // the real one.
+        // under the temporary folder's real path: on macOS /var is a link to /private/var, and CurDir gives the real path of the directory a
+        // session is in.
         var temporary = RDCore.SDK.Platform.PlatformRootConfinement.RealPath(Path.GetTempPath());
         _root = WorkspacePaths.Normalized(Path.Combine(temporary, "rdcore-curdir-ws-" + Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Path.Combine(_root, "Sub"));
