@@ -174,4 +174,37 @@ public sealed class CompiledObjectFieldTests
                     "    Debug.Print \"ping\"; N",
                     "End Sub")),
             ]);
+
+    // a RaiseEvent in a loop compiled code runs is a support call: the handler runs at each pass, and what it writes into the argument passed to it by
+    // reference is read back into the variable of the activation it was given (MS-VBAL §5.4.2.20). No recovery.
+    [TestMethod]
+    public async Task ARaiseEvent_IsASupportCall_WhoseHandlerWritesBackAnArgumentPassedByReference()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim S As New Source, L As New Listener",
+            "    L.Watch S",
+            "    Debug.Print \"fired\"; S.Fired(4)",
+            "End Sub"), [("Fired", 0)], classes:
+            [
+                ("Source", ModuleWorkspace.ClassModule("Source", "Option Explicit",
+                    "Public Event Ask(ByVal N As Long, Cancel As Boolean)",
+                    "Public Function Fired(ByVal Count As Long) As Long",
+                    "    Dim K As Long",
+                    "    Dim Cancel As Boolean",
+                    "    For K = 1 To Count",
+                    "        Cancel = False",
+                    "        RaiseEvent Ask(K, Cancel)",
+                    "        If Cancel Then Fired = Fired + K",
+                    "    Next",
+                    "End Function")),
+                ("Listener", ModuleWorkspace.ClassModule("Listener", "Option Explicit",
+                    "Private WithEvents mSource As Source",
+                    "Public Sub Watch(ByVal S As Source)",
+                    "    Set mSource = S",
+                    "End Sub",
+                    "Private Sub mSource_Ask(ByVal N As Long, Cancel As Boolean)",
+                    "    Debug.Print \"ask\"; N",
+                    "    Cancel = N Mod 2 = 0",
+                    "End Sub")),
+            ]);
 }

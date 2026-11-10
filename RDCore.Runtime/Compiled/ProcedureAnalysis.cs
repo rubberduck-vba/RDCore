@@ -584,6 +584,11 @@ internal sealed partial class ProcedureAnalysis
                     _ => SupportCallOf(instruction, mark) ?? RefusedCall(call.Callee, location),
                 };
 
+            // MS-VBAL §5.4.2.20: a RaiseEvent calls each handler of the event, which may write an argument passed to it by reference back into a variable of
+            // the activation - the interpreter's statement, run as a support call, as a call statement compiled code does not make is.
+            case InstructionKind.Simple when instruction.Node is KeywordStatementNode { Token: Tokens.RaiseEvent } && SupportCallOf(instruction, _reasons.Count) is { } raise:
+                return raise;
+
             case InstructionKind.Simple when ArrayStatementOf(instruction) is { } arrayStatement:
                 return arrayStatement;
 

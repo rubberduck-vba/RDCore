@@ -249,7 +249,7 @@ the variables back and goes on wherever the statement left the procedure. A stat
 interpreter, errors included.
 
 The interpreter runs a call statement that compiled code does not make (`Err.Clear`, `C.Add 1` with `C` a `Collection`, a call given a late-bound
-argument), and a `Set` it does not do (see Objects, above), as a call that compiled code makes: compiled code writes its variables into the
+argument), a `RaiseEvent`, whose handlers may assign an argument passed to them by reference, and a `Set` it does not do (see Objects, above), as a call that compiled code makes: compiled code writes its variables into the
 frame, the interpreter runs the statement, and compiled code reads the variables back after it, as after any call it makes. An error the statement raises
 reaches the activation's handler as an error a callee raises does (see Error handling, below). Such a statement never keeps a procedure in the
 interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the interpreter runs it on its own, as
