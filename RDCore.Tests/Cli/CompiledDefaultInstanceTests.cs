@@ -95,7 +95,7 @@ public sealed class CompiledDefaultInstanceTests
             "    Next",
             "End Function"), "Area", direct: 5, recoveries: 1, expected: "made ; 26");
 
-    // the default instance set to Nothing in the loop: the object is destroyed, and the next call is on another the interpreter makes.
+    // the default instance set to Nothing in the loop: the object is destroyed, and the next call is on another the interpreter makes - the one recovery.
     [TestMethod]
     public async Task ADefaultInstanceSetToNothing_IsMadeAgain_OnTheNextCall()
         => await AssertDefaultAsync(Program(
@@ -110,5 +110,5 @@ public sealed class CompiledDefaultInstanceTests
             "        Board.Grow 1",
             "        If I = 2 Then Set Board = Nothing",
             "    Next",
-            "End Function"), "Reset", direct: 7, recoveries: 2, expected: "gone ; made ; 3434");
+            "End Function"), "Reset", direct: 7, recoveries: 1, expected: "gone ; made ; 3434");
 }
