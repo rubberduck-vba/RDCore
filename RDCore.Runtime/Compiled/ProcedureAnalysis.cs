@@ -752,7 +752,7 @@ internal sealed partial class ProcedureAnalysis
                 _variantAssignments.Add((variantSlot, variantValue));
                 return new VariantLetStep(offset, variantSlot, variantValue);
 
-            // a String is assigned the text as it is, as TryAssignUnboxed assigns it - or what a call returns, once the call returned, as the interpreter
+            // a String is assigned the text as it is, as TryAssignUnboxed assigns it; or what a call returns, once the call returned, as the interpreter
             // assigns it.
             case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
                 if (AssignedCallOf(assigned, offset) is { } textSlotAssigned)
@@ -822,7 +822,7 @@ internal sealed partial class ProcedureAnalysis
         return CallWith(procedure, parameters, arguments, result, offset, resultKind, site: null, receiver, assigns, call.Call.SourceLocation);
     }
 
-    // a member of the class whose code runs, named bare - `Helper`, `Twice(3)` - is a member of the current instance (MS-VBAL §5.6.10), called on the
+    // a member of the class whose code runs, named bare (`Helper`, `Twice(3)`), is a member of the current instance (MS-VBAL §5.6.10), called on the
     // activation's own Me, as the interpreter calls it (InvokeProcedureFrom): the Me slot is the object it is called on. A member of another module, named
     // through it, is no such call.
     private int? OwnMemberReceiver(VBTypeMemberSymbol procedure, ExpressionNode callee)

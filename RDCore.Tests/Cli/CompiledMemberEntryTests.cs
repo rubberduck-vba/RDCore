@@ -26,7 +26,7 @@ public sealed class CompiledMemberEntryTests
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
     // Walk calls Relay, a procedure of the module that calls Walk on another object, which it holds as Second: two activations of Walk on the stack, the one
-    // below given its frame by the call of Relay, each on its own object - and, a call deeper, two on the same object. Down and Up call each other on Me.
+    // below given its frame by the call of Relay, each on its own object, and, a call deeper, two on the same object. Down and Up call each other on Me.
     // Each folds its object's fields into what it returns, and the object says what it held when it terminates.
     private static readonly (string Name, string Source)[] Nodes =
     [

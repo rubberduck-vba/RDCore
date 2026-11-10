@@ -431,9 +431,9 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public LanguageCore.Binding.BoundMember? Site { get; init; }
 
     /// <summary>
-    /// Whether the call is of a member of the class whose code runs, named bare (MS-VBAL §5.6.10): made on the activation's own <c>Me</c>, as a call of a
-    /// member of an object is (<see cref="CompiledActivation.CanCallMember"/>, <see cref="CompiledActivation.CallMember"/>), of <see cref="Procedure"/>
-    /// itself. <see cref="Site"/> is then <see langword="null"/>.
+    /// Whether the call is of a member of the class whose code runs, named bare (MS-VBAL §5.6.10). The call is of <see cref="Procedure"/> itself, made on
+    /// the activation's own <c>Me</c> as a call of a member of an object is made (<see cref="CompiledActivation.CanCallMember"/>,
+    /// <see cref="CompiledActivation.CallMember"/>). <see cref="Site"/> is then <see langword="null"/>.
     /// </summary>
     public bool CallsOwnMember { get; init; }
 
