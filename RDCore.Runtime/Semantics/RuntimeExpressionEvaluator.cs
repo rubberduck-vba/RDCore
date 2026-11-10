@@ -154,7 +154,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private static void SetArrayElement(VBResizableArrayValue array, int index, VBTypedValue element)
     {
         var value = DataValues.Copy(element is VBVariantValue variant ? variant : new VBVariantValue(element));
-        array.TrySetElement(BindingKnowledge.NewCell(value), index);
+        array.TrySetElement(value is VBVariantValue copied ? ElementCells.OfVariant(copied) : BindingKnowledge.NewCell(value), index);
     }
 
     // MS-VBAL 3.3.5.2: the array operand is evaluated as the expression it is - for a variable, that is the array it holds (VBArrayType.CreateValue hands
@@ -2409,7 +2409,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     return new ParamArrayCollectResult(null, RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!));
                 }
 
-                array.TrySetElement(BindingKnowledge.NewCell(setResult.Result!), i);
+                array.TrySetElement(CollectedCopy(setResult.Result!), i);
                 continue;
             }
 
@@ -2425,11 +2425,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return new ParamArrayCollectResult(null, RuntimeSemanticsEvaluationResult.Error(coercionResult.ErrorInfo!));
             }
 
-            array.TrySetElement(BindingKnowledge.NewCell(coercionResult.Result!), i);
+            array.TrySetElement(CollectedCopy(coercionResult.Result!), i);
         }
 
         return new ParamArrayCollectResult(new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array)), null);
     }
+
+    // the element a param array collects a copy of an argument in: a Variant's cell, as an element of a Variant array is (ElementCells).
+    private static IBindingHandle CollectedCopy(VBTypedValue copy)
+        => copy is VBVariantValue variant ? ElementCells.OfVariant(variant) : BindingKnowledge.NewCell(copy);
 
     // the cell an element of a param array is when its argument is a variable, passed by reference as one is to a ByRef Variant parameter: a Variant that
     // refers to the variable, as the type it is declared. An array, a record and a fixed-length String are given as a copy: MS-VBA's behaviour with one is

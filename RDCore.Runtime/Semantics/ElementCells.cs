@@ -42,6 +42,17 @@ internal static class ElementCells
     }
 
     /// <summary>
+    /// The cell of an element of a <c>Variant</c> array made of the values it holds - by <c>Array</c>, or a <c>ParamArray</c> that collects a copy of an
+    /// argument: a Variant's cell holding <paramref name="value"/>, as the cells of <see cref="Of"/> are, and a cell of its own when it is not known.
+    /// </summary>
+    /// <param name="value">The element's value, a Variant's, which the cell holds as it is.</param>
+    public static IBindingHandle OfVariant(VBVariantValue value)
+        => UnboxedEvaluation.IsEnabled && value is { IsIndeterminate: false, TypedValue: var held }
+            && VariantCell.TryCreate(VBVariantType.TypeInfo, new VBRuntimeVariantValue(held.TypeInfo.VarType(), held), out var cell)
+                ? cell!
+                : BindingKnowledge.NewCell(value);
+
+    /// <summary>
     /// Stores <paramref name="value"/> as the element of <paramref name="array"/> at <paramref name="subscripts"/>: in the element's own cell when the
     /// array was made with the cells of <see cref="Of"/>, so that the copy an assignment makes keeps them, and in a cell of its own otherwise.
     /// </summary>
