@@ -55,7 +55,6 @@ public sealed class ReplQuestionWireTests
         public string? ReadLine(CancellationToken token) => null;
     }
 
-#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // the language server the shell starts and connects to: an OmniSharp server on the pipe, in this process, which answers the platform handshake and serves
     // test/ping once it is let to.
     private sealed class InProcessLanguageServer(Task pong) : IRDCoreServerProcess, IChildConnectionFactory
@@ -131,9 +130,7 @@ public sealed class ReplQuestionWireTests
             }
         }
     }
-#endif
 
-#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // OmniSharp's language client abandoned a request that runs - the question, which waits for the user - when a message it runs in order arrived: $/progress,
     // as the server reports the work it does while the shell comes up. The question was taken off the console as the user was reading it, and the server was
     // answered nothing. The progress is sent before the answer to a request the shell made, which the shell has read once it has its answer.
@@ -185,5 +182,4 @@ public sealed class ReplQuestionWireTests
         await asking.WaitAsync(Token);
         Assert.AreEqual("Not now", (await answering.WaitAsync(Token))?.Title, "the question was answered, and its answer reached the server");
     }
-#endif
 }

@@ -152,36 +152,53 @@ public sealed class UserInterfaceLanguageTests
 
     // ---- every component agrees ----
 
-#if SDK_SEAM // needs the SDK's internal RDCoreClientApp.InitializationOptionsOf and ClientLocale
-    // the client applies its setting and says the language in its initialize request; the language server, in a process of its own on an English machine, takes
-    // it and tells the components it starts the same; the diagnostics extension, in a third, analyzes in it on whatever thread it is asked.
+    // the language a component applies, as a server applies the one its client says, is the language of each component's own messages on an English machine:
+    // the language server's, on a thread it begins later, and the diagnostics extension's, on whatever thread it is asked.
     [TestMethod]
-    public async Task TheClientsSetting_IsTheLanguageOfTheLanguageServer_AndOfTheDiagnosticsItStarts()
+    public async Task TheLanguageApplied_IsTheLanguageOfTheLanguageServer_AndOfTheDiagnostics()
     {
         OnAMachineIn("en-US");
         _ = UserInterfaceLanguage.Apply("fr");
-        var toTheLanguageServer = RDCoreClientApp.InitializationOptionsOf(null, CultureInfo.CurrentUICulture, new CorePlatformClientCapabilities());
-
-        OnAMachineIn("en-US");
-        Assert.IsNotNull(ClientLocale.Apply(ClientLocale.Of(null, toTheLanguageServer)));
         var told = await Task.Run(() => string.Format(CultureInfo.CurrentUICulture, RDCore.LanguageServer.Debugging.DebuggerMessages.NotAModuleOfTheWorkspace, "Progam"));
-        var toTheDiagnostics = RDCoreClientApp.InitializationOptionsOf(null, CultureInfo.CurrentUICulture, new CorePlatformClientCapabilities());
 
         OnAMachineIn("en-US");
-        Assert.IsNotNull(ClientLocale.Apply(ClientLocale.Of(null, toTheDiagnostics)));
-        var found = await Task.Factory.StartNew(() =>
-        {
-            var uri = TestUri.TestModuleUri();
-            var source = "Attribute VB_Name = \"Module1\"\r\nSub DoWork()\r\nEnd Sub\r\n";
-            return new ImplicitPublicMemberAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), null)).Single().Message;
-        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        _ = UserInterfaceLanguage.Apply("fr");
+        var found = await Task.Factory.StartNew(ImplicitPublicMemberMessage, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
-        Assert.AreEqual("fr", toTheLanguageServer.Locale);
         Assert.AreEqual("'Progam' n'est pas un module de l'espace de travail", told);
-        Assert.AreEqual("fr", toTheDiagnostics.Locale);
         Assert.AreEqual("'DoWork' est implicitement Public. Indiquez son accessibilité.", found);
     }
-#endif
+
+    // a diagnostic is analyzed on whatever thread the request is served on, long after the language was applied.
+    [TestMethod]
+    public async Task ADiagnostic_AnalyzedOnAnotherThread_IsInTheLanguageApplied()
+    {
+        _ = UserInterfaceLanguage.Apply("fr-FR");
+
+        var message = await Task.Factory.StartNew(ImplicitPublicMemberMessage, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+        Assert.AreEqual("'DoWork' est implicitement Public. Indiquez son accessibilité.", message);
+    }
+
+    // the environment host's refusals are its own resources, read on whatever thread a request is answered on.
+    [TestMethod]
+    public async Task TheHostsRefusals_AreInTheLanguageApplied_OnAThreadItBeginsLater()
+    {
+        OnAMachineIn("en-US");
+        _ = UserInterfaceLanguage.Apply("fr-CA");
+
+        var answered = await Task.Run(() => RDCore.Runtime.Support.Resources.Host_ChangedWhileWaiting_Resume);
+
+        StringAssert.StartsWith(answered, "{0} a changé pendant l'attente du programme");
+    }
+
+    // the message of the one diagnostic of a module whose procedure has no access modifier.
+    private static string ImplicitPublicMemberMessage()
+    {
+        var uri = TestUri.TestModuleUri();
+        var source = "Attribute VB_Name = \"Module1\"\r\nSub DoWork()\r\nEnd Sub\r\n";
+        return new ImplicitPublicMemberAnalyzer().Analyze(new ModuleAnalysisContext(uri, new ModuleParser().Parse(uri, source), null)).Single().Message;
+    }
 
     // ---- formatting is untouched ----
 

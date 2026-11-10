@@ -10,18 +10,26 @@ using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Server.Services;
 
 namespace RDCore.LanguageServer.Refactoring;
 
 /// <summary>
 /// Serves <c>textDocument/codeAction</c> (<strong>LSP 3.17</strong> §Code Action Request): what can be done about the diagnostics of a range of a document, and
-/// what can be renamed in it.
+/// what can be renamed or extracted in it.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A diagnostic whose fix is a rename (<see cref="DiagnosticFixes"/>) is offered as quick fixes: a rename to each name its analyzer suggests that can be made -
 /// its edits are the action's - and a rename to a name the user chooses, which is a command the client runs (<see cref="RefactoringCommands.Rename"/>). A name
 /// the range declares, or the name at the position of an empty range, is offered as a refactoring that renames it, the same command.
+/// </para>
+/// <para>
+/// The statements of a selection that nothing refuses to extract are offered as a refactoring that extracts them as a procedure (<see cref="IExtractMethodService"/>).
+/// A client that expects <see cref="SDK.Client.Refactoring"/> runs it as a command (<see cref="RefactoringCommands.Refactor"/>), and asks its user before it
+/// applies it; any other is sent its edit, made with the defaults, when it changes nothing of what the code does that the user would have to accept.
 /// </para>
 /// <para>
 /// A workspace whose folder has a VB6 project and no project file of its own is offered, in every document, a source action that imports each VB6 project
@@ -31,10 +39,17 @@ namespace RDCore.LanguageServer.Refactoring;
 /// Every action is complete as it is answered: nothing is left to resolve (<c>resolveProvider = false</c>).
 /// </para>
 /// </remarks>
-internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem) : CodeActionHandlerBase
+internal sealed class CodeActionHandler(
+    IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
+    IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer) : CodeActionHandlerBase
 {
     /// <summary>The kind of the action that renames a symbol: a refactoring (<c>refactor.rename</c>).</summary>
     public static readonly CodeActionKind RefactorRename = new("refactor.rename");
+
+    /// <summary>
+    /// The kind of the action that extracts the statements of a selection as a procedure (<see cref="RefactoringKinds.ExtractMethod"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorExtractMethod = new(RefactoringKinds.ExtractMethod);
 
     /// <summary>The kind of the action that imports a VB6 project: a source action of the whole workspace (<c>source.rdcore.importProject</c>).</summary>
     public static readonly CodeActionKind SourceImportProject = new("source.rdcore.importProject");
@@ -106,11 +121,69 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
 
         // a client that asks for some kinds of actions only is answered those: a kind is asked for with the kinds under it.
         var only = request.Context.Only?.Select(kind => kind.ToString()).ToList();
-        var answered = only is { Count: > 0 }
-            ? actions.Where(action => only.Any(kind => action.Kind.ToString() == kind || action.Kind.ToString().StartsWith(kind + ".", StringComparison.Ordinal)))
-            : actions;
-        return new CommandOrCodeActionContainer(answered.Select(action => new CommandOrCodeAction(action)));
+        bool IsAsked(CodeActionKind kind) => only is not { Count: > 0 }
+            || only.Any(asked => kind.ToString() == asked || kind.ToString().StartsWith(asked + ".", StringComparison.Ordinal));
+        if (IsAsked(RefactorExtractMethod) && await ExtractMethodActionAsync(request, cancellationToken) is { } extraction)
+        {
+            actions.Add(extraction);
+        }
+
+        return new CommandOrCodeActionContainer(actions.Where(action => IsAsked(action.Kind)).Select(action => new CommandOrCodeAction(action)));
     }
+
+    // the action that extracts the statements of a selection, offered when nothing refuses it. A client with a dialog of its own runs it as a command, which
+    // prepares the refactoring and applies it with its user's answers; any other is sent the edit, with the defaults, when the extraction changes nothing the
+    // user would have to accept.
+    private async Task<CodeAction?> ExtractMethodActionAsync(CodeActionParams request, CancellationToken token)
+    {
+        var range = new SourceRange(request.Range.Start.Line, request.Range.Start.Character, request.Range.End.Line, request.Range.End.Character);
+        if (range.IsEmpty)
+        {
+            return null;
+        }
+
+        var documentUri = request.TextDocument.Uri.ToUri();
+        var prepared = await extractMethod.PrepareAsync(documentUri, range, token);
+        if (prepared.Notices.Any(notice => notice.Kind is RefactorNoticeKind.Refusal))
+        {
+            return null;
+        }
+
+        var title = ExtractMethodService.Title();
+        if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
+        {
+            var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.ExtractMethod, Uri = documentUri, Range = range };
+            return new CodeAction
+            {
+                Title = title,
+                Kind = RefactorExtractMethod,
+                Command = new Command { Name = RefactoringCommands.Refactor, Title = title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
+            };
+        }
+
+        if (prepared.Notices.Any(notice => notice.Kind is RefactorNoticeKind.Change)
+            || (await extractMethod.ApplyAsync(documentUri, range, [], [], token)).Edit is not { } edit
+            || ForTheClient(LspEditOf(edit)) is not { } applicable)
+        {
+            return null;
+        }
+
+        return new CodeAction { Title = title, Kind = RefactorExtractMethod, Edit = applicable };
+    }
+
+    // a refactoring's edit as LSP writes it: the edits of each document, of the version the client said it last.
+    private static WorkspaceEdit LspEditOf(RefactorWorkspaceEdit edit) => new()
+    {
+        DocumentChanges = new Container<WorkspaceEditDocumentChange>(edit.Documents.Select(document => new WorkspaceEditDocumentChange(new TextDocumentEdit
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(document.Uri!), Version = document.Version },
+            Edits = new TextEditContainer(document.Edits.Select(each => new TextEdit
+            {
+                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(each.Range.Start.Line, each.Range.Start.Character, each.Range.End.Line, each.Range.End.Character),
+                NewText = each.NewText,
+            })),
+        }))),
+    };
 
     // the edit as the client applies it; an action whose edit the client can't apply is not offered - the rename command, which says why, still is.
     private WorkspaceEdit? ForTheClient(WorkspaceEdit edit)
@@ -176,7 +249,7 @@ internal sealed class CodeActionHandler(IRenameService rename, IWorkspaceDocumen
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, SourceImportProject),
             ResolveProvider = false,
         };
     }

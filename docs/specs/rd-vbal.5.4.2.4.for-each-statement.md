@@ -28,9 +28,9 @@ refuses, RD-VBA refuses the same way (recorded in Excel):
 A `Variant` is iterated as what it holds when the loop runs: one that holds no array and no object is run-time error
 13, and a `Next` reached after it is run-time error 92 (see [Errors](#errors)).
 
-A [VBCollectionType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) can be efficiently iterated using
+An object of an enumerable class can be efficiently iterated using
 a `For Each...Next` loop. `For Each...Next` enumeration is intended to be used with collections containing objects
-([**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
+([**RD-VBAL §2.4.2.3** Enumerable Class Types](rd-vbal.2.4.2.non-intrinsic-types.md#2423-enumerable-class-types)).
 
 ## Runtime Semantics
 
@@ -167,8 +167,8 @@ subscript arithmetic. The index a `ForEachState` holds is this flat index.
 - The enumeration-member lookup uses
   [VBReturningMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html),
   [SymbolProperties](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.UserMemId` and
-  [WellKnownDispIds](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.WellKnownDispIds.html)`.NewEnum`: the same lookup `VBCollectionType`'s
-  constructor uses ([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)).
+  [WellKnownDispIds](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.WellKnownDispIds.html)`.NewEnum` on the class of the
+  object ([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)).
 - A plain array-typed variable read back as an expression
   ([SimpleNameExpressionNode](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.AST.Expressions.SimpleNameExpressionNode.html), the ordinary
   shape of `arr` in `For Each item In arr`) yields the array value stored in it:

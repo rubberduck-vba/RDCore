@@ -1836,7 +1836,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // Structural recognition only - the member's own body is never called (no procedure invocation
-    // machinery exists yet). Matches VBCollectionType's own constructor logic for finding this member.
+    // machinery exists yet). The member is the one whose VB_UserMemId is DISPID_NEWENUM (-4).
     private static bool HasNewEnumMember(VBClassModuleSymbol classModule)
         => classModule.Members.OfType<VBReturningMemberSymbol>().Any(member => member.GetProperty(SymbolProperties.UserMemId) == WellKnownDispIds.NewEnum);
 
