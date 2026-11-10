@@ -1,9 +1,9 @@
 using NSubstitute;
 using RDCore.Parsing;
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model.Values;
-using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -21,7 +21,6 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Semantics.Instructions;
 using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.LanguageCore.Errors;
 

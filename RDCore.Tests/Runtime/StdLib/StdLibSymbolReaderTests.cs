@@ -1,3 +1,5 @@
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model;
@@ -9,9 +11,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
-using RDCore.SDK.Runtime.StdLib;
 
 namespace RDCore.Tests.Runtime.StdLib;
 
@@ -27,7 +27,7 @@ public sealed class StdLibSymbolReaderTests
 {
     private static readonly Uri Root = new("file://rdcore-test");
 
-    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read(typeof(IStdErrClass).Assembly);
+    private static IReadOnlyList<Symbol> Read() => new StdLibSymbolReader(Root).Read();
 
     private static VBStandardModuleSymbol Module(string name)
         => Read().OfType<VBStandardModuleSymbol>().Single(module => module.Name == name);

@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
@@ -10,7 +11,6 @@ using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.Runtime.LanguageCore.Binding;
-using RDCore.SDK.Semantics.Instructions;
 
 namespace RDCore.Runtime.Compiled;
 

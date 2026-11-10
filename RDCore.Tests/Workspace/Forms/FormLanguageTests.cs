@@ -266,7 +266,7 @@ public sealed class FormLanguageTests
 
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
-            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(References.Source, ["MSForms"], [SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName])).ProvideSymbols()]);
+            => [.. new LibrarySymbolProvider(call.Arg<Uri>(), ReferencedLibraries.Load(References.Source, ["MSForms"], [SDK.Runtime.StdLib.StandardLibrary.LibraryName])).ProvideSymbols()]);
         var options = Options.Create(new SDK.Server.Configuration.SdkAppOptions
         {
             Workspace = new SDK.Server.Configuration.SdkWorkspaceOptions { WorkspaceUri = root, Language = "vba" },

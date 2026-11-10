@@ -3,8 +3,8 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.3.1** Collection Object](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/31ec9e63-f71e-4521-863b-a7d12007b7cc).
 
-The `Collection` class is represented in the SDK by the interface
-[IStdCollectionClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdCollectionClass.html).
+The `Collection` class is represented in the language core by the interface
+`IStdCollectionClass`.
 
 A `For Each` statement finds an object's enumeration member through
 [VBReturningMemberSymbol](../api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html) /
@@ -45,7 +45,7 @@ A key is a `String`, and is the same key whatever the case of its letters. A mem
 ## Enumeration
 
 The collection's enumeration member is the hidden `_NewEnum` (`VB_UserMemId = -4`), which VBA source reaches as `[_NewEnum]`. It returns an object of the hidden
-`IEnumVARIANT` class ([IStdEnumVariantClass](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdEnumVariantClass.html)): a position in a snapshot of the members
+`IEnumVARIANT` class (`IStdEnumVariantClass`): a position in a snapshot of the members
 the collection had when it was asked, which `MoveNext`, `Current` and `Reset` move and read. A member added or removed afterwards is not that enumerator's.
 
 MS-VBAL leaves the enumeration of an object "implementation-defined"; in MS-VBA the enumerator is a COM `IEnumVARIANT`, whose `Next` fills an array that VBA source cannot

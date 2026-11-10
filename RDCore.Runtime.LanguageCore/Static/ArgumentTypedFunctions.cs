@@ -16,5 +16,5 @@ public static class ArgumentTypedFunctions
 
     public static bool IsTypedByItsArgument(Symbol procedure)
         => procedure.GetProperty(SymbolProperties.ExternalTarget) is "IStdMathModule.Abs/1" or "IStdConversionModule.Int/1" or "IStdConversionModule.Fix/1"
-            && StdLibSymbolProvider.IsLibraryMember(procedure);
+            && StandardLibrary.IsLibraryMember(procedure);
 }

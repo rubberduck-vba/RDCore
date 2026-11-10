@@ -273,7 +273,7 @@ public static class ConstantExpressionStaticSemantics
             _ => null,
         };
 
-        return symbol is VBFunctionMemberSymbol function && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(function)
+        return symbol is VBFunctionMemberSymbol function && RDCore.SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(function)
             && (admits.HasFlag(IntrinsicCalls.Len) && string.Equals(function.Name, "Len", StringComparison.OrdinalIgnoreCase)
                 || admits.HasFlag(IntrinsicCalls.LenB) && string.Equals(function.Name, "LenB", StringComparison.OrdinalIgnoreCase)
                 || admits.HasFlag(IntrinsicCalls.Others) && OtherIntrinsicFunctions.Contains(function.Name));

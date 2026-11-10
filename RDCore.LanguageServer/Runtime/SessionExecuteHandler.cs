@@ -125,7 +125,7 @@ internal sealed class SessionExecuteHandler(
     // the name of the project, and of every library it has - the standard library, the ones it references, and the ones they depend on.
     private bool IsTaken(string moduleName)
         => string.Equals(moduleName, libraries.ProjectName ?? RDCore.SDK.Workspace.RDCoreProject.DefaultName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(moduleName, RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(moduleName, RDCore.SDK.Runtime.StdLib.StandardLibrary.LibraryName, StringComparison.OrdinalIgnoreCase)
             || libraries.Libraries.Priorities.ContainsKey(moduleName);
 
     private static ExecuteResult NotFound(string reason)

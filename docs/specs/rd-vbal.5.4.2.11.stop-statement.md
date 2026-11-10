@@ -27,5 +27,5 @@ otherwise when the project defines `DEBUG = 0`.
 
 ## Implementation
 
-`ProcedureExecutor` dispatches [InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html)`.Break`, and in a release build
+`ProcedureExecutor` dispatches `InstructionKind.Break`, and in a release build
 `InstructionKind.Halt` ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).

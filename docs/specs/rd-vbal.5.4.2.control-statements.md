@@ -5,8 +5,8 @@
 
 A control statement's effect on the flow of execution is carried by the instruction it lowers to. A statement's own
 runtime semantics are pure: they evaluate operands and return a result, and never mutate control state. The
-[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) and the pre-resolved offsets on
-[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html) let the executor's fetch/decode loop decide
+`InstructionKind` and the pre-resolved offsets on
+`Instruction` let the executor's fetch/decode loop decide
 whether to branch ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
 A block statement is kept structured. Each of its headers remains an instruction of its own, and only the control

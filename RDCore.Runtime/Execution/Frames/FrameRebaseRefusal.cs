@@ -24,7 +24,7 @@ public enum FrameRebaseRefusal
     FaultChanged,
 
     /// <summary>
-    /// What the activation goes on from can't be told for certain: the edit can be read in more than one way there (<see cref="RDCore.SDK.Semantics.Instructions.InstructionAlignment.IsCertain"/>),
+    /// What the activation goes on from can't be told for certain: the edit can be read in more than one way there (<see cref="RDCore.Runtime.LanguageCore.Instructions.InstructionAlignment.IsCertain"/>),
     /// as when one of two identical statements was removed.
     /// </summary>
     Uncertain,

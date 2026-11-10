@@ -173,7 +173,7 @@ public sealed class SymbolIdentityTests
         }
 
         var libraries = ReferencedLibraries.Load(
-            new DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), Path.Combine(directory!.FullName, "Symbols")), ["Excel"], [StdLibSymbolProvider.LibraryName]);
+            new DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), Path.Combine(directory!.FullName, "Symbols")), ["Excel"], [StandardLibrary.LibraryName]);
         var symbols = new LibrarySymbolProvider(Wire.FileUri(Root), libraries).ProvideSymbols().ToList();
         var worksheet = symbols.OfType<VBClassModuleSymbol>().Single(symbol => symbol.Name == "Worksheet");
         var type = worksheet.DefaultInterfaceMembers.Single(member => member.Name == "Type");

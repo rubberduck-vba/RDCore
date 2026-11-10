@@ -601,7 +601,7 @@ public sealed class LetAssignmentEvaluator(
     private static VBClassModuleSymbol? DispatchedClassOf(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBObjectValue owner)
         => session.Symbols.TryGetInstance(owner.Value, out var instance)
-            && instance.ClassModule.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName
+            && instance.ClassModule.GetProperty(SymbolProperties.Library) == SDK.Runtime.StdLib.StandardLibrary.LibraryName
             && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, memberAccess.Owner ?? context.EnclosingWithTargetExpression) is VBObjectType or VBVariantType
                 ? instance.ClassModule
                 : null;

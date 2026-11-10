@@ -3,8 +3,8 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.7** Information](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/fd00fc8f-ea7d-4c3b-b7a5-5e55377551e4).
 
-The `Information` module is represented in the SDK by the interface
-[IStdInformationModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInformationModule.html).
+The `Information` module is represented in the language core by the interface
+`IStdInformationModule`.
 
 The `Information` module is declared in full: every member of **MS-VBAL §6.1.2.7** has a declaration in
 `IStdInformationModule`, and so does each of the two RD-VBA additions, `Erl` and `Err`. The module's symbols are read
@@ -105,7 +105,7 @@ The line number `Erl` reports is carried on
 captured at the one point where every run-time error reaches the session error state: the interpreter's
 error-interception point ([**RD-VBAL §3.5.4** Execution](rd-vbal.3.5.4.execution.md)).
 
-In `LineLabel` mode, [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html)`.TryGetLineNumber`
+In `LineLabel` mode, `InstructionList.TryGetLineNumber`
 provides the line number `Erl` reports ([**RD-VBAL §3.5.1** InstructionList](rd-vbal.3.5.1.instructionlist.md)).
 
 ### 6.1.2.7.1.15 Err

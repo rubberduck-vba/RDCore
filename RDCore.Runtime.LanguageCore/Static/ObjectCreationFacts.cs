@@ -1,3 +1,5 @@
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols;
@@ -5,7 +7,6 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Semantics;
@@ -38,9 +39,9 @@ internal static class ObjectCreationFacts
         }
 
         // a class of the platform's own, by the last part of the identifier, as CreateObject finds it.
-        if (ClassOf(context, StdLibSymbolProvider.LibraryName, parts[^1], progId) is { } native)
+        if (ClassOf(context, StandardLibrary.LibraryName, parts[^1], progId) is { } native)
         {
-            return new(progId, StdLibSymbolProvider.LibraryName, native.Name, ObjectClassSource.StandardLibrary);
+            return new(progId, StandardLibrary.LibraryName, native.Name, ObjectClassSource.StandardLibrary);
         }
 
         // a class of a referenced library is commonly named by the identifier's second part (`Scripting.Dictionary`, `DAO.DBEngine.120`).

@@ -74,7 +74,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// </summary>
     public VBTypedValue WrapEnumerator(object enumerator, IRuntimeSymbolResolver resolver)
     {
-        var classModule = Current(resolver, StdLibSymbolProvider.LibraryName, "IEnumVARIANT")
+        var classModule = Current(resolver, StandardLibrary.LibraryName, "IEnumVARIANT")
             ?? throw new AutomationException(unchecked((int)0x80020005), "The standard library has no enumerator to enumerate with.");
 
         var identity = session.Objects.CreateObject();

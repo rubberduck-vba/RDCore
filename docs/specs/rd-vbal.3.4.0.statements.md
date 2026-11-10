@@ -27,4 +27,4 @@ Each statement node family is cross-referenced to its MS-VBAL section, and to th
 
 ## Statements and Instructions
 
-This section catalogs the statement tree the parser produces. [**RD-VBAL §3.5.0** Instructions](rd-vbal.3.5.0.instructions.md) catalogs the flat, offset-addressable [InstructionList](../api/RDCore.SDK.Semantics.Instructions.InstructionList.html) produced from that tree.
+This section catalogs the statement tree the parser produces. [**RD-VBAL §3.5.0** Instructions](rd-vbal.3.5.0.instructions.md) catalogs the flat, offset-addressable `InstructionList` produced from that tree.

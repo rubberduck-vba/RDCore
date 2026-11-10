@@ -1,7 +1,7 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
-using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;

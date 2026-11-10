@@ -45,7 +45,7 @@ public sealed class ParameterHintsTests
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Module1.bas"), Module1);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
-        var libraries = new LibrarySymbolProvider(Root, ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StdLibSymbolProvider.LibraryName])).ProvideSymbols();
+        var libraries = new LibrarySymbolProvider(Root, ReferencedLibraries.Load(new InMemoryLibrarySource(), [], [StandardLibrary.LibraryName])).ProvideSymbols();
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(uri, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver(), libraries: [.. libraries]);
         return new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(uri, parse.SyntaxTree!, Module1)]);
     }

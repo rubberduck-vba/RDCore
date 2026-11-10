@@ -50,7 +50,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
             // the host's Debug object is only ever written as the statements that are its own, Debug.Print and Debug.Assert (DebugStatementNode, which no
             // simple name of it is in): anywhere else - a value, the target of a Let or a Set, the target of a With block, `Call Debug.Print(…)` - MS-VBA reads
             // the name as a syntax error (Excel-verified, oracle\s18 D09, D11-D17).
-            if (StdLibSymbolProvider.IsDebugObject(result.Symbol!))
+            if (StandardLibrary.IsDebugObject(result.Symbol!))
             {
                 return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.SyntaxError, expression.Location, simpleName.WrittenName));
             }
@@ -90,7 +90,7 @@ public sealed record class SimpleNameExpressionStaticSemantics : IStaticSemantic
     }
 
     private static bool IsReservedFunctionOfTheLibrary(SimpleNameExpressionNode name, Symbol symbol)
-        => ReservedNameStaticSemantics.IsReservedName(name.IdentifierName) && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(symbol);
+        => ReservedNameStaticSemantics.IsReservedName(name.IdentifierName) && RDCore.SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(symbol);
 
     // MS-VBAL §5.6.10
     // invalid by the specification, and MS-VBA ignores the character.

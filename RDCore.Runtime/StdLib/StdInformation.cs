@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
@@ -10,10 +11,9 @@ using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
-using static RDCore.SDK.Runtime.Abstract.StdLib.IStdInformationModule;
+using static RDCore.Runtime.LanguageCore.StdLib.Abstract.IStdInformationModule;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Runtime.StdLib;
@@ -55,7 +55,7 @@ public sealed class StdInformation(IRuntimeSession session) : IStdInformationMod
         if (!session.Symbols.TryGetInstance(_errorObject, out _))
         {
             // the standard library's class, named by its library, whatever else a referenced library declares by that name.
-            var declared = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StdLibSymbolProvider.LibraryName, "ErrObject", StaticSymbol.GlobalUri).Symbol;
+            var declared = VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, "ErrObject", StaticSymbol.GlobalUri).Symbol;
             if (declared is not VBClassModuleSymbol errorClass)
             {
                 return Fail<VBObjectValue>(VBRuntimeErrorId.ApplicationDefinedOrObjectDefinedError,

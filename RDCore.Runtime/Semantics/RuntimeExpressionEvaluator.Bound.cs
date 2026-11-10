@@ -544,7 +544,7 @@ public sealed partial class RuntimeExpressionEvaluator
     {
         if (returned is not { IsSuccess: false, ErrorInfo.ErrorId: (int)VBRuntimeErrorId.Overflow }
             || call.Procedure is not VBFunctionMemberSymbol { Name: var name } function || !string.Equals(name, "Abs", StringComparison.OrdinalIgnoreCase)
-            || !SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(function)
+            || !SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(function)
             || call.Call.Arguments is not [var argument]
             || Evaluate(session, argument, context) is not { IsSuccess: true, Result: { } given })
         {

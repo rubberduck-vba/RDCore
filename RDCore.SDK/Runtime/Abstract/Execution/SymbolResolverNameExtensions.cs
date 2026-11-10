@@ -48,7 +48,7 @@ public static class SymbolResolverNameExtensions
     {
         var bare = resolver.ResolveValue(name.IdentifierName, scope, handle);
         // a member of the standard library is the only one that declares twins; a referenced library's, and the workspace's declarations, are an answer as they stand.
-        if (name.TypeHint is not { Length: > 0 } || bare.IsError || bare.IsResolved && !StdLibSymbolProvider.IsLibraryMember(bare.Symbol!))
+        if (name.TypeHint is not { Length: > 0 } || bare.IsError || bare.IsResolved && !StandardLibrary.IsLibraryMember(bare.Symbol!))
         {
             return bare;
         }

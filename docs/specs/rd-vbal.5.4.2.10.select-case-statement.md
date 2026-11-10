@@ -40,7 +40,7 @@ of every case-clause. RD-VBA passes the evaluated selector to every clause compa
 ### Case Header
 
 The executor dispatches `ConditionalBranch` separately for a `Case` header: a `Case` header has
-[Instruction](../api/RDCore.SDK.Semantics.Instructions.Instruction.html)`.Matching` set instead of a Boolean
+`Instruction.Matching` set instead of a Boolean
 condition.
 
 1. Read the enclosing `Select`'s stored selector, through the header's `Matching` offset.

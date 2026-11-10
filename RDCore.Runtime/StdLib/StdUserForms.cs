@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution.External.Forms;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -7,7 +8,6 @@ using RDCore.SDK.Model.Values;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
-using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
 using RDCore.SDK.Workspace.Forms;
@@ -36,7 +36,7 @@ internal sealed class StdGlobal(IRuntimeSession session) : IStdGlobalClass
         var collection = forms.Collection ??= session.Objects.CreateObject();
         if (!session.Symbols.TryGetInstance(collection, out _))
         {
-            if (VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StdLibSymbolProvider.LibraryName, "_UserForms", StaticSymbol.GlobalUri).Symbol
+            if (VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, StandardLibrary.LibraryName, "_UserForms", StaticSymbol.GlobalUri).Symbol
                 is not VBClassModuleSymbol collectionClass)
             {
                 return RuntimeSemanticsEvaluationResult<VBObjectValue>.InternalError();

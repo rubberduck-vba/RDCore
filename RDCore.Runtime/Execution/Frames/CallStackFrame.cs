@@ -1,4 +1,5 @@
 ﻿using RDCore.Runtime.Execution;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
@@ -13,7 +14,6 @@ using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.Runtime.LanguageCore.Binding;
-using RDCore.SDK.Semantics.Instructions;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using RDCore.Runtime.LanguageCore.Errors;

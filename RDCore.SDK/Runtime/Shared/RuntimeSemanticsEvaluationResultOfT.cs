@@ -31,7 +31,7 @@ namespace RDCore.SDK.Runtime.Shared;
 /// value of one is a <see cref="Model.Values.Intrinsic.VBLongValue"/> or a
 /// <see cref="Model.Values.Intrinsic.VBObjectValue"/> respectively, which is what an implementation
 /// produces and so what this names. Those members state the type VBA source sees with
-/// <see cref="Abstract.StdLib.StdLibMemberAttribute.ReturnType"/>.
+/// <c>StdLibMemberAttribute.ReturnType</c>.
 /// </para>
 /// </remarks>
 /// <typeparam name="TValue">The <see cref="VBTypedValue"/> a successful evaluation produces.</typeparam>

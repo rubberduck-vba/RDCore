@@ -14,7 +14,7 @@ standard library.
 The _environment host_ shall inject the VBA standard library's symbols into all `VBA` projects. The injected
 symbols shall carry the appropriate _return type_ metadata.
 
-The SDK defines the interfaces for the _internal representation_ of each standard-library module, and the environment
+The language core defines the interfaces for the _internal representation_ of each standard-library module, and the environment
 host exposes the symbols provided by the standard library to the _workspace_. See
 [**RD-VBAL §6.0.1** Symbol Injection](rd-vbal.6.0.standard-library.md#601-symbol-injection).
 

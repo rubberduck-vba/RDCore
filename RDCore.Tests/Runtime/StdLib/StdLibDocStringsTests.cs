@@ -1,7 +1,7 @@
+using RDCore.Runtime.LanguageCore.StdLib;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
-using RDCore.SDK.Runtime.StdLib;
 using System.Collections;
 using System.Globalization;
 using System.Resources;
@@ -15,7 +15,7 @@ namespace RDCore.Tests.Runtime.StdLib;
 [TestClass]
 public sealed class StdLibDocStringsTests
 {
-    private static readonly ResourceManager DocStrings = new("RDCore.SDK.Runtime.StdLib.StdLibDocStrings", typeof(StdLibSymbolReader).Assembly);
+    private static readonly ResourceManager DocStrings = new("RDCore.Runtime.LanguageCore.StdLib.StdLibDocStrings",typeof(StdLibSymbolReader).Assembly);
 
     private static List<Symbol> Symbols(string culture)
     {

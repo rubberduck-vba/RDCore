@@ -2,6 +2,7 @@ using RDCore.External;
 using RDCore.External.Interaction;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
 using RDCore.Runtime.Semantics.Conversion;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
@@ -905,7 +906,7 @@ public sealed class StdInteraction(
     {
         var name = progId[(progId.LastIndexOf('.') + 1)..];
         return name.Length > 0
-            && VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, SDK.Runtime.StdLib.StdLibSymbolProvider.LibraryName, name, StaticSymbol.GlobalUri).Symbol
+            && VBProjectSymbol.ResolveQualifiedType(session.Symbols.Resolver, SDK.Runtime.StdLib.StandardLibrary.LibraryName, name, StaticSymbol.GlobalUri).Symbol
                 is VBClassModuleSymbol classModule
             && string.Equals(classModule.GetProperty(SymbolProperties.ProgId), progId, StringComparison.OrdinalIgnoreCase)
             ? classModule

@@ -10,7 +10,7 @@
 |[KeywordStatementNode](../api/RDCore.SDK.Model.AST.Statements.KeywordStatementNode.html) (`Token`: `"Exit Sub"`)|`ExitProcedure`|`Target`: the `End Sub` closer ([**RD-VBAL §3.5.3** Lowering Block Statements](rd-vbal.3.5.3.lowering-block-statements.md#procedure-exits)).|
 
 `Exit Sub`, `Exit Function` and `Exit Property` all lower to the
-[InstructionKind](../api/RDCore.SDK.Semantics.Instructions.InstructionKind.html) `ExitProcedure`
+`InstructionKind` `ExitProcedure`
 ([**RD-VBAL §3.5.2** Instruction](rd-vbal.3.5.2.instruction.md)).
 
 ## Static Semantics

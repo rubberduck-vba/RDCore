@@ -1,3 +1,4 @@
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.Runtime.Compiled;
@@ -445,7 +446,7 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
 /// <param name="Body">The member's compiled body.</param>
 /// <param name="Entry">A pointer to the compiled body's typed entry.</param>
 /// <param name="Context">The context the member's code is evaluated in.</param>
-internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, SDK.Semantics.Instructions.InstructionList List, CompiledBody Body,
+internal sealed record class MemberEntry(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Member, RDCore.Runtime.LanguageCore.Instructions.InstructionList List, CompiledBody Body,
     nint Entry, Semantics.RuntimeEvaluationContext Context)
 {
 }
@@ -520,11 +521,11 @@ internal sealed record class CompiledField(int Slot, SDK.Model.Symbols.Abstract.
 /// was loaded again.
 /// </param>
 /// <remarks>Nothing of a session is held: the body is shared by every session composed over the same scopes, each of which makes the activations itself.</remarks>
-internal sealed class DirectCall(System.Reflection.MethodInfo Entry, SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, SDK.Semantics.Instructions.InstructionList List)
+internal sealed class DirectCall(System.Reflection.MethodInfo Entry, SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure, RDCore.Runtime.LanguageCore.Instructions.InstructionList List)
 {
     public System.Reflection.MethodInfo Entry { get; } = Entry;
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Procedure { get; } = Procedure;
-    public SDK.Semantics.Instructions.InstructionList List { get; } = List;
+    public RDCore.Runtime.LanguageCore.Instructions.InstructionList List { get; } = List;
 
     /// <summary>The callee's compiled body; set once it is created, for a procedure that calls itself.</summary>
     public CompiledBody? Body { get; set; }

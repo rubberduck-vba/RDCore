@@ -152,7 +152,7 @@ internal static class ArgumentListStaticSemantics
     }
 
     private static bool IsLength(VBTypeMemberSymbol procedure)
-        => procedure is VBFunctionMemberSymbol { Name: var name } && RDCore.SDK.Runtime.StdLib.StdLibSymbolProvider.IsLibraryMember(procedure)
+        => procedure is VBFunctionMemberSymbol { Name: var name } && RDCore.SDK.Runtime.StdLib.StandardLibrary.IsLibraryMember(procedure)
             && (string.Equals(name, "Len", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "LenB", StringComparison.OrdinalIgnoreCase));
 
     // MS-VBAL §5.3.1.11: a variable given to a ByRef parameter is aliased to it, and is of its declared type. MS-VBA refuses one of another type

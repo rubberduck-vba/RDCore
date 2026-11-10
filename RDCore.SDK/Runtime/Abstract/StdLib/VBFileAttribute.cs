@@ -4,8 +4,8 @@
 /// <strong>MS-VBAL 6.1.1.8 VbFileAttribute</strong>
 /// </summary>
 /// <remarks>
-/// This <c>enum</c> is used to encode the return value of the <see cref="IStdInteractionModule.GetAttr"/> function.<br/>
-/// 👉 The values of this enum are powers of 2, suggesting they are intended to be combined and used with bitwise logic.
+/// These values encode the return value of the <c>GetAttr</c> function. Each is a power of 2, so they combine with
+/// bitwise operators.
 /// </remarks>
 [Flags]
 [StdLibEnum]

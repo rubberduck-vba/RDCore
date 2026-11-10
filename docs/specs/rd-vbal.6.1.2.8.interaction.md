@@ -3,8 +3,8 @@
 > [!NOTE]
 > This section describes the implementation of [**MS-VBAL §6.1.2.8** Interaction](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/9a7e0f79-3164-41dd-beda-bcc02dc79d1f).
 
-The `Interaction` module is represented in the SDK by the interface
-[IStdInteractionModule](../api/RDCore.SDK.Runtime.Abstract.StdLib.IStdInteractionModule.html).
+The `Interaction` module is represented in the language core by the interface
+`IStdInteractionModule`.
 
 The application settings members (`GetAllSettings`, `GetSetting`, `SaveSetting`, `DeleteSetting`, and the RD-VBA variants
 `GetAllJsonSettings`, `GetJsonSetting` and `SaveJsonSetting`) are described with the implicit storage they use, in
