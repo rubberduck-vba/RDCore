@@ -52,8 +52,16 @@ public sealed class ForLoopEvaluator(
     /// <c>Single</c>, <c>Double</c> or <c>Date</c> expression is converted to it from the extended format it is computed in (MS-VBAL §5.6.9.3; MS-VBA:
     /// <c>For l = 1 To s + 1</c>, <c>s</c> a <c>Single</c> of 16777216, counts to 16777217 - grid oracle\s42 D31).
     /// </summary>
+    /// <remarks>
+    /// The start, the end and the step "are evaluated once, in order, and prior to any of the following computations" (<strong>MS-VBAL §5.4.2.3</strong>):
+    /// each is the value it had when it was evaluated, copied out of the variable it was read from (<see cref="DataValues.Copy"/>). A variable that a call
+    /// in a later one changes is not read again: <c>For i = a To Bump(a)</c> starts at what <c>a</c> held before the call.
+    /// </remarks>
     public RuntimeSemanticsEvaluationResult EvaluateOperand(IRuntimeSession session, ExpressionNode expression, VBType counterType, RuntimeEvaluationContext context)
-        => expressionEvaluator.EvaluateLetCoercedTo(session, expression, counterType, context);
+    {
+        var evaluated = expressionEvaluator.EvaluateLetCoercedTo(session, expression, counterType, context);
+        return evaluated is { IsSuccess: true, Result: { } value } ? evaluated with { Result = DataValues.Copy(value) } : evaluated;
+    }
 
     /// <summary>
     /// Steps the loop on payloads, when its counter holds one (IR lowering S1.2): what <see cref="Increment"/>, <see cref="AssignCounter"/> and
