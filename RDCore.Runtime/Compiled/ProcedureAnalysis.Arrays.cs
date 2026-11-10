@@ -87,8 +87,8 @@ internal sealed partial class ProcedureAnalysis
         return ArrayOfItems(~at, item) with { Field = path };
     }
 
-    // an element of an array field of a record - `this.Cells(X, Y)`, which is bound as a member of the record given what follows it in parentheses
-    // (EvaluateBoundMember indexes the field it reads) - as the element of an array it is: the field, indexed by each subscript.
+    // an element of an array field of a record (`this.Cells(X, Y)`, which is bound as a member of the record given what follows it in parentheses:
+    // EvaluateBoundMember indexes the field it reads), as the element of an array it is: the field, indexed by each subscript.
     private BoundIndex? FieldElementOf(BoundNode node)
         => node is BoundMember { Arguments: { } index, Member: null, DeclaredClass: null, IsLateBound: false } member
             && RecordFieldOf(member with { Arguments = null, BoundArguments = null }) is (_, VBArrayType)

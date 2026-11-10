@@ -9,9 +9,9 @@ namespace RDCore.Runtime.Compiled;
 
 /// <summary>
 /// What compiled code does of an array parameter or variable: it finds an element in the array held in the cell its frame holds the
-/// variable in (<see cref="CompiledActivation.ArrayCellOf"/>), or in the array an array field of a record is (<see cref="RecordOperations.ArrayField"/>), as the interpreter's evaluation on payloads finds it (<c>ElementCellOf</c>), and reads the
-/// bounds of a dimension as <c>LBound</c> and <c>UBound</c> do (<c>ArrayBoundRuntimeSemantics</c>). What it does not find (a subscript outside its dimension,
-/// an array of another rank, one with no dimensions, one that is not known, an element held in a cell of another kind) is the interpreter's: each operation
+/// variable in (<see cref="CompiledActivation.ArrayCellOf"/>), or in the array an array field of a record is (<see cref="RecordOperations.ArrayField"/>),
+/// as the interpreter's evaluation on payloads finds it (<c>ElementCellOf</c>), and reads the bounds of a dimension as <c>LBound</c> and <c>UBound</c> do
+/// (<c>ArrayBoundRuntimeSemantics</c>). What it does not find (a subscript outside its dimension, an array of another rank, one with no dimensions, one that is not known, an element held in a cell of another kind) is the interpreter's: each operation
 /// returns <see langword="null"/> or <see langword="false"/>, and the interpreter runs the statement, which raises the error (9) where there is one.
 /// </summary>
 /// <remarks>

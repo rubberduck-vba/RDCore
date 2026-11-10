@@ -4,7 +4,7 @@ using static RDCore.Tests.Cli.CompiledDirectCallTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <c>IIf</c>, compiled: a call of the function of the standard library, through its binding, given both its parts evaluated - the true part first - as
+/// <c>IIf</c>, compiled: a call of the function of the standard library, through its binding, given both its parts evaluated (the true part first) as
 /// MS-VBA gives them (MS-VBAL §6.1.2.8.1.11), and returning a <c>Variant</c>, whose arithmetic is the Variant's: an operation that overflows its subtype
 /// is done in a wider one. In a statement that calls inside an expression, <c>IIf</c> and the <c>Variant</c> it returns are computed of what was read and
 /// called before. A program runs the same either way.
@@ -118,7 +118,7 @@ public sealed class CompiledIIfTests
                 "End Function"])),
         ];
 
-    // IIf in a statement that calls inside an expression - a Property Get of the position - beside the bounds of the grid, and in the bounds of a For: what
+    // IIf in a statement that calls inside an expression (a Property Get of the position), beside the bounds of the grid, and in the bounds of a For: what
     // each call returned and each bound read is what IIf and the Variant arithmetic are computed of.
     [TestMethod]
     public async Task IIfBesideACall_IsComputedOfWhatTheCallReturned()
@@ -154,7 +154,7 @@ public sealed class CompiledIIfTests
             "End Sub"), Boards(), "| TrueFalse ; FalseTrue 4 |",
             ("CanPlace", 0));
 
-    // an error right of the call - a division by zero (MS-VBAL §5.6.9.3.5) - gives the interpreter the statement, with what the call returned: it raises the
+    // an error right of the call (an integer division by zero, MS-VBAL §5.6.9.3.6) gives the interpreter the statement, with what the call returned: it raises the
     // error, and does not call again.
     [TestMethod]
     public async Task ACallsObject_IsNotCalledAgain_WhenTheStatementIsHandedOver()

@@ -42,7 +42,7 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the cell an array is held in, onto the stack: an array slot's local, or the cell an array field holds its array in, found through its record now -
+    // the cell an array is held in, onto the stack: an array slot's local, or the cell an array field holds its array in, found through its record now;
     // none when there is no record, which ArrayOperations finds nothing in.
     private void LoadArrayHolder(int array)
     {
