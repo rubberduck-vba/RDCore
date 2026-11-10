@@ -770,6 +770,17 @@ internal sealed partial class ProcedureEmitter
             _il.Emit(OpCodes.Ldc_I4, call.Callee);
             _il.Emit(OpCodes.Ldloc, _objects[receiver]);
             _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
+            _il.Emit(OpCodes.Brfalse, Fail(ReceiverFailure(receiver, failure)));
+        }
+
+        // a member of the object an object field of a record holds, in the cell the record holds it in, as a variable's.
+        if (call.ReceiverField is { } field)
+        {
+            var cell = EmitObjectFieldCell(new ObjectFieldNode(field));
+            _il.Emit(OpCodes.Ldarg_0);
+            _il.Emit(OpCodes.Ldc_I4, call.Callee);
+            _il.Emit(OpCodes.Ldloc, cell);
+            _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CanCallMember))!);
             _il.Emit(OpCodes.Brfalse, Fail(failure));
         }
 
@@ -1673,6 +1684,12 @@ internal sealed partial class ProcedureEmitter
 
             case FieldNode field:
                 return EmitField(field, failure);
+
+            case MemberFieldNode memberField:
+                return EmitMemberField(memberField, failure);
+
+            case ErrNumberNode:
+                return EmitErrNumber(failure);
 
             case OperandNode evaluated:
                 return evaluated.Operand;

@@ -34,7 +34,8 @@ public sealed class CompiledBlockTests
 
     private static string WithHelpers(params string[] lines) => Program([.. lines, .. Helpers]);
 
-    // the With and its End With, and the statements that use its object, are the interpreter's; the For loop inside the block is compiled code's.
+    // the With and its End With, and the statements that call a member of its object, are the interpreter's; the For loop inside the block is compiled
+    // code's, and so is the call of .Count inside an expression.
     [TestMethod]
     public async Task AWith_IsSteppedByTheInterpreter_AroundACompiledLoop()
     {
@@ -52,7 +53,7 @@ public sealed class CompiledBlockTests
             "        Next",
             "        Filled = Filled + .Count",
             "    End With",
-            "End Function"), "Filled", recoveries: 6);
+            "End Function"), "Filled", recoveries: 5);
 
         Assert.IsTrue(compiled.Stepped.Any(reason => reason is { Kind: IneligibilityKind.Instruction, Detail: nameof(RDCore.Runtime.LanguageCore.Instructions.InstructionKind.With) }),
             string.Join("; ", compiled.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));

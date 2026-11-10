@@ -98,7 +98,7 @@ internal sealed partial class ProcedureAnalysis
 
     // a function of the workspace called inside an expression, as CallOf and MemberCallOf call one, by where it is in its statement: a function of a
     // standard module called with its arguments, or by its bare name when it takes none, or a function or Property Get member of an object variable of the
-    // activation.
+    // activation, of the default instance of a class, or of the object of the enclosing With block.
     private PayloadNode? NestedCall(BoundNode node, VBTypeMemberSymbol function)
     {
         var syntax = KnownOperands.IndexOf(_nesting!, node.Expression);
@@ -114,8 +114,10 @@ internal sealed partial class ProcedureAnalysis
             _ => BareCallOf(function, kind, node.Expression.SourceLocation),
         };
 
-        // a member of the object of a With block is the interpreter's inside an expression: a call there is made of an object variable's member alone.
-        return made is null or { WithAt: not null } ? Unsupported(node) : new CallNode(made.Callee, made.Arguments, made.Receiver, kind, syntax);
+        return made is null ? Unsupported(node) : new CallNode(made.Callee, made.Arguments, made.Receiver, kind, syntax)
+        {
+            WithAt = made.WithAt, ReceiverField = made.ReceiverField,
+        };
     }
 
     // a function of a standard module named by itself, which is a call of it given no argument (MS-VBAL §5.6.10).
@@ -202,7 +204,9 @@ internal sealed partial class ProcedureAnalysis
         var byReference = Parameters.Where(parameter => parameter.ByReference).Select(parameter => parameter.Slot).ToHashSet();
         var aliased = passed.Overlaps(byReference);
         return nodes.OfType<KnownNode>().FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
-            && (passed.Contains(slot) || aliased && byReference.Contains(slot) || FieldSlots.Contains(slot)));
+            && (passed.Contains(slot) || aliased && byReference.Contains(slot) || FieldSlots.Contains(slot))
+            // a public variable of an object, which any call may change, as a field.
+            || read.Value is MemberFieldNode && (!early || arguments.Contains(read)));
     }
 
     // the types of an operand MS-VBA reads where it is written, before a call right of it changes it (RD-VBAL §5.6.9.2): what compiled code reads, and the

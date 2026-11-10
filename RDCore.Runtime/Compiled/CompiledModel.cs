@@ -352,20 +352,30 @@ internal sealed record class TemporaryNode(PayloadNode Value) : PayloadNode(Valu
 // (ReferenceNode, TemporaryNode): a call statement (Result is CallStep.NoResult), or the whole value a variable (Result its slot) or the function result
 // variable (Result is -1) is assigned, of the callee's kind. Nothing of the instruction is evaluated after the call but that assignment, which can't fail:
 // an instruction is handed to the interpreter at its start only before the call is made, which it would make again. A call of a member of an object has the
-// slot of the object variable it is made on (Receiver), or the offset of the With statement whose block's object it is made on (WithAt).
+// slot of the object variable it is made on (Receiver), the object field of a record it is made on (ReceiverField), or the offset of the With statement
+// whose block's object it is made on (WithAt).
 internal sealed record class CallStep(int Offset, int Callee, IReadOnlyList<PayloadNode> Arguments, int Result, int? Receiver = null) : CompiledStep(Offset)
 {
     public const int NoResult = -2;
 
     public int? WithAt { get; init; }
 
-    public bool IsOfAMember => Receiver is not null || WithAt is not null;
+    public FieldPath? ReceiverField { get; init; }
+
+    public bool IsOfAMember => Receiver is not null || WithAt is not null || ReceiverField is not null;
 }
 
 // a call of a function of the workspace inside an expression, made as a CallStep makes one, with arguments as a CallStep's: what it returns is of the
 // callee's kind (Kind). Once it is made, the instruction is handed to the interpreter in the middle of it, with what was evaluated of it known
-// (Execution.Frames.KnownOperands): this call by where it is in its statement (Syntax), which the interpreter does not make again.
-internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
+// (Execution.Frames.KnownOperands): this call by where it is in its statement (Syntax), which the interpreter does not make again. A call of a member of
+// an object is made on an object variable (Receiver), on an object field of a record (ReceiverField), or on the object of a With block (WithAt), as a
+// CallStep's is.
+internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arguments, int? Receiver, ScalarKind Kind, int Syntax) : PayloadNode(Kind)
+{
+    public int? WithAt { get; init; }
+
+    public FieldPath? ReceiverField { get; init; }
+}
 
 // a variable of the activation, or the function result variable, read in an instruction that calls a function inside an expression (CallNode): what was
 // read is what the interpreter is given of it, by where it is in its statement (Syntax), when the instruction is handed to it after a call that may have

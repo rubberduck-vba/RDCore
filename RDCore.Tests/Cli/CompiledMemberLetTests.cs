@@ -62,8 +62,8 @@ public sealed class CompiledMemberLetTests
         }
     }
 
-    // a public field of an object a variable refers to, assigned in a loop compiled code runs. The recovery is the read of the field, which is a member of
-    // an object; the Set of the object made with New is a support call.
+    // a public field of an object a variable refers to, assigned in a loop compiled code runs and read after it, where the object holds
+    // it; the Set of the object made with New is a support call.
     [TestMethod]
     public async Task AFieldOfAnObject_IsLetInCompiledCode()
         => await AssertRunAsync(Program(
@@ -80,7 +80,7 @@ public sealed class CompiledMemberLetTests
             "        Filled = Filled + K",
             "    Next",
             "    Filled = Filled * 1000 + P.Sum",
-            "End Function"), "55030", ("Filled", 1, 0));
+            "End Function"), "55030", ("Filled", 0, 0));
 
     // a Property Let called with the value let-coerced to the type of its parameter: a Double rounded to even, a Boolean as -1. The Set is a support call.
     [TestMethod]
@@ -161,8 +161,8 @@ public sealed class CompiledMemberLetTests
             "End Function"), "11,22,33,x=1;x=2;x=3;");
 
     // the value is evaluated before the object: a call that gives it is made, then the member of Nothing is error 91, each time - whether what is assigned
-    // is what the call returned or a value compiled code evaluates. The recoveries are the 4 errors, each resumed past by the interpreter, and the 4 reads
-    // of Err.Number; the 4 calls of Err.Clear are support calls.
+    // is what the call returned or a value compiled code evaluates. The recoveries are the 4 errors, each resumed past by the interpreter; the 4 reads of
+    // Err.Number are compiled code's, and the 4 calls of Err.Clear are support calls.
     [TestMethod]
     public async Task AMemberOfNothing_IsError91AfterTheValueIsEvaluated()
         => await AssertRunAsync(Program(
@@ -186,7 +186,7 @@ public sealed class CompiledMemberLetTests
             "Private Function Noted(ByVal K As Long) As Long",
             "    Log = Log & \"rhs \" & K & \";\"",
             "    Noted = K",
-            "End Function"), "364;rhs 1;rhs 2;", ("Tried", 8, 0), ("Noted", 2, 0));
+            "End Function"), "364;rhs 1;rhs 2;", ("Tried", 4, 0), ("Noted", 2, 0));
 
     // a call that gives the value Sets the variable the object is read from to another object: the member assigned is the new object's, as the value is
     // evaluated before the object. The recoveries are Swapped's: the 2 assignments of Log; its Set is a support call.

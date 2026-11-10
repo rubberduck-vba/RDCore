@@ -705,7 +705,8 @@ internal sealed partial class ProcedureAnalysis
                 return assigned switch
                 {
                     BoundCall resultCall => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
-                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember => MemberCallOf(resultMember, -1, offset, result)
+                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember when ErrNumberOf(resultMember) is null
+                        => MemberCallOf(resultMember, -1, offset, result)
                         ?? RefusedCall(resultMember.Access, assignment.SourceLocation),
                     _ => PayloadAs(assigned, result) is { } value ? new LetStep(offset, -1, value) : null,
                 };
@@ -713,7 +714,8 @@ internal sealed partial class ProcedureAnalysis
                 return assigned switch
                 {
                     BoundCall slotCall => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
-                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember => MemberCallOf(slotMember, slot, offset, _slots[slot])
+                    BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember when ErrNumberOf(slotMember) is null
+                        => MemberCallOf(slotMember, slot, offset, _slots[slot])
                         ?? RefusedCall(slotMember.Access, assignment.SourceLocation),
                     _ => PayloadAs(assigned, _slots[slot]) is { } slotValue ? new LetStep(offset, slot, slotValue) : null,
                 };
@@ -806,7 +808,9 @@ internal sealed partial class ProcedureAnalysis
     // made (CompiledActivation.CanCallMember), as the interpreter finds it (EvaluateBoundMember), and the call is made as the interpreter makes it, the
     // object given as Me. A member written with no object before the dot is a member of the object of the enclosing With block, declared as a class: the
     // object is the one the interpreter holds for the block, found when the call is made (CompiledActivation.CanCallMemberOfWith). A Property Get is called
-    // as a function is, for what it returns (MS-VBAL §5.3.1.7), never as a statement.
+    // as a function is, for what it returns (MS-VBAL §5.3.1.7), never as a statement. A member of the default instance of a class (MS-VBAL §5.2.4.1.2) is
+    // called on the object the session holds for it; one that holds none yet is the interpreter's, which makes the object (MS-VBAL §5.2.3.1.4). A member of
+    // an object field of one of the procedure's records (this.Owner.Name) is called on the object the field holds, found where the record holds it.
     private CallStep? MemberCallOf(BoundMember call, int result, int offset, ScalarKind? resultKind, bool assigns = false)
     {
         if (call.Member is VBPropertyGetMemberSymbol && resultKind is null && !assigns)
@@ -820,15 +824,27 @@ internal sealed partial class ProcedureAnalysis
             return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns) is { } made ? made with { WithAt = with } : null;
         }
 
+        if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundMember field,
+                IsLateBound: false }
+            && ObjectFieldOf(field) is { } path)
+        {
+            return MemberCallWith(call, result, offset, resultKind, receiver: null, assigns) is { } made ? made with { ReceiverField = path } : null;
+        }
+
         if (call is not { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundVariable owner,
                 IsLateBound: false }
-            || ObjectSlotOf(owner) is not { } receiver)
+            || (owner.Variable is VBPredeclaredInstanceSymbol ? DefaultInstanceSlotOf(owner, call.Member) : ObjectSlotOf(owner)) is not { } receiver)
         {
             return null;
         }
 
         return MemberCallWith(call, result, offset, resultKind, receiver, assigns);
     }
+
+    // the default instance of a class of the workspace a member is called on, held as an object field is: a member of one of the standard library's is no
+    // procedure given Me, which the interpreter calls.
+    private int? DefaultInstanceSlotOf(BoundVariable owner, VBTypeMemberSymbol member)
+        => RuntimeProcedureInvoker.GetParameters(member) is [{ Name: Tokens.Me }, ..] ? FieldSlotOf(owner, receiver: true) : null;
 
     private CallStep? MemberCallWith(BoundMember call, int result, int offset, ScalarKind? resultKind, int? receiver, bool assigns)
     {
@@ -1328,6 +1344,10 @@ internal sealed partial class ProcedureAnalysis
             // a field of a record of the activation.
             case BoundMember member when RecordFieldOf(member) is { } field:
                 return FieldPayload(member, field);
+
+            // a public variable of an object, and Err.Number (ProcedureAnalysis.MemberReads.cs).
+            case BoundMember member when (MemberFieldOf(member) ?? ErrNumberOf(member)) is { } read:
+                return Read(read, member);
 
             // an element of an array, and its bounds.
             case BoundIndex index:
