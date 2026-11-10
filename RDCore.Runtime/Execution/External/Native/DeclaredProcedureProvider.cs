@@ -161,9 +161,9 @@ public sealed class DeclaredProcedureProvider(IRuntimeSession session, INativeLi
         // A Variant given a variable of another type is a Variant that holds the variable's value, of its type (MS-VBAL §5.3.1.11).
         var typed = declared switch
         {
-            VBUnknownType => referenced?.CreateValue(new ValueBindingHandle(argument)) ?? NativeValues.TypedOf(argument),
-            VBVariantType when referenced is not null => new VBVariantValue(referenced.CreateValue(new ValueBindingHandle(argument))),
-            _ => declared.CreateValue(new ValueBindingHandle(argument)),
+            VBUnknownType => (referenced is null ? null : DeclaredValues.Of(referenced, argument)) ?? NativeValues.TypedOf(argument),
+            VBVariantType when referenced is not null => new VBVariantValue(DeclaredValues.Of(referenced, argument)),
+            _ => DeclaredValues.Of(declared, argument),
         };
         if (typed is VBVariantValue { TypedValue: var held } && declared is VBUnknownType)
         {

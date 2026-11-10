@@ -273,10 +273,10 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         // Variant, holding the variable's value as the type the variable is declared to be.
         if (referenced is not null)
         {
-            return Assumed(RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(referenced.CreateValue(handle.ForReading()))));
+            return Assumed(RuntimeSemanticsEvaluationResult.Success(new VBVariantValue(DeclaredValues.Of(referenced, handle.ForReading()))));
         }
 
-        var value = variable.ResolvedType.CreateValue(handle.ForReading());
+        var value = DeclaredValues.Of(variable.ResolvedType, handle.ForReading());
         if (boundsOnly && AssumesVariables && value is VBFixedSizeArrayValue)
         {
             return RuntimeSemanticsEvaluationResult.Success(value.AsIndeterminate());

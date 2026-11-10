@@ -920,7 +920,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return Branch(activation, instruction, RuntimeSemanticsEvaluationResult.Success(isMatch ? VBBooleanValue.True : VBBooleanValue.False));
             }
 
-            selector = payload.Type.CreateValue(new ValueBindingHandle(payload.Box()));
+            selector = payload.Typed();
         }
 
         if (instruction.Node is not CaseExpressionStatementNode caseBlock || (selector is null && !activation.TryGetBlockState(selectOffset, out selector)))

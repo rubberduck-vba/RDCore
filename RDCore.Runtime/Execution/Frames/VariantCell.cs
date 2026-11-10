@@ -110,11 +110,11 @@ internal sealed class VariantCell : ICopyableBinding
 
     /// <summary>
     /// Writes a payload: the Variant holds a value of the payload's type (a Let to a Variant keeps the value's type, MS-VBAL §5.5.1.2.12), known, and boxed
-    /// when it is read as a value.
+    /// when it is read as a value. A <c>LongPtr</c> is held as the type it is an alias of (<see cref="ScalarPayload.AliasOf"/>).
     /// </summary>
     public void Write(ScalarPayload payload)
     {
-        _payload = payload;
+        _payload = payload with { Type = ScalarPayload.AliasOf(payload.Type) };
         _hasPayload = true;
         _boxed = null;
         IsKnown = true;
@@ -155,7 +155,11 @@ internal sealed class VariantCell : ICopyableBinding
 
     /// <summary>
     /// The runtime value of a Variant that holds <paramref name="value"/>, a value of <paramref name="type"/>: what a Let of it to a Variant makes, the
-    /// value keeping its type (MS-VBAL §5.5.1.2.12).
+    /// value keeping its type (MS-VBAL §5.5.1.2.12), a <c>LongPtr</c> the type it is an alias of (<see cref="ScalarPayload.AliasOf"/>).
     /// </summary>
-    public static VBRuntimeVariantValue Holding(VBType type, IRuntimeValue value) => new(type.VarType(), type.CreateValue(new ValueBindingHandle(value)));
+    public static VBRuntimeVariantValue Holding(VBType type, IRuntimeValue value)
+    {
+        var held = ScalarPayload.AliasOf(type);
+        return new(held.VarType(), held.CreateValue(new ValueBindingHandle(value)));
+    }
 }
