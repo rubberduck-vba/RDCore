@@ -5,7 +5,8 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// Member reads and calls compiled: a field of a record read inside an expression that calls (<strong>MS-VBAL §5.6.9</strong>), a field of a record assigned
+/// Member reads and calls compiled: a field of a record, and an element of an array, read inside an expression that calls (<strong>MS-VBAL §5.6.9</strong>,
+/// <strong>§5.6.13</strong>), a field of a record assigned
 /// what a call returns (<strong>MS-VBAL §5.4.3.8</strong>), a call that leaves out an optional parameter (<strong>MS-VBAL §5.3.1.11</strong>), and a member
 /// called on the object a bare <c>Property Get</c> of the class returns. A program runs the same either way.
 /// </summary>
@@ -117,6 +118,36 @@ public sealed class CompiledMembersLeftTests
             "    End If",
             "    Hits = Hits * 1000 + Me.Score(2)",
             "End Function")),
+        ("Board", ModuleWorkspace.ClassModule("Board", "Option Explicit",
+            "Private Type TBoard",
+            "    Cells(1 To 3, 1 To 3) As Long",
+            "End Type",
+            "Private this As TBoard",
+            "Public Sub Fill()",
+            "    Dim I As Long",
+            "    Dim J As Long",
+            "    For I = 1 To 3",
+            "        For J = 1 To 3",
+            "            this.Cells(I, J) = I * 10 + J",
+            "        Next",
+            "    Next",
+            "End Sub",
+            "Public Function Cell(ByVal Position As Coord) As Long",
+            "    On Error Resume Next",
+            "    Cell = 99",
+            "    Cell = this.Cells(Position.X, Position.Y)",
+            "End Function",
+            "Public Function Picked(ByVal Position As Coord) As Long",
+            "    Dim Values(1 To 3) As Long",
+            "    Values(1) = 4: Values(2) = 5: Values(3) = 6",
+            "    Picked = Values(Position.X) + Values(Position.Y) * 10",
+            "End Function",
+            "Public Function Poke() As Long",
+            "    this.Cells(1, 1) = 9",
+            "End Function",
+            "Public Function Changed() As Long",
+            "    Changed = this.Cells(1, 1) * 100 + Poke + this.Cells(1, 1)",
+            "End Function")),
     ];
 
     // each procedure named was compiled, none of its statements was the interpreter's, and none of its instructions was handed to it after a call.
@@ -186,4 +217,28 @@ public sealed class CompiledMembersLeftTests
             "    P.X = 2",
             "    Debug.Print G.Hits(P)",
             "End Sub"), classes: Classes, expected: " 32009"), "Hits");
+
+    // elements of an array, of a record's field and of a variable, at subscripts calls give; one outside the array's bounds raises error 9, which
+    // On Error Resume Next goes past.
+    [TestMethod]
+    public async Task ElementsAtSubscriptsCallsGive_AreRead()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim B As New Board",
+            "    Dim P As New Coord",
+            "    B.Fill",
+            "    Dim Q As New Coord",
+            "    P.X = 2: P.Y = 3: Q.X = 7: Q.Y = 1",
+            "    Debug.Print B.Cell(P); B.Picked(P); B.Cell(Q)",
+            "End Sub"), classes: Classes, expected: " 23  65  99"), "Cell", "Picked");
+
+    // an element read left of a call that changes it is what it was before the call, and one read right of it what the call made it.
+    [TestMethod]
+    public async Task AnElementACallChanges_IsReadWhereItIsWritten()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim B As New Board",
+            "    B.Fill",
+            "    Debug.Print B.Changed()",
+            "End Sub"), classes: Classes, expected: " 1109"), "Changed");
 }

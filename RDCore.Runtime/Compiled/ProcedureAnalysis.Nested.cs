@@ -117,6 +117,8 @@ internal sealed partial class ProcedureAnalysis
         // a member of Err compiled code reads where the session holds it calls nothing.
         BoundMember member when ErrNumberOf(member) is not null || ErrTextOf(member) is not null => false,
         BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } => true,
+        // an element of an array field of a record, which calls what its subscripts call.
+        BoundMember member when FieldElementOf(member) is { } element => Calls(element),
         BoundMember member => Calls(member.Owner) || member.BoundArguments is { } arguments && arguments.Any(argument => Calls(argument.Value)),
         BoundBinary binary => Calls(binary.Left) || Calls(binary.Right),
         BoundUnary unary => Calls(unary.Operand),
@@ -194,7 +196,7 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // what an instruction that calls inside an expression is made of: payloads known as they were read, and the calls, and the operations of them. What
-    // compiled code reads that the interpreter is not given known - a Variant, a String, an object, a field of a record, an element of an array - would be
+    // compiled code reads that the interpreter is not given known - a Variant, a String, an object - would be
     // read again by the interpreter after the call that may have changed it. A statement the interpreter runs as a support call is its own whole, calls
     // inside it included: compiled code evaluates nothing of it.
     private static bool Admits(CompiledStep step) => step switch
@@ -212,6 +214,8 @@ internal sealed partial class ProcedureAnalysis
     private static bool Admits(PayloadNode node) => node switch
     {
         KnownNode { Value: MemberFieldNode { ReceiverCall: { } returned } } => Admits(returned),
+        // an element, read once its subscripts are evaluated, calls among them.
+        KnownNode { Value: ElementNode element } => element.Subscripts.All(Admits),
         ObjectArgumentNode { Call: { } returned } => Admits(returned),
         KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode => true,
         CallNode call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
@@ -288,8 +292,8 @@ internal sealed partial class ProcedureAnalysis
         var aliased = passed.Overlaps(byReference);
         return nodes.OfType<KnownNode>().FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
             && (passed.Contains(slot) || aliased && byReference.Contains(slot) || FieldSlots.Contains(slot))
-            // a field of a record, and a public variable of an object, which any call may change, as a field.
-            || read.Value is FieldNode or MemberFieldNode && (!early || arguments.Contains(read)));
+            // a field of a record, an element of an array, and a public variable of an object, which any call may change, as a field.
+            || read.Value is FieldNode or ElementNode or MemberFieldNode && (!early || arguments.Contains(read)));
     }
 
     // the types of an operand MS-VBA reads where it is written, before a call right of it changes it (RD-VBAL §5.6.9.2): what compiled code reads, and the
@@ -327,6 +331,7 @@ internal sealed partial class ProcedureAnalysis
             MemberFieldNode or ObjectArgumentNode or ElementIsNode => ReceiverCallsOf(node).SelectMany(made => made.Arguments),
             LibraryCallNode library => library.Arguments.OfType<VariantOfNode>().Select(argument => argument.Value),
             KnownNode known => [known.Value],
+            ElementNode element => element.Subscripts,
             ConvertNode convert => [convert.Operand],
             IntegralNode integral => [integral.Left, integral.Right],
             LogicalNode logical => [logical.Left, logical.Right],

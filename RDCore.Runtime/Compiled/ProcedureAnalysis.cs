@@ -1447,7 +1447,7 @@ internal sealed partial class ProcedureAnalysis
 
             // an element of an array field of a record of the activation.
             case BoundMember member when FieldElementOf(member) is { } fieldElement:
-                return Element(fieldElement);
+                return Element(fieldElement) is { } fieldElementRead ? Read(fieldElementRead, member) : null;
 
             // a field of a record of the activation.
             case BoundMember member when RecordFieldOf(member) is { } field:
@@ -1459,7 +1459,7 @@ internal sealed partial class ProcedureAnalysis
 
             // an element of an array, and its bounds.
             case BoundIndex index:
-                return Element(index);
+                return Element(index) is { } elementRead ? Read(elementRead, index) : null;
 
             case BoundArrayBound arrayBound:
                 return ArrayBound(arrayBound);
