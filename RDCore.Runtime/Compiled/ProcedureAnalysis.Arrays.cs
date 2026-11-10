@@ -186,8 +186,15 @@ internal sealed partial class ProcedureAnalysis
     // an object held where compiled code finds its cell each time it reads it: an element of an array of objects, or an object field of a record.
     private bool IsHeldObject(BoundNode node) => IsObjectElement(node) || ObjectFieldOf(node) is not null;
 
-    // left Is right where either is an element of an array of objects or an object field of a record (MS-VBAL §5.6.9.7): each operand one of these, an object
-    // variable of the activation, or Nothing (null), as TryObjectOperand takes them.
+    // a call of a function of the workspace, or of a function or Property Get member of an object, that returns the object an operand of Is is, in an
+    // instruction that calls inside an expression (ObjectCallOf): `IntersectsAny(Position) Is Nothing`.
+    private bool IsReturnedObject(BoundNode node)
+        => _nesting is not null && !_withoutObjectCalls
+            && (node is BoundCall { Procedure: var called } && !IsCompiledLibrary(called) && !IsVariantLibrary(called)
+                || node is BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol });
+
+    // left Is right where either is an element of an array of objects, an object field of a record, or what a call returns (MS-VBAL §5.6.9.7): each operand
+    // one of these, an object variable of the activation, or Nothing (null), as TryObjectOperand takes them.
     private PayloadNode? ElementIs(BoundBinary compared)
         => TryElementOperand(compared.Left, out var left) && TryElementOperand(compared.Right, out var right) ? new ElementIsNode(left, right) : null;
 
@@ -211,6 +218,15 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:
                 return TryElementOperand(enclosed, out read);
+
+            case BoundCall or BoundMember when IsReturnedObject(operand):
+                if (ObjectCallOf(operand) is not { } returned)
+                {
+                    return false;
+                }
+
+                read = new ObjectCallOperand(returned);
+                return true;
 
             default:
                 if (!TryObjectOperand(operand, out var slot))

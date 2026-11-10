@@ -163,7 +163,7 @@ internal sealed partial class ProcedureEmitter
                     _il.Emit(OpCodes.Call, Objects.GetMethod(nameof(ObjectOperations.IsNothing))!);
                 }
 
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 _il.Emit(OpCodes.Ldloc, same);
                 return AsBoolean();
             }
@@ -215,6 +215,9 @@ internal sealed partial class ProcedureEmitter
 
             case ObjectFieldNode field:
                 return EmitObjectFieldCell(field);
+
+            case ObjectCallOperand returned:
+                return EmitObjectCall(returned.Call, failure);
 
             default:
                 throw new InvalidOperationException($"No IL for {operand.GetType().Name}.");

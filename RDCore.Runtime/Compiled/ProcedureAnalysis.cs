@@ -1360,8 +1360,9 @@ internal sealed partial class ProcedureAnalysis
     {
         switch (node)
         {
-            // an element of an array of objects, or an object field of a record, compared, and tested.
-            case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsHeldObject(elementCompared.Left) || IsHeldObject(elementCompared.Right):
+            // an element of an array of objects, an object field of a record, or what a call returns, compared, and tested.
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp } elementCompared when IsHeldObject(elementCompared.Left) || IsHeldObject(elementCompared.Right)
+                || IsReturnedObject(elementCompared.Left) || IsReturnedObject(elementCompared.Right):
                 return ElementIs(elementCompared);
 
             case BoundTypeOf { Operand: BoundIndex or BoundMember } elementTypeOf when IsObjectElement(elementTypeOf.Operand):
@@ -1497,6 +1498,11 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp, Operand: var enclosed }:
                 return Dynamic(enclosed);
+
+            // MS-VBAL §5.6.9.7: Is compares two object references, whose plan is deferred to the objects, for a Boolean: an operand of a Variant operation as
+            // a Boolean is.
+            case BoundBinary { Operation.Token: Tokens.CompareIsOp }:
+                return Payload(node) is { } compared ? new VariantOfNode(compared) : null;
 
             case BoundBinary { Plan: { IsDeferred: true } plan } binary:
                 if (!IsPayloadOperator(plan.Operator))

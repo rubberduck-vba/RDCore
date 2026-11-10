@@ -81,6 +81,8 @@ public sealed class CompiledIIfTests
             ("Board", ModuleWorkspace.ClassModule("Board", ["Option Explicit",
                 "Private Type TBoard", "    Cells(1 To 5, 1 To 4) As Long", "End Type",
                 "Private this As TBoard",
+                "Private Placed As Coord",
+                "Private Asked As Long",
                 "Public Function Fits(ByVal P As Coord, ByVal Across As Boolean, ByVal Size As Byte) As Boolean",
                 "    Fits = (P.X + IIf(Across, Size - 1, 0) <= UBound(this.Cells, 1)) And (P.Y + IIf(Across, 0, Size - 1) <= UBound(this.Cells, 2))",
                 "End Function",
@@ -92,6 +94,20 @@ public sealed class CompiledIIfTests
                 "        Next",
                 "    Next",
                 "End Sub",
+                "Public Sub Keep(ByVal P As Coord)", "    Set Placed = P", "End Sub",
+                "Public Function Overlaps(ByVal P As Coord) As Coord",
+                "    Asked = Asked + 1",
+                "    If Not Placed Is Nothing Then",
+                "        If Placed.X = P.X And Placed.Y = P.Y Then Set Overlaps = Placed",
+                "    End If",
+                "End Function",
+                "Public Property Get Calls() As Long", "    Calls = Asked", "End Property",
+                "Public Function CanPlace(ByVal P As Coord, ByVal Across As Boolean, ByVal Size As Byte) As Boolean",
+                "    CanPlace = (P.X + IIf(Across, Size - 1, 0) <= UBound(this.Cells, 1)) And (P.Y > 0) And Overlaps(P) Is Nothing",
+                "End Function",
+                "Public Function Risky(ByVal P As Coord, ByVal Z As Long) As Boolean",
+                "    Risky = Overlaps(P) Is Nothing And (10 \\ Z > 0)",
+                "End Function",
                 "Public Function Covered() As Long",
                 "    Dim X As Long, Y As Long",
                 "    For X = 1 To 5",
@@ -119,4 +135,39 @@ public sealed class CompiledIIfTests
             "    Debug.Print B.Covered()",
             "End Sub"), Boards(), "| TrueFalseTrueFalse ; 5 |",
             ("Fits", 0), ("Place", 0), ("Covered", 0));
+
+    // what a call returns compared with Nothing, beside IIf and the bounds of the grid, as a game asks whether a ship can be placed: the call is made once
+    // each time, after what is left of it (MS-VBAL §5.6.9.7), and what it returns is let go of when the statement is over.
+    [TestMethod]
+    public async Task ACallsObject_ComparedWithNothing_IsWhatTheCallReturned()
+        => await AssertCompiledAsync(Program(
+            "Public Sub Main()",
+            "    Dim B As Board, P As Coord, Q As Coord",
+            "    Set B = New Board",
+            "    Set P = New Coord",
+            "    Set Q = New Coord",
+            "    P.Init 4, 1",
+            "    Q.Init 2, 2",
+            "    Debug.Print B.CanPlace(P, True, 2); B.CanPlace(P, True, 3)",
+            "    B.Keep Q",
+            "    Debug.Print B.CanPlace(Q, False, 1); B.CanPlace(P, False, 1); B.Calls",
+            "End Sub"), Boards(), "| TrueFalse ; FalseTrue 4 |",
+            ("CanPlace", 0));
+
+    // an error right of the call - a division by zero (MS-VBAL §5.6.9.3.5) - gives the interpreter the statement, with what the call returned: it raises the
+    // error, and does not call again.
+    [TestMethod]
+    public async Task ACallsObject_IsNotCalledAgain_WhenTheStatementIsHandedOver()
+        => await AssertCompiledAsync(Program(
+            "Public Sub Main()",
+            "    Dim B As Board, P As Coord",
+            "    Set B = New Board",
+            "    Set P = New Coord",
+            "    P.Init 1, 1",
+            "    Debug.Print B.Risky(P, 2)",
+            "    On Error Resume Next",
+            "    Debug.Print B.Risky(P, 0)",
+            "    Debug.Print Err.Number; B.Calls",
+            "End Sub"), Boards(), "| True ; 11  2 |", [],
+            ("Risky", 0, 1));
 }

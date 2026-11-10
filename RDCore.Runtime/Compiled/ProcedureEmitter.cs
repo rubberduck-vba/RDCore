@@ -2068,6 +2068,7 @@ internal sealed partial class ProcedureEmitter
         NotNode not => MakesACall(not.Operand),
         NegateNode negate => MakesACall(negate.Operand),
         TemporaryNode temporary => MakesACall(temporary.Value),
+        ElementIsNode compared => compared.Left is ObjectCallOperand || compared.Right is ObjectCallOperand,
         _ => false,
     };
 

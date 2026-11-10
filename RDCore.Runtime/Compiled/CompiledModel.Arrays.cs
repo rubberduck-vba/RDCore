@@ -40,6 +40,10 @@ internal sealed record class ObjectSlotOperand(int Slot) : ObjectOperand;
 // an element of an array of objects (ArrayOperations.ObjectElement).
 internal sealed record class ObjectElementNode(int Array, IReadOnlyList<PayloadNode> Subscripts) : ObjectOperand;
 
+// a call that returns an object, made where the operand is evaluated, in an instruction that calls inside an expression: what it returns, in a cell of its
+// own (ObjectCallNode).
+internal sealed record class ObjectCallOperand(ObjectCallNode Call) : ObjectOperand;
+
 // left Is right, where either is an element of an array of objects; an operand that is none is Nothing (ObjectOperations.Is, IsNothing).
 internal sealed record class ElementIsNode(ObjectOperand? Left, ObjectOperand? Right) : PayloadNode(ScalarKind.Boolean);
 

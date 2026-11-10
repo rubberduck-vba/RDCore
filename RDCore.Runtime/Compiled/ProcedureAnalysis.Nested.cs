@@ -224,6 +224,15 @@ internal sealed partial class ProcedureAnalysis
         TemporaryNode temporary => Admits(temporary.Value),
         UnvariantNode unvariant => Admits(unvariant.Value),
         TruthNode truth => Admits(truth.Value),
+        // what a call returns, compared with Nothing or with what another returns: an object read - of a variable, a field, an element - is not known.
+        ElementIsNode compared => Admits(compared.Left) && Admits(compared.Right),
+        _ => false,
+    };
+
+    private static bool Admits(ObjectOperand? operand) => operand switch
+    {
+        null => true,
+        ObjectCallOperand { Call: var returned } => Admits(returned),
         _ => false,
     };
 
@@ -291,6 +300,7 @@ internal sealed partial class ProcedureAnalysis
         CallNode call => ObjectCallsOf(call.ReceiverCall),
         MemberFieldNode field => ObjectCallsOf(field.ReceiverCall),
         ObjectArgumentNode argument => ObjectCallsOf(argument.Call),
+        ElementIsNode compared => [.. ObjectCallsOf((compared.Left as ObjectCallOperand)?.Call), .. ObjectCallsOf((compared.Right as ObjectCallOperand)?.Call)],
         _ => [],
     };
 
@@ -311,7 +321,7 @@ internal sealed partial class ProcedureAnalysis
         var operands = node switch
         {
             CallNode call => [.. call.Arguments, .. ReceiverCallsOf(call).SelectMany(made => made.Arguments)],
-            MemberFieldNode or ObjectArgumentNode => ReceiverCallsOf(node).SelectMany(made => made.Arguments),
+            MemberFieldNode or ObjectArgumentNode or ElementIsNode => ReceiverCallsOf(node).SelectMany(made => made.Arguments),
             LibraryCallNode library => library.Arguments.OfType<VariantOfNode>().Select(argument => argument.Value),
             KnownNode known => [known.Value],
             ConvertNode convert => [convert.Operand],
