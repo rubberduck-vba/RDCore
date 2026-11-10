@@ -174,6 +174,9 @@ field of a record that is itself a record (`P.Inner.X`) is read and written in p
   a variable: one whose object does not Set-coerce, and one that lets go of the last reference to an object.
 - A member of the object an object field holds is called, and a scalar public variable of it read, as a member of an object variable is (see Objects,
   above): `this.Random.Maybe(Sometimes)`, `If this.Player.Kind = Human Then`.
+- A scalar field is an operand of a statement that calls inside an expression (`Equal = Other.X = this.X`, see Calls inside an expression, below).
+- A field is assigned what a call returns (`this.Count = Grid.PerGrid`): compiled code makes the call, then the interpreter assigns the result, let-coerced
+  to the field's declared type, as it assigns the value of any `Let` (see Variant function results, above).
 
 - An array field (`this.State(X, Y)`, `UBound(this.State, 1)`) is an array compiled code handles (see Arrays, below).
 
@@ -259,11 +262,11 @@ variables (`X = C.Count + 1`), of `Me` (`X = Count + 1`), of the default instanc
 compiled or not: one the interpreter runs is called as the interpreter calls it.
 
 Compiled code also calls a member of what such a function or `Property Get` returns, when it is declared as a class (`Y = S.Pos.Y`,
-`N = S.Pos.Twice + 1`, `Make().Pos.Bump`). It also reads a scalar public variable of it, gives it to an object parameter by value (see Objects,
-above), and compares it with `Nothing` or with what another such call returns, using `Is` (`OK = Fits(P) And Overlaps(P) Is Nothing`,
-**MS-VBAL §5.6.9.7**). The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as
-the interpreter does: if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10). An object something else holds lives on.
-The statement is over:
+`N = S.Pos.Twice + 1`, `Make().Pos.Bump`), a `Property Get` of `Me` named alone included (`Loop Until Random.Maybe(N)`). It also reads a scalar
+public variable of it, gives it to an object parameter by value (see Objects, above), and compares it with `Nothing` or with what another such call
+returns, using `Is` (`OK = Fits(P) And Overlaps(P) Is Nothing`, **MS-VBAL §5.6.9.7**). The call that returns the object is made once. The statement
+holds the object until it is over, and then lets go of it, as the interpreter does: if nothing else holds it, its `Class_Terminate` runs there
+(MS-VBAL §5.3.1.10). An object something else holds lives on. The statement is over:
 
 - after its assignment or its call;
 - for an `If`, an `ElseIf` or a loop, once its condition is evaluated, before the jump the condition decides;
@@ -275,16 +278,17 @@ A member of a call that returns `Nothing` is the interpreter's, which raises err
 compiled code does not.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
-function's result variable, a scalar public variable of an object (see Objects, above), `Err.Number`, `LBound` or `UBound` of an array, a call,
-`IIf` of these (see Functions of the standard library, below), or an operation of these, the operations of the `Variant` `IIf` returns included. The
-interpreter runs a statement with any other operand on its own, as described below: a `Variant` variable, a `String`, an object, a field or an element
-of an array. Such an operand would be read a second time after a call that may have changed it.
+function's result variable, a scalar field of a record (see Records, above), a scalar public variable of an object (see Objects, above),
+`Err.Number`, `LBound` or `UBound` of an array, a call, `IIf` of these (see Functions of the standard library, below), or an operation of these, the
+operations of the `Variant` `IIf` returns included. The interpreter runs a statement with any other operand on its own, as described below: a
+`Variant` variable, a `String`, an object or an element of an array. Such an operand would be read a second time after a call that may have changed
+it.
 An object given to a call as its argument (`If B.Hit(Target) Then`) is no operand: compiled code reads it when it makes the call, after the calls left of
 it, as the interpreter does.
 
 A statement can read a variable that a call in it may change: one it also passes `ByRef` to the call, such as `X = A + Bump(A)`; a `ByRef` parameter,
-while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module or a public
-variable of an object, which any call may change. Compiled code runs such a statement when every operation in it is of
+while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module, a field of a
+record or a public variable of an object, which any call may change. Compiled code runs such a statement when every operation in it is of
 type `Byte`, `Boolean`, `Integer`, `Long`, `LongLong` or `Currency`, and the variable is an operand, not an argument of a call. It reads the variable
 where it is written, as MS-VBA does ([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)). The interpreter runs
 any other such statement on its own: one that computes a `Single`, a `Double` or a `Date`, and one that gives the variable to a call as an argument.
@@ -341,7 +345,7 @@ Compiled code does these itself:
 |Expressions|Literals, `String` literals among them, constants, the procedure's parameters and variables, its `Variant`s and `String`s, the scalar and object fields of `Me` and of standard modules, the scalar, `Variant` and object fields of its records (see Records, above), the procedure's scalar and object `Static`s, the elements of its arrays of scalars and of `Variant`s, and of such array fields of its records, `LBound` and `UBound` of its arrays and of the array fields of its records (see Arrays, above), the function's own result variable, a `Variant` one included, the scalar and `String` public variables of an object variable, of an object field of its records, of the default instance of a class or of the object of a `With` block (see Objects, above), `Err.Number`, `Err.Description` and `Err.Source`, `Chr$` of a whole number, and parentheses.|
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, what a call returns (see Calls inside an expression, above), and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
-|Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above) or to a member of an object, of a procedure of a standard module, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above), and so can the functions listed under Functions of the standard library, above. A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
+|Calls|A call statement with arguments, or without them for a member of `Me`, a function's result assigned whole, or a function's result assigned to a `Variant` or a `String` (see Variant function results, above), to a member of an object or to a field of a record, of a procedure of a standard module, of a member of `Me`, named with it or alone (see Objects, above), of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. An `Optional` parameter the call leaves out is given what the interpreter gives it (MS-VBAL §5.3.1.11): its declared default, let-coerced to its type, or the default value of its type, `Nothing` for an object; the interpreter makes a call that leaves out a `Variant`, or a parameter whose default is the calling module's `Option Compare`. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, above), and so can the functions listed under Functions of the standard library, above. A `Let` or `Set` of a property of such an object, or of the object of a `With` block, calls its `Property Let` or `Property Set` (see Members of objects and `With` blocks, above).|
 |Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `For Each` … `Next`, which the interpreter runs for compiled code (see below); `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
