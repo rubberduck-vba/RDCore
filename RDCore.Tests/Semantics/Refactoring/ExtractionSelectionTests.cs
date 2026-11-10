@@ -33,26 +33,42 @@ public sealed class ExtractionSelectionTests
         "End Sub",
     ];
 
-    private static (MemberDeclarationNode Procedure, InstructionList Instructions) Procedure()
+    // the lines of a procedure with an #If block in it, the header first (line 0).
+    private static readonly string[] Conditional =
+    [
+        "Public Sub S(ByVal n As Long)",
+        "Dim x As Long",
+        "#If True Then",
+        "x = 1",
+        "x = 2",
+        "#Else",
+        "x = 3",
+        "#End If",
+        "Debug.Print x",
+        "End Sub",
+    ];
+
+    private static (MemberDeclarationNode Procedure, InstructionList Instructions, ExtractionDirectives Directives) Procedure(string[]? lines = null)
     {
-        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), string.Join("\r\n", Lines) + "\r\n");
+        var text = string.Join("\r\n", lines ?? Lines) + "\r\n";
+        var result = new ModuleParser().Parse(TestUri.TestModuleUri(), text);
         Assert.IsEmpty(result.SyntaxErrors);
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
-        return (member, InstructionListLowering.Lower(new StatementBlock([.. member.Children])).InstructionList);
+        return (member, InstructionListLowering.Lower(new StatementBlock([.. member.Children])).InstructionList, ExtractionDirectives.Of(result.PrecompilerTrivia, text));
     }
 
-    private static ExtractionSelection Snapped(int startLine, int startCharacter, int endLine, int endCharacter)
+    private static ExtractionSelection Snapped(int startLine, int startCharacter, int endLine, int endCharacter, string[]? lines = null)
     {
-        var (procedure, instructions) = Procedure();
-        Assert.IsTrue(ExtractionSelection.TrySnap(procedure, instructions, new SourceRange(startLine, startCharacter, endLine, endCharacter), out var selection, out var refusal, out _),
-            $"refused: {refusal}");
+        var (procedure, instructions, directives) = Procedure(lines);
+        Assert.IsTrue(ExtractionSelection.TrySnap(procedure, instructions, directives, new SourceRange(startLine, startCharacter, endLine, endCharacter), out var selection,
+            out var refusal, out _), $"refused: {refusal}");
         return selection!;
     }
 
-    private static (ExtractionSelectionRefusal Refusal, string? Cut) Refused(int startLine, int endLine)
+    private static (ExtractionSelectionRefusal Refusal, string? Cut) Refused(int startLine, int endLine, string[]? lines = null)
     {
-        var (procedure, instructions) = Procedure();
-        Assert.IsFalse(ExtractionSelection.TrySnap(procedure, instructions, new SourceRange(startLine, 0, endLine, 1), out _, out var refusal, out var cut));
+        var (procedure, instructions, directives) = Procedure(lines);
+        Assert.IsFalse(ExtractionSelection.TrySnap(procedure, instructions, directives, new SourceRange(startLine, 0, endLine, 1), out _, out var refusal, out var cut));
         return (refusal, cut?.GetType().Name);
     }
 
@@ -114,8 +130,8 @@ public sealed class ExtractionSelectionTests
     [TestMethod]
     public void TheRegion_IsTheInstructionsOfTheStatements_AndTheClosersOfTheirBlocks()
     {
-        var (procedure, instructions) = Procedure();
-        Assert.IsTrue(ExtractionSelection.TrySnap(procedure, instructions, new SourceRange(10, 0, 12, 4), out var selection, out _, out _));
+        var (procedure, instructions, directives) = Procedure();
+        Assert.IsTrue(ExtractionSelection.TrySnap(procedure, instructions, directives, new SourceRange(10, 0, 12, 4), out var selection, out _, out _));
 
         var region = selection!.Region.Order().ToArray();
         Assert.IsTrue(instructions.TryGetOffsetAtLine(10, out var opener));
@@ -147,7 +163,8 @@ public sealed class ExtractionSelectionTests
         var member = result.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Single();
         var instructions = InstructionListLowering.Lower(new StatementBlock([.. member.Children])).InstructionList;
 
-        Assert.IsTrue(ExtractionSelection.TrySnap(member, instructions, new SourceRange(2, 4, 3, 5), out var selection, out var refusal, out _), $"refused: {refusal}");
+        Assert.IsTrue(ExtractionSelection.TrySnap(member, instructions, ExtractionDirectives.None, new SourceRange(2, 4, 3, 5), out var selection, out var refusal, out _),
+            $"refused: {refusal}");
         Assert.AreEqual("y", ((VariableDeclarationNode)selection!.Declarations.Single()).Name);
         Assert.AreEqual(2, selection.Range.Start.Line, "inside the If's body, not grown to the If");
     }
@@ -155,12 +172,39 @@ public sealed class ExtractionSelectionTests
     [TestMethod]
     public void TheRegionOfAnIf_DoesNotHoldTheStatementAfterIt()
     {
-        var (procedure, instructions) = Procedure();
-        Assert.IsTrue(ExtractionSelection.TrySnap(procedure, instructions, new SourceRange(3, 0, 8, 6), out var selection, out _, out _));
+        var (procedure, instructions, directives) = Procedure();
+        Assert.IsTrue(ExtractionSelection.TrySnap(procedure, instructions, directives, new SourceRange(3, 0, 8, 6), out var selection, out _, out _));
 
         Assert.IsTrue(instructions.TryGetOffsetAtLine(9, out var after));
         Assert.DoesNotContain(after, selection!.Region);
         Assert.IsTrue(instructions.TryGetOffsetAtLine(7, out var inElse));
         Assert.Contains(inElse, selection.Region);
+    }
+
+    // an #If block moves whole: the selection is grown from the #If to the end of the #End If line, every branch included.
+    [TestMethod]
+    [DataRow(2, 7, DisplayName = "from the #If to the #End If")]
+    [DataRow(1, 8, DisplayName = "the statements around it")]
+    public void ASelectionThatHoldsAnIfBlock_HoldsItWhole(int startLine, int endLine)
+    {
+        var selection = Snapped(startLine, 0, endLine, 1, Conditional);
+
+        Assert.IsTrue(selection.Range.Start <= new SourcePosition(2, 0), $"{selection.Range}");
+        Assert.IsTrue(selection.Range.End >= new SourcePosition(7, "#End If".Length), $"{selection.Range}");
+    }
+
+    [TestMethod]
+    [DataRow(3, 6, DisplayName = "from a branch to the next")]
+    [DataRow(6, 8, DisplayName = "from a branch to after the block")]
+    [DataRow(1, 5, DisplayName = "from before the block to its #Else")]
+    public void ASelectionThatCutsAnIfBlock_IsRefused(int startLine, int endLine)
+        => Assert.AreEqual(ExtractionSelectionRefusal.CutsADirectiveBlock, Refused(startLine, endLine, Conditional).Refusal);
+
+    [TestMethod]
+    public void StatementsInsideABranch_AreExtractedFromIt()
+    {
+        var selection = Snapped(3, 0, 4, 1, Conditional);
+
+        Assert.AreEqual(new SourceRange(3, 0, 4, "x = 2".Length), selection.Range);
     }
 }

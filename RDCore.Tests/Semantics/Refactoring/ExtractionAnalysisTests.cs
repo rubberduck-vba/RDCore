@@ -310,4 +310,34 @@ public sealed class ExtractionAnalysisTests
 
         CollectionAssert.AreEqual(new[] { "n", "b", "a" }, plan.Parameters.Select(parameter => parameter.Name).ToArray());
     }
+
+    // the variables an ObjectReleasedEarlier change of the plan names; none when it has none.
+    private static string[] ReleasedEarlier(ExtractionPlan plan)
+        => [.. plan.BehaviourChanges.Where(change => change.Kind == ExtractionBehaviourChangeKind.ObjectReleasedEarlier).SelectMany(change => change.Variables)];
+
+    // a variable that becomes the new procedure's own is released when it ends: an object it holds last terminates before the code after the call runs.
+    [TestMethod]
+    [DataRow("Dim c As Collection\nSet c = New Collection\nc.Add n", 0, 2, "c", DisplayName = "an object declared in the selection")]
+    [DataRow("Dim c As Collection\nDebug.Print n\nSet c = New Collection\nc.Add n", 2, 3, "c", DisplayName = "an object whose declaration moves in")]
+    [DataRow("Dim c As New Collection\nc.Add n", 0, 1, "c", DisplayName = "an auto-instantiated object")]
+    [DataRow("Dim o As Object\nSet o = New Collection\no.Add n", 0, 2, "o", DisplayName = "an Object")]
+    [DataRow("Dim a(1) As Collection\nSet a(0) = New Collection\na(0).Add n", 0, 2, "a", DisplayName = "an array of objects")]
+    [DataRow("Dim v As Variant\nSet v = New Collection\nv.Add n", 0, 2, "v", DisplayName = "a Variant the selection Set-assigns")]
+    [DataRow("Dim v As Variant\nFor Each v In Array(New Collection)\nDebug.Print TypeName(v)\nNext", 0, 3, "v", DisplayName = "a Variant a For Each gives an element")]
+    [DataRow("Dim r As Holder\nSet r.Item = New Collection\nr.Item.Add n", 0, 2, "r", DisplayName = "a record with an object field")]
+    public void AVariableThatCanHoldAnObject_AndBecomesTheNewProceduresOwn_IsReleasedEarlier(string body, int first, int last, string name)
+    {
+        var plan = Plan(body, first, last, declarations: "Private Type Holder\n    Item As Collection\nEnd Type");
+
+        Assert.IsTrue(plan.IsExtractable, string.Join(", ", plan.Refusals));
+        CollectionAssert.AreEqual(new[] { name }, ReleasedEarlier(plan));
+        Assert.IsFalse(plan.BehaviourChanges.Single(change => change.Kind == ExtractionBehaviourChangeKind.ObjectReleasedEarlier).IsNote);
+    }
+
+    [TestMethod]
+    [DataRow("Dim x As Long\nx = n\nDebug.Print x", 0, 2, DisplayName = "a number")]
+    [DataRow("Dim v As Variant\nv = n\nDebug.Print v", 0, 2, DisplayName = "a Variant the selection Let-assigns")]
+    [DataRow("Dim c As Collection\nSet c = New Collection\nc.Add n\nDebug.Print c.Count", 1, 2, DisplayName = "an object the source procedure uses after the call")]
+    public void AVariableThatHoldsNoObjectOfItsOwn_IsNotReleasedEarlier(string body, int first, int last)
+        => Assert.IsEmpty(ReleasedEarlier(Plan(body, first, last)));
 }

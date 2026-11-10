@@ -189,6 +189,17 @@ internal enum ExtractionBehaviourChangeKind
     /// does (observed in Excel).
     /// </summary>
     ErrClearedOnEntry,
+
+    /// <summary>
+    /// A variable that becomes the new procedure's own can hold an object: an object it holds last is released when the new procedure ends, and its
+    /// <c>Class_Terminate</c> runs then, before the code the source procedure runs after the call. Left in the source procedure, the variable keeps the
+    /// object until that procedure ends.
+    /// </summary>
+    /// <remarks>
+    /// A variable declared as an object, an array of objects or a user-defined type with an object field can hold one; a <c>Variant</c> can when the
+    /// selection <c>Set</c>-assigns it, or a <c>For Each</c> in the selection gives it an element.
+    /// </remarks>
+    ObjectReleasedEarlier,
 }
 
 /// <summary>
@@ -198,7 +209,14 @@ internal enum ExtractionBehaviourChangeKind
 /// <param name="Handlers">The labels of the handlers it is about.</param>
 /// <param name="Resumes">The <c>Resume</c> statements of those handlers.</param>
 /// <param name="IsNote">Whether it is a note rather than a change to accept: what only <c>Erl</c> says.</param>
-internal sealed record class ExtractionBehaviourChange(ExtractionBehaviourChangeKind Kind, ImmutableArray<string> Handlers, ImmutableArray<SourceLocation> Resumes, bool IsNote);
+internal sealed record class ExtractionBehaviourChange(ExtractionBehaviourChangeKind Kind, ImmutableArray<string> Handlers, ImmutableArray<SourceLocation> Resumes, bool IsNote)
+{
+    /// <summary>
+    /// The names of the variables it is about, in the order the selection first uses them: those of an
+    /// <see cref="ExtractionBehaviourChangeKind.ObjectReleasedEarlier"/>.
+    /// </summary>
+    public ImmutableArray<string> Variables { get; init; } = [];
+}
 
 /// <summary>
 /// A reason the selection is not extracted, and where it is.
@@ -300,6 +318,18 @@ internal sealed record class ExtractionPlan(
     /// is never passed (it is no variable), and its value is the same in both.
     /// </summary>
     public ImmutableArray<SemanticId> Constants { get; init; } = [];
+
+    /// <summary>
+    /// Where the selection names the source procedure's own result, read or written (<see cref="AssignsResult"/>, <see cref="ReadsResult"/>): the new procedure
+    /// cannot name it, and names what it is given for it there instead.
+    /// </summary>
+    public ImmutableArray<SourceRange> ResultNames { get; init; } = [];
+
+    /// <summary>
+    /// The variables of the source procedure live after the selection, by every way out of it: what the code after the call still reads of what the selection
+    /// leaves. The edited source procedure has the same ones live after the call.
+    /// </summary>
+    public ImmutableHashSet<SemanticId> LiveAfter { get; init; } = [];
 
     /// <summary>
     /// The parameters the new procedure may return instead: those it only gives a value to, which the call site can assign from it.
