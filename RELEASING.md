@@ -4,7 +4,7 @@ This is the maintainer runbook for publishing a **preview build** of the RDCore 
 
 ## What a release is
 
-- A GitHub **prerelease** carrying seven assets: an archive for each supported system, its release metadata, and `SHA256SUMS`, which covers them all.
+- A GitHub **prerelease** carrying an archive for each supported system, the release metadata of each archive, and `SHA256SUMS`, which covers them all.
 
   | System | RID | Archive | Release metadata | Built on |
   |---|---|---|---|---|
@@ -13,7 +13,7 @@ This is the maintainer runbook for publishing a **preview build** of the RDCore 
   | macOS, Apple silicon | `osx-arm64` | `rdcore-<version>-osx-arm64.tar.gz` | `rdcore-<version>-osx-arm64.release.json` | `macos-latest` |
 
 - Each archive is the **platform root** itself (`rdcore.json` at its top level), used as extracted. It is not an installer, and it is not a certified build. A Linux or macOS archive is a tar.gz, which keeps the executables' execute bit.
-- The release metadata of an archive is the `release.json` it contains, named after the archive so that the three can sit side by side in one release.
+- The release metadata of an archive is the `release.json` it contains, named after the archive so that the metadata of every archive can sit side by side in one release.
 - Release configuration, _framework-dependent_: users need the .NET 10 runtime for their architecture.
 - Everything is built by the **Release** workflow, each archive on its own system, from a `v*` tag a maintainer pushes.
 
@@ -79,16 +79,16 @@ Only people on the bypass list can then create, move or delete a release tag, an
    git push origin v0.1.0
    ```
 
-1. **Let the prepare and build jobs run.** Open the run under **Actions → Release**. The prepare job resolves the version, checks the tag and the `release` environment, and writes the release notes (`tools/release/release-notes.template.md`). Then one build job per RID, each on its own system, runs the tests, publishes the platform tree (`PlatformPublish.ps1`, Release, that RID), writes `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json` into it (`tools/release/New-ThirdPartyNotices.ps1`, `New-ReleaseMetadata.ps1`), gates it (`Test-PlatformTree.ps1`), smoke-launches the language server on a copy (`Test-LanguageServerStartup.ps1`) and archives it (`New-ReleaseArchive.ps1`). There is nothing to approve until all three have finished; one that fails stops the release.
+1. **Let the prepare and build jobs run.** Open the run under **Actions → Release**. The prepare job resolves the version, checks the tag and the `release` environment, and writes the release notes (`tools/release/release-notes.template.md`). Then one build job per RID, each on its own system, runs the tests, publishes the platform tree (`PlatformPublish.ps1`, Release, that RID), writes `THIRD-PARTY-NOTICES.txt`, `SOURCE.md` and `release.json` into it (`tools/release/New-ThirdPartyNotices.ps1`, `New-ReleaseMetadata.ps1`), gates it (`Test-PlatformTree.ps1`), smoke-launches the language server on a copy (`Test-LanguageServerStartup.ps1`) and archives it (`New-ReleaseArchive.ps1`). There is nothing to approve until every build job has finished; one that fails stops the release.
 1. **Review, then approve.** Once the build jobs are green, the run pauses on the `release` environment. Before approving, open the prepare job: **Resolve version** must print `Version <version> (tag run: True)` with the version you meant, and **Write the release notes** prints the notes the release will carry. Then **Review deployments** → tick `release` → **Approve and deploy**, within 30 days (the build jobs' assets are kept that long on a tag run).
    - **Tagged the wrong commit?** **Reject** the waiting deployment (**Review deployments** → **Reject**) before you delete or move the tag: runs for the same tag go one at a time, so the run the new tag starts waits behind this one. Should this run be approved after the tag has moved, its publish job stops without creating a draft.
-1. **Let the publish job run.** It checks that the tag still points at the commit the build jobs built and that the tag has no release or draft yet, checks each build job's checksums and joins them into one `SHA256SUMS`, attests the build provenance of every archive and `.release.json`, then creates a **draft** prerelease and uploads the seven assets. It does not publish it.
+1. **Let the publish job run.** It checks that the tag still points at the commit the build jobs built and that the tag has no release or draft yet, checks each build job's checksums and joins them into one `SHA256SUMS`, attests the build provenance of every archive and `.release.json`, then creates a **draft** prerelease and uploads every asset. It does not publish it.
 1. **If the publish job fails**, what to do depends on the step that stopped it. A re-run (**Re-run failed jobs**) waits for approval again.
    - **At or after *Create the draft prerelease*, or at *Check the tag has no release yet* reporting drafts**: a draft may be left behind, even when the *Create* step itself failed, and a re-run won't clean it up; it stops at **Check the tag has no release yet** instead. Delete the **drafts** (not the tag): `gh release delete <tag> -R rubberduck-vba/RDCore --yes` (without `--cleanup-tag`) deletes one draft per call, so repeat it until `gh release list -R rubberduck-vba/RDCore` shows none for the tag. Then re-run.
    - **At *Check the tag has no release yet*, saying the tag is already published**: there is nothing to re-run. Check the release's assets.
    - **At *Check the tag still points at the built commit***: the tag was moved after the build. Don't re-run this run: the run the moved tag started builds and publishes it.
    - **Any other step**: re-run.
-1. **Check the draft, then publish it.** Under **Releases**, the draft is marked **Pre-release** and carries the seven assets. Download them, [verify](#verifying-a-release) them, and try each archive on a clean machine of its system. Then edit the draft (its notes too, if needed) and **Publish release**, or `gh release edit <tag> -R rubberduck-vba/RDCore --draft=false`.
+1. **Check the draft, then publish it.** Under **Releases**, the draft is marked **Pre-release** and carries every asset (see [What a release is](#what-a-release-is)). Download them, [verify](#verifying-a-release) them, and try each archive on a clean machine of its system. Then edit the draft (its notes too, if needed) and **Publish release**, or `gh release edit <tag> -R rubberduck-vba/RDCore --draft=false`.
 
 ## Dry run
 

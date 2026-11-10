@@ -326,7 +326,7 @@ Write-Host ""
 # each extension gets an extension.manifest.json, reflected off its executable by `rdc describe-ext`
 # (command mode, unsafe dev signing). The language server discovers extensions by this manifest.
 # rdc runs through the dotnet host (`dotnet rdc.dll`) rather than its apphost, which is the target system's: a tree published for
-# another system (-RuntimeIdentifier linux-x64 on Windows, say) has an rdc this one can't start, and the same rdc.dll.
+# another system (-RuntimeIdentifier linux-x64 on Windows, say) has an rdc this one cannot start, and the same rdc.dll.
 # relative to the extension folder (Extensions/<Folder>) it runs in, so that no folder name of the platform root is in the path:
 # a root like rdcore[1] is then never read as a wildcard.
 $Dotnet = "dotnet"

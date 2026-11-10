@@ -212,7 +212,7 @@ jobs:
   build:
     needs: prepare
     strategy:
-      # one system's failure doesn't hide another's: every leg runs to its end, and publish needs all of them
+      # one system's failure does not hide another's: every leg runs to its end, and publish needs all of them
       fail-fast: false
       matrix:
         include:

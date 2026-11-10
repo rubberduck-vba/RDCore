@@ -157,7 +157,7 @@ function Get-PeSectionHash([string]$Path, [string]$Name) {
     finally { $reader.Dispose() }
 }
 
-# sha-256 of a range of bytes, or $null if the range isn't inside them
+# sha-256 of a range of bytes, or $null if the range is not inside them
 function Get-RangeHash([byte[]]$Bytes, [long]$Offset, [long]$Size) {
     if ($Offset -lt 0 -or $Size -le 0 -or $Offset + $Size -gt $Bytes.LongLength) { return $null }
     $data = [byte[]]::new($Size)
