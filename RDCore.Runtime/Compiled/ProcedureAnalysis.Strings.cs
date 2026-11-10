@@ -8,6 +8,9 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.Runtime.LanguageCore.Binding;
+using RDCore.Runtime.LanguageCore.StdLib;
+using RDCore.Runtime.LanguageCore.StdLib.Abstract;
+using RDCore.SDK.Runtime.StdLib;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -36,7 +39,8 @@ internal sealed partial class ProcedureAnalysis
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 
     // TryEvaluateText, case for case: a String literal, a String variable of the activation, parentheses, and two of them joined by & (or by +, of two
-    // Strings). Strings joined that are all literals are the text they make, joined once.
+    // Strings); and a whole number and the library's Chr$ of one, which TryEvaluateText leaves to the let-coercion and the call. Strings joined that are all
+    // literals are the text they make, joined once.
     private TextNode? Text(BoundNode node)
     {
         switch (node)
@@ -58,11 +62,34 @@ internal sealed partial class ProcedureAnalysis
 
                 return left is TextConstantNode { Text: var l } && right is TextConstantNode { Text: var r } ? new TextConstantNode(string.Concat(l, r)) : new ConcatNode(left, right);
 
+            // the library's Chr$ of a whole number: any other argument is let-coerced to a Long by the interpreter's call.
+            case BoundCall { Procedure: var chr, BoundArguments: [{ Value: { } code }] } when IsChrString(chr) && WholeOf(code) is { } whole:
+                return new ChrTextNode(whole);
+
+            // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
+            // and a Date are the interpreter's, which writes them in the regional settings of the session.
+            case var number when WholeOf(number) is { } whole:
+                return whole is ConstantNode { Integral: var digits } ? new TextConstantNode(StringOperations.OfWhole(digits)) : new WholeTextNode(whole);
+
             default:
                 _ = Unsupported(node);
                 return null;
         }
     }
+
+    // the payload of a Byte, an Integer, a Long or a LongLong: not a Variant's, nor an extended intermediate's.
+    private PayloadNode? WholeOf(BoundNode node)
+        => !IsVariant(node) && !IsExtended(node)
+            && Payload(node) is { Kind: ScalarKind.Byte or ScalarKind.Integer or ScalarKind.Long or ScalarKind.LongLong } whole
+                ? whole
+                : null;
+
+    // the library's Chr$ (IStdStringsModule.ChrString), by the member the library declares it as, which no procedure of the workspace is.
+    private static readonly string ChrString
+        = StdLibSymbolReader.ExternalTargetOf(typeof(IStdStringsModule), typeof(IStdStringsModule).GetMethod(nameof(IStdStringsModule.ChrString))!);
+
+    private static bool IsChrString(Symbol symbol)
+        => StandardLibrary.IsLibraryMember(symbol) && symbol.GetProperty(SymbolProperties.ExternalTarget) == ChrString;
 
     // TryCompareText: two Strings compared under the comparison mode of the module, which is the frame's - an activation that compares Strings has one, which
     // is the current one while it runs.

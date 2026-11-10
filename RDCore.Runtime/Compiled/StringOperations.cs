@@ -1,3 +1,4 @@
+using System.Globalization;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Runtime;
 
@@ -37,6 +38,14 @@ public static class StringOperations
     /// <param name="right">The right text; <see langword="null"/> for <c>vbNullString</c>.</param>
     /// <returns>The texts joined.</returns>
     public static string Concat(string? left, string? right) => string.Concat(left, right);
+
+    /// <summary>
+    /// A <c>Byte</c>, an <c>Integer</c>, a <c>Long</c> or a <c>LongLong</c> let-coerced to <c>String</c> (MS-VBAL §5.5.1.2.4): its digits, after a minus
+    /// sign when it is negative, as the interpreter's let-coercion writes a whole number, whatever the regional settings.
+    /// </summary>
+    /// <param name="value">The number.</param>
+    /// <returns>The text of the number.</returns>
+    public static string OfWhole(long value) => value.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Let-assigns <paramref name="text"/> to the String variable held in <paramref name="cell"/> (MS-VBAL §5.4.3.8): the variable holds the String it is

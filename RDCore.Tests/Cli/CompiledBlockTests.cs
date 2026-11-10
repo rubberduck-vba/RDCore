@@ -268,7 +268,7 @@ public sealed class CompiledBlockTests
             "                Named = Named + 10",
             "        End Select",
             "    Next",
-            "End Function"), "Named", recoveries: 11);
+            "End Function"), "Named", recoveries: 8);
 
     // a Case of a value that is no scalar is compared by the interpreter, with the selector compiled code gave the frame; the other Cases are compiled code's.
     [TestMethod]

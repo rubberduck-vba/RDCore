@@ -247,6 +247,14 @@ internal sealed record class TextSlotNode(int Slot) : TextNode;
 // two Strings joined, by & or by + of two Strings (MS-VBAL §5.6.9.4, §5.6.5).
 internal sealed record class ConcatNode(TextNode Left, TextNode Right) : TextNode;
 
+// a Byte, an Integer, a Long or a LongLong let-coerced to String (MS-VBAL §5.5.1.2.4): its digits, after a minus sign when it is negative, which no
+// regional setting changes (StringOperations.OfWhole).
+internal sealed record class WholeTextNode(PayloadNode Value) : TextNode;
+
+// Chr$ of a Byte, an Integer, a Long or a LongLong (MS-VBAL §6.1.2.11.1.4): the character the code names, as the library's Chr$ makes it
+// (CompiledActivation.TryChr); a code it names none for is the interpreter's, which raises the error.
+internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
+
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
 
@@ -290,6 +298,10 @@ internal sealed record class VariantForNextStep(int Offset, int Opener, int Body
 
 // a Let of a String variable of the activation - not a fixed-length one: the text written into its cell as it is (MS-VBAL §5.4.3.8).
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
+
+// a Let of the function result variable of a function of the String type: the text assigned where its frame holds it, as the interpreter assigns it
+// (CompiledActivation.TryAssignResultText).
+internal sealed record class TextResultLetStep(int Offset, TextNode Value) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).
 internal sealed record class LetStep(int Offset, int Slot, PayloadNode Value) : CompiledStep(Offset);

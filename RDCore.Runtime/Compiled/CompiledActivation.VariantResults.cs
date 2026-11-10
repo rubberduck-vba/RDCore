@@ -6,11 +6,12 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a function result of the Variant type: its own, assigned and read where its frame holds it; and what a call returned, which
-// the statement that made the call assigns, then lets go of.
+// what compiled code does of a function result of the Variant type, or of the String type: its own, assigned (and a Variant read) where its frame holds
+// it; and what a call returned, which the statement that made the call assigns, then lets go of.
 public sealed partial class CompiledActivation
 {
     /// <summary>
@@ -34,6 +35,23 @@ public sealed partial class CompiledActivation
         }
 
         frame.ReturnValue = ObjectReferences.AssignResult(_session, frame.ResultCell, converted);
+        return true;
+    }
+
+    /// <summary>
+    /// Assigns the function result variable, of the <c>String</c> type, the text <paramref name="text"/> as it is (MS-VBAL §5.3.1, §5.4.3.8): as the
+    /// interpreter assigns it, where the frame holds it, until the function returns it.
+    /// </summary>
+    /// <param name="text">The text assigned; <see langword="null"/> for <c>vbNullString</c>.</param>
+    /// <returns><see langword="false"/> when the interpreter runs the statement: the activation has no frame to hold the result.</returns>
+    public bool TryAssignResultText(string? text)
+    {
+        if (FailsAccessAtRandom() || Frame is not { } frame)
+        {
+            return false;
+        }
+
+        frame.ReturnValue = ObjectReferences.AssignResult(_session, frame.ResultCell, new VBStringValue(new ValueBindingHandle(new VBRuntimeValue<string>(text!))));
         return true;
     }
 
