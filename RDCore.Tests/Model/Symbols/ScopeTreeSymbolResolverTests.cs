@@ -59,7 +59,6 @@ public sealed class ScopeTreeSymbolResolverTests
     private static ScopeTreeSymbolResolver Resolver(params Symbol[] symbols)
         => new(ScopeTreeBuilder.Build(symbols));
 
-#if SDK_SEAM // needs the SDK's internal ScopeTree.ValueResolutions, the resolver's cache
     [TestMethod]
     public void AName_IsResolvedOnce_ForEachPlaceItIsLookedUpFrom()
     {
@@ -74,13 +73,12 @@ public sealed class ScopeTreeSymbolResolverTests
 
         Assert.AreSame(local, first.Symbol);
         Assert.AreEqual(first, second);
-        Assert.HasCount(1, tree.ValueResolutions);
+        Assert.HasCount(1, ScopeTreeSymbolResolver.ValueResolutionsOf(tree));
 
         // another place is another lookup: from the module, the procedure's local is not in scope.
         Assert.IsFalse(new ScopeTreeSymbolResolver(tree).ResolveValue("temp", ScopeKind.Unallocated, module.Uri).IsResolved);
-        Assert.HasCount(2, tree.ValueResolutions);
+        Assert.HasCount(2, ScopeTreeSymbolResolver.ValueResolutionsOf(tree));
     }
-#endif
 
     [TestMethod]
     public void WhatATreeResolved_IsTrueOfThatTree_AndAnotherTreeResolvesAgain()
