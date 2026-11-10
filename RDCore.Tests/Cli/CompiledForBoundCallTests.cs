@@ -44,8 +44,8 @@ public sealed class CompiledForBoundCallTests
     private static void AssertNoneStepped(CompilationResult result)
         => Assert.IsEmpty(result.Stepped, string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail}")));
 
-    // the start and the end of a For each a Property Get of an object, the end an operation of two: the loop is compiled, its bounds called once each time
-    // the For runs.
+    // the start and the end of a For call a Property Get of an object, the end two of them in an operation (S.Left + S.Width - 1): the loop is compiled,
+    // and its bounds are called once each time the For runs.
     [TestMethod]
     public async Task ABoundThatCallsAMemberOfAnObject_IsCompiled_AndCalledOnce()
     {
