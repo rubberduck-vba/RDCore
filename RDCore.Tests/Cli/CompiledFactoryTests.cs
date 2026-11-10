@@ -228,8 +228,9 @@ public sealed class CompiledFactoryTests
             "End Function"), "6 s1;s2;s3;", "Shaped", recoveries: 0, calls: 3);
 
     // the value is evaluated before the object, as MS-VBA evaluates it: of a With block of Nothing, a value that fails is the value's error (11), and one that
-    // does not is error 91 at the member, each resumed past. The recoveries are the With, the 2 errors, and the 2 reads of Err.Number; the call of Err.Clear
-    // is a support call, and the End With of a block of Nothing compiled code's. Compiled code calls nothing: neither Property Let is ever called.
+    // does not is error 91 at the member, each resumed past. The recoveries are the With and the 2 errors; the 2 reads of Err.Number are compiled code's,
+    // the call of Err.Clear is a support call, and the End With of a block of Nothing is compiled code's. Compiled code calls nothing: neither Property
+    // Let is ever called.
     [TestMethod]
     public async Task AValueThatFails_OfAWithBlockOfNothing_IsTheValuesError()
         => await AssertFactoryAsync(Program(
@@ -248,5 +249,5 @@ public sealed class CompiledFactoryTests
             "        .X = 2",
             "        Failed = Failed * 100 + Err.Number",
             "    End With",
-            "End Function"), "1191", "Failed", recoveries: 5, calls: 0);
+            "End Function"), "1191", "Failed", recoveries: 3, calls: 0);
 }

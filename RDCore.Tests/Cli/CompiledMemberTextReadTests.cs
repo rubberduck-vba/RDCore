@@ -69,7 +69,7 @@ public sealed class CompiledMemberTextReadTests
             "        Next",
             "    End With",
             "    If S = \"HoodHoodHood\" Then Within = Within + 100",
-            "End Function"), "Within", recoveries: 2, classes: Ships, expected: "103");
+            "End Function"), "Within", recoveries: 1, classes: Ships, expected: "103");
         AssertSteppedOnlyBlocks(result);
     }
 

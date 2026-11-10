@@ -5,8 +5,8 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Function</c> or a <c>Property Get</c> of the object of a <c>With</c> block (MS-VBAL §5.4.2.21) read by compiled code inside an expression: as an
 /// operand, in a condition, given an argument, in nested blocks. Compiled code calls the member on the object the interpreter holds for the block, as the
-/// interpreter does; the <c>With</c> statement and its <c>End With</c> are the interpreter's, and so is a read of a member of a block whose object is
-/// <c>Nothing</c>, which raises error 91. A program runs the same either way.
+/// interpreter does; the <c>With</c> statement is the interpreter's, and so is a read of a member of a block whose object is <c>Nothing</c>, which raises
+/// error 91. The <c>End With</c> is compiled code's, the variable still holding the object. A program runs the same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledWithMemberReadTests
@@ -64,7 +64,7 @@ public sealed class CompiledWithMemberReadTests
             "            Sunk = Sunk * 2 + .Hits",
             "        Next",
             "    End With",
-            "End Function"), "Sunk", direct: 16, recoveries: 2, expected: "71");
+            "End Function"), "Sunk", direct: 16, recoveries: 1, expected: "71");
 
     // a Function of the block's object given an argument, as an operand.
     [TestMethod]
@@ -83,7 +83,7 @@ public sealed class CompiledWithMemberReadTests
             "            Rest = Rest * 10 + .Left(I)",
             "        Next",
             "    End With",
-            "End Function"), "Rest", direct: 4, recoveries: 2, expected: "456");
+            "End Function"), "Rest", direct: 4, recoveries: 1, expected: "456");
 
     // nested blocks: a member read in the inner block is of the inner block's object, and one read after its End With of the outer block's.
     [TestMethod]
@@ -109,7 +109,7 @@ public sealed class CompiledWithMemberReadTests
             "        End With",
             "        Both = Both * 10 + .Left(0)",
             "    End With",
-            "End Function"), "Both", direct: 8, recoveries: 4, expected: "121");
+            "End Function"), "Both", direct: 8, recoveries: 2, expected: "121");
 
     // a member of a block whose object is Nothing, inside an expression: the interpreter's, which raises error 91, to the handler, which resumes after it.
     [TestMethod]
@@ -125,5 +125,5 @@ public sealed class CompiledWithMemberReadTests
             "        Guarded = 1 + .Hits",
             "    End With",
             "    Guarded = Guarded + 7",
-            "End Function"), "Guarded", direct: 0, recoveries: 3);
+            "End Function"), "Guarded", direct: 0, recoveries: 2);
 }
