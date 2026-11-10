@@ -9,8 +9,7 @@ The `Collection` class is represented in the language core by the interface
 A `For Each` statement finds an object's enumeration member through
 [VBReturningMemberSymbol](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.VBReturningMemberSymbol.html) /
 [SymbolProperties](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Symbols.Abstract.SymbolProperties.html)`.UserMemId` /
-[WellKnownDispIds](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.WellKnownDispIds.html)`.NewEnum`. This is the same lookup the constructor of
-[VBCollectionType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) uses
+[WellKnownDispIds](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.WellKnownDispIds.html)`.NewEnum`, as for any enumerable class
 ([**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md)).
 
 ## Instances

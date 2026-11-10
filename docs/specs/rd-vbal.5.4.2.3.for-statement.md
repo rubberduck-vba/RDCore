@@ -18,9 +18,8 @@
 
 Reassigning a `For` loop counter inside the loop body is legal VBA.
 
-Performance-related diagnostics should be issued when a
-[VBCollectionType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html) is accessed by index within the body
-of a `For...Next` loop ([**RD-VBAL §2.4.2** Non-intrinsic Types](rd-vbal.2.4.2.non-intrinsic-types.md)).
+Performance-related diagnostics should be issued when an object of an enumerable class is accessed by index within the body
+of a `For...Next` loop ([**RD-VBAL §2.4.2.3** Enumerable Class Types](rd-vbal.2.4.2.non-intrinsic-types.md#2423-enumerable-class-types)).
 
 ## Runtime Semantics
 
