@@ -389,7 +389,6 @@ public sealed class WorkspaceLoaderTests
         Assert.AreEqual(!asked, fs.File.ReadAllText(ProjectFilePath) == Unreadable);
     }
 
-#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // the shell's own language client - what it says in its initializationOptions, the handler it answers the question with, the connection it makes - started
     // on a workspace whose project file can't be read. A shell whose input is a script was asked whether to regenerate it anyway, and answered that nobody does:
     // with an error, which its language client (OmniSharp's) holds until the server has answered initialize, while the server waited for the answer to answer
@@ -457,7 +456,6 @@ public sealed class WorkspaceLoaderTests
         // not a timing either: a message the shell never writes fails the test here.
         StringAssert.Contains(await told.Task.WaitAsync(TimeSpan.FromSeconds(30)), ProjectFilePath);
     }
-#endif
 
     // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start, without
     // a word, and without the references only the file said.
@@ -635,7 +633,6 @@ public sealed class WorkspaceLoaderTests
         await Assert.ThrowsExactlyAsync<InvalidServerStateException>(() => sut.LoadAsync(Root));
     }
 
-#if SDK_SEAM // needs the SDK's internal PullDiagnosticsLspSerializer, the LSP serializer the platform's servers use
     // what the shell starts as its language server, and connects to: an OmniSharp server on the pipe, in this process, which answers initialize as it is given
     // to, and the platform handshake after it - once answerHandshakeAfter has completed, when it is given: the shell goes no further than the handshake until then.
     private sealed class InProcessLanguageServer(
@@ -717,5 +714,4 @@ public sealed class WorkspaceLoaderTests
             }
         }
     }
-#endif
 }
