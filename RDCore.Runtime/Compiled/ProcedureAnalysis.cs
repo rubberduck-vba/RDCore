@@ -750,8 +750,14 @@ internal sealed partial class ProcedureAnalysis
                 _variantAssignments.Add((variantSlot, variantValue));
                 return new VariantLetStep(offset, variantSlot, variantValue);
 
-            // a String is assigned the text as it is, as TryAssignUnboxed assigns it.
+            // a String is assigned the text as it is, as TryAssignUnboxed assigns it - or what a call returns, once the call returned, as the interpreter
+            // assigns it.
             case BoundVariable variable when TextSlotOf(variable) is { } textSlot:
+                if (AssignedCallOf(assigned, offset) is { } textSlotAssigned)
+                {
+                    return textSlotAssigned;
+                }
+
                 return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
 
             // the result of a function of the String type, assigned the text as it is where its frame holds it, or what a call returns, once the call
