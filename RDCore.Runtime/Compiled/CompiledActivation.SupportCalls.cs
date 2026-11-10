@@ -25,7 +25,7 @@ public sealed partial class CompiledActivation
         _failed = null;
         _suspensionsBeforeCall = Suspensions;
         var temporaries = _session.Objects.TemporaryCount;
-        var outcome = _executor.Statements.Execute(_session, _context, Body.Items[pc].Node!);
+        var outcome = _executor.Statements.Execute(_session, ContextAt(pc), Body.Items[pc].Node!);
 
         // a program that was stopped does not unwind (ProcedureExecutor.Run).
         if (outcome.Kind is not (RuntimeExecutionOutcomeKind.Break or RuntimeExecutionOutcomeKind.Halt))
