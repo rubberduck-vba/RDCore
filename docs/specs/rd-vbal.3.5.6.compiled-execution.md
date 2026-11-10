@@ -235,6 +235,8 @@ Every operand of such a statement must be one compiled code keeps as it evaluate
 function's result variable, a scalar public variable of an object (see Objects, above), `Err.Number`, a call, or an operation of these. The
 interpreter runs a statement with any other operand on its own, as described below: a `Variant`, a `String`, an object, a field or an element of an
 array. Such an operand would be read a second time after a call that may have changed it.
+An object given to a call as its argument (`If B.Hit(Target) Then`) is no operand: compiled code reads it when it makes the call, after the calls left of
+it, as the interpreter does.
 
 A statement can read a variable that a call in it may change: one it also passes `ByRef` to the call, such as `X = A + Bump(A)`; a `ByRef` parameter,
 while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module or a public
@@ -264,7 +266,7 @@ Compiled code does these itself:
 |Operators|`+`, `-`, `*`, `/`, `\`, `Mod`, the comparisons, `And`, `Or`, `Xor`, `Eqv`, `Imp`, `Not`, and negation, on operands of scalar types and on `Variant`s that hold one; `&`, `+` and the comparisons of two `String`s, and `&` of a `String` and a whole number; `Is` of the procedure's object variables, object fields, the elements of its arrays of objects, and `Nothing`, and `TypeOf` of one of its object variables or fields or of an element of one of its arrays of objects.|
 |Statements|`Let` of a variable, of a `Variant`, of a `String`, of an element of an array of scalars or of `Variant`s, of a scalar field of `Me` or of a standard module, of a scalar or `Variant` field of one of its records, of a scalar `Static`, of the function's result, a `Variant` or a `String` one included, or of a member of an object declared as a class, the object of a `With` block included (see Members of objects and `With` blocks, above); `Set` of an object variable, field or `Static` (not `WithEvents`), or of a function's object result, to an object variable or field, `Me` or `Nothing`, and `Set` of an object field of one of its records to any of these or to another such field, and of an object variable or a function's object result to such a field; `ReDim` and `Erase` of arrays of scalars, which the interpreter runs for compiled code (see Arrays, above).|
 |Calls|A call statement with arguments, a function's result assigned whole, or a function's result assigned to a `Variant` (see Variant function results, above) or to a member of an object, of a procedure of a standard module, or of a member of one of the procedure's own object variables or object fields declared as a class or interface, of an object field of one of its records, of the default instance of a class, or of the object of a `With` block declared as a class, when every parameter is of a scalar type (`Sub` or `Function`, and a member's `Property Get`, whose value is read); a parameter may also be an object (see Objects, above), and, of a procedure of a standard module, a `String`. A `ByRef` argument is a variable of the procedure of the parameter's type, or a value that is no variable, which the callee is given a copy of. A function or `Property Get` so called can also be called inside an expression (see Calls inside an expression, below).|
-|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
+|Control flow|`If`, `ElseIf` and `Else`; `Do` and `Loop` with `While` or `Until`; `While` … `Wend`; `For` … `Next` with a counter that is a variable of the procedure, not a `Boolean`, and not passed `ByRef`; the `Next` of a `For` with a `Variant` counter, whose `For` statement the interpreter runs, since it decides the type the loop counts in; `For Each` … `Next`, which the interpreter runs for compiled code (see below); `Select Case` of a scalar selector; `Exit Do`, `Exit For`, `Exit Sub`, `Exit Function` and `Exit Property`; `GoSub` and `Return`.|
 |Errors|`On Error GoTo` a label, `On Error Resume Next`, `On Error GoTo 0` and `On Error GoTo -1`.|
 
 The interpreter runs any other statement on its own, inside the compiled procedure. Examples are a `GoTo`; `On … GoTo` and `On … GoSub`; `Resume`,
@@ -295,17 +297,28 @@ such as a `String`, on its own, with the selector compiled code evaluated. When 
 that declines, such as `D \ 1` with `D` a `Double`), the interpreter runs the rest of the activation, from the `Select Case`.
 
 The interpreter also runs the statements of a block whose state it keeps in the frame, each on its own: a `With` and its `End With`, and each statement in
-the block that uses its object other than as compiled code does (see Members of objects and `With` blocks, above); a `For Each` and its `Next`; and a
+the block that uses its object other than as compiled code does (see Members of objects and `With` blocks, above); a `For Each` statement inside a
+`With` block, which is evaluated against the block's object; and a
 `Select Case` and its `Case`s when the selector is no scalar, such as a `String` or a `Variant`, or is a scalar compiled code cannot evaluate, such as `Len(S)` with `S` a `String`. Compiled code does the rest of the block. What a block holds is let go of where the interpreter lets go of it, so a `Class_Terminate` runs at the
 same place in either engine: the object of a `With` at its `End With` (MS-VBAL §5.4.2.21), and what a `For Each` reads where the program leaves the loop,
 by its `Next`, an `Exit For`, a jump or a `Return`.
 
+The interpreter runs a `For Each` statement and its `Next` for compiled code (MS-VBAL §5.4.2.4), as it runs a call statement compiled code does not make.
+The frame holds the loop: the enumerator of an object, or the array and the position in it. The control variable is a `Variant` or an object, which the
+frame holds too.
+
+- Before the `For Each` statement compiled code writes its variables into the frame, since the collection expression may read them, and reads them back
+  after it.
+- The `Next` reads no variable but the control variable, so compiled code writes its variables into the frame before it only under a debugger, and reads
+  them back after it only when the program waited.
+- An error either raises goes to the procedure's error handler, as an error of a call does, and the statement is not run again.
+
 These keep the whole procedure in the interpreter:
 
 - a procedure in which compiled code would do nothing itself, because the interpreter runs every statement that does something;
-- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop (a `For Each` is one), and compiled code does
-  nothing at each pass of it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`. The loop is the innermost
-  one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
+- a procedure with a loop the interpreter would run whole: the interpreter runs a statement in the loop, and compiled code does nothing at each pass of
+  it, no assignment, call, condition or `Case`, no `Loop While` or `Loop Until`, no `Next` of a `For`. The `Next` of a `For Each` is none of these, since
+  the interpreter runs it. The loop is the innermost one around the statement: what an outer loop or a loop beside it does is no gain for this one. Around each such statement compiled code would only write
   its variables into the frame and read them back, which costs more than it saves.
 
 A procedure whose frame holds something compiled code does not hold is always called with its frame, through the interpreter's call, never through the

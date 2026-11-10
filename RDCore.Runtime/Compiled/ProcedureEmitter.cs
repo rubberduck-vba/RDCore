@@ -256,7 +256,7 @@ internal sealed partial class ProcedureEmitter
 
             // every instruction boundary is a safepoint: under the random walk-back the activation may be handed to the interpreter at any of them, and not only
             // where it polls for a program to stop - which a step that polls already does, before it.
-            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep or VariantForNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
+            if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep or VariantForNextStep or ForEachNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
             {
                 EmitPoll(step.Offset);
             }
@@ -412,6 +412,14 @@ internal sealed partial class ProcedureEmitter
 
             case ForNextStep next:
                 EmitForNext(next);
+                break;
+
+            case ForEachOpenStep forEachOpen:
+                EmitForEachOpen(forEachOpen);
+                break;
+
+            case ForEachNextStep forEachNext:
+                EmitForEachNext(forEachNext);
                 break;
 
             case ExitStep exit:
@@ -922,7 +930,7 @@ internal sealed partial class ProcedureEmitter
                 }
 
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObject))!);
-                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
                 continue;
             }
 
@@ -930,7 +938,7 @@ internal sealed partial class ProcedureEmitter
             {
                 _il.Emit(OpCodes.Ldc_I4, variable.Slot);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.SetObjectReference))!);
-                _il.Emit(OpCodes.Brfalse, RecoverAt(call.Offset));
+                _il.Emit(OpCodes.Brfalse, Fail(RecoverAt(call.Offset)));
                 continue;
             }
 
