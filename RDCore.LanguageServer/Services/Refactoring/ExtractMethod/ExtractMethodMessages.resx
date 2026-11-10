@@ -34,4 +34,142 @@
   <data name="ExtractMethodName_Shadows" xml:space="preserve">
     <value>'{0}' is also {1}, which the new procedure hides in this module.</value>
   </data>
+  <data name="ExtractMethod_Title" xml:space="preserve">
+    <value>Extract method…</value>
+  </data>
+  <data name="ExtractMethodChoice_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ExtractMethodChoice_NameDescription" xml:space="preserve">
+    <value>The name of the new procedure.</value>
+  </data>
+  <data name="ExtractMethodChoice_Parameters" xml:space="preserve">
+    <value>Parameters</value>
+  </data>
+  <data name="ExtractMethodChoice_ParametersDescription" xml:space="preserve">
+    <value>What the new procedure is given, and how.</value>
+  </data>
+  <data name="ExtractMethodChoice_ReturnValue" xml:space="preserve">
+    <value>Return value</value>
+  </data>
+  <data name="ExtractMethodChoice_ReturnValueDescription" xml:space="preserve">
+    <value>The variable the new procedure returns, as a Function.</value>
+  </data>
+  <data name="ExtractMethodChoice_ReturnValueNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="ExtractMethodChoice_RouteExits" xml:space="preserve">
+    <value>Route the exits</value>
+  </data>
+  <data name="ExtractMethodChoice_RouteExitsDescription" xml:space="preserve">
+    <value>The new procedure returns where the selection leaves to, and the call goes there.</value>
+  </data>
+  <data name="ExtractMethodReason_ReadOnly" xml:space="preserve">
+    <value>Read by the selection, not written.</value>
+  </data>
+  <data name="ExtractMethodReason_ReadAndWritten" xml:space="preserve">
+    <value>Read and written by the selection.</value>
+  </data>
+  <data name="ExtractMethodReason_WrittenOnly" xml:space="preserve">
+    <value>Written by the selection, and read after it.</value>
+  </data>
+  <data name="ExtractMethodReason_Array" xml:space="preserve">
+    <value>An array, which is always passed by reference.</value>
+  </data>
+  <data name="ExtractMethodReason_UserDefinedType" xml:space="preserve">
+    <value>A user-defined type, which is always passed by reference.</value>
+  </data>
+  <data name="ExtractMethodReason_FixedLengthString" xml:space="preserve">
+    <value>A fixed-length string, which is passed by reference.</value>
+  </data>
+  <data name="ExtractMethodReason_Static" xml:space="preserve">
+    <value>A Static local, passed by reference so that it keeps its value.</value>
+  </data>
+  <data name="ExtractMethodReason_ParamArray" xml:space="preserve">
+    <value>The procedure's ParamArray.</value>
+  </data>
+  <data name="ExtractMethodSelection_NoStatement" xml:space="preserve">
+    <value>The selection holds no whole statement of a procedure's body.</value>
+  </data>
+  <data name="ExtractMethodSelection_CutsABlock" xml:space="preserve">
+    <value>The selection cuts the block statement at {1}: select it whole, or only statements inside it.</value>
+  </data>
+  <data name="ExtractMethodSelection_CutsADirectiveBlock" xml:space="preserve">
+    <value>The selection cuts an #If block: select it whole, or none of its directives.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ParamArrayWritten" xml:space="preserve">
+    <value>The selection writes an element of the ParamArray '{0}' at {1}: a copy passed to a new procedure would lose the write.</value>
+  </data>
+  <data name="ExtractMethodRefusal_WithTargetIsNotAVariable" xml:space="preserve">
+    <value>The selection uses a member of the object of the With block at {1}, which names no variable: passing its object would evaluate the expression again.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ConstantUsedAfter" xml:space="preserve">
+    <value>The constant '{0}' declared in the selection is used after it, at {1}: the code after the call could not name it.</value>
+  </data>
+  <data name="ExtractMethodRefusal_JumpIntoTheSelection" xml:space="preserve">
+    <value>A jump from outside the selection lands in it, at {1}.</value>
+  </data>
+  <data name="ExtractMethodRefusal_GoSubToOutside" xml:space="preserve">
+    <value>The GoSub at {1} goes to a routine outside the selection: convert the routine to a procedure first.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ReturnOfAGoSubOutside" xml:space="preserve">
+    <value>The Return at {1} returns to a GoSub outside the selection: convert the routine to a procedure first.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ErrorHandlingChanged" xml:space="preserve">
+    <value>The On Error at {1} leaves the error handling different from what it was at the start of the selection.</value>
+  </data>
+  <data name="ExtractMethodRefusal_HandlerOutsideTheSelection" xml:space="preserve">
+    <value>The On Error GoTo at {1} names a handler outside the selection.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ResumeOfAnErrorBefore" xml:space="preserve">
+    <value>The Resume at {1} is about an error raised before the selection: the new procedure has no error of its own to resume.</value>
+  </data>
+  <data name="ExtractMethodChange_CallerHandlerResumes" xml:space="preserve">
+    <value>An error handler of the procedure ({0}) can catch an error of the selection: extracted, the error reaches it at the call, where a Resume Next skips the rest of the extracted code and a Resume runs the whole call again.</value>
+  </data>
+  <data name="ExtractMethodChange_ErlOnly" xml:space="preserve">
+    <value>An error handler of the procedure ({0}) can catch an error of the selection: only what Erl says changes.</value>
+  </data>
+  <data name="ExtractMethodChange_ResumeNextOnSomePaths" xml:space="preserve">
+    <value>The selection runs under On Error Resume Next on some paths and not on others: the new procedure cannot start as all of them do.</value>
+  </data>
+  <data name="ExtractMethodChange_ErlReportsTheCall" xml:space="preserve">
+    <value>The selection has line numbers, and an error handler of the procedure ({0}) can catch an error of it: Erl reports the line of the call.</value>
+  </data>
+  <data name="ExtractMethodChange_ErrClearedOnEntry" xml:space="preserve">
+    <value>The selection reads Err or Erl under On Error Resume Next: the On Error Resume Next the new procedure starts with clears them.</value>
+  </data>
+  <data name="ExtractMethodChange_ObjectReleasedEarlier" xml:space="preserve">
+    <value>These variables become the new procedure's own: {1}. When one of them holds the last reference to an object, the object is released when the new procedure ends, and its Class_Terminate runs before the code after the call.</value>
+  </data>
+  <data name="ExtractMethodEdit_NotAReturnCandidate" xml:space="preserve">
+    <value>'{0}' is not a value the selection gives back.</value>
+  </data>
+  <data name="ExtractMethodEdit_ExitByJumpTable" xml:space="preserve">
+    <value>An On…GoTo leaves the selection: no exit code of one statement can stand for its several targets.</value>
+  </data>
+  <data name="ExtractMethodEdit_ExitRoutingDeclined" xml:space="preserve">
+    <value>The selection leaves the procedure, or a loop or a block around it, and the exits are not routed.</value>
+  </data>
+  <data name="ExtractMethodEdit_NotAccepted" xml:space="preserve">
+    <value>The extraction would change what the code does, and the change was not accepted: {0}</value>
+  </data>
+  <data name="ExtractMethodVerification_Failed" xml:space="preserve">
+    <value>The extraction was not made: it would break the code. {0}</value>
+  </data>
+  <data name="ExtractMethodVerification_DoesNotParse" xml:space="preserve">
+    <value>The edited module would not parse ({0}).</value>
+  </data>
+  <data name="ExtractMethodVerification_NameDoesNotBind" xml:space="preserve">
+    <value>A name would declare a variable implicitly ({0}).</value>
+  </data>
+  <data name="ExtractMethodVerification_NewCompileError" xml:space="preserve">
+    <value>The edited module would have a compile error it did not have ({0}).</value>
+  </data>
+  <data name="ExtractMethodVerification_DataFlowDiffers" xml:space="preserve">
+    <value>The call would not take in, give back or keep for the code after it the same values as the selection.</value>
+  </data>
+  <data name="ExtractMethodVerification_ExitNotReached" xml:space="preserve">
+    <value>The call would not leave the procedure for every place the selection left it for.</value>
+  </data>
 </root>
