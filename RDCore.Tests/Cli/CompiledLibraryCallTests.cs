@@ -125,7 +125,7 @@ public sealed class CompiledLibraryCallTests
             "    Next",
             "End Function"), [("Spun", 3)]);
 
-    // an error a conversion raises - an overflow of CByte - is the instruction's, where the interpreter raises it, with the same stack trace.
+    // an error a conversion raises (an overflow of CByte) is the instruction's, where the interpreter raises it, with the same stack trace.
     [TestMethod]
     public async Task AnErrorAConversionRaises_IsRaisedWhereTheInterpreterRaisesIt()
         => await AssertAlikeAsync(Program(
@@ -161,7 +161,7 @@ public sealed class CompiledLibraryCallTests
             "    LeastOfALong = Abs(L)",
             "End Function"), [("LeastConstant", 0), ("LeastOfALong", 0)], walkBacks: 1);
 
-    // with a comma for its decimal separator (fr-FR): a number converted is the same in any locale, and a String a Variant holds - "2,5" - is converted
+    // with a comma for its decimal separator (fr-FR): a number converted is the same in any locale, and a String a Variant holds ("2,5") is converted
     // by the interpreter, which reads it in the session's locale.
     [TestMethod]
     public async Task AConversionInACommaDecimalLocale_IsTheInterpreters()

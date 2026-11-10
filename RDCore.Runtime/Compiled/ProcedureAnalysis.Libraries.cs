@@ -21,7 +21,7 @@ internal sealed partial class ProcedureAnalysis
     public List<CompiledLibraryCall> Libraries { get; } = [];
 
     // the functions compiled code calls, each of parameters of the Variant type passed by value, and whether each keeps anything from call to call: none
-    // does but Rnd, whose seed moves at each call - a call of it is made once in an instruction, and never again by the interpreter.
+    // does but Rnd, whose seed moves at each call, so a call of it is made once in an instruction, and never again by the interpreter.
     private static readonly ImmutableDictionary<string, bool> CompiledLibraryFunctions = new Dictionary<string, bool>
     {
         ["IStdConversionModule.CBool/1"] = false,
