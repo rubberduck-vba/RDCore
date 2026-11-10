@@ -594,6 +594,11 @@ internal sealed partial class ProcedureAnalysis
                     _ => SupportCallOf(instruction, mark),
                 };
 
+            // MS-VBAL §5.4.2.20: a RaiseEvent calls each handler of the event, which may write an argument passed to it by reference back into a variable of
+            // the activation. It is the interpreter's statement, run as a support call, as a call statement compiled code does not make is.
+            case InstructionKind.Simple when instruction.Node is KeywordStatementNode { Token: Tokens.RaiseEvent } && SupportCallOf(instruction, _reasons.Count) is { } raise:
+                return raise;
+
             case InstructionKind.Simple when ArrayStatementOf(instruction) is { } arrayStatement:
                 return arrayStatement;
 
@@ -721,7 +726,8 @@ internal sealed partial class ProcedureAnalysis
             case BoundName { Symbol: var function } when ResultKind is { } result && IsOwnFunction(function):
                 return assigned switch
                 {
-                    BoundCall resultCall => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
+                    BoundCall resultCall when !IsCompiledLibrary(resultCall.Procedure)
+                        => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
                     BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember when ErrNumberOf(resultMember) is null
                         => MemberCallOf(resultMember, -1, offset, result)
                         ?? RefusedCall(resultMember.Access, assignment.SourceLocation),
@@ -730,7 +736,8 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when SlotOf(variable) is { } slot:
                 return assigned switch
                 {
-                    BoundCall slotCall => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
+                    BoundCall slotCall when !IsCompiledLibrary(slotCall.Procedure)
+                        => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
                     BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember when ErrNumberOf(slotMember) is null
                         => MemberCallOf(slotMember, slot, offset, _slots[slot])
                         ?? RefusedCall(slotMember.Access, assignment.SourceLocation),
@@ -1376,7 +1383,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } compared:
                 return CompareText(compared);
 
-            case BoundBinary or BoundUnary when IsExtended(node):
+            case BoundBinary or BoundUnary or BoundCall when IsExtended(node):
                 return Extended(node) is { } extended ? new StoreNode(extended, ExtendedKindOf(node)!.Value) : null;
 
             case BoundBinary binary when IsExtended(binary.Left) || IsExtended(binary.Right):
@@ -1433,6 +1440,24 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundArrayBound arrayBound:
                 return ArrayBound(arrayBound);
+
+            // CByte, CInt, CLng, CLngLng, CCur or CBool of an extended intermediate, which converts it from its 80 bits, as the interpreter does
+            // (EvaluateWideConversion): never through the function's binding, which would be given it stored.
+            case BoundCall { BoundArguments: [{ Value: { } argument, Elements.IsDefaultOrEmpty: true }] } converting
+                when IsExtended(argument) && IsCompiledLibrary(converting.Procedure)
+                    && ExtendedIntermediates.ConversionOf(converting.Procedure.GetProperty(SymbolProperties.ExternalTarget)!) is { } conversion
+                    && ScalarKinds.Of(conversion) is { } convertedTo:
+                return PayloadAs(argument, convertedTo);
+
+            // a function of the standard library, called with its arguments or by its name, qualified or not (ProcedureAnalysis.Libraries.cs).
+            case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsCompiledLibrary(library):
+                return LibraryCallOf(call, library, call.BoundArguments, call.ResultType);
+
+            case BoundQualifiedName { Member: VBTypeMemberSymbol library } qualified when IsCompiledLibrary(library):
+                return LibraryCallOf(qualified, library, ImmutableArray<BoundArgument>.Empty, resultType: null);
+
+            case BoundName { Symbol: VBTypeMemberSymbol library } name when IsCompiledLibrary(library):
+                return LibraryCallOf(name, library, ImmutableArray<BoundArgument>.Empty, resultType: null);
 
             // a function called inside an expression (ProcedureAnalysis.Nested.cs).
             case BoundCall { Procedure: VBTypeMemberSymbol function } call when _nesting is not null:
@@ -1597,7 +1622,8 @@ internal sealed partial class ProcedureAnalysis
             : ScalarKinds.IsIntegral(effective) ? new NotNode(converted, effective) : Unsupported(unary);
     }
 
-    // TryEvaluateWide: an operation or a negation of extended operands, in parentheses or not.
+    // EvaluateWide: an operation or a negation of extended operands, in parentheses or not; or Abs, Int, Fix, CDbl or CSng of an extended intermediate,
+    // computed on its 80 bits (ExtendedIntermediates.Apply), never through the function's binding.
     private ExtendedNode? Extended(BoundNode node)
     {
         switch (node)
@@ -1608,6 +1634,9 @@ internal sealed partial class ProcedureAnalysis
                 return ExtendedOperand(unary.Operand) is { } operand ? new ExtendedNegateNode(operand) : null;
             case BoundUnary { Plan: null } unary:
                 return Extended(unary.Operand);
+            case BoundCall { BoundArguments: [{ Value: { } argument }] } call
+                when call.Procedure.GetProperty(SymbolProperties.ExternalTarget) is { } function && ExtendedIntermediates.Applies(function):
+                return Extended(argument) is { } applied ? new ExtendedApplyNode(function, applied) : null;
             default:
                 Unsupported(node);
                 return null;

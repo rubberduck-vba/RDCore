@@ -282,7 +282,12 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         foreach (var callee in analysis.Callees)
         {
-            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}");
+            Append($"{callee.Procedure.SemanticId}|{string.Join(',', callee.Parameters)}|{callee.Result}|{callee.CallsOwnMember}");
+        }
+
+        foreach (var library in analysis.Libraries)
+        {
+            Append($"{library.Function.SemanticId}|{library.Parameters.Length}");
         }
 
         return Convert.ToHexString(hash.GetHashAndReset());
@@ -311,6 +316,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         {
             Entry = body, CellSlots = analysis.CellSlots, Fields = analysis.Fields, NeedsFrame = analysis.NeedsFrame, Selects = analysis.Selects,
             Classes = analysis.Classes, EntersWithoutFrame = analysis.EntersWithoutFrame, MeSlot = analysis.MeSlot ?? -1, MemberFields = analysis.MemberFields,
+            Libraries = analysis.Libraries,
         };
 
         // a call the body makes of itself is of the body just made.
