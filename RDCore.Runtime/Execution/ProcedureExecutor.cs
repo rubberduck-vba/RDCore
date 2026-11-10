@@ -1229,6 +1229,13 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             ? RuntimeExecutionOutcome.Error((IVBRaisableError)(error.AsErrorInfo with { Location = next }))
             : failure;
 
+    // a For Each statement or its Next, run for compiled code as this runs it (CompiledActivation.StepForEach): null when the program goes on, at the instruction
+    // activation.Pc says, and the outcome only when it must stop.
+    internal RuntimeExecutionOutcome? ExecuteForEach(IRuntimeSession session, RuntimeEvaluationContext context, Instruction instruction, CallStackFrame activation)
+        => instruction.Kind is InstructionKind.ForEachOpener
+            ? ExecuteForEachOpener(session, context, instruction, activation)
+            : ExecuteForEachNext(session, context, instruction, activation);
+
     // Returns null when the collection was evaluated and stashed successfully and the loop should keep
     // running (activation.Pc set to the body's first instruction, or skipped straight past the whole
     // construct when the array is empty); returns a non-null outcome only when execution must stop.

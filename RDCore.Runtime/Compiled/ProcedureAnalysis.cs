@@ -305,7 +305,8 @@ internal sealed partial class ProcedureAnalysis
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
     // have compiled code do something at each pass - a Let, a call, a condition, a Case it compares and its Select Case, the loop's back edge with its
-    // condition or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another
+    // condition or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once, nor a
+    // For Each's Next, which the interpreter runs for compiled code. What another
     // loop does saves nothing of this one's passes. When it steps nothing in a loop, anything at all will do.
     private bool GainsAnything(InstructionList list)
     {
@@ -357,7 +358,7 @@ internal sealed partial class ProcedureAnalysis
             }
         }
 
-        return steppedInALoop || Steps.Exists(step => Gains(step) || step is ForOpenStep);
+        return steppedInALoop || Steps.Exists(step => Gains(step) || step is ForOpenStep or ForEachOpenStep);
     }
 
     private void Refuse(IneligibilityKind kind, string detail, SourceLocation? location = null) => _reasons.Add(new Ineligibility(kind, detail, location));
@@ -646,6 +647,10 @@ internal sealed partial class ProcedureAnalysis
             case InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel or InstructionKind.RaiseError
                 or InstructionKind.JumpTable or InstructionKind.GoSubTable:
                 return new SteppedStep(instruction.Offset);
+
+            // a For Each statement and its Next, run by the interpreter for compiled code (ProcedureAnalysis.ForEach.cs).
+            case InstructionKind.ForEachOpener or InstructionKind.ForEachNext:
+                return ForEachStepOf(instruction) ?? Refused(instruction);
 
             default:
                 return Refused(instruction);

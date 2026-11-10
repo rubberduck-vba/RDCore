@@ -157,9 +157,10 @@ internal sealed partial class ProcedureAnalysis
         _ => false,
     };
 
+    // an object given to a call is read as the call is made, after the calls left of it, where the interpreter reads it (CompiledActivation.SetObject).
     private static bool Admits(PayloadNode node) => node switch
     {
-        KnownNode or ConstantNode or ReferenceNode => true,
+        KnownNode or ConstantNode or ReferenceNode or ObjectArgumentNode or ObjectReferenceNode => true,
         CallNode call => call.Arguments.All(Admits),
         ConvertNode convert => Admits(convert.Operand),
         IntegralNode integral => Admits(integral.Left) && Admits(integral.Right),
