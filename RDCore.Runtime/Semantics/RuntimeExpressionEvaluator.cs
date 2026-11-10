@@ -3173,10 +3173,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // MS-VBAL §5.6.7: "If the value type of <expression> is Nothing, runtime error 91 (Object variable or With block variable not set) is raised" (MS-VBA
     // does, whatever the type, Excel-verified); a value that is no object - a Variant holding a number, a record - is no instance of any type: False. Null
-    // when the operand is an object that is something.
+    // when the operand is an object that is something. Variant is a declared type, not a value type (MS-VBAL §2.2): the value type of a Variant operand is
+    // that of the data value it holds, so it is tested for the object it holds.
     private static RuntimeSemanticsEvaluationResult? NotAnObject(RuntimeSemanticsEvaluationResult operandResult, ExpressionNode expression)
     {
-        if (operandResult.Result is not VBObjectValue objectValue)
+        if (TestedObject(operandResult) is not { } objectValue)
         {
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
         }
@@ -3197,9 +3198,21 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return notAnObject;
         }
 
-        return IsInstanceOf(session, ((VBObjectValue)operandResult.Result!).Value, targetClass) is { } isOf
+        return IsInstanceOf(session, TestedObject(operandResult)!.Value, targetClass) is { } isOf
             ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(isOf))
             : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // the object an operand of TypeOf evaluated to, or that the Variant it evaluated to holds: none, of a value that is no object.
+    private static VBObjectValue? TestedObject(RuntimeSemanticsEvaluationResult operandResult)
+    {
+        var value = operandResult.Result;
+        while (value is VBVariantValue { TypedValue: var held })
+        {
+            value = held;
+        }
+
+        return value as VBObjectValue;
     }
 
     /// <summary>
