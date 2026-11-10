@@ -43,6 +43,26 @@ public sealed partial class CompiledActivation
         return true;
     }
 
+    /// <summary>
+    /// Calls the function of the standard library numbered <paramref name="library"/> of the body for the <c>Variant</c> it returns, as
+    /// <see cref="CallLibrary"/> calls one: <paramref name="value"/> is the payload the <c>Variant</c> holds, of its own subtype.
+    /// </summary>
+    /// <returns>
+    /// Whether the <c>Variant</c> holds a value of a scalar type. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>), with the error
+    /// the function raised, or to make it as it always does.
+    /// </returns>
+    public bool CallLibraryVariant(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third, out VariantPayload value)
+    {
+        value = default;
+        if (!TryCallLibrary(pc, library, count, first, second, third, out var payload))
+        {
+            return false;
+        }
+
+        value = new VariantPayload(payload);
+        return true;
+    }
+
     // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else - Null, Empty, a
     // String - is the interpreter's.
     private bool TryCallLibrary(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third, out ScalarPayload payload)

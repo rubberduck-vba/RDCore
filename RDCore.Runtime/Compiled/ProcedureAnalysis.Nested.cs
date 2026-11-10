@@ -109,6 +109,8 @@ internal sealed partial class ProcedureAnalysis
     private bool Calls(BoundNode? node) => node switch
     {
         null => false,
+        // a function of the standard library that keeps nothing calls nothing of the workspace: only what its arguments call.
+        BoundCall { Procedure: var library, BoundArguments: var arguments } when IsVariantLibrary(library) => arguments?.Any(argument => Calls(argument.Value)) ?? false,
         BoundCall => true,
         BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } name => !IsOwnFunction(name.Symbol),
         BoundQualifiedName { Member: var qualified } => IsCompiledLibrary(qualified),
@@ -220,6 +222,19 @@ internal sealed partial class ProcedureAnalysis
         StoreNode store => Admits(store.Value),
         ExtendedCompareNode compare => Admits(compare.Left) && Admits(compare.Right),
         TemporaryNode temporary => Admits(temporary.Value),
+        UnvariantNode unvariant => Admits(unvariant.Value),
+        TruthNode truth => Admits(truth.Value),
+        _ => false,
+    };
+
+    // a Variant computed of what is admitted, and what a function of the standard library returns of it; a Variant read - of a variable, a field, an
+    // element - is not known, and would be read again.
+    private static bool Admits(VariantNode node) => node switch
+    {
+        VariantOfNode of => Admits(of.Value),
+        VariantBinaryNode binary => Admits(binary.Left) && Admits(binary.Right),
+        VariantUnaryNode unary => Admits(unary.Operand),
+        LibraryVariantNode library => library.Arguments.All(Admits),
         _ => false,
     };
 
@@ -308,6 +323,8 @@ internal sealed partial class ProcedureAnalysis
             StoreNode store => Within(store.Value),
             ExtendedCompareNode compare => [.. Within(compare.Left), .. Within(compare.Right)],
             TemporaryNode temporary => [temporary.Value],
+            UnvariantNode unvariant => OperandsOf(unvariant.Value),
+            TruthNode truth => OperandsOf(truth.Value),
             _ => (IEnumerable<PayloadNode>)[],
         };
 
@@ -316,6 +333,16 @@ internal sealed partial class ProcedureAnalysis
             yield return operand;
         }
     }
+
+    // the payloads a Variant is computed of.
+    private static IEnumerable<PayloadNode> OperandsOf(VariantNode node) => node switch
+    {
+        VariantOfNode of => [of.Value],
+        VariantBinaryNode binary => [.. OperandsOf(binary.Left), .. OperandsOf(binary.Right)],
+        VariantUnaryNode unary => OperandsOf(unary.Operand),
+        LibraryVariantNode library => library.Arguments.SelectMany(OperandsOf),
+        _ => [],
+    };
 
     // the payloads an extended operation is made of.
     private static IEnumerable<PayloadNode> Within(ExtendedNode node) => node switch

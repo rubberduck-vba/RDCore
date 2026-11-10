@@ -55,4 +55,30 @@ internal sealed partial class ProcedureEmitter
 
         return new Operand(returned, 0, 0);
     }
+
+    // the arguments evaluated as EmitLibraryCall evaluates them, then the call, into result: what is no payload of a scalar subtype - Empty, a String - gives
+    // the interpreter the call, as an error does. The call is not known: the interpreter makes it again, given what was known of its arguments.
+    private void EmitLibraryVariantCall(LibraryVariantNode node, LocalBuilder result, Label failure)
+    {
+        var offset = _knowingAt;
+        var arguments = new LocalBuilder[node.Arguments.Count];
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            arguments[i] = EmitVariant(node.Arguments[i], failure);
+        }
+
+        var none = arguments.Length < 3 ? _il.DeclareLocal(typeof(VariantPayload)) : null;
+        _il.Emit(OpCodes.Ldarg_0);
+        _il.Emit(OpCodes.Ldc_I4, offset);
+        _il.Emit(OpCodes.Ldc_I4, node.Library);
+        _il.Emit(OpCodes.Ldc_I4, arguments.Length);
+        for (var i = 0; i < 3; i++)
+        {
+            _il.Emit(OpCodes.Ldloc, i < arguments.Length ? arguments[i] : none!);
+        }
+
+        _il.Emit(OpCodes.Ldloca, result);
+        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.CallLibraryVariant))!);
+        _il.Emit(OpCodes.Brfalse, Fail(CallFailedAt(offset)));
+    }
 }

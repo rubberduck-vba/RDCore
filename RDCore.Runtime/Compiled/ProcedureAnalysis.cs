@@ -726,7 +726,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundName { Symbol: var function } when ResultKind is { } result && IsOwnFunction(function):
                 return assigned switch
                 {
-                    BoundCall resultCall when !IsCompiledLibrary(resultCall.Procedure)
+                    BoundCall resultCall when !IsCompiledLibrary(resultCall.Procedure) && !IsVariantLibrary(resultCall.Procedure)
                         => CallOf(resultCall, -1, offset, result) ?? RefusedCall(resultCall.Call.Callee, assignment.SourceLocation),
                     BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } resultMember when ErrNumberOf(resultMember) is null
                         => MemberCallOf(resultMember, -1, offset, result)
@@ -736,7 +736,7 @@ internal sealed partial class ProcedureAnalysis
             case BoundVariable variable when SlotOf(variable) is { } slot:
                 return assigned switch
                 {
-                    BoundCall slotCall when !IsCompiledLibrary(slotCall.Procedure)
+                    BoundCall slotCall when !IsCompiledLibrary(slotCall.Procedure) && !IsVariantLibrary(slotCall.Procedure)
                         => CallOf(slotCall, slot, offset, _slots[slot]) ?? RefusedCall(slotCall.Call.Callee, assignment.SourceLocation),
                     BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } slotMember when ErrNumberOf(slotMember) is null
                         => MemberCallOf(slotMember, slot, offset, _slots[slot])
@@ -1312,9 +1312,10 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether what node evaluates to is a Variant's value: a Variant of the activation or an operation of one (IsDeclaredVariant), an element of an
-    // array of Variants, or a Variant field of a record.
+    // array of Variants, a Variant field of a record, or what a function of the standard library returns as a Variant.
     private bool IsVariant(BoundNode node)
-        => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType };
+        => RuntimeExpressionEvaluator.IsDeclaredVariant(node) || IsVariantElement(node) || RecordFieldOf(node) is { Type: VBVariantType }
+            || node is BoundCall { Procedure: var called } && IsVariantLibrary(called);
 
     private static bool IsExtended(BoundNode node) => RuntimeExpressionEvaluator.ExtendedTypeOf(node) is not null;
 
@@ -1511,6 +1512,10 @@ internal sealed partial class ProcedureAnalysis
 
             case BoundMember when RecordFieldOf(node) is { Type: VBVariantType } field:
                 return new VariantFieldNode(field.Path);
+
+            // a function of the standard library that returns a Variant (ProcedureAnalysis.Libraries.cs).
+            case BoundCall { Procedure: VBTypeMemberSymbol library } call when IsVariantLibrary(library):
+                return LibraryVariantOf(call, library);
 
             default:
                 return Payload(node) is { } payload ? new VariantOfNode(payload) : null;
