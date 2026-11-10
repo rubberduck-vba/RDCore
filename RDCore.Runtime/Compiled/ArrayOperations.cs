@@ -63,7 +63,7 @@ public static class ArrayOperations
 
     // the array a holder holds, known: the cell of an array variable, or the array an array field of a record is (RecordOperations.ArrayField).
     private static VBArrayValue? KnownArrayIn(object? holder)
-        => holder is VBArrayValue { IsIndeterminate: false } field ? field : RuntimeExpressionEvaluator.KnownArrayOf(holder as IBindingHandle);
+        => RuntimeExpressionEvaluator.KnownArrayOf(holder as IBindingHandle) ?? (holder is VBArrayValue { IsIndeterminate: false } field ? field : null);
 
     // the cell at the subscripts (MS-VBAL §5.6.13), in the order VBArrayValue.IndexOf numbers them: none outside a dimension, or of an array of another rank.
     private static IBindingHandle? ElementOf(object? holder, int rank, long first, long second, long third)
