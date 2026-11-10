@@ -17,8 +17,8 @@ namespace RDCore.Runtime.Compiled;
 internal sealed partial class ProcedureAnalysis
 {
     // MS-VBAL §5.4.5.8, as PrintOutputEvaluator writes it: each item a String, written as it is, followed by a semicolon or by nothing, and the line ended
-    // after the last item when nothing follows it. A comma, Spc, Tab, and an item of any other type - a number, which is written with a space on each side,
-    // a Date, a Boolean, a Variant, an object - are the interpreter's.
+    // after the last item when nothing follows it. A comma, Spc, Tab, and an item of any other type (a number, which is written with a space on each side,
+    // a Date, a Boolean, a Variant, an object) are the interpreter's.
     private PrintStep? PrintOf(int offset, DebugPrintStatementNode print)
     {
         var items = new List<TextNode>(print.Items.Length);

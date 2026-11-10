@@ -27,7 +27,7 @@ public sealed partial class CompiledActivation
     /// </summary>
     /// <param name="pc">The offset of the instruction that makes the call.</param>
     /// <param name="library">The number of the call among the body's libraries.</param>
-    /// <param name="cell">The object slot's cell, when the argument is no <c>Nothing</c>.</param>
+    /// <param name="cell">The object slot's cell, when the argument is not <c>Nothing</c>.</param>
     /// <param name="nothing">Whether the argument is <c>Nothing</c>.</param>
     /// <param name="text">The name the function gave.</param>
     /// <returns>

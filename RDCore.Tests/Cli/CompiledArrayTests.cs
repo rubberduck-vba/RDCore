@@ -400,7 +400,7 @@ public sealed class CompiledArrayTests
             "End Function"), "Assigned", recoveries: 1 + 3);
 
     // an element of an array of Variants holds what it is assigned, of its own type: a payload compiled code reads and writes; a String, Empty, and an object
-    // the interpreter's to read - and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 3 statements
+    // the interpreter's to read, and a Let over the object, which lets go of it there, before the next line prints: recovered, as are the 3 statements
     // the interpreter runs (the String, Len, the member). The prints are compiled code's. The Set of an element to a New object is a support call the
     // interpreter runs, no recovery.
     [TestMethod]

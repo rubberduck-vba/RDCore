@@ -60,11 +60,11 @@ A `Variant` result assigned to a variable of a scalar type (`N = F()`) is the in
 Compiled code reads and writes a `String` parameter or variable where its frame keeps it, too, unless it is a fixed-length `String`, which pads or truncates
 what it is assigned. A `Let` of a literal, of another `String` variable, or of `String`s joined by `&` (or by `+`, of two `String`s) assigns the text it is
 (MS-VBAL §5.6.9.4, §5.6.5), and two such `String`s are compared under the module's `Option Compare` (MS-VBAL §5.6.9.5), as the interpreter compares them.
-A `String` constant is the text it holds. `vbNullString` reads as the zero-length string, and a copy of it is still `vbNullString`. Compiled code also reads, as such `String`s, `Err.Description`
-and `Err.Source` (MS-VBAL §6.1.3.2.2.1, §6.1.3.2.2.6), where the session keeps the error, and a `String` public variable of an object (see Objects,
-below). A `String` that ends with a lone byte (`ChrB(65)`) is the interpreter's to join and compare: compiled code hands it each statement that reads
-one. So is a call of a library function that takes or returns a `String`, such as `Len(S)` or `CStr(I)`, except `Chr$` of a whole number, `TypeName`
-and `Replace` (below).
+A `String` constant is the text it holds (MS-VBAL §5.2.3.2). `vbNullString` reads as the zero-length string, and a copy of it is still `vbNullString`.
+Compiled code also reads, as such `String`s, `Err.Description` and `Err.Source` (MS-VBAL §6.1.3.2.2.1, §6.1.3.2.2.6), where the session keeps the
+error, and a `String` public variable of an object (see Objects, below). A `String` that ends with a lone byte (`ChrB(65)`) is the interpreter's to join
+and compare: compiled code hands it each statement that reads one. So is a call of a library function that takes or returns a `String`, such as
+`Len(S)` or `CStr(I)`, except `Chr$` of a whole number, `TypeName` and `Replace` (below).
 
 A `Byte`, an `Integer`, a `Long` or a `LongLong` joined to a `String`, or assigned to one, is its digits, after a minus sign when it is negative
 (MS-VBAL §5.5.1.2.4): `"(" & X & "," & Y & ")"`. Regional settings do not change how a whole number is written. A `Currency`, a `Single`, a `Double`, a
@@ -75,7 +75,7 @@ no character is error 5, which the interpreter raises at that statement.
 
 `TypeName` of one of the procedure's object variables, of `Me` or of `Nothing` is the name the library gives (MS-VBAL §6.1.2.7.1.12): compiled code
 calls it, so a form or a class is named as in the interpreter. `Replace` given `String`s, with no start, count or comparison (MS-VBAL §6.1.2.11.1.29),
-is called by compiled code with the text of each argument. Any other argument, and an error either function raises, is the interpreter's at that
+is called by compiled code with the text of each argument. Any other argument, and an error either function raises, are the interpreter's at that
 statement.
 
 The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads nothing of

@@ -56,7 +56,7 @@ public sealed class CompiledObjectFieldTests
                 "End Sub"]))], classes: [Noisy]);
 
     // a field of the object Set by its own member: what it held is let go of there, and Terminate runs between what the member prints before the Set and
-    // after it when the field held the object last - a Set the interpreter runs; compiled code prints.
+    // after it when the field held the object last (a Set the interpreter runs); compiled code prints.
     [TestMethod]
     public async Task AnObjectFieldOfAClass_IsSet_AndLetsGoOfWhatItHeldThere()
         => await AssertAlikeAsync(Program(

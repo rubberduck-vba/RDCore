@@ -36,7 +36,7 @@ public sealed class CompiledPrintTests
             ("Class_Terminate", 0));
 
     // items separated by ; are written one after the other; a ; after the last leaves the line open for the next Print, a Print of nothing ends a line,
-    // and a String constant is the text it holds - vbNullString none.
+    // and a String constant is the text it holds: vbNullString none.
     [TestMethod]
     public async Task ItemsSeparatedBySemicolons_AreWrittenAsTheyAre_AndATrailingSemicolonLeavesTheLineOpen()
         => await AssertCompiledAsync(Program(
