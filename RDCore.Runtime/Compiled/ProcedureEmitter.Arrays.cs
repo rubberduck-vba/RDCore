@@ -213,7 +213,7 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, failure);
     }
 
-    // the cell an object operand of Is or TypeOf is held in, in a local: an object variable's, a Variant's, or an element's - none when it is outside its
+    // the cell an object operand of Is or TypeOf is held in, in a local: an object variable's, a Variant's, or an element's, none when it is outside its
     // dimension, which ObjectOperations reads no reference in.
     private LocalBuilder EmitObjectOperand(ObjectOperand operand, Label failure)
     {

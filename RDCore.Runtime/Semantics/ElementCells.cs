@@ -42,8 +42,8 @@ internal static class ElementCells
     }
 
     /// <summary>
-    /// The cell of an element of a <c>Variant</c> array made of the values it holds - by <c>Array</c>, or a <c>ParamArray</c> that collects a copy of an
-    /// argument: a Variant's cell holding <paramref name="value"/>, as the cells of <see cref="Of"/> are, and a cell of its own when it is not known.
+    /// The cell of an element of a <c>Variant</c> array made of the values it holds (by <c>Array</c>, or a <c>ParamArray</c> that collects a copy of an
+    /// argument): a Variant's cell holding <paramref name="value"/>, as the cells of <see cref="Of"/> are, and a cell of its own when it is not known.
     /// </summary>
     /// <param name="value">The element's value, a Variant's, which the cell holds as it is.</param>
     public static IBindingHandle OfVariant(VBVariantValue value)
