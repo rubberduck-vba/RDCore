@@ -283,8 +283,9 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // an object parameter of a procedure a compiled body calls: the argument's expression, where an error Set-coercing what it gives is raised, and the
-// parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to.
-internal sealed record class ObjectParameter(SDK.Model.AST.Abstract.ExpressionNode Argument, SDK.Model.Types.Abstract.VBType Type);
+// parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to. An optional parameter the call leaves out has no
+// argument: it is given the default value of its type, Nothing, as the interpreter gives it (RuntimeExpressionEvaluator.OmittedArgument).
+internal sealed record class ObjectParameter(SDK.Model.AST.Abstract.ExpressionNode? Argument, SDK.Model.Types.Abstract.VBType Type);
 
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);

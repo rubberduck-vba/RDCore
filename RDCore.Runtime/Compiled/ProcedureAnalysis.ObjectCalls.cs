@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution.Frames;
+using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.Runtime.LanguageCore.Binding;
 
@@ -16,7 +17,8 @@ internal sealed partial class ProcedureAnalysis
     // call it makes returns (RuntimeProcedureInvoker.ReleaseLocals), and is let go of when the statement is over.
     private ObjectCallNode? ObjectCallOf(BoundNode node)
     {
-        if (_nesting is null || _withoutObjectCalls || node is not (BoundCall or BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol })
+        if (_nesting is null || _withoutObjectCalls
+            || node is not (BoundCall or BoundMember { Member: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol } or BoundName { Symbol: VBFunctionMemberSymbol or VBPropertyGetMemberSymbol })
             || KnownOperands.IndexOf(_nesting, node.Expression) is not (>= 0 and var syntax))
         {
             return null;
@@ -26,6 +28,9 @@ internal sealed partial class ProcedureAnalysis
         {
             BoundCall call => CallOf(call, CallStep.NoResult, -1, resultKind: null, returnsObject: true),
             BoundMember member => MemberCallOf(member, CallStep.NoResult, -1, resultKind: null, returnsObject: true),
+            // a function, or a member of the class whose code runs, named by itself (BareCallOf); not the function's own result variable.
+            BoundName { Symbol: VBTypeMemberSymbol named } when !IsOwnFunction(named)
+                => BareCallOf(named, -1, kind: null, node.Expression, returnsObject: true),
             _ => null,
         };
 

@@ -10,7 +10,7 @@ public sealed partial class CompiledActivation
     /// Gives the argument at <paramref name="index"/> of the call numbered <paramref name="callee"/> compiled code is about to make, of an object parameter
     /// passed by value, or passed by reference and given no variable: the object held in <paramref name="cell"/>, or <c>Nothing</c>, Set-coerced to the
     /// parameter's declared type as the interpreter coerces it (MS-VBAL §5.3.1.11, §5.5.2.2). The callee's parameter holds it, and counts it, for as long
-    /// as the callee runs.
+    /// as the callee runs. An optional parameter the call leaves out is given the default value of its type, as the interpreter gives it.
     /// </summary>
     /// <param name="index">The argument's position in the callee's parameter list.</param>
     /// <param name="callee">The number of the call among the body's callees.</param>
@@ -44,6 +44,12 @@ public sealed partial class CompiledActivation
         }
 
         var parameter = _body.Callees[callee].ObjectParameters[index]!;
+        if (parameter.Argument is null)
+        {
+            SetReference(index, parameter.Type.DefaultValue.RuntimeValue);
+            return true;
+        }
+
         if (_executor.Expressions.SetCoercion is not { } coercion
             || coercion.EvaluateSetCoercion(_session, parameter.Argument, value, parameter.Type) is not { IsSuccess: true, Result: { } coerced })
         {
