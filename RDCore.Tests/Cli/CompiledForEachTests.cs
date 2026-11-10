@@ -188,7 +188,7 @@ public sealed class CompiledForEachTests
 
     // a For Each in a With block is evaluated against the block's object, which the interpreter steps; its Next is run for compiled code, as the Next of any For Each is.
     [TestMethod]
-    public async Task AForEachInAWithBlock_IsSteppedByTheInterpreter_AndItsNextIsCompiledCodes()
+    public async Task AForEachInAWithBlock_IsSteppedByTheInterpreter_AndItsNextIsNot()
     {
         var compiled = await AssertAlikeAsync(WithMade(
             "Public Sub Main()",
