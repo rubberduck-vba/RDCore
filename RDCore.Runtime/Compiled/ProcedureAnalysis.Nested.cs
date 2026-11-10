@@ -30,7 +30,7 @@ internal sealed partial class ProcedureAnalysis
             var before = _reasons.Count;
             var step = AnalyzeStep(instruction);
 
-            // a statement compiled code cannot make with the calls it makes for an object is translated again, as it is when the interpreter makes them.
+            // a statement with a call for an object that compiled code cannot make is translated again without it, the interpreter making the call.
             if (step is not null && _nesting is not null && CallsForAnObject(step) && (!Admits(step) || ReadAndPassed(step) is not null))
             {
                 _reasons.RemoveRange(before, _reasons.Count - before);

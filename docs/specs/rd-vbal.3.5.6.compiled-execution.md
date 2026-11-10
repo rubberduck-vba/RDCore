@@ -233,8 +233,9 @@ if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10).
 - for a `For`, once the counter is given the start, before the first test of the counter.
 
 A member of a call that returns `Nothing` is the interpreter's, which raises error 91, and so is a member of what a call returns as `Object` or
-`Variant`, which is late-bound. A statement that compiled code cannot make with such a call, such as one where the call is given an object variable
-(`N = Doubled(Echo(P))`), is translated as if the call returned no object: the interpreter makes it, as it makes any call compiled code does not.
+`Variant`, which is late-bound. Where compiled code cannot make a call that returns an object, such as one given an object variable
+(`N = Doubled(Echo(P))`), the statement is translated as if the call returned no object, and the interpreter makes the call, as it makes any call
+compiled code does not.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
 function's result variable, a scalar public variable of an object (see Objects, above), `Err.Number`, a call, or an operation of these. The
