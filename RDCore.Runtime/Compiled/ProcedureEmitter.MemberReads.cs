@@ -3,7 +3,7 @@ using System.Reflection.Emit;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a public variable of an object it reads, and of Err.Number.
+// what compiled code does of a public variable of an object it reads, scalar or String, and of Err.Number.
 internal sealed partial class ProcedureEmitter
 {
     // Err.Number, where the session holds it (CompiledActivation.TryReadErrNumber).

@@ -7,7 +7,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a public variable of an object it reads, and of Err.Number.
+// what compiled code does of a public variable of an object it reads, and of Err.Number, Err.Description and Err.Source.
 public sealed partial class CompiledActivation
 {
     /// <summary>

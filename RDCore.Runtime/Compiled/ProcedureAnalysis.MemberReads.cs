@@ -5,8 +5,9 @@ using RDCore.Runtime.LanguageCore.Binding;
 
 namespace RDCore.Runtime.Compiled;
 
-// what compiled code does of a member of an object read in an expression that is no call of a procedure of the workspace: a scalar public variable, of an
-// object variable of the activation, of the default instance of a class, or of the object of the enclosing With block; and Err.Number.
+// what compiled code does of a member of an object read in an expression that is no call of a procedure of the workspace: a scalar public variable, or a
+// String one, of an object variable of the activation, of the default instance of a class, or of the object of the enclosing With block; and Err.Number,
+// Err.Description and Err.Source.
 internal sealed partial class ProcedureAnalysis
 {
     // Err.Number (MS-VBAL §6.1.3.2.2.5), of the standard library's Err: the number of the session's error, which compiled code reads where the session
