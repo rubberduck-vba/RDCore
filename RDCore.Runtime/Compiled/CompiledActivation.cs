@@ -50,11 +50,13 @@ public sealed partial class CompiledActivation : ILightActivation
     private CallStackFrame? _frame;
 
     // what an activation without a frame holds in place of one: the procedure it is of, the stack it is on, the instruction of the call it is making and the
-    // number of that call among the body's callees (-1 when it is making none), and its function result variable.
+    // number of that call among the body's callees (-1 when it is making none), or of the call of a function of the standard library among the body's
+    // libraries (-1 when it is making none), and its function result variable.
     private readonly VBTypeMemberSymbol? _procedure;
     private readonly RuntimeCallStack? _stack;
     private int _pc;
     private int _call = -1;
+    private int _library = -1;
     private ScalarPayload _result;
     private bool _hasResult;
 
@@ -87,7 +89,7 @@ public sealed partial class CompiledActivation : ILightActivation
         Array.Clear(_cells);
         (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
-        (_pc, _call, _hasResult, _failed, _unspilled) = (0, -1, false, null, false);
+        (_pc, _call, _library, _hasResult, _failed, _unspilled) = (0, -1, -1, false, null, false);
         _knowns?.Clear();
         _untilPoll = PollInterval;
 
@@ -116,6 +118,10 @@ public sealed partial class CompiledActivation : ILightActivation
         if (_call >= 0)
         {
             _ = frame.EnterCall(_body.Callees[_call].CallLocation);
+        }
+        else if (_library >= 0)
+        {
+            _ = frame.EnterCall(_body.Libraries[_library].Site);
         }
 
         if (_hasResult)
@@ -269,7 +275,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
         else
         {
-            (_pc, _call) = (pc, -1);
+            (_pc, _call, _library) = (pc, -1, -1);
         }
     }
 
@@ -286,7 +292,21 @@ public sealed partial class CompiledActivation : ILightActivation
         }
         else
         {
-            (_pc, _call) = (pc, callee);
+            (_pc, _call, _library) = (pc, callee, -1);
+        }
+    }
+
+    // the call of the function of the standard library numbered library, made at the instruction at pc, located at as SetCall locates a call.
+    private void SetLibraryCall(int pc, int library)
+    {
+        if (_frame is { } frame)
+        {
+            frame.Pc = pc;
+            _ = frame.EnterCall(_body.Libraries[library].Site);
+        }
+        else
+        {
+            (_pc, _call, _library) = (pc, -1, library);
         }
     }
 
@@ -1604,6 +1624,11 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
     /// The slot of <c>Me</c>, when the body is of a member of a class; <c>-1</c> otherwise.
     /// </summary>
     public int MeSlot { get; init; } = -1;
+
+    /// <summary>
+    /// The functions of the standard library the body calls inside an expression, by the number its nodes know each by (<see cref="LibraryCallNode"/>).
+    /// </summary>
+    public IReadOnlyList<CompiledLibraryCall> Libraries { get; init; } = [];
 
     /// <summary>
     /// The fields compiled code reaches, by the number it knows each by (<see cref="ProcedureAnalysis.Fields"/>).

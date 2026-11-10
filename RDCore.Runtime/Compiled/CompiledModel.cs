@@ -203,6 +203,9 @@ internal sealed record class ExtendedOperationNode(string Token, ExtendedNode Le
 // Extended.Negate.
 internal sealed record class ExtendedNegateNode(ExtendedNode Operand) : ExtendedNode;
 
+// Extended.Apply: Abs, Int, Fix, CDbl or CSng of an extended intermediate, by the key of the function.
+internal sealed record class ExtendedApplyNode(string Function, ExtendedNode Argument) : ExtendedNode;
+
 // the value of an expression of a Variant: a payload whose kind is the subtype it is of, which is known only when it is evaluated
 // (VariantPayload).
 internal abstract record class VariantNode;
@@ -372,6 +375,22 @@ internal sealed record class CallNode(int Callee, IReadOnlyList<PayloadNode> Arg
 // changed the variable since.
 internal sealed record class KnownNode(PayloadNode Value, int Syntax) : PayloadNode(Value.Kind);
 
+// a call of a function of the standard library inside an expression (Library, of CompiledBody.Libraries), made as the interpreter makes it: each argument
+// held in a Variant of its own subtype, as a Variant parameter passed by value is given it (MS-VBAL §5.3.1.11), and what it returns read as a payload of
+// its kind (Kind). Syntax names the call in its statement, as a CallNode's does: once it is made, the interpreter is given what it returned, and does not
+// make it again. It is -1 in an instruction that calls nothing else inside an expression, where the call is of a function that keeps nothing from call to
+// call, which the interpreter makes again when it is handed the instruction.
+internal sealed record class LibraryCallNode(int Library, IReadOnlyList<VariantNode> Arguments, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
+
+/// <summary>
+/// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>).
+/// </summary>
+/// <param name="Function">The function, as the call was bound to it.</param>
+/// <param name="Parameters">Its parameters, each a <c>Variant</c> passed by value: one the call gives no argument is given what an omitted one is.</param>
+/// <param name="Site">Where the call is written, which the activation is located at while the function runs, as the interpreter's is.</param>
+internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Function,
+    System.Collections.Immutable.ImmutableArray<SDK.Model.Symbols.VBProject.VBParameterSymbol> Parameters, SDK.Model.Source.SourceLocation Site);
+
 /// <summary>
 /// A procedure a compiled body calls: the symbol, and the kinds of its parameters and of what it returns.
 /// </summary>
@@ -420,6 +439,12 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     public LanguageCore.Binding.BoundMember? Site { get; init; }
 
     /// <summary>
+    /// Whether the call is of a member of the class of the caller, named by itself in it (MS-VBAL §5.6.10): it is made on <c>Me</c>, of the member
+    /// <see cref="Procedure"/> itself, which is the one <c>Me</c>'s class has.
+    /// </summary>
+    public bool OnMe { get; init; }
+
+    /// <summary>
     /// Where the call expression is: what the activation that makes the call is located at while the callee runs (<c>CallStackFrame.EnterCall</c>), as the
     /// interpreter locates it.
     /// </summary>
@@ -430,12 +455,6 @@ internal sealed record class CompiledCallee(SDK.Model.Symbols.Abstract.VBTypeMem
     /// <see cref="Procedure"/> is (<see cref="CompiledActivation.CanCallMember"/>): one implementing it, of an object declared as an interface.
     /// </summary>
     public SDK.Model.Symbols.Abstract.VBTypeMemberSymbol? Implementation { get; set; }
-
-    /// <summary>
-    /// Whether the call is of a member of the class of the caller, named by itself in it (MS-VBAL §5.6.10): it is made on <c>Me</c>, of the member
-    /// <see cref="Procedure"/> itself, which is the one <c>Me</c>'s class has.
-    /// </summary>
-    public bool OnMe { get; init; }
 
     /// <summary>
     /// The compiled member the call last entered directly (<see cref="CompiledActivation.EnterMemberDirectly"/>).

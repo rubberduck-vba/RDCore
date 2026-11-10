@@ -184,6 +184,20 @@ public readonly struct Extended
     public static Extended Negate(Extended operand)
         => operand._isDouble ? new Extended(-operand._double, operand._pending) : new Extended(operand._value.Negate(), operand._pending);
 
+    /// <summary>
+    /// <c>Abs</c>, <c>Int</c>, <c>Fix</c>, <c>CDbl</c> or <c>CSng</c> of an extended value, computed on its 80 bits as MS-VBA computes them
+    /// (<strong>MS-VBAL §6.1.2.10.1.1</strong>, <strong>§6.1.2.3.1.18</strong>, <strong>§6.1.2.3.1.16</strong>, <strong>§6.1.2.3.1.5</strong>,
+    /// <strong>§6.1.2.3.1.11</strong>): <c>CDbl</c> and <c>CSng</c> round it to their type.
+    /// </summary>
+    /// <param name="function">The function, by the key its implementation is found by (<c>IStdConversionModule.Int/1</c>).</param>
+    /// <param name="argument">The value it is given.</param>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static Extended Apply(string function, Extended argument)
+    {
+        var applied = ExtendedIntermediates.Apply(function, argument.AsWide(ScalarKind.Double))!.Value;
+        return new Extended(applied.Value, applied.Pending);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Extended AddWide(Extended left, Extended right)
         => new(Float80.Add(left.Wide, right.Wide, out var raised), left._pending | right._pending | raised);
