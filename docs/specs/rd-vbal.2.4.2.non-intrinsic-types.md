@@ -8,7 +8,7 @@ The non-intrinsic types are:
 |---|---|
 |[VBStdModuleType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBStdModuleType.html)|[§2.4.2.1](#2421-vbstdmoduletype)|
 |[VBClassType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBClassType.html)|[§2.4.2.2](#2422-vbclasstype)|
-|[VBCollectionType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBCollectionType.html)|[§2.4.2.3](#2423-vbcollectiontype)|
+|Enumerable class types|[§2.4.2.3](#2423-enumerable-class-types)|
 |[VBEnumType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Complex.VBEnumType.html)||
 |[VBProjectType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.VBProjectType.html)|[§2.4.2.4](#2424-vbprojecttype)|
 |[VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html)|[§2.4.2.5](#2425-vbunknowntype)|
@@ -62,16 +62,14 @@ A class can have exactly one member with a `VB_UserMemId` attribute value of `0`
 
 The default member of a class type can be implicitly invoked through _let-coercion_, yielding the _data value_ of the object; see [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md). When the default member also yields an object data type, the implicit invocation recurses as needed; see [**RD-VBAL §5.6.2** Expression Evaluation](rd-vbal.5.6.2.expression-evaluation.md).
 
-## 2.4.2.3 VBCollectionType
+## 2.4.2.3 Enumerable Class Types
 
-> **Extension point:** _Object value_ types (inheriting [VBObjectValue](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Values.Intrinsic.VBObjectValue.html)) that represent an instance of a collection type should implement [IEnumerableObject](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.Abstract.IEnumerableObject.html).
+A class is enumerable when one of its members has a `VB_UserMemId` attribute value of `-4` (`DISPID_NEWENUM`), its _enumeration member_. The `Collection` class of the VBA library is one ([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)); a workspace class is one when its module states the attribute.
 
-`VBCollectionType` is a subclass of `VBClassType` that exposes a `NewEnum` member.
-
-A `VBCollectionType` can be efficiently iterated using a `For Each...Next` loop structure; see [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md).
+An enumerable class has no type of its own: its type is a `VBClassType`. A `For Each...Next` loop finds the enumeration member on the class of the object it iterates; see [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md).
 
 > [!TIP]
-> `For Each...Next` enumeration is intended to be used with collections containing objects. Performance-related _diagnostics_ should be issued when a `VBCollectionType` is accessed by index within the body of a `For...Next` loop; see [**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md).
+> `For Each...Next` enumeration is intended to be used with collections containing objects. Performance-related _diagnostics_ should be issued when an object of an enumerable class is accessed by index within the body of a `For...Next` loop; see [**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md).
 
 ### Data Members
 
