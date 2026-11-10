@@ -772,6 +772,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     /// <summary>
     /// The holder of the block opened at <paramref name="openerOffset"/>, left where it is: what <see cref="TakeBlockHolder"/> would take away.
     /// </summary>
+    /// <param name="openerOffset">The offset of the statement that opened the block.</param>
     /// <returns>The holder; <see langword="null"/> when the block holds nothing.</returns>
     public ValueBindingHandle? BlockHolderOf(int openerOffset)
         => _occasional?.BlockHolders is { } holders && holders.TryGetValue(openerOffset, out var holder) ? holder.Cell : null;

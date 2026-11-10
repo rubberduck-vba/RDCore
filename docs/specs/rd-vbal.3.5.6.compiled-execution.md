@@ -163,15 +163,15 @@ A `Let` or `Set` of a property of one of the procedure's object variables, or of
 `Set .Strategy = S`), is a call compiled code makes (MS-VBAL §5.4.3.8, §5.4.3.9): it calls the `Property Let` or `Property Set` of the class the object is
 declared as, or the one implementing it when the object's class implements that class as an interface, with the value as its last argument. The value is
 passed as a value, even to a parameter declared `ByRef`: what the property procedure writes to its parameter is not written to the variable the value was
-read from. While the property procedure runs, the procedure is located at the statement. Compiled code makes this call only for a value it converts to the
-parameter's type without rounding: a value of the parameter's type, an integer or a `Boolean`, or a `Single` or `Double` given to a `Single`, a `Double` or a
-`Boolean`. Any other value (a `Double` given to a `Long`, a `Currency`, a `Variant`, a `Date`), a member of `Me`, and a public field are assigned by the
+read from. While the property procedure runs, its caller is located at the statement. Compiled code makes this call only for a value it converts to the
+parameter's type without rounding: a value of the parameter's type, an integer or a `Boolean` (except a `LongLong` given to a `Single`), or a `Single` or
+`Double` given to a `Single`, a `Double` or a `Boolean`. Any other value (a `Double` given to a `Long`, a `Currency`, a `Variant`, a `Date`), a member of `Me`, and a public field are assigned by the
 interpreter, as above.
 
 Compiled code also calls a member of the object of a `With` block (`.Add 1`, `N = .Total()`) as it calls a member of an object variable (see Objects,
 above). The `With` statement is the interpreter's: it evaluates the object and holds it for the block (MS-VBAL §5.4.2.21). The `End With` is compiled
-code's: the block has no object from there on, and what it held is let go of. When letting go of it destroys the object, whose `Class_Terminate` then runs,
-and under a debugger, the interpreter runs the `End With`. What the block holds is also let go of when the procedure is left. Compiled code reads the object
+code's: the block has no object from there on, and what it held is let go of. The interpreter runs the `End With` instead under a debugger, and when
+letting go of the object destroys it, whose `Class_Terminate` then runs. What the block holds is also let go of when the procedure is left. Compiled code reads the object
 where the interpreter holds it, each time it needs it, so a jump out of the block and back in finds the same object. A block whose `With` statement did not run (jumped into), or whose object raised an error that
 `On Error Resume Next` went past, has no object, and neither does a block of `Nothing`: a member of it raises error 91, as in the interpreter.
 

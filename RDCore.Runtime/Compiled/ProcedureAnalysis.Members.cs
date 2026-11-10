@@ -66,7 +66,7 @@ internal sealed partial class ProcedureAnalysis
     // MS-VBAL §5.4.3.8, §5.4.3.9 with a <member-access-expression> target that is a property of an object variable of the activation, or of the object of the
     // enclosing With block, declared as a class: its Property Let, or its Property Set, called by compiled code as InvokeAssignment calls it, with the value
     // as its last argument, given as a value whatever the parameter's passing, and the activation located at its statement while it runs. It is the member
-    // of the class the object is declared as: an object of another class, which implements it, is assigned by the interpreter (CompiledActivation.Takes). A
+    // of the class the object is declared as, and of an object of a class that implements it as an interface, the implementing one (CompiledActivation.MemberOf). A
     // property indexed by arguments, and one whose value parameter compiled code passes nothing to, is the interpreter's to assign; the reasons this found
     // are not the statement's.
     private CallStep? AccessorCallOf(int offset, AssignmentStatementNode assignment, bool isSet)
@@ -106,9 +106,9 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // whether compiled code converts the value to the kind of the parameter without declining, whatever value of its declared type it is, short of one out of
-    // the parameter's range, which is an error the interpreter raises (PayloadOperations.Convert): a value of that kind; an integer or a Boolean, to any kind (a LongLong to a Single excepted); a Single or a Double, to a
-    // Single, a Double or a Boolean. What it would decline - a floating-point number to an integer type, which the interpreter rounds, a Currency, a Variant,
-    // a Date - it hands the interpreter to assign, as any member's (MemberLetStep). An object parameter's value is Set-coerced, and declines nothing.
+    // the parameter's range, which is an error the interpreter raises (PayloadOperations.Convert): a value of that kind; an integer or a Boolean, to any
+    // kind (a LongLong to a Single excepted); a Single or a Double, to a Single, a Double or a Boolean. What it would decline (a floating-point number to an
+    // integer type, which the interpreter rounds, a Currency, a Variant, a Date) it hands the interpreter to assign, as any member's (MemberLetStep). An object parameter's value is Set-coerced, and declines nothing.
     private bool ConvertsWithoutDeclining(ExpressionNode value, VBParameterSymbol parameter)
     {
         if (IsObjectType(parameter.ResolvedType))

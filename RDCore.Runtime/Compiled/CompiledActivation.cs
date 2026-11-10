@@ -476,7 +476,7 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
-    // Property Let or Set, as an assignment finds it (ResolveAssignableMember) - the accessor itself, of an object of the class the call was bound to, and the
+    // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
     // one implementing it, of a class that implements that class as an interface.
     private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
     {

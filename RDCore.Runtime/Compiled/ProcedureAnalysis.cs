@@ -304,8 +304,8 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
-    // have compiled code do something at each pass - a Let, a call (a Property Let or Set of an object included), a condition, a Case it compares and its
-    // Select Case, the loop's back edge with its condition or a Next counting, an End With - which saves more than a step around the rest costs; a jump back
+    // have compiled code do something at each pass (a Let, a call, a Property Let or Set of an object included, a condition, a Case it compares and its
+    // Select Case, the loop's back edge with its condition or a Next counting, an End With), which saves more than a step around the rest costs; a jump back
     // saves nothing, nor does a For statement, run once. What another loop does saves nothing of this one's passes. When it steps nothing in a loop, anything
     // at all will do.
     private bool GainsAnything(InstructionList list)
