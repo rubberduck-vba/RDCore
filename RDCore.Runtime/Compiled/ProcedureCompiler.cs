@@ -262,8 +262,8 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
     // what the code of a procedure is compiled from: its body (ProgramImage.ProcedureFingerprints), and what the analysis made of it for the session's scopes
     // (the kinds of its slots and its result, its steps, its frame, the procedures it calls), which a library that resolves otherwise, or a #If whose branch
-    // differs, changes when the body does not. And the size of a pointer in the session's environment, which a LongPtr is the integer of (MS-VBAL §2.2): code
-    // built for one is never run in an environment of the other, whatever else the analysis made of it.
+    // differs, changes when the body does not. The size of a pointer in the session's environment is part of it too, since a LongPtr is an
+    // integer of that size (MS-VBAL §2.2): code built for one environment never runs in the other, whatever else the analysis made of it.
     private static string FingerprintOf(string body, ProcedureAnalysis analysis, bool is64Bit)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

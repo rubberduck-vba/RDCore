@@ -30,5 +30,6 @@ internal static class DeclaredValues
     /// </summary>
     /// <param name="type">The declared type.</param>
     /// <param name="value">The runtime value.</param>
+    /// <returns>A value of the type, as <see cref="Of(VBType, IBindingHandle)"/> makes it of a binding to <paramref name="value"/>.</returns>
     public static VBTypedValue Of(VBType type, IRuntimeValue value) => Of(type, new ValueBindingHandle(value));
 }

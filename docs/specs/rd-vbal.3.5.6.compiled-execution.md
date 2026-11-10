@@ -17,11 +17,11 @@ passed `ByVal` or `ByRef`, its scalar variables, and the result of a function th
 result declared as one is held as a `Long`. Everything else the procedure has stays in its frame, as in the interpreter: `Me`, a `ParamArray`, an
 object, a `String`, a `Variant`, an array and a record.
 
-A `LongPtr` is a scalar too. It is the integer type it is an alias of (MS-VBAL §2.2): a `LongLong` in a 64-bit environment and a `Long` in a 32-bit one.
-The environment decides, not the process RDCore runs in, so a program run as 32-bit overflows a `LongPtr` past the range of a `Long` (error 6), as it overflows a `Long`.
-A variable declared as a `LongPtr` still holds a `LongPtr`: `VarType`, `LenB`, `Hex$` and a `Declare` see one, in either engine. A `Variant` assigned
-a `LongPtr` holds the type it is an alias of, as the interpreter's let-coercion makes it. Code that `rdc build` compiled for one environment never runs
-in a session of the other: each procedure is compiled again at its first call.
+A `LongPtr` is a scalar too. It is the integer type it is an alias of (MS-VBAL §2.2): a `LongLong` in a 64-bit environment and a `Long` in a 32-bit
+one. The session's environment decides it, whatever the process RDCore runs in, so in a 32-bit environment a `LongPtr` past the range of a `Long`
+overflows (error 6). A variable declared as a `LongPtr` holds a `LongPtr`: `VarType`, `LenB`, `Hex$` and a `Declare` see one, in either engine. A
+`Variant` assigned a `LongPtr` holds the type it is an alias of, as the interpreter's let-coercion makes it. Code that `rdc build` compiled for one
+environment never runs in a session of the other: there, each procedure is compiled again at its first call.
 
 ### Variants
 

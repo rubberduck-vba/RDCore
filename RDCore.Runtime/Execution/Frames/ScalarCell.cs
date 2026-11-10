@@ -9,10 +9,9 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// The cell of a variable of a scalar type - <c>Byte</c>, <c>Integer</c>, <c>Long</c>, <c>LongLong</c>, <c>LongPtr</c>, <c>Single</c>, <c>Double</c>,
-/// <c>Boolean</c>, <c>Currency</c>, <c>Date</c> - that holds
-/// its value as a payload rather than a boxed runtime value (IR lowering S1.2): what an expression evaluated on payloads reads and writes, without making a
-/// value of it.
+/// The cell of a variable of a scalar type (<c>Byte</c>, <c>Integer</c>, <c>Long</c>, <c>LongLong</c>, <c>LongPtr</c>, <c>Single</c>, <c>Double</c>,
+/// <c>Boolean</c>, <c>Currency</c> or <c>Date</c>) that holds its value as a payload rather than a boxed runtime value: what an expression
+/// evaluated on payloads reads and writes, without making a value of it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -241,8 +240,8 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
     };
 
     /// <summary>
-    /// The value of <see cref="Type"/> the payload is: a <c>LongPtr</c> of the environment's width, made from the integer it is, since a value the 32-bit
-    /// type makes of a binding is of the 64-bit one.
+    /// The value of <see cref="Type"/> the payload is: a <c>LongPtr</c> of the environment's width, made from the integer it is, as
+    /// <see cref="DeclaredValues"/> makes one.
     /// </summary>
     public VBTypedValue Typed() => Type switch
     {
