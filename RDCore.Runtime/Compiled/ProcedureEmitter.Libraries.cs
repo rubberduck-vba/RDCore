@@ -56,7 +56,7 @@ internal sealed partial class ProcedureEmitter
         return new Operand(returned, 0, 0);
     }
 
-    // the arguments evaluated as EmitLibraryCall evaluates them, then the call, into result: what is no payload of a scalar subtype - Empty, a String - gives
+    // the arguments evaluated as EmitLibraryCall evaluates them, then the call, into result: what is no payload of a scalar subtype (Empty, a String) gives
     // the interpreter the call, as an error does. The call is not known: the interpreter makes it again, given what was known of its arguments.
     private void EmitLibraryVariantCall(LibraryVariantNode node, LocalBuilder result, Label failure)
     {

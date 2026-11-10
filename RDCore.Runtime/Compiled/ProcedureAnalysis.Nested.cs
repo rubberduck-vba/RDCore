@@ -224,7 +224,7 @@ internal sealed partial class ProcedureAnalysis
         TemporaryNode temporary => Admits(temporary.Value),
         UnvariantNode unvariant => Admits(unvariant.Value),
         TruthNode truth => Admits(truth.Value),
-        // what a call returns, compared with Nothing or with what another returns: an object read - of a variable, a field, an element - is not known.
+        // what a call returns, compared with Nothing or with what another returns: an object read (of a variable, a field, an element) is not known.
         ElementIsNode compared => Admits(compared.Left) && Admits(compared.Right),
         _ => false,
     };
@@ -236,8 +236,8 @@ internal sealed partial class ProcedureAnalysis
         _ => false,
     };
 
-    // a Variant computed of what is admitted, and what a function of the standard library returns of it; a Variant read - of a variable, a field, an
-    // element - is not known, and would be read again.
+    // a Variant computed of what is admitted, and what a function of the standard library returns of it; a Variant read (of a variable, a field, an
+    // element) is not known, and would be read again.
     private static bool Admits(VariantNode node) => node switch
     {
         VariantOfNode of => Admits(of.Value),

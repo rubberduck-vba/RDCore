@@ -191,7 +191,7 @@ public sealed class CompiledArrayFieldTests
             "End Function"]), [], "| 221  2 |",
             ("Play", 0), ("Score", 0));
 
-    // an array variable of an enumeration: its elements are Longs, held in cells of the Long type, as a variable declared as the enumeration is - and so are
+    // an array variable of an enumeration: its elements are Longs, held in cells of the Long type, as a variable declared as the enumeration is, and so are
     // those of one a ReDim sizes.
     [TestMethod]
     public async Task AnArrayOfAnEnumeration_IsReadAndWrittenInCompiledCode()

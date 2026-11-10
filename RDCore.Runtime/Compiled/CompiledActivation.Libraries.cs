@@ -47,6 +47,13 @@ public sealed partial class CompiledActivation
     /// Calls the function of the standard library numbered <paramref name="library"/> of the body for the <c>Variant</c> it returns, as
     /// <see cref="CallLibrary"/> calls one: <paramref name="value"/> is the payload the <c>Variant</c> holds, of its own subtype.
     /// </summary>
+    /// <param name="pc">The offset of the instruction that makes the call.</param>
+    /// <param name="library">The number of the call among the body's libraries.</param>
+    /// <param name="count">How many arguments the call is given.</param>
+    /// <param name="first">The first argument, when it is given one.</param>
+    /// <param name="second">The second argument, when it is given two.</param>
+    /// <param name="third">The third argument, when it is given three.</param>
+    /// <param name="value">What the <c>Variant</c> the function returned holds, when it holds a value of a scalar type.</param>
     /// <returns>
     /// Whether the <c>Variant</c> holds a value of a scalar type. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>), with the error
     /// the function raised, or to make it as it always does.

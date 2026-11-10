@@ -116,6 +116,9 @@ public static class RecordOperations
     /// and <see cref="ArrayOperations"/> finds an element and the bounds in it, as it does in the array an array variable's cell holds. <see langword="null"/>
     /// when there is no such record.
     /// </summary>
+    /// <param name="record">The record, as its cell holds it.</param>
+    /// <param name="index">The field's place among the record's fields.</param>
+    /// <returns>The array, or <see langword="null"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? ArrayField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBArrayValue;
 

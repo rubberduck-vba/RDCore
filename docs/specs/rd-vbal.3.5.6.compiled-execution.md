@@ -261,8 +261,9 @@ compiled or not: one the interpreter runs is called as the interpreter calls it.
 Compiled code also calls a member of what such a function or `Property Get` returns, when it is declared as a class (`Y = S.Pos.Y`,
 `N = S.Pos.Twice + 1`, `Make().Pos.Bump`). It also reads a scalar public variable of it, gives it to an object parameter by value (see Objects,
 above), and compares it with `Nothing` or with what another such call returns, using `Is` (`OK = Fits(P) And Overlaps(P) Is Nothing`,
-**MS-VBAL §5.6.9.7**). The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as the interpreter does:
-if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10). An object something else holds lives on. The statement is over:
+**MS-VBAL §5.6.9.7**). The call that returns the object is made once. The statement holds the object until it is over, and then lets go of it, as
+the interpreter does: if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10). An object something else holds lives on.
+The statement is over:
 
 - after its assignment or its call;
 - for an `If`, an `ElseIf` or a loop, once its condition is evaluated, before the jump the condition decides;
@@ -324,7 +325,8 @@ interpreter's, below), and the function is given that value as the interpreter g
 `IIf` is given both its parts, evaluated, the true part first, whichever it returns (**MS-VBAL §6.1.2.8.1.11**): `IIf(C, F(1), F(2))` calls both. It
 returns a `Variant`, and an operation of it is the `Variant`'s: `IIf(C, 32767, 1) + 1` is the `Long` 32768, not an overflow. When it returns a
 `String` or anything else that is not a number, a `Boolean` or a `Date`, the interpreter runs the statement on its own. `IIf` keeps nothing from call
-to call, so when compiled code hands its statement to the interpreter, the interpreter calls it again, with the parts compiled code evaluated.
+to call, so when compiled code hands its statement to the interpreter, the interpreter calls it again, given its parts as compiled code evaluated
+them: a call in a part is not made twice.
 
 `Rnd` moves the random number generator at each call, so compiled code calls it only in a statement listed under Calls inside an expression, above. When
 compiled code hands that statement to the interpreter after the call, it gives the interpreter the number `Rnd` returned, so no number is drawn twice. A
