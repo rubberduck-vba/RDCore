@@ -1434,7 +1434,7 @@ internal sealed partial class ProcedureAnalysis
 
             // a field of a record of the activation.
             case BoundMember member when RecordFieldOf(member) is { } field:
-                return FieldPayload(member, field);
+                return FieldPayload(member, field) is { } fieldRead ? Read(fieldRead, member) : null;
 
             // a public variable of an object, and Err.Number (ProcedureAnalysis.MemberReads.cs).
             case BoundMember member when (MemberFieldOf(member) ?? ErrNumberOf(member)) is { } read:

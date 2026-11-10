@@ -285,8 +285,8 @@ internal sealed partial class ProcedureAnalysis
         var aliased = passed.Overlaps(byReference);
         return nodes.OfType<KnownNode>().FirstOrDefault(read => read.Value is SlotNode { Slot: var slot } && (!early || arguments.Contains(read))
             && (passed.Contains(slot) || aliased && byReference.Contains(slot) || FieldSlots.Contains(slot))
-            // a public variable of an object, which any call may change, as a field.
-            || read.Value is MemberFieldNode && (!early || arguments.Contains(read)));
+            // a field of a record, and a public variable of an object, which any call may change, as a field.
+            || read.Value is FieldNode or MemberFieldNode && (!early || arguments.Contains(read)));
     }
 
     // the types of an operand MS-VBA reads where it is written, before a call right of it changes it (RD-VBAL §5.6.9.2): what compiled code reads, and the
