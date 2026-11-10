@@ -278,17 +278,17 @@ A member of a call that returns `Nothing` is the interpreter's, which raises err
 compiled code does not.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
-function's result variable, a scalar field of a record (see Records, above), a scalar public variable of an object (see Objects, above),
+function's result variable, a scalar field of a record (see Records, above), an element of an array of a scalar type, at subscripts that are such
+operands too (`State = this.State(Position.X, Position.Y)`, see Arrays, above), a scalar public variable of an object (see Objects, above),
 `Err.Number`, `LBound` or `UBound` of an array, a call, `IIf` of these (see Functions of the standard library, below), or an operation of these, the
 operations of the `Variant` `IIf` returns included. The interpreter runs a statement with any other operand on its own, as described below: a
-`Variant` variable, a `String`, an object or an element of an array. Such an operand would be read a second time after a call that may have changed
-it.
+`Variant` variable, a `String` or an object. Such an operand would be read a second time after a call that may have changed it.
 An object given to a call as its argument (`If B.Hit(Target) Then`) is no operand: compiled code reads it when it makes the call, after the calls left of
 it, as the interpreter does.
 
 A statement can read a variable that a call in it may change: one it also passes `ByRef` to the call, such as `X = A + Bump(A)`; a `ByRef` parameter,
 while it passes another `ByRef` parameter to a call, since the two may be the same variable of the caller; or a variable of a module, a field of a
-record or a public variable of an object, which any call may change. Compiled code runs such a statement when every operation in it is of
+record, an element of an array or a public variable of an object, which any call may change. Compiled code runs such a statement when every operation in it is of
 type `Byte`, `Boolean`, `Integer`, `Long`, `LongLong` or `Currency`, and the variable is an operand, not an argument of a call. It reads the variable
 where it is written, as MS-VBA does ([**RD-VBAL §5.6.9.2**](rd-vbal.5.6.9.2.simple-data-operators.md#when-an-operand-is-read)). The interpreter runs
 any other such statement on its own: one that computes a `Single`, a `Double` or a `Date`, and one that gives the variable to a call as an argument.
