@@ -12,11 +12,14 @@ internal sealed partial class ProcedureAnalysis
     // type, given by reference, is given its address, which the parameter is a second name for; one given by value, or to a parameter passed by value, is
     // given the object it holds, Set-coerced to the parameter's type when the call is made (CompiledActivation.SetObject). A call that returns an object, in
     // an instruction that calls inside an expression, gives what it returns (ObjectCallOf). Any other argument (a field given by reference, a WithEvents
-    // variable, a member, New) is the interpreter's to give, which makes the call.
+    // variable, a member, New) is the interpreter's to give, which makes the call. An optional parameter the call leaves out is given Nothing, the default
+    // value of its type, with no argument to Set-coerce (RuntimeExpressionEvaluator.OmittedArgument).
     private PayloadNode? ObjectArgumentOf(BoundArgument argument)
     {
         switch (argument)
         {
+            case { Passing: ArgumentPassing.Omitted }:
+                return new ObjectArgumentNode(null);
             case { Passing: ArgumentPassing.Value, Value: { } called } when ObjectCallOf(called) is { } returned:
                 return new ObjectArgumentNode(null) { Call = returned };
             case { Passing: ArgumentPassing.Reference, Value: BoundVariable variable }

@@ -980,7 +980,7 @@ internal sealed partial class ProcedureAnalysis
                     return null;
                 }
 
-                (objects ??= new ObjectParameter?[parameters.Length])[i] = new ObjectParameter(arguments[i].Expression!, parameters[i].ResolvedType);
+                (objects ??= new ObjectParameter?[parameters.Length])[i] = new ObjectParameter(arguments[i].Expression, parameters[i].ResolvedType);
                 kinds.Add(null);
                 byReference.Add(RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind));
                 values.Add(passed);
@@ -1047,11 +1047,13 @@ internal sealed partial class ProcedureAnalysis
 
     // the argument of a parameter of kind: a value let-coerced to it, for one passed by value or for one passed by reference that is given no variable; the
     // cell of a variable of the activation of that very kind, for one passed by reference that is given it. A variable of another kind, or of another
-    // activation - a field, an element - is the interpreter's to pass.
+    // activation - a field, an element - is the interpreter's to pass. An optional parameter the call leaves out is given its default (OmittedArgumentOf).
     private PayloadNode? ArgumentOf(BoundArgument argument, ScalarKind kind)
     {
         switch (argument)
         {
+            case { Passing: ArgumentPassing.Omitted } when OmittedArgumentOf(argument.Parameter, kind) is { } omitted:
+                return BoundArgument.IsByRef(argument.Parameter) ? new TemporaryNode(omitted) : omitted;
             case { Passing: ArgumentPassing.Value, Value: { } given } when BoundArgument.IsByRef(argument.Parameter):
                 return PayloadAs(given, kind) is { } copied ? new TemporaryNode(copied) : null;
             case { Passing: ArgumentPassing.Value, Value: { } given }:
@@ -1061,6 +1063,21 @@ internal sealed partial class ProcedureAnalysis
             default:
                 return null;
         }
+    }
+
+    // MS-VBAL §5.3.1.11: what an optional parameter of kind the call leaves out is given, as the interpreter gives it (RuntimeExpressionEvaluator.OmittedArgument):
+    // the default the parameter declares, let-coerced to its type, or the default value of its type. One whose default is the calling module's Option
+    // Compare, and one whose default raises an error, are the interpreter's to give.
+    private ConstantNode? OmittedArgumentOf(VBParameterSymbol parameter, ScalarKind kind)
+    {
+        if (parameter.TryGetProperty(SymbolProperties.DefaultsToOptionCompare, out var callers) && callers
+            || _evaluator.OmittedArgument(_session, parameter) is not { IsSuccess: true, Result: { } omitted }
+            || !ScalarPayload.TryOf(parameter.ResolvedType, omitted.RuntimeValue, out var payload) || ScalarKinds.Of(payload.Type) != kind)
+        {
+            return null;
+        }
+
+        return new ConstantNode(kind, payload.Integral, payload.Floating);
     }
 
     private CompiledStep? RefusedCall(ExpressionNode callee, SourceLocation? location)
