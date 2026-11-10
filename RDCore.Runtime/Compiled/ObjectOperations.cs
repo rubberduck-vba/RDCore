@@ -1,4 +1,6 @@
+using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Runtime.Compiled;
@@ -14,7 +16,7 @@ public static class ObjectOperations
     /// <summary>
     /// The reference the object held in <paramref name="cell"/> is: <c>Nothing</c> is the default one.
     /// </summary>
-    /// <param name="cell">The cell of the object variable.</param>
+    /// <param name="cell">The cell of the object variable, or of a <c>Variant</c> that holds an object.</param>
     /// <param name="instance">The reference read.</param>
     /// <returns>Whether the cell holds a reference compiled code reads.</returns>
     internal static bool TryRead(object? cell, out VBRuntimeObjectId instance)
@@ -22,6 +24,12 @@ public static class ObjectOperations
         if (cell is ValueBindingHandle { IsKnown: true, Value: VBRuntimeValue<VBRuntimeObjectId> held })
         {
             instance = held.StoredValue;
+            return true;
+        }
+
+        if (cell is VariantCell { IsKnown: true, Value: VBRuntimeVariantValue { WrappedValue: VBObjectValue reference } })
+        {
+            instance = reference.Value;
             return true;
         }
 

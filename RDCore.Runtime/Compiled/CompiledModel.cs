@@ -283,8 +283,9 @@ internal sealed record class ObjectArgumentNode(int? Slot) : PayloadNode(default
 internal sealed record class ObjectReferenceNode(int Slot) : PayloadNode(default(ScalarKind));
 
 // an object parameter of a procedure a compiled body calls: the argument's expression, where an error Set-coercing what it gives is raised, and the
-// parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to.
-internal sealed record class ObjectParameter(SDK.Model.AST.Abstract.ExpressionNode Argument, SDK.Model.Types.Abstract.VBType Type);
+// parameter's declared type (Object, a class or an interface), which the object given is Set-coerced to. An optional parameter the call leaves out has no
+// argument: it is given the default value of its type, Nothing, as the interpreter gives it (RuntimeExpressionEvaluator.OmittedArgument).
+internal sealed record class ObjectParameter(SDK.Model.AST.Abstract.ExpressionNode? Argument, SDK.Model.Types.Abstract.VBType Type);
 
 // an instruction of the body, compiled: each is at the offset of the instruction it is.
 internal abstract record class CompiledStep(int Offset);
@@ -411,6 +412,11 @@ internal sealed record class KnownNode(PayloadNode Value, int Syntax) : PayloadN
 // make it again. It is -1 in an instruction that calls nothing else inside an expression, where the call is of a function that keeps nothing from call to
 // call, which the interpreter makes again when it is handed the instruction.
 internal sealed record class LibraryCallNode(int Library, IReadOnlyList<VariantNode> Arguments, ScalarKind Kind, int Syntax) : PayloadNode(Kind);
+
+// a call of a function of the standard library that returns a Variant and keeps nothing from call to call (IIf), made as a LibraryCallNode is, each of its
+// arguments evaluated first, and what it returns the Variant's payload, of its own subtype. The interpreter makes it again when it is handed the
+// instruction, given what compiled code read and called for its arguments.
+internal sealed record class LibraryVariantNode(int Library, IReadOnlyList<VariantNode> Arguments) : VariantNode;
 
 /// <summary>
 /// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>).

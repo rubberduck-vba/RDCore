@@ -39,6 +39,54 @@ internal sealed partial class ProcedureAnalysis
         ["IStdMathModule.Rnd/1"] = true,
     }.ToImmutableDictionary(StringComparer.Ordinal);
 
+    // the functions compiled code calls for a Variant they return, each of parameters of the Variant type passed by value, and keeping nothing: IIf, which
+    // is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11).
+    private static readonly ImmutableHashSet<string> VariantLibraryFunctions = ImmutableHashSet.Create(StringComparer.Ordinal,
+        "IStdInteractionModule.IIf/3");
+
+    // whether symbol is a function of the standard library compiled code calls for the Variant it returns.
+    private static bool IsVariantLibrary(Symbol symbol)
+        => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && VariantLibraryFunctions.Contains(target)
+            && StandardLibrary.IsLibraryMember(symbol);
+
+    // a call of such a function, with its arguments as LibraryCallOf takes them: every parameter given one, by value.
+    private VariantNode? LibraryVariantOf(BoundCall call, VBTypeMemberSymbol function)
+    {
+        var parameters = RuntimeProcedureInvoker.GetParameters(function);
+        if (call.BoundArguments is not { } arguments || arguments.Length != parameters.Length || parameters.Length > 3)
+        {
+            Unsupported(call);
+            return null;
+        }
+
+        var values = new List<VariantNode>(parameters.Length);
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (parameters[i] is ParamArrayParameterSymbol || parameters[i].ResolvedType is not VBVariantType || RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind)
+                || parameters[i].GetProperty(SymbolProperties.PassedByAddress))
+            {
+                Unsupported(call);
+                return null;
+            }
+
+            if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value })
+            {
+                Unsupported(call);
+                return null;
+            }
+
+            if (Dynamic(value) is not { } argument)
+            {
+                return null;
+            }
+
+            values.Add(argument);
+        }
+
+        Libraries.Add(new CompiledLibraryCall(function, parameters, call.Expression.SourceLocation));
+        return new LibraryVariantNode(Libraries.Count - 1, values);
+    }
+
     // whether symbol is a function of the standard library compiled code calls.
     private static bool IsCompiledLibrary(Symbol symbol)
         => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && CompiledLibraryFunctions.ContainsKey(target)

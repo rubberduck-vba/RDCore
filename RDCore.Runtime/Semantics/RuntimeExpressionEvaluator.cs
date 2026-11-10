@@ -154,7 +154,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private static void SetArrayElement(VBResizableArrayValue array, int index, VBTypedValue element)
     {
         var value = DataValues.Copy(element is VBVariantValue variant ? variant : new VBVariantValue(element));
-        array.TrySetElement(BindingKnowledge.NewCell(value), index);
+        array.TrySetElement(value is VBVariantValue copied ? ElementCells.OfVariant(copied) : BindingKnowledge.NewCell(value), index);
     }
 
     // MS-VBAL 3.3.5.2: the array operand is evaluated as the expression it is - for a variable, that is the array it holds (VBArrayType.CreateValue hands
@@ -2409,7 +2409,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     return new ParamArrayCollectResult(null, RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!));
                 }
 
-                array.TrySetElement(BindingKnowledge.NewCell(setResult.Result!), i);
+                array.TrySetElement(CollectedCopy(setResult.Result!), i);
                 continue;
             }
 
@@ -2425,11 +2425,15 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return new ParamArrayCollectResult(null, RuntimeSemanticsEvaluationResult.Error(coercionResult.ErrorInfo!));
             }
 
-            array.TrySetElement(BindingKnowledge.NewCell(coercionResult.Result!), i);
+            array.TrySetElement(CollectedCopy(coercionResult.Result!), i);
         }
 
         return new ParamArrayCollectResult(new VBRuntimeValue<VBRuntimeArrayValue>(new VBRuntimeArrayValue(array)), null);
     }
+
+    // the element a param array collects a copy of an argument in: a Variant's cell, as an element of a Variant array is (ElementCells).
+    private static IBindingHandle CollectedCopy(VBTypedValue copy)
+        => copy is VBVariantValue variant ? ElementCells.OfVariant(variant) : BindingKnowledge.NewCell(copy);
 
     // the cell an element of a param array is when its argument is a variable, passed by reference as one is to a ByRef Variant parameter: a Variant that
     // refers to the variable, as the type it is declared. An array, a record and a fixed-length String are given as a copy: MS-VBA's behaviour with one is
@@ -3173,10 +3177,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
     // MS-VBAL §5.6.7: "If the value type of <expression> is Nothing, runtime error 91 (Object variable or With block variable not set) is raised" (MS-VBA
     // does, whatever the type, Excel-verified); a value that is no object - a Variant holding a number, a record - is no instance of any type: False. Null
-    // when the operand is an object that is something.
+    // when the operand is an object that is something. Variant is a declared type, not a value type (MS-VBAL §2.2): the value type of a Variant operand is
+    // that of the data value it holds, so it is tested for the object it holds.
     private static RuntimeSemanticsEvaluationResult? NotAnObject(RuntimeSemanticsEvaluationResult operandResult, ExpressionNode expression)
     {
-        if (operandResult.Result is not VBObjectValue objectValue)
+        if (TestedObject(operandResult) is not { } objectValue)
         {
             return RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(false));
         }
@@ -3197,9 +3202,21 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return notAnObject;
         }
 
-        return IsInstanceOf(session, ((VBObjectValue)operandResult.Result!).Value, targetClass) is { } isOf
+        return IsInstanceOf(session, TestedObject(operandResult)!.Value, targetClass) is { } isOf
             ? RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(isOf))
             : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // the object an operand of TypeOf evaluated to, or that the Variant it evaluated to holds: none, of a value that is no object.
+    private static VBObjectValue? TestedObject(RuntimeSemanticsEvaluationResult operandResult)
+    {
+        var value = operandResult.Result;
+        while (value is VBVariantValue { TypedValue: var held })
+        {
+            value = held;
+        }
+
+        return value as VBObjectValue;
     }
 
     /// <summary>
