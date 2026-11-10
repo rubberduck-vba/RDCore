@@ -59,6 +59,10 @@ internal sealed partial class ProcedureAnalysis
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
                 => ConditionOf(instruction.Node) is ({ } condition, _) && Calls(Bind(condition)),
+            // the start, the end and the step of a For, evaluated once, in that order, before the counter is given the start (MS-VBAL §5.4.2.3).
+            { Kind: InstructionKind.ForOpener, Node: ForStatementNode forStatement }
+                => Calls(Bind(forStatement.StartExpression)) || Calls(Bind(forStatement.EndExpression))
+                || forStatement.StepExpression is { } step && Calls(Bind(step)),
             _ => false,
         };
 
@@ -154,6 +158,7 @@ internal sealed partial class ProcedureAnalysis
         CallStep call => call.Arguments.All(Admits),
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
+        ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
         _ => false,
     };
 
@@ -220,6 +225,7 @@ internal sealed partial class ProcedureAnalysis
         CallStep call => call.Arguments,
         BranchStep branch => [branch.Condition],
         LoopBackStep loop => [loop.Condition],
+        ForOpenStep open => [open.Start, open.End, open.Step],
         _ => [],
     };
 
