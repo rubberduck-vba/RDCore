@@ -565,6 +565,10 @@ internal sealed partial class ProcedureEmitter
                 EmitSupportCall(support);
                 break;
 
+            case EndWithStep endWith:
+                EmitEndWith(endWith);
+                break;
+
             case ElementLetStep or VariantElementLetStep or ArrayStatementStep:
                 EmitArrayStep(step);
                 break;

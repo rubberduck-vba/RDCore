@@ -15,10 +15,15 @@ internal sealed partial class ProcedureAnalysis
 {
     // MS-VBAL §5.4.3.9: a Set compiled code assigns (SetStep), or else the interpreter's statement, run as a support call (SupportCallStep) - what is
     // given is a call, a member of an object, New, or anything else the interpreter evaluates, or what is assigned is a WithEvents variable, a parameter
-    // passed by reference, or anything else the interpreter assigns.
+    // passed by reference, or anything else the interpreter assigns. A Property Set of an object is called by compiled code (AccessorCallOf).
     private CompiledStep? AnalyzeSet(Instruction instruction, AssignmentStatementNode assignment)
     {
         var mark = _reasons.Count;
+        if (assignment.Target is MemberAccessExpressionNode && AccessorCallOf(instruction.Offset, assignment, isSet: true) is { } accessor)
+        {
+            return accessor;
+        }
+
         return SetOf(instruction.Offset, assignment) is { } set ? set : SupportCallOf(instruction, mark);
     }
 

@@ -84,7 +84,8 @@ public sealed class CompiledMemberLetTests
             "    Filled = Filled * 1000 + P.Sum",
             "End Function"), "55030", ("Filled", 1, 0));
 
-    // a Property Let called with the value let-coerced to the type of its parameter: a Double rounded to even, a Boolean as -1. The Set is a support call.
+    // a Property Let called with the value let-coerced to the type of its parameter: a Double rounded to even, which compiled code does not round and the
+    // interpreter's assignment does, and a Boolean as -1, which compiled code's call converts. The Set is a support call.
     [TestMethod]
     public async Task APropertyLet_IsCalledWithTheValueLetCoercedToItsParameter()
         => await AssertRunAsync(Program(
@@ -117,8 +118,8 @@ public sealed class CompiledMemberLetTests
             "    Debug.Print Log & P.Sum",
             "End Sub"), "x=1;x=2;x=3;6", ("Fill", 0, 0));
 
-    // in a With block, members of its object let and called, and what one of them returns assigned whole. The recoveries are the With and its End With;
-    // the Set is a support call.
+    // in a With block, members of its object let and called, and what one of them returns assigned whole. The recovery is the With; the End With is
+    // compiled code's, the variable still holding the object, and the Set is a support call.
     [TestMethod]
     public async Task MembersOfTheObjectOfAWithBlock_AreLetAndCalledInCompiledCode()
         => await AssertRunAsync(Program(
@@ -137,13 +138,13 @@ public sealed class CompiledMemberLetTests
             "        Next",
             "        Summed = .Total",
             "    End With",
-            "End Function"), "14;x=1;x=2;x=3;x=4;", ("Summed", 2, 0));
+            "End Function"), "14;x=1;x=2;x=3;x=4;", ("Summed", 1, 0));
 
-    // the shape of a factory: a With block of an object made with New, its members let, the object given back through a member of it. The procedure is the
-    // interpreter's: its With statement and its End With are, its Set is a support call, and neither that nor a Let of a member, which is the interpreter's
-    // assignment, is what compiling it would gain.
+    // the shape of a factory: a With block of an object made with New, its members let, the object given back through a member of it. Its Property Let is a
+    // call compiled code makes, and its End With compiled code's, the function's result holding the object; its public field is the interpreter's
+    // assignment, and its Set a support call. The recoveries are the With of each of the 3 calls.
     [TestMethod]
-    public async Task TheMembersOfANewObjectOfAWithBlock_AreLetAsTheInterpreterLetsThem()
+    public async Task TheMembersOfANewObjectOfAWithBlock_AreLetInCompiledCode()
         => await AssertRunAsync(Program(
             "Public Log As String",
             "Public Sub Main()",
@@ -160,10 +161,10 @@ public sealed class CompiledMemberLetTests
             "        .Sum = B",
             "        Set Made = .Self",
             "    End With",
-            "End Function"), "11,22,33,x=1;x=2;x=3;");
+            "End Function"), "11,22,33,x=1;x=2;x=3;", ("Made", 3, 0));
 
     // the shape of a factory with a Let of its own: the function result Set to a member of the object of the With block, which the support call reads of the
-    // object the block holds. The recoveries are the With and its End With of each of the 3 calls.
+    // object the block holds. The recoveries are the With of each of the 3 calls; the End With is compiled code's.
     [TestMethod]
     public async Task AFactorysResult_IsSetToAMemberOfTheObjectOfItsWithBlock()
         => await AssertRunAsync(Program(
@@ -184,10 +185,10 @@ public sealed class CompiledMemberLetTests
             "        .Sum = N",
             "        Set Made = .Self",
             "    End With",
-            "End Function"), "12,24,36,x=1;x=2;x=3;", ("Made", 6, 0));
+            "End Function"), "12,24,36,x=1;x=2;x=3;", ("Made", 3, 0));
 
-    // a member of the object of a With block Set, as a support call, to an object compiled code holds. The recoveries are the With and its End With of each
-    // of the 2 calls; the Set of the object made with New is a support call.
+    // a member of the object of a With block Set, as a support call, to an object compiled code holds. The recoveries are the With of each of the 2 calls;
+    // the End With is compiled code's, and the Set of the object made with New is a support call.
     [TestMethod]
     public async Task AMemberOfTheObjectOfAWithBlock_IsSet()
         => await AssertRunAsync(Program(
@@ -213,10 +214,10 @@ public sealed class CompiledMemberLetTests
             "        Set .Other = Q",
             "        Set Linked = .Self",
             "    End With",
-            "End Function"), "1/2,2/4,x=1;x=2;", ("Linked", 4, 0));
+            "End Function"), "1/2,2/4,x=1;x=2;", ("Linked", 2, 0));
 
     // the variable a With block was given Set to another object inside the block: what the block's statements Set is of the object the block holds, not of
-    // the variable's, as in MS-VBA. The recoveries are the With and its End With.
+    // the variable's, as in MS-VBA. The recovery is the With; the End With is compiled code's, Kept holding the object.
     [TestMethod]
     public async Task ASetInAWithBlock_IsOfTheObjectTheBlockHolds()
         => await AssertRunAsync(Program(
@@ -241,10 +242,10 @@ public sealed class CompiledMemberLetTests
             "        Next",
             "        Set Kept = .Self",
             "    End With",
-            "End Sub"), "3 False 7", ("Rebound", 2, 0));
+            "End Sub"), "3 False 7", ("Rebound", 1, 0));
 
     // a member of the object of a With block called late-bound, as a support call: the call is made on the object the block holds. The recoveries are the
-    // With, the read of the late-bound member and the End With.
+    // With and the read of the late-bound member; the End With is compiled code's, the variable still holding the object.
     [TestMethod]
     public async Task ALateBoundMemberOfTheObjectOfAWithBlock_IsCalled()
         => await AssertRunAsync(Program(
@@ -262,10 +263,11 @@ public sealed class CompiledMemberLetTests
             "        Next",
             "        LateAdded = .Sum",
             "    End With",
-            "End Function"), "10", ("LateAdded", 3, 0));
+            "End Function"), "10", ("LateAdded", 2, 0));
 
-    // a member of a With block of Nothing Set: error 91, which On Error Resume Next goes past, each time. The recoveries are the With and its End With,
-    // and at each pass the error, resumed past by the interpreter, and the read of Err.Number; the Sets and the calls of Err.Clear are support calls.
+    // a member of a With block of Nothing Set: error 91, which On Error Resume Next goes past, each time. The recoveries are the With, and at each pass the
+    // error, resumed past by the interpreter, and the read of Err.Number; the Sets and the calls of Err.Clear are support calls, and the End With of a block
+    // of Nothing is compiled code's.
     [TestMethod]
     public async Task ASetOfAMemberOfAWithBlockOfNothing_IsError91()
         => await AssertRunAsync(Program(
@@ -286,7 +288,7 @@ public sealed class CompiledMemberLetTests
             "            Err.Clear",
             "        Next",
             "    End With",
-            "End Function"), "182", ("Unset", 6, 0));
+            "End Function"), "182", ("Unset", 5, 0));
 
     // the value is evaluated before the object: a call that gives it is made, then the member of Nothing is error 91, each time - whether what is assigned
     // is what the call returned or a value compiled code evaluates. The recoveries are the 4 errors, each resumed past by the interpreter, and the 4 reads
@@ -371,8 +373,8 @@ public sealed class CompiledMemberLetTests
             "End Sub"), "x=1;x=2;out;x=9;", ("Let X", 3, 0));
 
     // a jump into a With block whose With statement did not run: the block has no object, and a member of it is error 91, as in MS-VBA.
-    // The recoveries are the GoTo, the End With, and at each pass the error and the assignment of Log; the Set and the calls of Err.Clear are support
-    // calls.
+    // The recoveries are the GoTo, and at each pass the error and the assignment of Log; the Set and the calls of Err.Clear are support calls, and the End
+    // With, of a block that holds nothing, is compiled code's.
     [TestMethod]
     public async Task AJumpIntoAWithBlock_FindsNoObject()
         => await AssertRunAsync(Program(
@@ -395,10 +397,10 @@ public sealed class CompiledMemberLetTests
             "            Err.Clear",
             "        Next",
             "    End With",
-            "End Sub"), "91;91;", ("Into", 6, 0));
+            "End Sub"), "91;91;", ("Into", 5, 0));
 
-    // the object of a With block is Nothing: a member of it is error 91. The recoveries are the With and its End With, and at each pass the 2 errors and
-    // the 2 assignments of Log; the calls of Err.Clear are support calls.
+    // the object of a With block is Nothing: a member of it is error 91. The recoveries are the With, and at each pass the 2 errors and the 2 assignments
+    // of Log; the calls of Err.Clear are support calls, and the End With of a block of Nothing is compiled code's.
     [TestMethod]
     public async Task AWithBlockOfNothing_IsError91ForEachMember()
         => await AssertRunAsync(Program(
@@ -421,10 +423,11 @@ public sealed class CompiledMemberLetTests
             "            Err.Clear",
             "        Next",
             "    End With",
-            "End Sub"), "91;91;91;91;", ("Nothings", 10, 0));
+            "End Sub"), "91;91;91;91;", ("Nothings", 9, 0));
 
     // the object of a With block in error, which On Error Resume Next goes past: the block has no object, and a member of it is error 91. The recoveries
-    // are the With and its End With, and at each pass the error and the assignment of Log; the calls of Err.Clear are support calls.
+    // are the With, and at each pass the error and the assignment of Log; the calls of Err.Clear are support calls, and the End With of a block that holds
+    // nothing is compiled code's.
     [TestMethod]
     public async Task AWithBlockWhoseObjectIsInError_FindsNoObject()
         => await AssertRunAsync(Program(
@@ -446,7 +449,7 @@ public sealed class CompiledMemberLetTests
             "End Sub",
             "Private Function Broken() As Point",
             "    Err.Raise 5",
-            "End Function"), "91;91;", ("PastTarget", 6, 0));
+            "End Function"), "91;91;", ("PastTarget", 5, 0));
 
     // an Exit Sub inside a With block of an object made with New, which only the block holds: it is destroyed as the procedure is left, before its caller
     // goes on. The recovery is the With.

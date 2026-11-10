@@ -770,6 +770,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         => _occasional?.BlockHolders is { } holders && holders.Remove(openerOffset, out var holder) ? holder.Cell : null;
 
     /// <summary>
+    /// The holder of the block opened at <paramref name="openerOffset"/>, left where it is: what <see cref="TakeBlockHolder"/> would take away.
+    /// </summary>
+    /// <returns>The holder; <see langword="null"/> when the block holds nothing.</returns>
+    public ValueBindingHandle? BlockHolderOf(int openerOffset)
+        => _occasional?.BlockHolders is { } holders && holders.TryGetValue(openerOffset, out var holder) ? holder.Cell : null;
+
+    /// <summary>
     /// Forgets the hidden state of the block opened at <paramref name="openerOffset"/>: a <c>With</c>'s target, after its <c>End With</c>.
     /// </summary>
     public void ClearBlockState(int openerOffset)

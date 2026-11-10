@@ -304,9 +304,10 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
-    // have compiled code do something at each pass - a Let, a call, a condition, a Case it compares and its Select Case, the loop's back edge with its
-    // condition or a Next counting - which saves more than a step around the rest costs; a jump back saves nothing, nor does a For statement, run once. What another
-    // loop does saves nothing of this one's passes. When it steps nothing in a loop, anything at all will do.
+    // have compiled code do something at each pass - a Let, a call (a Property Let or Set of an object included), a condition, a Case it compares and its
+    // Select Case, the loop's back edge with its condition or a Next counting, an End With - which saves more than a step around the rest costs; a jump back
+    // saves nothing, nor does a For statement, run once. What another loop does saves nothing of this one's passes. When it steps nothing in a loop, anything
+    // at all will do.
     private bool GainsAnything(InstructionList list)
     {
         var loops = new List<(int First, int Last)>();
@@ -325,7 +326,7 @@ internal sealed partial class ProcedureAnalysis
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
         bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
-            or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep
+            or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             || (step is SelectStep && compared.Contains(step.Offset));
         var steppedInALoop = false;
         foreach (var stepped in Steps)
@@ -643,6 +644,9 @@ internal sealed partial class ProcedureAnalysis
             case InstructionKind.Return:
                 return new ReturnStep(instruction.Offset);
 
+            case InstructionKind.EndWith:
+                return EndWithOf(instruction) ?? Refused(instruction);
+
             case InstructionKind.ResumeCurrentStatement or InstructionKind.ResumeNext or InstructionKind.ResumeLabel or InstructionKind.RaiseError
                 or InstructionKind.JumpTable or InstructionKind.GoSubTable:
                 return new SteppedStep(instruction.Offset);
@@ -850,9 +854,10 @@ internal sealed partial class ProcedureAnalysis
             ((SyntaxNode?)call.Arguments ?? call.Access).SourceLocation);
     }
 
-    // at: where the call expression is, which the activation is located at while the callee runs (CompiledCallee.CallLocation).
+    // at: where the call expression is, which the activation is located at while the callee runs (CompiledCallee.CallLocation); none for a call written
+    // nowhere, located by its statement.
     private CallStep? CallWith(VBTypeMemberSymbol procedure, ReadOnlySpan<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments, int result, int offset,
-        ScalarKind? resultKind, BoundMember? site, int? receiver, bool assigns, SourceLocation at)
+        ScalarKind? resultKind, BoundMember? site, int? receiver, bool assigns, SourceLocation? at)
     {
         // what is returned is read in its own kind, as it is assigned: a Function of another kind, or a Sub whose result is read, is not this call. A
         // Function called as a statement returns a scalar or a Variant: what the Variant holds is let go of when the statement is over, as the interpreter
