@@ -33,8 +33,8 @@ internal sealed partial class ProcedureAnalysis
     // the most subscripts compiled code finds an element by: an element of more dimensions is the interpreter's.
     private const int MaxElementRank = 3;
 
-    // an array parameter or variable of the activation, numbered by its slot the first time it is named: a parameter declared as an array - a ParamArray
-    // among them, an array of Variants each of which is an argument of the caller (MS-VBAL §5.3.1.5) - or a local variable that is no Static. Or an array
+    // an array parameter or variable of the activation, numbered by its slot the first time it is named: a parameter declared as an array (a ParamArray
+    // among them, an array of Variants each of which is an argument of the caller, MS-VBAL §5.3.1.5), or a local variable that is no Static. Or an array
     // held elsewhere (HeldArray): an array field of a record, or the array a Variant of the activation holds.
     private CompiledArray? ArrayOf(BoundNode node)
     {

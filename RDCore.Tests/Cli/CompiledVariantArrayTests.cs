@@ -105,7 +105,7 @@ public sealed class CompiledVariantArrayTests
             ("Peg", ModuleWorkspace.ClassModule("Peg", ["Option Explicit", "Public Y As Long"])),
         ];
 
-    // TypeOf of a Variant that holds an object tests the object; of one that holds no object - a number, Empty - it is False. Of one that holds Nothing,
+    // TypeOf of a Variant that holds an object tests the object; of one that holds no object (a number, Empty) it is False. Of one that holds Nothing,
     // it is error 91 (MS-VBAL §5.6.7), which the interpreter raises; so is the Let of a number over the object the Variant holds, which lets go of it.
     [TestMethod]
     public async Task TypeOfAVariant_TestsTheObjectItHolds()
