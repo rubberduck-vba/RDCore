@@ -54,8 +54,9 @@ $Commit = $Manifest.commit
 # the tag names the version the binaries were built as, or the release would be mislabelled
 if ($Tag -and $Tag -cne "v$Version") { throw "Tag '$Tag' does not match the built version '$Version' (expected 'v$Version')." }
 
-# the framework the language server was built against is the minimum runtime; a self-contained tree has none
-$RuntimeConfigPath = Join-Path $Root ([IO.Path]::ChangeExtension($Manifest.langService, ".runtimeconfig.json"))
+# the framework the language server was built against is the minimum runtime; a self-contained tree has none.
+# its runtimeconfig is named after the executable without .exe: RDCore.LanguageServer off Windows has no extension to change.
+$RuntimeConfigPath = Join-Path $Root (($Manifest.langService -replace '\.exe$', '') + ".runtimeconfig.json")
 $RuntimeOptions = (Get-Content -LiteralPath $RuntimeConfigPath -Raw | ConvertFrom-Json).runtimeOptions
 $Framework = @($RuntimeOptions.framework) + @($RuntimeOptions.frameworks) | Where-Object { $_ -and $_.name -eq "Microsoft.NETCore.App" } | Select-Object -First 1
 if (-not $Framework) { throw "$(Get-RelativePath $RuntimeConfigPath) names no Microsoft.NETCore.App framework; is the tree framework-dependent?" }

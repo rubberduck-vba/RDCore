@@ -65,12 +65,47 @@ function Read-LanguageServerLog {
 # Windows never clears a ParentProcessId, and a reused PID inherits the orphans of the process that had it: only a
 # process created at or after its parent's start is its child (as Process.Kill($true) decides). CreationDate is $null
 # for processes this user can't query, which are not ours either.
+# elsewhere an orphan is given to init (or a subreaper) as its parent, so a parent ID the system lists is only ever a live process's.
 function Get-DescendantProcessId([int]$ParentId, [datetime]$ParentStart) {
-    foreach ($child in Get-CimInstance Win32_Process -Filter "ParentProcessId = $ParentId") {
-        if ($null -eq $child.CreationDate -or $child.CreationDate -lt $ParentStart) { continue }
-        Get-DescendantProcessId $child.ProcessId $child.CreationDate
-        $child.ProcessId
+    if ($IsWindows) {
+        foreach ($child in Get-CimInstance Win32_Process -Filter "ParentProcessId = $ParentId") {
+            if ($null -eq $child.CreationDate -or $child.CreationDate -lt $ParentStart) { continue }
+            Get-DescendantProcessId $child.ProcessId $child.CreationDate
+            $child.ProcessId
+        }
+        return
     }
+    # pid and parent pid of every process: from /proc on Linux, where ps may not be installed, and from ps on macOS, which has no /proc
+    $pairs = if (Test-Path -LiteralPath "/proc/self/stat") {
+        foreach ($stat in Get-ChildItem -LiteralPath "/proc" -Directory | Where-Object Name -match '^\d+$') {
+            # pid (comm) state ppid ...: comm may hold spaces and parentheses, so the fields are read after its last ')'
+            $text = try { [IO.File]::ReadAllText((Join-Path $stat.FullName "stat")) } catch { continue }
+            $fields = -split $text.Substring($text.LastIndexOf(')') + 1)
+            "$($stat.Name) $($fields[1])"
+        }
+    }
+    else { @(& ps -A -o "pid=,ppid=") }
+    $children = @{}
+    foreach ($line in $pairs) {
+        $id, $parent = -split $line
+        if ($parent -notmatch '^\d+$') { continue }
+        if (-not $children.ContainsKey([int]$parent)) { $children[[int]$parent] = [Collections.Generic.List[int]]::new() }
+        $children[[int]$parent].Add([int]$id)
+    }
+    $pending = [Collections.Generic.Queue[int]]::new()
+    $pending.Enqueue($ParentId)
+    while ($pending.Count) {
+        $id = $pending.Dequeue()
+        if (-not $children.ContainsKey($id)) { continue }
+        foreach ($child in $children[$id]) { $child; $pending.Enqueue($child) }
+    }
+}
+
+# whether the server listens on the pipe: a named pipe on Windows, and elsewhere the Unix domain socket .NET makes of one,
+# in the temporary folder the server inherits from this process
+function Test-PipeListening([string]$Name) {
+    if ($IsWindows) { return [IO.Directory]::GetFiles("\\.\pipe\") -contains "\\.\pipe\$Name" }
+    Test-Path -LiteralPath (Join-Path ([IO.Path]::GetTempPath()) "CoreFxPipe_$Name")
 }
 
 $Process = $null
@@ -116,7 +151,7 @@ try {
         $failed = @($Log -split "\r?\n" | Where-Object { $line = $_; $FailurePatterns | Where-Object { $line -match $_ } })
         $missing = @($Titles | Where-Object { -not $Log.Contains("Validating discovered platform extension: $_") })
         $registered = $Log.Contains("Registered RDCore platform extensions")
-        $listening = [IO.Directory]::GetFiles("\\.\pipe\") -contains "\\.\pipe\$PipeName"
+        $listening = Test-PipeListening $PipeName
 
         if ($failed.Count -gt 0) {
             $Verdict = "the log reports a failure:`n  " + ($failed -join "`n  ")
