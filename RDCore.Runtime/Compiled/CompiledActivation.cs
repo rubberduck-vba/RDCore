@@ -474,10 +474,9 @@ public sealed partial class CompiledActivation : ILightActivation
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
     /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
     /// (<c>EvaluateBoundMember</c>), or is the member itself of a call on <c>Me</c> (<see cref="CompiledCallee.OnMe"/>), and is one compiled code calls as
-    /// the member it was bound to is called: its parameters after <c>Me</c> of the same
-    /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
-    /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
-    /// member: the interpreter makes the call.
+    /// the member it was bound to is called: its parameters after <c>Me</c> of the same kinds, passed the same way, and what it returns of the same kind.
+    /// Not when the variable holds no reference compiled code reads, holds <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object
+    /// the session has no instance of, or whose class invokes another kind of member: the interpreter makes the call.
     /// </summary>
     /// <param name="callee">The number of the call among the body's callees.</param>
     /// <param name="cell">The cell of the object variable the member is called on.</param>

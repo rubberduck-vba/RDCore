@@ -204,7 +204,7 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
 
 A function given no argument and called by its name alone is called this way too, and so is a `Property Get` of one of the procedure's object
 variables (`X = C.Count + 1`). In a procedure of a class, a `Function` or a `Property Get` of the same class that takes no argument, named by itself
-(`X = NextValue + 1`), is called on `Me`, as in the interpreter. The function itself may be compiled or not: one the interpreter
+(`X = NextValue + 1`), is called on `Me`, as in the interpreter (MS-VBAL §5.6.10). The function itself may be compiled or not: one the interpreter
 runs is called as the interpreter calls it.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
@@ -242,9 +242,9 @@ interpreter does, through the same binding and with the session's locale. When a
 interpreter runs the statement on its own. An error the function raises, such as the overflow of `CByte(300)`, is raised where the interpreter raises it.
 
 An argument that is a `Single`, `Double` or `Date` operation is computed in the 80-bit format (see `Extended`, under The semantics are the
-interpreter's, below), and the function takes it as the interpreter does, without the binding. `Abs`, `Int`, `Fix`, `CDbl` and `CSng` are computed on
-the 80-bit value. `CByte`, `CInt`, `CLng`, `CLngLng`, `CCur` and `CBool` convert it: `CLng(D + E)` of `D = 2.5` and `E = 2^-60` is 3, where the
-`Double` it would be stored as gives 2.
+interpreter's, below), and the function is given that value as the interpreter gives it, outside its binding, which would take the value as stored.
+`Abs`, `Int`, `Fix`, `CDbl` and `CSng` are computed on the 80-bit value. `CByte`, `CInt`, `CLng`, `CLngLng`, `CCur` and `CBool` convert it:
+`CLng(D + E)` of `D = 2.5` and `E = 2^-60` is 3, where the `Double` it would be stored as gives 2.
 
 `Rnd` moves the random number generator at each call, so compiled code calls it only in a statement listed under Calls inside an expression, above. When
 compiled code hands that statement to the interpreter after the call, it gives the interpreter the number `Rnd` returned, so no number is drawn twice. A
@@ -271,11 +271,11 @@ the variables back and goes on wherever the statement left the procedure. A stat
 interpreter, errors included.
 
 The interpreter runs a call statement that compiled code does not make (`Err.Clear`, `C.Add 1` with `C` a `Collection`, a call given a late-bound
-argument), a `RaiseEvent`, whose handlers may assign an argument passed to them by reference, and a `Set` it does not do (see Objects, above), as a call that compiled code makes: compiled code writes its variables into the
-frame, the interpreter runs the statement, and compiled code reads the variables back after it, as after any call it makes. An error the statement raises
-reaches the activation's handler as an error a callee raises does (see Error handling, below). Such a statement never keeps a procedure in the
-interpreter, and `rdc compilation` does not list it as something the interpreter runs. Inside a `With` block, the interpreter runs it on its own, as
-above.
+argument), a `RaiseEvent`, whose handlers may assign an argument passed to them by reference (MS-VBAL §5.4.2.20), and a `Set` it does not do (see
+Objects, above), as a call that compiled code makes: compiled code writes its variables into the frame, the interpreter runs the statement, and
+compiled code reads the variables back after it, as after any call it makes. An error the statement raises reaches the activation's handler as an
+error a callee raises does (see Error handling, below). Such a statement never keeps a procedure in the interpreter, and `rdc compilation` does not list
+it as something the interpreter runs. Inside a `With` block, the interpreter runs it on its own, as above.
 
 A variable that such a statement gives an address, with `VarPtr` or as an argument passed `ByRef` to a `Declare`d procedure, is read and written at that
 address from then on. Bytes a debugger writes at that address while the program waits are the variable's, and compiled code reads them when it goes on. If
