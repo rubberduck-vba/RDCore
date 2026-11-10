@@ -196,7 +196,7 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // what an instruction that calls inside an expression is made of: payloads known as they were read, and the calls, and the operations of them. What
-    // compiled code reads that the interpreter is not given known - a Variant, a String, an object - would be
+    // compiled code reads that the interpreter is not given known (a Variant, a String, an object) would be
     // read again by the interpreter after the call that may have changed it. A statement the interpreter runs as a support call is its own whole, calls
     // inside it included: compiled code evaluates nothing of it.
     private static bool Admits(CompiledStep step) => step switch

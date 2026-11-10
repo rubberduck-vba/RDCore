@@ -6,9 +6,9 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// Member reads and calls compiled: a field of a record, and an element of an array, read inside an expression that calls (<strong>MS-VBAL §5.6.9</strong>,
-/// <strong>§5.6.13</strong>), a field of a record assigned
-/// what a call returns (<strong>MS-VBAL §5.4.3.8</strong>), a call that leaves out an optional parameter (<strong>MS-VBAL §5.3.1.11</strong>), and a member
-/// called on the object a bare <c>Property Get</c> of the class returns. A program runs the same either way.
+/// <strong>§5.6.13</strong>), a field of a record assigned what a call returns (<strong>MS-VBAL §5.4.3.8</strong>), a call that leaves out an optional
+/// parameter (<strong>MS-VBAL §5.3.1.11</strong>), and a member called on the object a bare <c>Property Get</c> of the class returns. A program runs the
+/// same either way.
 /// </summary>
 [TestClass]
 public sealed class CompiledMembersLeftTests

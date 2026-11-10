@@ -1047,7 +1047,7 @@ internal sealed partial class ProcedureAnalysis
 
     // the argument of a parameter of kind: a value let-coerced to it, for one passed by value or for one passed by reference that is given no variable; the
     // cell of a variable of the activation of that very kind, for one passed by reference that is given it. A variable of another kind, or of another
-    // activation - a field, an element - is the interpreter's to pass. An optional parameter the call leaves out is given its default (OmittedArgumentOf).
+    // activation (a field, an element), is the interpreter's to pass. An optional parameter the call leaves out is given its default (OmittedArgumentOf).
     private PayloadNode? ArgumentOf(BoundArgument argument, ScalarKind kind)
     {
         switch (argument)
