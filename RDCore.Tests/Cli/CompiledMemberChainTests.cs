@@ -252,10 +252,10 @@ public sealed class CompiledMemberChainTests
         AssertNoneStepped(result);
     }
 
-    // a call for an object that compiled code does not make, one given an object variable: the statement is the interpreter's, which runs it alone (one
-    // recovery) and makes both calls, and the procedure is still compiled.
+    // a call for an object that compiled code does not make, one given an object variable: compiled code makes the call statement, the interpreter making
+    // the call for the object, as when no call is made for an object; the statement is not left to the interpreter to run alone.
     [TestMethod]
-    public async Task AStatementWhoseCallForAnObjectIsNotCompiled_IsTheInterpreters_TheProcedureCompiled()
+    public async Task ACallForAnObjectThatIsNotCompiled_IsTheInterpretersToMake_TheStatementCompiled()
     {
         var result = await AssertAlikeAsync(Program([
             "Public Sub Main()",
@@ -265,18 +265,18 @@ public sealed class CompiledMemberChainTests
             "    Dim P As Pos",
             "    Set P = New Pos",
             "    P.Y = 7",
-            "    Placed = Doubled(Echo(P))",
+            "    Take Echo(P)",
             "    Mark \"e\"",
+            "    Placed = P.Y * 2",
             "End Function",
             "Private Function Echo(ByVal X As Pos) As Pos",
             "    Set Echo = X",
             "End Function",
-            "Private Function Doubled(ByVal P As Pos) As Long",
+            "Private Sub Take(ByVal P As Pos)",
             "    Mark \"d\"",
-            "    Doubled = P.Y * 2",
-            "End Function",
-            .. Shared]), "Placed", recoveries: 1, classes: Ships, expected: "14;d e T7 ");
-        Assert.IsNotEmpty(result.Stepped, "the statement is the interpreter's");
+            "End Sub",
+            .. Shared]), "Placed", recoveries: 0, classes: Ships, expected: "14;d e T7 ");
+        AssertNoneStepped(result);
     }
 
     // a call that returns an object something else holds: the statement lets go of its temporary, and the object lives on.

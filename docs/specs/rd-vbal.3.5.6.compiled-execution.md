@@ -234,7 +234,7 @@ if nothing else holds it, its `Class_Terminate` runs there (MS-VBAL §5.3.1.10).
 
 A member of a call that returns `Nothing` is the interpreter's, which raises error 91, and so is a member of what a call returns as `Object` or
 `Variant`, which is late-bound. Where compiled code cannot make a call that returns an object, such as one given an object variable
-(`N = Doubled(Echo(P))`), the statement is translated as if the call returned no object, and the interpreter makes the call, as it makes any call
+(`Take Echo(P)`), the statement is translated as if the call returned no object, and the interpreter makes the call, as it makes any call
 compiled code does not.
 
 Every operand of such a statement must be one compiled code keeps as it evaluated it: a literal, a constant, a scalar variable of the procedure, the
