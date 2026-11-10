@@ -129,7 +129,7 @@ internal sealed partial class ProcedureAnalysis
     }
 
     // MS-VBAL §5.4.3.8 with a <member-access-expression> target whose owner is a record, as AssignField assigns it: the value let-coerced to the field's
-    // declared type, and the field holding it.
+    // declared type, and the field holding it. What a call returns is assigned so once the call returned (AssignedCallOf), as a member of an object is.
     private CompiledStep? AnalyzeFieldLet(int offset, AssignmentStatementNode assignment)
     {
         var target = (MemberAccessExpressionNode)assignment.Target;
@@ -137,6 +137,11 @@ internal sealed partial class ProcedureAnalysis
         {
             Refuse(IneligibilityKind.AssignmentTarget, target.Member.IdentifierName, assignment.SourceLocation);
             return null;
+        }
+
+        if (AssignedCallOf(Bind(assignment.Value), offset) is { } call)
+        {
+            return call;
         }
 
         // a Variant is assigned the payload as it is, of its own type (MS-VBAL §5.5.1.2.12).

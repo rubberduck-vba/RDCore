@@ -1900,7 +1900,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloca, integral);
                 _il.Emit(OpCodes.Ldloca, floating);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Convert))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 _il.MarkLabel(converted);
                 return new Operand(ScalarKinds.IsIntegral(unvariant.Kind) ? integral : floating, 0, 0);
             }
@@ -2043,8 +2043,37 @@ internal sealed partial class ProcedureEmitter
         return result;
     }
 
-    // the subtype of what a Variant expression evaluates to, as it is speculated (VariantSpeculation).
-    private ScalarKind? SpeculatedKindOf(VariantNode node) => VariantSpeculation.KindOf(node, _analysis.SpeculatedKinds);
+    // whether evaluating a Variant expression calls a function of the workspace, which is made once: the slow way of a speculated operation would evaluate
+    // its operands again.
+    private static bool MakesACall(VariantNode node) => node switch
+    {
+        VariantOfNode of => MakesACall(of.Value),
+        VariantBinaryNode binary => MakesACall(binary.Left) || MakesACall(binary.Right),
+        VariantUnaryNode unary => MakesACall(unary.Operand),
+        LibraryVariantNode library => library.Arguments.Any(MakesACall),
+        _ => false,
+    };
+
+    private static bool MakesACall(PayloadNode node) => node switch
+    {
+        CallNode => true,
+        LibraryCallNode library => library.Syntax >= 0 || library.Arguments.Any(MakesACall),
+        KnownNode known => MakesACall(known.Value),
+        UnvariantNode unvariant => MakesACall(unvariant.Value),
+        TruthNode truth => MakesACall(truth.Value),
+        ConvertNode convert => MakesACall(convert.Operand),
+        IntegralNode integral => MakesACall(integral.Left) || MakesACall(integral.Right),
+        LogicalNode logical => MakesACall(logical.Left) || MakesACall(logical.Right),
+        CompareNode compare => MakesACall(compare.Left) || MakesACall(compare.Right),
+        NotNode not => MakesACall(not.Operand),
+        NegateNode negate => MakesACall(negate.Operand),
+        TemporaryNode temporary => MakesACall(temporary.Value),
+        ElementIsNode compared => compared.Left is ObjectCallOperand || compared.Right is ObjectCallOperand,
+        _ => false,
+    };
+
+    // the subtype of what a Variant expression evaluates to, as it is speculated (VariantSpeculation): none, of one that makes a call.
+    private ScalarKind? SpeculatedKindOf(VariantNode node) => MakesACall(node) ? null : VariantSpeculation.KindOf(node, _analysis.SpeculatedKinds);
 
     // a Variant expression evaluated in the subtypes it is speculated to be of, into a local of its kind: each Variant read guarded on the subtype it is
     // speculated to hold, each operation the one planned for the subtypes of its operands - both converted to the subtype it is done in
@@ -2148,7 +2177,7 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloc, right);
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Binary))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
             }
 
@@ -2160,9 +2189,13 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(unary.OfAConstantExpression ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 _il.Emit(OpCodes.Ldloca, result);
                 _il.Emit(OpCodes.Call, Variants.GetMethod(nameof(VariantOperations.Unary))!);
-                _il.Emit(OpCodes.Brfalse, failure);
+                _il.Emit(OpCodes.Brfalse, Fail(failure));
                 break;
             }
+
+            case LibraryVariantNode library:
+                EmitLibraryVariantCall(library, result, failure);
+                break;
 
             default:
                 EmitArrayVariantInto(node, result, failure);

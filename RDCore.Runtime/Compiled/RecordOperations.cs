@@ -111,6 +111,17 @@ public static class RecordOperations
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? ObjectField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index)?.Handle;
 
+    /// <summary>
+    /// The array the array field at <paramref name="index"/> of <paramref name="record"/> is: the record stores the array itself, in no cell of its own,
+    /// and <see cref="ArrayOperations"/> finds an element and the bounds in it, as it does in the array an array variable's cell holds. <see langword="null"/>
+    /// when there is no such record.
+    /// </summary>
+    /// <param name="record">The record, as its cell holds it.</param>
+    /// <param name="index">The field's place among the record's fields.</param>
+    /// <returns>The array, or <see langword="null"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static object? ArrayField(object? record, int index) => (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) as VBArrayValue;
+
     private static bool TryRead(object? record, int index, ScalarKind kind, out ScalarPayload payload)
     {
         payload = default;
