@@ -26,8 +26,8 @@ public sealed class CompiledMemberEntryTests
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
     // Walk calls Relay, a procedure of the module that calls Walk on another object, which it holds as Second: two activations of Walk on the stack, the one
-    // below given its frame by the call of Relay, each on its own object - and, a call deeper, two on the same object. Down and Up call each other on Me,
-    // which the interpreter does. Each folds its object's fields into what it returns, and the object says what it held when it terminates.
+    // below given its frame by the call of Relay, each on its own object, and, a call deeper, two on the same object. Down and Up call each other on Me.
+    // Each folds its object's fields into what it returns, and the object says what it held when it terminates.
     private static readonly (string Name, string Source)[] Nodes =
     [
         ("Node", ModuleWorkspace.ClassModule("Node", "Option Explicit",
@@ -142,8 +142,8 @@ public sealed class CompiledMemberEntryTests
         AssertEntered(compiled, "Relay", direct: 2, "Walk", framesMade: 2);
     }
 
-    // Down calls Up on Me, which calls Down on Me again: the interpreter makes those calls, each with its frame, above the activation compiled code entered
-    // without one, which holds the object until it returns. The object terminates when its variable lets go of it, and not before.
+    // Down calls Up on Me, which calls Down on Me again: compiled code makes those calls too, each activation entered without a frame and holding the object
+    // until it returns. The object terminates when its variable lets go of it, and not before.
     [TestMethod]
     public async Task AMemberCallingBackIntoItsObject_HoldsTheObject_UntilItReturns()
     {
@@ -163,7 +163,7 @@ public sealed class CompiledMemberEntryTests
             "End Sub"), Nodes);
 
         AssertInOrder(observed, "gone 5", "released");
-        AssertEntered(compiled, "Bounced", direct: 1, "Down", framesMade: 1);
+        AssertEntered(compiled, "Bounced", direct: 1, "Down", framesMade: 0);
     }
 
     // Through's object is the module's Keeper, by reference: Drop lets go of Keeper, which was the object's last reference but Me. The object lives until Drop

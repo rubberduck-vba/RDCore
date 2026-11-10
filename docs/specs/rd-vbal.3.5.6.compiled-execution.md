@@ -73,8 +73,8 @@ A `Byte`, an `Integer`, a `Long` or a `LongLong` joined to a `String`, or assign
 no character is error 5, which the interpreter raises at that statement.
 
 The result of a function of the `String` type stays in its frame too. Compiled code assigns it the text a `Let` gives it, as above, and reads nothing of
-it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `Let` of what a call returns to it (`F = G(N)`, `F = Me.ToString`) is
-compiled as the `Let` of a call to a `Variant` is (see Variant function results, above). Compiled code calls a member of `Me` only in such a `Let`.
+it: a statement that reads the result (`F = F & "x"`) is the interpreter's. A `Let` of what a call returns to it or to a `String` variable
+(`F = G(N)`, `S = Me.ToString`) is compiled as the `Let` of a call to a `Variant` is (see Variant function results, above).
 
 Compiled code calls a procedure of a standard module with a `String` parameter as the interpreter does (MS-VBAL §5.3.1.11). Given by value, the
 parameter gets the text of the `String`s given (`vbNullString` stays `vbNullString`). Given by reference, it is a second name for the `String`
@@ -133,6 +133,10 @@ Compiled code reads a public variable of a scalar type of an object variable dec
 object of a `With` block (`N = C.Size`, `.X + 1`) where the object keeps it (MS-VBAL §5.6.12). Each time, it finds the variable the object's class
 has for it, as the interpreter does. It reads a `String` public variable the same way (`S = C.Name`), unless it is a fixed-length `String`. A read of a
 variable of `Nothing` is the interpreter's, which raises error 91, and so is a read of a variable given arguments, which index it.
+
+In a procedure of a class, compiled code calls a member of `Me` the same way, whether the call names `Me` (`Me.Add 1`) or only the member
+(`Add 1`, `N = Twice(N)`, `If IsEmpty Then`). A member named alone is a member of the current instance (MS-VBAL §5.6.10). Either way it is the class's own
+member, called with the procedure's own `Me`.
 
 Compiled code gives an object to a procedure or a member it calls as the interpreter does (MS-VBAL §5.3.1.11):
 
@@ -233,7 +237,7 @@ Compiled code calls a function inside an expression, such as `X = F(A) + 1`, `If
   given the start (MS-VBAL §5.4.2.3). Each is the value it had when it was evaluated: `For I = A To Bump(A)` starts at what `A` held before the call.
 
 A function given no argument and called by its name alone is called this way too, and so is a `Property Get` of one of the procedure's object
-variables (`X = C.Count + 1`), of the default instance of a class, or of the object of a `With` block (`X = .Count + 1`). The function itself may be
+variables (`X = C.Count + 1`), of `Me` (`X = Count + 1`), of the default instance of a class, or of the object of a `With` block (`X = .Count + 1`). The function itself may be
 compiled or not: one the interpreter runs is called as the interpreter calls it.
 
 Compiled code also calls a member of what such a function or `Property Get` returns, when it is declared as a class (`Y = S.Pos.Y`,

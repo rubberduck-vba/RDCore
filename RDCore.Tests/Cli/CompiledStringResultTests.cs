@@ -146,6 +146,27 @@ public sealed class CompiledStringResultTests
             "    Inner = \"#\" & N",
             "End Function"), expected: "#4| 85"), "Outer", "Inner");
 
+    // a String variable assigned what a String function returns, and what a Long function returns, which is its digits.
+    [TestMethod]
+    public async Task AStringVariableAssignedWhatAFunctionReturns_HoldsItsText()
+        => AssertCompiled(await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Twice(4)",
+            "End Sub",
+            "Private Function Twice(ByVal N As Long) As String",
+            "    Dim S As String",
+            "    Dim T As String",
+            "    S = Inner(N)",
+            "    T = Squared(N)",
+            "    Twice = S & S & \"/\" & T",
+            "End Function",
+            "Private Function Inner(ByVal N As Long) As String",
+            "    Inner = \"#\" & N",
+            "End Function",
+            "Private Function Squared(ByVal N As Long) As Long",
+            "    Squared = N * N",
+            "End Function"), expected: "#4#4/16"), "Twice", "Inner");
+
     // a whole number given by value to a String parameter is given its digits.
     [TestMethod]
     public async Task AWholeNumberGivenToAStringParameter_IsGivenItsDigits()

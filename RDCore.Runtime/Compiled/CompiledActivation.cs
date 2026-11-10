@@ -455,7 +455,8 @@ public sealed partial class CompiledActivation : ILightActivation
     /// Whether compiled code makes the call numbered <paramref name="callee"/> of the body, of a member of the object the variable whose cell is
     /// <paramref name="cell"/> refers to: the member the object's class invokes for it is found as the interpreter finds it
     /// (<c>EvaluateBoundMember</c>), and is one compiled code calls as the member it was bound to is called: its parameters after <c>Me</c> of the same
-    /// kinds, passed the same way, and what it returns of the same kind. Not when the variable holds no reference compiled code reads, holds
+    /// kinds, passed the same way, and what it returns of the same kind. A member of the class whose code runs, named bare, is called on <c>Me</c> as
+    /// itself (<see cref="CompiledCallee.CallsOwnMember"/>), as the interpreter calls it. Not when the variable holds no reference compiled code reads, holds
     /// <c>Nothing</c> (error 91, which the interpreter raises), or refers to an object the session has no instance of, or whose class invokes another kind of
     /// member: the interpreter makes the call.
     /// </summary>
@@ -478,12 +479,18 @@ public sealed partial class CompiledActivation : ILightActivation
 
     // the member an object of actual invokes for a call: as the interpreter finds it for an expression (RuntimeExpressionEvaluator.MemberOf), or, for a
     // Property Let or Set, as an assignment finds it (ResolveAssignableMember): the accessor itself, of an object of the class the call was bound to, and the
-    // one implementing it, of a class that implements that class as an interface.
+    // one implementing it, of a class that implements that class as an interface. A member of the class whose code runs, named bare, has no site: it is
+    // called on Me, which is of that class.
     private VBTypeMemberSymbol? MemberOf(CompiledCallee called, VBClassModuleSymbol actual)
     {
-        if (called.Procedure is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol) || called.Site?.DeclaredClass is not { } declared)
+        if (called.Site is not { } site)
         {
-            return _executor.Expressions.MemberOf(called.Site!, actual);
+            return called.Procedure;
+        }
+
+        if (called.Procedure is not (VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol) || site.DeclaredClass is not { } declared)
+        {
+            return _executor.Expressions.MemberOf(site, actual);
         }
 
         return ReferenceEquals(actual, declared) ? called.Procedure
