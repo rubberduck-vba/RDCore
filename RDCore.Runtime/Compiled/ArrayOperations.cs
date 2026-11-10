@@ -2,8 +2,10 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Semantics.Expressions;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -29,11 +31,18 @@ public static class ArrayOperations
         => ElementOf(holder, rank, first, second, third) is ScalarCell cell && ScalarKinds.Of(cell.Type) == kind ? cell : null;
 
     /// <summary>
-    /// The cell of an element of an array of <c>Variant</c>s (<see cref="ScalarElement"/>), when it is a Variant's cell: what
-    /// <see cref="VariantOperations.Read"/> and the others read and write.
+    /// The cell of an element of an array of <c>Variant</c>s (<see cref="ScalarElement"/>), when it is a Variant's cell, or refers to a <c>Variant</c>
+    /// variable's: what <see cref="VariantOperations.Read"/> and the others read and write.
     /// </summary>
     public static object? VariantElement(object? holder, int rank, long first, long second, long third)
-        => ElementOf(holder, rank, first, second, third) as VariantCell;
+        => ElementOf(holder, rank, first, second, third) switch
+        {
+            VariantCell cell => cell,
+
+            // an element of a param array given a Variant variable refers to it, and is read and written as the variable is: in its cell.
+            VariantReferenceBindingHandle { DeclaredType: VBVariantType, Variable: VariantCell variable } => variable,
+            _ => null,
+        };
 
     /// <summary>
     /// The cell of an element of an array of objects (<see cref="ScalarElement"/>), whose reference <see cref="ObjectOperations"/> reads: <c>Nothing</c>, of an
@@ -61,9 +70,12 @@ public static class ArrayOperations
         return true;
     }
 
-    // the array a holder holds, known: the cell of an array variable, or the array an array field of a record is (RecordOperations.ArrayField).
+    // the array a holder holds, known: the cell of an array variable, the array an array field of a record is (RecordOperations.ArrayField), or the array
+    // the cell of a Variant holds.
     private static VBArrayValue? KnownArrayIn(object? holder)
-        => RuntimeExpressionEvaluator.KnownArrayOf(holder as IBindingHandle) ?? (holder is VBArrayValue { IsIndeterminate: false } field ? field : null);
+        => RuntimeExpressionEvaluator.KnownArrayOf(holder as IBindingHandle)
+            ?? (holder is VBArrayValue { IsIndeterminate: false } field ? field
+                : holder is VariantCell { IsKnown: true, Value: VBRuntimeVariantValue { WrappedValue: VBArrayValue { IsIndeterminate: false } held } } ? held : null);
 
     // the cell at the subscripts (MS-VBAL §5.6.13), in the order VBArrayValue.IndexOf numbers them: none outside a dimension, or of an array of another rank.
     private static IBindingHandle? ElementOf(object? holder, int rank, long first, long second, long third)

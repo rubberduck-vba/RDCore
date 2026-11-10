@@ -13,12 +13,14 @@ internal enum ElementClass
     Other,
 }
 
-// an array parameter or variable of the activation, and its elements: of Kind when they are scalars. An array field of a record (Field) is numbered apart
-// from the slots, by the complement of its place among the body's array fields (ProcedureAnalysis.FieldArrays), and found through its record each time.
-internal sealed record class CompiledArray(int Slot, ElementClass Class, ScalarKind? Kind)
-{
-    public FieldPath? Field { get; init; }
-}
+// an array parameter or variable of the activation, and its elements: of Kind when they are scalars. An array held elsewhere than in an array slot
+// (HeldArray) is numbered apart from the slots, by the complement of its place among the body's held arrays (ProcedureAnalysis.HeldArrays), and found
+// where it is held each time.
+internal sealed record class CompiledArray(int Slot, ElementClass Class, ScalarKind? Kind);
+
+// an array compiled code finds where it is held each time it reads it: an array field of a record (Field), or the array the Variant in a slot of the
+// activation holds (Variant), whose elements are Variants to compiled code.
+internal sealed record class HeldArray(FieldPath? Field, int? Variant);
 
 // an element of an array of a scalar kind, at subscripts each let-coerced to a Long (MS-VBAL §5.6.13), read in the cell the array holds it in
 // (ArrayOperations.ScalarElement).
@@ -39,6 +41,9 @@ internal sealed record class ObjectSlotOperand(int Slot) : ObjectOperand;
 
 // an element of an array of objects (ArrayOperations.ObjectElement).
 internal sealed record class ObjectElementNode(int Array, IReadOnlyList<PayloadNode> Subscripts) : ObjectOperand;
+
+// a Variant of the activation, by its slot, whose cell holds the reference to the object it holds (VariantCell).
+internal sealed record class VariantObjectOperand(int Slot) : ObjectOperand;
 
 // a call that returns an object, made where the operand is evaluated, in an instruction that calls inside an expression: what it returns, in a cell of its
 // own (ObjectCallNode).

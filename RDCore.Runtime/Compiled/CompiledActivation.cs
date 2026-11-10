@@ -1231,7 +1231,8 @@ public sealed partial class CompiledActivation : ILightActivation
     /// <c>TypeOf</c> of the object held in <paramref name="cell"/>, tested against the class the body knows by <paramref name="number"/> (MS-VBAL §5.6.7): as
     /// the interpreter tests it (<c>RuntimeExpressionEvaluator.IsInstanceOf</c>).
     /// </summary>
-    /// <param name="cell">The cell of the object variable tested.</param>
+    /// <param name="cell">The cell of the object variable tested, or of the <c>Variant</c>: one that holds no object - a number, <c>Empty</c>, <c>Null</c>,
+    /// a <c>String</c> - is no instance of any class.</param>
     /// <param name="number">The number the body knows the class by.</param>
     /// <param name="isOf">Whether the object is of the class.</param>
     /// <returns>
@@ -1241,6 +1242,11 @@ public sealed partial class CompiledActivation : ILightActivation
     public bool TypeOf(object? cell, int number, out bool isOf)
     {
         isOf = false;
+        if (cell is VariantCell { IsKnown: true, HoldsNoObject: true })
+        {
+            return true;
+        }
+
         if (!ObjectOperations.TryRead(cell, out var instance) || instance.Equals(default(VBRuntimeObjectId))
             || RuntimeExpressionEvaluator.IsInstanceOf(_session, instance, _body.Classes[number]) is not { } answered)
         {

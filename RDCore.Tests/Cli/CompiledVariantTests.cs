@@ -618,8 +618,8 @@ public sealed class CompiledVariantTests
             "    Nested = N",
             "End Function"), "Nested", recoveries: 2);
 
-    // a Variant ReDim'd by the interpreter, then assigned: the ReDim keeps the Variant in its cell, which compiled code goes on reading. The ReDim, the
-    // two statements of an element of it, V = N, a Let over the array the Variant holds, and the Let of the function's String result: 5.
+    // a Variant ReDim'd by the interpreter, then assigned: the ReDim keeps the Variant in its cell, which compiled code goes on reading, and finds the
+    // element of the array it holds in. The ReDim, V = N, a Let over the array the Variant holds, and the Let of the function's String result: 3.
     [TestMethod]
     public async Task AVariantReDimmedByTheInterpreter_IsWrittenWhereTheFrameHoldsIt()
         => await AssertAlikeAsync(Program(
@@ -637,5 +637,5 @@ public sealed class CompiledVariantTests
             "    V = N",
             "    N = V * 2",
             "    Rebound = TypeName(V) & N",
-            "End Function"), "Rebound", recoveries: 5);
+            "End Function"), "Rebound", recoveries: 3);
 }

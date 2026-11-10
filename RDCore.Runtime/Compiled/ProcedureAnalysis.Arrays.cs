@@ -33,17 +33,23 @@ internal sealed partial class ProcedureAnalysis
     // the most subscripts compiled code finds an element by: an element of more dimensions is the interpreter's.
     private const int MaxElementRank = 3;
 
-    // an array parameter or variable of the activation, numbered by its slot the first time it is named: a parameter declared as an array, a local variable
-    // that is no Static.
+    // an array parameter or variable of the activation, numbered by its slot the first time it is named: a parameter declared as an array - a ParamArray
+    // among them, an array of Variants each of which is an argument of the caller (MS-VBAL §5.3.1.5) - or a local variable that is no Static. Or an array
+    // held elsewhere (HeldArray): an array field of a record, or the array a Variant of the activation holds.
     private CompiledArray? ArrayOf(BoundNode node)
     {
         if (node is BoundMember && RecordFieldOf(node) is ({ } path, VBArrayType { ItemType: var fieldItem }))
         {
-            return FieldArrayOf(path, fieldItem);
+            return HeldArrayOf(new HeldArray(path, null), fieldItem);
+        }
+
+        if (node is BoundVariable held && VariantSlotOf(held) is { } variant)
+        {
+            return HeldArrayOf(new HeldArray(null, variant), VBVariantType.TypeInfo);
         }
 
         if (node is not BoundVariable { IsAutoInstantiated: false, Slot: { } slot } variable || !ReferenceEquals(slot.Layout, _layout)
-            || variable.Variable is not (VBLocalVariableSymbol { IsStatic: false } or VBParameterSymbol) || variable.Variable is ParamArrayParameterSymbol
+            || variable.Variable is not (VBLocalVariableSymbol { IsStatic: false } or VBParameterSymbol)
             || variable.Variable is not ITypedSymbol { ResolvedType: VBArrayType { ItemType: var item } })
         {
             return null;
@@ -67,24 +73,26 @@ internal sealed partial class ProcedureAnalysis
             : new CompiledArray(number, ElementClass.Other, null);
 
     /// <summary>
-    /// The array fields of records compiled code reads and writes elements of: the one at <c>i</c> is numbered <c>~i</c>, apart from the slots, and found
-    /// through its record each time, as a field of a scalar type is.
+    /// The arrays compiled code reads and writes elements of where they are held other than in an array slot: the one at <c>i</c> is numbered <c>~i</c>,
+    /// apart from the slots, and found where it is held each time, as a field of a scalar type is.
     /// </summary>
-    public IReadOnlyList<FieldPath> FieldArrays => _fieldArrays;
+    public IReadOnlyList<HeldArray> HeldArrays => _heldArrays;
 
-    private readonly List<FieldPath> _fieldArrays = [];
+    private readonly List<HeldArray> _heldArrays = [];
 
-    // an array field of a record of the activation (RecordFieldOf): `this.State`, of Me's `Private this As TState`.
-    private CompiledArray FieldArrayOf(FieldPath path, VBType item)
+    // an array field of a record of the activation (RecordFieldOf): `this.State`, of Me's `Private this As TState`; or the array a Variant holds, whose
+    // elements are of no type the analysis knows, and are read as the Variants they are, or not at all.
+    private CompiledArray HeldArrayOf(HeldArray held, VBType item)
     {
-        var at = _fieldArrays.FindIndex(known => known.Holder == path.Holder && known.Indexes.SequenceEqual(path.Indexes));
+        var at = _heldArrays.FindIndex(known => known.Variant == held.Variant && known.Field?.Holder == held.Field?.Holder
+            && (known.Field?.Indexes ?? []).SequenceEqual(held.Field?.Indexes ?? []));
         if (at < 0)
         {
-            at = _fieldArrays.Count;
-            _fieldArrays.Add(path);
+            at = _heldArrays.Count;
+            _heldArrays.Add(held);
         }
 
-        return ArrayOfItems(~at, item) with { Field = path };
+        return ArrayOfItems(~at, item);
     }
 
     // an element of an array field of a record (`this.Cells(X, Y)`, which is bound as a member of the record given what follows it in parentheses:

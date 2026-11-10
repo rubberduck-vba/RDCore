@@ -42,8 +42,8 @@ internal sealed partial class ProcedureEmitter
         }
     }
 
-    // the cell an array is held in, onto the stack: an array slot's local, or the cell an array field holds its array in, found through its record now;
-    // none when there is no record, which ArrayOperations finds nothing in.
+    // the cell an array is held in, onto the stack: an array slot's local; the array an array field is, found through its record now, none when there is no
+    // record; or the cell of the Variant that holds it. ArrayOperations finds nothing in what holds no array.
     private void LoadArrayHolder(int array)
     {
         if (array >= 0)
@@ -52,8 +52,20 @@ internal sealed partial class ProcedureEmitter
             return;
         }
 
-        LoadRecordOf(_analysis.FieldArrays[~array]);
-        _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.ArrayField))!);
+        switch (_analysis.HeldArrays[~array])
+        {
+            case { Field: { } field }:
+                LoadRecordOf(field);
+                _il.Emit(OpCodes.Call, Records.GetMethod(nameof(RecordOperations.ArrayField))!);
+                break;
+
+            case { Variant: { } variant }:
+                _il.Emit(OpCodes.Ldloc, _variants[variant]);
+                break;
+
+            default:
+                throw new InvalidOperationException("A held array is held somewhere.");
+        }
     }
 
     private void EmitArrayCellOf(int slot)
@@ -201,14 +213,17 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, failure);
     }
 
-    // the cell an object operand of Is or TypeOf is held in, in a local: an object variable's, or an element's - none when it is outside its dimension, which
-    // ObjectOperations reads no reference in.
+    // the cell an object operand of Is or TypeOf is held in, in a local: an object variable's, a Variant's, or an element's - none when it is outside its
+    // dimension, which ObjectOperations reads no reference in.
     private LocalBuilder EmitObjectOperand(ObjectOperand operand, Label failure)
     {
         switch (operand)
         {
             case ObjectSlotOperand slot:
                 return _objects[slot.Slot];
+
+            case VariantObjectOperand variant:
+                return _variants[variant.Slot];
 
             case ObjectElementNode element:
                 return EmitElementCellOf(element.Array, element.Subscripts, nameof(ArrayOperations.ObjectElement), null, failure, orNone: true);

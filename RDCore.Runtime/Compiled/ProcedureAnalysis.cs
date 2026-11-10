@@ -1381,6 +1381,10 @@ internal sealed partial class ProcedureAnalysis
             case BoundTypeOf { Operand: BoundVariable tested } typeOf when ObjectSlotOf(tested) is { } typed:
                 return new TypeOfNode(typed, ClassNumberOf(typeOf.Class));
 
+            // of a Variant, the object it holds; one that holds no object is no instance of any class.
+            case BoundTypeOf { Operand: BoundVariable tested } variantTypeOf when VariantSlotOf(tested) is { } held:
+                return new ElementTypeOfNode(new VariantObjectOperand(held), ClassNumberOf(variantTypeOf.Class));
+
             // MS-VBAL §5.6.9.5: two Strings compared, as TryEvaluatePayload compares them (TryCompareText).
             case BoundBinary { Plan: { IsDeferred: false, EffectiveType: VBStringType } } compared:
                 return CompareText(compared);
