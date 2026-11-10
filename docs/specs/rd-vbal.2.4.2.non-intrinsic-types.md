@@ -66,7 +66,7 @@ The default member of a class type can be implicitly invoked through _let-coerci
 
 A class is enumerable when one of its members has a `VB_UserMemId` attribute value of `-4` (`DISPID_NEWENUM`), its _enumeration member_. The `Collection` class of the VBA library is one ([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)); a workspace class is one when its module states the attribute.
 
-An enumerable class has no type of its own: its type is a `VBClassType`. A `For Each...Next` loop finds the enumeration member on the class of the object it iterates; see [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md).
+The type of an enumerable class is a `VBClassType`, as for any class. A `For Each...Next` loop finds the enumeration member on the class of the object it iterates; see [**RD-VBAL §5.4.2.4** For Each Statement](rd-vbal.5.4.2.4.for-each-statement.md).
 
 > [!TIP]
 > `For Each...Next` enumeration is intended to be used with collections containing objects. Performance-related _diagnostics_ should be issued when an object of an enumerable class is accessed by index within the body of a `For...Next` loop; see [**RD-VBAL §5.4.2.3** For Statement](rd-vbal.5.4.2.3.for-statement.md).
