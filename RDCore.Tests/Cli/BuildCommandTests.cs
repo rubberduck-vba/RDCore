@@ -9,7 +9,9 @@ using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Runtime.Abstract.StdLib;
 using RDCore.SDK.Workspace;
+using RDCore.Tests.Cli.Repl;
 using System.IO.Abstractions.TestingHelpers;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
@@ -221,13 +223,17 @@ public sealed class BuildCommandTests
 
     // ---- rdc run ----
 
-    private static async Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, params string[] args)
+    private static Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, params string[] args)
+        => RunAsync(fileSystem, new ScriptedKeys(interactive: false), args);
+
+    // the console's keys are the test's: a script piped to rdc, which the dialogs read a line at a time.
+    private static async Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, ScriptedKeys keys, params string[] args)
     {
         var output = new StringWriter();
         var error = new StringWriter();
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
             new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
-        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error);
+        var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error, keys);
         var exit = await command.ExecuteAsync(args, CancellationToken.None);
         return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(), error.ToString());
     }
@@ -305,6 +311,42 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(ProgramRunner.Failed, run.Exit);
         Assert.Contains("'429'", run.Error);
+    }
+
+    private static readonly string AsksAndAsksAgain = Module("Program",
+        "Public Sub Main()",
+        "    Debug.Print \"name: \" & InputBox(\"Your name?\")",
+        "    Debug.Print \"again: \" & MsgBox(\"Play again?\", vbYesNo)",
+        "End Sub");
+
+    // off Windows, the dialogs of a run are asked at the console, as the shell asks them: the text typed is the InputBox's, and the button named the MsgBox's.
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public async Task Run_AsksItsDialogsAtTheConsole_ElsewhereThanOnWindows()
+    {
+        var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
+
+        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        Assert.IsTrue(run.Output.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
+        CollectionAssert.AreEqual(new[] { "name: Ducky", $"again: {(int)VBMsgBoxResult.VBNo}" },
+            run.Output.Where(line => line.StartsWith("name: ", StringComparison.Ordinal) || line.StartsWith("again: ", StringComparison.Ordinal)).ToArray(),
+            string.Join(" | ", run.Output));
+    }
+
+    // a run that is unattended has nobody to answer a dialog, wherever it runs: the first one fails it with VBR50001, and the console is not read.
+    [TestMethod]
+    public async Task Run_Unattended_FailsAtItsFirstDialog_WithoutReadingTheConsole()
+    {
+        var keys = new ScriptedKeys(interactive: false).Lines("Ducky", "No");
+
+        var run = await RunAsync(Files(("Program.bas", AsksAndAsksAgain)), keys, Root, "--unattended");
+
+        Assert.AreEqual(ProgramRunner.Failed, run.Exit);
+        Assert.Contains("50001", run.Error);
+        Assert.IsFalse(run.Output.Any(line => line.StartsWith("name: ", StringComparison.Ordinal)), string.Join(" | ", run.Output));
+        Assert.AreEqual("Ducky", keys.ReadLine(CancellationToken.None), "the console is not read");
     }
 
     // an exit code is a byte on Linux: an error number is said on standard error, and the exit code is 1 whatever it is.

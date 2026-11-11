@@ -168,11 +168,9 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplConsole, ReplConsole>()
             // the dialogs a program opens are asked at the shell's console.
             .AddSingleton<IConsoleKeys, SystemConsoleKeys>()
-            .AddSingleton(provider => new ReplUserInteraction(
+            .AddSingleton(provider => ReplUserInteraction.OfTheConsole(
                 provider.GetRequiredService<IConsoleKeys>(),
-                System.Console.Out,
-                ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi,
-                consoleWidth: () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth))
+                ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi))
             // and the questions the language server asks, when the console is the shell's to ask them at: the shell's messages wait while one is asked.
             .AddSingleton(provider => new ReplServerQuestions(provider.GetRequiredService<IConsoleKeys>(), provider.GetService<PromptAwareMessageWriter>()))
             .AddSingleton<IReplPlatformClient>(provider => new ReplPlatformClient(provider.GetRequiredService<RDCoreConsoleClientApp>()))

@@ -61,6 +61,15 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
         _ => string.Empty,
     };
 
+    /// <summary>
+    /// The dialogs asked at the console of the process: drawn on its standard output, centred on the width of its window, and answered with
+    /// <paramref name="keys"/>.
+    /// </summary>
+    /// <param name="keys">Where the keys are read: the console's.</param>
+    /// <param name="ansi">Whether the console understands ANSI escape sequences.</param>
+    public static ReplUserInteraction OfTheConsole(IConsoleKeys keys, bool ansi)
+        => new(keys, System.Console.Out, ansi, () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth);
+
     private int ConsoleWidth => consoleWidth?.Invoke() is > 0 and var width ? width : DefaultConsoleWidth;
 
     /// <inheritdoc/>

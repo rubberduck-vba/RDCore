@@ -3,6 +3,7 @@ using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.External;
+using RDCore.External.Interaction;
 using RDCore.Parsing;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
@@ -276,13 +277,15 @@ internal sealed class BenchRunner(
     /// </summary>
     /// <param name="workspace">The workspace.</param>
     /// <param name="profile">The environment the program runs in; the runner's when omitted.</param>
+    /// <param name="dialogs">Who answers the program's dialogs in place of the machine's own; the machine's when omitted.</param>
     /// <param name="token">Stops the load.</param>
     /// <returns>The session, which the caller disposes; the modules that loaded; and what kept a module from being parsed or loaded.</returns>
     public async Task<(EnvironmentSessionProvider Provider, IReadOnlyList<string> Modules, IReadOnlyList<string> Problems)> LoadProgramAsync(
-        BenchWorkspace workspace, IRuntimeEnvironmentProfile? profile = null, CancellationToken token = default)
+        BenchWorkspace workspace, IRuntimeEnvironmentProfile? profile = null, IUserInteraction? dialogs = null, CancellationToken token = default)
     {
         // a program reaches the outside world of the machine, as the built program does: its automation servers, its native libraries and its dialogs.
-        var load = await LoadAsync(workspace, profile ?? environment, outside: null, token);
+        var outside = dialogs is null ? null : MachineExternal.World with { Interaction = dialogs };
+        var load = await LoadAsync(workspace, profile ?? environment, outside, token);
         return (load.Provider, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Problems);
     }
 
