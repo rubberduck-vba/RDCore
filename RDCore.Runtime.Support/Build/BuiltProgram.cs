@@ -46,6 +46,9 @@ internal sealed record class BuiltProgramImage(
 // what Program.Main of a built program's assembly calls, with that assembly. Public: the built assembly can only call public members.
 public static class BuiltProgram
 {
+    // the switch rdc run takes for the same: nobody answers a dialog, and the first one fails the run.
+    private const string UnattendedSwitch = "--unattended";
+
     public static int Run(Assembly program, string[] args)
     {
         ArgumentNullException.ThrowIfNull(program);
@@ -96,7 +99,10 @@ public static class BuiltProgram
             throw new InvalidDataException(refusal);
         }
 
-        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended: false, token);
+        // --unattended among the arguments says nobody answers the program's dialogs: the runtime honors it, and it stays the program's, in Command$ and Main's
+        // arguments, as every other one does.
+        var unattended = args.Contains(UnattendedSwitch, StringComparer.Ordinal);
+        return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended, token);
     }
 
     // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as rdc run and the shell ask them. A terminal that is not

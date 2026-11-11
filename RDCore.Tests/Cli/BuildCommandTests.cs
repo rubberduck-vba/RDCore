@@ -368,6 +368,47 @@ public sealed class BuildCommandTests
         }
     }
 
+    private static readonly string SaysItsCommandThenAsks = Module("Program",
+        "Public Sub Main()",
+        "    Debug.Print \"command: \" & Command$",
+        "    Debug.Print \"name: \" & InputBox(\"Your name?\")",
+        "End Sub");
+
+    // --unattended among a built program's arguments: the runtime honors it, and the first dialog fails the run with VBR50001 before the console is read,
+    // wherever it runs. The switch is still the program's: Command$ shows it.
+    [TestMethod]
+    public async Task TheBuiltProgram_RunWithUnattended_FailsAtItsFirstDialog_AndCommandStillShowsTheSwitch()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", SaysItsCommandThenAsks));
+        var (command, messages) = Command(fileSystem);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
+            var output = new StringWriter();
+            var error = new StringWriter();
+            var keys = new ScriptedKeys(interactive: false).Lines("Ducky");
+
+            var exit = await BuiltProgram.RunAsync(assembly, ["one", "--unattended"], output, error, CancellationToken.None, keys);
+
+            Assert.AreEqual(ProgramRunner.Failed, exit);
+            Assert.Contains("50001", error.ToString());
+            var lines = output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray();
+            CollectionAssert.AreEqual(new[] { "command: one --unattended" }, lines.Where(line => line.StartsWith("command: ", StringComparison.Ordinal)).ToArray(),
+                string.Join(" | ", lines));
+            Assert.IsFalse(lines.Any(line => line.StartsWith("name: ", StringComparison.Ordinal)), string.Join(" | ", lines));
+            Assert.AreEqual("Ducky", keys.ReadLine(CancellationToken.None), "the console is not read");
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
     // a run that is unattended has nobody to answer a dialog, wherever it runs: the first one fails it with VBR50001, and the console is not read.
     [TestMethod]
     public async Task Run_Unattended_FailsAtItsFirstDialog_WithoutReadingTheConsole()
