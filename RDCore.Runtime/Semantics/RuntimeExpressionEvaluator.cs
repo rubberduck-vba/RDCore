@@ -1660,7 +1660,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     }
 
     // MS-VBAL §2.5.1: each element of an array declared As New is an automatic instantiation variable, which is never Nothing when it is referred to: the
-    // reference creates the object, in the element (MS-VBA, Excel-verified, oracle\s19 N16-N17).
+    // reference creates the object, in the element (MS-VBA, Excel-verified).
     private bool TryCreateElement(IRuntimeSession session, RuntimeEvaluationContext context, VBArrayValue array, ExpressionNode callee, int[] subscripts,
         VBTypedValue? element, out RuntimeSemanticsEvaluationResult created)
     {

@@ -517,8 +517,8 @@ public sealed class LetAssignmentEvaluator(
 
             // MS-VBAL §5.4.3.8, §5.4.3.9: a function of the object - or a Property Get that declares no parameter, given arguments that index what it
             // returns, or let a value when it is declared a class, Object or Variant - is called, and what it returns is assigned through its default
-            // member: error 424 when it is no object (MS-VBA, Excel-verified, oracle\s44 E01-E18: `c(1) = 5` of a Collection holding a number,
-            // `Set c.Item(1) = …`, `o.V = 5` of a Variant function of a class).
+            // member: error 424 when it is no object (MS-VBA, Excel-verified: `c(1) = 5` of a Collection holding a number, `Set c.Item(1) = …`, `o.V = 5`
+            // of a Variant function of a class).
             if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments, isSet))
             {
                 ExpressionNode called = indexArguments.IsEmpty ? memberAccess : CallOf(memberAccess, indexArguments);
