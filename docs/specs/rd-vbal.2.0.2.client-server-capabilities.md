@@ -558,13 +558,15 @@ A refactoring is offered to any client as a code action, which completes with it
 |`Flag`|`true` or `false`.|
 |`List`|Each item's answers to its own choices, in the order the user puts the items in when `canReorder` is set. An item that is not answered is kept as it is, where it is.|
 
-A notice is a `Refusal`, which no answer changes, or a `Change` of what the code does, which the user accepts by its `code`. It says where (`location`) and, when it concerns another place too, that place (`related`).
+A notice of `rdcore/refactor/prepare` is a `Refusal`, which no answer changes, or a `Change` of what the code does, which the user accepts by its `code`. It says where (`location`) and, when it concerns another place too, that place (`related`).
 
-**`rdcore/refactor/check`** ([`RefactorCheckParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorCheckParams.html)) sends the same kind, document and range, with the answers so far: a dialog sends it as its user answers. It is answered the notices the answers raise ([`RefactorCheckResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorCheckResult.html)), each with the choice it is of (`choice`, and `item` for a choice of an item of a list). It applies nothing. A choice that is not answered raises nothing, and a range that `rdcore/refactor/prepare` refuses raises nothing more.
+**`rdcore/refactor/check`** ([`RefactorCheckParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorCheckParams.html)) sends the same kind, document and range, with the answers so far: a dialog sends it as its user answers. It is answered the notices the answers raise ([`RefactorCheckResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorCheckResult.html)), each with the choice it is of (`choice`, and `item` for a choice of an item of a list). It applies nothing. A choice that is not answered raises nothing, and a range that `rdcore/refactor/prepare` refuses raises nothing more. A `Refusal` of an answer refuses the refactoring with that answer only: the user can give another.
+
+For Extract Method:
 
 |An answer|Raises|
 |---|---|
-|A name the code cannot declare there: a keyword, no identifier, a name the module or the procedure declares, or one the module writes where it means something else|A `Refusal`, the one `rdcore/refactor/apply` answers with.|
+|A name the code cannot declare there: a keyword, no identifier, a name the module or the procedure declares, or one the module writes where it means something else|A `Refusal`. `rdcore/refactor/apply` answers the same answer with an error, which says the same.|
 |A name declared outside the module, which the new procedure hides there|A `Note`, with the declaration it hides (`related`). The refactoring takes the name.|
 |A value to return that the selection does not give back|A `Refusal`.|
 
