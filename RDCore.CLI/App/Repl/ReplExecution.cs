@@ -64,8 +64,10 @@ internal static class ReplExecution
             }
             else if (result.Outcome is not (ExecutionOutcome.SyntaxError or ExecutionOutcome.NotFound))
             {
-                // the program was loaded as it is typed now, so the platform can say which lines a breakpoint can be on, and the others are dropped.
-                await context.Debugger.PushBreakpointsAsync(context, CancellationToken.None, judge: true);
+                // the program was loaded as it is typed now, so the platform can say which lines a breakpoint can be on, and the others are dropped. A dropped
+                // breakpoint of a workspace module was set on a line of a file, not of the program, so the shell says it.
+                var dropped = await context.Debugger.PushBreakpointsAsync(context, CancellationToken.None, judge: true);
+                Report(context, [.. dropped.Where(refusal => refusal.Module is not null)]);
             }
         }
         catch
@@ -76,12 +78,12 @@ internal static class ReplExecution
     }
 
     // a breakpoint whose condition is refused is dropped before the program goes, and the person is told which, and why: BREAK refuses the condition as it is typed,
-    // and this is the one a platform that did not debug then refuses now.
-    private static void Report(ReplCommandContext context, IReadOnlyList<(Breakpoint Breakpoint, string Reason)> refused)
+    // and this is the one a platform that did not debug then refuses now. So is one of a module whose line no statement begins on.
+    private static void Report(ReplCommandContext context, IReadOnlyList<ReplBreakpointRefusal> refused)
     {
-        foreach (var (breakpoint, reason) in refused)
+        foreach (var refusal in refused)
         {
-            context.Console.WriteMessage(MessageKind.Error, string.Format(Resources.Repl_Breakpoint_ConditionRefused, breakpoint.LineNumber, reason));
+            context.Console.WriteMessage(MessageKind.Error, refusal.Message);
         }
     }
 
@@ -384,7 +386,8 @@ internal static class ReplExecution
             return;
         }
 
-        await ListReplCommand.WriteModuleAsync(context, document, text, line - around, line + around, line, [], CancellationToken.None);
+        await ListReplCommand.WriteModuleAsync(
+            context, document, text, line - around, line + around, line, context.Debugger.ModuleBreakpoints.Of(module), CancellationToken.None);
     }
 
     // BASIC has always said which line it died on, and so does this: the title carries the program's own

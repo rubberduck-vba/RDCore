@@ -108,7 +108,6 @@ public sealed class ReplWorkspaceShellTests
     [DataRow("LOAD game")]
     [DataRow("SAVE game")]
     [DataRow("ANALYZE")]
-    [DataRow("BREAK 10")]
     [DataRow("FOLD 10")]
     [DataRow("DUCKY")]
     public async Task ACommandOnTheProgramInAWorkspace_IsRefused(string line)

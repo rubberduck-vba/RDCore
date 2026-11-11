@@ -1266,7 +1266,25 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_UndefinedLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to UNDEF&apos;D MODULE ERROR.
+        /// </summary>
+        public static string Repl_UndefinedModule {
+            get {
+                return ResourceManager.GetString("Repl_UndefinedModule", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to NO STATEMENT AT {0}.
+        /// </summary>
+        public static string Repl_Breakpoint_NoStatement {
+            get {
+                return ResourceManager.GetString("Repl_Breakpoint_NoStatement", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Shows the variables of the stopped program: VARS, or VARS 1 for the procedure that called..
         /// </summary>

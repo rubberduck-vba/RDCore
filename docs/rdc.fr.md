@@ -23,8 +23,12 @@ dans un module implicite nommé `Program`. Il reste en mémoire jusqu'à `NEW`, 
 
 Sur un espace de travail (`rdc --workspace <chemin>`), le _shell_ exécute chaque ligne dans le projet de l'espace de travail : `Main`, `Program.Main` et
 les autres procédures publiques du projet peuvent être appelées depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
-servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `BREAK`, `DUCKY`, et `CONT` vers une ligne), répondent
+servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, et `CONT` vers une ligne), répondent
 `ERREUR : AUCUN PROGRAMME`.
+
+Sur un espace de travail, `BREAK` prend un module et une ligne de son fichier : `BREAK Other 9`, `BREAK Other 9 I > 5`, `BREAK TOGGLE Other 9`.
+`BREAK` seul les liste sous la forme `Other 9`, et `BREAK CLEAR` les retire tous. Un module que l'espace de travail n'a pas répond
+`ERREUR : MODULE NON DÉFINI`, et une ligne où ne commence aucune instruction répond `AUCUNE INSTRUCTION À Other 9`.
 
 La langue du _shell_ est le BASIC de RDCore : la variable qu'une ligne assigne est celle que lit la ligne suivante, sans `Dim`, et `Print` seul est
 une instruction.

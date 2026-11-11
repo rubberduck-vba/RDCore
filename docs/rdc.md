@@ -23,7 +23,11 @@ the _current program_: `10 Debug.Print "Hello"`. The current program is the body
 
 On a workspace (`rdc --workspace <path>`), the shell runs each line in the workspace's project: `Main`, `Program.Main` and the other public procedures
 of the project can be called from the prompt. There is no current program. A numbered line, and the commands that work on the program (`LIST`,
-`FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `BREAK`, `DUCKY`, and `CONT` to a line), answer `NO PROGRAM ERROR`.
+`FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, and `CONT` to a line), answer `NO PROGRAM ERROR`.
+
+On a workspace, `BREAK` takes a module and a line of its file: `BREAK Other 9`, `BREAK Other 9 I > 5`, `BREAK TOGGLE Other 9`. `BREAK` alone lists them
+as `Other 9`, and `BREAK CLEAR` removes them all. A module the workspace does not have answers `UNDEF'D MODULE ERROR`, and a line no statement begins on
+answers `NO STATEMENT AT Other 9`.
 
 The shell's language is RDCore BASIC: a variable one line assigns is the one the next line reads, without a `Dim`, and `Print` alone is a statement.
 

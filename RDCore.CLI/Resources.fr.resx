@@ -302,6 +302,12 @@
   <data name="Repl_UndefinedLine" xml:space="preserve">
     <value>ERREUR: LIGNE NON DÉFINIE</value>
   </data>
+  <data name="Repl_UndefinedModule" xml:space="preserve">
+    <value>ERREUR : MODULE NON DÉFINI</value>
+  </data>
+  <data name="Repl_Breakpoint_NoStatement" xml:space="preserve">
+    <value>AUCUNE INSTRUCTION À {0}</value>
+  </data>
   <data name="Repl_NotAvailable" xml:space="preserve">
     <value>ERREUR: NON DISPONIBLE</value>
   </data>
@@ -408,7 +414,7 @@
     <value>Efface le contenu de la console.</value>
   </data>
   <data name="Repl_Break_Summary" xml:space="preserve">
-    <value>Place ou retire un point d'arrêt à une ligne (BREAK 40), ou en place un qui attend une condition (BREAK 40 I &gt; 5). BREAK TOGGLE 40 le désactive ou le réactive. BREAK seul les liste, BREAK CLEAR les retire tous.</value>
+    <value>Place ou retire un point d'arrêt à une ligne (BREAK 40), ou en place un qui attend une condition (BREAK 40 I &gt; 5). BREAK TOGGLE 40 le désactive ou le réactive. BREAK seul les liste, BREAK CLEAR les retire tous. Sur un espace de travail, un point d'arrêt est à une ligne d'un module : BREAK Other 9.</value>
   </data>
   <data name="Repl_Cont_Summary" xml:space="preserve">
     <value>Poursuit le programme interrompu, d'où il s'est arrêté ou à partir d'une ligne (CONT 200).</value>
