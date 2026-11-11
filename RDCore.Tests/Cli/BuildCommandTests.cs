@@ -296,7 +296,7 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(new[] { "1" }, run.Output);
     }
 
-    // there is no COM elsewhere: no automation server of the machine makes the object.
+    // off Windows there is no COM: no automation server of the machine makes the object.
     [TestMethod]
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     public async Task Run_CreatesNoObjectOfAnAutomationServer_ElsewhereThanOnWindows()

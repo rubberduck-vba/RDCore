@@ -93,8 +93,8 @@ internal sealed record class BuiltWorkspace(
 /// </para>
 /// <para>
 /// A benchmark reaches none of the outside world (<see cref="ExternalWorld.None"/>): a dialog answers itself, and nothing is called through COM or a
-/// <c>Declare</c>. A benchmark measures the interpreter, and not what it waits for. Nor does a workspace that is compiled or built. A program loaded to be run
-/// (<see cref="LoadProgramAsync"/>) reaches the machine's, as the program <c>rdc build</c> builds of it does.
+/// <c>Declare</c>. A benchmark measures the interpreter, and not what it waits for. A workspace that is compiled or built reaches none of it either. A
+/// program loaded to be run (<see cref="LoadProgramAsync"/>) reaches the machine's outside world, as the program <c>rdc build</c> builds of it does.
 /// </para>
 /// </remarks>
 /// <param name="environment">The environment the session is composed for.</param>
@@ -290,9 +290,9 @@ internal sealed class BenchRunner(
         EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
         IReadOnlyList<string> Problems);
 
-    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile and reaching outside, the machine's when it is
-    // null; what was defined in it, in order, kept in definitions when it is given. The caller disposes the provider: the session's current directory is the
-    // workspace, which the caller may delete.
+    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile and reaching the outside world it is given
+    // (outside), or the machine's when outside is null; what was defined in it, in order, kept in definitions when it is given. The caller disposes the
+    // provider: the session's current directory is the workspace, which the caller may delete.
     private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, ExternalWorld? outside, CancellationToken token,
         List<DefineSymbolsParams>? definitions = null)
     {
