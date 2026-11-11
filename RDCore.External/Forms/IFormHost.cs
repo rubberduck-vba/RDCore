@@ -85,16 +85,12 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     {
         Caption = designer.Caption,
         StartUpPosition = designer.StartUpPosition is { } position && Enum.IsDefined((FormStartUpPosition)position) ? (FormStartUpPosition)position : FormStartUpPosition.CenterOwner,
-        ClientLeft = PointsOf(designer.Properties.GetValueOrDefault("ClientLeft")),
-        ClientTop = PointsOf(designer.Properties.GetValueOrDefault("ClientTop")),
-        ClientWidth = PointsOf(designer.Properties.GetValueOrDefault("ClientWidth")),
-        ClientHeight = PointsOf(designer.Properties.GetValueOrDefault("ClientHeight")),
+        ClientLeft = designer.ClientLeft,
+        ClientTop = designer.ClientTop,
+        ClientWidth = designer.ClientWidth,
+        ClientHeight = designer.ClientHeight,
         ShowModal = designer.ShowModal ?? true,
     };
-
-    // the designer block writes the client area in twips: 20 to a point.
-    private static double? PointsOf(string? twips)
-        => double.TryParse(twips, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value / 20 : null;
 }
 
 /// <summary>
