@@ -87,10 +87,15 @@ The Set statement does not use the operator pipeline; see
 
 ### Targets of a class
 
-A target declared as a class or `Object` is not given the value: the value is assigned to the default property of the object the target holds,
-as `target.Value = value` would be. This holds for a variable, a public variable of an object, a field of a record and an element of an array.
-A target declared `As New` that holds `Nothing` is given its object first. `Nothing` is error 91, and an object whose class has no default
-property is error 438.
+A Let of a value to a target declared as a class or `Object` assigns the default property of the object the target holds, as naming that
+property after the target would. This holds for a variable, a public variable of an object, a field of a record and an element of an array.
+
+| The target holds | Result |
+|---|---|
+| An object whose class has a default property | The property is assigned. |
+| `Nothing`, declared `As New` | The target is given its object first, and that object's property is assigned. |
+| `Nothing` | Error 91. |
+| An object whose class has no default property | Error 438. |
 
 ### Function result variable
 
@@ -134,9 +139,9 @@ What is indexed can be an object - or a `Variant` holding one - rather than an a
 arguments, as `c.Item(1) = value` does, and `Set c(1) = obj` its `Property Set` ([**RD-VBAL §5.6.13** Object
 Callee](rd-vbal.5.6.13.index-expressions.md#object-callee)).
 
-A member of an object that is a function - or a `Property Get` that takes no argument, given arguments that index what it returns, or
-declared a class, `Object` or `Variant` - has no `Property Let` to assign through: it is called, with the arguments written after it, and what it returns is assigned through its default member, as
-a function of a module is. `c(1) = 5` and `c.Item(1) = 5`, with `Dim c As Collection` holding a number, are error 424; an item that is an object is
+Some members of an object have no `Property Let` to assign through: a function, and a `Property Get` that takes no argument when it is given
+arguments that index what it returns, or when it is declared a class, `Object` or `Variant`. Such a member is called, with the arguments written
+after it, and what it returns is assigned through its default member, as a function of a module is. `c(1) = 5` and `c.Item(1) = 5`, with `Dim c As Collection` holding a number, are error 424; an item that is an object is
 assigned its own default member, and one that takes an argument is error 438.
 
 A `ReDim` of an array gives it the element type of the variable's declaration (`Dim a() As Long`), including a variable of an object.

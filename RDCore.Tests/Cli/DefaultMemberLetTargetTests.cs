@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Let</c> of a value to a target whose declared type is a class with a default property assigns that property (<strong>MS-VBAL §5.4.3.8</strong>):
 /// a field of an object, a property that has a <c>Property Get</c> and no <c>Property Let</c>, a field of a record, an element of an array and a variable
-/// of another module, as much as a variable of the procedure.
+/// of another module, as well as a variable of the procedure.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.8 Let Statement")]

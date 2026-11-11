@@ -246,8 +246,8 @@ public sealed class LetAssignmentEvaluator(
         // an element of a param array given a variable is the variable, assigned as it is declared (MS-VBAL §5.3.1.5; VariantReferenceBindingHandle).
         var elementType = VariantReferenceBindingHandle.DeclaredTypeOf(elementCell, array.ItemType);
 
-        // MS-VBAL §5.4.3.8: a value let to an element of a class or Object is let to the default property of the object the element holds. Which element is
-        // assigned is not known when a subscript is not: nor is the object, nor what its default property is given.
+        // MS-VBAL §5.4.3.8: a value let to an element of a class or Object is let to the default property of the object the element holds. When the element is
+        // not known, because a subscript or the array is not, neither is its object or what that object's default property is given, and nothing is assigned.
         if (!isSet && elementType is VBClassType or VBObjectType)
         {
             return isElement
@@ -515,8 +515,8 @@ public sealed class LetAssignmentEvaluator(
                 return AssignThroughDispatch(session, context, statement, memberAccess, indexArguments, owner, dispatched, source, value, isSet, throughDefaultMember);
             }
 
-            // MS-VBAL §5.4.3.8, §5.4.3.9: a function of the object - or a Property Get that declares no parameter, given arguments that index what it
-            // returns, or let a value when it is declared a class, Object or Variant - is called, and what it returns is assigned through its default
+            // MS-VBAL §5.4.3.8, §5.4.3.9: a function of the object, or a Property Get that declares no parameter (given arguments that index what it
+            // returns, or let a value when it is declared a class, Object or Variant), is called, and what it returns is assigned through its default
             // member: error 424 when it is no object (MS-VBA, Excel-verified: `c(1) = 5` of a Collection holding a number, `Set c.Item(1) = …`, `o.V = 5`
             // of a Variant function of a class).
             if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments, isSet))
@@ -736,8 +736,8 @@ public sealed class LetAssignmentEvaluator(
     private readonly System.Collections.Concurrent.ConcurrentDictionary<MemberAccessExpressionNode, IndexExpressionNode> _memberCalls =
         new(ReferenceEqualityComparer.Instance);
 
-    // the element of an array an assignment's target names, as an expression whose default member an assignment of a value to it writes through: one for each
-    // array expression and subscripts, as the default member's access is one for each expression (DefaultMemberAccess).
+    // the element of an array an assignment's target names, as an expression whose default member an assignment of a value to it writes through. It is kept
+    // for each array expression and its subscripts, so it is the same node each time, as DefaultMemberAccess keeps its access for each expression.
     private IndexExpressionNode ElementOf(ExpressionNode arrayExpression, System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts)
         => _elements.TryGetValue(arrayExpression, out var element) && element.Arguments == subscripts
             ? element
