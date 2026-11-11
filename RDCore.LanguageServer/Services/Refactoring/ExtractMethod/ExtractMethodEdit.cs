@@ -300,11 +300,11 @@ internal static class ExtractMethodEdit
 
         private string ProcedureText(IReadOnlyList<string> body, string? resultCopy, IReadOnlyList<Exit> exits)
         {
-            var parameters = plan.Parameters
-                .Where(parameter => parameter.Variable != ReturnValue)
+            var parameters = Given(optional: false)
                 .Select(ParameterText)
                 .Concat(plan.WithTarget is { } target ? [WithTargetText(target)] : [])
                 .Concat(resultCopy is { } copy ? [$"ByRef {copy} As {ResultType()}"] : [])
+                .Concat(Given(optional: true).Select(ParameterText))
                 .ToArray();
 
             var returns = exits.Count switch
@@ -385,12 +385,21 @@ internal static class ExtractMethodEdit
             return [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
         }
 
+        // the parameters the new procedure is given, in the order of the plan: the required ones, or the Optional ones, which come after every other.
+        private IEnumerable<ExtractionParameter> Given(bool optional)
+            => plan.Parameters.Where(parameter => parameter.Variable != ReturnValue && parameter.IsOptional == optional);
+
         public string ParameterText(ExtractionParameter parameter)
         {
             var passing = parameter.Passing is ExtractionPassing.ByRef ? "ByRef" : "ByVal";
             if (parameter.Reason is ExtractionPassingReason.ParamArray)
             {
                 return $"ByVal {parameter.Name} As Variant";
+            }
+
+            if (parameter.IsOptional)
+            {
+                return $"Optional {passing} {WrittenName(parameter.Variable).Name} As Variant";
             }
 
             var (name, hasHint) = WrittenName(parameter.Variable);
@@ -405,9 +414,10 @@ internal static class ExtractMethodEdit
 
         private string CallText(string indentation, string? resultCopy, IReadOnlyList<Exit> exits, bool fromLineStart)
         {
-            var arguments = plan.Parameters.Where(parameter => parameter.Variable != ReturnValue).Select(parameter => parameter.Name)
+            var arguments = Given(optional: false).Select(parameter => parameter.Name)
                 .Concat(plan.WithTarget is { } target ? [target.Name] : [])
                 .Concat(resultCopy is { } copy ? [copy] : [])
+                .Concat(Given(optional: true).Select(parameter => parameter.Name))
                 .ToArray();
             var lines = new List<string>();
 

@@ -1,6 +1,7 @@
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.SDK.Formatting;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Semantics.Refactoring;
@@ -20,24 +21,26 @@ internal static class ExtractionRuns
     internal sealed record class Run(ExecutionOutcome Outcome, string Output, int ErrorNumber);
 
     // The program run with the module as it is, then with the lines of Run's body from first to last extracted, and formatted as for a user who set nothing:
-    // driver is the body of the program's Main, which calls Run. The workspace has the class modules in classes beside the module.
+    // driver is the body of the program's Main, which calls Run. The workspace has the class modules in classes beside the module. Erl counts lines
+    // as erl says.
     public static async Task<(Run Before, Run After, string Module, ExtractionPlan Plan)> BeforeAndAfterAsync(
         string body, int first, int last, string driver = "Run 3", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)",
-        string end = "End Sub", string declarations = "", IReadOnlyList<(string Name, string Source)>? classes = null)
+        string end = "End Sub", string declarations = "", IReadOnlyList<(string Name, string Source)>? classes = null,
+        VBErlLineNumbering erl = VBErlLineNumbering.DocumentLine)
     {
         var extracted = ExtractionFixture.Extracted(body, first, last, returnValue: returnValue, header: header, end: end, declarations: declarations,
             formatting: CodeFormattingOptions.Default, classes: classes);
         Assert.IsNull(extracted.Edit.Refusal, $"refused: {extracted.Edit.Refusal}");
         Assert.AreNotEqual(extracted.Original, extracted.Module);
 
-        var before = await RunAsync(extracted.Original, driver, classes ?? [], "before");
-        var after = await RunAsync(extracted.Module, driver, classes ?? [], "after");
+        var before = await RunAsync(extracted.Original, driver, classes ?? [], erl, "before");
+        var after = await RunAsync(extracted.Module, driver, classes ?? [], erl, "after");
         return (before, after, extracted.Module, extracted.Plan);
     }
 
     // the module, named Program and given the Main that runs it, run as the platform runs a program; a module that does not load fails the test with its text,
     // which says which run it is.
-    private static async Task<Run> RunAsync(string module, string driver, IReadOnlyList<(string Name, string Source)> classes, string which)
+    private static async Task<Run> RunAsync(string module, string driver, IReadOnlyList<(string Name, string Source)> classes, VBErlLineNumbering erl, string which)
     {
         var program = module.Replace("Attribute VB_Name = \"Main\"", "Attribute VB_Name = \"Program\"", StringComparison.Ordinal)
             + $"\r\nPublic Sub Main()\r\n{driver.ReplaceLineEndings("\r\n")}\r\nEnd Sub\r\n";
@@ -48,7 +51,7 @@ internal static class ExtractionRuns
             {
                 run = new Run(result.Outcome, string.Join(" | ", result.Output.Select(line => line.Trim())), result.ErrorNumber);
                 return Task.CompletedTask;
-            });
+            }, environment: profile => profile with { ErlLineNumbering = erl });
         }
         catch (AssertFailedException failed)
         {

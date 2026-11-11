@@ -134,7 +134,7 @@
     <value>La sélection s'exécute sous On Error Resume Next sur certains chemins et pas sur d'autres : la nouvelle procédure ne peut pas commencer comme tous le font.</value>
   </data>
   <data name="ExtractMethodChange_ErlReportsTheCall" xml:space="preserve">
-    <value>La sélection a des numéros de ligne, et un gestionnaire d'erreurs de la procédure ({0}) peut en intercepter une erreur : Erl indique la ligne de l'appel.</value>
+    <value>La sélection a des numéros de ligne, et un gestionnaire d'erreurs de la procédure ({0}) peut en intercepter une erreur : Erl indique le dernier numéro de ligne avant l'appel.</value>
   </data>
   <data name="ExtractMethodChange_ErrClearedOnEntry" xml:space="preserve">
     <value>La sélection lit Err ou Erl sous On Error Resume Next : le On Error Resume Next par lequel la nouvelle procédure commence les efface.</value>

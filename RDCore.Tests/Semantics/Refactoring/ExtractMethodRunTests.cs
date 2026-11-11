@@ -1,4 +1,5 @@
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -90,6 +91,34 @@ public sealed class ExtractMethodRunTests
         Assert.IsTrue(plan.BehaviourChanges.All(change => change.IsNote), string.Join(", ", plan.BehaviourChanges));
     }
 
+    // the change the plan reports happens: counting line labels as MS-VBA does, Erl reports the call's line. The selection's line numbers move with it, and
+    // the call has none: it is the last line number the source procedure reached before the call.
+    [TestMethod]
+    [DataRow("10 Debug.Print \"a\"\n20 Debug.Print \"b\"\n30 Debug.Print 1 / 0", DisplayName = "the selection starts with a line number")]
+    [DataRow("10 Debug.Print \"a\"\nDebug.Print \"b\"\n30 Debug.Print 1 / 0", DisplayName = "the selection starts with an unnumbered line")]
+    public async Task AnErrorRaisedInTheNewProcedure_IsAtTheCallsLineForErl_AsThePlanSays(string numbered)
+    {
+        var (before, after, module, plan) = await ExtractionRuns.BeforeAndAfterAsync(
+            $"On Error GoTo H\n{numbered}\nExit Sub\nH:\nDebug.Print \"Erl=\" & Erl", 2, 3, erl: VBErlLineNumbering.LineLabel);
+
+        Assert.IsTrue(plan.BehaviourChanges.Any(change => change.Kind == ExtractionBehaviourChangeKind.ErlReportsTheCall && !change.IsNote));
+        Assert.AreEqual("a | b | Erl=30", before.Output);
+        Assert.AreEqual("a | b | Erl=10", after.Output, module);
+    }
+
+    // the argument missing in the source procedure is missing in the new one: its parameter is Optional, after the required one.
+    [TestMethod]
+    public async Task AnOptionalParameterTestedWithIsMissing_IsMissingInTheNewProcedure()
+    {
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync(
+            "Debug.Print IsMissing(v) & \" \" & n", 0, 0, driver: "Run 3\nRun 3, 5", header: "Public Sub Run(ByVal n As Long, Optional ByVal v As Variant)");
+
+        Assert.AreEqual("True 3 | False 3", before.Output);
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Private Sub Extracted(ByVal n As Long, Optional ByVal v As Variant)");
+        StringAssert.Contains(module, "Extracted n, v");
+    }
+
     // the change the plan reports happens: Resume Next resumes after the call, and the rest of the extracted code is skipped.
     [TestMethod]
     public async Task AHandlerThatResumesNext_SkipsTheRestOfTheExtractedCode_AsThePlanSays()
@@ -125,6 +154,32 @@ public sealed class ExtractMethodRunTests
     [TestMethod]
     public async Task AConditionalBlock_RunsItsLiveBranch()
         => Assert.AreEqual("3", await SameAsync("Dim x As Long\n#If True Then\nx = n\n#Else\nx = -n\n#End If\nDebug.Print x", 1, 5));
+
+    [TestMethod]
+    public async Task AConditionalBlock_WhoseLiveBranchIsTheLast_RunsIt()
+        => Assert.AreEqual("3", await SameAsync("Dim x As Long\n#If False Then\nx = 1\n#Else\nx = n\n#End If\nDebug.Print x", 1, 5));
+
+    // the dead branch's write is an alternative to the live branch's read, not a write before it: x is still given to the new procedure.
+    [TestMethod]
+    public async Task AWriteInADeadBranch_DoesNotHideAReadInTheLiveOne()
+        => Assert.AreEqual("3", await SameAsync("Dim x As Long\nx = n\n#If False Then\nx = 1\n#Else\nDebug.Print x\n#End If", 2, 6));
+
+    // the dead branch is compiled when its condition changes: the variable only it reads is given to the new procedure.
+    [TestMethod]
+    public async Task AVariableReadInADeadBranchOnly_IsGivenToTheNewProcedure()
+    {
+        var (before, after, module, plan) = await ExtractionRuns.BeforeAndAfterAsync(
+            "Dim x As Long\nx = n\n#If False Then\nDebug.Print x\n#Else\nDebug.Print \"live\"\n#End If", 2, 6);
+
+        Assert.AreEqual("live", before.Output);
+        Assert.AreEqual(before, after, module);
+        Assert.IsTrue(plan.Parameters.Any(parameter => parameter.Name == "x"), module);
+    }
+
+    // the body starts in the block: the Exit Sub of its dead branch is not on the way to the selection.
+    [TestMethod]
+    public async Task AnExitInADeadBranch_AtTheStartOfTheBody_DoesNotEndTheProcedure()
+        => Assert.AreEqual("3 | 4", await SameAsync("#If False Then\nExit Sub\n#End If\nDebug.Print n\nDebug.Print n + 1", 3, 3));
 
     [TestMethod]
     public async Task StatementsSeparatedByColons_RunAsTheyDidInline()

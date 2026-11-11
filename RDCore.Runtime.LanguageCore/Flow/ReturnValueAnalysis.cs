@@ -72,8 +72,11 @@ public static class ReturnValueAnalysis
         var edges = states.Edges;
         var visited = new bool[edges.Count];
         var pending = new Stack<int>();
-        pending.Push(graph.Entry);
-        visited[graph.Entry] = true;
+        foreach (var entry in graph.Entries)
+        {
+            pending.Push(entry);
+            visited[entry] = true;
+        }
         while (pending.TryPop(out var node))
         {
             if (node == graph.Exit)

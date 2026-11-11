@@ -89,7 +89,11 @@ public sealed class ErrorHandlingStates
         var items = graph.Instructions.Items;
         var states = Enumerable.Range(0, items.Length + 1).Select(_ => new HashSet<ErrorHandlingState>()).ToArray();
         var pending = new Queue<(int Node, ErrorHandlingState State)>();
-        pending.Enqueue((graph.Entry, ErrorHandlingState.Initial));
+        foreach (var entry in graph.Entries)
+        {
+            pending.Enqueue((entry, ErrorHandlingState.Initial));
+        }
+
         while (pending.TryDequeue(out var arrival))
         {
             if (!states[arrival.Node].Add(arrival.State) || arrival.Node == graph.Exit)
@@ -108,7 +112,10 @@ public sealed class ErrorHandlingStates
             // under On Error Resume Next it goes on at the next instruction, in the same state: the only way there for an Error statement, which never completes.
             else if (graph.CanRaise(arrival.Node) && arrival.State is { Policy: ErrorHandlingPolicy.ResumeNext, IsHandling: false })
             {
-                pending.Enqueue((ControlFlowGraph.NextAfterAnError(instruction), arrival.State));
+                foreach (var next in graph.ContinuationsAfterAnError(arrival.Node))
+                {
+                    pending.Enqueue((next, arrival.State));
+                }
             }
 
             var after = After(instruction, arrival.State);
@@ -136,7 +143,7 @@ public sealed class ErrorHandlingStates
     // the statement after one that raised an error: where the instruction would have continued, or the next one in order, or where Resume Next goes on after it.
     private static IEnumerable<int> AfterFault(ControlFlowGraph graph, int fault)
         => graph.SuccessorsOf(fault).Where(edge => edge.Kind is not ControlFlowEdgeKind.Error).Select(edge => edge.To)
-            .Append(fault + 1).Append(ControlFlowGraph.NextAfterAnError(graph.Instructions.Items[fault])).Distinct();
+            .Concat(graph.Arrivals(fault, fault + 1)).Concat(graph.ContinuationsAfterAnError(fault)).Distinct();
 
     /// <summary>
     /// The state an instruction leaves when it runs to completion: an <c>On Error</c> statement sets the policy, and <c>On Error GoTo -1</c> or a <c>Resume</c>

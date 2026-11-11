@@ -35,10 +35,14 @@ internal sealed class ExtractionModuleAnalysis
         _resolver = resolver;
         Scopes = scopes;
         Directives = ExtractionDirectives.Of(parse.PrecompilerTrivia, text);
+        _blocks = ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia);
         DeclarationErrors = parse.SyntaxTree is { } tree
-            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia)), .. ReservedNameStaticSemantics.CheckSyntax(tree)]
+            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, _blocks), .. ReservedNameStaticSemantics.CheckSyntax(tree)]
             : [];
     }
+
+    // the module's #If blocks: a body is lowered with every branch, which are alternatives on its code paths.
+    private readonly ConditionalCompilationBlocks _blocks;
 
     /// <summary>
     /// The module, as its scope is addressed.
@@ -102,7 +106,7 @@ internal sealed class ExtractionModuleAnalysis
         var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(symbol.Uri), block, kind: declaration.MemberKind,
             context: new StaticEvaluationContext(_resolver, scope));
         var instructions = InstructionListLowering.Lower(block, default, declaration.MemberKind).InstructionList;
-        var graph = ControlFlowGraph.Of(instructions, model);
+        var graph = ControlFlowGraph.Of(instructions, model, blocks: _blocks);
         return new ExtractionProcedureAnalysis(declaration, scope, model, instructions, graph, DefinitionsAndUses.Of(instructions, model, Scopes));
     }
 }

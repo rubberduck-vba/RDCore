@@ -145,8 +145,9 @@ internal static class FlowFixture
             context: new StaticEvaluationContext(composition.Resolver, scope));
         Assert.IsTrue(model.IsFullyAnalyzed, string.Join("; ", model.CompileErrors.Select(error => error.ToString())));
 
+        // every branch of the #If blocks is lowered, as a refactoring analyzes the code: they are alternatives on its code paths.
         var instructions = InstructionListLowering.Lower(block, default, run.MemberKind).InstructionList;
-        var graph = ControlFlowGraph.Of(instructions, model);
+        var graph = ControlFlowGraph.Of(instructions, model, blocks: ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia));
         return new Analyzed(run, instructions, model, DefinitionsAndUses.Of(instructions, model, composition.ScopeTree), graph, composition.ScopeTree, prefix.Split("\r\n").Length - 1)
         {
             Module = parse.SyntaxTree!,
