@@ -133,8 +133,8 @@ public sealed class ExtractMethodResolveWireTests
         return actions!.Select(action => action.CodeAction!).Single();
     }
 
-    // what the server registers code actions with, as it is asked for it whether it answers the capability as it initializes or registers it after: the test
-    // client registers it after, which the connection does not wait for.
+    // the options the server registers code actions with, which it is asked for both when it answers the capability as it initializes and when it registers
+    // it afterwards. They are read from the handler: the test client registers afterwards, and the connection does not wait for that.
     [TestMethod]
     public void TheCodeActions_AreRegisteredAsResolved()
     {

@@ -157,7 +157,7 @@ internal sealed class CodeActionHandler(
 
         var documentUri = request.TextDocument.Uri.ToUri();
 
-        // the version the range is of, read before the extraction is: a document changed after this is one the edit is refused for when it is resolved.
+        // the version of the document the range belongs to, read before the extraction is prepared: once the document changes, resolving the extraction is refused.
         int? version = documents.TryGetDocument(documentUri, out var document) ? document.Version : null;
         var prepared = await extractMethod.PrepareAsync(documentUri, range, token);
         if (prepared.Notices.Any(notice => notice.Kind is RefactorNoticeKind.Refusal))
@@ -188,7 +188,7 @@ internal sealed class CodeActionHandler(
             {
                 Title = title,
                 Kind = RefactorExtractMethod,
-                // the action is known by its data when it is resolved: a client sends the action back as it holds it, and may not write a kind it does not know.
+                // a resolved action is recognized by its data: a client sends the action back as it holds it, and may drop a kind it does not know.
                 Data = new JObject
                 {
                     [ExtractionDataKey] = RefactoringKinds.ExtractMethod,
