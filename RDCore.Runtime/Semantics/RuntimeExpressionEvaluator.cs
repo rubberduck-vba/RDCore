@@ -1646,12 +1646,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location, string.Join(", ", subscripts)));
         }
 
-        // MS-VBAL §2.5.1: each element of an array declared As New is an automatic instantiation variable, which is never Nothing when it is referred to: the
-        // reference creates the object, in the element (MS-VBA, Excel-verified, oracle\s19 N16-N17).
-        if (element is VBObjectValue { } held && held.IsNothing() && !array.IsIndeterminate && array.ItemType is VBClassType { Symbol: { } classModule }
-            && IsDeclaredAsNew(session, context, indexExpression.Callee) && array.IndexOf(subscripts) is >= 0 and var flat && array.CellAt(flat) is { } cell)
+        if (TryCreateElement(session, context, array, indexExpression.Callee, subscripts, element, out var created))
         {
-            return Assumed(AutoInstantiate(session, cell, classModule));
+            return created;
         }
 
         return element is not null
@@ -1661,6 +1658,40 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, expression.Location,
                     string.Join(", ", subscripts)));
     }
+
+    // MS-VBAL §2.5.1: each element of an array declared As New is an automatic instantiation variable, which is never Nothing when it is referred to: the
+    // reference creates the object, in the element (MS-VBA, Excel-verified).
+    private bool TryCreateElement(IRuntimeSession session, RuntimeEvaluationContext context, VBArrayValue array, ExpressionNode callee, int[] subscripts,
+        VBTypedValue? element, out RuntimeSemanticsEvaluationResult created)
+    {
+        if (element is VBObjectValue { } held && held.IsNothing() && !array.IsIndeterminate && array.ItemType is VBClassType { Symbol: { } classModule }
+            && IsDeclaredAsNew(session, context, callee) && array.IndexOf(subscripts) is >= 0 and var flat && array.CellAt(flat) is { } cell)
+        {
+            created = Assumed(AutoInstantiate(session, cell, classModule));
+            return true;
+        }
+
+        created = default!;
+        return false;
+    }
+
+    // what an element of an array holds, read as a reference to the element reads it: one of an array declared As New that holds Nothing is created. The
+    // subscripts are evaluated already, and select an element of the array.
+    internal RuntimeSemanticsEvaluationResult ReadElement(
+        IRuntimeSession session, RuntimeEvaluationContext context, VBArrayValue array, ExpressionNode callee, int[] subscripts)
+    {
+        var element = array[subscripts];
+        return TryCreateElement(session, context, array, callee, subscripts, element, out var created) ? created
+            : element is not null ? RuntimeSemanticsEvaluationResult.Success(element)
+            : RuntimeSemanticsEvaluationResult.InternalError();
+    }
+
+    // what a field of an object or of a record holds, read as a reference to the field reads it: one declared As New that holds Nothing is created
+    // (MS-VBAL §2.5.1).
+    internal RuntimeSemanticsEvaluationResult ReadField(IRuntimeSession session, Symbol field, IBindingHandle handle)
+        => field is ITypedSymbol typed
+            ? ReadVariable(session, typed, handle, referenced: null, field.GetProperty(SymbolProperties.AutoInstantiated))
+            : RuntimeSemanticsEvaluationResult.InternalError();
 
     // MS-VBAL 5.6.13.1: an empty argument list, of an array declared as one that was not already given one, is the array itself - `f()` is `f`.
     private static bool IsTheArrayItself(IRuntimeSession session, RuntimeEvaluationContext context, IndexExpressionNode indexExpression)

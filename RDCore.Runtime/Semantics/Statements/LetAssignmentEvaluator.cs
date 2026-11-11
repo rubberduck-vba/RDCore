@@ -245,6 +245,16 @@ public sealed class LetAssignmentEvaluator(
 
         // an element of a param array given a variable is the variable, assigned as it is declared (MS-VBAL §5.3.1.5; VariantReferenceBindingHandle).
         var elementType = VariantReferenceBindingHandle.DeclaredTypeOf(elementCell, array.ItemType);
+
+        // MS-VBAL §5.4.3.8: a value let to an element of a class or Object is let to the default property of the object the element holds. When the element is
+        // not known, because a subscript or the array is not, neither is its object or what that object's default property is given, and nothing is assigned.
+        if (!isSet && elementType is VBClassType or VBObjectType)
+        {
+            return isElement
+                ? AssignDefaultMemberOfHeld(session, context, statement, ElementOf(arrayExpression, subscripts),
+                    expressions.ReadElement(session, context, array, arrayExpression, indices), source, value)
+                : RuntimeExecutionOutcome.Next;
+        }
         if (isSet)
         {
             if (expressions.SetCoercion is not { } setCoercion)
@@ -505,10 +515,11 @@ public sealed class LetAssignmentEvaluator(
                 return AssignThroughDispatch(session, context, statement, memberAccess, indexArguments, owner, dispatched, source, value, isSet, throughDefaultMember);
             }
 
-            // MS-VBAL §5.4.3.8, §5.4.3.9: a function of the object - or a Property Get that declares no parameter, given arguments that index what it
-            // returns - is called, and what it returns is assigned through its default member: error 424 when it is no object (MS-VBA, Excel-verified,
-            // oracle\s44 E01-E18: `c(1) = 5` of a Collection holding a number, `Set c.Item(1) = …`, `o.V = 5` of a Variant function of a class).
-            if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments))
+            // MS-VBAL §5.4.3.8, §5.4.3.9: a function of the object, or a Property Get that declares no parameter (given arguments that index what it
+            // returns, or let a value when it is declared a class, Object or Variant), is called, and what it returns is assigned through its default
+            // member: error 424 when it is no object (MS-VBA, Excel-verified: `c(1) = 5` of a Collection holding a number, `Set c.Item(1) = …`, `o.V = 5`
+            // of a Variant function of a class).
+            if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments, isSet))
             {
                 ExpressionNode called = indexArguments.IsEmpty ? memberAccess : CallOf(memberAccess, indexArguments);
                 return AssignThroughFunction(session, context, statement, called, source, value, isSet);
@@ -553,6 +564,12 @@ public sealed class LetAssignmentEvaluator(
         var handle = instance.GetValue(field);
         if (!isSet)
         {
+            // MS-VBAL §5.4.3.8: a value let to a variable of a class or Object is let to the default property of the object it holds.
+            if (field.ResolvedType is VBClassType or VBObjectType)
+            {
+                return AssignDefaultMemberOfHeld(session, context, statement, memberAccess, expressions.ReadField(session, field, handle), source, value);
+            }
+
             if (!TryLetCoerce(session, statement, source, value, field.ResolvedType, out var coerced, out var coercionFailure))
             {
                 return coercionFailure;
@@ -700,12 +717,13 @@ public sealed class LetAssignmentEvaluator(
     // whether the member of the name is called when it is assigned, for what it returns to be assigned through: a function, or a Property Get that declares
     // no parameter and is given arguments, which index what it returns.
     private static bool IsCalledToBeAssignedThrough(
-        IRuntimeSession session, VBObjectValue owner, string name, System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments)
+        IRuntimeSession session, VBObjectValue owner, string name, System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments, bool isSet)
         => session.Symbols.TryGetInstance(owner.Value, out var instance)
             && instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)) switch
             {
                 VBFunctionMemberSymbol => true,
-                VBPropertyGetMemberSymbol get => !arguments.IsEmpty && RuntimeProcedureInvoker.GetParameters(get) is [] or [{ Name: Tokens.Me }],
+                VBPropertyGetMemberSymbol get => RuntimeProcedureInvoker.GetParameters(get) is [] or [{ Name: Tokens.Me }]
+                    && (!arguments.IsEmpty || !isSet && get.ResolvedType is VBClassType or VBObjectType or VBVariantType),
                 _ => false,
             };
 
@@ -717,6 +735,26 @@ public sealed class LetAssignmentEvaluator(
 
     private readonly System.Collections.Concurrent.ConcurrentDictionary<MemberAccessExpressionNode, IndexExpressionNode> _memberCalls =
         new(ReferenceEqualityComparer.Instance);
+
+    // the element of an array an assignment's target names, as an expression whose default member an assignment of a value to it writes through. It is kept
+    // for each array expression and its subscripts, so it is the same node each time, as DefaultMemberAccess keeps its access for each expression.
+    private IndexExpressionNode ElementOf(ExpressionNode arrayExpression, System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts)
+        => _elements.TryGetValue(arrayExpression, out var element) && element.Arguments == subscripts
+            ? element
+            : _elements[arrayExpression] = new IndexExpressionNode(arrayExpression.Identity, arrayExpression.Location, arrayExpression, subscripts);
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ExpressionNode, IndexExpressionNode> _elements = new(ReferenceEqualityComparer.Instance);
+
+    // the object a field or an element holds, read as a reference to it reads it, assigned a value through its default member as an object variable is: Nothing is
+    // error 91, an object of a class with no default member 438.
+    private RuntimeExecutionOutcome AssignDefaultMemberOfHeld(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, ExpressionNode target, RuntimeSemanticsEvaluationResult held,
+        ExpressionNode source, VBTypedValue value)
+        => !held.IsSuccess
+            ? held.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(held.ErrorInfo!)
+            : held.Result is VBObjectValue owner
+                ? AssignDefaultMemberOf(session, context, statement, target, owner, source, value, observed: true)
+                : RuntimeExecutionOutcome.InternalError;
 
     // whether the class of the object has a Property Get of the name - for a Let, one declared as a type that holds no object: one that does is the default
     // member of the object it returns that MS-VBAL §5.4.3.8 assigns, which is not this.
@@ -762,6 +800,14 @@ public sealed class LetAssignmentEvaluator(
 
         // the field of a record is there to be written, whatever is written to it.
         ObservedAccess(session, context, memberAccess, owner, expressions.AssumedSoFar, RuntimeExecutionOutcome.Next);
+
+        // MS-VBAL §5.4.3.8: a value let to a field of a class or Object is let to the default property of the object the field holds.
+        if (fieldType is VBClassType or VBObjectType)
+        {
+            return udt.GetFieldHandle(name) is { } fieldHandle
+                ? AssignDefaultMemberOfHeld(session, context, statement, memberAccess, expressions.ReadField(session, declared, fieldHandle), source, value)
+                : RuntimeExecutionOutcome.InternalError;
+        }
 
         // "the source is Let-coerced to the target's declared type" - a field's declared type is its own, and
         // the coercion is the same one an assignment to a variable of that type would apply.
