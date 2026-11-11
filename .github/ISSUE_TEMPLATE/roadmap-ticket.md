@@ -1,6 +1,6 @@
 ---
 name: Roadmap Ticket
-about: A ticket that must be completed in order to advance a milestone.
+about: "Maintainers: a ticket that must be completed in order to advance a milestone."
 title: ''
 labels: 🎯roadmap
 assignees: ''

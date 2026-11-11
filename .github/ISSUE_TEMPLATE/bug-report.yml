@@ -1,0 +1,72 @@
+name: Signaler un bogue / Report a bug
+description: Un problème reproduit dans la dernière version publiée de RDCore. / A problem reproduced in the latest published release of RDCore.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Une idée ou une question? Utilisez les [discussions](https://github.com/rubberduck-vba/RDCore/discussions). Ce formulaire sert à signaler les bogues de la dernière version publiée.
+
+        An idea or a question? Use the [discussions](https://github.com/rubberduck-vba/RDCore/discussions). This form is for bugs in the latest published release.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Avant de commencer / Before you start
+      options:
+        - label: J'ai reproduit le problème avec la dernière version publiée. / I reproduced the problem with the latest published release.
+          required: true
+        - label: J'ai cherché parmi les billets ouverts et fermés. / I searched the open and closed issues.
+          required: true
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      description: "`platformVersion` dans le `rdcore.json` de la plateforme. / `platformVersion` in the platform's `rdcore.json`."
+      options:
+        - 0.1.0-alpha
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: Système / System
+      options:
+        - Windows x64
+        - Linux x64
+        - macOS (Intel)
+        - macOS (Apple silicon)
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Où / Where
+      options:
+        - Le shell RD-VBA / The RD-VBA shell
+        - Une commande rdc (run, build, install...) / An rdc command (run, build, install...)
+        - Le serveur de langage, dans un éditeur / The language server, in an editor
+        - L'installation / Installing
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Code
+      description: Le plus petit code VBA qui montre le problème, ou la commande lancée. / The smallest VBA code that shows the problem, or the command you ran.
+      render: vba
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu / Expected
+      description: Ce que VBA fait, ou ce que vous attendiez. / What VBA does, or what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Résultat obtenu / Actual
+      description: Ce que RDCore a fait, avec le message d'erreur ou le code de diagnostic, s'il y en a un. / What RDCore did, with the error message or the diagnostic code, if any.
+    validations:
+      required: true
