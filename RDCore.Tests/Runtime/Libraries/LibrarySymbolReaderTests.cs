@@ -182,4 +182,52 @@ public sealed class LibrarySymbolReaderTests
 
         Assert.IsEmpty(new LibrarySymbolProvider(Root, libraries).ProvideSymbols().ToArray());
     }
+
+    // an application object, Global, of a library known by the GUID it is given.
+    private static LibraryDescription WithGlobal(string name, string guid) => new()
+    {
+        Name = name,
+        Origin = new LibraryOrigin { Guid = guid, Version = "6.0", ExportedBy = "tests" },
+        Classes =
+        [
+            new ClassDescription
+            {
+                Name = "Global",
+                IsApplication = true,
+                IsCreatable = true,
+                DefaultInterface = "VBGlobal",
+                Members =
+                [
+                    new MemberDescription { Name = "Forms", Kind = MemberKind.PropertyGet, Type = "Object" },
+                    new MemberDescription { Name = "Unload", Kind = MemberKind.Method, Parameters = [new ParameterDescription { Name = "Object", Type = "Object" }] },
+                ],
+            },
+        ],
+    };
+
+    [TestMethod]
+    public void TheVisualBasicLibrarysGlobal_IsAModuleOfTheLibrary_WhoseMembersAreNamesOfTheProject()
+    {
+        var symbols = Read(WithGlobal("VB", "{FCFB3D2E-A0FA-1068-A738-08002B3371B5}"));
+
+        var module = symbols.OfType<VBStandardModuleSymbol>().Single(symbol => symbol.Name == "Global");
+        Assert.AreEqual(symbols.OfType<VBProjectSymbol>().Single().Uri, module.ParentUri, "the library project's module, as its class would be");
+        Assert.IsFalse(symbols.OfType<VBClassModuleSymbol>().Any(), "no type: neither Global nor its interface");
+
+        var members = symbols.OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri == module.Uri).ToArray();
+        CollectionAssert.AreEquivalent(new[] { "Forms", "Unload" }, members.Select(member => member.Name).ToArray());
+        Assert.IsTrue(members.All(member => member.ScopeKind == ScopeKind.Module && member.GetProperty(SymbolProperties.LibraryPriority) == 1));
+        Assert.AreEqual("VB.Global.Forms/get", members.Single(member => member.Name == "Forms").GetProperty(SymbolProperties.ExternalTarget));
+        var unload = (VBProcedureMemberSymbol)members.Single(member => member.Name == "Unload");
+        CollectionAssert.AreEqual(new[] { "Object" }, unload.Parameters.Select(parameter => parameter.Name).ToArray(), "a procedure of a module has no Me");
+    }
+
+    [TestMethod]
+    public void AnotherLibrarysApplicationObject_IsAClass_WhatsoeverItsName()
+    {
+        var symbols = Read(WithGlobal("VB", "{00000000-0000-0000-0000-000000000002}"));
+
+        Assert.IsTrue(Class(symbols, "Global").Members.All(member => member.ScopeKind == ScopeKind.Instance));
+        Assert.IsFalse(symbols.OfType<VBStandardModuleSymbol>().Any(symbol => symbol.Name == "Global"));
+    }
 }
