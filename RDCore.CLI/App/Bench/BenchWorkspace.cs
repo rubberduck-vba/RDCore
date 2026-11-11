@@ -13,8 +13,11 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="Type">A standard module or a class module, as its header says.</param>
 /// <param name="RelativePath">Where the module is, relative to the root of the workspace.</param>
 /// <param name="Source">The source of the module.</param>
-/// <param name="Companion">The content of the companion file its source names (a UserForm's <c>.frx</c>), beside it; empty when it names none.</param>
-/// <param name="CompanionProblem">Why the companion file could not be read; null when it was, or when the module names none.</param>
+/// <param name="Companion">
+/// The content of the companion file its source names (a form's <c>.frx</c>), beside it; empty when it names none, when the file is not there, and when it
+/// cannot be read.
+/// </param>
+/// <param name="CompanionProblem">Why the companion file could not be read; null when it was, when the module names none, and when the file is not there.</param>
 internal sealed record class BenchModule(string Name, ModuleType Type, string RelativePath, string Source, ReadOnlyMemory<byte> Companion = default,
     Exception? CompanionProblem = null);
 
