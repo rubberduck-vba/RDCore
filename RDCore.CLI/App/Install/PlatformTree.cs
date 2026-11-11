@@ -63,8 +63,9 @@ internal static class PlatformTree
 
     /// <summary>
     /// Holds the version of the platform at <paramref name="folder"/>, the one <c>rdc</c> runs from, so that no deployment into the shared
-    /// root removes it while the lease is held (<see cref="SharedPlatformRoot.Hold"/>). Null when the folder has no manifest, or one that is
-    /// not a manifest or names no version: no deployment put such a platform there, and there is nothing to hold.
+    /// root removes it while the lease is held (<see cref="SharedPlatformRoot.Hold"/>). A folder outside the shared root is held the same
+    /// way, and no deployment removes it either. Null when the folder has no manifest, or one that is not a manifest or names no version,
+    /// such as a build tree that is not published.
     /// </summary>
     /// <param name="folder">The platform root: the folder of its <c>rdcore.json</c>.</param>
     /// <returns>The lease, to dispose of at exit; or null.</returns>
