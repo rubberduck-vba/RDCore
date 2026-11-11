@@ -208,7 +208,9 @@ if ($RequireReleaseFiles -and (Test-Path -LiteralPath $ReleasePath -PathType Lea
         if (-not $release.sdk) { Add-Failure "release.json has no sdk." }
         else {
             if ([string]$release.sdk.package -cne "RDCore.SDK") { Add-Failure "release.json: sdk.package '$($release.sdk.package)', expected 'RDCore.SDK'." }
-            if ($sdkVersions.Count -ne 1) { Add-Failure "the tree's .deps.json files name $($sdkVersions.Count) RDCore.SDK versions ($($sdkVersions -join ', ')), not one." }
+            if ($sdkVersions.Count -ne 1) {
+                Add-Failure "the tree's .deps.json files name $(if ($sdkVersions.Count) { "RDCore.SDK versions $($sdkVersions -join ', ')" } else { "no RDCore.SDK package" }); a release is built with exactly one."
+            }
             elseif ([string]$release.sdk.version -cne $sdkVersions[0]) {
                 Add-Failure "release.json: sdk.version '$($release.sdk.version)' does not match the RDCore.SDK package the tree references, $($sdkVersions[0])."
             }

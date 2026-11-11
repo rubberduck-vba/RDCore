@@ -192,7 +192,7 @@ There is no `Logs/` folder: the platform writes its logs to its user's folders (
 
 `release.json` (`"schema": 1`) is the machine-readable description of the release: `version`, `commit`, `rid`, `deployment` (`framework-dependent`), `sdk`, `runtime` (`Microsoft.NETCore.App` and its minimum version), `entryPoints` (same as `rdcore.json`), `launch.languageServer` (path, working directory, arguments), `source` (repository, tag, commit), and `files` (path, size and SHA-256 of every file, sorted by path).
 
-`sdk` is the RDCore.SDK package the platform was built with: `{ "package": "RDCore.SDK", "version": "0.1.1-alpha" }`, for example. The version is the one the build resolved, as every component's `.deps.json` names it, and `Test-PlatformTree.ps1 -RequireReleaseFiles` fails a tree whose `release.json` has no `sdk` or a different version. An installer can read it from an archive's `.release.json` and offer only a release whose SDK is compatible with its own.
+`sdk` is the RDCore.SDK package the platform was built with: `{ "package": "RDCore.SDK", "version": "0.1.1-alpha" }`, for example. The version is the one the build resolved, as every component's `.deps.json` names it, and `Test-PlatformTree.ps1 -RequireReleaseFiles` fails a tree whose `release.json` has no `sdk`, names another package, or names another version. An installer can read it from the `.release.json` published beside each archive, and offer only a release whose SDK is compatible with its own.
 
 ## Known limitations
 
