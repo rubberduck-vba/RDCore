@@ -157,7 +157,7 @@ public interface IFormHost
     FormBounds GetBounds(object form);
 
     /// <summary>
-    /// Moves a form's window and sizes it, in points. The form inside it is sized with it: its client area is what the window leaves of it.
+    /// Moves a form's window and sizes it, in points. The form inside it is sized to the window's client area.
     /// </summary>
     /// <param name="form">The handle of the form.</param>
     /// <param name="bounds">Where the window goes, and its size.</param>

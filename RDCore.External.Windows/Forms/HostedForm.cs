@@ -84,8 +84,8 @@ internal sealed class HostedForm
     }
 
     /// <summary>
-    /// Where the form's window is and its size, in points at the window's DPI: a UserForm's <c>Left</c>, <c>Top</c>, <c>Width</c> and <c>Height</c>, which are
-    /// the window's, caption bar and border included. Sized, the window sizes the form to its client area, which is the form's size from then on.
+    /// Where the form's window is and its size, in points, converted from pixels at the window's DPI: a UserForm's <c>Left</c>, <c>Top</c>, <c>Width</c> and
+    /// <c>Height</c>, which are the window's, caption bar and border included. Setting it sizes the form to the window's client area, which stays the form's size.
     /// </summary>
     public FormBounds Bounds
     {
@@ -102,7 +102,7 @@ internal sealed class HostedForm
             _ = Desktop.SetWindowPos(Window, IntPtr.Zero, PixelsOf(value.Left, dpi), PixelsOf(value.Top, dpi), PixelsOf(value.Width, dpi), PixelsOf(value.Height, dpi),
                 Desktop.SWP_NOZORDER | Desktop.SWP_NOACTIVATE);
 
-            // the form is the client area's size, which is its size at any DPI: what Size gives the window again on a screen of another.
+            // the form's extent is the client area's size in HIMETRIC, which holds at any DPI: on a screen of another DPI, Size gives the window that size again.
             _ = Desktop.GetClientRect(Window, out var client);
             var extent = new Size { Width = Himetric(client.Width, dpi), Height = Himetric(client.Height, dpi) };
             _ = ((IOleObject)Form).SetExtent(Ole.ContentAspect, ref extent);

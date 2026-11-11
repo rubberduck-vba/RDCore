@@ -285,7 +285,7 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
     private static VBTypedValue? VariantOf(IRuntimeValue argument)
         => VBVariantType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBVariantValue { TypedValue: var value } ? value : null;
 
-    // Left, Top, Width or Height of a form's window, which the form object's members are, as Single.
+    // the form object's Left, Top, Width or Height, which are its window's, as a Single.
     private static float Side(FormBounds bounds, string member) => (float)(member.ToUpperInvariant() switch
     {
         "LEFT" => bounds.Left,
