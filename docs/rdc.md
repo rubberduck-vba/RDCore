@@ -22,7 +22,7 @@ the _current program_: `10 Debug.Print "Hello"`. The current program is the body
 `Program`. It stays in memory until `NEW`, `LOAD` or `EXIT`.
 
 On a workspace (`rdc --workspace <path>`), the shell runs each line in the workspace's project: `Main`, `Program.Main` and the other public procedures
-of the project are called from the prompt. There is no current program there. A numbered line, and the commands that work on the program (`LIST`,
+of the project can be called from the prompt. There is no current program. A numbered line, and the commands that work on the program (`LIST`,
 `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `BREAK`, `DUCKY`, and `CONT` to a line), answer `NO PROGRAM ERROR`.
 
 The shell's language is RDCore BASIC: a variable one line assigns is the one the next line reads, without a `Dim`, and `Print` alone is a statement.
@@ -56,8 +56,8 @@ each side, from the next start of the shell; `0` lists none. At a stop you can t
 before you go on.
 
 > [!NOTE]
-> The shell is a way to try the platform. It does not handle a project with more than one procedure scope, or BASIC-style line numbers in your own
-> modules.
+> The shell is a way to try the platform. Its current program is a single procedure: a project with more procedures runs in the shell on a workspace.
+> The shell does not handle BASIC-style line numbers in your own modules.
 
 ---
 ## Commands

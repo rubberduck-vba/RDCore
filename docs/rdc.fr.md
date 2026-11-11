@@ -22,7 +22,7 @@ de ligne est écrite dans le _programme courant_ : `10 Debug.Print "Bonjour"`. L
 dans un module implicite nommé `Program`. Il reste en mémoire jusqu'à `NEW`, `LOAD` ou `EXIT`.
 
 Sur un espace de travail (`rdc --workspace <chemin>`), le _shell_ exécute chaque ligne dans le projet de l'espace de travail : `Main`, `Program.Main` et
-les autres procédures publiques du projet s'appellent depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
+les autres procédures publiques du projet peuvent être appelées depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
 servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `BREAK`, `DUCKY`, et `CONT` vers une ligne), répondent
 `ERREUR : AUCUN PROGRAMME`.
 
@@ -59,8 +59,8 @@ n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme da
 reprendre.
 
 > [!NOTE]
-> Le _shell_ est une façon d'essayer la plateforme. Il ne prend pas en charge un projet de plus d'une portée de procédure, ni les numéros de ligne à la
-> BASIC dans vos propres modules.
+> Le _shell_ est une façon d'essayer la plateforme. Son programme courant est une seule procédure : un projet qui en a plus s'exécute dans le _shell_
+> sur un espace de travail. Le _shell_ ne prend pas en charge les numéros de ligne à la BASIC dans vos propres modules.
 
 ---
 ## Les commandes

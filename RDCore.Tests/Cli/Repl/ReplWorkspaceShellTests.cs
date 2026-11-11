@@ -13,7 +13,7 @@ namespace RDCore.Tests.Cli.Repl;
 /// <summary>
 /// A shell attached to a workspace (<c>rdc --workspace</c>) runs each line in the workspace's project: the module the line runs in is
 /// <see cref="ReplProgram.ImmediateModuleName"/>, which declares nothing but the line, so a name the line uses is the project's. It has no numbered program, and
-/// refuses a numbered line and every command that works on the program. Without a workspace, the shell is as it was.
+/// refuses a numbered line and every command that works on the program. Without a workspace, the shell keeps its numbered program.
 /// </summary>
 [TestClass]
 public sealed class ReplWorkspaceShellTests

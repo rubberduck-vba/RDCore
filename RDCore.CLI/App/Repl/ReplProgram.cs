@@ -37,7 +37,7 @@ public sealed class ReplProgram
     public const string ImmediateEntryPointName = "Immediate";
 
     /// <summary>
-    /// The name of the module a line typed at the prompt runs in when the shell is attached to a workspace (<see cref="AttachedToWorkspace"/>). It is no
+    /// The name of the module a line typed at the prompt runs in when the shell is attached to a workspace (<see cref="AttachedToWorkspace"/>). It is not an
     /// identifier, so no module of the workspace's project has it, and no code names it.
     /// </summary>
     public const string ImmediateModuleName = "_Immediate";
@@ -527,7 +527,7 @@ public sealed class ReplProgram
 
         var (immediate, at) = Expanded(typed[start..], Math.Max(0, cursor - start));
 
-        // the program's procedure - its header, its lines, its end - and the line between the two, then the immediate procedure's header; only the last,
+        // the program's procedure (its header, its lines, its end) and the line between the two, then the immediate procedure's header; only the last,
         // attached to a workspace.
         var stored = StoredLines();
         return (ImmediateModuleSource(stored, immediate), AttachedToWorkspace ? 1 : stored.Length + 4, at);
