@@ -151,6 +151,6 @@ public sealed partial class CompiledActivation
     // has no frame.
     private static VBTypedValue? ReturnedBy(CompiledActivation callee)
         => callee._frame is { } frame ? frame.ReturnValue
-            : callee.TryReadResult(out var payload) ? payload.Type.CreateValue(new ValueBindingHandle(payload.Box()))
+            : callee.TryReadResult(out var payload) ? payload.Typed()
             : null;
 }

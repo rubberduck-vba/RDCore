@@ -618,14 +618,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         {
             if (_hasResultPayload)
             {
-                _returnValue = _resultPayload.Type.CreateValue(new ValueBindingHandle(_resultPayload.Box()));
+                _returnValue = _resultPayload.Typed();
                 _hasResultPayload = false;
             }
 
             // a result variable at an address is what is bound there, which a POKE writes.
             if (_resultAddress is { } at && _returnValue is { } declared && Storage.TryRead(at, out var bound))
             {
-                return declared.TypeInfo.CreateValue(bound);
+                return DeclaredValues.Of(declared.TypeInfo, bound);
             }
 
             return _returnValue;
@@ -683,7 +683,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         // a result variable at an address is written there.
         if (_resultAddress is not null)
         {
-            ReturnValue = payload.Type.CreateValue(new ValueBindingHandle(payload.Box()));
+            ReturnValue = payload.Typed();
             return;
         }
 
@@ -964,7 +964,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             return Hold(symbol, new ValueBindingHandle(value), type.DefaultValue.Size, slot);
         }
 
-        Push(symbol, type.CreateValue(new ValueBindingHandle(value)), slot);
+        Push(symbol, DeclaredValues.Of(type, value), slot);
         return null;
     }
 

@@ -35,7 +35,7 @@ public sealed partial class CompiledActivation
         var temporaries = _session.Objects.TemporaryCount;
         var payload = value.Value;
         var outcome = _executor.Statements is StatementRuntimeSemanticsProvider statements && Body.Items[pc].Node is AssignmentStatementNode assignment
-            ? statements.AssignValue(_session, ContextAt(pc), assignment, payload.Type.CreateValue(new ValueBindingHandle(payload.Box())))
+            ? statements.AssignValue(_session, ContextAt(pc), assignment, payload.Typed())
             : RuntimeExecutionOutcome.InternalError;
 
         // a program that was stopped does not unwind (ProcedureExecutor.Run).

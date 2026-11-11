@@ -305,34 +305,41 @@ public sealed class CompiledByRefCallTests
         Assert.IsGreaterThanOrEqualTo(1L, walkedBack, "Increment is compiled, and handed to the interpreter");
     }
 
+    // Go passes Touch a value by reference twice, and its variable once, in each of count turns; Touch takes the address of its parameter, after the
+    // statements given, if any.
+    private static string Touching(string kept) => Program(
+        "Public Sub Main()",
+        "    Debug.Print Go(100)",
+        "End Sub",
+        "Private Function Go(ByVal count As Long) As Long",
+        "    Dim i As Long, n As Long",
+        "    For i = 1 To count",
+        "        Touch (n)",
+        "        Touch n + 1",
+        "        Touch n",
+        "    Next",
+        "    Go = n",
+        "End Function",
+        "Private Sub Touch(ByRef x As Long)",
+        kept,
+        "    Dim p As LongPtr",
+        "    p = VarPtr(x)",
+        "    x = x + 1",
+        "End Sub");
+
     // a value passed by reference to a callee the interpreter runs is a value, as the interpreter passes it: the callee's cell is its own, and is let go of
-    // with its frame, even after the callee took its address. What is still allocated once the program ended is what the interpreter leaves.
+    // with its frame, even after the callee took its address. What is still allocated once the program ended is what the interpreter leaves. Touch counts
+    // a For loop that never turns with its parameter: a loop counted with a variable held in a cell is not compiled, so the interpreter runs Touch.
     [TestMethod]
     public async Task AValuePassedByReference_ToAnInterpretedCallee_IsLetGoOfWithTheCallee()
     {
-        var program = Program(
-            "Public Sub Main()",
-            "    Debug.Print Go(100)",
-            "End Sub",
-            "Private Function Go(ByVal count As Long) As Long",
-            "    Dim i As Long, n As Long",
-            "    For i = 1 To count",
-            "        Touch (n)",
-            "        Touch n + 1",
-            "        Touch n",
-            "    Next",
-            "    Go = n",
-            "End Function",
-            "Private Sub Touch(ByRef x As Long)",
-            "    Dim p As LongPtr",
-            "    p = VarPtr(x)",
-            "    x = x + 1",
-            "End Sub");
+        var program = Touching("    For x = x To x - 1\r\n    Next");
         CompiledExecutionTests.RequirePayloads();
         var interpreted = await AllocatedAfterAsync(program, VBExecutionEngine.Interpreter);
         var compiled = await AllocatedAfterAsync(program, VBExecutionEngine.Compiled);
 
         StringAssert.Contains(compiled.Observed, "| 100 |");
+        Assert.AreEqual((false, "ForCounter x"), compiled.Touch, "Touch is not compiled, for its For loop");
         Assert.AreEqual((interpreted.Observed, interpreted.Allocated), (compiled.Observed, compiled.Allocated));
         if (!CompiledExecution.HandsOverAtRandom)
         {
@@ -340,14 +347,38 @@ public sealed class CompiledByRefCallTests
         }
     }
 
-    // the program run to its end with engine: what it did, the bytes of the session's memory still allocated, and the calls Go made through the invoker.
-    private static async Task<(string Observed, int Allocated, long Indirect)> AllocatedAfterAsync(string program, VBExecutionEngine engine)
+    // a value passed by reference to a compiled callee that compiled code enters through its typed entry is a value too: the cell compiled code gives it is
+    // the callee's own, and is let go of with the callee, even after the callee took its address. What is still allocated once the program ended is what
+    // the interpreter leaves.
+    [TestMethod]
+    public async Task AValuePassedByReference_ToACompiledCallee_IsLetGoOfWithTheCallee()
     {
-        (string Observed, int Allocated, long Indirect) made = default;
+        var program = Touching(string.Empty);
+        CompiledExecutionTests.RequirePayloads();
+        var interpreted = await AllocatedAfterAsync(program, VBExecutionEngine.Interpreter);
+        var compiled = await AllocatedAfterAsync(program, VBExecutionEngine.Compiled);
+
+        StringAssert.Contains(compiled.Observed, "| 100 |");
+        Assert.IsTrue(compiled.Touch.IsCompiled, $"Touch: {compiled.Touch.Reasons}");
+        Assert.AreEqual((interpreted.Observed, interpreted.Allocated), (compiled.Observed, compiled.Allocated));
+        if (!CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(0L, compiled.Indirect, "Go calls Touch through its typed entry");
+        }
+    }
+
+    // the program run to its end with engine: what it did, the bytes of the session's memory still allocated, the calls Go made through the invoker, and
+    // whether Touch was compiled (and why not).
+    private static async Task<(string Observed, int Allocated, long Indirect, (bool IsCompiled, string Reasons) Touch)> AllocatedAfterAsync(string program,
+        VBExecutionEngine engine)
+    {
+        (string Observed, int Allocated, long Indirect, (bool, string) Touch) made = default;
         using var running = CompiledExecution.Running(engine);
         await ModuleWorkspace.InspectAsync([], program, (provider, run, _) =>
         {
-            made = (Observed(run), provider.Session.Memory.Info.AllocatedBytes, engine is VBExecutionEngine.Compiled ? BodyOf(provider, "Go").IndirectCalls : 0);
+            var touch = engine is VBExecutionEngine.Compiled ? CompiledExecutionTests.ByName(provider).GetValueOrDefault("Touch") : null;
+            made = (Observed(run), provider.Session.Memory.Info.AllocatedBytes, engine is VBExecutionEngine.Compiled ? BodyOf(provider, "Go").IndirectCalls : 0,
+                (touch?.Body is not null, string.Join("; ", touch?.Reasons.Select(reason => $"{reason.Kind} {reason.Detail}") ?? [])));
             return Task.CompletedTask;
         }, engine: engine);
         return made;
