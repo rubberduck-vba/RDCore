@@ -5,8 +5,8 @@ using System.Globalization;
 namespace RDCore.Runtime.StdLib.Formatting;
 
 /// <summary>
-/// The currency symbol <strong>MS-VBAL §6.1.2.11.1.10 FormatCurrency</strong> writes an amount with: "the currency symbol defined in the system
-/// control panel", the same character on every system.
+/// The currency symbol <strong>MS-VBAL §6.1.2.11.1.10 FormatCurrency</strong> writes an amount with, "the implementation-defined currency
+/// symbol": MS-VBA's, and the same character on every system.
 /// </summary>
 /// <remarks>
 /// <para>
