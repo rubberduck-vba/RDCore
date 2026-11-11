@@ -123,10 +123,12 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new RefactorPrepareResult { Notices = [extraction.SelectionRefusal!] };
         }
 
+        // from here the selection snapped: the statements it is of are what the editor shows will move, refused or not.
         var notices = extraction.Notices();
+        var moved = plan.Selection.Range;
         if (!plan.IsExtractable)
         {
-            return new RefactorPrepareResult { Notices = notices };
+            return new RefactorPrepareResult { Notices = notices, Range = moved };
         }
 
         // a refusal of the writer that no answer can lift is said before the user answers anything.
@@ -136,10 +138,11 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new RefactorPrepareResult
             {
                 Notices = [new RefactorNotice { Code = Code(written.Refusal.Value.ToString()), Kind = RefactorNoticeKind.Refusal, Message = EditRefusal(written.Refusal.Value, extraction) }, .. notices],
+                Range = moved,
             };
         }
 
-        return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices };
+        return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices, Range = moved };
     }
 
     public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)

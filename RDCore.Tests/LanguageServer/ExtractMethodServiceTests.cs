@@ -111,6 +111,16 @@ public sealed class ExtractMethodServiceTests
 
         Assert.AreEqual(RefactorNoticeKind.Refusal, prepared.Notices.Single().Kind);
         Assert.IsFalse(prepared.Choices.Any());
+        Assert.IsNull(prepared.Range);
+    }
+
+    [TestMethod]
+    public async Task ASelectionThatStartsAndEndsInsideStatements_IsPreparedAsTheWholeStatements_WhoseRangeItAnswers()
+    {
+        var prepared = await Sut().PrepareAsync(Document, new SourceRange(4, 6, 5, 7), CancellationToken.None);
+
+        Assert.IsFalse(prepared.Notices.Any(notice => notice.Kind == RefactorNoticeKind.Refusal), string.Join("; ", prepared.Notices.Select(notice => notice.Message)));
+        Assert.AreEqual(new SourceRange(4, 4, 5, 13), prepared.Range);
     }
 
     [TestMethod]
