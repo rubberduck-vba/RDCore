@@ -1,3 +1,4 @@
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.Parsing;
@@ -38,20 +39,20 @@ internal static class ExtractionFixture
     }
 
     // Extract's module and edit, with the module before the extraction and the plan the edit was written from; the workspace has the class modules in
-    // classes beside the module.
+    // classes beside the module, which is a class module itself with classModule.
     public static (string Original, string Module, ExtractionEdit Edit, ExtractionPlan Plan) Extracted(
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null,
-        IReadOnlyList<(string Name, string Source)>? classes = null)
+        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false)
     {
-        var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations, classes);
+        var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations, classes, classModule);
         var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits };
         var edit = ExtractMethodEdit.Of(plan, source, choices);
         if (formatting is not null)
         {
-            var edited = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), edit.ApplyTo(analyzed.Text));
+            var edited = new ModuleParser().Parse(FlowFixture.FileOf(classModule), edit.ApplyTo(analyzed.Text));
             edit = edit.Formatted(analyzed.Text, edited, formatting);
         }
 
@@ -68,7 +69,9 @@ internal static class ExtractionFixture
             formatting: CodeFormattingOptions.Default);
         Assert.IsNull(extracted.Edit.Refusal, $"refused: {extracted.Edit.Refusal}");
         var edit = tamper?.Invoke(extracted.Edit) ?? extracted.Edit;
-        return ExtractionVerification.Verify(extracted.Plan, edit, "Extracted", "Run", FlowFixture.Module(extracted.Original), text => FlowFixture.Module(text));
+        var before = FlowFixture.Module(extracted.Original);
+        var kind = before.Parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().First(member => member.Name == "Run").MemberKind;
+        return ExtractionVerification.Verify(extracted.Plan, edit, "Extracted", "Run", kind, before, text => FlowFixture.Module(text));
     }
 
     // the edit with the text of its edits of the kind changed from what to what instead.
