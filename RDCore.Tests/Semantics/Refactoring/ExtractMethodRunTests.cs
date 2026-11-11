@@ -13,9 +13,9 @@ public sealed class ExtractMethodRunTests
     // the runs before and after the extraction, which must print the same and end the same; what they printed.
     private static async Task<string> SameAsync(
         string body, int first, int last, string driver = "Run 3", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)",
-        string end = "End Sub", IReadOnlyList<(string Name, string Source)>? classes = null)
+        string end = "End Sub", IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false)
     {
-        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync(body, first, last, driver, returnValue, header, end, classes: classes);
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync(body, first, last, driver, returnValue, header, end, classes: classes, classModule: classModule);
         Assert.AreEqual(before, after, module);
         return before.Output;
     }
@@ -212,6 +212,42 @@ public sealed class ExtractMethodRunTests
     [TestMethod]
     public async Task AStatementContinuedOverSeveralLines_RunsAsItDidInline()
         => Assert.AreEqual("4", await SameAsync("Dim x As Long\nx = n + _\n1\nDebug.Print x", 1, 2));
+
+    // Worker's Run, in a class module: the new member is the class's, called on the same object, so the field it writes and the members it calls are that
+    // object's.
+    [TestMethod]
+    public async Task InAClassModule_TheFieldsAndMembers_AreThoseOfTheSameObject()
+        => Assert.AreEqual("44 | 40", await SameAsync("field = n\nBump field\nDebug.Print Me.Total + field", 0, 2,
+            driver: "Dim w As New Worker\nw.Run 3\nDebug.Print w.Total", end: "End Sub\nPublic Function Total() As Long\nTotal = field * 10\nEnd Function",
+            classModule: true));
+
+    // each object has its field: the new member writes the one of the object whose Run calls it.
+    [TestMethod]
+    public async Task InAClassModule_EachObject_KeepsItsOwnField()
+        => Assert.AreEqual("4 | 2", await SameAsync("field = field + n", 0, 0,
+            driver: "Dim a As New Worker\nDim b As New Worker\na.Run 1\nb.Run 2\na.Run 3\nDebug.Print a.Total\nDebug.Print b.Total",
+            end: "End Sub\nPublic Function Total() As Long\nTotal = field\nEnd Function", classModule: true));
+
+    // Me, given to a variable the selection declares and the code after it reads: the new member gives back the same object.
+    [TestMethod]
+    public async Task InAClassModule_MeGivenToAVariable_IsTheSameObject()
+        => Assert.AreEqual("True | 30", await SameAsync("Dim w As Object\nSet w = Me\nfield = n * 10\nDebug.Print w Is Me\nDebug.Print w.Total", 0, 2,
+            driver: "Dim w As New Worker\nw.Run 3", end: "End Sub\nPublic Function Total() As Long\nTotal = field\nEnd Function", classModule: true));
+
+    [TestMethod]
+    public async Task APropertyGet_AssignsItsValueAsItDidInline()
+        => Assert.AreEqual("7", await SameAsync("Run = 3 * 2\nRun = Run + 1", 0, 1, driver: "Debug.Print Run",
+            header: "Public Property Get Run() As Long", end: "End Property"));
+
+    [TestMethod]
+    public async Task APropertyGet_OfAClassModule_IsThatObjectsValue()
+        => Assert.AreEqual("9", await SameAsync("field = 4\nRun = field * 2\nRun = Run + 1", 0, 2, driver: "Dim w As New Worker\nDebug.Print w.Run",
+            header: "Public Property Get Run() As Long", end: "End Property", classModule: true));
+
+    [TestMethod]
+    public async Task APropertyLet_WritesWhatItWroteInline()
+        => Assert.AreEqual("13", await SameAsync("Dim t As Long\nt = v * 3\nfield = t + 1", 0, 2, driver: "Dim w As New Worker\nw.Run = 4\nDebug.Print w.Run",
+            header: "Public Property Let Run(ByVal v As Long)", end: "End Property\nPublic Property Get Run() As Long\nRun = field\nEnd Property", classModule: true));
 
     // the change the plan reports happens: the object the moved variable holds terminates when the new procedure ends, before what the source procedure
     // prints after the call.

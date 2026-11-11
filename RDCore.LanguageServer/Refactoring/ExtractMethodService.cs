@@ -217,7 +217,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var after = ExtractionModuleAnalysis.Of(extraction.Module.Module, edited, parse, composition.Resolver, composition.ScopeTree);
 
         // the verification analyzes the text the edit leaves, which is the one parsed here.
-        return ExtractionVerification.Verify(extraction.Plan!, edit, name, extraction.Procedure.Declaration.Name, extraction.Analysis, _ => after);
+        var source = extraction.Procedure.Declaration;
+        return ExtractionVerification.Verify(extraction.Plan!, edit, name, source.Name, source.MemberKind, extraction.Analysis, _ => after);
     }
 
     // a text of the module, parsed as the document is: the designer of a form is its document's, which the text of its code does not hold.
@@ -237,7 +238,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         }
 
         var analysis = ExtractionModuleAnalysis.Of(module.Module, module.Source, module.Parse, part.Context.Resolver, part.Context.ScopeTree);
-        if (analysis.Procedure(member.Name) is not { } procedure)
+        if (analysis.Procedure(member.Name, member.MemberKind) is not { } procedure)
         {
             return null;
         }
