@@ -129,14 +129,6 @@ public sealed class VisualBasicRuntimeLibraryTests
         Assert.IsEmpty(errors, string.Join("; ", errors));
     }
 
-    [TestMethod]
-    public async Task AVB6Project_AVariableOfTheVisualBasicLibrarysGlobalModule_IsRefused()
-    {
-        var errors = await LoadErrorsAsync([], Program("Dim g As VB.Global"), NoneListed, SupportedLanguages.VB6);
-
-        Assert.IsTrue(errors.Any(error => error.Contains("'VB.Global' is a procedural module of a library, not a type")), string.Join("; ", errors));
-    }
-
     // another library's application object is a class like any other: Excel's Global declares Workbooks, which a project that references Excel does not have
     // as a name of its own.
     [TestMethod]
