@@ -83,7 +83,7 @@ travaille sur le dossier courant.
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
 Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Un projet dont un module ne se charge pas non
-plus. `Debug.Print` écrit sur la sortie standard.
+plus. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il est posé à la console, comme le _shell_ le pose.
 
 |Option|Ce qu'elle fait|
 |---|---|

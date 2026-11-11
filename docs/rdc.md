@@ -80,7 +80,7 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
 A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does one with a module that does not load. `Debug.Print`
-writes to the standard output.
+writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is asked at the console, as the shell asks it.
 
 |Option|What it does|
 |---|---|
