@@ -65,6 +65,9 @@ public sealed partial class CompiledActivation : ILightActivation
     // holds, given it as soon as there is one (TakeReference).
     private readonly object?[] _cells;
 
+    // whether the cell of each number is the activation's own though its slot is a parameter passed by reference: it was given a value (TakeReference).
+    private readonly bool[] _ownsCell;
+
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
         CompiledBody body, RuntimeProcedureInvoker invoker)
         : this(session, list, executor, context, body, invoker, procedure: null)
@@ -81,6 +84,7 @@ public sealed partial class CompiledActivation : ILightActivation
         _halt = session.Halt;
         _stack = session.CallStack as RuntimeCallStack;
         _cells = body.CellSlots.Count == 0 ? [] : new object?[body.CellSlots.Count];
+        _ownsCell = body.CellSlots.Count == 0 ? [] : new bool[body.CellSlots.Count];
         Begin();
     }
 
@@ -88,6 +92,7 @@ public sealed partial class CompiledActivation : ILightActivation
     private void Begin()
     {
         Array.Clear(_cells);
+        Array.Clear(_ownsCell);
         (_entered, _instance, _me) = (null, null, null);
         _scopes = _session.Symbols.Scopes;
         (_pc, _call, _library, _hasResult, _failed, _unspilled) = (0, -1, -1, false, null, false);
@@ -139,7 +144,7 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     // the frame given the cell numbered number, when it has none for its slot: a parameter passed by reference's is its caller's variable, which the frame
-    // has a second name for (PushAlias); any other is the activation's own.
+    // has a second name for (PushAlias), unless it was given a value (TakeReference); any other is the activation's own.
     private void Hold(CallStackFrame frame, int number)
     {
         var slot = _body.CellSlots[number];
@@ -149,7 +154,7 @@ public sealed partial class CompiledActivation : ILightActivation
         }
 
         var symbol = _body.SlotSymbols[slot];
-        if (symbol is VBParameterSymbol parameter && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind))
+        if (symbol is VBParameterSymbol parameter && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) && !_ownsCell[number])
         {
             frame.PushAlias(symbol, cell, slot);
         }
@@ -161,10 +166,18 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>
     /// Holds <paramref name="cell"/>, the argument of a parameter passed by reference - its caller's variable, or a cell of its own a value was copied into -
-    /// as the cell numbered <paramref name="number"/>: the frame has the parameter as a second name for it, now or when it is made.
+    /// as the cell numbered <paramref name="number"/>: the frame has the parameter as a second name for the variable, now or when it is made. A cell of a
+    /// value (<see cref="NewCell"/>) is the activation's own, as the cell the interpreter makes of a value given to such a parameter is its callee's: its
+    /// frame lets go of it, and of the address it was given, as it lets go of its variables. A call the activation makes with it is given its variable.
     /// </summary>
     public void TakeReference(int number, object cell)
     {
+        _ownsCell[number] = cell is ScalarCell { IsGivenValue: true };
+        if (_ownsCell[number])
+        {
+            Unsafe.As<ScalarCell>(cell).IsGivenValue = false;
+        }
+
         _cells[number] = cell;
         if (_frame is { } frame)
         {
@@ -245,7 +258,12 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     /// <summary>A cell of its own for the argument of a parameter passed by reference that is no variable, holding its value (MS-VBAL §5.3.1.11).</summary>
-    public static object NewCell(ScalarKind kind, long integral, double floating) => ScalarCell.Of(new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating));
+    public static object NewCell(ScalarKind kind, long integral, double floating)
+    {
+        var cell = ScalarCell.Of(new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating));
+        cell.IsGivenValue = true;
+        return cell;
+    }
 
     void ILightActivation.HeldIn(CallStackFrame frame)
     {
