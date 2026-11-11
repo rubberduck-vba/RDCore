@@ -31,7 +31,6 @@ public sealed class LanguageServerStartedByAnIdeTests
         {
             PlatformRoot = TestPlatformRoot.Directory,
             Workspace = new Uri(workspace).AbsoluteUri,
-            PipeName = $"rdcore-ide-launch-{Environment.ProcessId}-{Guid.NewGuid():N}",
         });
         var start = launch.ToProcessStartInfo();
         start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");

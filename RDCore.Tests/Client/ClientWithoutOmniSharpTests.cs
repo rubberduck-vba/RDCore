@@ -721,7 +721,6 @@ public sealed class ClientWithoutOmniSharpTests
             {
                 PlatformRoot = TestPlatformRoot.Directory,
                 Workspace = new Uri(workspace).AbsoluteUri,
-                PipeName = $"rdcore-raw-client-{Environment.ProcessId}-{Guid.NewGuid():N}",
             });
             var start = launch.ToProcessStartInfo();
             start.Environment[PlatformEnvironment.UserDataEnvironmentVariable] = Path.Combine(root, "User");
