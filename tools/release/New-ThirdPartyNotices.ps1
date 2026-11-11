@@ -157,6 +157,86 @@ function Get-PeSectionHash([string]$Path, [string]$Name) {
     finally { $reader.Dispose() }
 }
 
+# sha-256 of a range of bytes, or $null if the range is not inside them
+function Get-RangeHash([byte[]]$Bytes, [long]$Offset, [long]$Size) {
+    if ($Offset -lt 0 -or $Size -le 0 -or $Offset + $Size -gt $Bytes.LongLength) { return $null }
+    $data = [byte[]]::new($Size)
+    [Array]::Copy($Bytes, $Offset, $data, 0, $Size)
+    [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($data))
+}
+
+# a NUL-terminated ASCII name of at most $Length bytes at $Offset
+function Get-AsciiName([byte[]]$Bytes, [long]$Offset, [int]$Length) {
+    $end = [Array]::IndexOf($Bytes, [byte]0, [int]$Offset, $Length)
+    if ($end -lt 0) { $end = $Offset + $Length }
+    [Text.Encoding]::ASCII.GetString($Bytes, $Offset, $end - $Offset)
+}
+
+# sha-256 of the machine code of an executable: the .text section of a PE (Windows) or ELF (Linux) file, the __TEXT,__text section of a Mach-O
+# (macOS) one. $null if it is none of them, or not a 64-bit little-endian one, which every RID release.yml builds is.
+function Get-CodeSectionHash([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -lt 64) { return $null }
+    if ($bytes[0] -eq 0x4D -and $bytes[1] -eq 0x5A) { return Get-PeSectionHash $Path ".text" }
+    # ELF64, little-endian: the section headers are at e_shoff, e_shnum of e_shentsize bytes, and e_shstrndx is the one holding their names
+    if ($bytes[0] -eq 0x7F -and $bytes[1] -eq 0x45 -and $bytes[2] -eq 0x4C -and $bytes[3] -eq 0x46) {
+        if ($bytes[4] -ne 2 -or $bytes[5] -ne 1) { return $null }
+        $shoff = [BitConverter]::ToInt64($bytes, 0x28)
+        $shentsize = [BitConverter]::ToUInt16($bytes, 0x3A)
+        $shnum = [BitConverter]::ToUInt16($bytes, 0x3C)
+        $shstrndx = [BitConverter]::ToUInt16($bytes, 0x3E)
+        if ($shoff -le 0 -or $shentsize -lt 64 -or $shstrndx -ge $shnum -or $shoff + [long]$shnum * $shentsize -gt $bytes.LongLength) { return $null }
+        $names = [BitConverter]::ToInt64($bytes, $shoff + $shstrndx * $shentsize + 24)
+        for ($i = 0; $i -lt $shnum; $i++) {
+            $header = $shoff + [long]$i * $shentsize
+            $nameOffset = $names + [BitConverter]::ToUInt32($bytes, $header)
+            if ($nameOffset -ge $bytes.LongLength) { continue }
+            if ((Get-AsciiName $bytes $nameOffset ([Math]::Min(16, $bytes.LongLength - $nameOffset))) -cne ".text") { continue }
+            return Get-RangeHash $bytes ([BitConverter]::ToInt64($bytes, $header + 24)) ([BitConverter]::ToInt64($bytes, $header + 32))
+        }
+        return $null
+    }
+    # Mach-O 64-bit, little-endian (0xFEEDFACF): ncmds load commands after the 32-byte header; an LC_SEGMENT_64 (0x19) has nsects 80-byte
+    # sections after its own 72 bytes, each with its section and segment names and its file offset
+    # u: without it, PowerShell reads a hex literal whose top bit is set as a negative Int32, which no UInt32 equals
+    if ([BitConverter]::ToUInt32($bytes, 0) -eq 0xFEEDFACFu) {
+        $ncmds = [BitConverter]::ToUInt32($bytes, 16)
+        $command = 32
+        for ($i = 0; $i -lt $ncmds -and $command + 8 -le $bytes.LongLength; $i++) {
+            $cmd = [BitConverter]::ToUInt32($bytes, $command)
+            $cmdsize = [BitConverter]::ToUInt32($bytes, $command + 4)
+            if ($cmdsize -lt 8 -or $command + $cmdsize -gt $bytes.LongLength) { return $null }
+            if ($cmd -eq 0x19 -and $cmdsize -ge 72) {
+                $nsects = [BitConverter]::ToUInt32($bytes, $command + 64)
+                for ($s = 0; $s -lt $nsects -and 72 + ($s + 1) * 80 -le $cmdsize; $s++) {
+                    $section = $command + 72 + $s * 80
+                    if ((Get-AsciiName $bytes $section 16) -cne "__text" -or (Get-AsciiName $bytes ($section + 16) 16) -cne "__TEXT") { continue }
+                    return Get-RangeHash $bytes ([BitConverter]::ToUInt32($bytes, $section + 48)) ([BitConverter]::ToInt64($bytes, $section + 40))
+                }
+            }
+            $command += $cmdsize
+        }
+        return $null
+    }
+    $null
+}
+
+# whether a file of the tree is an apphost to account for: an .exe, or, as Linux and macOS name them, an ELF or a Mach-O file that is not named as a
+# library (.so, .so.<version>, .dylib, .dll), which its package's deps.json entry accounts for. the test is on the name, not on Path.GetExtension,
+# which takes the ".LanguageServer" of RDCore.LanguageServer for an extension.
+function Test-Executable([IO.FileInfo]$File) {
+    if ($File.Extension -ieq ".exe") { return $true }
+    if ($File.Name -match '\.(so(\.\d+)*|dylib|dll)$' -or $File.Length -lt 4) { return $false }
+    $stream = $File.OpenRead()
+    try {
+        $magic = [byte[]]::new(4)
+        if ($stream.Read($magic, 0, 4) -ne 4) { return $false }
+    }
+    finally { $stream.Dispose() }
+    # the Mach-O magic numbers are UInt32 literals (u), as ToUInt32 returns
+    ($magic[0] -eq 0x7F -and $magic[1] -eq 0x45 -and $magic[2] -eq 0x4C -and $magic[3] -eq 0x46) -or [BitConverter]::ToUInt32($magic, 0) -in 0xFEEDFACFu, 0xCFFAEDFEu, 0xCAFEBABEu, 0xBEBAFECAu
+}
+
 $PlatformRoot = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($PlatformRoot)
 $OutFile = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($OutFile)
 if (-not (Test-Path -LiteralPath $PlatformRoot -PathType Container)) {
@@ -406,15 +486,15 @@ foreach ($key in (ConvertTo-OrdinalOrder @($Overrides.Keys))) {
     if (-not $UsedOverrides.Contains($key)) { Write-Warning "override for $key matched no shipped package; remove it" }
 }
 
-# the .NET application host. a framework-dependent app's <name>.exe is the SDK's apphost.exe from a
-# Microsoft.NETCore.App.Host.<rid> pack, with the app's dll name patched into .data and its version resources added,
-# and no deps.json lists it. so every .exe in the tree must be one: its .text is byte-identical to that pack's
-# apphost.exe, and the pack folder the match is found in gives the version. the packs come with the SDK
-# (<dotnet root>/packs, which has no license files) or from NuGet, so this runs where the tree was published.
-# release.yml builds win-x64 only; a non-Windows apphost has no .exe extension and isn't looked for.
+# the .NET application host. a framework-dependent app's executable (<name>.exe on Windows, <name> elsewhere) is the SDK's
+# apphost from a Microsoft.NETCore.App.Host.<rid> pack, with the app's dll name patched into its data, on Windows its version
+# resources added and on macOS its code signature replaced, and no deps.json lists it. so every executable in the tree must be
+# one: its machine code (Get-CodeSectionHash) is byte-identical to that pack's apphost, and the pack folder the match is found
+# in gives the version. the packs come with the SDK (<dotnet root>/packs, which has no license files) or from NuGet, so this
+# runs where the tree was published.
 $HostRows = [Collections.Generic.List[object]]::new()
 $HostFiles = [Collections.Generic.List[string]]::new()
-$Executables = @(Get-ChildItem -LiteralPath $PlatformRoot -Recurse -File -Filter "*.exe")
+$Executables = @(Get-ChildItem -LiteralPath $PlatformRoot -Recurse -File | Where-Object { Test-Executable $_ })
 if ($Executables.Count) {
     $packRoots = [Collections.Generic.List[string]]::new()
     if ($env:DOTNET_ROOT) { $packRoots.Add((Join-Path $env:DOTNET_ROOT "packs")) }
@@ -429,8 +509,8 @@ if ($Executables.Count) {
         if (-not (Test-Path -LiteralPath $packRoot -PathType Container)) { continue }
         foreach ($pack in Get-ChildItem -LiteralPath $packRoot -Directory | Where-Object { $_.Name -like "Microsoft.NETCore.App.Host.*" }) {
             $packId = "Microsoft.NETCore.App.Host." + $pack.Name.Substring("Microsoft.NETCore.App.Host.".Length)
-            foreach ($candidate in Get-ChildItem -LiteralPath $pack.FullName -Recurse -File -Filter "apphost.exe") {
-                $hash = Get-PeSectionHash $candidate.FullName ".text"
+            foreach ($candidate in Get-ChildItem -LiteralPath $pack.FullName -Recurse -File | Where-Object { $_.Name -ceq "apphost.exe" -or $_.Name -ceq "apphost" }) {
+                $hash = Get-CodeSectionHash $candidate.FullName
                 if (-not $hash) { continue }
                 $packVersion = [IO.Path]::GetRelativePath($pack.FullName, $candidate.FullName).Replace('\', '/').Split('/')[0]
                 if (-not $apphosts.ContainsKey($hash)) { $apphosts[$hash] = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase) }
@@ -442,10 +522,10 @@ if ($Executables.Count) {
     $found = @{}
     foreach ($exe in $Executables) {
         $relative = [IO.Path]::GetRelativePath($PlatformRoot, $exe.FullName).Replace('\', '/')
-        $hash = Get-PeSectionHash $exe.FullName ".text"
+        $hash = Get-CodeSectionHash $exe.FullName
         $matched = @(if ($hash -and $apphosts.ContainsKey($hash)) { $apphosts[$hash] })
         if ($matched.Count -ne 1) {
-            $why = if ($matched.Count) { "matches several packs ($($matched -join ', '))" } else { "is not the apphost.exe of any Microsoft.NETCore.App.Host pack under $(($packRoots | Select-Object -Unique) -join ', ')" }
+            $why = if ($matched.Count) { "matches several packs ($($matched -join ', '))" } else { "is not the apphost of any Microsoft.NETCore.App.Host pack under $(($packRoots | Select-Object -Unique) -join ', ')" }
             $Failures.Add("$($relative): $why; run this where the tree was published, with that SDK, or its license is unknown")
             continue
         }
@@ -487,7 +567,7 @@ Add-Line "The license texts, and the notices their authors ask to be passed on, 
 Add-Line
 Add-Line "RDCore is framework-dependent: the .NET shared framework (Microsoft.NETCore.App) is not part of this package and"
 if ($HostRows.Count) {
-    Add-Line "is not listed here. The .NET application host is part of it: RDCore's .exe files are copies of it, listed below."
+    Add-Line "is not listed here. The .NET application host is part of it: RDCore's executables are copies of it, listed below."
 }
 else { Add-Line "is not listed here." }
 Add-Line "RDCore's own license terms are in NOTICE.md and LICENSE-GPLv3.md at the root of this package. RDCore.SDK, listed"

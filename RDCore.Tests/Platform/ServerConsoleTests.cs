@@ -3,6 +3,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using RDCore.SDK.Client;
 using RDCore.SDK.Platform;
 
 namespace RDCore.Tests.Platform;
@@ -27,7 +28,7 @@ public sealed class ServerConsoleTests
         var root = Path.Combine(Path.GetTempPath(), "RDCore", "server-console", Guid.NewGuid().ToString("N"));
         var workspace = Path.Combine(root, "Workspace");
         Directory.CreateDirectory(workspace);
-        var pipe = $"rdcore-console-{Environment.ProcessId}-{Guid.NewGuid():N}";
+        var pipe = PlatformPipeName.New(CoreServerComponent.ParsingServer);
         var server = Path.Combine(AppContext.BaseDirectory, "RDCore.ParseServer.dll");
 
         // started as a client starts it: its standard output redirected, and never read.

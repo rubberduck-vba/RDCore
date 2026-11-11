@@ -82,6 +82,52 @@ jobs:
       path: badge/*.json
       retention-days: 7
 
+ # the same two runs on Windows and macOS, without coverage: what differs from Linux there is the file system, the processes and
+ # the pipes the platform starts and talks through; the language is the same
+ build-and-test-os:
+  strategy:
+   fail-fast: false
+   matrix:
+    os: [windows-latest, macos-latest]
+  name: build-and-test (${{ matrix.os }})
+  runs-on: ${{ matrix.os }}
+  timeout-minutes: 90
+
+  steps:
+   # before the checkout, so the working tree gets Windows line endings as on a maintainer's machine
+   - name: Configure line endings
+     if: runner.os == 'Windows'
+     run: git config --global core.autocrlf true
+
+   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+     with:
+      persist-credentials: false
+
+   - name: Setup .NET
+     uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+     with:
+      dotnet-version: 10.0
+
+   # ANTLR 4.6.6 (RDCore.Parsing) runs the Java tool at build time: the same Java on every system
+   - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+     with:
+      distribution: temurin
+      java-version: '21'
+
+   - name: Build (Debug)
+     run: dotnet build RDCore.slnx --configuration Debug
+
+   - name: Test (Debug)
+     run: dotnet test RDCore.slnx --configuration Debug --no-build --verbosity normal --blame-hang-timeout 10m
+
+   - name: Build (Release)
+     run: dotnet build RDCore.slnx --configuration Release
+
+   - name: Test (Release, interpreted)
+     env:
+      RDCORE_ENGINE: Interpreter
+     run: dotnet test RDCore.slnx --configuration Release --no-build --verbosity normal --blame-hang-timeout 10m
+
  # the only job that can write to the repo: it runs none of the repo's code, just pushes the badge files built above
  badge:
   needs: build-and-test
