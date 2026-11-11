@@ -1,4 +1,5 @@
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Tests.Semantics.Refactoring;
@@ -208,6 +209,27 @@ public sealed class ExtractMethodRunTests
     [TestMethod]
     public async Task StatementsSeparatedByColons_RunAsTheyDidInline()
         => Assert.AreEqual("4", await SameAsync("Dim x As Long\nx = n: x = x + 1\nDebug.Print x", 1, 1));
+
+    [TestMethod]
+    public async Task AStatementBetweenTwoOthersOfItsLine_MovesAlone_AndRunsAsItDidInline()
+    {
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync("Dim x As Long\nx = n: x = x + 1: Debug.Print x", 0, 0, range: new SourceRange(1, 7, 1, 16));
+
+        Assert.AreEqual(before, after, module);
+        Assert.AreEqual("4", before.Output);
+        StringAssert.Contains(module, "x = n: Extracted x: Debug.Print x");
+    }
+
+    // the statement after the block on its line runs only when the block falls through: in the Then of a single-line If, it would run only when it exits.
+    [TestMethod]
+    public async Task AnExitBeforeAnotherStatementOfTheLine_LeavesThatStatementOutOfTheIfThatRoutesIt()
+    {
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync(
+            "Dim x As Long\nx = n\nIf x > 2 Then\nExit Sub\nEnd If: Debug.Print x", 0, 0, driver: "Run 1\nRun 3", range: new SourceRange(2, 0, 4, 6));
+
+        Assert.AreEqual(before, after, module);
+        Assert.AreEqual("1", before.Output);
+    }
 
     [TestMethod]
     public async Task AStatementContinuedOverSeveralLines_RunsAsItDidInline()

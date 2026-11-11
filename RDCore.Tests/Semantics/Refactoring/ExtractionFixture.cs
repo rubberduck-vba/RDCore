@@ -29,12 +29,12 @@ internal static class ExtractionFixture
         => PlanOf(FlowFixture.Analyze(body, header, close, optionExplicit, declarations), start, end);
 
     // The module after extracting the lines of the body from first to last (zero-based) as a procedure name, returning the variable returnValue
-    // names; and the edit. With formatting, the edit is formatted as it says.
+    // names; and the edit. With formatting, the edit is formatted as it says. A range, lines zero-based from the body's first, is extracted instead of the lines.
     public static (string Module, ExtractionEdit Edit) Extract(
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
-        bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null)
+        bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null, SourceRange? range = null)
     {
-        var extracted = Extracted(body, first, last, name, returnValue, header, end, optionExplicit, declarations, routeExits, formatting);
+        var extracted = Extracted(body, first, last, name, returnValue, header, end, optionExplicit, declarations, routeExits, formatting, range: range);
         return (extracted.Module, extracted.Edit);
     }
 
@@ -43,10 +43,10 @@ internal static class ExtractionFixture
     public static (string Original, string Module, ExtractionEdit Edit, ExtractionPlan Plan) Extracted(
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null,
-        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false)
+        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, SourceRange? range = null)
     {
         var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations, classes, classModule);
-        var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
+        var plan = PlanOf(analyzed, range?.Start ?? new SourcePosition(first, 0), range?.End ?? new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits };
         var edit = ExtractMethodEdit.Of(plan, source, choices);

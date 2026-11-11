@@ -1,5 +1,6 @@
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.SDK.Formatting;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Tests.Cli;
@@ -22,14 +23,15 @@ internal static class ExtractionRuns
 
     // The program run with the module as it is, then with the lines of Run's body from first to last extracted, and formatted as for a user who set nothing:
     // driver is the body of the program's Main, which calls Run. The workspace has the class modules in classes beside the module. With classModule, the
-    // module is the class module Worker, and Main is a standard module's, which makes the objects whose Run it calls. Erl counts lines as erl says.
+    // module is the class module Worker, and Main is a standard module's, which makes the objects whose Run it calls. Erl counts lines as erl says. A range,
+    // lines zero-based from the body's first, is extracted instead of the lines.
     public static async Task<(Run Before, Run After, string Module, ExtractionPlan Plan)> BeforeAndAfterAsync(
         string body, int first, int last, string driver = "Run 3", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)",
         string end = "End Sub", string declarations = "", IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false,
-        VBErlLineNumbering erl = VBErlLineNumbering.DocumentLine)
+        VBErlLineNumbering erl = VBErlLineNumbering.DocumentLine, SourceRange? range = null)
     {
         var extracted = ExtractionFixture.Extracted(body, first, last, returnValue: returnValue, header: header, end: end, declarations: declarations,
-            formatting: CodeFormattingOptions.Default, classes: classes, classModule: classModule);
+            formatting: CodeFormattingOptions.Default, classes: classes, classModule: classModule, range: range);
         Assert.IsNull(extracted.Edit.Refusal, $"refused: {extracted.Edit.Refusal}");
         Assert.AreNotEqual(extracted.Original, extracted.Module);
 

@@ -274,9 +274,9 @@ internal static class ExtractMethodEdit
             var movedIn = plan.Locals.Where(local => local.MovesDeclaration).Select(local => local.Variable).ToHashSet();
             edits.AddRange(DeclarationEdits(movedIn, outsideTheSelection: true, ExtractionTextEditKind.Declaration));
 
-            var body = Body(moved, resultCopy, exits);
+            var body = Body(moved, start.Character == 0 ? string.Empty : indentation, resultCopy, exits);
             var procedure = ProcedureText(body, resultCopy, exits);
-            var call = CallText(indentation, resultCopy, exits, fromLineStart: start.Character == 0);
+            var call = CallText(indentation, resultCopy, exits, fromLineStart: start.Character == 0, followed: text.StatementFollows(selection.Range.End));
 
             edits.Add(new ExtractionTextEdit(moved, call, ExtractionTextEditKind.Call));
             var after = source.Procedure.SourceLocation.Range.End;
@@ -366,7 +366,8 @@ internal static class ExtractMethodEdit
         }
 
         // the selection, with what changes in it: the declarations that stay in the source, the source's result, and the exits; dedented.
-        private List<string> Body(SourceRange moved, string? resultCopy, IReadOnlyList<Exit> exits)
+        // the moved text, dedented: a run that starts after another statement of its line is dedented as the line is.
+        private List<string> Body(SourceRange moved, string lineIndentation, string? resultCopy, IReadOnlyList<Exit> exits)
         {
             var stays = plan.MovedOut.Where(variable => plan.Parameters.Any(parameter => parameter.Variable == variable) || variable == ReturnValue).ToHashSet();
             var edits = DeclarationEdits(stays, outsideTheSelection: false, ExtractionTextEditKind.Call).ToList();
@@ -381,6 +382,7 @@ internal static class ExtractMethodEdit
             }
 
             var lines = text.Of(moved, edits).Split(["\r\n", "\n"], StringSplitOptions.None).ToList();
+            lines[0] = lineIndentation + lines[0];
             var dedent = lines.Where(line => line.Trim().Length > 0).Select(line => line.Length - line.TrimStart().Length).DefaultIfEmpty(0).Min();
             return [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
         }
@@ -412,7 +414,8 @@ internal static class ExtractMethodEdit
 
         // ---- the call site ----
 
-        private string CallText(string indentation, string? resultCopy, IReadOnlyList<Exit> exits, bool fromLineStart)
+        // followed: another statement of the line comes after the call, which a single-line If would take into its Then.
+        private string CallText(string indentation, string? resultCopy, IReadOnlyList<Exit> exits, bool fromLineStart, bool followed)
         {
             var arguments = Given(optional: false).Select(parameter => parameter.Name)
                 .Concat(plan.WithTarget is { } target ? [target.Name] : [])
@@ -447,6 +450,11 @@ internal static class ExtractMethodEdit
                     break;
                 case 0:
                     lines.Add(arguments.Length == 0 ? _name : $"{_name} {string.Join(", ", arguments)}");
+                    break;
+                case 1 when followed:
+                    lines.Add($"If {invoked} Then");
+                    lines.Add($"{Indent}{exits[0].Dispatch}");
+                    lines.Add("End If");
                     break;
                 case 1:
                     lines.Add($"If {invoked} Then {exits[0].Dispatch}");
