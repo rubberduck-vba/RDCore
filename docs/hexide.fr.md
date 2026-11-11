@@ -5,7 +5,7 @@
 [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE), y intègre RDCore.
 
 > [!NOTE]
-> **Le module d'extension est en pré-alpha, comme la plateforme.** Il repose sur une prise en charge des modules d'extension que HexIDE examine encore;
+> **Le module d'extension est en pré-alpha.** Il repose sur une prise en charge des modules d'extension que HexIDE examine encore;
 > il ne fonctionne donc qu'avec les versions de HexIDE qui l'ont.
 
 ---
@@ -25,13 +25,13 @@ Un projet VB6 s'ouvre dans HexIDE une fois qu'il a un `.rdproj` (voir [Projets V
 ---
 ## Obtenir le module d'extension
 
-Le module d'extension n'a aucune version publiée, la plateforme non plus. Pour les essayer, construisez-les tous deux à partir de leur code source :
+Le module d'extension n'a aucune version publiée. Pour l'essayer, construisez-le à partir de son code source :
 
-1. Construisez la plateforme (voir [Compiler la plateforme à partir des sources](building-on-rdcore.fr.md#compiler-la-plateforme-à-partir-des-sources)).
+1. Installez la plateforme, ou construisez-la (voir [Obtenir la plateforme](getting-started.fr.md#obtenir-la-plateforme)).
 1. Construisez le module d'extension et disposez-le en paquet de module d'extension HexIDE, comme l'indique son
    [README](https://github.com/rubberduck-vba/RDCore.HexIDE/blob/main/README.fr.md). Copiez le paquet dans le dossier `addins` à côté de
    l'exécutable de HexIDE.
-1. Indiquez au module d'extension la plateforme que vous avez construite : dans `%LOCALAPPDATA%\RDCore\HexIDE\settings.json`, donnez à
+1. Si vous avez construit la plateforme, indiquez-la au module d'extension : dans `%LOCALAPPDATA%\RDCore\HexIDE\settings.json`, donnez à
    `platformRoot` le dossier de la plateforme. Ce paramètre fixé, le module d'extension ne télécharge rien.
 
 Le paquet du module d'extension n'est pas signé : HexIDE ne le charge qu'en mode développeur, avec les modules d'extension non signés permis.
