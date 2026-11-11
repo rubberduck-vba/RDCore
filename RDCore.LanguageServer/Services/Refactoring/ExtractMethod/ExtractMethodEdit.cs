@@ -237,6 +237,10 @@ internal static class ExtractMethodEdit
         return exits.Count > 1 ? [name, $"{name}Exit", $"{name}ExitNone", .. exits.Select(exit => exit.Code)] : [name];
     }
 
+    // a parameter of the plan as the new procedure's signature writes it (ByRef total As Long).
+    internal static string ParameterTextOf(ExtractionPlan plan, ExtractionSource source, ExtractionParameter parameter)
+        => new Writer(plan, source, new ExtractionChoices(string.Empty), new ExtractionText(source.Text)).ParameterText(parameter);
+
     private sealed class Writer(ExtractionPlan plan, ExtractionSource source, ExtractionChoices choices, ExtractionText text)
     {
         private readonly string _name = choices.Name;
@@ -381,7 +385,7 @@ internal static class ExtractMethodEdit
             return [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
         }
 
-        private string ParameterText(ExtractionParameter parameter)
+        public string ParameterText(ExtractionParameter parameter)
         {
             var passing = parameter.Passing is ExtractionPassing.ByRef ? "ByRef" : "ByVal";
             if (parameter.Reason is ExtractionPassingReason.ParamArray)

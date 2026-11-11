@@ -11,7 +11,7 @@ public static class FormControlExtender
     public const string ClassName = "Control";
 
     public static VBClassModuleSymbol? Of(ISymbolResolver resolver, Uri handle)
-        => VBProjectSymbol.ResolveQualifiedType(resolver, MSFormsDesignerStorage.Library, ClassName, handle).Symbol as VBClassModuleSymbol;
+        => VBProjectSymbol.ResolveQualifiedType(resolver, FormDesigner.MSFormsLibrary, ClassName, handle).Symbol as VBClassModuleSymbol;
 
     public static IEnumerable<VBEventMemberSymbol> EventsOf(VBTypeMemberSymbol variable, VBClassModuleSymbol source, VBClassModuleSymbol? extender)
     {

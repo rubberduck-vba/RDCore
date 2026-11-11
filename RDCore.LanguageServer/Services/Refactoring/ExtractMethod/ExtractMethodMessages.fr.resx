@@ -34,4 +34,142 @@
   <data name="ExtractMethodName_Shadows" xml:space="preserve">
     <value>« {0} » est aussi {1}, que la nouvelle procédure masque dans ce module.</value>
   </data>
+  <data name="ExtractMethod_Title" xml:space="preserve">
+    <value>Extraire une méthode…</value>
+  </data>
+  <data name="ExtractMethodChoice_Name" xml:space="preserve">
+    <value>Nom</value>
+  </data>
+  <data name="ExtractMethodChoice_NameDescription" xml:space="preserve">
+    <value>Le nom de la nouvelle procédure.</value>
+  </data>
+  <data name="ExtractMethodChoice_Parameters" xml:space="preserve">
+    <value>Paramètres</value>
+  </data>
+  <data name="ExtractMethodChoice_ParametersDescription" xml:space="preserve">
+    <value>Ce que la nouvelle procédure reçoit, et comment.</value>
+  </data>
+  <data name="ExtractMethodChoice_ReturnValue" xml:space="preserve">
+    <value>Valeur de retour</value>
+  </data>
+  <data name="ExtractMethodChoice_ReturnValueDescription" xml:space="preserve">
+    <value>La variable que la nouvelle procédure renvoie, en tant que Function.</value>
+  </data>
+  <data name="ExtractMethodChoice_ReturnValueNone" xml:space="preserve">
+    <value>Aucune</value>
+  </data>
+  <data name="ExtractMethodChoice_RouteExits" xml:space="preserve">
+    <value>Acheminer les sorties</value>
+  </data>
+  <data name="ExtractMethodChoice_RouteExitsDescription" xml:space="preserve">
+    <value>La nouvelle procédure renvoie l'endroit où la sélection sort, et l'appel s'y rend.</value>
+  </data>
+  <data name="ExtractMethodReason_ReadOnly" xml:space="preserve">
+    <value>Lu par la sélection, sans être écrit.</value>
+  </data>
+  <data name="ExtractMethodReason_ReadAndWritten" xml:space="preserve">
+    <value>Lu et écrit par la sélection.</value>
+  </data>
+  <data name="ExtractMethodReason_WrittenOnly" xml:space="preserve">
+    <value>Écrit par la sélection, et lu après elle.</value>
+  </data>
+  <data name="ExtractMethodReason_Array" xml:space="preserve">
+    <value>Un tableau, toujours passé par référence.</value>
+  </data>
+  <data name="ExtractMethodReason_UserDefinedType" xml:space="preserve">
+    <value>Un type défini par l'utilisateur, toujours passé par référence.</value>
+  </data>
+  <data name="ExtractMethodReason_FixedLengthString" xml:space="preserve">
+    <value>Une chaîne de longueur fixe, passée par référence.</value>
+  </data>
+  <data name="ExtractMethodReason_Static" xml:space="preserve">
+    <value>Une variable locale Static, passée par référence pour qu'elle garde sa valeur.</value>
+  </data>
+  <data name="ExtractMethodReason_ParamArray" xml:space="preserve">
+    <value>Le ParamArray de la procédure.</value>
+  </data>
+  <data name="ExtractMethodSelection_NoStatement" xml:space="preserve">
+    <value>La sélection ne contient aucune instruction entière du corps d'une procédure.</value>
+  </data>
+  <data name="ExtractMethodSelection_CutsABlock" xml:space="preserve">
+    <value>La sélection coupe l'instruction de bloc à {1} : sélectionnez-la en entier, ou seulement des instructions qu'elle contient.</value>
+  </data>
+  <data name="ExtractMethodSelection_CutsADirectiveBlock" xml:space="preserve">
+    <value>La sélection coupe un bloc #If : sélectionnez-le en entier, ou aucune de ses directives.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ParamArrayWritten" xml:space="preserve">
+    <value>La sélection écrit un élément du ParamArray « {0} » à {1} : une copie passée à une nouvelle procédure perdrait l'écriture.</value>
+  </data>
+  <data name="ExtractMethodRefusal_WithTargetIsNotAVariable" xml:space="preserve">
+    <value>La sélection utilise un membre de l'objet du bloc With à {1}, qui ne nomme aucune variable : passer son objet évaluerait l'expression de nouveau.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ConstantUsedAfter" xml:space="preserve">
+    <value>La constante « {0} » déclarée dans la sélection est utilisée après elle, à {1} : le code qui suit l'appel ne pourrait pas la nommer.</value>
+  </data>
+  <data name="ExtractMethodRefusal_JumpIntoTheSelection" xml:space="preserve">
+    <value>Un saut venu de l'extérieur de la sélection y arrive, à {1}.</value>
+  </data>
+  <data name="ExtractMethodRefusal_GoSubToOutside" xml:space="preserve">
+    <value>Le GoSub à {1} va à une routine hors de la sélection : convertissez d'abord la routine en procédure.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ReturnOfAGoSubOutside" xml:space="preserve">
+    <value>Le Return à {1} revient à un GoSub hors de la sélection : convertissez d'abord la routine en procédure.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ErrorHandlingChanged" xml:space="preserve">
+    <value>Le On Error à {1} laisse la gestion des erreurs différente de ce qu'elle était au début de la sélection.</value>
+  </data>
+  <data name="ExtractMethodRefusal_HandlerOutsideTheSelection" xml:space="preserve">
+    <value>Le On Error GoTo à {1} nomme un gestionnaire hors de la sélection.</value>
+  </data>
+  <data name="ExtractMethodRefusal_ResumeOfAnErrorBefore" xml:space="preserve">
+    <value>Le Resume à {1} concerne une erreur levée avant la sélection : la nouvelle procédure n'a aucune erreur à elle à reprendre.</value>
+  </data>
+  <data name="ExtractMethodChange_CallerHandlerResumes" xml:space="preserve">
+    <value>Un gestionnaire d'erreurs de la procédure ({0}) peut intercepter une erreur de la sélection : extraite, l'erreur l'atteint à l'appel, où un Resume Next saute le reste du code extrait et un Resume exécute de nouveau tout l'appel.</value>
+  </data>
+  <data name="ExtractMethodChange_ErlOnly" xml:space="preserve">
+    <value>Un gestionnaire d'erreurs de la procédure ({0}) peut intercepter une erreur de la sélection : seul ce que dit Erl change.</value>
+  </data>
+  <data name="ExtractMethodChange_ResumeNextOnSomePaths" xml:space="preserve">
+    <value>La sélection s'exécute sous On Error Resume Next sur certains chemins et pas sur d'autres : la nouvelle procédure ne peut pas commencer comme tous le font.</value>
+  </data>
+  <data name="ExtractMethodChange_ErlReportsTheCall" xml:space="preserve">
+    <value>La sélection a des numéros de ligne, et un gestionnaire d'erreurs de la procédure ({0}) peut en intercepter une erreur : Erl indique la ligne de l'appel.</value>
+  </data>
+  <data name="ExtractMethodChange_ErrClearedOnEntry" xml:space="preserve">
+    <value>La sélection lit Err ou Erl sous On Error Resume Next : le On Error Resume Next par lequel la nouvelle procédure commence les efface.</value>
+  </data>
+  <data name="ExtractMethodChange_ObjectReleasedEarlier" xml:space="preserve">
+    <value>Ces variables deviennent propres à la nouvelle procédure : {1}. Lorsque l'une d'elles détient la dernière référence à un objet, l'objet est libéré à la fin de la nouvelle procédure, et son Class_Terminate s'exécute avant le code qui suit l'appel.</value>
+  </data>
+  <data name="ExtractMethodEdit_NotAReturnCandidate" xml:space="preserve">
+    <value>« {0} » n'est pas une valeur que la sélection rend.</value>
+  </data>
+  <data name="ExtractMethodEdit_ExitByJumpTable" xml:space="preserve">
+    <value>Un On…GoTo quitte la sélection : aucun code de sortie d'une seule instruction ne peut représenter ses différentes cibles.</value>
+  </data>
+  <data name="ExtractMethodEdit_ExitRoutingDeclined" xml:space="preserve">
+    <value>La sélection quitte la procédure, ou une boucle ou un bloc qui l'entoure, et les sorties ne sont pas acheminées.</value>
+  </data>
+  <data name="ExtractMethodEdit_NotAccepted" xml:space="preserve">
+    <value>L'extraction changerait ce que fait le code, et le changement n'a pas été accepté : {0}</value>
+  </data>
+  <data name="ExtractMethodVerification_Failed" xml:space="preserve">
+    <value>L'extraction n'a pas été faite : elle briserait le code. {0}</value>
+  </data>
+  <data name="ExtractMethodVerification_DoesNotParse" xml:space="preserve">
+    <value>Le module modifié ne serait pas analysable ({0}).</value>
+  </data>
+  <data name="ExtractMethodVerification_NameDoesNotBind" xml:space="preserve">
+    <value>Un nom déclarerait implicitement une variable ({0}).</value>
+  </data>
+  <data name="ExtractMethodVerification_NewCompileError" xml:space="preserve">
+    <value>Le module modifié aurait une erreur de compilation qu'il n'avait pas ({0}).</value>
+  </data>
+  <data name="ExtractMethodVerification_DataFlowDiffers" xml:space="preserve">
+    <value>L'appel ne recevrait pas, ne rendrait pas ou ne garderait pas pour le code qui le suit les mêmes valeurs que la sélection.</value>
+  </data>
+  <data name="ExtractMethodVerification_ExitNotReached" xml:space="preserve">
+    <value>L'appel ne quitterait pas la procédure vers chacun des endroits vers lesquels la sélection la quittait.</value>
+  </data>
 </root>

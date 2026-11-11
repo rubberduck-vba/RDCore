@@ -9,7 +9,9 @@ using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Runtime.StdLib;
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model;
 using RDCore.Runtime.LanguageCore.Errors;
@@ -19,10 +21,29 @@ namespace RDCore.Runtime.LanguageCore.Services;
 // MS-VBAL §5.6.10, §5.6.4, §4.1; RD-VBAL §2.3.1.2
 public sealed class ScopeTreeSymbolResolver(ScopeTree scopeTree) : ISymbolResolver
 {
+    // what each name means as a value, where it was looked up from, kept for each tree, as long as the tree lives. The resolution of a name is a function of
+    // the tree, which does not change once it is built: a symbol table that changes builds another tree, whose resolutions are its own, and begin empty.
+    // Nothing is ever taken out, and nothing has to be: what a tree resolved is true of that tree, whichever resolver of it resolved it.
+    private static readonly ConditionalWeakTable<ScopeTree, ConcurrentDictionary<ValueResolutionKey, SymbolResolutionResult>> Resolutions = new();
+
+    private readonly ConcurrentDictionary<ValueResolutionKey, SymbolResolutionResult> _valueResolutions = ValueResolutionsOf(scopeTree);
+
+    // the resolutions of a tree, made empty the first time a resolver of it is made.
+    internal static ConcurrentDictionary<ValueResolutionKey, SymbolResolutionResult> ValueResolutionsOf(ScopeTree tree) => Resolutions.GetOrCreateValue(tree);
+
+    // a name, and where it was looked up from: a name is the same name in any case (MS-VBAL §3.3.5.1), as the tree declares it.
+    internal readonly record struct ValueResolutionKey(string Name, ScopeKind Scope, string Handle)
+    {
+        public bool Equals(ValueResolutionKey other)
+            => Scope == other.Scope && string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase) && string.Equals(Handle, other.Handle, StringComparison.Ordinal);
+
+        public override int GetHashCode() => HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(Name), Scope, StringComparer.Ordinal.GetHashCode(Handle));
+    }
+
     // MS-VBAL §5.6.10
-    // the tree keeps each resolution (ScopeTree.ValueResolutions): a variable read a million times is resolved once.
+    // each resolution is the tree's: a variable read a million times is resolved once.
     public SymbolResolutionResult ResolveValue(string name, ScopeKind scope, Uri handle)
-        => scopeTree.ValueResolutions.GetOrAdd(new ScopeTree.ValueResolutionKey(name, scope, handle.AbsoluteUri),
+        => _valueResolutions.GetOrAdd(new ValueResolutionKey(name, scope, handle.AbsoluteUri),
             static (_, lookup) => lookup.Resolver.ResolveValueOnce(lookup.Name, lookup.Handle), (Resolver: this, Name: name, Handle: handle));
 
     private SymbolResolutionResult ResolveValueOnce(string name, Uri handle)
