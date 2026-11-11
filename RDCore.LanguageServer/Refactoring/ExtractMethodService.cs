@@ -40,6 +40,17 @@ internal interface IExtractMethodService
     /// <param name="token">A token that cancels the parses.</param>
     /// <returns>The edit, or why there is none, in the language of the user interface.</returns>
     Task<ExtractMethodAnswer> ApplyAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token);
+
+    /// <summary>
+    /// What the user's answers raise before the extraction is applied: a name the code cannot declare there, or a value to return that the selection does not
+    /// give back, which <see cref="ApplyAsync"/> refuses; and a name that hides a declaration outside the module, which it takes.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="range">The range, in the text of the document.</param>
+    /// <param name="answers">The user's answers; a choice that is not answered raises nothing.</param>
+    /// <param name="token">A token that cancels the parses.</param>
+    /// <returns>The notices, each with the choice it is of; none for a range that <see cref="PrepareAsync"/> refuses.</returns>
+    Task<RefactorCheckResult> CheckAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token);
 }
 
 /// <summary>
@@ -129,6 +140,38 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         }
 
         return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices };
+    }
+
+    public async Task<RefactorCheckResult> CheckAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
+    {
+        if (await ExtractionOfAsync(documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
+        {
+            return new RefactorCheckResult();
+        }
+
+        // each answer as ApplyAsync reads it: a name is trimmed, and a choice that is not answered takes its default, which raises nothing.
+        string? Answer(string id) => answers.FirstOrDefault(answer => answer.Id == id)?.Value;
+        List<RefactorNotice> notices = [];
+        if (Answer(NameChoice) is { Length: > 0 } typed)
+        {
+            notices.AddRange(ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).Select(problem => new RefactorNotice
+            {
+                Code = Code($"Name{problem.Kind}"),
+                Kind = problem.IsWarning ? RefactorNoticeKind.Note : RefactorNoticeKind.Refusal,
+                Message = problem.ToMessage(RenameWorkspace.Locator(extraction.Part)),
+                Related = extraction.DeclarationOf(problem),
+                Choice = NameChoice,
+            }));
+        }
+
+        if (Answer(ReturnValueChoice) is { Length: > 0 } returned
+            && !plan.ReturnCandidates.Any(candidate => candidate.Name.Equals(returned, StringComparison.OrdinalIgnoreCase)))
+        {
+            var kind = nameof(ExtractionEditRefusalKind.NotAReturnCandidate);
+            notices.Add(new RefactorNotice { Code = Code(kind), Kind = RefactorNoticeKind.Refusal, Message = Format($"ExtractMethodEdit_{kind}", returned), Choice = ReturnValueChoice });
+        }
+
+        return new RefactorCheckResult { Notices = notices };
     }
 
     public async Task<ExtractMethodAnswer> ApplyAsync(
@@ -282,6 +325,19 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         public string Where(SourceLocation? location) => location is { } at ? RenameWorkspace.Locator(Part)(Module.Module, at.Range.Start) : string.Empty;
 
         public string RefusalMessage(ExtractionRefusal refusal) => Format($"ExtractMethodRefusal_{refusal.Kind}", refusal.Name, Where(refusal.Location));
+
+        // the name a problem of a name points to, in the document of a module of the workspace; null for a declaration of a library, or of no module.
+        public SourceLocation? DeclarationOf(ExtractionNameProblem problem)
+        {
+            if (problem.Module is not { } module || Part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } document)
+            {
+                return null;
+            }
+
+            var end = new SourcePosition(problem.Position.Line, problem.Position.Character + problem.Name.Length);
+            var text = document.ToTextRange(new SourceRange(problem.Position, end));
+            return new SourceLocation(document.Document.Id.Uri.ToUri(), new SourceRange(text.Start.Line, text.Start.Character, text.End.Line, text.End.Character));
+        }
 
         public string ChangeMessage(ExtractionBehaviourChange change)
             => Format($"ExtractMethodChange_{change.Kind}", string.Join(", ", change.Handlers), string.Join(", ", change.Variables));

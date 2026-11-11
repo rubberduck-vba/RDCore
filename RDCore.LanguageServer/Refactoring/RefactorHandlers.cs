@@ -38,6 +38,20 @@ internal sealed class RefactorApplyHandler(IExtractMethodService extractMethod, 
     }
 }
 
+/// <summary>
+/// Serves <c>rdcore/refactor/check</c>: what the user's answers to a refactoring of a range raise before it is applied, each with the choice it is of. A
+/// client's dialog asks it as its user answers.
+/// </summary>
+internal sealed class RefactorCheckHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
+    : RDCoreRequestHandler<RefactorCheckRequest, RefactorCheckResult>
+{
+    protected override async Task<RefactorCheckResult> HandleAsync(RefactorCheckRequest request, CancellationToken token)
+    {
+        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
+        return await extractMethod.CheckAsync(request.Uri!, request.Range, request.Answers, token);
+    }
+}
+
 // what the refactor requests check before they are served.
 file static class RefactorRequests
 {
