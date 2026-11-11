@@ -2,17 +2,25 @@
 <sup>_Ce document est disponible en [français](getting-started.fr.html)_</sup>
 
 > [!NOTE]
-> **The platform is pre-alpha.** Expect rough edges, and expect things to change between versions.
+> **The platform is in alpha.** Expect rough edges, and expect things to change between versions.
 
 ---
 ## Getting the platform
 
-The platform has no published release. To try it, build it from its source, with the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0): see [Building the platform from source](building-on-rdcore.md#building-the-platform-from-source). The platform is written to the `artifacts\rdcore-dev` folder of your clone. Keep that folder whole: each part of the platform finds the others from it.
+Download the archive for your system from RDCore's [releases](https://github.com/rubberduck-vba/RDCore/releases): `rdcore-<version>-win-x64.zip` for Windows, or a `.tar.gz` for Linux and macOS. The platform needs the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) for your system's architecture.
+
+1. Extract the archive into a folder of its own. On Linux and macOS, extract it with `tar -xzf`, which keeps the programs' execute bit. On macOS, then clear the folder's quarantine: `xattr -dr com.apple.quarantine <folder>`.
+1. Open a terminal in the extracted folder's `RDCore.CLI` folder and run `.\rdc install` (Windows) or `./rdc install` (Linux and macOS). It installs the platform for your user account and puts `rdc` on your PATH (see [Installing the platform](rdc.md#installing-the-platform)).
+1. Open a new terminal: `rdc` runs from any folder. You can then delete the extracted folder.
+
+The programs are not code-signed, so on Windows SmartScreen may warn about them.
+
+To build the platform from its source instead, with the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), see [Building the platform from source](building-on-rdcore.md#building-the-platform-from-source). `rdc install` installs a platform you built the same way, from its `RDCore.CLI` folder.
 
 ---
 ## The RD-VBA shell
 
-Open the platform's `RDCore.CLI` folder and run **`rdc.exe`**. If all goes well, you see the platform's splash screen:
+Run **`rdc`** in a terminal. If all goes well, you see the platform's splash screen:
 
 ![RDCore CLI splash screen](images/rdvba-cli-splash.png)
 

@@ -21,8 +21,9 @@ Each archive has its release metadata beside it, `rdcore-{VERSION}-<system>.rele
 
 ### Installing
 
-- Extract the archive into a folder of its own, one per version: for example `%LOCALAPPDATA%\RDCore\{VERSION}` on Windows, `~/.local/share/rdcore/{VERSION}` on Linux, `~/Library/Application Support/RDCore/{VERSION}` on macOS. The archive's top level is the platform root (`rdcore.json`); keep the tree together. On Linux and macOS, extract it with `tar -xzf`, which keeps the executables' execute bit.
-- Launch the language server with its own folder as the working directory, as `launch.languageServer` in `release.json` describes: `RDCore.LanguageServer.exe --client-process-id <client pid> --pipe-name <pipe> --workspace <workspace>` on Windows, and `RDCore.LanguageServer` with the same arguments elsewhere. Pass the client's own process ID: without it, the server and the processes it starts keep running if the client dies.
+- Extract the archive into a folder of its own. The archive's top level is the platform root (`rdcore.json`); keep the tree together. On Linux and macOS, extract it with `tar -xzf`, which keeps the executables' execute bit. On macOS, then clear the extracted folder's quarantine (see **Verifying** below).
+- In the extracted folder's `RDCore.CLI` folder, run `.\rdc install` (Windows) or `./rdc install` (Linux and macOS). It copies the platform into `RDCore/Platform/versions/{VERSION}/` in your local application data folder, where the RDCore add-in for HexIDE installs it too, and puts `rdc` on your PATH: open a new terminal to use it. [Installing the platform](https://rubberduck-vba.github.io/RDCore/rdc.html#installing-the-platform) describes its options.
+- An IDE launches the language server with its own folder as the working directory, as `launch.languageServer` in `release.json` describes: `RDCore.LanguageServer.exe --client-process-id <client pid> --pipe-name <pipe> --workspace <workspace>` on Windows, and `RDCore.LanguageServer` with the same arguments elsewhere. Pass the client's own process ID: without it, the server and the processes it starts keep running if the client dies.
 - Do not set `RDCORE_PLATFORM_ROOT` globally: each server finds its platform root from its own location, and a global value would point every installed version at one tree.
 
 ### Verifying
