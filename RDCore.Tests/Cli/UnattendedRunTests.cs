@@ -140,6 +140,10 @@ public sealed class UnattendedRunTests
 
         public void SetCaption(object form, string caption) => Ask<object>(nameof(SetCaption));
 
+        public FormBounds GetBounds(object form) => Ask<FormBounds>(nameof(GetBounds));
+
+        public void SetBounds(object form, FormBounds bounds) => Ask<object>(nameof(SetBounds));
+
         public void Leave(object form) => Ask<object>(nameof(Leave));
 
         public void Destroy(object form) => Ask<object>(nameof(Destroy));

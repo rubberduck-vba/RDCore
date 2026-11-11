@@ -102,6 +102,16 @@ public sealed class WindowsFormHost : IFormHost
     });
 
     /// <inheritdoc/>
+    public FormBounds GetBounds(object form) => OnApartment(() => HostedOf(form).Bounds);
+
+    /// <inheritdoc/>
+    public void SetBounds(object form, FormBounds bounds) => OnApartment<object?>(() =>
+    {
+        HostedOf(form).Bounds = bounds;
+        return null;
+    });
+
+    /// <inheritdoc/>
     public void Leave(object form) => OnApartment<object?>(() =>
     {
         HostedOf(form).Leave();

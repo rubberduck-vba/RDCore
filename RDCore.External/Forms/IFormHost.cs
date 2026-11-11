@@ -19,6 +19,16 @@ public enum FormStartUpPosition
 }
 
 /// <summary>
+/// Where a form's window is on the desktop and how big it is, in points: a UserForm's <c>Left</c>, <c>Top</c>, <c>Width</c> and <c>Height</c>, which are its
+/// window's, caption bar and border included.
+/// </summary>
+/// <param name="Left">Where the window is, from the left of the desktop.</param>
+/// <param name="Top">Where the window is, from the top of the desktop.</param>
+/// <param name="Width">The window's width.</param>
+/// <param name="Height">The window's height.</param>
+public readonly record struct FormBounds(double Left, double Top, double Width, double Height);
+
+/// <summary>
 /// A form to host: its name, the designer's state of it, and how its window starts up.
 /// </summary>
 /// <param name="Name">The name of the form, as its module is named.</param>
@@ -140,6 +150,21 @@ public interface IFormHost
     void SetCaption(object form, string caption);
 
     /// <summary>
+    /// Gets where a form's window is and how big it is, in points.
+    /// </summary>
+    /// <param name="form">The handle of the form.</param>
+    /// <exception cref="Automation.AutomationException">The handle is not a form of this host, or the form was destroyed.</exception>
+    FormBounds GetBounds(object form);
+
+    /// <summary>
+    /// Moves a form's window and sizes it, in points. The form inside it is sized with it: its client area is what the window leaves of it.
+    /// </summary>
+    /// <param name="form">The handle of the form.</param>
+    /// <param name="bounds">Where the window goes, and its size.</param>
+    /// <exception cref="Automation.AutomationException">The handle is not a form of this host, or the form was destroyed.</exception>
+    void SetBounds(object form, FormBounds bounds);
+
+    /// <summary>
     /// The focus leaves a form for good, as it does when the form is unloaded: the form is deactivated and closed, and the control that has the focus is left - the
     /// events of the extender MS-VBA wraps it in, its pending update (<c>BeforeUpdate</c>, asked once more when it is cancelled, then <c>AfterUpdate</c> unless it
     /// is cancelled again) and its <c>Exit</c>, whose cancel changes nothing (Excel-measured, <c>oracle\s41</c> E01, E05, E10, E11). The form's window stays until
@@ -230,6 +255,12 @@ public sealed class UnavailableFormHost : IFormHost
 
     /// <inheritdoc/>
     public void SetCaption(object form, string caption) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
+
+    /// <inheritdoc/>
+    public FormBounds GetBounds(object form) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
+
+    /// <inheritdoc/>
+    public void SetBounds(object form, FormBounds bounds) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
 
     /// <inheritdoc/>
     public void Leave(object form)

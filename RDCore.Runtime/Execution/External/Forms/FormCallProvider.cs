@@ -31,8 +31,9 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// the instance (<see cref="ISessionExternalObjects"/>): when the instance is let go of, so is the form, window and all.
 /// </para>
 /// <para>
-/// What the form host adds to the form is the window, so the members that are the window's are asked of it: <c>Show</c>, <c>Hide</c>, <c>Visible</c>, and the
-/// <c>Caption</c>, which is the window's caption and not the Microsoft Forms form's own. Every other member of the <c>UserForm</c> - <c>Controls</c>,
+/// What the form host adds to the form is the window, so the members that are the window's are asked of it: <c>Show</c>, <c>Hide</c>, <c>Visible</c>, the
+/// <c>Caption</c>, which is the window's caption and not the Microsoft Forms form's own, and <c>Left</c>, <c>Top</c>, <c>Width</c> and <c>Height</c>, which are
+/// where the window is and its size. Every other member of the <c>UserForm</c> - <c>Controls</c>,
 /// <c>InsideWidth</c> - and every control is the form object's, called through the automation server as any server object's member is.
 /// </para>
 /// <para>
@@ -41,7 +42,7 @@ namespace RDCore.Runtime.Execution.External.Forms;
 /// </para>
 /// <para>
 /// 🚧 Not yet: the <c>UserForms</c> collection; the window's own events (<c>Activate</c>, <c>Deactivate</c>, the close button's <c>QueryClose</c>); the form
-/// object's other members (<c>Left</c>, <c>Move</c>, <c>Tag</c>…), which say so.
+/// object's other members (<c>Move</c>, <c>Tag</c>…), which say so.
 /// </para>
 /// </remarks>
 /// <param name="session">The session whose forms these are.</param>
@@ -143,6 +144,8 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
                 ("CAPTION", "get") => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(outside.Forms.GetCaption(hosted))),
                 ("CAPTION", "let") => Done(() => outside.Forms.SetCaption(hosted, StringOf(request.Arguments[^1]))),
                 ("VISIBLE", "get") => RuntimeSemanticsEvaluationResult.Success(new VBBooleanValue(outside.Forms.IsShown(hosted))),
+                ("LEFT" or "TOP" or "WIDTH" or "HEIGHT", "get") => RuntimeSemanticsEvaluationResult.Success(new VBSingleValue(Side(outside.Forms.GetBounds(hosted), member))),
+                ("LEFT" or "TOP" or "WIDTH" or "HEIGHT", "let") => Done(() => outside.Forms.SetBounds(hosted, WithSide(outside.Forms.GetBounds(hosted), member, SingleOf(request.Arguments[^1])))),
                 _ when FormObjectMembers.Contains(member) => RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                     VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, request.CallSite, $"{request.Describe()}: the form host does not host '{member}' yet.")),
 
@@ -281,6 +284,26 @@ public sealed class FormCallProvider(IRuntimeSession session, ExternalWorld outs
 
     private static VBTypedValue? VariantOf(IRuntimeValue argument)
         => VBVariantType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBVariantValue { TypedValue: var value } ? value : null;
+
+    // Left, Top, Width or Height of a form's window, which the form object's members are, as Single.
+    private static float Side(FormBounds bounds, string member) => (float)(member.ToUpperInvariant() switch
+    {
+        "LEFT" => bounds.Left,
+        "TOP" => bounds.Top,
+        "WIDTH" => bounds.Width,
+        _ => bounds.Height,
+    });
+
+    private static FormBounds WithSide(FormBounds bounds, string member, float value) => member.ToUpperInvariant() switch
+    {
+        "LEFT" => bounds with { Left = value },
+        "TOP" => bounds with { Top = value },
+        "WIDTH" => bounds with { Width = value },
+        _ => bounds with { Height = value },
+    };
+
+    private static float SingleOf(IRuntimeValue argument)
+        => VBSingleType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBSingleValue { Value: var value } ? value : 0;
 
     private static string StringOf(IRuntimeValue argument)
         => VBStringType.TypeInfo.CreateValue(new ValueBindingHandle(argument)) is VBStringValue { Value: var text } ? text : string.Empty;

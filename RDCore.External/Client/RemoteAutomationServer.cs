@@ -178,6 +178,21 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     }
 
     /// <inheritdoc/>
+    public Forms.FormBounds GetBounds(object form)
+    {
+        var remote = Live(form);
+        return Send<FormBoundsParams, FormBoundsResult>(remote.Incarnation, ExternalProtocol.FormBounds, new FormBoundsParams { Target = remote.Handle, HandlingEvent = _handlingEvent }).Bounds;
+    }
+
+    /// <inheritdoc/>
+    public void SetBounds(object form, Forms.FormBounds bounds)
+    {
+        var remote = Live(form);
+        _ = Send<FormBoundsParams, FormBoundsResult>(
+            remote.Incarnation, ExternalProtocol.FormBounds, new FormBoundsParams { Target = remote.Handle, Bounds = bounds, HandlingEvent = _handlingEvent });
+    }
+
+    /// <inheritdoc/>
     public void Leave(object form)
     {
         var remote = Live(form);

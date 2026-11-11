@@ -96,6 +96,29 @@ public sealed class FormHostingTests
         CollectionAssert.AreEqual(new[] { "ExampleView", "Changed", "ExampleView" }, printed);
     }
 
+    // the form object's Left, Top, Width and Height are its window's, which the form host has: a Single, as in Excel, read and written without an error.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the process")]
+    [DataRow(true, DisplayName = "through an external host")]
+    public async Task AFormsLeftTopWidthAndHeight_AreItsWindows(bool external)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        using var host = ExternalHosts.New();
+
+        var printed = await RunAsync(external ? ExternalHosts.WorldOf(host) : world,
+            "Debug.Print TypeName(ExampleView.Left)",
+            "On Error Resume Next",
+            "ExampleView.Width = ExampleView.Width + 30",
+            "ExampleView.Height = ExampleView.Height + 20",
+            "ExampleView.Left = ExampleView.Left",
+            "ExampleView.Top = ExampleView.Top",
+            "Debug.Print Err.Number");
+
+        CollectionAssert.AreEqual(new[] { "Single", "0" }, printed, string.Join(" | ", printed));
+    }
+
     [TestMethod]
     public async Task AModelessForm_IsShown_AndHidden()
     {
@@ -538,6 +561,10 @@ public sealed class FormHostingTests
         public string GetCaption(object form) => forms.GetCaption(form);
 
         public void SetCaption(object form, string caption) => forms.SetCaption(form, caption);
+
+        public RDCore.External.Forms.FormBounds GetBounds(object form) => forms.GetBounds(form);
+
+        public void SetBounds(object form, RDCore.External.Forms.FormBounds bounds) => forms.SetBounds(form, bounds);
 
         public void Leave(object form) => forms.Leave(form);
 
