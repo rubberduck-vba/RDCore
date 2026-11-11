@@ -6,7 +6,7 @@ namespace RDCore.External.Interaction;
 public interface IConsoleKeys
 {
     /// <summary>
-    /// Whether a key can be read at a time: <see langword="false"/> when the input is redirected - a script piped to the program - and a prompt reads a line instead.
+    /// Whether a key can be read at a time: <see langword="false"/> when the input is redirected (a script piped to the program), and a prompt reads a line instead.
     /// </summary>
     bool IsInteractive { get; }
 

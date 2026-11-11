@@ -3,7 +3,7 @@ using RDCore.SDK.Runtime.Abstract.StdLib;
 namespace RDCore.External.Interaction;
 
 /// <summary>
-/// The dialogs of a program, asked at the console it runs at: each is a box with a border (<see cref="ConsoleDialogBox"/>), centred on the
+/// The dialogs of a program, shown at the console it runs at: each is a box with a border (<see cref="ConsoleDialogBox"/>), centered on the
 /// console, with its title in the top edge and its message inside. A <c>MsgBox</c> ends with a row of buttons (<see cref="ConsoleMenu"/>), and an
 /// <c>InputBox</c> with a line to type on (<see cref="ConsoleLineEditor"/>).
 /// </summary>
@@ -28,7 +28,7 @@ namespace RDCore.External.Interaction;
 /// Whether <paramref name="output"/> understands ANSI escape sequences, which show the selected default text of an input box, and draw the whole box before it is
 /// answered.
 /// </param>
-/// <param name="consoleWidth">The cells of a line of the console, which a box is centred in; 80 when it is not said.</param>
+/// <param name="consoleWidth">The cells of a line of the console, which a box is centered in; 80 when it is not said.</param>
 public sealed class ConsoleUserInteraction(IConsoleKeys keys, TextWriter output, bool ansi = false, Func<int>? consoleWidth = null) : IUserInteraction
 {
     private const int DefaultConsoleWidth = 80;
