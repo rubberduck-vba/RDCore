@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Idée ou demande de fonctionnalité / Idea or feature request
+    url: https://github.com/rubberduck-vba/RDCore/discussions/categories/ideas
+    about: Proposez-la dans les discussions, catégorie Ideas. / Suggest it in the Ideas discussions.
+  - name: Question
+    url: https://github.com/rubberduck-vba/RDCore/discussions/categories/q-a
+    about: Posez-la dans les discussions, catégorie Q&A. / Ask it in the Q&A discussions.
+  - name: Module d'extension pour HexIDE / HexIDE add-in
+    url: https://github.com/rubberduck-vba/RDCore.HexIDE
+    about: Le module d'extension a son propre dépôt. / The add-in has its own repository.
+  - name: Documentation
+    url: https://rubberduck-vba.github.io/RDCore/
+    about: Le guide, les commandes rdc et la spécification RD-VBAL. / The guide, the rdc commands and the RD-VBAL specification.
