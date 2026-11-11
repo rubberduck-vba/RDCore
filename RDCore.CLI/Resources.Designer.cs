@@ -1625,6 +1625,221 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Verbose_FrameDetails", resourceCulture);
             }
         }
-
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Installs this platform for you, and puts rdc on your PATH..
+        /// </summary>
+        public static string Install_Summary {
+            get {
+                return ResourceManager.GetString("Install_Summary", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Install.
+        /// </summary>
+        public static string Install_Title {
+            get {
+                return ResourceManager.GetString("Install_Title", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Only puts the current version&apos;s rdc on your PATH..
+        /// </summary>
+        public static string Install_PathOnlyHelp {
+            get {
+                return ResourceManager.GetString("Install_PathOnlyHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Deploys the platform without changing your PATH..
+        /// </summary>
+        public static string Install_NoModifyPathHelp {
+            get {
+                return ResourceManager.GetString("Install_NoModifyPathHelp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Another installation is using {0}: waiting for it to finish..
+        /// </summary>
+        public static string Install_Waiting {
+            get {
+                return ResourceManager.GetString("Install_Waiting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No platform is installed in {0}. Run rdc install from a platform&apos;s folder first..
+        /// </summary>
+        public static string Install_NothingCurrent {
+            get {
+                return ResourceManager.GetString("Install_NothingCurrent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to rdc install installs the platform rdc runs from, and this isn&apos;t one: {0}.
+        /// </summary>
+        public static string Install_NotATree {
+            get {
+                return ResourceManager.GetString("Install_NotATree", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} has no rdcore.json..
+        /// </summary>
+        public static string Install_NoManifest {
+            get {
+                return ResourceManager.GetString("Install_NoManifest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} can&apos;t be read: {1}.
+        /// </summary>
+        public static string Install_UnreadableManifest {
+            get {
+                return ResourceManager.GetString("Install_UnreadableManifest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} names no language server..
+        /// </summary>
+        public static string Install_NoLanguageServer {
+            get {
+                return ResourceManager.GetString("Install_NoLanguageServer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} names a language server outside the platform: {1}..
+        /// </summary>
+        public static string Install_LanguageServerOutside {
+            get {
+                return ResourceManager.GetString("Install_LanguageServerOutside", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} names a language server that isn&apos;t there: {1}..
+        /// </summary>
+        public static string Install_LanguageServerMissing {
+            get {
+                return ResourceManager.GetString("Install_LanguageServerMissing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} names no platform version: &apos;{1}&apos;..
+        /// </summary>
+        public static string Install_NoVersion {
+            get {
+                return ResourceManager.GetString("Install_NoVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to RDCore {0} is deployed in {1}..
+        /// </summary>
+        public static string Install_Deployed {
+            get {
+                return ResourceManager.GetString("Install_Deployed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to RDCore {0} was already deployed in {1}..
+        /// </summary>
+        public static string Install_AlreadyDeployed {
+            get {
+                return ResourceManager.GetString("Install_AlreadyDeployed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to RDCore {0} is now the current version..
+        /// </summary>
+        public static string Install_MadeCurrent {
+            get {
+                return ResourceManager.GetString("Install_MadeCurrent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to RDCore {1}, which is newer, stays the current version: {0} is deployed beside it..
+        /// </summary>
+        public static string Install_NewerIsCurrent {
+            get {
+                return ResourceManager.GetString("Install_NewerIsCurrent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is on your PATH now. Open a new terminal to use rdc..
+        /// </summary>
+        public static string Install_AddedToPath {
+            get {
+                return ResourceManager.GetString("Install_AddedToPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} was already on your PATH..
+        /// </summary>
+        public static string Install_AlreadyOnPath {
+            get {
+                return ResourceManager.GetString("Install_AlreadyOnPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} now links to {1}..
+        /// </summary>
+        public static string Install_Linked {
+            get {
+                return ResourceManager.GetString("Install_Linked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} already linked to {1}..
+        /// </summary>
+        public static string Install_AlreadyLinked {
+            get {
+                return ResourceManager.GetString("Install_AlreadyLinked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is a file of yours, not a link rdc install made: remove it, or run rdc install --no-modify-path..
+        /// </summary>
+        public static string Install_LinkTaken {
+            get {
+                return ResourceManager.GetString("Install_LinkTaken", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} isn&apos;t on your PATH: {1} now adds it. Open a new terminal, or run . {1}.
+        /// </summary>
+        public static string Install_ProfileBlockAdded {
+            get {
+                return ResourceManager.GetString("Install_ProfileBlockAdded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} isn&apos;t on this terminal&apos;s PATH yet: {1} adds it in a new terminal..
+        /// </summary>
+        public static string Install_ProfileHasBlock {
+            get {
+                return ResourceManager.GetString("Install_ProfileHasBlock", resourceCulture);
+            }
+        }
     }
 }

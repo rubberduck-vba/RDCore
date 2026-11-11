@@ -794,4 +794,76 @@
   <data name="Verbose_FrameDetails" xml:space="preserve">
     <value>Détails du niveau :</value>
   </data>
+  <data name="Install_Summary" xml:space="preserve">
+    <value>Installe cette plateforme pour vous, et met rdc dans votre PATH.</value>
+  </data>
+  <data name="Install_Title" xml:space="preserve">
+    <value>Installation</value>
+  </data>
+  <data name="Install_PathOnlyHelp" xml:space="preserve">
+    <value>Met seulement le rdc de la version courante dans votre PATH.</value>
+  </data>
+  <data name="Install_NoModifyPathHelp" xml:space="preserve">
+    <value>Déploie la plateforme sans modifier votre PATH.</value>
+  </data>
+  <data name="Install_Waiting" xml:space="preserve">
+    <value>Une autre installation utilise {0} : en attente de sa fin.</value>
+  </data>
+  <data name="Install_NothingCurrent" xml:space="preserve">
+    <value>Aucune plateforme n&apos;est installée dans {0}. Lancez d&apos;abord rdc install à partir du dossier d&apos;une plateforme.</value>
+  </data>
+  <data name="Install_NotATree" xml:space="preserve">
+    <value>rdc install installe la plateforme d&apos;où rdc est lancé, et ce n&apos;en est pas une : {0}</value>
+  </data>
+  <data name="Install_NoManifest" xml:space="preserve">
+    <value>{0} n&apos;a pas de rdcore.json.</value>
+  </data>
+  <data name="Install_UnreadableManifest" xml:space="preserve">
+    <value>{0} est illisible : {1}</value>
+  </data>
+  <data name="Install_NoLanguageServer" xml:space="preserve">
+    <value>{0} ne nomme aucun serveur de langage.</value>
+  </data>
+  <data name="Install_LanguageServerOutside" xml:space="preserve">
+    <value>{0} nomme un serveur de langage hors de la plateforme : {1}.</value>
+  </data>
+  <data name="Install_LanguageServerMissing" xml:space="preserve">
+    <value>{0} nomme un serveur de langage absent : {1}.</value>
+  </data>
+  <data name="Install_NoVersion" xml:space="preserve">
+    <value>{0} ne nomme aucune version de plateforme : « {1} ».</value>
+  </data>
+  <data name="Install_Deployed" xml:space="preserve">
+    <value>RDCore {0} est déployé dans {1}.</value>
+  </data>
+  <data name="Install_AlreadyDeployed" xml:space="preserve">
+    <value>RDCore {0} était déjà déployé dans {1}.</value>
+  </data>
+  <data name="Install_MadeCurrent" xml:space="preserve">
+    <value>RDCore {0} est maintenant la version courante.</value>
+  </data>
+  <data name="Install_NewerIsCurrent" xml:space="preserve">
+    <value>RDCore {1}, plus récent, reste la version courante : {0} est déployé à côté.</value>
+  </data>
+  <data name="Install_AddedToPath" xml:space="preserve">
+    <value>{0} est maintenant dans votre PATH. Ouvrez un nouveau terminal pour utiliser rdc.</value>
+  </data>
+  <data name="Install_AlreadyOnPath" xml:space="preserve">
+    <value>{0} était déjà dans votre PATH.</value>
+  </data>
+  <data name="Install_Linked" xml:space="preserve">
+    <value>{0} pointe maintenant vers {1}.</value>
+  </data>
+  <data name="Install_AlreadyLinked" xml:space="preserve">
+    <value>{0} pointait déjà vers {1}.</value>
+  </data>
+  <data name="Install_LinkTaken" xml:space="preserve">
+    <value>{0} est un de vos fichiers, pas un lien créé par rdc install : supprimez-le, ou lancez rdc install --no-modify-path.</value>
+  </data>
+  <data name="Install_ProfileBlockAdded" xml:space="preserve">
+    <value>{0} n&apos;est pas dans votre PATH : {1} l&apos;y ajoute maintenant. Ouvrez un nouveau terminal, ou lancez . {1}</value>
+  </data>
+  <data name="Install_ProfileHasBlock" xml:space="preserve">
+    <value>{0} n&apos;est pas encore dans le PATH de ce terminal : {1} l&apos;y ajoute dans un nouveau terminal.</value>
+  </data>
 </root>

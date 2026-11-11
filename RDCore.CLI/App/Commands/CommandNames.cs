@@ -11,4 +11,5 @@ internal static class CommandNames
     public static (string Name, string Alias) RunCommand = ("run", "r");
     public static (string Name, string Alias) ConfigCommand = ("config", "configure");
     public static (string Name, string Alias) ImportProjectCommand = ("import", "i");
+    public static (string Name, string Alias) InstallCommand = ("install", "setup");
 }
