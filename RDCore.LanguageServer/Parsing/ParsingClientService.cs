@@ -12,7 +12,6 @@ using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
 using RDCore.SDK.Platform.Components;
 using RDCore.Runtime.LanguageCore.Errors;
-using RDCore.Symbols;
 
 namespace RDCore.LanguageServer.Parsing;
 
@@ -383,10 +382,10 @@ internal sealed class ParsingClientService(
     // TODO: report an unreadable designer as a diagnostic of the form module, by its FormDesignerFormatProblem.
     private FormDescriptor? DesignerOf(WorkspaceDocument document)
     {
-        var designer = FormDocuments.DesignerOf(document.Text, document.Companion, out var problem);
+        var designer = FormDesigner.Read(document.Text, document.Companion, out var problem);
         if (problem is not null)
         {
-            logger.LogWarning("⚠️ The designer of {uri} cannot be read: {reason}", document.Id.Uri, problem);
+            logger.LogWarning("⚠️ The designer of {uri} cannot be read: {reason}", document.Id.Uri, problem.Message);
         }
 
         return designer;

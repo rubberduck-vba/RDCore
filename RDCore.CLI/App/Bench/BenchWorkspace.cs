@@ -1,7 +1,7 @@
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Workspace;
-using RDCore.Symbols;
+using RDCore.SDK.Workspace.Forms;
 using System.IO.Abstractions;
 
 namespace RDCore.CLI.App.Bench;
@@ -16,7 +16,7 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="Companion">The content of the companion file its source names (a UserForm's <c>.frx</c>), beside it; empty when it names none.</param>
 /// <param name="CompanionProblem">Why the companion file could not be read; null when it was, or when the module names none.</param>
 internal sealed record class BenchModule(string Name, ModuleType Type, string RelativePath, string Source, ReadOnlyMemory<byte> Companion = default,
-    string? CompanionProblem = null);
+    Exception? CompanionProblem = null);
 
 /// <summary>
 /// The code <c>rdc bench</c> runs: the modules of a workspace, and the project they make.
@@ -94,7 +94,7 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
         {
             var path = fileSystem.Path.Combine(root, module.RelativeUri);
             var source = fileSystem.File.ReadAllText(path);
-            var companion = FormDocuments.CompanionOf(fileSystem.File, fileSystem.Path, source, path, out var problem);
+            var companion = FormDesigner.ReadCompanion(fileSystem, path, source, out var problem);
             return new BenchModule(ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source), module.RelativeUri, source, companion, problem);
         }).ToArray();
 

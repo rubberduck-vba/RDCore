@@ -4,7 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.States;
 using RDCore.SDK.Workspace;
-using RDCore.Symbols;
+using RDCore.SDK.Workspace.Forms;
 using System.Collections.Concurrent;
 using System.Text;
 using TextDocumentRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -649,10 +649,10 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
     // It is read before the document is written, and with no lock held: it is file I/O.
     private ReadOnlyMemory<byte> ReadCompanion(string text, string path)
     {
-        var companion = FormDocuments.CompanionOf(ioFile, ioPath, text, path, out var problem);
+        var companion = FormDesigner.ReadCompanion(ioFile.FileSystem, path, text, out var problem);
         if (problem is not null)
         {
-            logger.LogWarning("⚠️ The companion file of '{path}' was not read: {reason}", path, problem);
+            logger.LogWarning(problem, "⚠️ The companion file of '{path}' could not be read.", path);
         }
 
         return companion;

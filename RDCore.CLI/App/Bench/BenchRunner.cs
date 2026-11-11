@@ -16,6 +16,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Libraries;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK.Workspace;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.Symbols;
 using System.Diagnostics;
 using System.IO.Abstractions;
@@ -324,11 +325,11 @@ internal sealed class BenchRunner(
             // the parser reads text alone: a form's designer is set on its parse from its text and its companion file, as the language server sets it.
             var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
             {
-                Designer = FormDocuments.DesignerOf(module.Source, module.Companion, out var designerProblem),
+                Designer = FormDesigner.Read(module.Source, module.Companion, out var designerProblem),
             };
             if ((module.CompanionProblem ?? designerProblem) is { } problem)
             {
-                loggers.CreateLogger<BenchRunner>().LogWarning("⚠️ The designer of {module} cannot be read: {reason}", module.RelativePath, problem);
+                loggers.CreateLogger<BenchRunner>().LogWarning(problem, "⚠️ The designer of {module} cannot be read.", module.RelativePath);
             }
 
             if (parse.SyntaxTree is not null)
