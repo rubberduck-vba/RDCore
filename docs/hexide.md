@@ -24,7 +24,10 @@ A VB6 project is opened in HexIDE once it has a `.rdproj` (see [VB6 projects](vb
 ---
 ## Getting the add-in
 
-The add-in has no published release. To try it, build it from its source:
+Get the add-in from within HexIDE. It is published apart from the platform. Once it is installed, it uses the platform that `rdc install`
+installed (see [Getting the platform](getting-started.md#getting-the-platform)), or installs the platform itself, with your consent.
+
+To build the add-in from its source instead:
 
 1. Install the platform, or build it (see [Getting the platform](getting-started.md#getting-the-platform)).
 1. Build the add-in and lay it out as a HexIDE add-in package, as its [README](https://github.com/rubberduck-vba/RDCore.HexIDE#building) says. Copy

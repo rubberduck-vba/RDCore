@@ -25,7 +25,11 @@ Un projet VB6 s'ouvre dans HexIDE une fois qu'il a un `.rdproj` (voir [Projets V
 ---
 ## Obtenir le module d'extension
 
-Le module d'extension n'a aucune version publiée. Pour l'essayer, construisez-le à partir de son code source :
+Obtenez le module d'extension à partir de HexIDE. Il est publié à part de la plateforme. Une fois installé, il utilise la plateforme que
+`rdc install` a installée (voir [Obtenir la plateforme](getting-started.fr.md#obtenir-la-plateforme)), ou installe lui-même la plateforme,
+avec votre consentement.
+
+Pour plutôt construire le module d'extension à partir de son code source :
 
 1. Installez la plateforme, ou construisez-la (voir [Obtenir la plateforme](getting-started.fr.md#obtenir-la-plateforme)).
 1. Construisez le module d'extension et disposez-le en paquet de module d'extension HexIDE, comme l'indique son
