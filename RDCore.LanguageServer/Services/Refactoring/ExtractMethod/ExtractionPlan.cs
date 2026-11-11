@@ -179,8 +179,9 @@ internal enum ExtractionBehaviourChangeKind
     ResumeNextOnSomePaths,
 
     /// <summary>
-    /// The selection has line numbers, and a handler of the source procedure can catch an error of it: <c>Erl</c> reports the call's line: its line number, or, on
-    /// a line without one, the last line number the source procedure reached before the call, as for a statement of its own that raises the error.
+    /// The selection has line numbers, and a handler of the source procedure can catch an error of it. <c>Erl</c> then reports the call, as for a statement of
+    /// the source procedure's own that raises the error: the call's document line, or with line-label numbering, the call's line number, or on a line without
+    /// one, the last line number the source procedure reached before the call.
     /// </summary>
     ErlReportsTheCall,
 

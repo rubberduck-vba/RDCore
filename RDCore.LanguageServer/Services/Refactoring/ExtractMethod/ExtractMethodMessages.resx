@@ -134,7 +134,7 @@
     <value>The selection runs under On Error Resume Next on some paths and not on others: the new procedure cannot start as all of them do.</value>
   </data>
   <data name="ExtractMethodChange_ErlReportsTheCall" xml:space="preserve">
-    <value>The selection has line numbers, and an error handler of the procedure ({0}) can catch an error of it: Erl reports the last line number before the call.</value>
+    <value>The selection has line numbers, and an error handler of the procedure ({0}) can catch an error of it: Erl reports the line of the call or, where Erl counts line labels, the last line number before the call.</value>
   </data>
   <data name="ExtractMethodChange_ErrClearedOnEntry" xml:space="preserve">
     <value>The selection reads Err or Erl under On Error Resume Next: the On Error Resume Next the new procedure starts with clears them.</value>
