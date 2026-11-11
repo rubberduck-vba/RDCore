@@ -5,8 +5,7 @@
 [RDCore.HexIDE](https://github.com/rubberduck-vba/RDCore.HexIDE), brings RDCore into it.
 
 > [!NOTE]
-> **The add-in is pre-alpha.** It builds on add-in support that HexIDE is still reviewing, so it runs only on HexIDE builds that
-> have it.
+> **The add-in is pre-alpha.** It runs on HexIDE v0.5.0 and later versions, which have the add-in support it builds on.
 
 ---
 ## What the add-in does
@@ -24,7 +23,7 @@ A VB6 project is opened in HexIDE once it has a `.rdproj` (see [VB6 projects](vb
 ---
 ## Getting the add-in
 
-Get the add-in from within HexIDE. It is published apart from the platform. Once it is installed, it uses the platform that `rdc install`
+Get the add-in from within HexIDE. It is published separately from the platform. Once it is installed, it uses the platform that `rdc install`
 installed (see [Getting the platform](getting-started.md#getting-the-platform)), or installs the platform itself, with your consent.
 
 To build the add-in from its source instead:
@@ -35,7 +34,7 @@ To build the add-in from its source instead:
 1. If you built the platform, point the add-in at it: in `%LOCALAPPDATA%\RDCore\HexIDE\settings.json`, set `platformRoot` to the platform's folder. With
    it set, the add-in downloads nothing.
 
-The add-in package is unsigned, so HexIDE loads it only in developer mode, with unsigned add-ins allowed.
+A package you build is unsigned, so HexIDE loads it only in developer mode, with unsigned add-ins allowed.
 
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
