@@ -42,15 +42,15 @@ internal interface IExtractMethodService
     Task<ExtractMethodAnswer> ApplyAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token);
 
     /// <summary>
-    /// What the user's answers raise before the extraction is applied: a name the code cannot declare there, or a value to return that the selection does not
-    /// give back, which <see cref="ApplyAsync"/> refuses; and a name that hides a declaration outside the module, which it takes.
+    /// What the name the user is typing raises before the extraction is applied: one the code cannot declare there, which <see cref="ApplyAsync"/> refuses, or
+    /// one that hides a declaration outside the module, which it takes.
     /// </summary>
     /// <param name="documentUri">The document.</param>
     /// <param name="range">The range, in the text of the document.</param>
-    /// <param name="answers">The user's answers; a choice that is not answered raises nothing.</param>
+    /// <param name="answers">The user's answers, whose name is checked; a name that is not answered, or is answered with nothing, raises nothing.</param>
     /// <param name="token">A token that cancels the parses.</param>
-    /// <returns>The notices, each with the choice it is of; none for a range that <see cref="PrepareAsync"/> refuses.</returns>
-    Task<RefactorCheckResult> CheckAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token);
+    /// <returns>The notices, each with the choice it answers; none for a range that <see cref="PrepareAsync"/> refuses.</returns>
+    Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token);
 }
 
 /// <summary>
@@ -142,36 +142,26 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices };
     }
 
-    public async Task<RefactorCheckResult> CheckAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
+    public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
     {
-        if (await ExtractionOfAsync(documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
+        // the name as ApplyAsync reads it: trimmed, and one that is not answered takes its default, which raises nothing.
+        if (answers.FirstOrDefault(answer => answer.Id == NameChoice)?.Value is not { Length: > 0 } typed
+            || await ExtractionOfAsync(documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
         {
-            return new RefactorCheckResult();
+            return new RefactorIdentifierCheckResult();
         }
 
-        // each answer as ApplyAsync reads it: a name is trimmed, and a choice that is not answered takes its default, which raises nothing.
-        string? Answer(string id) => answers.FirstOrDefault(answer => answer.Id == id)?.Value;
-        List<RefactorNotice> notices = [];
-        if (Answer(NameChoice) is { Length: > 0 } typed)
+        return new RefactorIdentifierCheckResult
         {
-            notices.AddRange(ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).Select(problem => new RefactorNotice
+            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).Select(problem => new RefactorNotice
             {
                 Code = Code($"Name{problem.Kind}"),
                 Kind = problem.IsWarning ? RefactorNoticeKind.Note : RefactorNoticeKind.Refusal,
                 Message = problem.ToMessage(RenameWorkspace.Locator(extraction.Part)),
                 Related = extraction.DeclarationOf(problem),
                 Choice = NameChoice,
-            }));
-        }
-
-        if (Answer(ReturnValueChoice) is { Length: > 0 } returned
-            && !plan.ReturnCandidates.Any(candidate => candidate.Name.Equals(returned, StringComparison.OrdinalIgnoreCase)))
-        {
-            var kind = nameof(ExtractionEditRefusalKind.NotAReturnCandidate);
-            notices.Add(new RefactorNotice { Code = Code(kind), Kind = RefactorNoticeKind.Refusal, Message = Format($"ExtractMethodEdit_{kind}", returned), Choice = ReturnValueChoice });
-        }
-
-        return new RefactorCheckResult { Notices = notices };
+            })],
+        };
     }
 
     public async Task<ExtractMethodAnswer> ApplyAsync(

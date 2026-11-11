@@ -20,8 +20,8 @@ using RDCore.Tests.Runtime.Libraries;
 namespace RDCore.Tests.LanguageServer;
 
 /// <summary>
-/// What the user's answers to an extraction raise before it is applied: an answer the extraction refuses, as it refuses it when it is applied, and a name it
-/// takes that hides a declaration of another module, with that declaration.
+/// What the name the user is typing for an extraction raises before it is applied: a name the extraction refuses, as it refuses it when it is applied, and a
+/// name it takes that hides a declaration of another module, with that declaration. No other answer is checked.
 /// </summary>
 [TestClass]
 public sealed class ExtractMethodCheckTests
@@ -84,7 +84,7 @@ public sealed class ExtractMethodCheckTests
     {
         var answers = new[] { Answer(ExtractMethodService.NameChoice, name) };
 
-        var notice = (await _service.CheckAsync(Document("Main.bas"), Selection, answers, CancellationToken.None)).Notices.Single();
+        var notice = (await _service.CheckIdentifierAsync(Document("Main.bas"), Selection, answers, CancellationToken.None)).Notices.Single();
         var applied = await _service.ApplyAsync(Document("Main.bas"), Selection, answers, [], CancellationToken.None);
 
         Assert.AreEqual(RefactorNoticeKind.Refusal, notice.Kind);
@@ -98,7 +98,7 @@ public sealed class ExtractMethodCheckTests
     {
         var answers = new[] { Answer(ExtractMethodService.NameChoice, "Report") };
 
-        var notice = (await _service.CheckAsync(Document("Main.bas"), Selection, answers, CancellationToken.None)).Notices.Single();
+        var notice = (await _service.CheckIdentifierAsync(Document("Main.bas"), Selection, answers, CancellationToken.None)).Notices.Single();
         var applied = await _service.ApplyAsync(Document("Main.bas"), Selection, answers, [], CancellationToken.None);
 
         Assert.AreEqual(RefactorNoticeKind.Note, notice.Kind);
@@ -110,25 +110,23 @@ public sealed class ExtractMethodCheckTests
     }
 
     [TestMethod]
-    public async Task AValueToReturnThatTheSelectionDoesNotGiveBack_IsRefused_AsApplyingItIs()
-    {
-        var answers = new[] { Answer(ExtractMethodService.ReturnValueChoice, "a") };
-
-        var notice = (await _service.CheckAsync(Document("Main.bas"), Selection, answers, CancellationToken.None)).Notices.Single();
-        var applied = await _service.ApplyAsync(Document("Main.bas"), Selection, answers, [], CancellationToken.None);
-
-        Assert.AreEqual(RefactorNoticeKind.Refusal, notice.Kind);
-        Assert.AreEqual(ExtractMethodService.ReturnValueChoice, notice.Choice);
-        Assert.AreEqual(applied.Refusal, notice.Message);
-    }
-
-    [TestMethod]
     [DataRow("Increment", DisplayName = "a name nothing declares")]
     [DataRow("", DisplayName = "no name, which takes the default")]
     public async Task ANameTheExtractionTakesAsItIs_RaisesNothing(string name)
     {
-        var checkedAnswers = await _service.CheckAsync(Document("Main.bas"), Selection,
+        var checkedAnswers = await _service.CheckIdentifierAsync(Document("Main.bas"), Selection,
             [Answer(ExtractMethodService.NameChoice, name), Answer(ExtractMethodService.ReturnValueChoice, "b")], CancellationToken.None);
+
+        Assert.IsFalse(checkedAnswers.Notices.Any(), string.Join("; ", checkedAnswers.Notices.Select(notice => notice.Message)));
+    }
+
+    // a value to return is chosen from the options rdcore/refactor/prepare offers, and rdcore/refactor/apply refuses one that is not among them.
+    [TestMethod]
+    public async Task AValueToReturnThatTheSelectionDoesNotGiveBack_IsNotChecked()
+    {
+        var answers = new[] { Answer(ExtractMethodService.NameChoice, "Increment"), Answer(ExtractMethodService.ReturnValueChoice, "a") };
+
+        var checkedAnswers = await _service.CheckIdentifierAsync(Document("Main.bas"), Selection, answers, CancellationToken.None);
 
         Assert.IsFalse(checkedAnswers.Notices.Any(), string.Join("; ", checkedAnswers.Notices.Select(notice => notice.Message)));
     }
@@ -137,7 +135,7 @@ public sealed class ExtractMethodCheckTests
     [TestMethod]
     public async Task TheAnswersOfARangeThatIsRefused_RaiseNothing()
     {
-        var checkedAnswers = await _service.CheckAsync(Document("Main.bas"), new SourceRange(0, 0, 1, 0), [Answer(ExtractMethodService.NameChoice, "If")], CancellationToken.None);
+        var checkedAnswers = await _service.CheckIdentifierAsync(Document("Main.bas"), new SourceRange(0, 0, 1, 0), [Answer(ExtractMethodService.NameChoice, "If")], CancellationToken.None);
 
         Assert.IsFalse(checkedAnswers.Notices.Any());
     }

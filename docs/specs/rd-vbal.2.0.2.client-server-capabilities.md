@@ -137,7 +137,7 @@ This catalogue lists the platform capabilities the SDK defines. Each capability 
 |[`SessionSignatureHelp`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionSignatureHelp.html)|`rdcore/session/signatureHelp`|`LanguageServer`|Says what the call being written at a position of a module the client supplies takes, with the signature help `textDocument/signatureHelp` answers with. For a line typed at a prompt (see [below](#textdocumentsignaturehelp-and-rdcoresessionsignaturehelp)).|
 |[`RubberduckIndenterSettings`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.RubberduckIndenterSettings.html)|`rdcore/formatting/indenterSettings`, `rdcore/formatting/indenterSettings/apply`|`LanguageServer`|Asks the client for the indenter settings its user had in Rubberduck, as Rubberduck has them, and asks it to take the `Formatting` settings mapped from them as its own. Offered once on the first start (see [below](#rdcoreformattingindentersettings)).|
 |[`SessionSemanticTokens`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.SessionSemanticTokens.html)|`rdcore/session/semanticTokens`|`LanguageServer`|Tells the semantic tokens of code fragments the client supplies, with the legend and the encoding `textDocument/semanticTokens/full` answers with. For code a client shows that is in no document, such as the condition of a breakpoint (see [below](#textdocumentsemantictokensfull-and-rdcoresessionsemantictokens)).|
-|[`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html)|`rdcore/refactor/prepare`, `rdcore/refactor/check`, `rdcore/refactor/apply`|`LanguageServer`|Says what a refactoring asks its user and what the user's answers raise, and answers the edit it makes with the user's answers: for a client that shows a dialog of its own before a refactoring is applied (see [below](#rdcorerefactorprepare-rdcorerefactorcheck-and-rdcorerefactorapply)).|
+|[`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html)|`rdcore/refactor/prepare`, `rdcore/refactor/checkIdentifier`, `rdcore/refactor/apply`|`LanguageServer`|Says what a refactoring asks its user and what an identifier the user is typing raises, and answers the edit it makes with the user's answers: for a client that shows a dialog of its own before a refactoring is applied (see [below](#rdcorerefactorprepare-rdcorerefactorcheckidentifier-and-rdcorerefactorapply)).|
 
 > [!NOTE]
 > The handshake for every capability listed is _informational_ (see [**RD-VBAL §2.0.2.1** The `rdcore/platform/initialize` handshake](#2021-the-rdcoreplatforminitialize-handshake)).
@@ -545,7 +545,7 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rub
 
 The interactive shell asks for them with `DUCKY`, for its program as the document it is: `DUCKY` for the whole program, `DUCKY 20` for line 20. It pulls the diagnostics of the program (`textDocument/diagnostic`), asks for the code actions of the range with those of them that are in it, lists the actions by number, and does the one whose number is typed; <kbd>Esc</kbd> does none. It runs `rdcore.rename` itself: it asks the platform what the name is (`textDocument/prepareRename`), asks for the new name with that one, and renames (`textDocument/rename`) unless <kbd>Esc</kbd> cancels. An edit is made to the program as a whole or not at all: not when it is of a version the program no longer is, and not when it edits a document the shell does not hold. A program that is no document (in a shell attached to a workspace, a program that was neither loaded nor saved) is to be saved first, which `DUCKY` says.
 
-### `rdcore/refactor/prepare`, `rdcore/refactor/check` and `rdcore/refactor/apply`
+### `rdcore/refactor/prepare`, `rdcore/refactor/checkIdentifier` and `rdcore/refactor/apply`
 
 A refactoring is offered to any client as a code action, which completes with its defaults. A client that shows a dialog of its own before a refactoring is applied expects [`Refactoring`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Client.Refactoring.html), and asks with the requests below, the same for every refactoring. The language server provides the capability, and serves Extract Method (`refactor.extract.method`) with them.
 
@@ -553,22 +553,21 @@ A refactoring is offered to any client as a code action, which completes with it
 
 |A choice of kind|Is answered with|
 |---|---|
-|`Name`|A name. One the code cannot declare there is refused when the refactoring is applied, which `rdcore/refactor/check` says before.|
+|`Name`|A name. One the code cannot declare there is refused when the refactoring is applied, which `rdcore/refactor/checkIdentifier` says before.|
 |`Option`|The `value` of one of its `options`.|
 |`Flag`|`true` or `false`.|
 |`List`|Each item's answers to its own choices, in the order the user puts the items in when `canReorder` is set. An item that is not answered is kept as it is, where it is.|
 
 A notice of `rdcore/refactor/prepare` is a `Refusal`, which no answer changes, or a `Change` of what the code does, which the user accepts by its `code`. It says where (`location`) and, when it concerns another place too, that place (`related`).
 
-**`rdcore/refactor/check`** ([`RefactorCheckParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorCheckParams.html)) sends the same kind, document and range, with the answers so far: a dialog sends it as its user answers. It is answered the notices the answers raise ([`RefactorCheckResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorCheckResult.html)), each with the choice it is of (`choice`, and `item` for a choice of an item of a list). It applies nothing. A choice that is not answered raises nothing, and a range that `rdcore/refactor/prepare` refuses raises nothing more. A `Refusal` of an answer refuses the refactoring with that answer only: the user can give another.
+**`rdcore/refactor/checkIdentifier`** ([`RefactorIdentifierCheckParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorIdentifierCheckParams.html)) checks an identifier the user is typing: whether it can be declared where the refactoring declares it, and what it would hide. It sends the same kind, document and range, with the answers so far, and a dialog sends it as its user types. The answer to each `Name` choice is checked; no other answer is. It is answered the notices the identifiers raise ([`RefactorIdentifierCheckResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorIdentifierCheckResult.html)), each with the choice it answers (`choice`, and `item` for a choice of an item of a list). It applies nothing. A name that is not answered raises nothing, and a range that `rdcore/refactor/prepare` refuses raises nothing more. A `Refusal` of an identifier refuses the refactoring with that identifier only: the user can type another.
 
 For Extract Method:
 
-|An answer|Raises|
+|The name typed|Raises|
 |---|---|
-|A name the code cannot declare there: a keyword, no identifier, a name the module or the procedure declares, or one the module writes where it means something else|A `Refusal`. `rdcore/refactor/apply` answers the same answer with an error, which says the same.|
+|One the code cannot declare there: a keyword, no identifier, a name the module or the procedure declares, or one the module writes where it means something else|A `Refusal`. `rdcore/refactor/apply` answers the same name with an error, which says the same.|
 |A name declared outside the module, which the new procedure hides there|A `Note`, with the declaration it hides (`related`). The refactoring takes the name.|
-|A value to return that the selection does not give back|A `Refusal`.|
 
 **`rdcore/refactor/apply`** ([`RefactorApplyParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorApplyParams.html)) sends the same kind, document and range, with the answers and the codes of the changes the user accepts. A choice that is not answered takes its default. It is answered the edit ([`RefactorWorkspaceEdit`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorWorkspaceEdit.html)): the documents it creates, then the text edits of each document, of the version the client has. The client applies it as one change. A refactoring that is refused, or that would make a change the user did not accept, is answered with an error (`RequestFailed`, -32803) whose message says why, in the language of the user interface.
 
