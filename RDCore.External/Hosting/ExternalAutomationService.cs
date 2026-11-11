@@ -215,7 +215,9 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         return new FormCaptionResult { Caption = _forms.GetCaption(form) };
     }, Failed<FormCaptionResult>);
 
-    /// <summary>Answers <see cref="ExternalProtocol.FormBounds"/>.</summary>
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormBounds"/>.
+    /// </summary>
     public FormBoundsResult FormBounds(FormBoundsParams request) => Answer(request.HandlingEvent, () =>
     {
         var form = _handles.ObjectOf(request.Target);

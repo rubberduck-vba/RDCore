@@ -94,19 +94,29 @@ public sealed record class FormCaptionResult : ExternalResult
     public string Caption { get; init; } = string.Empty;
 }
 
-/// <summary>Request for <see cref="ExternalProtocol.FormBounds"/>: <see cref="IFormHost.GetBounds"/>, or <see cref="IFormHost.SetBounds"/> when it gives them.</summary>
+/// <summary>
+/// Request for <see cref="ExternalProtocol.FormBounds"/>: <see cref="IFormHost.GetBounds"/>, or <see cref="IFormHost.SetBounds"/> when it gives them.
+/// </summary>
 public sealed record class FormBoundsParams : AutomationRequest
 {
-    /// <summary>The handle of the form.</summary>
+    /// <summary>
+    /// The handle of the form.
+    /// </summary>
     public long Target { get; init; }
 
-    /// <summary>Where the window goes and its size, in points; <see langword="null"/> asks where it is.</summary>
+    /// <summary>
+    /// Where the window goes and its size, in points; <see langword="null"/> asks where it is.
+    /// </summary>
     public FormBounds? Bounds { get; init; }
 }
 
-/// <summary>Response for <see cref="ExternalProtocol.FormBounds"/>.</summary>
+/// <summary>
+/// Response for <see cref="ExternalProtocol.FormBounds"/>.
+/// </summary>
 public sealed record class FormBoundsResult : ExternalResult
 {
-    /// <summary>Where the form's window is and its size, in points, once the request is made.</summary>
+    /// <summary>
+    /// Where the form's window is and its size, in points, once the request is made.
+    /// </summary>
     public FormBounds Bounds { get; init; }
 }
