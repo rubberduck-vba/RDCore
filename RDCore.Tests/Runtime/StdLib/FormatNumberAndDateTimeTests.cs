@@ -66,8 +66,8 @@ public sealed class FormatNumberAndDateTimeTests
         Assert.AreEqual("(1.234,50 €)", euros.Replace('\u00A0', ' '), "the symbol where the positive pattern has it");
     }
 
-    // MS-VBA's symbol, which it reads from Windows' locale data (NLS), where the ICU data .NET reads differs from it on some system: the same
-    // character on every system. Each was measured on Windows 11 with GetLocaleInfoEx's LOCALE_SCURRENCY; the culture's ICU symbol is in the comment.
+    // MS-VBA's symbol, from Windows' locale data (NLS), for each culture whose ICU symbol differs from it on some system: the same character on
+    // every system. Each was measured on Windows 11 with GetLocaleInfoEx's LOCALE_SCURRENCY; each row's comment gives the culture's ICU symbol.
     [TestMethod]
     [DataRow(1041, "¥")] // ja-JP JPY, ICU on Windows and Linux: U+FFE5
     [DataRow(1152, "¥")] // ug-CN CNY, ICU: U+FFE5

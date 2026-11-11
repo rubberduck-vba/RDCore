@@ -16,7 +16,8 @@ namespace RDCore.Runtime.StdLib.Formatting;
 /// <para>
 /// The table holds MS-VBA's symbol for each currency, by its ISO 4217 code, where NLS and ICU were measured to differ (<c>GetLocaleInfoEx</c>'s
 /// <c>LOCALE_SCURRENCY</c> against .NET's <see cref="NumberFormatInfo.CurrencySymbol"/>, on Windows 11). It covers a currency only where NLS gives it
-/// one symbol in every culture whose currency it is, and a culture an LCID can name. Every other culture writes the symbol of its culture data.
+/// one symbol in every culture whose currency it is, and only where a culture an LCID can name differs. Every other culture writes the symbol of
+/// its culture data.
 /// </para>
 /// </remarks>
 internal static class CurrencySymbols
@@ -48,6 +49,8 @@ internal static class CurrencySymbols
     /// The symbol <paramref name="culture"/> writes an amount of money with: MS-VBA's for its currency where the table has one, and its culture
     /// data's otherwise.
     /// </summary>
+    /// <param name="culture">The culture the amount is formatted in.</param>
+    /// <returns>The symbol, the same character on every system for a currency the table has.</returns>
     public static string Of(CultureInfo culture)
         => Made.GetOrAdd(culture.Name, static (_, culture) => Make(culture), culture);
 
