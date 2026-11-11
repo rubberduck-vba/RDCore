@@ -321,7 +321,16 @@ internal sealed class BenchRunner(
         {
             // a module with a syntax error is defined and loaded as the language server does it: its load refuses it, unless the error is in a branch of a #If
             // that is excluded, which only the host knows.
-            var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source);
+            // the parser reads text alone: a form's designer is set on its parse from its text and its companion file, as the language server sets it.
+            var parse = new ModuleParser().Parse(workspace.DocumentOf(module), module.Source) with
+            {
+                Designer = FormDocuments.DesignerOf(module.Source, module.Companion, out var designerProblem),
+            };
+            if ((module.CompanionProblem ?? designerProblem) is { } problem)
+            {
+                loggers.CreateLogger<BenchRunner>().LogWarning("⚠️ The designer of {module} cannot be read: {reason}", module.RelativePath, problem);
+            }
+
             if (parse.SyntaxTree is not null)
             {
                 parsed.Add((module, SymbolUri.Module(root, module.Name), parse));

@@ -1,6 +1,7 @@
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Workspace;
+using RDCore.Symbols;
 using System.IO.Abstractions;
 
 namespace RDCore.CLI.App.Bench;
@@ -12,7 +13,10 @@ namespace RDCore.CLI.App.Bench;
 /// <param name="Type">A standard module or a class module, as its header says.</param>
 /// <param name="RelativePath">Where the module is, relative to the root of the workspace.</param>
 /// <param name="Source">The source of the module.</param>
-internal sealed record class BenchModule(string Name, ModuleType Type, string RelativePath, string Source);
+/// <param name="Companion">The content of the companion file its source names (a UserForm's <c>.frx</c>), beside it; empty when it names none.</param>
+/// <param name="CompanionProblem">Why the companion file could not be read; null when it was, or when the module names none.</param>
+internal sealed record class BenchModule(string Name, ModuleType Type, string RelativePath, string Source, ReadOnlyMemory<byte> Companion = default,
+    string? CompanionProblem = null);
 
 /// <summary>
 /// The code <c>rdc bench</c> runs: the modules of a workspace, and the project they make.
@@ -82,14 +86,16 @@ internal sealed record class BenchWorkspace(string Root, RDCoreProject Project, 
             [.. files.Select(file => new RDCoreModule { RelativeUri = file })]);
     }
 
-    // the project lists the modules by where they are, and says which are document modules; the session reads the same files, and the standard library is
-    // referenced first, as it always is.
+    // the project lists the modules by where they are, and says which are document modules; the session reads the same files, a form's companion file with its
+    // module as the language server reads it, and the standard library is referenced first, as it always is.
     private static BenchWorkspace Compose(IFileSystem fileSystem, string root, RDCoreProject project, IReadOnlyList<RDCoreModule> listed)
     {
         var modules = listed.Select(module =>
         {
-            var source = fileSystem.File.ReadAllText(fileSystem.Path.Combine(root, module.RelativeUri));
-            return new BenchModule(ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source), module.RelativeUri, source);
+            var path = fileSystem.Path.Combine(root, module.RelativeUri);
+            var source = fileSystem.File.ReadAllText(path);
+            var companion = FormDocuments.CompanionOf(fileSystem.File, fileSystem.Path, source, path, out var problem);
+            return new BenchModule(ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source), module.RelativeUri, source, companion, problem);
         }).ToArray();
 
         // the standard library is every project's own, and no reference of it.

@@ -221,15 +221,81 @@ public sealed class BuildCommandTests
 
     // ---- rdc run ----
 
-    private static async Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, params string[] args)
+    private static Task<(int Exit, string[] Output, string Error)> RunAsync(MockFileSystem fileSystem, params string[] args)
+        => RunAsync(fileSystem, new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty), args);
+
+    private static async Task<(int Exit, string[] Output, string Error)> RunAsync(
+        MockFileSystem fileSystem, RDCore.SDK.Runtime.Libraries.ILibrarySource libraries, params string[] args)
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
-            new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance, libraries);
         var command = new RunCommand(fileSystem, new ProjectFileLoader(fileSystem), runner, Substitute.For<IErrorDetailsRecorder>(), output, error);
         var exit = await command.ExecuteAsync(args, CancellationToken.None);
         return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(), error.ToString());
+    }
+
+    // a project that references Microsoft Forms, with a UserForm and a program that names the form's members without reaching the form: what the form's
+    // designer declares is read as the language server reads it, the companion file with it.
+    private static async Task<(int Exit, string[] Output, string Error)> RunWithUserFormAsync(string form, string frm, byte[]? frx, string uses)
+    {
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "Public Sub Main()", $"    If False Then {uses}", "    Debug.Print \"ran\"", "End Sub")),
+            ($"{form}.frm", frm));
+        if (frx is not null)
+        {
+            fileSystem.File.WriteAllBytes(Path.Combine(Root, $"{form}.frx"), frx);
+        }
+
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), $$"""
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "{{form}}.frm" } ],
+              "References": [ { "Name": "MSForms" } ] } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        return await RunAsync(fileSystem, shipped, Root);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAProjectWithAUserForm_WithNoCompanionFile_LoadsWhatItsDesignerDeclares()
+    {
+        var frm = string.Join("\r\n",
+            "VERSION 5.00",
+            "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Form1 ",
+            "   Caption         =   \"Form1\"",
+            "   ClientHeight    =   3000",
+            "   ClientLeft      =   120",
+            "   ClientTop       =   465",
+            "   ClientWidth     =   4000",
+            "   StartUpPosition =   1  'CenterOwner",
+            "End",
+            "Attribute VB_Name = \"Form1\"",
+            "Attribute VB_GlobalNameSpace = False",
+            "Attribute VB_Creatable = False",
+            "Attribute VB_PredeclaredId = True",
+            "Attribute VB_Exposed = False",
+            "Option Explicit",
+            "Public Sub Probe()",
+            "    Debug.Print Me.InsideWidth; Me.Controls.Count",
+            "    Me.Caption = \"probe\"",
+            "End Sub",
+            string.Empty);
+
+        var run = await RunWithUserFormAsync("Form1", frm, frx: null, "Debug.Print Form1.Controls.Count: Form1.Caption = \"probe\": Form1.Show");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "ran" }, run.Output, run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAProjectWithAUserForm_AndItsCompanionFile_LoadsWhatItsDesignerDeclares()
+    {
+        var (_, frm, _) = UnattendedRunTests.ExampleView("Public Sub Probe()\r\n    Debug.Print Me.InsideWidth; Me.InsideHeight\r\nEnd Sub\r\n");
+
+        var run = await RunWithUserFormAsync("ExampleView", frm, UnattendedRunTests.Fixture("ExampleView.frx"),
+            "Debug.Print ExampleView.InsideWidth; ExampleView.Controls.Count; ExampleView.AmountBox.Name: ExampleView.Show");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "ran" }, run.Output, run.Error);
     }
 
     [TestMethod]
