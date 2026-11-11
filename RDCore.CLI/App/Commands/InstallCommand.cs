@@ -51,8 +51,8 @@ internal sealed class InstallCommand(IConsoleMessageWriter writer, InstallLocati
 {
     private InstallLocations Locations { get; } = locations ?? InstallLocations.ForThisUser();
 
-    public string Name => CommandNames.InstallCommand.Name;
-    public IReadOnlyList<string> Aliases => [CommandNames.InstallCommand.Alias];
+    public string Name => CommandNames.InstallCommand;
+    public IReadOnlyList<string> Aliases => [];
     public string Summary => Resources.Install_Summary;
 
     public async Task<int> ExecuteAsync(IReadOnlyList<string> args, CancellationToken token)
