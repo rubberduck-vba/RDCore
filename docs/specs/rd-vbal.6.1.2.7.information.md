@@ -66,6 +66,9 @@ What RD-VBA's `Erl` counts is a setting of the environment, `ErlLineNumbering`, 
 |`DocumentLine` (the default)|The document line of the faulting statement, counted from `1` as an editor counts it.|
 |`LineLabel`|The last line-number label at or before the faulting statement, or `0` when no line-number label precedes it. This matches MS-VBA's `Erl`.|
 
+The faulting statement is a statement of the procedure whose handler catches the error. For an error a procedure it calls raised, it is the
+call, in both modes, as in MS-VBA: `Erl` reports the call's line, or the last line-number label before the call.
+
 A named label never sets `Erl`, in either `ErlLineNumbering` mode. Only a label spelled as decimal digits sets `Erl`
 ([**RD-VBAL §5.4.1.1** Statement Labels](rd-vbal.5.4.1.1.statement-labels.md)).
 

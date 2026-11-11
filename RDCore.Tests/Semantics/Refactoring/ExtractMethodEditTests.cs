@@ -1,5 +1,6 @@
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.SDK.Formatting;
+using RDCore.SDK.Model.Source;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -16,6 +17,36 @@ public sealed class ExtractMethodEditTests
     private static string Lines(string text) => text.ReplaceLineEndings("\r\n");
 
     // the loop of AVariableTheLoopReadsAgain_IsPassedByRef: ByVal, the write is lost and the loop never ends.
+    // the run starts after x = n on its line: that statement stays, the call takes the run's place after it, and the moved lines are indented alike.
+    [TestMethod]
+    public void AStatementAfterAnotherOfItsLine_MovesWithoutIt_AndTheCallTakesItsPlace()
+    {
+        var (module, _) = ExtractionFixture.Extract("Dim x As Long\nx = n: x = x + 1\nx = x * 2\nDebug.Print x", 0, 0, range: new SourceRange(1, 7, 2, 9));
+
+        Assert.AreEqual(Lines("""
+            Public Sub Run(ByVal n As Long)
+            Dim x As Long
+            x = n: Extracted x
+            Debug.Print x
+            End Sub
+
+            Private Sub Extracted(ByRef x As Long)
+                x = x + 1
+                x = x * 2
+            End Sub
+
+            """), FromRun(module));
+    }
+
+    // with a statement after the call on its line, the If that routes an exit is a block: the statement is not in its Then.
+    [TestMethod]
+    public void AnExitRoutedBeforeAnotherStatementOfTheLine_IsABlockIf()
+    {
+        var (_, edit) = ExtractionFixture.Extract("Dim x As Long\nx = n\nIf x > 2 Then\nExit Sub\nEnd If: Debug.Print x", 0, 0, range: new SourceRange(2, 0, 4, 6));
+
+        Assert.AreEqual(Lines("If Extracted(x) Then\n    Exit Sub\nEnd If"), edit.Call);
+    }
+
     [TestMethod]
     public void AVariableTheLoopReadsAgain_IsPassedByRef_ByACallWithoutParentheses()
     {

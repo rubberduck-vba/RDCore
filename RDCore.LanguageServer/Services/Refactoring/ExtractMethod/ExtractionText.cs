@@ -74,6 +74,18 @@ internal sealed class ExtractionText
         return true;
     }
 
+    // Whether the next character after the position that is not a space or a tab, on its line, is a statement separator: another statement follows on the line.
+    public bool StatementFollows(SourcePosition position)
+    {
+        var index = OffsetOf(position);
+        while (index < _text.Length && _text[index] is ' ' or '\t')
+        {
+            index++;
+        }
+
+        return index < _text.Length && _text[index] == ':';
+    }
+
     // The start of the line after the position's, or the end of the text when it is the last.
     public SourcePosition StartOfNextLine(SourcePosition position)
         => position.Line + 1 < _lineStarts.Length ? new SourcePosition(position.Line + 1, 0) : new SourcePosition(position.Line, _text.Length - _lineStarts[position.Line]);

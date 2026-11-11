@@ -110,14 +110,17 @@ public static class ForEachControlAnalysis
             .Select(instruction => ExpressionsOf(instruction.Node).Any(node => model.Expressions.TryGetValue(node.Identity, out var fact) && fact.Binding == control && Writes(fact)))
             .ToArray();
         var emptied = Enumerable.Repeat(true, graph.Exit + 1).ToArray();
-        emptied[graph.Entry] = false;
+        foreach (var entry in graph.Entries)
+        {
+            emptied[entry] = false;
+        }
 
         for (var changed = true; changed;)
         {
             changed = false;
             for (var node = 0; node <= graph.Exit; node++)
             {
-                if (emptied[node] && (node == graph.Entry || incoming[node].Count == 0 || incoming[node].Any(edge => !Brings(edge))))
+                if (emptied[node] && (graph.Entries.Contains(node) || incoming[node].Count == 0 || incoming[node].Any(edge => !Brings(edge))))
                 {
                     emptied[node] = false;
                     changed = true;

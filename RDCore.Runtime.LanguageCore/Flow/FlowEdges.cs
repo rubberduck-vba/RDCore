@@ -90,7 +90,10 @@ public sealed class FlowEdges
                 }
                 else if (state is { Policy: ErrorHandlingPolicy.ResumeNext, IsHandling: false })
                 {
-                    Add(instruction.Offset, ControlFlowGraph.NextAfterAnError(instruction), ControlFlowEdgeKind.Error);
+                    foreach (var next in graph.ContinuationsAfterAnError(instruction.Offset))
+                    {
+                        Add(instruction.Offset, next, ControlFlowEdgeKind.Error);
+                    }
                 }
                 else
                 {

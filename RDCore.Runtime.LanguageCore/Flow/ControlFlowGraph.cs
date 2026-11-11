@@ -29,13 +29,18 @@ public sealed class ControlFlowGraph
 {
     private readonly ImmutableArray<ControlFlowEdge>[] _successors;
     private readonly IReadOnlySet<int> _raiseFree;
+    private readonly ConditionalAlternatives? _alternatives;
 
-    private ControlFlowGraph(InstructionList instructions, ImmutableArray<ControlFlowEdge>[] successors, ControlFlowImprecision imprecision, IReadOnlySet<int> raiseFree)
+    private ControlFlowGraph(
+        InstructionList instructions, ImmutableArray<ControlFlowEdge>[] successors, ControlFlowImprecision imprecision, IReadOnlySet<int> raiseFree,
+        ConditionalAlternatives? alternatives)
     {
         Instructions = instructions;
         _successors = successors;
         Imprecision = imprecision;
         _raiseFree = raiseFree;
+        _alternatives = alternatives;
+        Entries = [.. Arrivals(-1, Entry)];
     }
 
     /// <summary>
@@ -47,6 +52,12 @@ public sealed class ControlFlowGraph
     /// The node control starts at: the first instruction, or <see cref="Exit"/> when the body has none.
     /// </summary>
     public int Entry => 0;
+
+    /// <summary>
+    /// The nodes control can start at: <see cref="Entry"/>, and, in a graph of every branch of the <c>#If</c> blocks, the first instruction of each other branch
+    /// of a block the body starts in, and the instruction after it.
+    /// </summary>
+    public ImmutableArray<int> Entries { get; }
 
     /// <summary>
     /// The node the activation ends at, which is one past the last instruction.
@@ -70,8 +81,20 @@ public sealed class ControlFlowGraph
     /// Whether a condition that is a literal (<c>If False</c>, <c>Do While True</c>, <c>For i = 3 To 1</c>) goes only the way it says (<see cref="ConstantFlow"/>), which is
     /// what runs; otherwise both ways, which is what is written: the code a refactoring moves, and that a later edit of the literal may run.
     /// </param>
-    public static ControlFlowGraph Of(InstructionList instructions, ProcedureSemanticModel? model = null, bool foldConstants = true)
-        => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model), foldConstants).Build();
+    /// <param name="blocks">
+    /// The <c>#If</c> blocks of the module, for a body lowered with every branch of them (<strong>MS-VBAL §3.4</strong>): at most one branch of a block is compiled,
+    /// so control that comes to a block goes to the start of any branch, or past the block, and a branch ends past the block, never in another branch. Without
+    /// them, the instructions are taken as they were lowered: a body lowered with its dead branches left out has only what runs.
+    /// </param>
+    public static ControlFlowGraph Of(InstructionList instructions, ProcedureSemanticModel? model = null, bool foldConstants = true, ConditionalCompilationBlocks? blocks = null)
+        => new Builder(instructions, model is null ? new HashSet<int>() : RaiseFreeAssignments.Of(instructions, model), foldConstants,
+            blocks is null ? null : ConditionalAlternatives.Of(instructions, blocks)).Build();
+
+    /// <summary>
+    /// The graph of the same body as it is written: a condition that is a literal goes both ways (see the <c>foldConstants</c> parameter of <see cref="Of"/>),
+    /// and the instructions that cannot raise an error and the <c>#If</c> blocks are this graph's.
+    /// </summary>
+    public ControlFlowGraph AsWritten() => new Builder(Instructions, _raiseFree, foldConstants: false, _alternatives).Build();
 
     /// <summary>
     /// Whether the instruction at <paramref name="node"/> can raise an error: one of a kind that can (<see cref="CanRaiseError"/>), and not an assignment the
@@ -85,6 +108,31 @@ public sealed class ControlFlowGraph
     /// </summary>
     /// <param name="node">The offset of an instruction; <see cref="Exit"/> has none.</param>
     public ImmutableArray<ControlFlowEdge> SuccessorsOf(int node) => _successors[node];
+
+    /// <summary>
+    /// Where <c>On Error Resume Next</c> goes on after the instruction at <paramref name="node"/> raised an error: <see cref="NextAfterAnError"/> of it, or, when that
+    /// is in another branch of an <c>#If</c> block than the instruction is, what follows the block.
+    /// </summary>
+    /// <param name="node">The offset of the instruction that raised the error.</param>
+    public IEnumerable<int> ContinuationsAfterAnError(int node) => Arrivals(node, NextAfterAnError(Instructions.Items[node]));
+
+    /// <summary>
+    /// Where control that leaves <paramref name="from"/> for <paramref name="to"/> arrives: <paramref name="to"/> itself, unless the graph has the
+    /// <c>#If</c> blocks of the body. Coming to a block from outside it, control arrives at the start of any of its branches, or past the block; leaving a
+    /// branch for another branch of its block, it arrives past the block.
+    /// </summary>
+    /// <param name="from">The offset of the instruction control leaves; -1 for the start of the body.</param>
+    /// <param name="to">The offset of the instruction the lowered body goes on to.</param>
+    public IEnumerable<int> Arrivals(int from, int to) => _alternatives?.Arrivals(from, to) ?? [to];
+
+    /// <summary>
+    /// Where control that comes from outside to the run of instructions from <paramref name="first"/> to <paramref name="last"/> arrives: at
+    /// <paramref name="first"/>, unless the graph has the <c>#If</c> blocks of the body and the run starts with the whole of one. Control then arrives at the
+    /// start of any branch of that block, or past it, which may be past the run.
+    /// </summary>
+    /// <param name="first">The offset of the run's first instruction.</param>
+    /// <param name="last">The offset of its last instruction.</param>
+    public IReadOnlySet<int> EntriesOf(int first, int last) => _alternatives?.EntriesOf(first, last) ?? new HashSet<int> { first };
 
     /// <summary>
     /// Whether control can ever arrive at <paramref name="node"/>.
@@ -109,8 +157,11 @@ public sealed class ControlFlowGraph
     {
         var visited = new bool[_successors.Length];
         var pending = new Stack<int>();
-        pending.Push(Entry);
-        visited[Entry] = true;
+        foreach (var entry in Entries)
+        {
+            pending.Push(entry);
+            visited[entry] = true;
+        }
 
         while (pending.Count > 0)
         {
@@ -136,7 +187,7 @@ public sealed class ControlFlowGraph
         return false;
     }
 
-    private sealed class Builder(InstructionList instructions, IReadOnlySet<int> raiseFree, bool foldConstants)
+    private sealed class Builder(InstructionList instructions, IReadOnlySet<int> raiseFree, bool foldConstants, ConditionalAlternatives? alternatives)
     {
         private bool? OutcomeOf(Instruction instruction) => foldConstants ? ConstantFlow.OutcomeOf(instruction) : null;
 
@@ -158,14 +209,18 @@ public sealed class ControlFlowGraph
             AddReturnEdges();
             AddErrorEdges();
 
-            return new ControlFlowGraph(instructions, [.. _edges.Select(edges => edges.ToImmutableArray())], _imprecision, raiseFree);
+            return new ControlFlowGraph(instructions, [.. _edges.Select(edges => edges.ToImmutableArray())], _imprecision, raiseFree, alternatives);
         }
 
+        // an edge to where control arrives: the #If blocks may send it elsewhere, or to several places.
         private void Add(int from, int to, ControlFlowEdgeKind kind)
         {
-            if (!_edges[from].Contains(new ControlFlowEdge(from, to, kind)))
+            foreach (var arrival in alternatives?.Arrivals(from, to) ?? [to])
             {
-                _edges[from].Add(new ControlFlowEdge(from, to, kind));
+                if (!_edges[from].Contains(new ControlFlowEdge(from, arrival, kind)))
+                {
+                    _edges[from].Add(new ControlFlowEdge(from, arrival, kind));
+                }
             }
         }
 
@@ -303,7 +358,8 @@ public sealed class ControlFlowGraph
         {
             var continuations = _items
                 .Where(instruction => instruction.Kind is InstructionKind.GoSub or InstructionKind.GoSubTable)
-                .Select(instruction => instruction.Offset + 1)
+                .SelectMany(instruction => alternatives?.Arrivals(instruction.Offset, instruction.Offset + 1) ?? [instruction.Offset + 1])
+                .Distinct()
                 .ToArray();
 
             foreach (var instruction in _items.Where(instruction => instruction.Kind is InstructionKind.Return))
@@ -334,8 +390,7 @@ public sealed class ControlFlowGraph
         {
             var protectedNodes = new List<int>();
             var visited = new bool[_edges.Length];
-            var pending = new Stack<int>();
-            pending.Push(statement.Offset + 1);
+            var pending = new Stack<int>(alternatives?.Arrivals(statement.Offset, statement.Offset + 1) ?? [statement.Offset + 1]);
 
             while (pending.Count > 0)
             {
