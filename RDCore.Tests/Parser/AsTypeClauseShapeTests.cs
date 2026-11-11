@@ -8,9 +8,9 @@ using System.Collections.Immutable;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// The type an <c>As</c> clause names is the clause's <see cref="AsTypeExpressionNode"/>, and no expression of the declaration (<strong>MS-VBAL §5.2.3.1</strong>,
-/// <strong>MS-VBAL §5.3.1.5</strong>): a parameter or a variable declared as a class, <c>Object</c> or a qualified type has no other expression child but
-/// its default value. A procedure with such a parameter is analyzed whole.
+/// The type an <c>As</c> clause names is the clause's <see cref="AsTypeExpressionNode"/> alone, not an expression of the declaration
+/// (<strong>MS-VBAL §5.2.3.1</strong>, <strong>MS-VBAL §5.3.1.5</strong>): a parameter or a variable declared as a class, <c>Object</c> or a qualified type
+/// has no expression child other than its default value. A procedure with such a parameter is analyzed whole.
 /// </summary>
 [TestClass]
 public sealed class AsTypeClauseShapeTests

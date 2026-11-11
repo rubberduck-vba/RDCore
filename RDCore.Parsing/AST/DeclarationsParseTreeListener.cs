@@ -1448,7 +1448,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     private void OnExpression(ExpressionNode expression) => CurrentBuilder.AddChild(expression);
 
     // the number of children the builder had when each As clause being walked began. The type the clause names is written as an expression
-    // (`Object`, `Thing`, `Excel.Range`, `Widget()`), which is no expression of the declaration: the AsTypeExpressionNode is the type, and what the
+    // (`Object`, `Thing`, `Excel.Range`, `Widget()`), but it is not an expression of the declaration: the AsTypeExpressionNode is the type, and what the
     // expression handlers built of it is dropped, whatever its shape.
     private readonly Stack<int> _asTypeClauseStarts = new();
 
