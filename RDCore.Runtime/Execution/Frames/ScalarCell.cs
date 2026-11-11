@@ -1,16 +1,17 @@
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
+using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
 namespace RDCore.Runtime.Execution.Frames;
 
 /// <summary>
-/// The cell of a variable of a scalar type - <c>Byte</c>, <c>Integer</c>, <c>Long</c>, <c>LongLong</c>, <c>Single</c>, <c>Double</c>, <c>Boolean</c>,
-/// <c>Currency</c>, <c>Date</c> - that holds
-/// its value as a payload rather than a boxed runtime value (IR lowering S1.2): what an expression evaluated on payloads reads and writes, without making a
-/// value of it.
+/// The cell of a variable of a scalar type (<c>Byte</c>, <c>Integer</c>, <c>Long</c>, <c>LongLong</c>, <c>LongPtr</c>, <c>Single</c>, <c>Double</c>,
+/// <c>Boolean</c>, <c>Currency</c> or <c>Date</c>) that holds its value as a payload rather than a boxed runtime value: what an expression
+/// evaluated on payloads reads and writes, without making a value of it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -72,6 +73,13 @@ internal sealed class ScalarCell : ICopyableBinding
     /// </summary>
     public RDCore.SDK.Runtime.Shared.MemoryAddress? Address { get; set; }
 
+    /// <summary>
+    /// Whether compiled code made the cell of a value given to a parameter passed by reference (MS-VBAL §5.3.1.11), a value that is no variable of
+    /// the caller's. The activation the cell is given to takes it as its own and clears the flag, as the interpreter's callee owns the cell it makes
+    /// of such a value.
+    /// </summary>
+    public bool IsGivenValue { get; set; }
+
     /// <inheritdoc/>
     public bool IsKnown { get; private set; } = true;
 
@@ -127,8 +135,8 @@ internal sealed class ScalarCell : ICopyableBinding
 /// <see cref="Integral"/> - a <c>Boolean</c> as its -1 or 0, a <c>Currency</c> as its ten-thousandths - and a floating-point one in <see cref="Floating"/>,
 /// a <c>Date</c> as its serial.
 /// </summary>
-/// <param name="Type">The type of the value: <c>Byte</c>, <c>Integer</c>, <c>Long</c>, <c>LongLong</c>, <c>Single</c>, <c>Double</c>, <c>Boolean</c>,
-/// <c>Currency</c> or <c>Date</c>.</param>
+/// <param name="Type">The type of the value: <c>Byte</c>, <c>Integer</c>, <c>Long</c>, <c>LongLong</c>, <c>LongPtr</c>, <c>Single</c>, <c>Double</c>,
+/// <c>Boolean</c>, <c>Currency</c> or <c>Date</c>.</param>
 /// <param name="Integral">The value of an integer type, of a <c>Boolean</c>, or of a <c>Currency</c> scaled by 10,000.</param>
 /// <param name="Floating">The value of a floating-point type, or the serial of a <c>Date</c>.</param>
 internal readonly record struct ScalarPayload(VBType Type, long Integral, double Floating)
@@ -136,9 +144,29 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
     /// <summary>What a <c>Currency</c> is scaled by, to be held in <see cref="Integral"/>.</summary>
     public const long CurrencyScale = 10000;
 
-    /// <summary>Whether a value of <paramref name="type"/> is held as a payload.</summary>
+    /// <summary>
+    /// Whether a value of <paramref name="type"/> is held as a payload. A <c>LongPtr</c> is: it is the integer type it is an alias of (MS-VBAL §2.2), which
+    /// the session's environment decides when the declaration is resolved.
+    /// </summary>
     public static bool IsScalar(VBType type)
-        => type is VBByteType or VBIntegerType or VBLongType or VBLongLongType or VBSingleType or VBDoubleType or VBBooleanType or VBCurrencyType or VBDateType;
+        => type is VBByteType or VBIntegerType or VBLongType or VBLongLongType or VBSingleType or VBDoubleType or VBBooleanType or VBCurrencyType or VBDateType
+            or VBLongPtrType_x64 or VBLongPtrType_x86;
+
+    /// <summary>
+    /// The type a value of <paramref name="type"/> is held as outside a variable of its own: a <c>LongPtr</c>'s is the type it is an alias of (MS-VBAL §2.2),
+    /// which a <c>Variant</c> holds of it, as the let-coercion of one makes it; any other type is its own.
+    /// </summary>
+    public static VBType AliasOf(VBType type) => type switch
+    {
+        VBLongPtrType_x64 => VBLongLongType.TypeInfo,
+        VBLongPtrType_x86 => VBLongType.TypeInfo,
+        _ => type,
+    };
+
+    /// <summary>
+    /// The payload as a <c>Variant</c> holds it: of the type <see cref="AliasOf"/> gives of its type, the type a <c>LongPtr</c> is an alias of.
+    /// </summary>
+    public ScalarPayload HeldByAVariant() => this with { Type = AliasOf(Type) };
 
     /// <summary>Whether the value is held in <see cref="Integral"/>: one of the integer types, a <c>Boolean</c> or a <c>Currency</c>.</summary>
     public bool IsIntegral => Type is not (VBSingleType or VBDoubleType or VBDateType);
@@ -163,6 +191,8 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
             (VBBooleanType, VBRuntimeBooleanValue b) => new(type, b.StoredValue, 0),
             (VBCurrencyType, VBRuntimeValue<VBRuntimeCurrencyValue> c) => new(type, c.Value.StoredValue, 0),
             (VBDateType, VBRuntimeValue<double> d) => new(type, 0, d.Value),
+            (VBLongPtrType_x64, VBRuntimeValue<long> p) => new(type, p.Value, 0),
+            (VBLongPtrType_x86, VBRuntimeValue<int> p) => new(type, p.Value, 0),
             _ => default,
         };
 
@@ -179,8 +209,8 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
         {
             VBByteType => value is >= byte.MinValue and <= byte.MaxValue,
             VBIntegerType => value is >= short.MinValue and <= short.MaxValue,
-            VBLongType => value is >= int.MinValue and <= int.MaxValue,
-            VBLongLongType => true,
+            VBLongType or VBLongPtrType_x86 => value is >= int.MinValue and <= int.MaxValue,
+            VBLongLongType or VBLongPtrType_x64 => true,
             VBBooleanType => value is 0 or -1,
             _ => false,
         };
@@ -212,12 +242,23 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
     {
         VBByteType => new VBRuntimeValue<byte>((byte)Integral),
         VBIntegerType => new VBRuntimeValue<short>((short)Integral),
-        VBLongType => new VBRuntimeValue<int>((int)Integral),
-        VBLongLongType => new VBRuntimeValue<long>(Integral),
+        VBLongType or VBLongPtrType_x86 => new VBRuntimeValue<int>((int)Integral),
+        VBLongLongType or VBLongPtrType_x64 => new VBRuntimeValue<long>(Integral),
         VBSingleType => new VBRuntimeValue<float>((float)Floating),
         VBBooleanType => new VBRuntimeBooleanValue((short)Integral),
         VBCurrencyType => new VBRuntimeValue<VBRuntimeCurrencyValue>(new VBRuntimeCurrencyValue(Integral)),
         // a Double, or the serial of a Date.
         _ => new VBRuntimeValue<double>(Floating),
+    };
+
+    /// <summary>
+    /// The value of <see cref="Type"/> the payload is: a <c>LongPtr</c> of the environment's width, made from the integer it is, as
+    /// <see cref="DeclaredValues"/> makes one.
+    /// </summary>
+    public VBTypedValue Typed() => Type switch
+    {
+        VBLongPtrType_x86 => new VBLongPtrValue((int)Integral),
+        VBLongPtrType_x64 => new VBLongPtrValue(Integral),
+        _ => Type.CreateValue(new ValueBindingHandle(Box())),
     };
 }

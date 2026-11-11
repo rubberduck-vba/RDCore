@@ -56,7 +56,7 @@ public sealed class CompiledObjectFieldTests
                 "End Sub"]))], classes: [Noisy]);
 
     // a field of the object Set by its own member: what it held is let go of there, and Terminate runs between what the member prints before the Set and
-    // after it when the field held the object last - a Set the interpreter runs, as it runs each Debug.Print.
+    // after it when the field held the object last (a Set the interpreter runs); compiled code prints.
     [TestMethod]
     public async Task AnObjectFieldOfAClass_IsSet_AndLetsGoOfWhatItHeldThere()
         => await AssertAlikeAsync(Program(
@@ -74,7 +74,7 @@ public sealed class CompiledObjectFieldTests
             "    Debug.Print H.Held.Name",
             "    H.Hold Nothing",
             "    Debug.Print \"end\"",
-            "End Sub"), [("Hold", 8), ("Held", 0), ("HoldsNothing", 0)], classes: [Noisy, ("Holder", ModuleWorkspace.ClassModule("Holder", "Option Explicit",
+            "End Sub"), [("Hold", 2), ("Held", 0), ("HoldsNothing", 0)], classes: [Noisy, ("Holder", ModuleWorkspace.ClassModule("Holder", "Option Explicit",
                 "Private mItem As Noisy",
                 "Public Sub Hold(ByVal Value As Noisy)",
                 "    Debug.Print \"holding\"",

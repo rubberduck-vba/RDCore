@@ -48,11 +48,15 @@ internal static class ScalarKinds
 {
     /// <summary>
     /// The kind of <paramref name="type"/>, when it is a scalar type. An enumeration is a <c>Long</c> (<strong>MS-VBAL §5.2.3.4</strong>): what a variable
-    /// declared as one holds is a <c>Long</c>, held in a cell of the <c>Long</c> type (<see cref="VBEnumType.AsDeclaredType"/>).
+    /// declared as one holds is a <c>Long</c>, held in a cell of the <c>Long</c> type (<see cref="VBEnumType.AsDeclaredType"/>). A <c>LongPtr</c> is the kind
+    /// of the type it is an alias of (<strong>MS-VBAL §2.2</strong>): a <c>LongLong</c> in a 64-bit environment and a <c>Long</c> in a 32-bit one, as the
+    /// declaration was resolved for the session's environment; a variable declared as one holds it in a cell of its declared type.
     /// </summary>
     public static ScalarKind? Of(VBType? type) => type switch
     {
         VBEnumType => ScalarKind.Long,
+        VBLongPtrType_x64 => ScalarKind.LongLong,
+        VBLongPtrType_x86 => ScalarKind.Long,
         VBByteType => ScalarKind.Byte,
         VBIntegerType => ScalarKind.Integer,
         VBLongType => ScalarKind.Long,

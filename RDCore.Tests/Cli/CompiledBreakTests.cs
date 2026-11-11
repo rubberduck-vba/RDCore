@@ -160,18 +160,32 @@ public sealed class CompiledBreakTests
             "Break @2 | Main@2 | Total 0",
             "ended |  | Total 10", "Main");
 
-    // a break asked for while Main prints, which compiled code goes on from without a loop: it breaks before the statement after the Print.
+    // a break asked for while Main prints a Variant, which the interpreter prints, and compiled code goes on from without a loop: it breaks before the
+    // statement after the Print.
     [TestMethod]
     public async Task ABreakAskedForInAStatementTheInterpreterRuns_IsAnsweredBeforeTheNext_InAStraightLine()
         => await AssertBreaksAsync(Program(
             "Public Total As Long",
             "Public Sub Main()",
-            "    Debug.Print \"go\"",
+            "    Debug.Print CVar(\"go\")",
             "    Total = 1",
             "    Total = Total + 1",
             "End Sub"), before: false,
             "Break @3 | Main@3 | Total 0",
             "ended | go | Total 2");
+
+    // a break asked for while Main prints a String, which compiled code prints: it breaks before the statement after the Print, as the interpreter does.
+    [TestMethod]
+    public async Task ABreakAskedForInACompiledPrint_IsAnsweredBeforeTheNext_InAStraightLine()
+        => await AssertBreaksAsync(Program(
+            "Public Total As Long",
+            "Public Sub Main()",
+            "    Debug.Print \"g\" & \"o\"",
+            "    Total = 1",
+            "    Total = Total + 1",
+            "End Sub"), before: false,
+            "Break @3 | Main@3 | Total 0",
+            "ended | go | Total 2", "Main");
 
     // a break asked for while Main prints, before it calls Fib, all compiled, which calls itself and has no loop: it breaks before the call, and Fib
     // runs only once the program is resumed.

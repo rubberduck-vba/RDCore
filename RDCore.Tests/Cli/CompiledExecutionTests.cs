@@ -531,7 +531,7 @@ public sealed class CompiledExecutionTests
             "    Guarded",
             "End Sub",
             "Private Sub Guarded()",
-            "    Debug.Print \"guarded\"",
+            "    Debug.Print 1",
             "End Sub"));
 
         var guarded = run.Compiled["Guarded"];
@@ -623,7 +623,7 @@ public sealed class CompiledExecutionTests
         using var strictly = CompiledExecution.Strictly();
         var run = await RunAsync(Program(
             "Public Sub Main()",
-            "    Debug.Print \"x\"",
+            "    Debug.Print 1",
             "End Sub"), VBExecutionEngine.Compiled);
 
         Assert.AreEqual(ExecutionOutcome.NotImplemented, run.Result.Outcome, Observed(run.Result));

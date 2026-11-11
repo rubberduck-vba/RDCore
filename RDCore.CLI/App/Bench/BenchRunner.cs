@@ -92,8 +92,9 @@ internal sealed record class BuiltWorkspace(
 /// the moment it is over, with nothing else running: the analysis sweep that loading starts is waited for first. What it prints is discarded.
 /// </para>
 /// <para>
-/// The workspace reaches none of the outside world (<see cref="ExternalWorld.None"/>): a dialog answers itself, and nothing is called through COM or a
-/// <c>Declare</c>. A benchmark measures the interpreter, and not what it waits for.
+/// A benchmark reaches none of the outside world (<see cref="ExternalWorld.None"/>): a dialog answers itself, and nothing is called through COM or a
+/// <c>Declare</c>. A benchmark measures the interpreter, and not what it waits for. A workspace that is compiled or built reaches none of it either. A
+/// program loaded to be run (<see cref="LoadProgramAsync"/>) reaches the machine's outside world, as the program <c>rdc build</c> builds of it does.
 /// </para>
 /// </remarks>
 /// <param name="environment">The environment the session is composed for.</param>
@@ -127,7 +128,7 @@ internal sealed class BenchRunner(
     {
         // whatever implements the environment: --engine is never ignored.
         var profile = options.Engine is { } engine ? SDK.Runtime.RuntimeEnvironmentProfile.Of(environment) with { ExecutionEngine = engine } : environment;
-        var load = await LoadAsync(workspace, profile, token);
+        var load = await LoadAsync(workspace, profile, ExternalWorld.None, token);
         using var provider = load.Provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1): each case is refused with what keeps the modules from loading.
@@ -201,7 +202,7 @@ internal sealed class BenchRunner(
     public async Task<(IReadOnlyList<(string Module, ProcedureCompilation Compilation)> Procedures, IReadOnlyList<string> Problems)> CompileAsync(
         BenchWorkspace workspace, CancellationToken token = default)
     {
-        var load = await LoadAsync(workspace, environment, token);
+        var load = await LoadAsync(workspace, environment, ExternalWorld.None, token);
         using var provider = load.Provider;
         var session = provider.Session;
         var pipeline = RuntimeExecutionPipeline.Create(session, provider.Image, errorDetails, token, outside: provider.Outside);
@@ -238,7 +239,7 @@ internal sealed class BenchRunner(
     {
         var definitions = new List<DefineSymbolsParams>();
         var built = profile ?? environment;
-        var load = await LoadAsync(workspace, built, token, definitions);
+        var load = await LoadAsync(workspace, built, ExternalWorld.None, token, definitions);
         var procedures = new List<(string Module, ProcedureCompilation Compilation)>();
         try
         {
@@ -270,8 +271,8 @@ internal sealed class BenchRunner(
     }
 
     /// <summary>
-    /// Loads <paramref name="workspace"/> to run it, as <c>rdc run</c> does: the session composed for <paramref name="profile"/>, every module defined and
-    /// loaded, and the analysis sweep waited for.
+    /// Loads <paramref name="workspace"/> to run it, as <c>rdc run</c> does: the session composed for <paramref name="profile"/> and the outside world of the
+    /// machine, every module defined and loaded, and the analysis sweep waited for.
     /// </summary>
     /// <param name="workspace">The workspace.</param>
     /// <param name="profile">The environment the program runs in; the runner's when omitted.</param>
@@ -280,7 +281,8 @@ internal sealed class BenchRunner(
     public async Task<(EnvironmentSessionProvider Provider, IReadOnlyList<string> Modules, IReadOnlyList<string> Problems)> LoadProgramAsync(
         BenchWorkspace workspace, IRuntimeEnvironmentProfile? profile = null, CancellationToken token = default)
     {
-        var load = await LoadAsync(workspace, profile ?? environment, token);
+        // a program reaches the outside world of the machine, as the built program does: its automation servers, its native libraries and its dialogs.
+        var load = await LoadAsync(workspace, profile ?? environment, outside: null, token);
         return (load.Provider, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Problems);
     }
 
@@ -288,14 +290,15 @@ internal sealed class BenchRunner(
         EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
         IReadOnlyList<string> Problems);
 
-    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile; what was defined in it, in order, kept in
-    // definitions when it is given. The caller disposes the provider: the session's current directory is the workspace, which the caller may delete.
-    private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, CancellationToken token,
+    // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile and reaching the outside world it is given
+    // (outside), or the machine's when outside is null; what was defined in it, in order, kept in definitions when it is given. The caller disposes the
+    // provider: the session's current directory is the workspace, which the caller may delete.
+    private async Task<LoadedWorkspace> LoadAsync(BenchWorkspace workspace, IRuntimeEnvironmentProfile profile, ExternalWorld? outside, CancellationToken token,
         List<DefineSymbolsParams>? definitions = null)
     {
         var root = workspace.RootUri;
         var provider = new EnvironmentSessionProvider(
-            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, ExternalWorld.None);
+            profile, fileSystem, loggers.CreateLogger<EnvironmentSessionProvider>(), libraries, outside);
         try
         {
             provider.Compose(workspace.Project, root);

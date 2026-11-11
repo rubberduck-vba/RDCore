@@ -1,6 +1,7 @@
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
@@ -128,7 +129,8 @@ public static class RecordOperations
         return (record as VBUserDefinedTypeValue)?.StoredFieldAt(index) is { } field && ScalarPayload.TryOf(ScalarKinds.TypeOf(kind), field.RuntimeValue, out payload);
     }
 
+    // the field holds a value of its declared type, as the interpreter's Let makes it: a LongPtr field a LongPtr, of the payload of the type it is an alias of.
     private static bool TryWrite(object? record, int index, ScalarPayload payload)
         => record is VBUserDefinedTypeValue held && held.StoredFieldAt(index) is { } before && ScalarPayload.TryOf(payload.Type, before.RuntimeValue, out _)
-            && held.TryLetFieldAt(index, payload.Type.CreateValue(new ValueBindingHandle(payload.Box())));
+            && held.TryLetFieldAt(index, (before.TypeInfo is VBLongPtrType_x64 or VBLongPtrType_x86 ? payload with { Type = before.TypeInfo } : payload).Typed());
 }

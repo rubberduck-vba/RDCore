@@ -214,7 +214,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         if (persist is not null)
         {
             _ = type.CreateType();
-            persist.Add(new PersistedProcedure(type.FullName!, procedure.SemanticId.ToString(), FingerprintOf(persist.FingerprintOf(procedure.SemanticId), analysis),
+            persist.Add(new PersistedProcedure(type.FullName!, procedure.SemanticId.ToString(), FingerprintOf(persist.FingerprintOf(procedure.SemanticId), analysis, session.Environment.Is64Bit),
                 [.. directs.Select(direct => direct is null ? string.Empty : direct.Entry.DeclaringType!.FullName!)]));
             return Finish(NotRun, entry, entry, analysis, procedure, directs);
         }
@@ -231,7 +231,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
     private CompiledBody? Bind(IRuntimeSession session, RuntimeExpressionEvaluator evaluator, ProcedureAnalysis analysis, VBTypeMemberSymbol procedure, InstructionList list)
     {
         if (_prebuilt?.Find(procedure) is not { } built || built.Links.Count != analysis.Callees.Count
-            || _prebuilt.FingerprintOf(procedure.SemanticId) is not { } bodyFingerprint || FingerprintOf(bodyFingerprint, analysis) != built.Fingerprint
+            || _prebuilt.FingerprintOf(procedure.SemanticId) is not { } bodyFingerprint || FingerprintOf(bodyFingerprint, analysis, session.Environment.Is64Bit) != built.Fingerprint
             || built.Type.GetMethod("Run") is not { } run || built.Type.GetMethod("Body") is not { } body
             || !body.GetParameters().Select(parameter => parameter.ParameterType).SequenceEqual(ParametersOf(analysis)))
         {
@@ -262,13 +262,15 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
     // what the code of a procedure is compiled from: its body (ProgramImage.ProcedureFingerprints), and what the analysis made of it for the session's scopes
     // (the kinds of its slots and its result, its steps, its frame, the procedures it calls), which a library that resolves otherwise, or a #If whose branch
-    // differs, changes when the body does not.
-    private static string FingerprintOf(string body, ProcedureAnalysis analysis)
+    // differs, changes when the body does not. The size of a pointer in the session's environment is part of it too, since a LongPtr is an
+    // integer of that size (MS-VBAL §2.2): code built for one environment never runs in the other, whatever else the analysis made of it.
+    private static string FingerprintOf(string body, ProcedureAnalysis analysis, bool is64Bit)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         void Append(object? text) => hash.AppendData(Encoding.UTF8.GetBytes($"{text}\n"));
 
         Append(body);
+        Append(is64Bit ? "pointer:64" : "pointer:32");
         Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.ResultIsText}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.HasForEach}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
         Append(string.Join(',', analysis.Parameters.Select(parameter => $"{parameter.Slot}:{parameter.Kind}:{parameter.ByReference}")));
         Append(string.Join(',', analysis.CellSlots));

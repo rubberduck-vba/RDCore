@@ -8,6 +8,10 @@ namespace RDCore.Runtime.Compiled;
 /// What a <c>Variant</c> holds when it holds a value of a scalar type, as compiled code holds it: the payload, of the Variant's subtype,
 /// which is known only when it is read.
 /// </summary>
+/// <remarks>
+/// It is of a type a <c>Variant</c> holds, never a <c>LongPtr</c> (<see cref="ScalarPayload.HeldByAVariant"/>): one of compiled code's kinds, what a
+/// Variant held, or what an operation or a call made of those. It is written into a Variant as it is (<see cref="VariantCell.WriteHeld"/>).
+/// </remarks>
 public readonly struct VariantPayload
 {
     internal VariantPayload(ScalarPayload value) => Value = value;
@@ -66,7 +70,7 @@ public static class VariantOperations
     /// <param name="value">The payload assigned.</param>
     /// <returns>Whether the payload was assigned: when not, the interpreter runs the assignment.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Write(object? cell, VariantPayload value) => cell is not null && RuntimeExpressionEvaluator.TryWriteVariant(Unsafe.As<VariantCell>(cell), value.Value);
+    public static bool Write(object? cell, VariantPayload value) => WritePayload(cell, value.Value);
 
     /// <summary>
     /// A binary operation of <paramref name="left"/> and <paramref name="right"/>, planned for their subtypes (MS-VBAL §5.6.9).
@@ -156,7 +160,8 @@ public static class VariantOperations
     /// <returns>Whether the payload was assigned: when not, the interpreter runs the assignment.</returns>
     public static bool WriteFloatingAs(object? cell, ScalarKind kind, double value) => WritePayload(cell, new ScalarPayload(TypeOf[(int)kind], 0, value));
 
-    // RuntimeExpressionEvaluator.TryWritePayload's Variant: over what holds no object. The cell is null or a VariantCell, by construction (Read).
+    // RuntimeExpressionEvaluator.TryWritePayload's Variant: over what holds no object. The cell is null or a VariantCell, by construction (Read). What
+    // compiled code writes is of a type a Variant holds (VariantPayload), so it is written as it is.
     private static bool WritePayload(object? cell, ScalarPayload payload)
     {
         if (cell is null || !Unsafe.As<VariantCell>(cell).HoldsNoObject)
@@ -164,7 +169,7 @@ public static class VariantOperations
             return false;
         }
 
-        Unsafe.As<VariantCell>(cell).Write(payload);
+        Unsafe.As<VariantCell>(cell).WriteHeld(payload);
         return true;
     }
 

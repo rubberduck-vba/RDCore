@@ -79,7 +79,9 @@ internal static class NativeValues
             VBBooleanType => new VBBooleanValue(Convert.ToInt16(value, invariant) != 0),
             VBLongType or VBEnumType => new VBLongValue(Convert.ToInt32(value, invariant)),
             VBLongLongType => new VBLongLongValue(Convert.ToInt64(value, invariant)),
-            VBLongPtrType_x64 or VBLongPtrType_x86 => new VBLongPtrValue(Convert.ToInt64(value, invariant)),
+            VBLongPtrType_x64 => new VBLongPtrValue(Convert.ToInt64(value, invariant)),
+            // a LongPtr of a 32-bit environment is a Long (MS-VBAL §2.2): the low 32 bits of the pointer slot, as ObjPtr makes one of an address.
+            VBLongPtrType_x86 => new VBLongPtrValue(unchecked((int)Convert.ToInt64(value, invariant))),
             VBSingleType => new VBSingleValue(Convert.ToSingle(value, invariant)),
             VBDoubleType => new VBDoubleValue(Convert.ToDouble(value, invariant)),
             VBDateType => new VBDateValue(Convert.ToDouble(value, invariant)),

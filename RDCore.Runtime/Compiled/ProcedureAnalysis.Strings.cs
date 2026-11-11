@@ -48,6 +48,12 @@ internal sealed partial class ProcedureAnalysis
             case BoundLiteral { Literal.StaticValue: VBStringValue { RuntimeValue: VBRuntimeValue<string> literal } }:
                 return new TextConstantNode(literal.StoredValue);
 
+            case BoundName { Symbol: var symbol } when RuntimeExpressionEvaluator.IsConstant(symbol):
+                return TextConstantOf(node, symbol);
+
+            case BoundQualifiedName { Member: var member } when RuntimeExpressionEvaluator.IsConstant(member):
+                return TextConstantOf(node, member);
+
             case BoundVariable variable when TextSlotOf(variable) is { } slot:
                 return new TextSlotNode(slot);
 
@@ -72,6 +78,12 @@ internal sealed partial class ProcedureAnalysis
             case BoundCall { Procedure: var chr, BoundArguments: [{ Value: { } code }] } when IsChrString(chr) && WholeOf(code) is { } whole:
                 return new ChrTextNode(whole);
 
+            case BoundCall typeName when IsTypeName(typeName.Procedure):
+                return TypeNameOf(typeName);
+
+            case BoundCall library when IsTextLibrary(library.Procedure):
+                return LibraryTextOf(library);
+
             // a number of a whole type let-coerced to String (MS-VBAL §5.5.1.2.4), as the interpreter's let-coercion writes it: any other number, a Boolean
             // and a Date are the interpreter's, which writes them in the regional settings of the session.
             case var number when WholeOf(number) is { } whole:
@@ -82,6 +94,22 @@ internal sealed partial class ProcedureAnalysis
                 return null;
         }
     }
+
+    // a constant whose value is a String, folded once for each place it is named: vbNullString is a null string, which compiled code holds as null. A constant
+    // of any other type is the interpreter's.
+    private TextConstantNode? TextConstantOf(BoundNode node, Symbol constant)
+    {
+        if (!_evaluator.TryFoldTextConstant(_session, node, constant, out var text))
+        {
+            _ = Unsupported(node);
+            return null;
+        }
+
+        return new TextConstantNode(text);
+    }
+
+    private bool IsTextConstant(BoundNode node, Symbol constant)
+        => RuntimeExpressionEvaluator.IsConstant(constant) && _evaluator.TryFoldTextConstant(_session, node, constant, out _);
 
     // the payload of a Byte, an Integer, a Long or a LongLong: not a Variant's, nor an extended intermediate's.
     private PayloadNode? WholeOf(BoundNode node)
