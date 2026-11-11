@@ -56,15 +56,16 @@ une instruction.
 |`MEMORY`, `PEEK <adresse>`, `POKE <adresse>, <octet>`|Affiche un sommaire de la mémoire de la session, en lit un octet, ou en écrit un.|
 |`EXIT`|Termine la session et quitte. `BYE` et `QUIT` font de même.|
 
-`Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un point d'arrêt, un pas ou `Ctrl+C`), le _shell_ affiche
-`INTERRUPTION À LA LIGNE` et le numéro de ligne, puis liste les deux lignes au-dessus de cette ligne et les deux au-dessous, la ligne de l'arrêt étant
-mise en évidence. `CONFIG CLI.BreakListingLines` fixe combien de lignes sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0`
-n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme dans le volet _exécution_ du VBIDE, et modifier le programme avant de
-reprendre.
+`Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un `Debug.Assert` qui échoue, un point d'arrêt ou `Ctrl+C`),
+le _shell_ liste les deux lignes au-dessus de la ligne de l'arrêt et les deux au-dessous, la ligne de l'arrêt étant mise en évidence, puis affiche
+`INTERRUPTION À LA LIGNE` et le numéro de ligne. Un pas affiche seulement `INTERRUPTION À LA LIGNE`. Une erreur d'exécution dans le programme est listée
+de la même façon, autour de l'instruction qui l'a déclenchée, avant que l'erreur soit affichée. `CONFIG CLI.BreakListingLines` fixe combien de lignes
+sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme
+dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
 
 Une ligne tapée à l'invite s'exécute sous le débogueur comme avec `RUN` : un `Stop` ou un point d'arrêt dans le code qu'elle appelle l'arrête là, et
-`STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail affiche `INTERRUPTION DANS`,
-le module et sa ligne, puis liste les lignes du module autour de cet arrêt comme `LIST` liste le programme.
+`STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail liste les lignes du module
+autour de cet arrêt comme `LIST` liste le programme, puis affiche `INTERRUPTION DANS`, le module et sa ligne.
 
 > [!NOTE]
 > Le _shell_ est une façon d'essayer la plateforme. Son programme courant est une seule procédure : un projet qui en a plus s'exécute dans le _shell_

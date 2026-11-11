@@ -236,12 +236,13 @@ internal static class ReplExecution
     }
 
     /// <summary>
-    /// Writes what a run printed, then what ended it - or what it waits at - as BASIC says it. A break also lists the lines around the one it stopped at, as
-    /// many on either side as <see cref="ReplCommandContext.BreakListingLines"/> says, with that line marked as the statement the program waits before.
+    /// Writes what a run printed, then what ended it - or what it waits at - as BASIC says it. A break first lists the lines around the one it stopped at, as
+    /// many on either side as <see cref="ReplCommandContext.BreakListingLines"/> says, with that line marked as the statement the program waits before; a
+    /// run-time error lists them the same way around the line of the program that raised it, before it is said.
     /// </summary>
     /// <param name="context">The live session.</param>
     /// <param name="result">The answer to the request that ran the program, or went on with it.</param>
-    /// <param name="listsTheBreak">Whether a break lists the lines around the one it stopped at.</param>
+    /// <param name="listsTheBreak">Whether a break, or a run-time error, lists the lines around the one it stopped at.</param>
     public static async Task RenderAsync(ReplCommandContext context, ExecuteResult result, bool listsTheBreak = true)
     {
         var (console, program) = (context.Console, context.Program);
@@ -269,22 +270,25 @@ internal static class ReplExecution
                 var waitsBefore = program.LineNumberAt(result.ErrorLine);
                 context.Debugger.Suspended(waitsBefore);
 
-                // a program that waits in a module of the workspace is said, and listed, by that module's own lines.
+                // the lines around the stop come first, and what stopped it after them. A program that waits in a module of the workspace is listed, and
+                // said, by that module's own lines.
                 if (waitsBefore is null && await WaitsInAModuleAsync(context) is { } frame)
                 {
-                    console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
                     if (listsTheBreak)
                     {
                         await ListAroundInModuleAsync(context, frame.Module, frame.Line);
                     }
+
+                    console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
                 }
                 else
                 {
-                    console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
                     if (listsTheBreak)
                     {
                         await ListAroundAsync(context, waitsBefore);
                     }
+
+                    console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
                 }
 
                 // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
@@ -304,7 +308,14 @@ internal static class ReplExecution
                     string.Join("; ", result.Diagnostics));
                 break;
 
+            // the lines around the statement that raised the error are listed as a break lists the lines around the one it stopped at, and the error is said
+            // after them.
             case ExecutionOutcome.RuntimeError:
+                if (listsTheBreak)
+                {
+                    await ListAroundAsync(context, program.LineNumberAt(result.ErrorLine));
+                }
+
                 RenderRuntimeError(console, program, result);
                 break;
 
@@ -312,11 +323,12 @@ internal static class ReplExecution
             // program wrote - is a break all the same.
             case ExecutionOutcome.Interrupted:
                 var stoppedAt = program.LineNumberAt(result.ErrorLine);
-                console.WriteLine(stoppedAt is { } line ? string.Format(Resources.Repl_Break_InLine, line) : Resources.Repl_Break);
                 if (listsTheBreak)
                 {
                     await ListAroundAsync(context, stoppedAt);
                 }
+
+                console.WriteLine(stoppedAt is { } line ? string.Format(Resources.Repl_Break_InLine, line) : Resources.Repl_Break);
                 break;
 
             case ExecutionOutcome.NotFound:

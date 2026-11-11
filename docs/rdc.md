@@ -54,14 +54,15 @@ The shell's language is RDCore BASIC: a variable one line assigns is the one the
 |`MEMORY`, `PEEK <address>`, `POKE <address>, <byte>`|Shows a summary of the session's memory, reads a byte of it, or writes one.|
 |`EXIT`|Ends the session and exits. `BYE` and `QUIT` do the same.|
 
-`Ctrl+C` stops a running program. At a stop (a `Stop` statement, a breakpoint, a step or `Ctrl+C`) the shell says `BREAK IN` and the line number, and
-lists the two lines above it and the two below it, with the stopped line highlighted. `CONFIG CLI.BreakListingLines` sets how many lines are listed on
-each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's immediate pane, and edit the program
-before you go on.
+`Ctrl+C` stops a running program. At a stop (a `Stop` statement, a failed `Debug.Assert`, a breakpoint or `Ctrl+C`) the shell lists the two lines above
+the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. A step says only `BREAK IN`. A
+run-time error in the program is listed the same way, around the statement that raised it, before the error is shown. `CONFIG CLI.BreakListingLines`
+sets how many lines are listed on each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's
+immediate pane, and edit the program before you go on.
 
 A line typed at the prompt runs under the debugger as `RUN` does: a `Stop` or a breakpoint in the code it calls stops it there, and `STACK` shows the
-line's own procedure under the one that stopped. A stop in a module of a workspace says `BREAK IN`, the module and its line, and lists the module's lines
-around it as `LIST` lists the program.
+line's own procedure under the one that stopped. A stop in a module of a workspace lists the module's lines around it as `LIST` lists the program, then
+says `BREAK IN`, the module and its line.
 
 > [!NOTE]
 > The shell is a way to try the platform. Its current program is a single procedure: a project with more procedures runs in the shell on a workspace.

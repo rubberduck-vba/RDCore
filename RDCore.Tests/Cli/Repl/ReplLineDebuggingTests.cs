@@ -11,8 +11,8 @@ using System.IO.Abstractions.TestingHelpers;
 namespace RDCore.Tests.Cli.Repl;
 
 /// <summary>
-/// A line typed at the prompt runs under the debugger, as <c>RUN</c> runs the program, with a workspace and without one. A break in a module of the workspace is
-/// said by the module's line, and lists the lines around it as <c>LIST</c> lists the program: highlighted, with the line the program waits before marked.
+/// A line typed at the prompt runs under the debugger, as <c>RUN</c> runs the program, with a workspace and without one. A break in a module of the workspace
+/// lists the lines around it as <c>LIST</c> lists the program, highlighted, with the line the program waits before marked; then it is said by the module's line.
 /// </summary>
 [TestClass]
 public sealed class ReplLineDebuggingTests
@@ -129,6 +129,18 @@ public sealed class ReplLineDebuggingTests
         CollectionAssert.AreEqual(
             new[] { ReplLineStyle.Plain, ReplLineStyle.Plain, ReplLineStyle.CurrentStatement, ReplLineStyle.Plain, ReplLineStyle.Plain },
             listed.Select(line => line.Style).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ABreakInAModuleOfTheWorkspace_ListsTheLines_BeforeItSaysWhereItWaits()
+    {
+        await BreakInOtherAsync(_platform);
+
+        var calls = _console.ReceivedCalls().ToList();
+        var said = calls.FindIndex(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteLine)
+            && call.GetArguments() is [string text] && text == string.Format(RDCore.CLI.Resources.Repl_Break_InModuleLine, "Other", 5));
+        var listed = calls.FindLastIndex(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteListingLine));
+        Assert.IsTrue(listed >= 0 && said > listed, $"listed last at {listed}, said at {said}");
     }
 
     [TestMethod]
