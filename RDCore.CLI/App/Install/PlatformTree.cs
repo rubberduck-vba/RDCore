@@ -8,8 +8,8 @@ namespace RDCore.CLI.App.Install;
 /// shared root by the rules of the SDK's <see cref="SharedPlatformRoot"/>, which the IDE add-in's installer deploys by too.
 /// </summary>
 /// <remarks>
-/// Versions are not removed here: the add-in's installer keeps the current one and the one before it, and removes the others when nothing
-/// runs from them (<see cref="SharedPlatformRoot.RemoveOldVersions"/>).
+/// Versions are not removed here. The add-in's installer keeps the current one and the one before it, and removes the others that no
+/// lease holds (<see cref="SharedPlatformRoot.RemoveOldVersions"/>, <see cref="SharedPlatformRoot.Hold"/>).
 /// </remarks>
 internal static class PlatformTree
 {
