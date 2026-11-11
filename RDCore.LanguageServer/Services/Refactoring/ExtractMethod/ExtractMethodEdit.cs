@@ -365,8 +365,8 @@ internal static class ExtractMethodEdit
             }
         }
 
-        // the selection, with what changes in it: the declarations that stay in the source, the source's result, and the exits; dedented.
-        // the moved text, dedented: a run that starts after another statement of its line is dedented as the line is.
+        // the selection, with what changes in it: the declarations that stay in the source, the source's result, and the exits; dedented. A run that starts
+        // after another statement of its line is dedented as the line is.
         private List<string> Body(SourceRange moved, string lineIndentation, string? resultCopy, IReadOnlyList<Exit> exits)
         {
             var stays = plan.MovedOut.Where(variable => plan.Parameters.Any(parameter => parameter.Variable == variable) || variable == ReturnValue).ToHashSet();

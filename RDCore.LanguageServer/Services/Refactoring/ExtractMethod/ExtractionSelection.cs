@@ -106,8 +106,8 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
             var firstIndex = Enumerable.Range(0, list.Count).FirstOrDefault(index => LastLineOf(list[index]) >= start, -1);
             var lastIndex = Enumerable.Range(0, list.Count).LastOrDefault(index => FirstLineOf(list[index]) <= end, -1);
 
-            // on a line of several statements, an end takes the one it is in, not the line: a statement it is past, at the start, or before, at the end, stays. A
-            // label opens its line: an end on it takes the statement after it, and a start past it leaves it before the call, which it then names.
+            // on a line of several statements, an end takes the one it is in, not the line: a statement that ends before the start, or starts past the end, stays.
+            // A label opens its line: an end on it takes the label with the statement after it, and a start past it leaves it before the call, which it then names.
             while (firstIndex >= 0 && firstIndex + 1 < list.Count && list[firstIndex].SourceLocation.Range.End <= from && FirstLineOf(list[firstIndex + 1]) == from.Line)
             {
                 firstIndex++;
