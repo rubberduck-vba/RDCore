@@ -102,7 +102,7 @@ public sealed class CompiledVariantTests
             "    Debug.Print \"replaced\"",
             "    V = V + 1",
             "    Replaced = V",
-            "End Function"), "Replaced", recoveries: 3, classes: Noisy);
+            "End Function"), "Replaced", recoveries: 1, classes: Noisy);
 
     [TestMethod]
     public async Task AVariantCondition_IsWhetherItsPayloadIsNotZero()

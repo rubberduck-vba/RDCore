@@ -65,7 +65,7 @@ public sealed class CompiledSetTests
             "    Debug.Print \"after\"",
             "    Set Held = Nothing",
             "    Debug.Print \"end\"",
-            "End Sub"), [("Moved", 8)], classes: Noisy);
+            "End Sub"), [("Moved", 4)], classes: Noisy);
 
     // the function result variable is Set as a variable is, and holds what it is Set to until the caller takes it.
     [TestMethod]

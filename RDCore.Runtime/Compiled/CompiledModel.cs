@@ -241,8 +241,8 @@ internal sealed record class TypeOfNode(int Slot, int Class) : PayloadNode(Scala
 // an expression of Strings, as RuntimeExpressionEvaluator.TryEvaluateText evaluates it: to the text it is, with no value made of it.
 internal abstract record class TextNode;
 
-// a String literal, or Strings joined that are all literals: the text the literal's runtime value holds.
-internal sealed record class TextConstantNode(string Text) : TextNode;
+// a String literal, a String constant, or Strings joined that are all literals: the text the value holds; null for a null string (vbNullString).
+internal sealed record class TextConstantNode(string? Text) : TextNode;
 
 // a String variable of the activation, by its slot: the text its cell holds (StringOperations.TryRead).
 internal sealed record class TextSlotNode(int Slot) : TextNode;
@@ -257,6 +257,16 @@ internal sealed record class WholeTextNode(PayloadNode Value) : TextNode;
 // Chr$ of a Byte, an Integer, a Long or a LongLong (MS-VBAL §6.1.2.11.1.4): the character the code names, as the library's Chr$ makes it
 // (CompiledActivation.TryChr); a code it names none for is the interpreter's, which raises the error.
 internal sealed record class ChrTextNode(PayloadNode Code) : TextNode;
+
+// TypeName of an object (MS-VBAL §6.1.2.7.1.12): the object held in the object slot Slot (an object variable of the activation, or Me), or Nothing when
+// there is none, given to the library's function numbered Library of the body (CompiledActivation.TryTypeNameOf), which names it as the interpreter's
+// call does.
+internal sealed record class TypeNameTextNode(int Library, int? Slot) : TextNode;
+
+// a call of a function of the standard library that returns a String, each of whose parameters it gives an argument to is a String (Replace): the texts
+// given to the library's function numbered Library of the body (CompiledActivation.TryCallLibraryText), and a parameter given none given what an omitted
+// argument is.
+internal sealed record class LibraryTextNode(int Library, IReadOnlyList<TextNode> Arguments) : TextNode;
 
 // two Strings compared under the comparison mode of the module (MS-VBAL §5.6.9.5), as RuntimeExpressionEvaluator.TryCompareText compares them.
 internal sealed record class TextCompareNode(ComparisonOperator Operator, TextNode Left, TextNode Right) : PayloadNode(ScalarKind.Boolean);
@@ -309,6 +319,10 @@ internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) :
 // a Let of the function result variable of a function of the String type: the text assigned where its frame holds it, as the interpreter assigns it
 // (CompiledActivation.TryAssignResultText).
 internal sealed record class TextResultLetStep(int Offset, TextNode Value) : CompiledStep(Offset);
+
+// a Debug.Print of Strings (MS-VBAL §5.4.5.8): the text of each item, all evaluated before any is written, written to the session's output as it is, and
+// the line ended when the last item is followed by no separator (CompiledActivation.Print).
+internal sealed record class PrintStep(int Offset, IReadOnlyList<TextNode> Items, bool EndsLine) : CompiledStep(Offset);
 
 // a Let of a variable (Slot), or of the function result variable (Slot is -1).
 internal sealed record class LetStep(int Offset, int Slot, PayloadNode Value) : CompiledStep(Offset);
@@ -419,10 +433,14 @@ internal sealed record class LibraryCallNode(int Library, IReadOnlyList<VariantN
 internal sealed record class LibraryVariantNode(int Library, IReadOnlyList<VariantNode> Arguments) : VariantNode;
 
 /// <summary>
-/// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>).
+/// A function of the standard library a compiled body calls inside an expression (<see cref="LibraryCallNode"/>, <see cref="LibraryVariantNode"/>,
+/// <see cref="TypeNameTextNode"/>, <see cref="LibraryTextNode"/>).
 /// </summary>
 /// <param name="Function">The function, as the call was bound to it.</param>
-/// <param name="Parameters">Its parameters, each a <c>Variant</c> passed by value: one the call gives no argument is given what an omitted one is.</param>
+/// <param name="Parameters">
+/// Its parameters: each a <c>Variant</c> passed by value, or a <c>String</c> for a <see cref="LibraryTextNode"/>. One the call gives no argument is given
+/// what an omitted one is.
+/// </param>
 /// <param name="Site">Where the call is written, which the activation is located at while the function runs, as the interpreter's is.</param>
 internal sealed record class CompiledLibraryCall(SDK.Model.Symbols.Abstract.VBTypeMemberSymbol Function,
     System.Collections.Immutable.ImmutableArray<SDK.Model.Symbols.VBProject.VBParameterSymbol> Parameters, SDK.Model.Source.SourceLocation Site);
