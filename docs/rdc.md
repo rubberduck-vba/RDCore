@@ -71,6 +71,7 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 |`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, and what keeps it in the interpreter.|
 |`rdc bench [<path>]`|`b`|Times the interpreter on a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules.|
 |`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
+|`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
 
 ### Running a program
 
@@ -105,6 +106,32 @@ The exit code says how the run went:
 |`-n`, `--name`|The program's name; the project's by default.|
 |`-c`, `--configuration`|`Debug` (the default) or `Release`.|
 |`-r`, `--runtime`|The platform the program is built for, such as `win-x64` or `linux-x64`; the one `rdc` runs on by default.|
+
+### Installing the platform
+
+`rdc install` installs the platform it runs from, such as a release archive you unpacked, for your user account. The IDE add-in installs the
+platform in the same place, so each one uses what the other installed.
+
+- It copies the platform into `RDCore/Platform/versions/<version>/` in your local application data folder: `%LOCALAPPDATA%` on Windows,
+  `~/.local/share` on Linux, `~/Library/Application Support` on macOS. A version that is installed already is not copied again, and no version
+  is removed.
+- It makes that version the current one, unless the current version is newer.
+- It puts the current version's `rdc` on your PATH, in place of an earlier version's. On Windows, it adds the version's `RDCore.CLI` folder to
+  your user `Path`. On Linux and macOS, it links `~/.local/bin/rdc` to it; when `~/.local/bin` is not on your PATH, it adds a block of lines that
+  puts it there to `~/.profile` (Linux) or `~/.zprofile` (macOS). Open a new terminal to use it.
+
+|Option|What it does|
+|---|---|
+|`--path-only`|Only puts the current version's `rdc` on your PATH.|
+|`--no-modify-path`|Installs the platform without changing your PATH or your profile.|
+
+The exit code says how the installation went:
+
+|Exit code|Meaning|
+|---|---|
+|`0`|The platform is installed.|
+|`1`|It is not: the folder `rdc` runs from is not a whole platform, no version is installed (`--path-only`), or `~/.local/bin/rdc` is a file of your own. The message says which.|
+|`2`|The options are not valid.|
 
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

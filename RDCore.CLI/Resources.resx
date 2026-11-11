@@ -797,4 +797,76 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Verbose_FrameDetails" xml:space="preserve">
     <value>Frame details:</value>
   </data>
+  <data name="Install_Summary" xml:space="preserve">
+    <value>Installs this platform for you, and puts rdc on your PATH.</value>
+  </data>
+  <data name="Install_Title" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Install_PathOnlyHelp" xml:space="preserve">
+    <value>Only puts the current version&apos;s rdc on your PATH.</value>
+  </data>
+  <data name="Install_NoModifyPathHelp" xml:space="preserve">
+    <value>Installs the platform without changing your PATH or your profile.</value>
+  </data>
+  <data name="Install_Waiting" xml:space="preserve">
+    <value>Another installation is using {0}: waiting for it to finish.</value>
+  </data>
+  <data name="Install_NothingCurrent" xml:space="preserve">
+    <value>No platform is installed in {0}. Run rdc install from a platform&apos;s folder first.</value>
+  </data>
+  <data name="Install_NotATree" xml:space="preserve">
+    <value>rdc install installs the platform rdc runs from, and this is not one: {0}</value>
+  </data>
+  <data name="Install_NoManifest" xml:space="preserve">
+    <value>{0} has no rdcore.json.</value>
+  </data>
+  <data name="Install_UnreadableManifest" xml:space="preserve">
+    <value>{0} cannot be read: {1}</value>
+  </data>
+  <data name="Install_NoLanguageServer" xml:space="preserve">
+    <value>{0} names no language server.</value>
+  </data>
+  <data name="Install_LanguageServerOutside" xml:space="preserve">
+    <value>{0} names a language server outside the platform: {1}.</value>
+  </data>
+  <data name="Install_LanguageServerMissing" xml:space="preserve">
+    <value>{0} names a language server that is not there: {1}.</value>
+  </data>
+  <data name="Install_NoVersion" xml:space="preserve">
+    <value>{0} names no platform version: &apos;{1}&apos;.</value>
+  </data>
+  <data name="Install_Deployed" xml:space="preserve">
+    <value>RDCore {0} is deployed in {1}.</value>
+  </data>
+  <data name="Install_AlreadyDeployed" xml:space="preserve">
+    <value>RDCore {0} was already deployed in {1}.</value>
+  </data>
+  <data name="Install_MadeCurrent" xml:space="preserve">
+    <value>RDCore {0} is now the current version.</value>
+  </data>
+  <data name="Install_NewerIsCurrent" xml:space="preserve">
+    <value>RDCore {1}, which is newer, stays the current version: {0} is deployed beside it.</value>
+  </data>
+  <data name="Install_AddedToPath" xml:space="preserve">
+    <value>{0} is on your PATH now. Open a new terminal to use rdc.</value>
+  </data>
+  <data name="Install_AlreadyOnPath" xml:space="preserve">
+    <value>{0} was already on your PATH.</value>
+  </data>
+  <data name="Install_Linked" xml:space="preserve">
+    <value>{0} now links to {1}.</value>
+  </data>
+  <data name="Install_AlreadyLinked" xml:space="preserve">
+    <value>{0} was already linked to {1}.</value>
+  </data>
+  <data name="Install_LinkTaken" xml:space="preserve">
+    <value>{0} is a file of yours, not a link rdc install made: remove it, or run rdc install --no-modify-path.</value>
+  </data>
+  <data name="Install_ProfileBlockAdded" xml:space="preserve">
+    <value>{0} is not on your PATH: {1} now adds it. Open a new terminal, or run . {1}</value>
+  </data>
+  <data name="Install_ProfileHasBlock" xml:space="preserve">
+    <value>{0} is not on this terminal&apos;s PATH yet: {1} adds it in a new terminal.</value>
+  </data>
 </root>
