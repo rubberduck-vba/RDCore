@@ -525,7 +525,7 @@ Names that match alike come by name. An empty query matches every symbol. At mos
 
 ### `textDocument/codeAction`
 
-The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename` and `source.rdcore.importProject`. Every action is complete as it is answered (`resolveProvider = false`); a client that asks for some kinds only (`context.only`) is answered those and the kinds under them.
+The language server answers `textDocument/codeAction` (**LSP 3.17** §Code Action Request) for the documents it holds, with the kinds `quickfix`, `refactor.rename`, `refactor.extract.method` and `source.rdcore.importProject`. A client that asks for some kinds only (`context.only`) is answered those and the kinds under them. An extraction is the one action that can be resolved (`resolveProvider = true`, `codeAction/resolve`); every other action is complete as it is answered.
 
 An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Extensibility.Diagnostics.DiagnosticFixes.html)), and the fix travels in the diagnostic's `data`, which a client sends back with the request. The platform makes the fix: an extension says what it is without knowing how the workspace is edited.
 
@@ -535,6 +535,7 @@ An analyzer states the fix of a finding with it ([`DiagnosticFixes`](https://rub
 |A rename that fixes a diagnostic, to a name the user chooses|`quickfix`|Its `command` is `rdcore.rename`.|
 |A rename of each name the range declares, or of the name at the position of an empty range|`refactor.rename`|Its `command` is `rdcore.rename`.|
 |An import of each VB6 project (`.vbp`) of the workspace's folder, when it has no `.rdproj`|`source.rdcore.importProject`|Its `command` is `rdcore.importProject`, with the URI of the `.vbp`. Offered in every document.|
+|An extraction of the statements of a selection as a procedure, when nothing refuses it|`refactor.extract.method`|For a client that expects [`Refactoring`](#rdcorerefactorprepare-and-rdcorerefactorapply), its `command` is `rdcore.refactor`. For any other, offered only when it changes nothing the user would have to accept: its `edit` is made with the defaults and verified. A client that resolves an action's `edit` (`dataSupport`, and `edit` among `resolveSupport.properties`) is answered it without its `edit`, which is made when it resolves the action; one resolved after its document has changed is refused (`RequestFailed`), with a message that asks the user to select the statements again.|
 
 `rdcore.rename` ([`RefactoringCommands.Rename`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Refactoring.RefactoringCommands.html)) is a command a client runs itself: its arguments are the URI of the document and the position of the name. The client asks its user for the new name, and sends `textDocument/rename` with it, unless the user cancels. The titles are in the language of the user interface.
 
