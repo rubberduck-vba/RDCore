@@ -327,15 +327,8 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     //
     // Shared with an Optional parameter's `default-value`, which MS-VBAL 5.3.1.5 defines as a constant
     // expression in exactly the same way, on a node of exactly the same shape.
-    //
-    // The expression is what follows `=`, so it is after the As clause when there is one: a declaration `As` a class or `As Object`
-    // also has the type's name among its children, ahead of the clause, which is not an expression of the declaration's value.
     private static ExpressionNode? ConstantExpressionOf(SyntaxNode node)
-    {
-        var children = node.Children.IsDefault ? [] : node.Children;
-        var asClause = children.IndexOf(children.OfType<AsTypeExpressionNode>().FirstOrDefault()!);
-        return children.Skip(asClause + 1).OfType<ExpressionNode>().FirstOrDefault(child => child is not AsTypeExpressionNode);
-    }
+        => (node.Children.IsDefault ? [] : node.Children).OfType<ExpressionNode>().FirstOrDefault(child => child is not AsTypeExpressionNode);
 
     // A UDT field parents to the enclosing user-defined-type symbol, not the module.
     public Symbol BuildUserDefinedTypeField(MemberDeclarationNode node, Uri userDefinedTypeUri)

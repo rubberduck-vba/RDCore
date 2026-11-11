@@ -42,6 +42,8 @@ internal abstract class NodeBuilder(Uri rootUri, SyntaxNodeId nodeId)
 
     public void AddChild(SyntaxNode node) => _children.Add(node);
 
+    public int ChildCount => _children.Count;
+
     public SyntaxNode? LastChild => _children.Count == 0 ? null : _children.Last();
     public IEnumerable<SyntaxNode> GetChildren => _children.AsEnumerable();
 
