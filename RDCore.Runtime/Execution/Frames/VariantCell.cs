@@ -115,10 +115,10 @@ internal sealed class VariantCell : ICopyableBinding
     public void Write(ScalarPayload payload) => WriteHeld(payload.HeldByAVariant());
 
     /// <summary>
-    /// Writes a payload that is of a type a <c>Variant</c> holds (<see cref="ScalarPayload.HeldByAVariant"/>), as <see cref="Write"/> does, with no
-    /// <c>LongPtr</c> to hold as the type it is an alias of: what compiled code writes, of its kinds (<c>ScalarKinds.TypeOf</c>), none of which is a
-    /// <c>LongPtr</c>.
+    /// Writes a payload of a type a <c>Variant</c> holds (<see cref="ScalarPayload.HeldByAVariant"/>) as it is, as <see cref="Write"/> does once it
+    /// has applied the alias of a <c>LongPtr</c>. Compiled code writes this way: none of its kinds (<c>ScalarKinds.TypeOf</c>) is a <c>LongPtr</c>.
     /// </summary>
+    /// <param name="payload">The payload, of a type a <c>Variant</c> holds.</param>
     public void WriteHeld(ScalarPayload payload)
     {
         _payload = payload;
