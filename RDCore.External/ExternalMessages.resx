@@ -48,4 +48,7 @@
   <data name="NotAForm" xml:space="preserve">
     <value>The object is not a form of this host, or it was destroyed.</value>
   </data>
+  <data name="FormBoundsOutOfRange" xml:space="preserve">
+    <value>A form's window cannot be moved or sized to {0} points: no window's position or size is that large.</value>
+  </data>
 </root>

@@ -149,6 +149,15 @@ namespace RDCore.External {
                 return ResourceManager.GetString("NotAForm", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A form's window cannot be moved or sized to {0} points: no window's position or size is that large..
+        /// </summary>
+        internal static string FormBoundsOutOfRange {
+            get {
+                return ResourceManager.GetString("FormBoundsOutOfRange", resourceCulture);
+            }
+        }
 
         /// <summary>
         ///   Looks up a localized string similar to The object was let go of..

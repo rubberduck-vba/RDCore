@@ -28,9 +28,9 @@ public sealed class FormHostingTests
     private const uint WM_CLOSE = 0x0010;
 
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL): every control a real form has is one of its classes.
-    private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    internal static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
 
-    private static void RequireMicrosoftForms()
+    internal static void RequireMicrosoftForms()
     {
         if (!OperatingSystem.IsWindows() || Type.GetTypeFromProgID("Forms.Form.1") is null)
         {
@@ -39,13 +39,13 @@ public sealed class FormHostingTests
     }
 
     // the servers and the form host of the test's own, on one apartment, as the external host composes them.
-    private static (ExternalWorld World, ComApartment Apartment) InProcess()
+    internal static (ExternalWorld World, ComApartment Apartment) InProcess()
     {
         var apartment = new ComApartment();
         return (new ExternalWorld(new ComAutomationServer(apartment), UnavailableNativeLibraryHost.Instance) { Forms = new WindowsFormHost(apartment) }, apartment);
     }
 
-    private static byte[] Fixture(string fileName)
+    internal static byte[] Fixture(string fileName)
     {
         var assembly = typeof(FormHostingTests).Assembly;
         var name = assembly.GetManifestResourceNames().Single(resource => resource.EndsWith($".Fixtures.{fileName}", StringComparison.Ordinal));

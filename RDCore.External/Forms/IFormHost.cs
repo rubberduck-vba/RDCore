@@ -47,11 +47,29 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     /// <summary>Where the form starts up. <see cref="FormStartUpPosition.CenterOwner"/>, as a new UserForm's designer has it, unless said otherwise.</summary>
     public FormStartUpPosition StartUpPosition { get; init; } = FormStartUpPosition.CenterOwner;
 
-    /// <summary>Where a <see cref="FormStartUpPosition.Manual"/> form's window is, from the left of the desktop, in points.</summary>
-    public double Left { get; init; }
+    /// <summary>
+    /// Where the form's client area is, from the left of the desktop, in points: its designer block's <c>ClientLeft</c>. The window is there until it is shown,
+    /// and stays there when it starts up <see cref="FormStartUpPosition.Manual"/>. <see langword="null"/> when the designer block says none.
+    /// </summary>
+    public double? ClientLeft { get; init; }
 
-    /// <summary>Where a <see cref="FormStartUpPosition.Manual"/> form's window is, from the top of the desktop, in points.</summary>
-    public double Top { get; init; }
+    /// <summary>
+    /// Where the form's client area is, from the top of the desktop, in points: its designer block's <c>ClientTop</c>. <see langword="null"/> when the designer
+    /// block says none.
+    /// </summary>
+    public double? ClientTop { get; init; }
+
+    /// <summary>
+    /// The width of the form's window's client area, in points: its designer block's <c>ClientWidth</c>, which sizes the window whatever size the designer's
+    /// state gives the form. <see langword="null"/> when the designer block says none, which makes the client area the form's own size.
+    /// </summary>
+    public double? ClientWidth { get; init; }
+
+    /// <summary>
+    /// The height of the form's window's client area, in points: its designer block's <c>ClientHeight</c>. <see langword="null"/> when the designer block says
+    /// none, which makes the client area the form's own size.
+    /// </summary>
+    public double? ClientHeight { get; init; }
 
     /// <summary>
     /// Whether <c>Show</c> without an argument shows the form modal: its designer's <c>ShowModal</c>, which is <c>True</c> unless the designer block says otherwise.
@@ -67,13 +85,16 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     {
         Caption = designer.Caption,
         StartUpPosition = designer.StartUpPosition is { } position && Enum.IsDefined((FormStartUpPosition)position) ? (FormStartUpPosition)position : FormStartUpPosition.CenterOwner,
-        Left = PointsOf(designer.Properties.GetValueOrDefault("Left")),
-        Top = PointsOf(designer.Properties.GetValueOrDefault("Top")),
+        ClientLeft = PointsOf(designer.Properties.GetValueOrDefault("ClientLeft")),
+        ClientTop = PointsOf(designer.Properties.GetValueOrDefault("ClientTop")),
+        ClientWidth = PointsOf(designer.Properties.GetValueOrDefault("ClientWidth")),
+        ClientHeight = PointsOf(designer.Properties.GetValueOrDefault("ClientHeight")),
         ShowModal = designer.ShowModal ?? true,
     };
 
-    private static double PointsOf(string? value)
-        => double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var points) ? points : 0;
+    // the designer block writes the client area in twips: 20 to a point.
+    private static double? PointsOf(string? twips)
+        => double.TryParse(twips, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value / 20 : null;
 }
 
 /// <summary>
