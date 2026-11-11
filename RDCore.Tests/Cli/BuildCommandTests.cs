@@ -262,6 +262,51 @@ public sealed class BuildCommandTests
         Assert.Contains("Main:5", run.Error, "where it stopped: the line of the Err.Raise");
     }
 
+    private static readonly string CallsADeclare = Module("Program",
+        $"Private Declare PtrSafe Function CAbs Lib \"{CompiledMemberEntryTests.CLibrary}\" Alias \"abs\" (ByVal N As Long) As Long",
+        "Public Sub Main()",
+        "    Debug.Print CAbs(-42)",
+        "End Sub");
+
+    // the outside world of rdc run is the machine's, as the built program's is: a Declare calls the function its library exports, on every platform.
+    [TestMethod]
+    public async Task Run_CallsTheFunctionADeclareNames_InTheNativeLibraryOfTheMachine()
+    {
+        var run = await RunAsync(Files(("Program.bas", CallsADeclare)), Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output);
+    }
+
+    private static readonly string CreatesADictionary = Module("Program",
+        "Public Sub Main()",
+        "    Dim D As Object",
+        "    Set D = CreateObject(\"Scripting.Dictionary\")",
+        "    D.Add \"one\", 1",
+        "    Debug.Print D.Count",
+        "End Sub");
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task Run_CreatesAnObjectOfAnAutomationServerOfTheMachine_OnWindows()
+    {
+        var run = await RunAsync(Files(("Program.bas", CreatesADictionary)), Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "1" }, run.Output);
+    }
+
+    // there is no COM elsewhere: no automation server of the machine makes the object.
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public async Task Run_CreatesNoObjectOfAnAutomationServer_ElsewhereThanOnWindows()
+    {
+        var run = await RunAsync(Files(("Program.bas", CreatesADictionary)), Root);
+
+        Assert.AreEqual(ProgramRunner.Failed, run.Exit);
+        Assert.Contains("'429'", run.Error);
+    }
+
     // an exit code is a byte on Linux: an error number is said on standard error, and the exit code is 1 whatever it is.
     private static readonly string RaisesAnObjectError = Module("Program",
         "Public Sub Main()",
@@ -396,6 +441,34 @@ public sealed class BuildCommandTests
 
             Assert.AreEqual(0, exit, error.ToString());
             CollectionAssert.AreEqual(new[] { "1", "String:one", "String:two words", "[one \"two words\"]" },
+                output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray());
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    [TestMethod]
+    public async Task TheBuiltProgram_CallsTheFunctionADeclareNames_AsRunDoes()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", CallsADeclare));
+        var (command, messages) = Command(fileSystem);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
+            var output = new StringWriter();
+            var error = new StringWriter();
+
+            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None);
+
+            Assert.AreEqual(0, exit, error.ToString());
+            CollectionAssert.AreEqual(new[] { "42" },
                 output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray());
         }
         finally
