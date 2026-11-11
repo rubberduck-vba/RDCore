@@ -2,7 +2,7 @@
 <sup>_Ce document est disponible en [français](getting-started.fr.html)_</sup>
 
 > [!NOTE]
-> **The platform is alpha.** Expect rough edges, and expect things to change between versions.
+> **The platform is in alpha.** Expect rough edges, and expect things to change between versions.
 
 ---
 ## Getting the platform
