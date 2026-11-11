@@ -818,21 +818,6 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Install_NotATree" xml:space="preserve">
     <value>rdc install installs the platform rdc runs from, and this is not one: {0}</value>
   </data>
-  <data name="Install_NoManifest" xml:space="preserve">
-    <value>{0} has no rdcore.json.</value>
-  </data>
-  <data name="Install_UnreadableManifest" xml:space="preserve">
-    <value>{0} cannot be read: {1}</value>
-  </data>
-  <data name="Install_NoLanguageServer" xml:space="preserve">
-    <value>{0} names no language server.</value>
-  </data>
-  <data name="Install_LanguageServerOutside" xml:space="preserve">
-    <value>{0} names a language server outside the platform: {1}.</value>
-  </data>
-  <data name="Install_LanguageServerMissing" xml:space="preserve">
-    <value>{0} names a language server that is not there: {1}.</value>
-  </data>
   <data name="Install_NoVersion" xml:space="preserve">
     <value>{0} names no platform version: &apos;{1}&apos;.</value>
   </data>

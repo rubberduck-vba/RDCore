@@ -1690,51 +1690,6 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} has no rdcore.json..
-        /// </summary>
-        public static string Install_NoManifest {
-            get {
-                return ResourceManager.GetString("Install_NoManifest", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {0} cannot be read: {1}.
-        /// </summary>
-        public static string Install_UnreadableManifest {
-            get {
-                return ResourceManager.GetString("Install_UnreadableManifest", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {0} names no language server..
-        /// </summary>
-        public static string Install_NoLanguageServer {
-            get {
-                return ResourceManager.GetString("Install_NoLanguageServer", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {0} names a language server outside the platform: {1}..
-        /// </summary>
-        public static string Install_LanguageServerOutside {
-            get {
-                return ResourceManager.GetString("Install_LanguageServerOutside", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {0} names a language server that is not there: {1}..
-        /// </summary>
-        public static string Install_LanguageServerMissing {
-            get {
-                return ResourceManager.GetString("Install_LanguageServerMissing", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to {0} names no platform version: &apos;{1}&apos;..
         /// </summary>
         public static string Install_NoVersion {
