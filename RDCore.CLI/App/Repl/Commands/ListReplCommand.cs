@@ -148,6 +148,61 @@ internal sealed class ListReplCommand : IReplCommand
         context.Console.WriteLine();
     }
 
+    /// <summary>
+    /// Lists lines of a module of the workspace as <c>LIST</c> lists the program: each by its line number in the module, highlighted, with the mark of its
+    /// breakpoint, the mark of a block that starts on it, and <paramref name="current"/> marked as the statement the program waits before.
+    /// </summary>
+    /// <remarks>A break in a module of the workspace lists the lines around the one it stopped at with it.</remarks>
+    /// <param name="context">The live session.</param>
+    /// <param name="document">The module's document, which the language server highlights.</param>
+    /// <param name="text">The lines of the module, as the document has them.</param>
+    /// <param name="first">The zero-based line of the module to list first.</param>
+    /// <param name="last">The zero-based line of the module to list last.</param>
+    /// <param name="current">The zero-based line marked as the statement the program waits before.</param>
+    /// <param name="breakpoints">The breakpoints of the module, by its line numbers (one-based, as they are listed).</param>
+    /// <param name="token">A token that cancels the requests the listing makes of the language server.</param>
+    internal static async Task WriteModuleAsync(
+        ReplCommandContext context, Uri document, IReadOnlyList<string> text, int first, int last, int current, IReadOnlyCollection<Breakpoint> breakpoints,
+        CancellationToken token)
+    {
+        first = Math.Max(0, first);
+        last = Math.Min(text.Count - 1, last);
+        if (first > last)
+        {
+            return;
+        }
+
+        var width = (last + 1).ToString().Length;
+        var highlighted = await TokensByLineAsync(context, document, token);
+        var blocks = new HashSet<int>((await BlockFoldsAsync(context, document, token)).Select(fold => fold.StartLine));
+        var glyphs = context.Console.DrawsUnicode ? unicodeFoldGlyphs : asciiFoldGlyphs;
+        var foldLane = Enumerable.Range(first, last - first + 1).Any(blocks.Contains) ? App.Console.ConsoleText.WidthOf(glyphs.Open) : 0;
+
+        for (var line = first; line <= last; line++)
+        {
+            var number = line + 1;
+            var statement = text[line];
+            var breakpoint = breakpoints.SingleOrDefault(bp => bp.LineNumber == number);
+            var breakpointMark = breakpoint != default ? new ReplTextRun(ReplBreakpointMarks.GlyphOf(breakpoint), ReplTextStyle.BreakpointGlyph)
+                : new ReplTextRun(" ", ReplTextStyle.Plain);
+            var foldMark = new ReplTextRun(blocks.Contains(line) ? glyphs.Open : new string(' ', foldLane), ReplTextStyle.Plain);
+
+            var style = line == current ? ReplLineStyle.CurrentStatement
+                : breakpoint != default && breakpoint.Enabled ? ReplLineStyle.Breakpoint
+                : ReplLineStyle.Plain;
+
+            // the tokens are of the line as the module has it, and the listing puts its number before it.
+            var listed = $"{number} {statement}";
+            IReadOnlyList<ReplTextRun> code = highlighted is not null && highlighted.TryGetValue(line, out var tokens)
+                ? ReplHighlighter.Runs(listed, tokens, offset: number.ToString().Length + 1)
+                : [new ReplTextRun(listed, ReplTextStyle.Plain)];
+            var padding = new ReplTextRun(" " + new string(' ', width - number.ToString().Length), ReplTextStyle.Plain);
+            context.Console.WriteListingLine([breakpointMark, foldMark], [padding, .. code], style);
+        }
+
+        context.Console.WriteLine();
+    }
+
     private static string Padded(string mark, int lane) => mark + new string(' ', Math.Max(0, lane - App.Console.ConsoleText.WidthOf(mark)));
 
     // the lines of the program a diagnostic with a fix is on, by their position in the program; none when the server cannot be asked.
@@ -174,7 +229,20 @@ internal sealed class ListReplCommand : IReplCommand
                 return [];
             }
 
-            return await context.Platform.GetBlockFoldsAsync(document, token);
+            return await BlockFoldsAsync(context, document, token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return [];
+        }
+    }
+
+    // the blocks of a document; none when the language server cannot be asked.
+    private static async Task<IReadOnlyList<ReplFold>> BlockFoldsAsync(ReplCommandContext context, Uri document, CancellationToken token)
+    {
+        try
+        {
+            return await context.Platform.GetBlockFoldsAsync(document, token) ?? [];
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -210,8 +278,21 @@ internal sealed class ListReplCommand : IReplCommand
                 return null;
             }
 
+            return await TokensByLineAsync(context, document, token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    // the tokens of a document, by the line they are on; nothing when the language server cannot be asked.
+    private static async Task<Dictionary<int, List<ReplSemanticToken>>?> TokensByLineAsync(ReplCommandContext context, Uri document, CancellationToken token)
+    {
+        try
+        {
             var byLine = new Dictionary<int, List<ReplSemanticToken>>();
-            foreach (var semanticToken in await context.Platform.GetSemanticTokensAsync(document, token))
+            foreach (var semanticToken in await context.Platform.GetSemanticTokensAsync(document, token) ?? [])
             {
                 if (!byLine.TryGetValue(semanticToken.Line, out var line))
                 {

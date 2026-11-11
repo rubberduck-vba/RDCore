@@ -690,7 +690,16 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Break_InLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to BREAK IN {0} LINE {1}.
+        /// </summary>
+        public static string Repl_Break_InModuleLine {
+            get {
+                return ResourceManager.GetString("Repl_Break_InModuleLine", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Sets or clears a breakpoint at a line (BREAK 40). BREAK alone lists them, BREAK CLEAR removes them all..
         /// </summary>

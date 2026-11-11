@@ -314,6 +314,9 @@
   <data name="Repl_Break_InLine" xml:space="preserve">
     <value>INTERRUPTION À LA LIGNE {0}</value>
   </data>
+  <data name="Repl_Break_InModuleLine" xml:space="preserve">
+    <value>INTERRUPTION DANS {0} À LA LIGNE {1}</value>
+  </data>
   <data name="Repl_HelpHint" xml:space="preserve">
     <value>Tapez HELP pour la liste des commandes.</value>
   </data>

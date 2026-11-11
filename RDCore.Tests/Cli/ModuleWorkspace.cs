@@ -267,9 +267,12 @@ internal static class ModuleWorkspace
     /// <param name="moduleName">The name of the client's module.</param>
     /// <param name="source">The source of the client's module.</param>
     /// <param name="entryPoint">The procedure of the client's module that is run.</param>
+    /// <param name="debug">Whether it runs under the debugger, as the shell runs a line: a <c>Stop</c> then leaves the program waiting.</param>
+    /// <param name="afterRun">Given what came of the run and the host's session provider, while the session is up: a program that waits is looked at here.</param>
     /// <returns>What came of the run, whatever it was.</returns>
     public static async Task<ExecuteResult> RunSessionModuleAsync(
-        IReadOnlyList<(string Name, string Source)> modules, string program, string moduleName, string source, string entryPoint)
+        IReadOnlyList<(string Name, string Source)> modules, string program, string moduleName, string source, string entryPoint, bool debug = false,
+        Func<ExecuteResult, EnvironmentSessionProvider, Task>? afterRun = null)
     {
         ExecuteResult? ran = null;
         await RunCoreAsync([], program, errorsOnly: true, modules: modules, afterLoading: async sessionProvider =>
@@ -313,7 +316,13 @@ internal static class ModuleWorkspace
                     Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
                     ModuleName = moduleName,
                     EntryPoint = entryPoint,
+                    Debug = debug,
                 }, CancellationToken.None);
+
+            if (afterRun is not null)
+            {
+                await afterRun(ran, sessionProvider);
+            }
         });
 
         return ran!;

@@ -316,6 +316,10 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Break_InLine" xml:space="preserve">
     <value>BREAK IN {0}</value>
   </data>
+  <data name="Repl_Break_InModuleLine" xml:space="preserve">
+    <value>BREAK IN {0} LINE {1}</value>
+    <comment>{0} is the name of the module the program waits in, {1} the line of the module.</comment>
+  </data>
   <data name="Repl_HelpHint" xml:space="preserve">
     <value>Type HELP for a list of commands.</value>
   </data>

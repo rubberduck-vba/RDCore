@@ -55,6 +55,10 @@ lists the two lines above it and the two below it, with the stopped line highlig
 each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's immediate pane, and edit the program
 before you go on.
 
+A line typed at the prompt runs under the debugger as `RUN` does: a `Stop` or a breakpoint in the code it calls stops it there, and `STACK` shows the
+line's own procedure under the one that stopped. A stop in a module of a workspace says `BREAK IN`, the module and its line, and lists the module's lines
+around it as `LIST` lists the program.
+
 > [!NOTE]
 > The shell is a way to try the platform. Its current program is a single procedure: a project with more procedures runs in the shell on a workspace.
 > The shell does not handle BASIC-style line numbers in your own modules.

@@ -142,6 +142,14 @@ public interface IReplPlatformClient
     Task<IReadOnlyList<ReplInlayHint>> GetInlayHintsAsync(Uri document, CancellationToken token);
 
     /// <summary>
+    /// Asks the language server which document of the workspace a module is (<c>workspace/symbol</c>): the one whose outline has a module of that name.
+    /// </summary>
+    /// <param name="moduleName">The module's name, in any case.</param>
+    /// <param name="token">A token that cancels the request.</param>
+    /// <returns>The document's URI; <see langword="null"/> when no document of the workspace is that module.</returns>
+    Task<Uri?> FindModuleAsync(string moduleName, CancellationToken token);
+
+    /// <summary>
     /// Asks the language server what it finds in a document (<c>textDocument/diagnostic</c>): the diagnostics as an editor gets them, with what fixes them in
     /// their <c>data</c>.
     /// </summary>
@@ -442,6 +450,12 @@ public sealed record class ReplCommandContext(
     /// <c>0</c> lists none.
     /// </summary>
     public int BreakListingLines { get; init; } = AppOptions.DefaultBreakListingLines;
+
+    /// <summary>
+    /// The files of the workspace the shell is attached to, which a break in one of its modules lists the lines of: the language server says which file a module
+    /// is, and the shell, its client, reads it.
+    /// </summary>
+    public System.IO.Abstractions.IFileSystem Files { get; init; } = new System.IO.Abstractions.FileSystem();
 }
 
 /// <summary>

@@ -58,6 +58,10 @@ mise en évidence. `CONFIG CLI.BreakListingLines` fixe combien de lignes sont li
 n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme dans le volet _exécution_ du VBIDE, et modifier le programme avant de
 reprendre.
 
+Une ligne tapée à l'invite s'exécute sous le débogueur comme avec `RUN` : un `Stop` ou un point d'arrêt dans le code qu'elle appelle l'arrête là, et
+`STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail affiche `INTERRUPTION DANS`,
+le module et sa ligne, puis liste les lignes du module autour de cet arrêt comme `LIST` liste le programme.
+
 > [!NOTE]
 > Le _shell_ est une façon d'essayer la plateforme. Son programme courant est une seule procédure : un projet qui en a plus s'exécute dans le _shell_
 > sur un espace de travail. Le _shell_ ne prend pas en charge les numéros de ligne à la BASIC dans vos propres modules.

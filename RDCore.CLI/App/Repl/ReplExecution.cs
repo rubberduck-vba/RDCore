@@ -266,10 +266,23 @@ internal static class ReplExecution
             case ExecutionOutcome.Suspended:
                 var waitsBefore = program.LineNumberAt(result.ErrorLine);
                 context.Debugger.Suspended(waitsBefore);
-                console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
-                if (listsTheBreak)
+
+                // a program that waits in a module of the workspace is said, and listed, by that module's own lines.
+                if (waitsBefore is null && await WaitsInAModuleAsync(context) is { } frame)
                 {
-                    await ListAroundAsync(context, waitsBefore);
+                    console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
+                    if (listsTheBreak)
+                    {
+                        await ListAroundInModuleAsync(context, frame.Module, frame.Line);
+                    }
+                }
+                else
+                {
+                    console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
+                    if (listsTheBreak)
+                    {
+                        await ListAroundAsync(context, waitsBefore);
+                    }
                 }
 
                 // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
@@ -328,6 +341,50 @@ internal static class ReplExecution
         var from = context.Program.NumberAt(Math.Max(0, index - around));
         var to = context.Program.NumberAt(Math.Min(context.Program.Count - 1, index + around));
         await ListReplCommand.WriteAsync(context, from, to, current: stopped, withFolds: false, CancellationToken.None);
+    }
+
+    // the activation the program waits in, when it is in a module other than the shell's own: the shell's program is said by its line numbers, a module by its
+    // lines. Nothing when the platform cannot say.
+    private static async Task<DebugStackFrame?> WaitsInAModuleAsync(ReplCommandContext context)
+    {
+        if (!context.Platform.Provides<ProgramDebugging>()
+            || (await context.Platform.GetStackAsync(CancellationToken.None))?.Frames.FirstOrDefault() is not { Line: >= 0 } innermost
+            || string.Equals(innermost.Module, context.Program.Module, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return innermost;
+    }
+
+    // the lines around the one a break stopped at in a module of the workspace, as LIST lists the program, read from the module's file: as many above it and below
+    // it as the setting says. A module the language server cannot find, or a file that cannot be read, lists nothing: the break is said all the same.
+    private static async Task ListAroundInModuleAsync(ReplCommandContext context, string module, int line)
+    {
+        var around = Math.Clamp(context.BreakListingLines, 0, AppOptions.MaximumBreakListingLines);
+        if (around == 0)
+        {
+            return;
+        }
+
+        Uri? document;
+        string[] text;
+        try
+        {
+            document = await context.Platform.FindModuleAsync(module, CancellationToken.None);
+            if (document is not { IsFile: true })
+            {
+                return;
+            }
+
+            text = context.Files.File.ReadAllText(document.LocalPath).Split(["\r\n", "\n"], StringSplitOptions.None);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return;
+        }
+
+        await ListReplCommand.WriteModuleAsync(context, document, text, line - around, line + around, line, [], CancellationToken.None);
     }
 
     // BASIC has always said which line it died on, and so does this: the title carries the program's own
