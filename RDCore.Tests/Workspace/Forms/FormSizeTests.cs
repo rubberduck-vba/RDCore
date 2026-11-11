@@ -149,8 +149,8 @@ public sealed class FormSizeTests
         CollectionAssert.AreEqual(new[] { "0", "212.25" }, printed, string.Join(" | ", printed));
     }
 
-    // a written size is let-coerced to a Single: a String that is not a number is a type mismatch, a number past a Single's range an overflow, and neither
-    // changes the size.
+    // a written size is let-coerced to a Single, so a String that is not a number is a type mismatch. 1E+30 is a Single, and an overflow because no window's
+    // pixels reach it. Neither changes the size.
     [TestMethod]
     public async Task AWrittenSize_IsLetCoercedToASingle()
     {
