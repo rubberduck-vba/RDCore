@@ -15,7 +15,7 @@ namespace RDCore.CLI.App.Repl;
 /// </remarks>
 /// <param name="interaction">The shell's dialogs.</param>
 /// <param name="console">The shell's console.</param>
-internal sealed class ReplMessageBoxHandler(ReplUserInteraction interaction, IReplConsole console) : IJsonRpcRequestHandler<SessionMessageBoxRequest, MessageBoxResult>
+internal sealed class ReplMessageBoxHandler(ConsoleUserInteraction interaction, IReplConsole console) : IJsonRpcRequestHandler<SessionMessageBoxRequest, MessageBoxResult>
 {
     /// <inheritdoc/>
     public Task<MessageBoxResult> Handle(SessionMessageBoxRequest request, CancellationToken cancellationToken)
@@ -33,7 +33,7 @@ internal sealed class ReplMessageBoxHandler(ReplUserInteraction interaction, IRe
 /// </summary>
 /// <param name="interaction">The shell's dialogs.</param>
 /// <param name="console">The shell's console.</param>
-internal sealed class ReplInputBoxHandler(ReplUserInteraction interaction, IReplConsole console) : IJsonRpcRequestHandler<SessionInputBoxRequest, InputBoxResult>
+internal sealed class ReplInputBoxHandler(ConsoleUserInteraction interaction, IReplConsole console) : IJsonRpcRequestHandler<SessionInputBoxRequest, InputBoxResult>
 {
     /// <inheritdoc/>
     public Task<InputBoxResult> Handle(SessionInputBoxRequest request, CancellationToken cancellationToken)
@@ -65,7 +65,7 @@ internal sealed class ReplInputBoxHandler(ReplUserInteraction interaction, IRepl
 /// <param name="interaction">The shell's dialogs.</param>
 /// <param name="questions">When the shell asks the server's questions.</param>
 /// <param name="unattended">Whether the shell runs unattended.</param>
-internal sealed class ReplShowMessageRequestHandler(ReplUserInteraction interaction, ReplServerQuestions questions, ReplUnattended unattended)
+internal sealed class ReplShowMessageRequestHandler(ConsoleUserInteraction interaction, ReplServerQuestions questions, ReplUnattended unattended)
     : OmniSharp.Extensions.LanguageServer.Protocol.Window.IShowMessageRequestHandler
 {
     /// <inheritdoc/>

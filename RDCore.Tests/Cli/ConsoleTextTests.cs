@@ -1,4 +1,4 @@
-﻿using RDCore.CLI.App.Console;
+﻿using RDCore.External.Interaction;
 
 namespace RDCore.Tests.Cli;
 

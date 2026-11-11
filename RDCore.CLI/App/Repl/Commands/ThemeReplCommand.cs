@@ -1,4 +1,4 @@
-using RDCore.CLI.App.Console;
+using RDCore.External.Interaction;
 using RDCore.CLI.Themes;
 using RDCore.SDK.Platform.Commands;
 

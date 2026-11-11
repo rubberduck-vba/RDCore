@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol;
@@ -40,7 +41,7 @@ public sealed class DuckyReplCommandTests
     private async Task RunAsync(string arguments = "")
     {
         await _document.OpenAsync(ProgramPath, CancellationToken.None);
-        await new DuckyReplCommand(new ReplUserInteraction(_keys, new StringWriter())).ExecuteAsync(_context, arguments, CancellationToken.None);
+        await new DuckyReplCommand(new ConsoleUserInteraction(_keys, new StringWriter())).ExecuteAsync(_context, arguments, CancellationToken.None);
     }
 
     private void Offers(params CodeAction[] actions)

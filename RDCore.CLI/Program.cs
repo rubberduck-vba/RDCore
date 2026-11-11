@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -168,7 +169,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
             .AddSingleton<IReplConsole, ReplConsole>()
             // the dialogs a program opens are asked at the shell's console.
             .AddSingleton<IConsoleKeys, SystemConsoleKeys>()
-            .AddSingleton(provider => ReplUserInteraction.OfTheConsole(
+            .AddSingleton(provider => ConsoleUserInteraction.OfTheConsole(
                 provider.GetRequiredService<IConsoleKeys>(),
                 ansi: provider.GetRequiredService<Spectre.Console.IAnsiConsole>().Profile.Capabilities.Ansi))
             // and the questions the language server asks, when the console is the shell's to ask them at: the shell's messages wait while one is asked.
@@ -326,7 +327,7 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
 internal class RDCoreConsoleClientApp(
     IOptions<SdkAppOptions> options,
     IChildConnectionFactory connectionFactory,
-    ReplUserInteraction interaction,
+    ConsoleUserInteraction interaction,
     IReplConsole console,
     RubberduckIndenterSettingsReader rubberduck,
     IPlatformSettings settings,

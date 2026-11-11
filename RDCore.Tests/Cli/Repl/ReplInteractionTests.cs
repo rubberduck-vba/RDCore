@@ -1,5 +1,4 @@
 using NSubstitute;
-using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.Themes;
@@ -18,10 +17,10 @@ namespace RDCore.Tests.Cli.Repl;
 [TestClass]
 public sealed class ReplInteractionTests
 {
-    private static (ReplUserInteraction Interaction, StringWriter Output) Shell(ScriptedKeys keys)
+    private static (ConsoleUserInteraction Interaction, StringWriter Output) Shell(ScriptedKeys keys)
     {
         var output = new StringWriter();
-        return (new ReplUserInteraction(keys, output), output);
+        return (new ConsoleUserInteraction(keys, output), output);
     }
 
     // ---- MsgBox ----
@@ -45,7 +44,7 @@ public sealed class ReplInteractionTests
     public void AMessage_IsABox_CentredOnTheConsole_ItsEdgesLinedUp()
     {
         var output = new StringWriter();
-        var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 100);
+        var interaction = new ConsoleUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 100);
 
         interaction.ShowMessage(new MessageBoxRequest("Saved.", "Project1", VBMsgBoxStyle.VBOKOnly | VBMsgBoxStyle.VBInformation));
 
@@ -62,7 +61,7 @@ public sealed class ReplInteractionTests
     public void AMessageTooLongForALine_IsWrapped_InsideTheBox()
     {
         var output = new StringWriter();
-        var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 60);
+        var interaction = new ConsoleUserInteraction(new ScriptedKeys(interactive: false), output, consoleWidth: () => 60);
 
         interaction.ShowMessage(new MessageBoxRequest(string.Join(' ', Enumerable.Repeat("duck", 40)), "t", VBMsgBoxStyle.VBOKOnly));
 
@@ -76,7 +75,7 @@ public sealed class ReplInteractionTests
     public void WithAnsi_TheMessageAndTheRightEdge_ArePutAtTheirColumns_HoweverWideTheIconIsDrawn()
     {
         var output = new StringWriter();
-        var interaction = new ReplUserInteraction(new ScriptedKeys(interactive: false), output, ansi: true, consoleWidth: () => 80);
+        var interaction = new ConsoleUserInteraction(new ScriptedKeys(interactive: false), output, ansi: true, consoleWidth: () => 80);
 
         interaction.ShowMessage(new MessageBoxRequest("Line one\r\nLine two", "t", VBMsgBoxStyle.VBOKOnly | VBMsgBoxStyle.VBExclamation));
 
@@ -94,7 +93,7 @@ public sealed class ReplInteractionTests
     public void WithAnsi_TheWholeBoxIsDrawn_BeforeTheButtonsAreChosen()
     {
         var output = new StringWriter();
-        var interaction = new ReplUserInteraction(new ScriptedKeys().Press(Key(ConsoleKey.Enter)), output, ansi: true);
+        var interaction = new ConsoleUserInteraction(new ScriptedKeys().Press(Key(ConsoleKey.Enter)), output, ansi: true);
 
         interaction.ShowMessage(new MessageBoxRequest("x", "t", VBMsgBoxStyle.VBOKOnly));
 
@@ -161,7 +160,7 @@ public sealed class ReplInteractionTests
     public void TheLineOfAnInputBox_StaysInsideTheBox_HoweverLongWhatIsTyped()
     {
         var output = new StringWriter();
-        var interaction = new ReplUserInteraction(new ScriptedKeys().Type(new string('x', 200)).Press(Key(ConsoleKey.Enter)), output, consoleWidth: () => 80);
+        var interaction = new ConsoleUserInteraction(new ScriptedKeys().Type(new string('x', 200)).Press(Key(ConsoleKey.Enter)), output, consoleWidth: () => 80);
 
         Assert.AreEqual(new string('x', 200), interaction.Prompt(new InputBoxRequest("Name?", "t")));
 

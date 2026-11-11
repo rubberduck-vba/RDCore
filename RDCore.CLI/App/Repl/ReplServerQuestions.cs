@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using RDCore.CLI.App.Console;
 
 namespace RDCore.CLI.App.Repl;

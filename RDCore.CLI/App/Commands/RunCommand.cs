@@ -1,7 +1,6 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
-using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.External.Interaction;
 using RDCore.Runtime.Semantics;
@@ -34,8 +33,8 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
 
     // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as the shell asks them.
     private IUserInteraction? Dialogs => OperatingSystem.IsWindows() ? null
-        : output is null ? ReplUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
-        : new ReplUserInteraction(keys ?? new SystemConsoleKeys(), output);
+        : output is null ? ConsoleUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
+        : new ConsoleUserInteraction(keys ?? new SystemConsoleKeys(), output);
 
     public string Name => CommandNames.RunCommand.Name;
     public IReadOnlyList<string> Aliases => [CommandNames.RunCommand.Alias];
