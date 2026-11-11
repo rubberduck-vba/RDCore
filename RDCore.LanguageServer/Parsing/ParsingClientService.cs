@@ -382,15 +382,13 @@ internal sealed class ParsingClientService(
     // TODO: report an unreadable designer as a diagnostic of the form module, by its FormDesignerFormatProblem.
     private FormDescriptor? DesignerOf(WorkspaceDocument document)
     {
-        try
+        var designer = FormDesigner.Read(document.Text, document.Companion, out var problem);
+        if (problem is not null)
         {
-            return FormDesigner.Read(document.Text, document.Companion);
+            logger.LogWarning("⚠️ The designer of {uri} cannot be read: {reason}", document.Id.Uri, problem.Message);
         }
-        catch (FormDesignerFormatException exception)
-        {
-            logger.LogWarning("⚠️ The designer of {uri} cannot be read: {reason}", document.Id.Uri, exception.Message);
-            return null;
-        }
+
+        return designer;
     }
 
     // what the parser is given of a document: its text, or - for a program of the platform's BASIC, which is lines and nothing around them - the module the lines are.

@@ -100,7 +100,7 @@ public sealed class UnattendedRunTests
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL).
     internal static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
 
-    private static byte[] Fixture(string fileName)
+    internal static byte[] Fixture(string fileName)
     {
         var assembly = typeof(UnattendedRunTests).Assembly;
         var name = assembly.GetManifestResourceNames().Single(resource => resource.EndsWith($".Fixtures.{fileName}", StringComparison.Ordinal));
