@@ -150,7 +150,9 @@ public sealed class ClientWithoutOmniSharpTests
         var told = $"{executed.ToJsonString()}\nlogged by the server:\n{string.Join("\n", platform.Rpc.Logged)}\n{LogOf(platform.Root)}";
         Assert.IsNull(executed["error"], told);
         Assert.AreEqual((int)ExecutionOutcome.Completed, executed["result"]!["outcome"]!.GetValue<int>(), told);
-        CollectionAssert.AreEqual(new[] { RDCore.SDK.Workspace.WorkspacePaths.Normalized(new Uri(platform.Workspace).LocalPath), "Program.bas" },
+        // CurDir is the workspace's real path: on macOS the temporary folder is under /var, a link to /private/var.
+        var root = RDCore.SDK.Platform.PlatformRootConfinement.RealPath(new Uri(platform.Workspace).LocalPath);
+        CollectionAssert.AreEqual(new[] { RDCore.SDK.Workspace.WorkspacePaths.Normalized(root), "Program.bas" },
             executed["result"]!["output"]!.AsArray().Select(line => line!.GetValue<string>().Trim()).ToArray(), told);
         await platform.ShutdownAsync(4);
     }
