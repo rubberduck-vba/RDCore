@@ -74,8 +74,9 @@ internal sealed class ScalarCell : ICopyableBinding
     public RDCore.SDK.Runtime.Shared.MemoryAddress? Address { get; set; }
 
     /// <summary>
-    /// Whether the cell is one compiled code made of a value given to a parameter passed by reference (MS-VBAL §5.3.1.11), which is no variable of the
-    /// caller's: the callee's own, as the cell the interpreter makes of such a value is, until the activation it is given to takes it as its own.
+    /// Whether compiled code made the cell of a value given to a parameter passed by reference (MS-VBAL §5.3.1.11), a value that is no variable of
+    /// the caller's. The activation the cell is given to takes it as its own and clears the flag, as the interpreter's callee owns the cell it makes
+    /// of such a value.
     /// </summary>
     public bool IsGivenValue { get; set; }
 

@@ -329,7 +329,7 @@ public sealed class CompiledByRefCallTests
 
     // a value passed by reference to a callee the interpreter runs is a value, as the interpreter passes it: the callee's cell is its own, and is let go of
     // with its frame, even after the callee took its address. What is still allocated once the program ended is what the interpreter leaves. Touch counts
-    // a For loop that never turns with its parameter, a variable held in a cell, which compiled code does not count with: it is not compiled.
+    // a For loop that never turns with its parameter: a loop counted with a variable held in a cell is not compiled, so the interpreter runs Touch.
     [TestMethod]
     public async Task AValuePassedByReference_ToAnInterpretedCallee_IsLetGoOfWithTheCallee()
     {

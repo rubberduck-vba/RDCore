@@ -65,7 +65,7 @@ public sealed partial class CompiledActivation : ILightActivation
     // holds, given it as soon as there is one (TakeReference).
     private readonly object?[] _cells;
 
-    // whether the cell of each number is the activation's own though its slot is a parameter passed by reference: it was given a value (TakeReference).
+    // whether each numbered cell is the activation's own although its slot is a parameter passed by reference: the cell of a value (TakeReference).
     private readonly bool[] _ownsCell;
 
     internal CompiledActivation(IRuntimeSession session, CallStackFrame frame, InstructionList list, ProcedureExecutor executor, RuntimeEvaluationContext context,
@@ -165,11 +165,14 @@ public sealed partial class CompiledActivation : ILightActivation
     }
 
     /// <summary>
-    /// Holds <paramref name="cell"/>, the argument of a parameter passed by reference - its caller's variable, or a cell of its own a value was copied into -
-    /// as the cell numbered <paramref name="number"/>: the frame has the parameter as a second name for the variable, now or when it is made. A cell of a
-    /// value (<see cref="NewCell"/>) is the activation's own, as the cell the interpreter makes of a value given to such a parameter is its callee's: its
-    /// frame lets go of it, and of the address it was given, as it lets go of its variables. A call the activation makes with it is given its variable.
+    /// Holds <paramref name="cell"/>, the argument of a parameter passed by reference (its caller's variable, or a cell of its own that a value was
+    /// copied into), as the cell numbered <paramref name="number"/>. For a variable, the frame has the parameter as a second name for it, now or when
+    /// the frame is made. A cell of a value (<see cref="NewCell"/>) is the activation's own, as the cell the interpreter makes of a value given to such a
+    /// parameter is its callee's: the frame lets go of it, and of the address it was given, as it lets go of its variables. A procedure the activation
+    /// passes the parameter to by reference gets that cell as a variable of the activation's.
     /// </summary>
+    /// <param name="number">The number of the cell.</param>
+    /// <param name="cell">The argument's cell.</param>
     public void TakeReference(int number, object cell)
     {
         _ownsCell[number] = cell is ScalarCell { IsGivenValue: true };
@@ -257,7 +260,14 @@ public sealed partial class CompiledActivation : ILightActivation
         scalar.Write(new ScalarPayload(scalar.Type, 0, value));
     }
 
-    /// <summary>A cell of its own for the argument of a parameter passed by reference that is no variable, holding its value (MS-VBAL §5.3.1.11).</summary>
+    /// <summary>
+    /// A cell of its own for the argument of a parameter passed by reference that is no variable, holding its value (MS-VBAL §5.3.1.11), and marked
+    /// as the cell of a value (<see cref="ScalarCell.IsGivenValue"/>).
+    /// </summary>
+    /// <param name="kind">The value's scalar kind.</param>
+    /// <param name="integral">The payload's <see cref="ScalarPayload.Integral"/>.</param>
+    /// <param name="floating">The payload's <see cref="ScalarPayload.Floating"/>.</param>
+    /// <returns>The cell.</returns>
     public static object NewCell(ScalarKind kind, long integral, double floating)
     {
         var cell = ScalarCell.Of(new ScalarPayload(ScalarKinds.TypeOf(kind), integral, floating));
