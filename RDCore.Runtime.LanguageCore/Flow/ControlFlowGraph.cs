@@ -126,6 +126,15 @@ public sealed class ControlFlowGraph
     public IEnumerable<int> Arrivals(int from, int to) => _alternatives?.Arrivals(from, to) ?? [to];
 
     /// <summary>
+    /// Where control that comes from outside to the run of instructions from <paramref name="first"/> to <paramref name="last"/> arrives: at
+    /// <paramref name="first"/>, unless the graph has the <c>#If</c> blocks of the body and the run starts with the whole of one. Control then arrives at the
+    /// start of any branch of that block, or past it, which may be past the run.
+    /// </summary>
+    /// <param name="first">The offset of the run's first instruction.</param>
+    /// <param name="last">The offset of its last instruction.</param>
+    public IReadOnlySet<int> EntriesOf(int first, int last) => _alternatives?.EntriesOf(first, last) ?? new HashSet<int> { first };
+
+    /// <summary>
     /// Whether control can ever arrive at <paramref name="node"/>.
     /// </summary>
     /// <param name="node">The offset of an instruction, or <see cref="Exit"/>.</param>

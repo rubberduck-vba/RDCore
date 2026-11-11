@@ -232,7 +232,14 @@ internal static class ExtractionAnalysis
     {
         var edges = states.Edges;
         var exit = states.Graph.Exit;
-        var seen = new HashSet<int> { region.Min() };
+        var entries = ExtractionControlFlow.EntriesOf(region, states.Graph);
+        // a selection that starts with an #If block that may compile no branch is passed over whole, and replaces nothing.
+        if (entries.Any(entry => !region.Contains(entry) && live.IsLiveBefore(entry, variable)))
+        {
+            return false;
+        }
+
+        var seen = entries.Where(region.Contains).ToHashSet();
         var pending = new Stack<int>(seen);
         while (pending.TryPop(out var node))
         {

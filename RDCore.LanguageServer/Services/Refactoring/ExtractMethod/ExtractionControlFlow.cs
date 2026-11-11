@@ -209,6 +209,10 @@ internal static class ExtractionControlFlow
         return false;
     }
 
+    // where control that comes to the selection arrives: its first instruction, and, when it starts with an #If block, the first of each other branch of the
+    // block, or past the block when the block may compile no branch.
+    internal static IReadOnlySet<int> EntriesOf(IReadOnlySet<int> region, ControlFlowGraph graph) => graph.EntriesOf(region.Min(), region.Max());
+
     // whether a path through the selection, from a state it can start in, leaves it in another: its own On Error statements, run from that state.
     private static bool LeftDifferent(IReadOnlySet<int> region, ControlFlowGraph graph, IEnumerable<ErrorHandlingState> entry)
     {
@@ -217,7 +221,11 @@ internal static class ExtractionControlFlow
         {
             var seen = new HashSet<(int, ErrorHandlingState)>();
             var pending = new Stack<(int Node, ErrorHandlingState State)>();
-            pending.Push((region.Min(), start));
+            foreach (var first in EntriesOf(region, graph))
+            {
+                pending.Push((first, start));
+            }
+
             while (pending.TryPop(out var arrival))
             {
                 if (!region.Contains(arrival.Node))

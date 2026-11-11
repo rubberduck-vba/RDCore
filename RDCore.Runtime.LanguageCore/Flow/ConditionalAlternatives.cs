@@ -123,6 +123,38 @@ internal sealed class ConditionalAlternatives
         return arrivals;
     }
 
+    /// <summary>
+    /// Where control that comes to the run of instructions from <paramref name="first"/> to <paramref name="last"/> from outside it arrives: at
+    /// <paramref name="first"/>, or, for each block the run holds the whole of and starts with, at the start of any branch of it, or past it.
+    /// </summary>
+    /// <param name="first">The offset of the run's first instruction.</param>
+    /// <param name="last">The offset of its last instruction.</param>
+    public IReadOnlySet<int> EntriesOf(int first, int last)
+    {
+        var entries = new HashSet<int>();
+        var pending = new Stack<int>();
+        pending.Push(first);
+        while (pending.TryPop(out var node))
+        {
+            if (!entries.Add(node))
+            {
+                continue;
+            }
+
+            foreach (var held in _blocks.Where(block => block.Firsts.Contains(node) && block.Members.Keys.All(member => member >= first && member <= last)))
+            {
+                foreach (var start in held.Firsts)
+                {
+                    pending.Push(start);
+                }
+
+                pending.Push(held.After);
+            }
+        }
+
+        return entries;
+    }
+
     // a block: the branch each of its instructions is in, the first instruction of each branch that has one, and the instruction after the last of them.
     private sealed record class Block(Dictionary<int, int> Members, int[] Firsts, int After)
     {

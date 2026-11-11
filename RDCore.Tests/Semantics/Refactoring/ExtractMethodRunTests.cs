@@ -181,6 +181,30 @@ public sealed class ExtractMethodRunTests
     public async Task AnExitInADeadBranch_AtTheStartOfTheBody_DoesNotEndTheProcedure()
         => Assert.AreEqual("3 | 4", await SameAsync("#If False Then\nExit Sub\n#End If\nDebug.Print n\nDebug.Print n + 1", 3, 3));
 
+    // the block may compile no branch: x keeps the value it had, so the new procedure is given it, and it is no value to return.
+    [TestMethod]
+    public async Task AWriteInTheOnlyBranchOfABlock_KeepsTheValueBefore()
+    {
+        var (before, after, module, plan) = await ExtractionRuns.BeforeAndAfterAsync("Dim x As Long\nx = n\n#If False Then\nx = 1\n#End If\nDebug.Print x", 2, 4);
+
+        Assert.AreEqual("3", before.Output);
+        Assert.AreEqual(before, after, module);
+        Assert.IsEmpty(plan.ReturnCandidates, module);
+    }
+
+    [TestMethod]
+    public async Task ANestedConditionalBlock_RunsItsLiveBranch()
+        => Assert.AreEqual("3", await SameAsync("Dim x As Long\nx = n\n#If True Then\n#If False Then\nx = 1\n#Else\nDebug.Print x\n#End If\n#End If", 2, 8));
+
+    // the Exit Sub is routed as any exit of the selection; it does not run.
+    [TestMethod]
+    public async Task AnExitInADeadBranch_OfTheSelection_IsRoutedAndDoesNotRun()
+        => Assert.AreEqual("3", await SameAsync("Dim x As Long\nx = n\n#If False Then\nExit Sub\n#End If\nDebug.Print x", 2, 5));
+
+    [TestMethod]
+    public async Task AnOnErrorInADeadBranch_OfTheSelection_DoesNotRun()
+        => Assert.AreEqual("3", await SameAsync("Dim x As Long\nx = n\n#If False Then\nOn Error Resume Next\n#End If\nDebug.Print x", 2, 5));
+
     [TestMethod]
     public async Task StatementsSeparatedByColons_RunAsTheyDidInline()
         => Assert.AreEqual("4", await SameAsync("Dim x As Long\nx = n: x = x + 1\nDebug.Print x", 1, 1));
