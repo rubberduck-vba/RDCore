@@ -1,4 +1,4 @@
-﻿# Documentation utilisateur de RDCore
+# Documentation utilisateur de RDCore
 <sup>_This document is available in [English](index.html)_</sup>
 
 ---
@@ -11,7 +11,7 @@
 RDCore exécute et analyse du code **VBA** et **Visual Basic 6** hors de l'éditeur VBA. Il implémente le langage à partir de sa [spécification](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/d5418146-0bd2-45eb-9c7a-fd9502722c74), avec son propre _runtime_.
 
 > [!NOTE]
-> **La plateforme est en pré-alpha**, et n'a aucune version publiée. Pour l'essayer, construisez-la à partir de son code source (voir [Démarrer avec RDCore](getting-started.fr.md)).
+> **La plateforme est en alpha.** Elle est publiée en [préversions](https://github.com/rubberduck-vba/RDCore/releases), pour évaluation (voir [Démarrer avec RDCore](getting-started.fr.md)).
 
 ---
 ## Ce que vous pouvez en faire

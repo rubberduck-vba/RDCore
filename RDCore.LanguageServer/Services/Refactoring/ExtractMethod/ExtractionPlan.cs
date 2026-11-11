@@ -111,7 +111,8 @@ internal enum ExtractionRefusalKind
 
     /// <summary>
     /// An <c>On Error</c> in the selection leaves the error handling of the source procedure other than the selection found it:
-    /// in the new procedure it would be the new procedure's, and the code after the call would run as it did before the selection.
+    /// in the new procedure it would be the new procedure's, and the code after the call would run as it did before the selection. It is not refused when
+    /// nothing runs under the state it leaves: the code after it cannot raise an error before the procedure ends, and does not go back to the selection.
     /// </summary>
     ErrorHandlingChanged,
 
@@ -178,8 +179,9 @@ internal enum ExtractionBehaviourChangeKind
     ResumeNextOnSomePaths,
 
     /// <summary>
-    /// The selection has line numbers, and a handler of the source procedure can catch an error of it: <c>Erl</c> reports the call's line. MS-VBA's
-    /// <c>Erl</c> for an error raised in a callee is unverified.
+    /// The selection has line numbers, and a handler of the source procedure can catch an error of it. <c>Erl</c> then reports the call, as for a statement of
+    /// the source procedure's own that raises the error: the call's document line, or with line-label numbering, the call's line number, or on a line without
+    /// one, the last line number the source procedure reached before the call.
     /// </summary>
     ErlReportsTheCall,
 
@@ -249,14 +251,19 @@ internal sealed record class ExtractionWithTarget(WithStatementNode With, Semant
 /// <param name="IsOutput">Whether the selection gives it a value that is read after it.</param>
 /// <param name="MayBeMissing">
 /// Whether it is a parameter of the source procedure that can be missing (an <c>Optional</c> <c>Variant</c> with no default value, or a <c>ParamArray</c>), so that
-/// <c>IsMissing</c> of it means something: it is passed as a <c>Variant</c>. A missing argument passed on stays missing in the
-/// new procedure, by value or by reference, <c>Optional</c> or not, and a default value given to the new parameter is not applied to it (observed in
-/// Excel). So the parameter is a plain <c>Variant</c>, never <c>Optional</c>.
+/// <c>IsMissing</c> of it means something: the new parameter is declared <c>Optional</c> and <c>As Variant</c>, with no default
+/// value, and the argument passed on to it is missing there when it is missing in the source procedure.
 /// </param>
 /// <param name="IsUndeclared">Whether it is declared by being named, with no <c>Option Explicit</c>: the new procedure declares the parameter, of the type its DefType gives it.</param>
 internal sealed record class ExtractionParameter(
     SemanticId Variable, string Name, VBType? Type, ExtractionPassing Passing, ExtractionPassingReason Reason, bool IsInput, bool IsOutput, bool MayBeMissing = false,
-    bool IsUndeclared = false);
+    bool IsUndeclared = false)
+{
+    /// <summary>
+    /// Whether the new parameter is declared <c>Optional</c>: it <see cref="MayBeMissing"/>, and is no <c>ParamArray</c>. It comes after every parameter that is not.
+    /// </summary>
+    public bool IsOptional => MayBeMissing && Reason is not ExtractionPassingReason.ParamArray;
+}
 
 /// <summary>
 /// A variable the new procedure declares as a local of its own.

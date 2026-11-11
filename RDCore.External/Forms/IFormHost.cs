@@ -19,6 +19,16 @@ public enum FormStartUpPosition
 }
 
 /// <summary>
+/// Where a form's window is on the desktop and how big it is, in points: a UserForm's <c>Left</c>, <c>Top</c>, <c>Width</c> and <c>Height</c>, which are its
+/// window's, caption bar and border included.
+/// </summary>
+/// <param name="Left">Where the window is, from the left of the desktop.</param>
+/// <param name="Top">Where the window is, from the top of the desktop.</param>
+/// <param name="Width">The window's width.</param>
+/// <param name="Height">The window's height.</param>
+public readonly record struct FormBounds(double Left, double Top, double Width, double Height);
+
+/// <summary>
 /// A form to host: its name, the designer's state of it, and how its window starts up.
 /// </summary>
 /// <param name="Name">The name of the form, as its module is named.</param>
@@ -37,11 +47,29 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     /// <summary>Where the form starts up. <see cref="FormStartUpPosition.CenterOwner"/>, as a new UserForm's designer has it, unless said otherwise.</summary>
     public FormStartUpPosition StartUpPosition { get; init; } = FormStartUpPosition.CenterOwner;
 
-    /// <summary>Where a <see cref="FormStartUpPosition.Manual"/> form's window is, from the left of the desktop, in points.</summary>
-    public double Left { get; init; }
+    /// <summary>
+    /// Where the form's client area is, from the left of the desktop, in points: its designer block's <c>ClientLeft</c>. The window is there until it is shown,
+    /// and stays there when it starts up <see cref="FormStartUpPosition.Manual"/>. <see langword="null"/> when the designer block says none.
+    /// </summary>
+    public double? ClientLeft { get; init; }
 
-    /// <summary>Where a <see cref="FormStartUpPosition.Manual"/> form's window is, from the top of the desktop, in points.</summary>
-    public double Top { get; init; }
+    /// <summary>
+    /// Where the form's client area is, from the top of the desktop, in points: its designer block's <c>ClientTop</c>. <see langword="null"/> when the designer
+    /// block says none.
+    /// </summary>
+    public double? ClientTop { get; init; }
+
+    /// <summary>
+    /// The width of the form's window's client area, in points: its designer block's <c>ClientWidth</c>, which sizes the window whatever size the designer's
+    /// state gives the form. <see langword="null"/> when the designer block says none, which makes the client area the form's own size.
+    /// </summary>
+    public double? ClientWidth { get; init; }
+
+    /// <summary>
+    /// The height of the form's window's client area, in points: its designer block's <c>ClientHeight</c>. <see langword="null"/> when the designer block says
+    /// none, which makes the client area the form's own size.
+    /// </summary>
+    public double? ClientHeight { get; init; }
 
     /// <summary>
     /// Whether <c>Show</c> without an argument shows the form modal: its designer's <c>ShowModal</c>, which is <c>True</c> unless the designer block says otherwise.
@@ -57,13 +85,12 @@ public sealed record class FormDefinition(string Name, ReadOnlyMemory<byte> Stat
     {
         Caption = designer.Caption,
         StartUpPosition = designer.StartUpPosition is { } position && Enum.IsDefined((FormStartUpPosition)position) ? (FormStartUpPosition)position : FormStartUpPosition.CenterOwner,
-        Left = PointsOf(designer.Properties.GetValueOrDefault("Left")),
-        Top = PointsOf(designer.Properties.GetValueOrDefault("Top")),
+        ClientLeft = designer.ClientLeft,
+        ClientTop = designer.ClientTop,
+        ClientWidth = designer.ClientWidth,
+        ClientHeight = designer.ClientHeight,
         ShowModal = designer.ShowModal ?? true,
     };
-
-    private static double PointsOf(string? value)
-        => double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var points) ? points : 0;
 }
 
 /// <summary>
@@ -138,6 +165,21 @@ public interface IFormHost
     /// <param name="caption">The caption.</param>
     /// <exception cref="Automation.AutomationException">The handle is not a form of this host, or the form was destroyed.</exception>
     void SetCaption(object form, string caption);
+
+    /// <summary>
+    /// Gets where a form's window is and how big it is, in points.
+    /// </summary>
+    /// <param name="form">The handle of the form.</param>
+    /// <exception cref="Automation.AutomationException">The handle is not a form of this host, or the form was destroyed.</exception>
+    FormBounds GetBounds(object form);
+
+    /// <summary>
+    /// Moves a form's window and sizes it, in points. The form inside it is sized to the window's client area.
+    /// </summary>
+    /// <param name="form">The handle of the form.</param>
+    /// <param name="bounds">Where the window goes, and its size.</param>
+    /// <exception cref="Automation.AutomationException">The handle is not a form of this host, or the form was destroyed.</exception>
+    void SetBounds(object form, FormBounds bounds);
 
     /// <summary>
     /// The focus leaves a form for good, as it does when the form is unloaded: the form is deactivated and closed, and the control that has the focus is left - the
@@ -230,6 +272,12 @@ public sealed class UnavailableFormHost : IFormHost
 
     /// <inheritdoc/>
     public void SetCaption(object form, string caption) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
+
+    /// <inheritdoc/>
+    public FormBounds GetBounds(object form) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
+
+    /// <inheritdoc/>
+    public void SetBounds(object form, FormBounds bounds) => throw new Automation.AutomationException(ClassNotRegistered, ExternalMessages.FormsUnavailable);
 
     /// <inheritdoc/>
     public void Leave(object form)

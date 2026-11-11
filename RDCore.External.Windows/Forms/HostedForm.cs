@@ -1,4 +1,5 @@
-﻿using RDCore.External.Forms;
+using RDCore.External.Automation;
+using RDCore.External.Forms;
 using RDCore.External.Windows.Automation;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -26,6 +27,7 @@ internal sealed class HostedForm
     private const uint Style = Desktop.WS_CAPTION | Desktop.WS_SYSMENU | Desktop.WS_CLIPCHILDREN;
     private const uint ExtendedStyle = Desktop.WS_EX_DLGMODALFRAME;
     private const double HimetricPerInch = 2540;
+    private const int Overflow = unchecked((int)0x8002000A);
 
     // the windows of the apartment's forms, by handle: what the window procedure answers for. A window's messages are dispatched on the thread that made it, so each
     // apartment has its own, and only its own thread reads or writes it.
@@ -45,6 +47,12 @@ internal sealed class HostedForm
     private readonly ComApartment _apartment;
     private bool _shownBefore;
 
+    // the client area's size in points: the designer block's, or the form's own size when it says none, until the program sizes the window.
+    private (double Width, double Height)? _client;
+
+    // what the program last wrote to Left, Top, Width and Height: read back as written while the window is still where, and as big as, it puts it.
+    private FormBounds? _written;
+
     private HostedForm(FormDefinition definition, object form, IntPtr window, ComApartment apartment)
     {
         _definition = definition;
@@ -52,6 +60,7 @@ internal sealed class HostedForm
         Window = window;
         _site = new FormSite(window);
         _apartment = apartment;
+        _client = definition is { ClientWidth: { } width, ClientHeight: { } height } ? (width, height) : null;
     }
 
     /// <summary>The form: the automation object its own object model is.</summary>
@@ -82,6 +91,58 @@ internal sealed class HostedForm
 
         set => _ = Desktop.SetWindowText(Window, value);
     }
+
+    /// <summary>
+    /// Where the form's window is and its size, in points, converted from pixels at the window's DPI: a UserForm's <c>Left</c>, <c>Top</c>, <c>Width</c> and
+    /// <c>Height</c>, which are the window's, caption bar and border included. Setting it sizes the form to the window's client area, which stays the form's size.
+    /// </summary>
+    /// <remarks>
+    /// What the program wrote reads back as it wrote it, and not rounded to a pixel, while the window is still there and that size: a size the desktop does not
+    /// allow (narrower than its smallest window, lower than its frame) reads back as the window's. A negative width or height leaves the window's as it is
+    /// (Excel-measured).
+    /// </remarks>
+    public FormBounds Bounds
+    {
+        get
+        {
+            _ = Desktop.GetWindowRect(Window, out var window);
+            var dpi = Desktop.GetDpiForWindow(Window);
+            var written = _written ?? new FormBounds(double.NaN, double.NaN, double.NaN, double.NaN);
+            return new FormBounds(
+                AsWritten(written.Left, window.Left, dpi), AsWritten(written.Top, window.Top, dpi), AsWritten(written.Width, window.Width, dpi), AsWritten(written.Height, window.Height, dpi));
+        }
+
+        set
+        {
+            var current = Bounds;
+            value = value with { Width = value.Width < 0 ? current.Width : value.Width, Height = value.Height < 0 ? current.Height : value.Height };
+            var dpi = Desktop.GetDpiForWindow(Window);
+
+            // a position or a size past what a pixel coordinate holds is an overflow, as MS-VBA raises one for Width = 1E+30 (Excel-measured; the value it starts
+            // at is not).
+            foreach (var side in (ReadOnlySpan<double>)[value.Left, value.Top, value.Width, value.Height])
+            {
+                if (!(Math.Abs(side * dpi / 72) <= int.MaxValue))
+                {
+                    throw new AutomationException(Overflow, string.Format(System.Globalization.CultureInfo.CurrentCulture, ExternalMessages.FormBoundsOutOfRange, side));
+                }
+            }
+
+            _ = Desktop.SetWindowPos(Window, IntPtr.Zero, PixelsOf(value.Left, dpi), PixelsOf(value.Top, dpi), PixelsOf(value.Width, dpi), PixelsOf(value.Height, dpi),
+                Desktop.SWP_NOZORDER | Desktop.SWP_NOACTIVATE);
+            _written = value;
+
+            // the form's extent is the client area's size in HIMETRIC, which holds at any DPI: on a screen of another DPI, Size gives the window that size again.
+            _ = Desktop.GetClientRect(Window, out var client);
+            _client = (PointsOf(client.Width, dpi), PointsOf(client.Height, dpi));
+            var extent = new Size { Width = Himetric(client.Width, dpi), Height = Himetric(client.Height, dpi) };
+            _ = ((IOleObject)Form).SetExtent(Ole.ContentAspect, ref extent);
+        }
+    }
+
+    // a side as the program wrote it, while the window's pixels are still what it rounds to; the window's otherwise.
+    private static double AsWritten(double written, int pixels, uint dpi)
+        => !double.IsNaN(written) && PixelsOf(written, dpi) == pixels ? written : PointsOf(pixels, dpi);
 
     /// <summary>
     /// Creates the form, sites it in a window of its own, loads it from the designer's state, and activates it in place; the window is not shown.
@@ -132,7 +193,21 @@ internal sealed class HostedForm
             _ = Marshal.Release(storage);
         }
 
-        Size(Desktop.GetDpiForWindow(Window));
+        var dpi = Desktop.GetDpiForWindow(Window);
+        Size(dpi);
+
+        // until it is shown, the window is where the designer block puts the client area; a form the desktop places is at its top left (Excel-measured).
+        if (_definition.StartUpPosition == FormStartUpPosition.WindowsDefault)
+        {
+            _ = Desktop.SetWindowPos(Window, IntPtr.Zero, 0, 0, 0, 0, Desktop.SWP_NOSIZE | Desktop.SWP_NOZORDER | Desktop.SWP_NOACTIVATE);
+        }
+        else if (_definition is { ClientLeft: { } left, ClientTop: { } top })
+        {
+            var at = new Rect { Left = PixelsOf(left, dpi), Top = PixelsOf(top, dpi), Right = PixelsOf(left, dpi), Bottom = PixelsOf(top, dpi) };
+            _ = Desktop.AdjustWindowRectExForDpi(ref at, Style, false, ExtendedStyle, dpi);
+            _ = Desktop.SetWindowPos(Window, IntPtr.Zero, at.Left, at.Top, 0, 0, Desktop.SWP_NOSIZE | Desktop.SWP_NOZORDER | Desktop.SWP_NOACTIVATE);
+        }
+
         _ = Desktop.GetClientRect(Window, out var client);
         Check(ole.DoVerb(Ole.InPlaceActivate, IntPtr.Zero, _site, 0, Window, ref client));
     }
@@ -256,28 +331,37 @@ internal sealed class HostedForm
            && hosted._site.ActiveObject is { } active
            && active.TranslateAccelerator(ref message) == 0;
 
-    // the client area is the form's size, which is in HIMETRIC, at the window's DPI.
+    // the client area is the designer block's size, or the form's own (in HIMETRIC) when it says none, at the window's DPI. The form keeps its own size: the
+    // window does not size it (Excel-measured, InsideWidth).
     private void Size(uint dpi)
     {
         _ = ((IOleObject)Form).GetExtent(Ole.ContentAspect, out var extent);
-        var client = new Rect { Right = Pixels(extent.Width, dpi), Bottom = Pixels(extent.Height, dpi) };
+        var client = _client is { } size
+            ? new Rect { Right = PixelsOf(size.Width, dpi), Bottom = PixelsOf(size.Height, dpi) }
+            : new Rect { Right = Pixels(extent.Width, dpi), Bottom = Pixels(extent.Height, dpi) };
         _ = Desktop.AdjustWindowRectExForDpi(ref client, Style, false, ExtendedStyle, dpi);
         _ = Desktop.SetWindowPos(Window, IntPtr.Zero, 0, 0, client.Width, client.Height, Desktop.SWP_NOMOVE | Desktop.SWP_NOZORDER | Desktop.SWP_NOACTIVATE);
     }
 
     private static int Pixels(int himetric, uint dpi) => (int)Math.Round(himetric * dpi / HimetricPerInch);
 
+    private static int Himetric(int pixels, uint dpi) => (int)Math.Round(pixels * HimetricPerInch / dpi);
+
+    private static double PointsOf(int pixels, uint dpi) => pixels * 72.0 / dpi;
+
+    private static int PixelsOf(double points, uint dpi) => (int)Math.Round(points * dpi / 72);
+
     // where the form starts up: on the screen it is placed on, at that screen's DPI.
     private void Place()
     {
-        if (_definition.StartUpPosition == FormStartUpPosition.WindowsDefault)
+        // a manual form starts up where it is: where the designer block put it, or the program moved it (Excel-measured).
+        if (_definition.StartUpPosition is FormStartUpPosition.WindowsDefault or FormStartUpPosition.Manual)
         {
             return;
         }
 
         var monitor = _definition.StartUpPosition switch
         {
-            FormStartUpPosition.Manual => Desktop.MonitorFromPoint(PointOf(_definition.Left, _definition.Top, 96), Desktop.MONITOR_DEFAULTTOPRIMARY),
             FormStartUpPosition.CenterScreen => Desktop.MonitorFromPoint(default, Desktop.MONITOR_DEFAULTTOPRIMARY),
             _ => Desktop.MonitorFromWindow(Desktop.GetForegroundWindow(), Desktop.MONITOR_DEFAULTTOPRIMARY),
         };
@@ -292,17 +376,15 @@ internal sealed class HostedForm
         var info = new MonitorInfo { Size = (uint)Marshal.SizeOf<MonitorInfo>() };
         _ = Desktop.GetMonitorInfo(monitor, ref info);
 
-        // centered on the window that owns it: no window of the program does, so the active window of the desktop is the owner, and the screen when there is none.
-        var around = info.WorkArea;
+        // CenterScreen centers the window on its monitor. CenterOwner centers it on the window that owns it: no window of the program does, so the desktop's
+        // active window is the owner, or the work area when there is none.
+        var around = _definition.StartUpPosition == FormStartUpPosition.CenterScreen ? info.Monitor : info.WorkArea;
         if (_definition.StartUpPosition == FormStartUpPosition.CenterOwner && Desktop.GetForegroundWindow() is var owner && owner != IntPtr.Zero && owner != Window)
         {
             _ = Desktop.GetWindowRect(owner, out around);
         }
 
-        var manual = PointOf(_definition.Left, _definition.Top, dpi);
-        var (x, y) = _definition.StartUpPosition == FormStartUpPosition.Manual
-            ? (manual.X, manual.Y)
-            :(around.Left + ((around.Width - window.Width) / 2), around.Top + ((around.Height - window.Height) / 2));
+        var (x, y) = (around.Left + ((around.Width - window.Width) / 2), around.Top + ((around.Height - window.Height) / 2));
 
         // a form that would start up off its screen starts up inside it, as a dialog does.
         x = Math.Clamp(x, info.WorkArea.Left, Math.Max(info.WorkArea.Left, info.WorkArea.Right - window.Width));
@@ -312,8 +394,6 @@ internal sealed class HostedForm
 
     // an event of the form's window, to whatever listens to the form's events: the program's side of it.
     private bool Raise(string name) => _apartment.RaiseEvent?.Invoke(Form, name, []) ?? false;
-
-    private static Point PointOf(double left, double top, uint dpi) => new() { X = (int)Math.Round(left * dpi / 72), Y = (int)Math.Round(top * dpi / 72) };
 
     // the designer's state as a storage the form can load from, or a new one for a form that has none.
     private static IntPtr StorageOf(ReadOnlyMemory<byte> state)

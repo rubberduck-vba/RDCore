@@ -48,7 +48,7 @@ RDCore is composed of:
 
 ---
 ## Project Status
-RDCore is currently in active **pre-alpha** development.  
+RDCore is currently in active **alpha** development.  
 
 The current **project status** is kept up-to-date in **README.md** alongside its implementation in the [GitHub repository](https://github.com/rubberduck-vba/RDCore).
 

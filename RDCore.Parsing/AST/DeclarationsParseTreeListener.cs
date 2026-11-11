@@ -1447,8 +1447,21 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     private void OnExpression(ExpressionNode expression) => CurrentBuilder.AddChild(expression);
 
+    // the number of children the builder had when each As clause being walked began. The type the clause names is written as an expression
+    // (`Object`, `Thing`, `Excel.Range`, `Widget()`), but it is not an expression of the declaration: the AsTypeExpressionNode is the type, and what the
+    // expression handlers built of it is dropped, whatever its shape.
+    private readonly Stack<int> _asTypeClauseStarts = new();
+
+    public override void EnterAsTypeClause([NotNull] VBAParser.AsTypeClauseContext context)
+        => _asTypeClauseStarts.Push(CurrentBuilder.ChildCount);
+
     public override void ExitAsTypeClause([NotNull] VBAParser.AsTypeClauseContext context)
     {
+        if (_asTypeClauseStarts.TryPop(out var start) && CurrentBuilder.ChildCount > start)
+        {
+            CurrentBuilder.PopLastChildren(CurrentBuilder.ChildCount - start);
+        }
+
         // a body-level `ReDim x(1) As Long` carries an asTypeClause; `EnterRedimVariableDeclaration`
         // has pushed a builder for it, so this node now lands on that RedimDeclarationNode (not the
         // enclosing member) — no special-casing needed here.

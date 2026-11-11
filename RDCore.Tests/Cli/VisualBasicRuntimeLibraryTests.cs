@@ -117,6 +117,28 @@ public sealed class VisualBasicRuntimeLibraryTests
             new[] { "Automation type not supported in Visual Basic: 'VBA.KeyCodeConstants' is a procedural module of a library, not a type." }, errors, string.Join("; ", errors));
     }
 
+    // VB's Global is a standard module of the VB library, as VBA's own global module is of VBA: its members are names of the project, and its own name qualifies them.
+    [TestMethod]
+    [DataRow("Forms", DisplayName = "unqualified")]
+    [DataRow("VB.Forms", DisplayName = "qualified with its library")]
+    [DataRow("VB.Global.Forms", DisplayName = "qualified with its library and its module")]
+    public async Task AVB6Project_TheFormsCollection_IsANameOfTheVisualBasicLibrarysGlobalModule(string forms)
+    {
+        var errors = await LoadErrorsAsync([], Program("Dim n As Integer", $"n = {forms}.Count"), NoneListed, SupportedLanguages.VB6);
+
+        Assert.IsEmpty(errors, string.Join("; ", errors));
+    }
+
+    // another library's application object is a class like any other: Excel's Global declares Workbooks, which a project that references Excel does not have
+    // as a name of its own.
+    [TestMethod]
+    public async Task AnotherLibrarysApplicationObject_GivesTheProjectNoNameOfItsOwn()
+    {
+        var errors = await LoadErrorsAsync([], Program("Debug.Print Workbooks.Count"), new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Symbols)));
+
+        Assert.IsTrue(errors.Any(error => error.Contains("Workbooks")), string.Join("; ", errors));
+    }
+
     [TestMethod]
     public async Task AVBAProject_ThatListsNoReference_DoesNotHaveTheVisualBasicRuntime()
     {

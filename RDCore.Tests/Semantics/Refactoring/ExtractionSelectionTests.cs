@@ -207,4 +207,67 @@ public sealed class ExtractionSelectionTests
 
         Assert.AreEqual(new SourceRange(3, 0, 4, "x = 2".Length), selection.Range);
     }
+
+    // the lines of a procedure with statements separated by colons, the header first (line 0): line 2 holds three statements, line 3 a For block, line 4 a
+    // line number and two statements.
+    private static readonly string[] Colons =
+    [
+        "Public Sub S(ByVal n As Long)",
+        "Dim x As Long",
+        "x = 1: x = x + 1: Debug.Print x",
+        "For n = 1 To 3: x = n: Next",
+        "10 x = 2: x = x + 2",
+        "End Sub",
+    ];
+
+    private static string[] ColonTextOf(ExtractionSelection selection)
+        => [.. selection.Statements.Select(statement => statement.SourceLocation.Range)
+            .Select(range => Colons[range.Start.Line][range.Start.Character..(range.End.Line == range.Start.Line ? range.End.Character : Colons[range.Start.Line].Length)])];
+
+    [TestMethod]
+    [DataRow(2, 8, 2, 10, DisplayName = "inside it")]
+    [DataRow(2, 7, 2, 16, DisplayName = "exactly it")]
+    [DataRow(2, 6, 2, 16, DisplayName = "from the separator before it")]
+    [DataRow(2, 9, 2, 17, DisplayName = "to the separator after it")]
+    [DataRow(2, 7, 2, 7, DisplayName = "a cursor at its start")]
+    public void APartOfALineOfSeveralStatements_TakesTheStatementsItTouches_AndNotTheLine(int startLine, int startCharacter, int endLine, int endCharacter)
+    {
+        var selection = Snapped(startLine, startCharacter, endLine, endCharacter, Colons);
+
+        CollectionAssert.AreEqual(new[] { "x = x + 1" }, ColonTextOf(selection));
+        Assert.AreEqual(new SourceRange(2, 7, 2, 16), selection.Range);
+    }
+
+    [TestMethod]
+    public void ASelectionAcrossTwoStatementsOfALine_TakesBoth()
+        => CollectionAssert.AreEqual(new[] { "x = 1", "x = x + 1" }, ColonTextOf(Snapped(2, 2, 2, 10, Colons)));
+
+    [TestMethod]
+    public void AWholeLineOfSeveralStatements_TakesThemAll()
+        => CollectionAssert.AreEqual(new[] { "x = 1", "x = x + 1", "Debug.Print x" }, ColonTextOf(Snapped(2, 0, 3, 0, Colons)));
+
+    [TestMethod]
+    public void AStatementInsideABlockWrittenOnOneLine_TakesTheBlockWhole()
+        => CollectionAssert.AreEqual(new[] { "For n = 1 To 3: x = n: Next" }, ColonTextOf(Snapped(3, 16, 3, 21, Colons)));
+
+    // a line number opens its line: an end on it takes it and the statement after it, and a start past it leaves it to name the call.
+    [TestMethod]
+    [DataRow(0, 1, "10", DisplayName = "on the line number")]
+    [DataRow(3, 4, null, DisplayName = "past it")]
+    public void ASelectionOnALineThatOpensWithALineNumber_TakesTheStatementAfterIt(int startCharacter, int endCharacter, string? label)
+    {
+        var selection = Snapped(4, startCharacter, 4, endCharacter, Colons);
+
+        CollectionAssert.AreEqual(new[] { "x = 2" }, ColonTextOf(selection));
+        CollectionAssert.AreEqual(label is null ? Array.Empty<string>() : new[] { label }, selection.Labels.ToArray());
+    }
+
+    [TestMethod]
+    public void ACursorBetweenTwoStatementsOfALine_HoldsNoStatement()
+    {
+        var (procedure, instructions, directives) = Procedure(Colons);
+
+        Assert.IsFalse(ExtractionSelection.TrySnap(procedure, instructions, directives, new SourceRange(2, 6, 2, 6), out _, out var refusal, out _));
+        Assert.AreEqual(ExtractionSelectionRefusal.NoStatement, refusal);
+    }
 }

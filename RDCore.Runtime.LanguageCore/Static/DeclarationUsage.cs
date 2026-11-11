@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Semantics.Flags;
+using RDCore.SDK.Workspace.Forms;
 using System.Collections.Immutable;
 using RDCore.SDK.Semantics;
 
@@ -79,10 +80,14 @@ public static class DeclarationUsage
             && (type is VBArrayType array ? array.ItemType : type) is VBClassType { Symbol: var created }
             && created.GetProperty(SymbolProperties.CreationAlwaysFails);
 
+    // a member that a form's designer declares on its class is declared by no text of the module. Its parameters are those of the form object's member, or of
+    // the control library class's member, that it stands for (the value of a Property Let Width, named Width), and no code of the module declares them.
     public static IEnumerable<Symbol> DeclaredBy(IEnumerable<VBTypeMemberSymbol> members)
-        => members.SelectMany(member => new Symbol[] { member }
-            .Concat(DeclarationStaticSemanticsEvaluator.ParametersOf(member))
-            .Concat(DeclarationStaticSemanticsEvaluator.LocalsOf(member)));
+        => members.SelectMany(member => FormObject.IsDeclaredBy(member)
+            ? new Symbol[] { member }
+            : new Symbol[] { member }
+                .Concat(DeclarationStaticSemanticsEvaluator.ParametersOf(member))
+                .Concat(DeclarationStaticSemanticsEvaluator.LocalsOf(member)));
 
     // a local, a parameter, and a variable or a constant of the module that is not Public or Friend: nothing outside the module's code can refer to them, and
     // what refers to one by name is an expression. A procedure, a property or an event can be called with no expression that names it.

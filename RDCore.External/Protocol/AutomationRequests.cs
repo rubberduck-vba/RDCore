@@ -80,6 +80,11 @@ public static class ExternalProtocol
     /// <summary><c>rdcore/external/forms/caption</c>: gets a form's caption, or sets it when the request gives one.</summary>
     public const string FormCaption = "rdcore/external/forms/caption";
 
+    /// <summary>
+    /// <c>rdcore/external/forms/bounds</c>: gets where a form's window is and its size, or moves and sizes it when the request gives them.
+    /// </summary>
+    public const string FormBounds = "rdcore/external/forms/bounds";
+
     /// <summary><c>rdcore/external/forms/leave</c>: the focus leaves a form for good - its active control is exited - as it does when the form is unloaded.</summary>
     public const string FormLeave = "rdcore/external/forms/leave";
 

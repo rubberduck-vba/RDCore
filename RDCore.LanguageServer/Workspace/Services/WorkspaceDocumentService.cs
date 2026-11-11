@@ -644,30 +644,19 @@ internal class WorkspaceDocumentService(IDocumentStateProvider documentStateProv
         return false;
     }
 
-    // a form module keeps its controls in a companion file next to it (a UserForm's .frx, which its text names), read with the text: it is the document's
-    // too, and no client has it to send. A companion that cannot be read leaves the form without controls, and the parse of its designer says so.
+    // a form module keeps designer data in a companion file next to it (its .frx, which its text names), read with the text: it is the document's too, and no
+    // client has it to send. A UserForm whose companion cannot be read declares no controls, and the parse of its designer says so; a Visual Basic 6.0 form's
+    // controls are in its text.
     // It is read before the document is written, and with no lock held: it is file I/O.
     private ReadOnlyMemory<byte> ReadCompanion(string text, string path)
     {
-        try
+        var companion = FormDesigner.ReadCompanion(ioFile.FileSystem, path, text, out var problem);
+        if (problem is not null)
         {
-            if (FormDesigner.CompanionOf(text) is { } reference
-                && ioPath.Combine(ioPath.GetDirectoryName(path) ?? string.Empty, reference.FileName) is var companionPath
-                && ioFile.Exists(companionPath))
-            {
-                return ioFile.ReadAllBytes(companionPath);
-            }
-        }
-        catch (FormDesignerFormatException exception)
-        {
-            logger.LogWarning("⚠️ The designer block of '{path}' cannot be read: {reason}", path, exception.Message);
-        }
-        catch (IOException exception)
-        {
-            logger.LogWarning(exception, "⚠️ The companion file of '{path}' could not be read.", path);
+            logger.LogWarning(problem, "⚠️ The companion file of '{path}' could not be read.", path);
         }
 
-        return default;
+        return companion;
     }
 
     public WorkspaceDocument Open(Uri documentUri, string text, int version)

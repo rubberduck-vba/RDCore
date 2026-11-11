@@ -48,7 +48,15 @@ public sealed class ExtractMethodServiceTests
         "    Set c = New Collection\r\n" +
         "    c.Add n\r\n" +
         "    Debug.Print n\r\n" +
-        "End Sub\r\n";
+        "End Sub\r\n" +
+        "Public Property Get Twice() As Long\r\n" +
+        "    Twice = 2\r\n" +
+        "End Property\r\n" +
+        "Public Property Let Twice(ByVal v As Long)\r\n" +
+        "    Dim t As Long\r\n" +
+        "    t = v * 2\r\n" +
+        "    Debug.Print t\r\n" +
+        "End Property\r\n";
 
     private const int Version = 3;
 
@@ -124,6 +132,19 @@ public sealed class ExtractMethodServiceTests
         var text = Applied(Module, document.Edits);
         StringAssert.Contains(text, "Private Sub Increment(");
         StringAssert.Matches(text, new System.Text.RegularExpressions.Regex(@"\r\n    Increment (a, b|b, a)\r\n"));
+    }
+
+    // line 19 is the Property Let's: its Property Get, of the same name, comes first.
+    [TestMethod]
+    public async Task ThePropertyLetOfAPair_IsTheProcedureTheSelectionIsExtractedFrom()
+    {
+        var answer = await Sut().ApplyAsync(Document, Lines(19, 19),
+            [Answer(ExtractMethodService.NameChoice, "Doubled"), Answer(ExtractMethodService.ReturnValueChoice, "t")], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Private Function Doubled(ByVal v As Long) As Long");
+        StringAssert.Contains(text, "t = Doubled(v)");
     }
 
     [TestMethod]

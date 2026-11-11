@@ -8,6 +8,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.Completion;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Semantics;
 using System.Collections.Concurrent;
@@ -35,10 +36,14 @@ internal sealed class ExtractionModuleAnalysis
         _resolver = resolver;
         Scopes = scopes;
         Directives = ExtractionDirectives.Of(parse.PrecompilerTrivia, text);
+        _blocks = ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia);
         DeclarationErrors = parse.SyntaxTree is { } tree
-            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, ConditionalCompilationBlocks.Of(parse.PrecompilerTrivia)), .. ReservedNameStaticSemantics.CheckSyntax(tree)]
+            ? [.. DeclarationStaticSemanticsEvaluator.CheckSyntax(tree, _blocks), .. ReservedNameStaticSemantics.CheckSyntax(tree)]
             : [];
     }
+
+    // the module's #If blocks: a body is lowered with every branch, which are alternatives on its code paths.
+    private readonly ConditionalCompilationBlocks _blocks;
 
     /// <summary>
     /// The module, as its scope is addressed.
@@ -82,27 +87,29 @@ internal sealed class ExtractionModuleAnalysis
         => new(module, text, parse, resolver, scopes);
 
     /// <summary>
-    /// The procedure of the module that is named <paramref name="name"/>, analyzed; <see langword="null"/> when the module declares none, or its scope is not
-    /// known.
+    /// The procedure of the module that is named <paramref name="name"/>, of the kind <paramref name="kind"/>, analyzed; <see langword="null"/> when the module
+    /// declares none, or its scope is not known.
     /// </summary>
     /// <param name="name">Its name.</param>
-    public ExtractionProcedureAnalysis? Procedure(string name) => _procedures.GetOrAdd(name, Analyze);
+    /// <param name="kind">Its kind: the <c>Property Get</c>, <c>Let</c> and <c>Set</c> of a property share its name.</param>
+    public ExtractionProcedureAnalysis? Procedure(string name, MemberKind kind) => _procedures.GetOrAdd($"{kind} {name}", _ => Analyze(name, kind));
 
-    private ExtractionProcedureAnalysis? Analyze(string name)
+    private ExtractionProcedureAnalysis? Analyze(string name, MemberKind kind)
     {
-        var declaration = Parse.SyntaxTree?.Children.OfType<MemberDeclarationNode>().FirstOrDefault(member => member.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-        if (declaration is null || !Scopes.TryGetScope(Module, out var moduleScope)
-            || moduleScope.Declarations.FirstOrDefault(symbol => symbol.Name.Equals(name, StringComparison.OrdinalIgnoreCase) && Scopes.TryGetScope(symbol.Uri, out _)) is not { } symbol
-            || !Scopes.TryGetScope(symbol.Uri, out var scope))
+        // the procedure's scope is the one its declaration is in: a property's procedures are separate symbols with one name.
+        if (Parse.SyntaxTree?.Children.OfType<MemberDeclarationNode>()
+                .FirstOrDefault(member => member.MemberKind == kind && member.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is not { } declaration
+            || !Scopes.TryGetScope(CompletionCandidates.OriginAt(Scopes, Module, declaration.SourceLocation.Range.Start), out var scope)
+            || scope.Kind is not LexicalScopeKind.Procedure)
         {
             return null;
         }
 
         var block = new StatementBlock([.. declaration.Children]);
-        var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(symbol.Uri), block, kind: declaration.MemberKind,
+        var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(scope.Uri), block, kind: declaration.MemberKind,
             context: new StaticEvaluationContext(_resolver, scope));
         var instructions = InstructionListLowering.Lower(block, default, declaration.MemberKind).InstructionList;
-        var graph = ControlFlowGraph.Of(instructions, model);
+        var graph = ControlFlowGraph.Of(instructions, model, blocks: _blocks);
         return new ExtractionProcedureAnalysis(declaration, scope, model, instructions, graph, DefinitionsAndUses.Of(instructions, model, Scopes));
     }
 }
