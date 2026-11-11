@@ -53,4 +53,11 @@ public sealed class FixedAssignmentTargetTests
     public async Task TheOtherFieldsOfTheRecord_AreLeftAsTheyWere()
         => await AssertInBothEnginesAsync(Program("O.Id = 7", "O.Inner.S = \"abc\"", "O.Inner.F = \"12345\"", "LSet O.Inner.S = \"x\"",
             "Debug.Print O.Id & \" [\" & O.Inner.S & \"] [\" & O.Inner.F & \"]\""), "7 [x  ] [12345]");
+
+    // the byte copy of a record over a record that is a field, or an element of an array, fills that record in place.
+    [TestMethod]
+    [DataRow("O.Inner", "O.Id & \" \" & O.Inner.F", "7 12345", DisplayName = "a record field")]
+    [DataRow("R(1)", "R(1).F", "12345", DisplayName = "an element of an array of records")]
+    public async Task ARecordCopiedOverAFieldOrAnElement_IsCopiedInPlace(string target, string printed, string expected)
+        => await AssertInBothEnginesAsync(Program("O.Id = 7", "T.F = \"12345\"", $"LSet {target} = T", $"Debug.Print {printed}"), expected);
 }
