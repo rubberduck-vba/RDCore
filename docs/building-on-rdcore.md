@@ -26,10 +26,10 @@ This page is for contributors, and for anyone building an extension or a client 
 ---
 ## Building the platform from source
 
-To assemble the platform tree that a preview build ships, run `PlatformPublish.ps1` from a clone. It needs `git` on the `PATH`, to record the commit it builds.
+To assemble the platform tree that a preview build ships, run `PlatformPublish.ps1` from a clone. It needs `git` on the `PATH`, to record the commit it builds. It runs under PowerShell 7 (`pwsh`) on Windows, Linux and macOS, and under Windows PowerShell 5.1 on Windows.
 
-- With no arguments, it asks for confirmation, then publishes a Debug tree to `artifacts\rdcore-dev`.
-- `-Configuration Release -RuntimeIdentifier win-x64` matches the preview builds.
+- With no arguments, it asks for confirmation, then publishes a Debug tree to `artifacts/rdcore-dev`.
+- `-Configuration Release -RuntimeIdentifier win-x64` matches the Windows preview build; `linux-x64`, `osx-x64` and `osx-arm64` match the Linux and macOS ones.
 - `-VersionSuffix <suffix>` adds a prerelease suffix, such as `rc.1`.
 - `-PlatformRoot <path>` picks the output folder, relative to the repository root.
 - `-Silent` skips the confirmation.

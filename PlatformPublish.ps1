@@ -1,9 +1,12 @@
-﻿[CmdletBinding()]
+﻿# runs under PowerShell 7 on Windows, Linux and macOS, and under Windows PowerShell 5.1 on Windows, which is what a Windows machine has without installing
+# anything (`powershell -File PlatformPublish.ps1`). Paths are written with forward slashes, which every one of them takes.
+[CmdletBinding()]
 param(
     [switch]$Silent,
     [string]$Configuration = "Debug",
-    [string]$PlatformRoot = "artifacts\rdcore-dev",
-    # e.g. win-x64: a framework-dependent publish for that runtime; omitted, the build is portable (no RID).
+    [string]$PlatformRoot = "artifacts/rdcore-dev",
+    # e.g. win-x64, linux-x64, osx-x64, osx-arm64: a framework-dependent publish for that runtime; omitted, the build is portable (no RID), with the
+    # executables of the system it is built on.
     [string]$RuntimeIdentifier,
     # appended to the Directory.Build.props VersionPrefix, e.g. rc.1 -> 0.1.0-rc.1.
     [string]$VersionSuffix
@@ -41,7 +44,15 @@ Write-Host ""
 
 # GetFullPath also expands 8.3 short names, so paths below compare like with like
 $RepoRoot = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $PSScriptRoot).Path)
-$StagingRoot = Join-Path $RepoRoot "artifacts\staging"
+$StagingRoot = [IO.Path]::GetFullPath((Join-Path $RepoRoot "artifacts/staging"))
+
+# Windows PowerShell 5.1 has no $IsWindows; the separator says the same on every version.
+$OnWindows = [IO.Path]::DirectorySeparatorChar -eq '\'
+
+# the executables are .NET apphosts, named for the system they run on: rdc.exe on Windows, rdc elsewhere. A RID names that system, and a
+# portable build has the apphosts of the system that builds it.
+$TargetsWindows = if ($RuntimeIdentifier) { $RuntimeIdentifier -like "win*" } else { $OnWindows }
+$ExecutableSuffix = if ($TargetsWindows) { ".exe" } else { "" }
 
 # a relative platform root resolves against the repo, not the caller's working directory.
 if (-not [IO.Path]::IsPathRooted($PlatformRoot))
@@ -59,9 +70,10 @@ if ((Test-Path -LiteralPath $PlatformRoot) `
     throw "Refusing to replace '$PlatformRoot': it is not empty and has no rdcore.json at its top level."
 }
 
-# staging is wiped too, so neither folder may sit inside the other.
-$PlatformPrefix = $PlatformRoot.TrimEnd('\') + '\'
-$StagingPrefix = $StagingRoot.TrimEnd('\') + '\'
+# staging is wiped too, so neither folder may sit inside the other. Both are full paths, with the system's separator.
+$Separator = [string][IO.Path]::DirectorySeparatorChar
+$PlatformPrefix = $PlatformRoot.TrimEnd($Separator) + $Separator
+$StagingPrefix = $StagingRoot.TrimEnd($Separator) + $Separator
 if ($PlatformPrefix.StartsWith($StagingPrefix, [StringComparison]::OrdinalIgnoreCase) `
     -or $StagingPrefix.StartsWith($PlatformPrefix, [StringComparison]::OrdinalIgnoreCase))
 {
@@ -127,19 +139,19 @@ Write-Host "✅ User confirmation cleared."
 $Projects = @(
     @{
         Name = "RDCore.CLI"
-        Project = "RDCore.CLI\RDCore.CLI.csproj"
+        Project = "RDCore.CLI/RDCore.CLI.csproj"
     },
     @{
         Name = "RDCore.LanguageServer"
-        Project = "RDCore.LanguageServer\RDCore.LanguageServer.csproj"
+        Project = "RDCore.LanguageServer/RDCore.LanguageServer.csproj"
     },
     @{
         Name = "RDCore.Parsing"
-        Project = "RDCore.ParseServer\RDCore.ParseServer.csproj"
+        Project = "RDCore.ParseServer/RDCore.ParseServer.csproj"
     },
     @{
-        Name = "Extensions\RDCore.Diagnostics"
-        Project = "RDCore.Diagnostics\RDCore.Diagnostics.csproj"
+        Name = "Extensions/RDCore.Diagnostics"
+        Project = "RDCore.Diagnostics/RDCore.Diagnostics.csproj"
     }
 )
 
@@ -224,7 +236,7 @@ foreach ($folder in $PlatformFolders)
         -Force | Out-Null
 }
 
-# the descriptions of the libraries a project can reference are part of the platform: <repo>\Symbols\<Library>.json is deployed to <platform>\Symbols,
+# the descriptions of the libraries a project can reference are part of the platform: <repo>/Symbols/<Library>.json is deployed to <platform>/Symbols,
 # where a library is found by its name. A platform that ships none has an empty folder.
 $SymbolsSource = Join-Path $RepoRoot "Symbols"
 if (Test-Path -LiteralPath $SymbolsSource -PathType Container)
@@ -269,7 +281,7 @@ function ConvertTo-ManifestJson([System.Collections.Specialized.OrderedDictionar
 
 # the version is the one the build stamped (VersionPrefix[-VersionSuffix]+<commit sha>), not recomputed here;
 # the sha it carries must be the HEAD read before publishing, or the manifest would name a commit the tree was not built from.
-$LanguageServerAssembly = Join-Path $PlatformRoot "RDCore.LanguageServer\RDCore.LanguageServer.dll"
+$LanguageServerAssembly = Join-Path $PlatformRoot "RDCore.LanguageServer/RDCore.LanguageServer.dll"
 $ProductVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($LanguageServerAssembly).ProductVersion
 $VersionParts = @($ProductVersion -split '\+', 2)
 $PlatformVersion = $VersionParts[0]
@@ -295,9 +307,9 @@ $Manifest = ConvertTo-ManifestJson ([ordered]@{
     rid = $Rid
     generatedUtc = $GeneratedUtc.ToString("o", [Globalization.CultureInfo]::InvariantCulture)
 
-    hostService = "RDCore.CLI/rdc.exe"
-    langService = "RDCore.LanguageServer/RDCore.LanguageServer.exe"
-    parseServer = "RDCore.Parsing/RDCore.ParseServer.exe"
+    hostService = "RDCore.CLI/rdc$ExecutableSuffix"
+    langService = "RDCore.LanguageServer/RDCore.LanguageServer$ExecutableSuffix"
+    parseServer = "RDCore.Parsing/RDCore.ParseServer$ExecutableSuffix"
 
     extensionsDirectory = "Extensions"
     # the extension the platform bundles: the first-party diagnostic prefixes (RDC, RDX) are its own.
@@ -311,26 +323,29 @@ Write-Host ""
 Write-Host "🧩 Generating extension manifests..."
 Write-Host ""
 
-# each extension gets an extension.manifest.json, reflected off its executable by `rdc.exe describe-ext`
+# each extension gets an extension.manifest.json, reflected off its executable by `rdc describe-ext`
 # (command mode, unsafe dev signing). The language server discovers extensions by this manifest.
-# relative to the extension folder (Extensions\<Folder>) it runs in: Windows PowerShell 5.1's call operator reads
-# [ ] in an absolute path as a wildcard, so under a root like rdcore[1] it would run rdcore1's rdc.exe instead.
-$Rdc = "..\..\RDCore.CLI\rdc.exe"
+# rdc runs through the dotnet host (`dotnet rdc.dll`) rather than its apphost, which is the target system's: a tree published for
+# another system (-RuntimeIdentifier linux-x64 on Windows, say) has an rdc this one cannot start, and the same rdc.dll.
+# relative to the extension folder (Extensions/<Folder>) it runs in, so that no folder name of the platform root is in the path:
+# a root like rdcore[1] is then never read as a wildcard.
+$Dotnet = "dotnet"
+$RdcAssembly = "../../RDCore.CLI/rdc.dll"
 
 $Extensions = @(
-    @{ Folder = "RDCore.Diagnostics"; Executable = "RDCore.Diagnostics.exe"; Description = "RDCore core inspection extension." }
+    @{ Folder = "RDCore.Diagnostics"; Executable = "RDCore.Diagnostics$ExecutableSuffix"; Description = "RDCore core inspection extension." }
 )
 
 foreach ($extension in $Extensions)
 {
-    $extensionFolder = Join-Path $PlatformRoot (Join-Path "Extensions" $extension.Folder)
+    $extensionFolder = Join-Path $PlatformRoot "Extensions/$($extension.Folder)"
 
     Push-Location -LiteralPath $extensionFolder
     try
     {
         # --unsafe-dev-mode only lets describe-ext run without a signing setup. the manifest FileHash it
         # records is base64(SHA-512) of this exact exe, so nothing may modify the exe after this step.
-        & $Rdc describe-ext $extension.Executable --description $extension.Description --overwrite --unsafe-dev-mode
+        & $Dotnet $RdcAssembly describe-ext $extension.Executable --description $extension.Description --overwrite --unsafe-dev-mode
         if ($LASTEXITCODE -ne 0)
         {
             throw "describe-ext failed for $($extension.Folder) (exit $LASTEXITCODE)."

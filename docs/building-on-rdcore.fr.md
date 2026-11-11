@@ -26,10 +26,10 @@ Cette page s'adresse aux contributeurs, et à quiconque crée une extension ou u
 ---
 ## Compiler la plateforme à partir des sources
 
-Pour assembler l'arborescence de la plateforme que livre une préversion, exécutez `PlatformPublish.ps1` à partir d'un clone. Il requiert `git` dans le `PATH`, pour consigner le _commit_ qu'il compile.
+Pour assembler l'arborescence de la plateforme que livre une préversion, exécutez `PlatformPublish.ps1` à partir d'un clone. Il requiert `git` dans le `PATH`, pour consigner le _commit_ qu'il compile. Il s'exécute avec PowerShell 7 (`pwsh`) sous Windows, Linux et macOS, et avec Windows PowerShell 5.1 sous Windows.
 
-- Sans arguments, il demande une confirmation, puis publie un _build_ Debug dans `artifacts\rdcore-dev`.
-- `-Configuration Release -RuntimeIdentifier win-x64` correspond aux préversions.
+- Sans arguments, il demande une confirmation, puis publie un _build_ Debug dans `artifacts/rdcore-dev`.
+- `-Configuration Release -RuntimeIdentifier win-x64` correspond à la préversion pour Windows; `linux-x64`, `osx-x64` et `osx-arm64`, à celles pour Linux et macOS.
 - `-VersionSuffix <suffixe>` ajoute un suffixe de préversion, par exemple `rc.1`.
 - `-PlatformRoot <chemin>` choisit le dossier de sortie, relatif à la racine du référentiel.
 - `-Silent` omet la confirmation.

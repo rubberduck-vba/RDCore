@@ -1,7 +1,8 @@
 name: Test Modes
 
 # the suite again in the modes Build and Test does not run: values held boxed, and compiled code handed to the interpreter at random, each on its own
-# runner, so a branch needs none of them run locally.
+# runner, so a branch needs none of them run locally. On Linux only: a mode changes how the engine holds values and runs code, which no system
+# changes; Build and Test runs the suite on Windows and macOS too.
 on:
  push:
   branches: [main]

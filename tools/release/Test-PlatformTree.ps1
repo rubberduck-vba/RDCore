@@ -40,6 +40,23 @@ function Read-PlatformManifest([string]$Path) {
 
 function Get-Sha256([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 
+# an executable is an apphost named for the system of the tree's RID: rdc.exe for a win-* RID, rdc for any other. a portable
+# tree ("any") has the executables of the system that built it, either way.
+function Test-ExecutableName([string]$What, [string]$Path) {
+    if (-not $Manifest -or -not $Manifest.rid -or $Manifest.rid -ceq "any") { return }
+    $windows = $Manifest.rid -like "win*"
+    $exe = $Path -like "*.exe"
+    if ($windows -and -not $exe) { Add-Failure "$What '$Path' has no .exe, which an executable for $($Manifest.rid) has." }
+    elseif (-not $windows -and $exe) { Add-Failure "$What '$Path' ends in .exe, which an executable for $($Manifest.rid) does not." }
+}
+
+# off Windows, an executable can be started only if its execute bit is set: the archive keeps it, and nothing else would put it back.
+function Test-ExecutableMode([string]$What, [string]$Path) {
+    if ($IsWindows) { return }
+    $mode = (Get-Item -LiteralPath $Path -Force).UnixMode
+    if ($mode -and $mode.Length -ge 4 -and $mode[3] -ne 'x') { Add-Failure "$What '$(Get-RelativePath $Path)' is not executable ($mode)." }
+}
+
 # (a) rdcore.json: present, parses, the contract's keys in the contract's order, and every path it names exists
 $ManifestKeys = @("platformVersion", "commit", "rid", "generatedUtc", "hostService", "langService", "parseServer", "extensionsDirectory", "coreExtension")
 $Manifest = $null
@@ -83,7 +100,9 @@ if ($Manifest) {
         $path = $Manifest[$key]
         if (-not $path) { continue }
         if (-not (Test-RelativePath $path)) { Add-Failure "rdcore.json: $key '$path' is not a path inside the platform root."; continue }
-        if (-not (Test-Path -LiteralPath (Join-Path $Root $path) -PathType Leaf)) { Add-Failure "rdcore.json: $key '$path' does not exist." }
+        if (-not (Test-Path -LiteralPath (Join-Path $Root $path) -PathType Leaf)) { Add-Failure "rdcore.json: $key '$path' does not exist."; continue }
+        Test-ExecutableName "rdcore.json: $key" $path
+        Test-ExecutableMode "rdcore.json: $key" (Join-Path $Root $path)
     }
     $extensions = $Manifest.extensionsDirectory
     if ($extensions -and -not ((Test-RelativePath $extensions) -and (Test-Path -LiteralPath (Join-Path $Root $extensions) -PathType Container))) {
@@ -117,6 +136,8 @@ if ($ExtensionsRoot -and (Test-Path -LiteralPath $ExtensionsRoot -PathType Conta
             Add-Failure "$relative/extension.manifest.json: Name '$name' is not a file in that folder."
             continue
         }
+        Test-ExecutableName "$relative/extension.manifest.json: Name" $name
+        Test-ExecutableMode "$relative/extension.manifest.json: Name" $executable
         $sha512 = [Security.Cryptography.SHA512]::Create()
         $stream = [IO.File]::OpenRead($executable)
         try { $fileHash = [Convert]::ToBase64String($sha512.ComputeHash($stream)) } finally { $stream.Dispose(); $sha512.Dispose() }
@@ -181,6 +202,19 @@ if ($RequireReleaseFiles -and (Test-Path -LiteralPath $ReleasePath -PathType Lea
     if ($release) {
         if ($release.schema -ne 1) { Add-Failure "release.json: schema '$($release.schema)', expected 1." }
         if ($release.hashAlgorithm -cne "sha256") { Add-Failure "release.json: hashAlgorithm '$($release.hashAlgorithm)', expected 'sha256'." }
+
+        # the RDCore.SDK package the tree was built with: the one version its .deps.json files name
+        $sdkVersions = @(& (Join-Path $PSScriptRoot "Get-SdkPackageVersion.ps1") -PlatformRoot $Root)
+        if (-not $release.sdk) { Add-Failure "release.json has no sdk." }
+        else {
+            if ([string]$release.sdk.package -cne "RDCore.SDK") { Add-Failure "release.json: sdk.package '$($release.sdk.package)', expected 'RDCore.SDK'." }
+            if ($sdkVersions.Count -ne 1) {
+                Add-Failure "the tree's .deps.json files name $(if ($sdkVersions.Count) { "RDCore.SDK versions $($sdkVersions -join ', ')" } else { "no RDCore.SDK package" }); a release is built with exactly one."
+            }
+            elseif ([string]$release.sdk.version -cne $sdkVersions[0]) {
+                Add-Failure "release.json: sdk.version '$($release.sdk.version)' does not match the RDCore.SDK package the tree references, $($sdkVersions[0])."
+            }
+        }
         if ($Manifest) {
             foreach ($pair in @(@("version", "platformVersion"), @("commit", "commit"), @("rid", "rid"))) {
                 if ([string]$release.($pair[0]) -cne $Manifest[$pair[1]]) {
