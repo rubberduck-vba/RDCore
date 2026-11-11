@@ -17,6 +17,7 @@ internal interface IUserPathVariable
     /// <summary>
     /// Stores <paramref name="value"/> as the user's <c>Path</c>, and tells running programs the environment changed.
     /// </summary>
+    /// <param name="value">The <c>Path</c>, with its <c>%VARIABLE%</c> references unexpanded.</param>
     void Write(string value);
 }
 
@@ -77,6 +78,10 @@ internal enum PathChange
 /// On Windows, the folder of <c>rdc.exe</c> in the user's <c>Path</c>; on Linux and macOS, a link <c>~/.local/bin/rdc</c> to <c>rdc</c>,
 /// and <c>~/.local/bin</c> on PATH in the login profile when the shell doesn't put it there.
 /// </summary>
+/// <param name="root">The shared root the current platform is deployed in.</param>
+/// <param name="home">The user's home folder.</param>
+/// <param name="processPath">The PATH <c>rdc</c> runs with.</param>
+/// <param name="windowsPath">The user's <c>Path</c> on Windows; null elsewhere.</param>
 internal sealed class UserPath(SharedPlatformRoot root, string home, string? processPath, IUserPathVariable? windowsPath)
 {
     internal const string ProfileBlockStart = "# >>> rdc install >>>";
@@ -97,6 +102,7 @@ internal sealed class UserPath(SharedPlatformRoot root, string home, string? pro
     /// <summary>
     /// Puts <paramref name="rdc"/> on the user's Windows <c>Path</c>.
     /// </summary>
+    /// <param name="rdc">The current version's <c>rdc.exe</c>.</param>
     public PathChange OnWindowsPath(string rdc)
     {
         ArgumentNullException.ThrowIfNull(windowsPath);
@@ -126,6 +132,8 @@ internal sealed class UserPath(SharedPlatformRoot root, string home, string? pro
     /// Links <c>~/.local/bin/rdc</c> to <paramref name="rdc"/>, and adds <c>~/.local/bin</c> to the login profile when PATH doesn't have it:
     /// null when the link is a file of the user's, which isn't replaced.
     /// </summary>
+    /// <param name="rdc">The current version's <c>rdc</c>.</param>
+    /// <param name="report">Told what changed, and what is as it was, one message each.</param>
     public PathChange? OnUnixPath(string rdc, ICollection<string> report)
     {
         var change = PathChange.Unchanged;

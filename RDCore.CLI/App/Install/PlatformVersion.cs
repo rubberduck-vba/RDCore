@@ -44,6 +44,8 @@ internal sealed record PlatformVersion : IComparable<PlatformVersion>
     /// <summary>
     /// Reads a version, with or without a leading <c>v</c>; false when it is not one.
     /// </summary>
+    /// <param name="text">The version's text, such as <c>0.2.0-alpha.3</c> or <c>v0.2.0</c>.</param>
+    /// <param name="version">The version read; null when it is not one.</param>
     public static bool TryParse(string? text, [NotNullWhen(true)] out PlatformVersion? version)
     {
         version = null;

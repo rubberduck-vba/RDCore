@@ -34,6 +34,7 @@ internal sealed record DeployedPlatform(PlatformVersion Version, string Root)
 /// runs from them.
 /// </para>
 /// </remarks>
+/// <param name="root">The root's folder.</param>
 internal sealed class SharedPlatformRoot(string root)
 {
     private const string StateFile = "installer.json";
@@ -78,12 +79,15 @@ internal sealed class SharedPlatformRoot(string root)
     /// <summary>
     /// Where <paramref name="version"/> is, or would be, deployed.
     /// </summary>
+    /// <param name="version">The version.</param>
     public string VersionRoot(PlatformVersion version) => Path.Combine(Versions, version.Text);
 
     /// <summary>
     /// Holds the root for one installation, across processes: an exclusive handle on <c>install.lock</c>, released with the handle, and by
     /// the system if the process dies. <paramref name="waiting"/> is told once if another installation holds it.
     /// </summary>
+    /// <param name="waiting">Told once, when another installation holds the root.</param>
+    /// <param name="token">Stops the wait.</param>
     public async Task<IDisposable> LockAsync(Action waiting, CancellationToken token)
     {
         Directory.CreateDirectory(Root);
@@ -113,6 +117,8 @@ internal sealed class SharedPlatformRoot(string root)
     /// Copies the platform tree at <paramref name="tree"/> in as <paramref name="version"/>, unless that version is deployed already: true
     /// when it copied it. Call it with the root held.
     /// </summary>
+    /// <param name="tree">The platform tree to copy: the folder of its <c>rdcore.json</c>.</param>
+    /// <param name="version">The version it is deployed as.</param>
     public bool Deploy(string tree, PlatformVersion version)
     {
         var folder = VersionRoot(version);
@@ -147,6 +153,7 @@ internal sealed class SharedPlatformRoot(string root)
     /// Makes <paramref name="version"/>, deployed, the platform in use, unless a newer one is: true when it is the current one after. Call it
     /// with the root held.
     /// </summary>
+    /// <param name="version">A deployed version.</param>
     public bool MakeCurrentUnlessOlder(PlatformVersion version)
     {
         if (Current is { } current && current.Version.CompareTo(version) > 0)
@@ -171,11 +178,13 @@ internal sealed class SharedPlatformRoot(string root)
     /// <summary>
     /// Whether <paramref name="folder"/> is a whole platform: one whose <c>rdcore.json</c> names a language server it has.
     /// </summary>
+    /// <param name="folder">The folder of a platform's <c>rdcore.json</c>.</param>
     public static bool IsPlatform(string folder) => Flaw(folder) is null;
 
     /// <summary>
     /// Why <paramref name="folder"/> isn't a whole platform, or null when it is.
     /// </summary>
+    /// <param name="folder">The folder of a platform's <c>rdcore.json</c>.</param>
     public static string? Flaw(string folder)
     {
         var manifestPath = Path.Combine(folder, "rdcore.json");
