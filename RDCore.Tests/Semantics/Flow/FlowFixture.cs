@@ -151,8 +151,8 @@ internal static class FlowFixture
 
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(
             Root, [(ModuleUri("Main"), TypeOf(classModule), parse), .. ClassesOf(classes)], new IntrinsicSymbolResolver());
-        // the first: a Property Let and its Property Get share the name, and the procedure analyzed is the one whose body is given. Its scope is the one its
-        // declaration is in, which a property's procedures are not addressed by their name alone.
+        // the first Run, the one whose body is given: a Property Let and its Property Get share the name, and the other comes after it, in end. Its scope is
+        // the one its declaration is in, since a property's procedures are not told apart by their name alone.
         var run = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().First(member => member.Name == "Run");
         Assert.IsTrue(composition.ScopeTree.TryGetScope(CompletionCandidates.OriginAt(composition.ScopeTree, ModuleUri("Main"), run.SourceLocation.Range.Start), out var scope));
         Assert.AreEqual(LexicalScopeKind.Procedure, scope.Kind);

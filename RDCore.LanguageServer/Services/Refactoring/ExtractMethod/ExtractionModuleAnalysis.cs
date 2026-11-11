@@ -92,7 +92,7 @@ internal sealed class ExtractionModuleAnalysis
 
     private ExtractionProcedureAnalysis? Analyze(string name, MemberKind kind)
     {
-        // the procedure's scope is the one its declaration is in: the procedures of a property are as many symbols of one name.
+        // the procedure's scope is the one its declaration is in: a property's procedures are separate symbols with one name.
         if (Parse.SyntaxTree?.Children.OfType<MemberDeclarationNode>()
                 .FirstOrDefault(member => member.MemberKind == kind && member.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is not { } declaration
             || !Scopes.TryGetScope(CompletionCandidates.OriginAt(Scopes, Module, declaration.SourceLocation.Range.Start), out var scope)
