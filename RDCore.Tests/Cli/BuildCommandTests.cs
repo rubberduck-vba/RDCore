@@ -335,6 +335,39 @@ public sealed class BuildCommandTests
             string.Join(" | ", run.Output));
     }
 
+    // a program rdc builds asks its dialogs as rdc run does: off Windows, at the console.
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public async Task TheBuiltProgram_AsksItsDialogsAtTheConsole_ElsewhereThanOnWindows()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", AsksAndAsksAgain));
+        var (command, messages) = Command(fileSystem);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.dll"))));
+            var output = new StringWriter();
+            var error = new StringWriter();
+
+            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None, new ScriptedKeys(interactive: false).Lines("Ducky", "No"));
+
+            Assert.AreEqual(0, exit, error.ToString());
+            var lines = output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray();
+            Assert.IsTrue(lines.Any(line => line.Contains("Your name?", StringComparison.Ordinal)), "the InputBox is shown at the console");
+            CollectionAssert.AreEqual(new[] { "name: Ducky", $"again: {(int)VBMsgBoxResult.VBNo}" },
+                lines.Where(line => line.StartsWith("name: ", StringComparison.Ordinal) || line.StartsWith("again: ", StringComparison.Ordinal)).ToArray(),
+                string.Join(" | ", lines));
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
     // a run that is unattended has nobody to answer a dialog, wherever it runs: the first one fails it with VBR50001, and the console is not read.
     [TestMethod]
     public async Task Run_Unattended_FailsAtItsFirstDialog_WithoutReadingTheConsole()

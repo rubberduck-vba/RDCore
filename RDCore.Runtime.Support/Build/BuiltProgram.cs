@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using RDCore.External.Interaction;
 using RDCore.Runtime.Support.Host;
 using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Compiled;
@@ -55,11 +56,12 @@ public static class BuiltProgram
 #pragma warning restore VSTHRD002
     }
 
-    internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token)
+    // keys: the console's, unless a test types them; the dialogs are then drawn on output.
+    internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys = null)
     {
         try
         {
-            return await RunImageAsync(program, args, output, error, token);
+            return await RunImageAsync(program, args, output, error, token, keys);
         }
         catch (InvalidDataException exception)
         {
@@ -69,12 +71,13 @@ public static class BuiltProgram
     }
 
     // the image replayed, the assembly bound, and the entry point run on the runner rdc run runs a workspace with.
-    private static async Task<int> RunImageAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token)
+    private static async Task<int> RunImageAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys)
     {
         var image = ImageOf(program);
         var errorDetails = new ErrorDetailsRecorder();
 
-        using var provider = new EnvironmentSessionProvider(image.Environment.Profile, new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance);
+        using var provider = new EnvironmentSessionProvider(image.Environment.Profile, new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance,
+            outside: DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
         provider.Compose(image.Project, image.Root);
         var define = new DefineSymbolsHandler(provider, errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
@@ -95,6 +98,14 @@ public static class BuiltProgram
 
         return await ProgramRunner.RunAsync(provider, entryPoint.Procedure, args, errorDetails, output, error, unattended: false, token);
     }
+
+    // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as rdc run and the shell ask them. A terminal that is not
+    // redirected, and whose TERM names a terminal other than "dumb", understands ANSI escape sequences.
+    private static ConsoleUserInteraction? DialogsOf(IConsoleKeys? keys, TextWriter output)
+        => OperatingSystem.IsWindows() ? null
+            : keys is not null ? new ConsoleUserInteraction(keys, output)
+            : ConsoleUserInteraction.OfTheConsole(new SystemConsoleKeys(),
+                ansi: !global::System.Console.IsOutputRedirected && Environment.GetEnvironmentVariable("TERM") is { Length: > 0 } and not "dumb");
 
     internal static BuiltProgramImage ImageOf(Assembly program)
     {
