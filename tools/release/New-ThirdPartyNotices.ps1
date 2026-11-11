@@ -198,7 +198,8 @@ function Get-CodeSectionHash([string]$Path) {
     }
     # Mach-O 64-bit, little-endian (0xFEEDFACF): ncmds load commands after the 32-byte header; an LC_SEGMENT_64 (0x19) has nsects 80-byte
     # sections after its own 72 bytes, each with its section and segment names and its file offset
-    if ([BitConverter]::ToUInt32($bytes, 0) -eq 0xFEEDFACF) {
+    # u: without it, PowerShell reads a hex literal whose top bit is set as a negative Int32, which no UInt32 equals
+    if ([BitConverter]::ToUInt32($bytes, 0) -eq 0xFEEDFACFu) {
         $ncmds = [BitConverter]::ToUInt32($bytes, 16)
         $command = 32
         for ($i = 0; $i -lt $ncmds -and $command + 8 -le $bytes.LongLength; $i++) {
@@ -232,7 +233,8 @@ function Test-Executable([IO.FileInfo]$File) {
         if ($stream.Read($magic, 0, 4) -ne 4) { return $false }
     }
     finally { $stream.Dispose() }
-    ($magic[0] -eq 0x7F -and $magic[1] -eq 0x45 -and $magic[2] -eq 0x4C -and $magic[3] -eq 0x46) -or [BitConverter]::ToUInt32($magic, 0) -in 0xFEEDFACF, 0xCFFAEDFE, 0xCAFEBABE, 0xBEBAFECA
+    # the Mach-O magic numbers are UInt32 literals (u), as ToUInt32 returns
+    ($magic[0] -eq 0x7F -and $magic[1] -eq 0x45 -and $magic[2] -eq 0x4C -and $magic[3] -eq 0x46) -or [BitConverter]::ToUInt32($magic, 0) -in 0xFEEDFACFu, 0xCFFAEDFEu, 0xCAFEBABEu, 0xBEBAFECAu
 }
 
 $PlatformRoot = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($PlatformRoot)
