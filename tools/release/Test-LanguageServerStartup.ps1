@@ -47,7 +47,9 @@ $FailurePatterns = @(
 $Work = Join-Path ([IO.Path]::GetTempPath()) "rdcore-smoke-$([guid]::NewGuid().ToString('n'))"
 $Tree = Join-Path $Work "platform"
 $Workspace = Join-Path $Work "workspace"
-$PipeName = "rdcore-smoke-$([guid]::NewGuid().ToString('n'))"
+# short, as the platform's own pipe names are: off Windows a pipe is a socket in the temporary folder, and macOS caps a socket's path at
+# 104 characters, of which a Mac's temporary folder takes 49
+$PipeName = "rdc-smoke-$([guid]::NewGuid().ToString('n').Substring(0, 12))"
 $Logs = Join-Path $Work "logs"
 
 function Read-LanguageServerLog {
