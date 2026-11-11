@@ -62,7 +62,7 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
     };
 
     /// <summary>
-    /// The dialogs asked at the console of the process: drawn on its standard output, centred on the width of its window, and answered with
+    /// The dialogs asked at the console of the process: drawn on its standard output, centered on the width of its window, and answered with
     /// <paramref name="keys"/>.
     /// </summary>
     /// <param name="keys">Where the keys are read: the console's.</param>
