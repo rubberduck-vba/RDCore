@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Une idée ou une question? Utilisez les [discussions](https://github.com/rubberduck-vba/RDCore/discussions). Ce formulaire est pour les bogues de la dernière version publiée.
+        Une idée ou une question? Utilisez les [discussions](https://github.com/rubberduck-vba/RDCore/discussions). Ce formulaire sert à signaler les bogues de la dernière version publiée.
 
         An idea or a question? Use the [discussions](https://github.com/rubberduck-vba/RDCore/discussions). This form is for bugs in the latest published release.
   - type: checkboxes
@@ -53,7 +53,7 @@ body:
     attributes:
       label: Code
       description: Le plus petit code VBA qui montre le problème, ou la commande lancée. / The smallest VBA code that shows the problem, or the command you ran.
-      render: vb
+      render: vba
     validations:
       required: true
   - type: textarea
