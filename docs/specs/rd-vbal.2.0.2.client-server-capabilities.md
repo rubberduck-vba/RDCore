@@ -560,6 +560,8 @@ A refactoring is offered to any client as a code action, which completes with it
 
 A notice of `rdcore/refactor/prepare` is a `Refusal`, which no answer changes, or a `Change` of what the code does, which the user accepts by its `code`. It says where (`location`) and, when it concerns another place too, that place (`related`).
 
+The answer also gives the range the refactoring takes (`range`), refused or not, for a dialog to show what will change. For Extract Method, it is the whole statements the selection touches. It is `null` when there are none: the range holds no statement, or cuts a block.
+
 **`rdcore/refactor/checkIdentifier`** ([`RefactorIdentifierCheckParams`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorIdentifierCheckParams.html)) checks an identifier the user is typing: whether it can be declared where the refactoring declares it, and what it would hide. It sends the same kind, document and range, with the answers so far, and a dialog sends it as its user types. The answer to each `Name` choice is checked; no other answer is. It is answered the notices the identifiers raise ([`RefactorIdentifierCheckResult`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Platform.Protocol.RefactorIdentifierCheckResult.html)), each with the choice it answers (`choice`, and `item` for a choice of an item of a list). It applies nothing. A name that is not answered raises nothing, and a range that `rdcore/refactor/prepare` refuses raises nothing more. A `Refusal` of an identifier refuses the refactoring with that identifier only: the user can type another.
 
 For Extract Method:
