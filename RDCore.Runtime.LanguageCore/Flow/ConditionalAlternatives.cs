@@ -10,7 +10,7 @@ namespace RDCore.Runtime.LanguageCore.Flow;
 /// <remarks>
 /// Control that comes to the first instruction of a branch from outside its block may go to the first of any branch of it, or past the block, when none is
 /// compiled. Control that leaves a branch for another branch of the same block goes past the block instead. Every path that runs is among the ones these give,
-/// and so are some that never run together, which is what the questions of the graph allow (whether there is a way).
+/// and so are some that never run together. That is sound for the graph's questions, each of which asks whether some path goes from one place to another.
 /// </remarks>
 internal sealed class ConditionalAlternatives
 {
