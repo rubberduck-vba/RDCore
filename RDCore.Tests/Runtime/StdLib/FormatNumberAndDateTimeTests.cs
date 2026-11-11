@@ -60,10 +60,37 @@ public sealed class FormatNumberAndDateTimeTests
     {
         Assert.AreEqual("(¤1,234.50)", TextOf(Module().FormatCurrency(V(-1234.5), L(-1))), "the invariant culture puts a negative amount in parentheses");
         Assert.AreEqual("-¤1,234.50", TextOf(Module().FormatCurrency(V(-1234.5), L(-1), Default, No)));
-        Assert.AreEqual("￥1,235", TextOf(Module(1041).FormatCurrency(V(1234.5), L(-1))), "yen have no places");
+        Assert.AreEqual("¥1,235", TextOf(Module(1041).FormatCurrency(V(1234.5), L(-1))), "yen have no places");
         Assert.AreEqual("₹12,34,567.89", TextOf(Module(1081).FormatCurrency(V(1234567.891), L(-1))));
         var euros = TextOf(Module(1031).FormatCurrency(V(-1234.5), L(-1), Default, Yes));
         Assert.AreEqual("(1.234,50 €)", euros.Replace('\u00A0', ' '), "the symbol where the positive pattern has it");
+    }
+
+    // MS-VBA's symbol, from Windows' locale data (NLS), for each culture whose ICU symbol differs from it on some system: the same character on
+    // every system. Each was measured on Windows 11 with GetLocaleInfoEx's LOCALE_SCURRENCY; each row's comment gives the culture's ICU symbol.
+    [TestMethod]
+    [DataRow(1041, "\u00A5")] // ja-JP JPY, ICU on Windows and Linux: U+FFE5
+    [DataRow(1152, "\u00A5")] // ug-CN CNY, ICU: U+FFE5
+    [DataRow(2128, "\u00A5")] // mn-Mong-CN CNY, ICU: CN¥
+    [DataRow(1028, "NT$")] // zh-TW TWD, ICU: $
+    [DataRow(1133, "\u20BD")] // ba-RU RUB, ICU: RUB
+    [DataRow(6203, "kr")] // sma-NO NOK, ICU: NOK
+    [DataRow(7227, "kr")] // sma-SE SEK, ICU: SEK
+    [DataRow(1048, "lei")] // ro-RO RON, ICU: RON
+    [DataRow(14345, "Rp")] // en-ID IDR, ICU: IDR
+    [DataRow(1126, "\u20A6")] // bin-NG NGN, ICU: NGN
+    [DataRow(15370, "\u20B2")] // es-PY PYG, ICU: Gs.
+    [DataRow(2118, "Rs")] // pa-Arab-PK PKR, ICU: U+0631
+    [DataRow(1121, "\u0930\u0941")] // ne-NP NPR, ICU: U+0928 U+0947 U+0930 U+0942
+    [DataRow(1090, "m.")] // tk-TM TMT, ICU: TMT
+    [DataRow(11265, "\u062F.\u0627.\u200F")] // ar-JO JOD, ICU: U+062F . U+0623 . U+200F
+    [DataRow(7178, "$")] // es-DO DOP, ICU: RD$
+    [DataRow(1146, "$")] // arn-CL CLP, ICU: CLP
+    [DataRow(1148, "$")] // moh-CA CAD, ICU: CA$
+    public void FormatCurrency_WritesMSVBAsSymbol(int lcid, string symbol)
+    {
+        var amount = TextOf(Module(lcid).FormatCurrency(V(0), L(0)));
+        Assert.AreEqual(symbol, string.Concat(amount.Where(character => character != '0' && !char.IsWhiteSpace(character))), amount);
     }
 
     [TestMethod]

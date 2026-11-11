@@ -3,6 +3,7 @@ using RDCore.External.Native;
 using RDCore.External.Protocol;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Channels;
 using System.IO.Pipes;
 
@@ -106,7 +107,7 @@ public sealed class ExternalHost : IDisposable
             }
 
             var incarnation = new Incarnation(++_incarnations, connection);
-            var pipeName = $"RDCore.{CoreServerComponent.ExternalHost}.Pipe.{Random.Shared.NextInt64()}";
+            var pipeName = PlatformPipeName.New(CoreServerComponent.ExternalHost);
             try
             {
                 // a call of the program into a server waits for the host to come up, as it waits for the server: the connection completes on the thread pool, and

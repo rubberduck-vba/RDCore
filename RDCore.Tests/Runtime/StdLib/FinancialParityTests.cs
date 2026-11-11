@@ -162,7 +162,10 @@ public sealed class FinancialParityTests
     [DataRow(0.484562706, 0x3FE0D877429BEDDCUL)]
     [DataRow(-216.867884489, 0xBFB92A992B27E664UL)]
     [DataRow(1.940461144, 0xC004A5777D83E158UL)]
-    [DataRow(-3062.332434609, 0x3FEC16C72E2D8372UL)]
+    // .NET's System.Math.Sin and Cos, whose quotient this tangent is, call the platform's libm, and IEEE 754 does not require a sine or a cosine to be
+    // correctly rounded. macOS's tangent of this angle is 2 units in the last place above MS-VBA's, measured on macos-15-intel and macos-latest
+    // (Apple silicon). Windows and Linux give MS-VBA's bits.
+    [DataRow(-3062.332434609, 0x3FEC16C72E2D8372UL, 2)]
     [DataRow(262.262974289, 0x4030A4ABC104E66DUL)]
     [DataRow(0.003041009, 0x3F68E97A4ED642B3UL)]
     [DataRow(700.70591555, 0x3FC0D52027AE7562UL)]
@@ -170,8 +173,14 @@ public sealed class FinancialParityTests
     [DataRow(22.91728485, 0x3FF5482ADF9F0662UL)]
     [DataRow(-0.005028945, 0xBF749946864A6A38UL)]
     [DataRow(-1402.654562333, 0xC02E013C16B03451UL)]
-    public void Tan_IsTheSineOverTheCosine(double angle, ulong expected)
-        => Assert.AreEqual(expected, (ulong)BitConverter.DoubleToInt64Bits(Math.Tan(new(angle)).Result!.Value));
+    public void Tan_IsTheSineOverTheCosine(double angle, ulong expected, int ulpsOnMacOS = 0)
+    {
+        var actual = (ulong)BitConverter.DoubleToInt64Bits(Math.Tan(new(angle)).Result!.Value);
+
+        // a Double's bits of one sign count up with its magnitude: the difference of two is how many units in the last place apart they are.
+        var ulps = OperatingSystem.IsMacOS() ? ulpsOnMacOS : 0;
+        Assert.IsLessThanOrEqualTo((ulong)ulps, actual > expected ? actual - expected : expected - actual, $"0x{actual:X16}, MS-VBA's 0x{expected:X16}");
+    }
 
     // MS-VBA's sine and cosine are within a unit of the last place of the true value, as the platform's are, and the platform's to the last bit for
     // all but about one argument in forty - these (grid oracle\s43 M01, M02).
