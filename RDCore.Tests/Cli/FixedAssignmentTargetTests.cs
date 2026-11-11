@@ -4,9 +4,9 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <strong>MS-VBAL §5.4.3.6-7</strong> the <c>LSet</c> and <c>RSet</c> statements, on a target that is not a plain variable: a field of a record,
-/// an element of an array, a field of a record in an array. The target is a <c>bound-variable-expression</c> all the same, and its text is fitted into
-/// the length it already has.
+/// The <c>LSet</c> and <c>RSet</c> statements (<strong>MS-VBAL §5.4.3.6</strong>, <strong>MS-VBAL §5.4.3.7</strong>) on a target that is not a plain
+/// variable: a field of a record, an element of an array, a field of a record in an array. The target is a <c>bound-variable-expression</c> all the
+/// same: a text is fitted into the length it already has, and a record copied over a record field or an array element fills it in place.
 /// </summary>
 [TestClass]
 [TestCategory("MS-VBAL 5.4.3.6 LSet")]
