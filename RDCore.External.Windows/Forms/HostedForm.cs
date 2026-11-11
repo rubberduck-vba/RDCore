@@ -118,7 +118,8 @@ internal sealed class HostedForm
             value = value with { Width = value.Width < 0 ? current.Width : value.Width, Height = value.Height < 0 ? current.Height : value.Height };
             var dpi = Desktop.GetDpiForWindow(Window);
 
-            // a position or a size that is no window's pixels is an overflow, as MS-VBA raises one for Width = 1E+30 (Excel-measured; where it starts is not).
+            // a position or a size past what a pixel coordinate holds is an overflow, as MS-VBA raises one for Width = 1E+30 (Excel-measured; the value it starts
+            // at is not).
             foreach (var side in (ReadOnlySpan<double>)[value.Left, value.Top, value.Width, value.Height])
             {
                 if (!(Math.Abs(side * dpi / 72) <= int.MaxValue))
@@ -375,8 +376,8 @@ internal sealed class HostedForm
         var info = new MonitorInfo { Size = (uint)Marshal.SizeOf<MonitorInfo>() };
         _ = Desktop.GetMonitorInfo(monitor, ref info);
 
-        // centered on the screen; or on the window that owns it: no window of the program does, so the active window of the desktop is the owner, and the work
-        // area when there is none.
+        // CenterScreen centers the window on its monitor. CenterOwner centers it on the window that owns it: no window of the program does, so the desktop's
+        // active window is the owner, or the work area when there is none.
         var around = _definition.StartUpPosition == FormStartUpPosition.CenterScreen ? info.Monitor : info.WorkArea;
         if (_definition.StartUpPosition == FormStartUpPosition.CenterOwner && Desktop.GetForegroundWindow() is var owner && owner != IntPtr.Zero && owner != Window)
         {
