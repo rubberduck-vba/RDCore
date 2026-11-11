@@ -24,7 +24,7 @@ internal sealed record DeployedPlatform(PlatformVersion Version, string Root)
 /// <para>
 /// <b>A deployed version is never changed.</b> Each one is copied beside the others, under <c>versions/&lt;version&gt;</c>, first into a
 /// <c>.partial</c> folder that is moved into place once it is whole. A version is named the current one in <c>installer.json</c>
-/// (<c>{"Current":"0.2.0","Previous":"0.1.0"}</c>), and an older one deployed beside it isn't made current.
+/// (<c>{"Current":"0.2.0","Previous":"0.1.0"}</c>), and an older one deployed beside it is not made current.
 /// </para>
 /// <para>
 /// <b>One installation at a time</b>, across processes: <c>install.lock</c> is held open, unshared, for the whole of one.
@@ -137,7 +137,7 @@ internal sealed class SharedPlatformRoot(string root)
                 throw new InvalidOperationException(flaw);
             }
 
-            // a folder of this version that isn't a whole platform is what's left of a deployment someone broke: it is replaced.
+            // a folder of this version that is not a whole platform is what is left of a deployment someone broke: it is replaced.
             DeleteFolder(folder);
             Directory.Move(partial, folder);
         }
@@ -150,8 +150,8 @@ internal sealed class SharedPlatformRoot(string root)
     }
 
     /// <summary>
-    /// Makes <paramref name="version"/>, deployed, the platform in use, unless a newer one is: true when it is the current one after. Call it
-    /// with the root held.
+    /// Makes <paramref name="version"/>, deployed, the platform in use, unless the current one is newer: true when it is the current one after.
+    /// Call it with the root held.
     /// </summary>
     /// <param name="version">A deployed version.</param>
     public bool MakeCurrentUnlessOlder(PlatformVersion version)
@@ -182,7 +182,7 @@ internal sealed class SharedPlatformRoot(string root)
     public static bool IsPlatform(string folder) => Flaw(folder) is null;
 
     /// <summary>
-    /// Why <paramref name="folder"/> isn't a whole platform, or null when it is.
+    /// Why <paramref name="folder"/> is not a whole platform, or null when it is.
     /// </summary>
     /// <param name="folder">The folder of a platform's <c>rdcore.json</c>.</param>
     public static string? Flaw(string folder)

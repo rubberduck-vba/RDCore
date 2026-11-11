@@ -76,7 +76,7 @@ internal enum PathChange
 /// <summary>
 /// Puts the current platform's <c>rdc</c> on the user's PATH, replacing what an earlier <c>rdc install</c> put there for another version.
 /// On Windows, the folder of <c>rdc.exe</c> in the user's <c>Path</c>; on Linux and macOS, a link <c>~/.local/bin/rdc</c> to <c>rdc</c>,
-/// and <c>~/.local/bin</c> on PATH in the login profile when the shell doesn't put it there.
+/// and <c>~/.local/bin</c> on PATH in the login profile when the shell does not put it there.
 /// </summary>
 /// <param name="root">The shared root the current platform is deployed in.</param>
 /// <param name="home">The user's home folder.</param>
@@ -129,8 +129,8 @@ internal sealed class UserPath(SharedPlatformRoot root, string home, string? pro
     }
 
     /// <summary>
-    /// Links <c>~/.local/bin/rdc</c> to <paramref name="rdc"/>, and adds <c>~/.local/bin</c> to the login profile when PATH doesn't have it:
-    /// null when the link is a file of the user's, which isn't replaced.
+    /// Links <c>~/.local/bin/rdc</c> to <paramref name="rdc"/>, and adds <c>~/.local/bin</c> to the login profile when PATH does not have it:
+    /// null when the link is a file of the user's, which is not replaced.
     /// </summary>
     /// <param name="rdc">The current version's <c>rdc</c>.</param>
     /// <param name="report">Told what changed, and what is as it was, one message each.</param>

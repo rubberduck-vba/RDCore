@@ -804,7 +804,7 @@
     <value>Met seulement le rdc de la version courante dans votre PATH.</value>
   </data>
   <data name="Install_NoModifyPathHelp" xml:space="preserve">
-    <value>Déploie la plateforme sans modifier votre PATH.</value>
+    <value>Installe la plateforme sans modifier votre PATH ni votre profil.</value>
   </data>
   <data name="Install_Waiting" xml:space="preserve">
     <value>Une autre installation utilise {0} : en attente de sa fin.</value>

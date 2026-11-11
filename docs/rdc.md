@@ -115,7 +115,7 @@ platform in the same place, so each one uses what the other installed.
 - It copies the platform into `RDCore/Platform/versions/<version>/` in your local application data folder: `%LOCALAPPDATA%` on Windows,
   `~/.local/share` on Linux, `~/Library/Application Support` on macOS. A version that is installed already is not copied again, and no version
   is removed.
-- It makes that version the current one, unless a newer version is installed.
+- It makes that version the current one, unless the current version is newer.
 - It puts the current version's `rdc` on your PATH, in place of an earlier version's. On Windows, it adds the version's `RDCore.CLI` folder to
   your user `Path`. On Linux and macOS, it links `~/.local/bin/rdc` to it; when `~/.local/bin` is not on your PATH, it adds a block of lines that
   puts it there to `~/.profile` (Linux) or `~/.zprofile` (macOS). Open a new terminal to use it.

@@ -66,7 +66,7 @@ internal sealed record PlatformVersion : IComparable<PlatformVersion>
             value = value[..plus];
         }
 
-        // folders are named by the version, and Windows doesn't tell RC from rc: a version is case-insensitive, and written in lowercase.
+        // folders are named by the version, and Windows does not tell RC from rc: a version is case-insensitive, and written in lowercase.
         value = value.ToLowerInvariant();
         var dash = value.IndexOf('-');
         var core = dash >= 0 ? value[..dash] : value;
@@ -92,7 +92,7 @@ internal sealed record PlatformVersion : IComparable<PlatformVersion>
         return true;
     }
 
-    // Semantic Versioning forbids it in a number, so 01.0.0 and 1.0.0 can't be two versions, or one with two folders.
+    // Semantic Versioning forbids it in a number, so 01.0.0 and 1.0.0 cannot be two versions, or one with two folders.
     private static bool HasLeadingZero(string identifier) =>
         identifier.Length > 1 && identifier[0] == '0' && identifier.All(char.IsAsciiDigit);
 

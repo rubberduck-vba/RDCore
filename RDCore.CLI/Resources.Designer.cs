@@ -1654,7 +1654,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Deploys the platform without changing your PATH..
+        ///   Looks up a localized string similar to Installs the platform without changing your PATH or your profile..
         /// </summary>
         public static string Install_NoModifyPathHelp {
             get {
@@ -1681,7 +1681,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to rdc install installs the platform rdc runs from, and this isn&apos;t one: {0}.
+        ///   Looks up a localized string similar to rdc install installs the platform rdc runs from, and this is not one: {0}.
         /// </summary>
         public static string Install_NotATree {
             get {
@@ -1699,7 +1699,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} can&apos;t be read: {1}.
+        ///   Looks up a localized string similar to {0} cannot be read: {1}.
         /// </summary>
         public static string Install_UnreadableManifest {
             get {
@@ -1726,7 +1726,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} names a language server that isn&apos;t there: {1}..
+        ///   Looks up a localized string similar to {0} names a language server that is not there: {1}..
         /// </summary>
         public static string Install_LanguageServerMissing {
             get {
@@ -1807,7 +1807,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} already linked to {1}..
+        ///   Looks up a localized string similar to {0} was already linked to {1}..
         /// </summary>
         public static string Install_AlreadyLinked {
             get {
@@ -1825,7 +1825,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} isn&apos;t on your PATH: {1} now adds it. Open a new terminal, or run . {1}.
+        ///   Looks up a localized string similar to {0} is not on your PATH: {1} now adds it. Open a new terminal, or run . {1}.
         /// </summary>
         public static string Install_ProfileBlockAdded {
             get {
@@ -1834,7 +1834,7 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} isn&apos;t on this terminal&apos;s PATH yet: {1} adds it in a new terminal..
+        ///   Looks up a localized string similar to {0} is not on this terminal&apos;s PATH yet: {1} adds it in a new terminal..
         /// </summary>
         public static string Install_ProfileHasBlock {
             get {

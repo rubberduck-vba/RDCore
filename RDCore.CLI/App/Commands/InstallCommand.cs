@@ -43,7 +43,7 @@ internal sealed record InstallLocations(string Tree, string Root, string Home, s
 
 /// <summary>
 /// Installs the platform tree <c>rdc</c> runs from for the current user: deploys it into the shared root, which the IDE add-in installs
-/// into too, makes it current unless a newer version is, and puts the current version's <c>rdc</c> on the user's PATH.
+/// into too, makes it current unless the current version is newer, and puts the current version's <c>rdc</c> on the user's PATH.
 /// </summary>
 /// <param name="writer">Where the messages are written.</param>
 /// <param name="locations">Where it installs from and to; this user's by default.</param>

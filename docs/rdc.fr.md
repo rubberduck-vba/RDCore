@@ -119,7 +119,7 @@ Le complément de l'IDE installe la plateforme au même endroit : chacun utilise
 - Il copie la plateforme dans `RDCore/Platform/versions/<version>/` de votre dossier de données d'application locales : `%LOCALAPPDATA%` sous
   Windows, `~/.local/share` sous Linux, `~/Library/Application Support` sous macOS. Une version déjà installée n'est pas copiée de nouveau, et
   aucune version n'est supprimée.
-- Il fait de cette version la version courante, à moins qu'une version plus récente soit installée.
+- Il fait de cette version la version courante, à moins que la version courante soit plus récente.
 - Il met le `rdc` de la version courante dans votre PATH, à la place de celui d'une version antérieure. Sous Windows, il ajoute le dossier
   `RDCore.CLI` de la version à votre `Path` d'utilisateur. Sous Linux et macOS, il crée le lien `~/.local/bin/rdc` vers celui-ci; quand
   `~/.local/bin` n'est pas dans votre PATH, il ajoute à `~/.profile` (Linux) ou à `~/.zprofile` (macOS) un bloc de lignes qui l'y met. Ouvrez un

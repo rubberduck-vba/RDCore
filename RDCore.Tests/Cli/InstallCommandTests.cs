@@ -169,7 +169,7 @@ public sealed class InstallCommandTests
     [TestMethod]
     public async Task AVersionFolderThatIsNoWholePlatform_IsDeployedAgain()
     {
-        // what's left of a deployment someone broke: a folder of the version, without its language server.
+        // what is left of a deployment someone broke: a folder of the version, without its language server.
         Directory.CreateDirectory(Path.Combine(Version("0.2.0"), "RDCore.CLI"));
         File.WriteAllText(Path.Combine(Version("0.2.0"), "rdcore.json"), """{"platformVersion":"0.2.0","langService":"RDCore.LanguageServer/RDCore.LanguageServer"}""");
 
@@ -205,7 +205,7 @@ public sealed class InstallCommandTests
     {
         await InstallAsync(Tree("0.2.0"), "--no-modify-path");
 
-        // as the add-in runs it, once its own installer has made a version current: the tree it runs from doesn't matter.
+        // as the add-in runs it, once its own installer has made a version current: the tree it runs from does not matter.
         Assert.AreEqual(0, await InstallAsync(Path.Combine(_folder, "nowhere"), "--path-only"));
 
         Assert.AreEqual(RdcOf("0.2.0"), OnPath());
@@ -356,7 +356,7 @@ public sealed class InstallCommandTests
         var error = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync().WaitAsync(TimeSpan.FromMinutes(2));
 
-        // 2 is rdc's own answer to a command it doesn't have: the apphost found rdc.dll and the runtime ran it.
+        // 2 is rdc's own answer to a command it does not have: the apphost found rdc.dll and the runtime ran it.
         Assert.AreEqual(2, process.ExitCode, $"{await output}\n{await error}");
     }
 
