@@ -66,7 +66,7 @@ public sealed class DataFlowTests
 
     // with an #Else, exactly one branch is compiled: a write in every branch replaces what was there before.
     [TestMethod]
-    [Ignore("the SDK's ConditionalCompilationBlocks does not say which blocks have an #Else; until it does, every block may be skipped")]
+    [Ignore("the SDK's ConditionalCompilationBlocks does not say which blocks have an #Else, so every block is taken as one that may compile no branch")]
     public void AWriteInEveryBranchOfAnIfBlockWithAnElse_ReplacesTheValueBefore()
     {
         var analyzed = Analyze("Dim x As Long\nx = n\n#If False Then\nx = 1\n#Else\nx = 2\n#End If\nDebug.Print x");

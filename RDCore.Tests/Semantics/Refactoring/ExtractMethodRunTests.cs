@@ -181,7 +181,7 @@ public sealed class ExtractMethodRunTests
     public async Task AnExitInADeadBranch_AtTheStartOfTheBody_DoesNotEndTheProcedure()
         => Assert.AreEqual("3 | 4", await SameAsync("#If False Then\nExit Sub\n#End If\nDebug.Print n\nDebug.Print n + 1", 3, 3));
 
-    // the block may compile no branch: x keeps the value it had, so the new procedure is given it, and it is no value to return.
+    // the block may compile no branch: x keeps the value it had, so the new procedure is given it, and does not return it.
     [TestMethod]
     public async Task AWriteInTheOnlyBranchOfABlock_KeepsTheValueBefore()
     {
