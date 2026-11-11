@@ -16,8 +16,8 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// <c>RDC00208</c> in the code of a UserForm: a local or a parameter named like a member the form's designer declares on its class (the form object's
-/// <c>Width</c>, Microsoft Forms' <c>Caption</c>) hides it, and the parameters of those members are no declarations of the module's code
-/// (<strong>MS-VBAL §5.6.10</strong>).
+/// <c>Width</c>, Microsoft Forms' <c>Caption</c>) hides it (<strong>MS-VBAL §5.6.10</strong>). The parameters of those members are not declarations
+/// of the module's code.
 /// </summary>
 [TestClass]
 public sealed class FormShadowedDeclarationTests

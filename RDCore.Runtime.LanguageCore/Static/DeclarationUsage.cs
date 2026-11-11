@@ -80,8 +80,8 @@ public static class DeclarationUsage
             && (type is VBArrayType array ? array.ItemType : type) is VBClassType { Symbol: var created }
             && created.GetProperty(SymbolProperties.CreationAlwaysFails);
 
-    // a member a form's designer declares on its class is declared by no text of the module: its parameters are those of the member it is of the form object
-    // or of a control library's class (the value of a Property Let Width, named Width), which no code of the module declares.
+    // a member that a form's designer declares on its class is declared by no text of the module. Its parameters are those of the form object's member, or of
+    // the control library class's member, that it stands for (the value of a Property Let Width, named Width), and no code of the module declares them.
     public static IEnumerable<Symbol> DeclaredBy(IEnumerable<VBTypeMemberSymbol> members)
         => members.SelectMany(member => FormObject.IsDeclaredBy(member)
             ? new Symbol[] { member }
