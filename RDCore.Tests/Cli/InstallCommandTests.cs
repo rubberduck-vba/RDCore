@@ -4,6 +4,7 @@ using RDCore.CLI.App.Install;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
 using RDCore.SDK.Client;
+using RDCore.SDK.Platform;
 using RDCore.Tests.Client;
 using System.Diagnostics;
 
@@ -295,6 +296,53 @@ public sealed class InstallCommandTests
 
         Assert.AreEqual(0, await installing.WaitAsync(TimeSpan.FromMinutes(1)));
         Assert.IsTrue(File.Exists(RdcOf("0.2.0")));
+    }
+
+    // rdc holds the version it runs from until it exits: the add-in's installer, which keeps the current version and the one before it,
+    // removes an older one only once rdc has released it.
+    [TestMethod]
+    public async Task AVersionRdcRunsFrom_IsRemovedOnlyOnceRdcReleasesIt()
+    {
+        foreach (var version in new[] { "0.1.0", "0.2.0", "0.3.0" })
+        {
+            Assert.AreEqual(0, await InstallAsync(Tree(version), "--no-modify-path"));
+        }
+
+        var root = new SharedPlatformRoot(_root);
+        using (var lease = PlatformTree.Hold(Version("0.1.0")))
+        {
+            Assert.IsNotNull(lease);
+            await RemoveOldVersionsAsync(root);
+            Assert.IsTrue(File.Exists(RdcOf("0.1.0")), "a version rdc holds is not removed");
+        }
+
+        await RemoveOldVersionsAsync(root);
+        Assert.IsFalse(Directory.Exists(Version("0.1.0")), "a version rdc has released is removed");
+        Assert.IsTrue(File.Exists(RdcOf("0.2.0")), "the version before the current one is kept");
+    }
+
+    // as the add-in's installer removes them, with the root held.
+    private static async Task RemoveOldVersionsAsync(SharedPlatformRoot root)
+    {
+        using var _ = await root.LockAsync(null, CancellationToken.None);
+        root.RemoveOldVersions(PlatformVersion.Parse("0.3.0"));
+    }
+
+    // a platform no deployment put there, such as a build tree that is not published, has no version to hold.
+    [TestMethod]
+    [DataRow(null, DisplayName = "no manifest")]
+    [DataRow("""{ "langService": "RDCore.LanguageServer/RDCore.LanguageServer" }""", DisplayName = "no version")]
+    [DataRow("not a manifest", DisplayName = "not a manifest")]
+    public void APlatformWithNoVersion_HoldsNothing(string? manifest)
+    {
+        var folder = Path.Combine(_folder, "build");
+        Directory.CreateDirectory(folder);
+        if (manifest is not null)
+        {
+            File.WriteAllText(Path.Combine(folder, "rdcore.json"), manifest);
+        }
+
+        Assert.IsNull(PlatformTree.Hold(folder));
     }
 
     [TestMethod]
