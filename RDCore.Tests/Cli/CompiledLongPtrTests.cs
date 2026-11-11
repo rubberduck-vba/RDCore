@@ -162,6 +162,32 @@ public sealed class CompiledLongPtrTests
             "    Widened = 100 + Err.Number",
             "End Function"), [], expected, ("Widened", recoveries));
 
+    // a Variant compiled code assigns a LongPtr holds the type it is an alias of: what IIf returns of one, and a Variant function result assigned one, which
+    // is read back.
+    [TestMethod]
+    [DataRow(true, "| 20  20  7 |", DisplayName = "64-bit")]
+    [DataRow(false, "| 3  3  7 |", DisplayName = "32-bit")]
+    public async Task AVariantAssignedALongPtrInCompiledCode_HoldsTheTypeItIsAnAliasOf(bool is64Bit, string expected)
+        => await AssertCompiledAsync(is64Bit, Program(
+            "Public Sub Main()",
+            "    Dim V As Variant, W As Variant",
+            "    V = Converted(3)",
+            "    W = Twice(3)",
+            "    Debug.Print VarType(V); VarType(W); W",
+            "End Sub",
+            "Private Function Converted(ByVal N As Long) As Variant",
+            "    Dim P As LongPtr, V As Variant",
+            "    P = N",
+            "    V = IIf(N > 0, P, 0)",
+            "    Converted = V",
+            "End Function",
+            "Private Function Twice(ByVal N As Long) As Variant",
+            "    Dim P As LongPtr",
+            "    P = N * 2",
+            "    Twice = P",
+            "    Twice = Twice + 1",
+            "End Function"), [], expected, ("Converted", 0), ("Twice", 0));
+
     // what ObjPtr gives is a LongPtr, passed to a compiled function and returned by it; a Variant a LongPtr is assigned to holds the type it is an alias of,
     // and Hex$ of a LongPtr is as wide as a pointer.
     [TestMethod]

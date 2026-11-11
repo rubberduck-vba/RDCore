@@ -163,6 +163,11 @@ internal readonly record struct ScalarPayload(VBType Type, long Integral, double
         _ => type,
     };
 
+    /// <summary>
+    /// The payload as a <c>Variant</c> holds it: of the type <see cref="AliasOf"/> gives of its type, the type a <c>LongPtr</c> is an alias of.
+    /// </summary>
+    public ScalarPayload HeldByAVariant() => this with { Type = AliasOf(Type) };
+
     /// <summary>Whether the value is held in <see cref="Integral"/>: one of the integer types, a <c>Boolean</c> or a <c>Currency</c>.</summary>
     public bool IsIntegral => Type is not (VBSingleType or VBDoubleType or VBDateType);
 
