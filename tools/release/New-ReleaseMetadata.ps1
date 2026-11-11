@@ -61,6 +61,14 @@ $RuntimeOptions = (Get-Content -LiteralPath $RuntimeConfigPath -Raw | ConvertFro
 $Framework = @($RuntimeOptions.framework) + @($RuntimeOptions.frameworks) | Where-Object { $_ -and $_.name -eq "Microsoft.NETCore.App" } | Select-Object -First 1
 if (-not $Framework) { throw "$(Get-RelativePath $RuntimeConfigPath) names no Microsoft.NETCore.App framework; is the tree framework-dependent?" }
 
+# the RDCore.SDK package the tree was built with, as the build resolved it: every component's .deps.json names the package version it
+# loads, and a release is built with one. an installer reads it to offer only a release whose SDK its own is compatible with.
+$SdkVersions = @(& (Join-Path $PSScriptRoot "Get-SdkPackageVersion.ps1") -PlatformRoot $Root)
+if ($SdkVersions.Count -ne 1) {
+    throw "The tree's .deps.json files name $(if ($SdkVersions.Count) { "RDCore.SDK versions $($SdkVersions -join ', ')" } else { "no RDCore.SDK package" }); a release is built with exactly one."
+}
+$SdkVersion = $SdkVersions[0]
+
 $SourceRef = if ($Tag) { $Tag } else { $Commit }
 $SourceUrl = "$RepositoryUrl/tree/$SourceRef"
 $RepositoryName = $Repository.Split("/")[1]
@@ -138,6 +146,10 @@ $Release = [ordered]@{
     commit        = $Commit
     rid           = $Manifest.rid
     deployment    = "framework-dependent"
+    sdk           = [ordered]@{
+        package = "RDCore.SDK"
+        version = $SdkVersion
+    }
     runtime       = [ordered]@{
         name           = "Microsoft.NETCore.App"
         minimumVersion = [string]$Framework.version
@@ -171,4 +183,4 @@ $Json = ($Release | ConvertTo-Json -Depth 10).Replace("`r`n", "`n")
 Write-TextFile (Join-Path $Root "release.json") @($Json)
 
 Write-Host "📄 SOURCE.md: $SourceUrl"
-Write-Host "📄 release.json: RDCore $Version ($Commit, $($Manifest.rid)), $($Paths.Count) files, runtime $($Framework.name) $($Framework.version)+"
+Write-Host "📄 release.json: RDCore $Version ($Commit, $($Manifest.rid)), $($Paths.Count) files, runtime $($Framework.name) $($Framework.version)+, RDCore.SDK $SdkVersion"

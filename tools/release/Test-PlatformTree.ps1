@@ -202,6 +202,17 @@ if ($RequireReleaseFiles -and (Test-Path -LiteralPath $ReleasePath -PathType Lea
     if ($release) {
         if ($release.schema -ne 1) { Add-Failure "release.json: schema '$($release.schema)', expected 1." }
         if ($release.hashAlgorithm -cne "sha256") { Add-Failure "release.json: hashAlgorithm '$($release.hashAlgorithm)', expected 'sha256'." }
+
+        # the RDCore.SDK package the tree was built with: the one version its .deps.json files name
+        $sdkVersions = @(& (Join-Path $PSScriptRoot "Get-SdkPackageVersion.ps1") -PlatformRoot $Root)
+        if (-not $release.sdk) { Add-Failure "release.json has no sdk." }
+        else {
+            if ([string]$release.sdk.package -cne "RDCore.SDK") { Add-Failure "release.json: sdk.package '$($release.sdk.package)', expected 'RDCore.SDK'." }
+            if ($sdkVersions.Count -ne 1) { Add-Failure "the tree's .deps.json files name $($sdkVersions.Count) RDCore.SDK versions ($($sdkVersions -join ', ')), not one." }
+            elseif ([string]$release.sdk.version -cne $sdkVersions[0]) {
+                Add-Failure "release.json: sdk.version '$($release.sdk.version)' does not match the RDCore.SDK package the tree references, $($sdkVersions[0])."
+            }
+        }
         if ($Manifest) {
             foreach ($pair in @(@("version", "platformVersion"), @("commit", "commit"), @("rid", "rid"))) {
                 if ([string]$release.($pair[0]) -cne $Manifest[$pair[1]]) {
