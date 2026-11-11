@@ -1232,6 +1232,24 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to NO PROGRAM ERROR.
+        /// </summary>
+        public static string Repl_NoProgramInWorkspace {
+            get {
+                return ResourceManager.GetString("Repl_NoProgramInWorkspace", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to With a workspace, the shell runs statements in its project. The numbered program, and the commands that work on it, are for the shell without a workspace..
+        /// </summary>
+        public static string Repl_NoProgramInWorkspace_Verbose {
+            get {
+                return ResourceManager.GetString("Repl_NoProgramInWorkspace_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to UNDEF&apos;D LINE ERROR.
         /// </summary>
         public static string Repl_UndefinedLine {

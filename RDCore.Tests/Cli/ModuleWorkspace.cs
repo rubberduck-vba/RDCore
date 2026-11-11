@@ -258,6 +258,68 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: true, afterLoading: inspect);
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync"/>, then runs a procedure of a module of the client's own, which the project does not list
+    /// (<see cref="DefineSymbolsParams.SessionModule"/>), as the language server runs a line a shell attached to the workspace sends: its symbols are bound
+    /// among the project's modules and defined in the session, and the host runs it from its parse.
+    /// </summary>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="moduleName">The name of the client's module.</param>
+    /// <param name="source">The source of the client's module.</param>
+    /// <param name="entryPoint">The procedure of the client's module that is run.</param>
+    /// <returns>What came of the run, whatever it was.</returns>
+    public static async Task<ExecuteResult> RunSessionModuleAsync(
+        IReadOnlyList<(string Name, string Source)> modules, string program, string moduleName, string source, string entryPoint)
+    {
+        ExecuteResult? ran = null;
+        await RunCoreAsync([], program, errorsOnly: true, modules: modules, afterLoading: async sessionProvider =>
+        {
+            var workspaceRoot = Wire.FileUri(Root);
+            var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
+            var parse = new ModuleParser().Parse(moduleUri, source);
+            Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+            // as SymbolSyncService.SyncModuleAsync binds it: among the project's modules, the client's own added to them.
+            (Uri Uri, ModuleType Type, ModuleParseResult Parse)[] workspace =
+            [
+                .. modules.Append(("Program", program)).Select(module =>
+                {
+                    var uri = Wire.FileUri(Path.Combine(Root, $"{module.Item1}.bas"));
+                    return (new UriBuilder(workspaceRoot) { Fragment = module.Item1 }.Uri, ModuleType.StdModule, new ModuleParser().Parse(uri, module.Item2));
+                }),
+                (moduleUri, ModuleType.StdModule, parse),
+            ];
+            var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, workspace, new IntrinsicSymbolResolver(), "Project1");
+            var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
+            foreach (var declareTypesOnly in new[] { true, false })
+            {
+                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                    .Handle(Wire.RoundTrip(new DefineSymbolsParams
+                    {
+                        WorkspaceRoot = workspaceRoot,
+                        ModuleUri = moduleUri,
+                        ModuleName = moduleName,
+                        Symbols = SymbolDescriptorProjector.Project(symbols, moduleUri),
+                        Directives = ModuleKinds.DirectivesOf(ModuleType.StdModule, parse.SyntaxTree!.GetModuleDirectives()),
+                        Replace = true,
+                        DeclareTypesOnly = declareTypesOnly,
+                        SessionModule = true,
+                    }), CancellationToken.None);
+            }
+
+            ran = await new HostExecuteHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
+                .Handle(new HostExecuteParams
+                {
+                    Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
+                    ModuleName = moduleName,
+                    EntryPoint = entryPoint,
+                }, CancellationToken.None);
+        });
+
+        return ran!;
+    }
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and gives the model of a module as the host keeps it, before it travels.
     /// </summary>
     /// <param name="classes">The class modules of the workspace.</param>

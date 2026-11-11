@@ -16,6 +16,8 @@ public sealed class ReplPlatformClientTests
     [TestMethod]
     [DataRow(ReplProgram.ModuleName, false, true, DisplayName = "the program, run")]
     [DataRow(ReplProgram.ModuleName, true, true, DisplayName = "the program, run under a debugger")]
+    [DataRow(ReplProgram.ImmediateModuleName, false, true, DisplayName = "a line, run in a workspace")]
+    [DataRow(ReplProgram.ImmediateModuleName, true, true, DisplayName = "a line, run in a workspace under a debugger")]
     [DataRow("Module1", false, false, DisplayName = "a module of the project, run")]
     [DataRow("Module1", true, false, DisplayName = "a module of the project, run under a debugger")]
     public async Task WhatTheShellRuns_IsASessionModule_OnlyWhenItIsItsProgram(string moduleName, bool debug, bool expected)

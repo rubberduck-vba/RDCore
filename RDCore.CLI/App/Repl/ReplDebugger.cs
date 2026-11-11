@@ -146,7 +146,7 @@ public sealed class ReplDebugger
             Condition = breakpoint.ConditionExpression
         }).ToArray();
 
-        var result = await context.Platform.SetBreakpointsAsync(ReplProgram.ModuleName, wireBreakpoints, token);
+        var result = await context.Platform.SetBreakpointsAsync(context.Program.Module, wireBreakpoints, token);
         if (result.Breakpoints.Count != breakpoints.Length)
         {
             return [];

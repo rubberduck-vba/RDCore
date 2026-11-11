@@ -119,6 +119,10 @@ internal sealed class ReplShell(
             case ReplInputKind.Empty:
                 return ReplCommandResult.Continue;
 
+            case ReplInputKind.StoreLine or ReplInputKind.DeleteLine when program.AttachedToWorkspace:
+                ReplProgramRefusal.Write(console);
+                return ReplCommandResult.Continue;
+
             case ReplInputKind.StoreLine:
                 program.Store(input.LineNumber, input.Text);
                 context.Diagnostics.RefreshWhenIdle(context);
@@ -201,7 +205,7 @@ internal sealed class ReplShell(
         try
         {
             await ReplExecution.ExecuteAsync(
-                context, program.ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, running.Token, statement: statement);
+                context, program.ToImmediateModuleSource(statement), program.ImmediateEntryPoint, running.Token, statement: statement);
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
         {

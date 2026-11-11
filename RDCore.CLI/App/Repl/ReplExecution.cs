@@ -48,7 +48,7 @@ internal static class ReplExecution
         debug &= context.Platform.Provides<ProgramDebugging>();
         if (!debug)
         {
-            await RenderAsync(context, await context.Platform.ExecuteAsync(source, ReplProgram.ModuleName, entryPoint, token));
+            await RenderAsync(context, await context.Platform.ExecuteAsync(source, context.Program.Module, entryPoint, token));
             return;
         }
 
@@ -56,7 +56,7 @@ internal static class ReplExecution
         context.Debugger.Running();
         try
         {
-            var result = await context.Platform.ExecuteAsync(source, ReplProgram.ModuleName, entryPoint, debug: true, immediate: false, CancellationToken.None);
+            var result = await context.Platform.ExecuteAsync(source, context.Program.Module, entryPoint, debug: true, immediate: false, CancellationToken.None);
             await RenderAsync(context, result);
             if (result.Outcome is ExecutionOutcome.Refused)
             {
@@ -223,11 +223,11 @@ internal static class ReplExecution
         // a program that waits is ended with the program it is: clearing the program is what a person does to be rid of it.
         if (context.Platform.Provides<ProgramDebugging>())
         {
-            await context.Platform.DiscardAsync(ReplProgram.ModuleName, endProgram: true, token);
+            await context.Platform.DiscardAsync(context.Program.Module, endProgram: true, token);
         }
         else
         {
-            await context.Platform.DiscardAsync(ReplProgram.ModuleName, token);
+            await context.Platform.DiscardAsync(context.Program.Module, token);
         }
 
         context.Debugger.Idle();

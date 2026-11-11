@@ -295,6 +295,12 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_SyntaxError" xml:space="preserve">
     <value>SYNTAX ERROR</value>
   </data>
+  <data name="Repl_NoProgramInWorkspace" xml:space="preserve">
+    <value>NO PROGRAM ERROR</value>
+  </data>
+  <data name="Repl_NoProgramInWorkspace_Verbose" xml:space="preserve">
+    <value>With a workspace, the shell runs statements in its project. The numbered program, and the commands that work on it, are for the shell without a workspace.</value>
+  </data>
   <data name="Repl_UndefinedLine" xml:space="preserve">
     <value>UNDEF'D LINE ERROR</value>
   </data>

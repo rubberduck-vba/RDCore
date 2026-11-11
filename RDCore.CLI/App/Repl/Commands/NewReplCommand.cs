@@ -7,6 +7,7 @@ internal sealed class NewReplCommand : IReplCommand
 {
     public string Name => ReplCommandNames.New;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_New_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)

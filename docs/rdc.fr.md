@@ -21,6 +21,11 @@ Le _shell_ exécute ce que vous tapez. Une ligne sans numéro de ligne s'exécut
 de ligne est écrite dans le _programme courant_ : `10 Debug.Print "Bonjour"`. Le programme courant est le corps d'une procédure implicite nommée `Main`,
 dans un module implicite nommé `Program`. Il reste en mémoire jusqu'à `NEW`, `LOAD` ou `EXIT`.
 
+Sur un espace de travail (`rdc --workspace <chemin>`), le _shell_ exécute chaque ligne dans le projet de l'espace de travail : `Main`, `Program.Main` et
+les autres procédures publiques du projet s'appellent depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
+servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `BREAK`, `DUCKY`, et `CONT` vers une ligne), répondent
+`ERREUR : AUCUN PROGRAMME`.
+
 La langue du _shell_ est le BASIC de RDCore : la variable qu'une ligne assigne est celle que lit la ligne suivante, sans `Dim`, et `Print` seul est
 une instruction.
 

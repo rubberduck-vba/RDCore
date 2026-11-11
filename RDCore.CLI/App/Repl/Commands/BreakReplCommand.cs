@@ -24,6 +24,7 @@ internal sealed class BreakReplCommand : IReplCommand, IReplCommandDescriptor
 
     public string Name => ReplCommandNames.Break;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_Break_Summary;
 
     // BREAK CLEAR, BREAK TOGGLE <line>, and BREAK <line> [condition] - the condition an expression of the program, completed as one.

@@ -465,6 +465,12 @@ public interface IReplCommand
     string Summary { get; }
 
     /// <summary>
+    /// Whether the command works on the numbered program (<c>LIST</c>, <c>RUN</c>, <c>SAVE</c>): a shell attached to a workspace has none, and refuses it
+    /// (<see cref="ReplProgram.AttachedToWorkspace"/>).
+    /// </summary>
+    bool WorksOnTheProgram => false;
+
+    /// <summary>
     /// Runs the command.
     /// </summary>
     /// <param name="context">The live session the command acts on.</param>

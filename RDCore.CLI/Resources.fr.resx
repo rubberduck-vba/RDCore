@@ -293,6 +293,12 @@
   <data name="Repl_SyntaxError" xml:space="preserve">
     <value>ERREUR DE SYNTAXE</value>
   </data>
+  <data name="Repl_NoProgramInWorkspace" xml:space="preserve">
+    <value>ERREUR : AUCUN PROGRAMME</value>
+  </data>
+  <data name="Repl_NoProgramInWorkspace_Verbose" xml:space="preserve">
+    <value>Avec un espace de travail, l'interpréteur exécute les instructions dans son projet. Le programme numéroté, et les commandes qui s'en servent, sont pour l'interpréteur sans espace de travail.</value>
+  </data>
   <data name="Repl_UndefinedLine" xml:space="preserve">
     <value>ERREUR: LIGNE NON DÉFINIE</value>
   </data>

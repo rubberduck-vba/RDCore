@@ -32,6 +32,7 @@ internal sealed class DuckyReplCommand(ReplUserInteraction interaction) : IReplC
 {
     public string Name => ReplCommandNames.Ducky;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_Ducky_Summary;
 
     // DUCKY, and DUCKY <line>.

@@ -186,7 +186,9 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         }, token);
 
     // the shell's program is its own module, of the session: the project of a workspace the shell is attached to does not list it (SessionExecuteParams.SessionModule).
-    private static bool IsProgram(string moduleName) => string.Equals(moduleName, ReplProgram.ModuleName, StringComparison.OrdinalIgnoreCase);
+    private static bool IsProgram(string moduleName)
+        => string.Equals(moduleName, ReplProgram.ModuleName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(moduleName, ReplProgram.ImmediateModuleName, StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc/>
     public Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token)

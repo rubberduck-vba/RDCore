@@ -22,6 +22,7 @@ internal sealed class ListReplCommand : IReplCommand
 {
     public string Name => ReplCommandNames.List;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_List_Summary;
 
     // the marks of a block, plain triangles where the console draws Unicode (an emoji looks out of place next to the code), ASCII where it does not.
