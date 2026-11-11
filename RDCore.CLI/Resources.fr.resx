@@ -815,21 +815,6 @@
   <data name="Install_NotATree" xml:space="preserve">
     <value>rdc install installe la plateforme d&apos;où rdc est lancé, et ce n&apos;en est pas une : {0}</value>
   </data>
-  <data name="Install_NoManifest" xml:space="preserve">
-    <value>{0} n&apos;a pas de rdcore.json.</value>
-  </data>
-  <data name="Install_UnreadableManifest" xml:space="preserve">
-    <value>{0} est illisible : {1}</value>
-  </data>
-  <data name="Install_NoLanguageServer" xml:space="preserve">
-    <value>{0} ne nomme aucun serveur de langage.</value>
-  </data>
-  <data name="Install_LanguageServerOutside" xml:space="preserve">
-    <value>{0} nomme un serveur de langage hors de la plateforme : {1}.</value>
-  </data>
-  <data name="Install_LanguageServerMissing" xml:space="preserve">
-    <value>{0} nomme un serveur de langage absent : {1}.</value>
-  </data>
   <data name="Install_NoVersion" xml:space="preserve">
     <value>{0} ne nomme aucune version de plateforme : « {1} ».</value>
   </data>

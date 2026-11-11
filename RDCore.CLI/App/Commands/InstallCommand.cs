@@ -2,8 +2,8 @@ using CommandLine;
 using RDCore.CLI.App.Install;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using RDCore.SDK.Client;
+using RDCore.SDK.Platform;
 
 namespace RDCore.CLI.App.Commands;
 
@@ -96,27 +96,16 @@ internal sealed class InstallCommand(IConsoleMessageWriter writer, InstallLocati
     private bool TryReadTree(out PlatformVersion? version)
     {
         version = null;
-        if (SharedPlatformRoot.Flaw(Locations.Tree) is { } flaw)
+        if (PlatformTree.Flaw(Locations.Tree) is { } flaw)
         {
             Write(MessageKind.Error, string.Format(Resources.Install_NotATree, flaw));
             return false;
         }
 
-        var manifest = Path.Combine(Locations.Tree, "rdcore.json");
-        string? text;
-        try
-        {
-            text = JsonNode.Parse(File.ReadAllText(manifest))?["platformVersion"]?.GetValue<string>();
-        }
-        catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException)
-        {
-            Write(MessageKind.Error, string.Format(Resources.Install_UnreadableManifest, manifest, exception.Message));
-            return false;
-        }
-
+        var text = RDCoreLanguageServerLaunch.ReadManifest(Locations.Tree).PlatformVersion;
         if (!PlatformVersion.TryParse(text, out version))
         {
-            Write(MessageKind.Error, string.Format(Resources.Install_NoVersion, manifest, text));
+            Write(MessageKind.Error, string.Format(Resources.Install_NoVersion, Path.Combine(Locations.Tree, PlatformManifest.FileName), text));
             return false;
         }
 
@@ -127,8 +116,8 @@ internal sealed class InstallCommand(IConsoleMessageWriter writer, InstallLocati
     {
         var folder = root.VersionRoot(version);
         var fromTheRoot = string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(Locations.Tree)), Path.GetFullPath(folder),
-            SharedPlatformRoot.PathComparison);
-        if (fromTheRoot || !root.Deploy(Locations.Tree, version))
+            PlatformTree.PathComparison);
+        if (fromTheRoot || !PlatformTree.Deploy(root, Locations.Tree, version))
         {
             Write(MessageKind.Information, string.Format(Resources.Install_AlreadyDeployed, version, folder));
         }
@@ -181,7 +170,8 @@ internal sealed class InstallCommand(IConsoleMessageWriter writer, InstallLocati
     // the current version's rdc, where its rdcore.json names it: the environment host is rdc.
     private static string RdcOf(DeployedPlatform platform)
     {
-        var host = JsonNode.Parse(File.ReadAllText(platform.Manifest))?["hostService"]?.GetValue<string>() ?? "RDCore.CLI/rdc";
+        var named = RDCoreLanguageServerLaunch.ReadManifest(platform.Root).HostService;
+        var host = string.IsNullOrWhiteSpace(named) ? "RDCore.CLI/rdc" : named;
         var path = Path.GetFullPath(Path.Combine(platform.Root, host.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar)));
         return OperatingSystem.IsWindows() || File.Exists(path) || !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? path : path[..^4];
     }

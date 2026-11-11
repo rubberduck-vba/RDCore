@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using RDCore.SDK.Platform;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
@@ -195,10 +196,10 @@ internal sealed class UserPath(SharedPlatformRoot root, string home, string? pro
         => entry.Trim().Length > 0 && IsUnder(Expanded(entry), root.Versions);
 
     private static bool SameFolder(string entry, string folder)
-        => string.Equals(Normalized(Expanded(entry)), Normalized(folder), SharedPlatformRoot.PathComparison);
+        => string.Equals(Normalized(Expanded(entry)), Normalized(folder), PlatformTree.PathComparison);
 
     private static bool IsUnder(string path, string folder)
-        => Normalized(path).StartsWith(Normalized(folder) + Path.DirectorySeparatorChar, SharedPlatformRoot.PathComparison);
+        => Normalized(path).StartsWith(Normalized(folder) + Path.DirectorySeparatorChar, PlatformTree.PathComparison);
 
     private static string Expanded(string entry) => Environment.ExpandEnvironmentVariables(entry.Trim().Trim('"'));
 
