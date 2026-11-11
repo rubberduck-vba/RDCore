@@ -48,4 +48,7 @@
   <data name="NotAForm" xml:space="preserve">
     <value>L'objet n'est pas un formulaire de cet hôte, ou il a été détruit.</value>
   </data>
+  <data name="FormBoundsOutOfRange" xml:space="preserve">
+    <value>La fenêtre d'un formulaire ne peut être déplacée ni dimensionnée à {0} points : aucune position ni taille de fenêtre n'est aussi grande.</value>
+  </data>
 </root>

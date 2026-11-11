@@ -60,6 +60,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormHide, HideForm);
         channel.Handle<FormParams, FormIsShownResult>(ExternalProtocol.FormIsShown, IsFormShown);
         channel.Handle<FormCaptionParams, FormCaptionResult>(ExternalProtocol.FormCaption, FormCaption);
+        channel.Handle<FormBoundsParams, FormBoundsResult>(ExternalProtocol.FormBounds, FormBounds);
         channel.Handle<FormParams, ExternalDoneResult>(ExternalProtocol.FormLeave, LeaveForm);
         channel.Handle<FormHoldParams, ExternalDoneResult>(ExternalProtocol.FormHold, HoldForms);
         channel.Handle<FormDoEventsParams, ExternalDoneResult>(ExternalProtocol.FormDoEvents, DoEvents);
@@ -213,6 +214,20 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
 
         return new FormCaptionResult { Caption = _forms.GetCaption(form) };
     }, Failed<FormCaptionResult>);
+
+    /// <summary>
+    /// Answers <see cref="ExternalProtocol.FormBounds"/>.
+    /// </summary>
+    public FormBoundsResult FormBounds(FormBoundsParams request) => Answer(request.HandlingEvent, () =>
+    {
+        var form = _handles.ObjectOf(request.Target);
+        if (request.Bounds is { } bounds)
+        {
+            _forms.SetBounds(form, bounds);
+        }
+
+        return new FormBoundsResult { Bounds = _forms.GetBounds(form) };
+    }, Failed<FormBoundsResult>);
 
     /// <summary>Answers <see cref="ExternalProtocol.AutomationCreate"/>.</summary>
     public AutomationObjectResult Create(AutomationCreateParams request)
