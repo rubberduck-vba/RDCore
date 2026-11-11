@@ -53,7 +53,9 @@ function Test-NativeExecutable([string]$Path) {
         if ($stream.Read($magic, 0, 4) -ne 4) { return $false }
     }
     finally { $stream.Dispose() }
-    ($magic[0] -eq 0x7F -and $magic[1] -eq 0x45 -and $magic[2] -eq 0x4C -and $magic[3] -eq 0x46) -or [BitConverter]::ToUInt32($magic, 0) -in 0xFEEDFACF, 0xCFFAEDFE, 0xCAFEBABE, 0xBEBAFECA
+    # the Mach-O magic numbers are UInt32 literals (u): without it, PowerShell reads a hex literal whose top bit is set as a negative
+    # Int32, which no UInt32 equals
+    ($magic[0] -eq 0x7F -and $magic[1] -eq 0x45 -and $magic[2] -eq 0x4C -and $magic[3] -eq 0x46) -or [BitConverter]::ToUInt32($magic, 0) -in 0xFEEDFACFu, 0xCFFAEDFEu, 0xCAFEBABEu, 0xBEBAFECAu
 }
 
 $Manifest = Read-PlatformManifest (Join-Path $Root "rdcore.json")
