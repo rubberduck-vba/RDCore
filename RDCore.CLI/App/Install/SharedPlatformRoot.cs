@@ -3,10 +3,16 @@ using System.Text.Json.Nodes;
 
 namespace RDCore.CLI.App.Install;
 
-/// <summary>A platform deployed in the shared root: its version and its folder.</summary>
+/// <summary>
+/// A platform deployed in the shared root: its version and its folder.
+/// </summary>
+/// <param name="Version">The platform's version.</param>
+/// <param name="Root">The folder it is deployed in: <c>versions/&lt;version&gt;</c> under the shared root.</param>
 internal sealed record DeployedPlatform(PlatformVersion Version, string Root)
 {
-    /// <summary>The platform manifest's path.</summary>
+    /// <summary>
+    /// The platform manifest's path.
+    /// </summary>
     public string Manifest => Path.Combine(Root, "rdcore.json");
 }
 
@@ -36,17 +42,25 @@ internal sealed class SharedPlatformRoot(string root)
     private const string PartialSuffix = ".partial";
     private static readonly TimeSpan LockRetry = TimeSpan.FromMilliseconds(200);
 
-    /// <summary>The shared root of this user: <c>&lt;local application data&gt;/RDCore/Platform</c>.</summary>
+    /// <summary>
+    /// The shared root of this user: <c>&lt;local application data&gt;/RDCore/Platform</c>.
+    /// </summary>
     public static string ForThisUser =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RDCore", "Platform");
 
-    /// <summary>The root's folder.</summary>
+    /// <summary>
+    /// The root's folder.
+    /// </summary>
     public string Root { get; } = root;
 
-    /// <summary>The folder deployed versions are in.</summary>
+    /// <summary>
+    /// The folder deployed versions are in.
+    /// </summary>
     public string Versions => Path.Combine(Root, VersionsFolder);
 
-    /// <summary>The platform in use, or null when none is deployed, or the one named is gone or incomplete.</summary>
+    /// <summary>
+    /// The platform in use, or null when none is deployed, or the one named is gone or incomplete.
+    /// </summary>
     public DeployedPlatform? Current
     {
         get
@@ -61,7 +75,9 @@ internal sealed class SharedPlatformRoot(string root)
         }
     }
 
-    /// <summary>Where <paramref name="version"/> is, or would be, deployed.</summary>
+    /// <summary>
+    /// Where <paramref name="version"/> is, or would be, deployed.
+    /// </summary>
     public string VersionRoot(PlatformVersion version) => Path.Combine(Versions, version.Text);
 
     /// <summary>
@@ -152,10 +168,14 @@ internal sealed class SharedPlatformRoot(string root)
         return true;
     }
 
-    /// <summary>Whether <paramref name="folder"/> is a whole platform: one whose <c>rdcore.json</c> names a language server it has.</summary>
+    /// <summary>
+    /// Whether <paramref name="folder"/> is a whole platform: one whose <c>rdcore.json</c> names a language server it has.
+    /// </summary>
     public static bool IsPlatform(string folder) => Flaw(folder) is null;
 
-    /// <summary>Why <paramref name="folder"/> isn't a whole platform, or null when it is.</summary>
+    /// <summary>
+    /// Why <paramref name="folder"/> isn't a whole platform, or null when it is.
+    /// </summary>
     public static string? Flaw(string folder)
     {
         var manifestPath = Path.Combine(folder, "rdcore.json");
@@ -189,7 +209,9 @@ internal sealed class SharedPlatformRoot(string root)
         return File.Exists(full) || File.Exists(full + ".exe") ? null : string.Format(Resources.Install_LanguageServerMissing, manifestPath, languageServer);
     }
 
-    /// <summary>How paths compare on this system: without case on Windows.</summary>
+    /// <summary>
+    /// How paths compare on this system: without case on Windows.
+    /// </summary>
     public static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     private InstallerState ReadState()

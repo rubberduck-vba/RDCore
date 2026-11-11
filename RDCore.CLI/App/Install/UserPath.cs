@@ -4,13 +4,19 @@ using System.Runtime.Versioning;
 
 namespace RDCore.CLI.App.Install;
 
-/// <summary>The user's own <c>Path</c> on Windows: the one new processes of this user start with, beside the system's.</summary>
+/// <summary>
+/// The user's own <c>Path</c> on Windows: the one new processes of this user start with, beside the system's.
+/// </summary>
 internal interface IUserPathVariable
 {
-    /// <summary>The user's <c>Path</c> as it is stored, its <c>%VARIABLE%</c> references unexpanded; null when the user has none.</summary>
+    /// <summary>
+    /// The user's <c>Path</c> as it is stored, its <c>%VARIABLE%</c> references unexpanded; null when the user has none.
+    /// </summary>
     string? Read();
 
-    /// <summary>Stores <paramref name="value"/> as the user's <c>Path</c>, and tells running programs the environment changed.</summary>
+    /// <summary>
+    /// Stores <paramref name="value"/> as the user's <c>Path</c>, and tells running programs the environment changed.
+    /// </summary>
     void Write(string value);
 }
 
@@ -50,13 +56,19 @@ internal sealed class WindowsUserPathVariable : IUserPathVariable
     private static extern nint SendMessageTimeout(nint hWnd, uint msg, nuint wParam, string lParam, uint flags, uint timeout, out nuint result);
 }
 
-/// <summary>What putting <c>rdc</c> on the user's PATH did.</summary>
+/// <summary>
+/// What putting <c>rdc</c> on the user's PATH did.
+/// </summary>
 internal enum PathChange
 {
-    /// <summary>It was there already: nothing changed.</summary>
+    /// <summary>
+    /// It was there already: nothing changed.
+    /// </summary>
     Unchanged,
 
-    /// <summary>It is there now.</summary>
+    /// <summary>
+    /// It is there now.
+    /// </summary>
     Changed,
 }
 
@@ -77,10 +89,14 @@ internal sealed class UserPath(SharedPlatformRoot root, string home, string? pro
 
     private string LinkFolder => Path.Combine(home, ".local", "bin");
 
-    /// <summary>The login profile a shell reads PATH from: <c>~/.zprofile</c> on macOS, whose shell is zsh, and <c>~/.profile</c> elsewhere.</summary>
+    /// <summary>
+    /// The login profile a shell reads PATH from: <c>~/.zprofile</c> on macOS, whose shell is zsh, and <c>~/.profile</c> elsewhere.
+    /// </summary>
     public string Profile => Path.Combine(home, OperatingSystem.IsMacOS() ? ".zprofile" : ".profile");
 
-    /// <summary>Puts <paramref name="rdc"/> on the user's Windows <c>Path</c>.</summary>
+    /// <summary>
+    /// Puts <paramref name="rdc"/> on the user's Windows <c>Path</c>.
+    /// </summary>
     public PathChange OnWindowsPath(string rdc)
     {
         ArgumentNullException.ThrowIfNull(windowsPath);

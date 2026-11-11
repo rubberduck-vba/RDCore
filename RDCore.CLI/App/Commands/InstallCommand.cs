@@ -19,7 +19,9 @@ internal sealed class InstallOptions
     public bool NoModifyPath { get; set; }
 }
 
-/// <summary>Where <c>rdc install</c> installs from and to.</summary>
+/// <summary>
+/// Where <c>rdc install</c> installs from and to.
+/// </summary>
 /// <param name="Tree">The platform tree <c>rdc</c> runs from: the folder of its <c>rdcore.json</c>.</param>
 /// <param name="Root">The shared root the platform is deployed into, for every client of the user.</param>
 /// <param name="Home">The user's home folder: <c>~/.local/bin</c> and the login profile are in it, on Linux and macOS.</param>
@@ -27,7 +29,9 @@ internal sealed class InstallOptions
 /// <param name="WindowsPath">The user's <c>Path</c> on Windows; null elsewhere.</param>
 internal sealed record InstallLocations(string Tree, string Root, string Home, string? ProcessPath, IUserPathVariable? WindowsPath)
 {
-    /// <summary>This user's: the tree <c>rdc</c> runs from, the shared root, the home folder, and the user's own <c>Path</c>.</summary>
+    /// <summary>
+    /// This user's: the tree <c>rdc</c> runs from, the shared root, the home folder, and the user's own <c>Path</c>.
+    /// </summary>
     public static InstallLocations ForThisUser()
         => new(
             Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory))!,

@@ -74,6 +74,7 @@ travaille sur le dossier courant.
 |`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, et ce qui la garde dans l'interpréteur.|
 |`rdc bench [<chemin>]`|`b`|Chronomètre l'interpréteur sur un espace de travail : son analyse syntaxique, son chargement, son analyse, puis chaque `Public Sub Bench*()` de ses modules standard.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
+|`rdc install`|`setup`|Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
 
 ### Exécuter un programme
 
@@ -109,6 +110,33 @@ Le code de sortie indique comment s'est passée l'exécution :
 |`-n`, `--name`|Le nom du programme; celui du projet par défaut.|
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
 |`-r`, `--runtime`|La plateforme pour laquelle le programme est construit, comme `win-x64` ou `linux-x64`; celle où s'exécute `rdc` par défaut.|
+
+### Installer la plateforme
+
+`rdc install` installe la plateforme d'où il est lancé, comme une archive de version que vous avez décompressée, pour votre compte d'utilisateur.
+Le complément de l'IDE installe la plateforme au même endroit : chacun utilise ce que l'autre a installé.
+
+- Il copie la plateforme dans `RDCore/Platform/versions/<version>/` de votre dossier de données d'application locales : `%LOCALAPPDATA%` sous
+  Windows, `~/.local/share` sous Linux, `~/Library/Application Support` sous macOS. Une version déjà installée n'est pas copiée de nouveau, et
+  aucune version n'est supprimée.
+- Il fait de cette version la version courante, à moins qu'une version plus récente soit installée.
+- Il met le `rdc` de la version courante dans votre PATH, à la place de celui d'une version antérieure. Sous Windows, il ajoute le dossier
+  `RDCore.CLI` de la version à votre `Path` d'utilisateur. Sous Linux et macOS, il crée le lien `~/.local/bin/rdc` vers celui-ci; quand
+  `~/.local/bin` n'est pas dans votre PATH, il ajoute à `~/.profile` (Linux) ou à `~/.zprofile` (macOS) un bloc de lignes qui l'y met. Ouvrez un
+  nouveau terminal pour l'utiliser.
+
+|Option|Ce qu'elle fait|
+|---|---|
+|`--path-only`|Met seulement le `rdc` de la version courante dans votre PATH.|
+|`--no-modify-path`|Installe la plateforme sans modifier votre PATH ni votre profil.|
+
+Le code de sortie indique comment s'est passée l'installation :
+
+|Code de sortie|Signification|
+|---|---|
+|`0`|La plateforme est installée.|
+|`1`|Elle ne l'est pas : le dossier d'où `rdc` est lancé n'est pas une plateforme complète, aucune version n'est installée (`--path-only`), ou `~/.local/bin/rdc` est un de vos propres fichiers. Le message indique lequel.|
+|`2`|Les options ne sont pas valides.|
 
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)

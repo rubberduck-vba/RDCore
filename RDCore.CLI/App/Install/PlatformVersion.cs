@@ -20,13 +20,19 @@ internal sealed record PlatformVersion : IComparable<PlatformVersion>
         Text = text;
     }
 
-    /// <summary>The major, minor and patch numbers.</summary>
+    /// <summary>
+    /// The major, minor and patch numbers.
+    /// </summary>
     public Version Core { get; }
 
-    /// <summary>The prerelease identifiers, such as <c>alpha</c> and <c>3</c>; empty for a release.</summary>
+    /// <summary>
+    /// The prerelease identifiers, such as <c>alpha</c> and <c>3</c>; empty for a release.
+    /// </summary>
     public IReadOnlyList<string> Prerelease { get; }
 
-    /// <summary>Whether this is a prerelease.</summary>
+    /// <summary>
+    /// Whether this is a prerelease.
+    /// </summary>
     public bool IsPrerelease => Prerelease.Count > 0;
 
     /// <summary>
@@ -35,7 +41,9 @@ internal sealed record PlatformVersion : IComparable<PlatformVersion>
     /// </summary>
     public string Text { get; }
 
-    /// <summary>Reads a version, with or without a leading <c>v</c>; false when it is not one.</summary>
+    /// <summary>
+    /// Reads a version, with or without a leading <c>v</c>; false when it is not one.
+    /// </summary>
     public static bool TryParse(string? text, [NotNullWhen(true)] out PlatformVersion? version)
     {
         version = null;
@@ -86,7 +94,6 @@ internal sealed record PlatformVersion : IComparable<PlatformVersion>
     private static bool HasLeadingZero(string identifier) =>
         identifier.Length > 1 && identifier[0] == '0' && identifier.All(char.IsAsciiDigit);
 
-    /// <inheritdoc/>
     public int CompareTo(PlatformVersion? other)
     {
         if (other is null)
@@ -135,12 +142,9 @@ internal sealed record PlatformVersion : IComparable<PlatformVersion>
         return string.CompareOrdinal(a, b);
     }
 
-    /// <inheritdoc/>
     public bool Equals(PlatformVersion? other) => other is not null && CompareTo(other) == 0;
 
-    /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Core, string.Join('.', Prerelease));
 
-    /// <inheritdoc/>
     public override string ToString() => Text;
 }
