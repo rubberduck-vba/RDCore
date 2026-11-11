@@ -261,7 +261,7 @@ internal static class NumberFormatting
 
                     break;
                 case '$':
-                    output.Append(numbers.CurrencySymbol);
+                    output.Append(CurrencySymbols.Of(settings.Culture));
                     break;
                 default:
                     output.Append(character);
