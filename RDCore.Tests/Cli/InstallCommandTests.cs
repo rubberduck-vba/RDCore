@@ -3,6 +3,7 @@ using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Install;
 using RDCore.CLI.ConsoleIO;
 using RDCore.CLI.ConsoleIO.Model;
+using RDCore.SDK.Client;
 using RDCore.Tests.Client;
 using System.Diagnostics;
 
@@ -223,14 +224,45 @@ public sealed class InstallCommandTests
     public async Task PathOnlyAndNoModifyPath_AreRefusedTogether()
         => Assert.AreEqual(2, await InstallAsync(Tree("0.2.0"), "--path-only", "--no-modify-path"));
 
+    // the body of every error the command writes.
+    private static IConsoleMessageWriter Recording(List<string> errors)
+    {
+        var writer = Substitute.For<IConsoleMessageWriter>();
+        writer.When(w => w.WriteMessage(Arg.Is<ConsoleMessageBuilder>(message => message.Kind == MessageKind.Error)))
+            .Do(call => errors.Add(string.Concat(call.Arg<ConsoleMessageBuilder>().Parts.OfType<ConsoleMessageBodyPart>().Select(part => part.Body))));
+        return writer;
+    }
+
     [TestMethod]
-    public async Task AFolderThatIsNoPlatformTree_IsRefused()
+    [DataRow("no language server")]
+    [DataRow("no manifest")]
+    [DataRow("a language server outside")]
+    public async Task AFolderThatIsNoPlatformTree_IsRefused_WithTheReasonTheSdkGives(string flaw)
     {
         var tree = Tree("0.2.0");
-        File.Delete(Path.Combine(tree, "RDCore.LanguageServer", OperatingSystem.IsWindows() ? "RDCore.LanguageServer.exe" : "RDCore.LanguageServer"));
+        var exe = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+        switch (flaw)
+        {
+            case "no language server":
+                File.Delete(Path.Combine(tree, "RDCore.LanguageServer", "RDCore.LanguageServer" + exe));
+                break;
+            case "no manifest":
+                File.Delete(Path.Combine(tree, "rdcore.json"));
+                break;
+            default:
+                Directory.CreateDirectory(Path.Combine(_folder, "outside"));
+                File.WriteAllText(Path.Combine(_folder, "outside", "RDCore.LanguageServer" + exe), "server");
+                File.WriteAllText(Path.Combine(tree, "rdcore.json"), $$"""{ "platformVersion": "0.2.0", "langService": "../outside/RDCore.LanguageServer{{exe}}" }""");
+                break;
+        }
 
-        Assert.AreEqual(1, await InstallAsync(tree));
+        // the SDK's own reason (its LaunchMessages), as it gives it for the tree.
+        var reason = Assert.Throws<Exception>(() => RDCoreLanguageServerLaunch.FindLanguageServer(tree)).Message;
+        var errors = new List<string>();
 
+        Assert.AreEqual(1, await Command(tree, Recording(errors)).ExecuteAsync([], CancellationToken.None));
+
+        CollectionAssert.AreEqual(new[] { string.Format(RDCore.CLI.Resources.Install_NotATree, reason) }, errors);
         Assert.IsFalse(Directory.Exists(Path.Combine(_root, "versions")));
     }
 
