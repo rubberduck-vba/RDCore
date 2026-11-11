@@ -110,6 +110,8 @@ Le code de sortie indique comment s'est passée l'exécution :
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
 |`-r`, `--runtime`|La plateforme pour laquelle le programme est construit, comme `win-x64` ou `linux-x64`; celle où s'exécute `rdc` par défaut.|
 
+Le programme affiche ses boîtes de dialogue comme `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
+
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 

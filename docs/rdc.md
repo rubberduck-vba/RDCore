@@ -106,6 +106,8 @@ The exit code says how the run went:
 |`-c`, `--configuration`|`Debug` (the default) or `Release`.|
 |`-r`, `--runtime`|The platform the program is built for, such as `win-x64` or `linux-x64`; the one `rdc` runs on by default.|
 
+The program shows its dialogs as `rdc run` does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+
 ---
 [ACCUEIL](index.fr.md) • [HOME](index.md) | ℹ️ [BIENVENUE](introduction.fr.md) • [WELCOME](introduction.html) | 🧩 [BÂTISSONS](getting-started.fr.md) • [BUILD](getting-started.html) | [**RD-VBAL**](/RDCore/specs/rd-vbal.html) | [SDK](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.html) | 🌐 [rubberduckvba.ca](https://rubberduckvba.ca)
 
