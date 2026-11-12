@@ -1472,7 +1472,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         }
 
         // a field of the record an element holds is part of the element, a field of a record field of it too: passing one by reference locks the array as
-        // passing the element does (MS-VBA, recorded in Excel: oracle\s85).
+        // passing the element does (MS-VBA, observed in Excel).
         if (array.ItemType is VBUserDefinedType)
         {
             for (var index = 0; index < array.Length; index++)

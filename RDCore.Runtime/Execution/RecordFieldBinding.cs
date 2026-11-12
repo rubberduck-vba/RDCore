@@ -21,7 +21,9 @@ namespace RDCore.Runtime.Execution;
 /// <param name="fieldType">The type the field is declared as: a record type, or <c>Variant</c>.</param>
 internal sealed class RecordFieldBinding(IRuntimeSession session, VBUserDefinedTypeValue record, int index, VBType fieldType) : IBindingHandle
 {
-    /// <summary>The record whose field it is.</summary>
+    /// <summary>
+    /// The record whose field it is.
+    /// </summary>
     public VBUserDefinedTypeValue Record => record;
 
     /// <inheritdoc/>
