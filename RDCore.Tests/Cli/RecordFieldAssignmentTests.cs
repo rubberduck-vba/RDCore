@@ -47,8 +47,8 @@ public sealed class RecordFieldAssignmentTests
             "    D = 6",
             "    Debug.Print \"variable \" & D.Value"), engine));
 
-    // an array of records whose element's field a ByRef parameter holds is locked while it does: a Let of another array to it is error 10, and the
-    // parameter still reads the field and writes it (MS-VBA, recorded in Excel: oracle s85).
+    // an array of records whose element's field a ByRef parameter holds is locked while it does: a Let of another array to it is run-time error 10,
+    // and the parameter still reads the field and writes it (MS-VBA, observed in Excel).
     [TestMethod]
     [DataRow(VBExecutionEngine.Interpreter, DisplayName = "Interpreter")]
     [DataRow(VBExecutionEngine.Compiled, DisplayName = "Compiled")]
