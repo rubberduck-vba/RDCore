@@ -232,10 +232,10 @@ public sealed class TemporaryReferenceTests
     #region For Each
 
     [TestMethod]
-    // MS-VBAL §5.4.2.4: the elements of an array declared Object are Set-assigned to the control variable. The array is the function's result,
-    // which only the loop holds once the statement that opened it is over.
-    public async Task TheObjectsOfAnArrayAForEachEnumerates_LiveUntilTheLoopIsOver()
-        => CollectionAssert.AreEqual(new[] { "a", "b", "terminated a", "terminated b", "after" }, await RunWith(
+    // MS-VBAL §5.4.2.4: the elements of an array declared Object are Set-assigned to the control variable. The array is the function's result, which
+    // the loop holds as a hidden local of the procedure once the statement that opened it is over, until the procedure ends (observed in Excel).
+    public async Task TheObjectsOfAnArrayAForEachEnumerates_LiveUntilTheProcedureEnds()
+        => CollectionAssert.AreEqual(new[] { "a", "b", "after", "terminated a", "terminated b" }, await RunWith(
             Make + "\r\nPrivate Function Both() As Variant\r\n    Dim r(1) As Object\r\n    Set r(0) = Make(\"a\")\r\n    Set r(1) = Make(\"b\")\r\n    Both = r\r\nEnd Function",
             "Dim x As Object",
             "For Each x In Both()",

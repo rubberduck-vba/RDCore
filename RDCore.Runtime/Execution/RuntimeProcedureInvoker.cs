@@ -289,7 +289,7 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
     // MS-VBAL §5.3.1.10: the procedure extent variables cease to exist with the activation, and an object that was
     // held by one of them only is destroyed with it - which is where its Terminate runs. What the function returns
     // is taken by whoever called it: it is held as a temporary of the caller's statement first (ObjectReferences.HoldTemporarily),
-    // and the function result variable, the locals, the ByVal parameters and the blocks still open let go of what they held
+    // and the function result variable, the blocks still open, the locals and the ByVal parameters let go of what they held
     // after it. A Static local outlives the activation and is not in the frame.
     private void ReleaseLocals(CallStackFrame frame, ImmutableArray<BoundTypedSymbol> locals, ImmutableArray<VBParameterSymbol> parameters, IRuntimeValue[]? arguments)
     {
@@ -297,6 +297,13 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
         if (frame.HasResultCell)
         {
             ObjectReferences.Release(Session, frame.ResultCell);
+        }
+
+        // what its blocks hold, before its variables (MS-VBA, observed in Excel): what a For Each's collection expression made, the enumerator or array of a
+        // loop a GoSub or a handler left, and the target of a With block the activation left by returning from inside it.
+        foreach (var holder in frame.TakeBlockHolders())
+        {
+            ObjectReferences.Release(Session, holder);
         }
 
         // the cells are read by the number of their slot when they have one (S1.4c), and looked up by their symbol otherwise. An activation an edit relaid holds
@@ -337,12 +344,6 @@ public sealed class RuntimeProcedureInvoker(IRuntimeSession Session, IReadOnlyDi
             {
                 ObjectReferences.Release(Session, handle);
             }
-        }
-
-        // a block the activation left by returning from inside it: an Exit Function in a With block.
-        foreach (var holder in frame.TakeBlockHoldersOutside(null))
-        {
-            ObjectReferences.Release(Session, holder);
         }
     }
 

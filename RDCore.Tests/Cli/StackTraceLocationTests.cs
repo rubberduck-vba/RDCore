@@ -293,9 +293,9 @@ public sealed class StackTraceLocationTests
             "End Sub")),
     ];
 
-    // an object let go of where the activation that holds it ends, or leaves the For Each that held it: the activation is located where it then is, and not
-    // at the last call it made. That is nowhere, past the end of its body, which an Exit Sub goes to through its End Sub; or the statement after the loop,
-    // which its Next or its Exit For leads to.
+    // an object let go of where the activation that holds it ends - in a variable of its own, or in the collection a function returned to a For Each, which
+    // is held until then however the loop ends: the activation is located where it then is, and not at the last call it made. That is nowhere, past the end
+    // of its body, which an Exit Sub goes to through its End Sub.
     [TestMethod]
     public async Task AnActivationThatLetsGoOfAnObjectWhoseTerminateRaises_IsLocatedWhereItLetsGoOfIt()
     {
@@ -339,8 +339,8 @@ public sealed class StackTraceLocationTests
                 {
                     "  at Class_Terminate (8:5)", "  at Ends", "  at Main (2:5)",
                     "  at Class_Terminate (8:5)", "  at Ends", "  at Main (3:5)",
-                    "  at Class_Terminate (8:5)", "  at Loops (22:5)", "  at Main (4:5)",
-                    "  at Class_Terminate (8:5)", "  at Loops (22:5)", "  at Main (5:5)",
+                    "  at Class_Terminate (8:5)", "  at Loops", "  at Main (4:5)",
+                    "  at Class_Terminate (8:5)", "  at Loops", "  at Main (5:5)",
                 },
                 string.Join("\r\n", result.Output).Split("\r\n"),
                 $"{engine}: {string.Join(" / ", result.Output.Select(line => line.Replace("\r\n", " + ")))}");

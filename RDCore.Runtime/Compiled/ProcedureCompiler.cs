@@ -271,7 +271,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         Append(body);
         Append(is64Bit ? "pointer:64" : "pointer:32");
-        Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.ResultIsText}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.HasForEach}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
+        Append($"{analysis.ResultKind}|{analysis.ResultIsVariant}|{analysis.ResultIsText}|{analysis.Length}|{analysis.HandlesErrors}|{analysis.NeedsFrame}|{analysis.MeSlot}|{analysis.EntersWithoutFrame}");
         Append(string.Join(',', analysis.Parameters.Select(parameter => $"{parameter.Slot}:{parameter.Kind}:{parameter.ByReference}")));
         Append(string.Join(',', analysis.CellSlots));
         Append(string.Join(',', analysis.SlotSymbols.OrderBy(slot => slot.Key).Select(slot => $"{slot.Key}:{slot.Value.SemanticId}")));
