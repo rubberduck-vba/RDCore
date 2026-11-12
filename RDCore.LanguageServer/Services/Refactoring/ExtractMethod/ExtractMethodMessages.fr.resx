@@ -34,6 +34,40 @@
   <data name="ExtractMethodName_Shadows" xml:space="preserve">
     <value>« {0} » est aussi {1}, que la nouvelle procédure masque dans ce module.</value>
   </data>
+  <!-- What is wrong with the user's answers for a parameter of the new procedure (ExtractionParameterProblem): {0} is the parameter, {1} the name or the passing the user gave it (for OptionalBeforeRequired, the parameter that is not Optional), {2} the longest a name can be. -->
+  <data name="ExtractMethodParameter_NotAParameter" xml:space="preserve">
+    <value>« {0} » n'est pas un paramètre de la nouvelle procédure, ou il a deux réponses.</value>
+  </data>
+  <data name="ExtractMethodParameter_Empty" xml:space="preserve">
+    <value>Le paramètre « {0} » a besoin d'un nom.</value>
+  </data>
+  <data name="ExtractMethodParameter_NotAnIdentifier" xml:space="preserve">
+    <value>« {1} » n'est pas un nom : un nom est une lettre, suivie de lettres, de chiffres et de traits de soulignement.</value>
+  </data>
+  <data name="ExtractMethodParameter_Reserved" xml:space="preserve">
+    <value>« {1} » est un mot clé du langage : rien ne peut être nommé « {1} ».</value>
+  </data>
+  <data name="ExtractMethodParameter_TooLong" xml:space="preserve">
+    <value>Un nom compte au plus {2} caractères.</value>
+  </data>
+  <data name="ExtractMethodParameter_Duplicate" xml:space="preserve">
+    <value>Deux paramètres sont nommés « {1} ».</value>
+  </data>
+  <data name="ExtractMethodParameter_Collision" xml:space="preserve">
+    <value>La nouvelle procédure nomme déjà quelque chose « {1} » : le paramètre « {0} » ne peut pas être nommé ainsi.</value>
+  </data>
+  <data name="ExtractMethodParameter_NotKnownWhereWritten" xml:space="preserve">
+    <value>La sélection nomme « {0} » dans du code dont le sens n'est pas connu : « {0} » ne peut pas être renommé.</value>
+  </data>
+  <data name="ExtractMethodParameter_NotAPassing" xml:space="preserve">
+    <value>« {1} » n'est pas une façon de passer « {0} » : c'est ByVal ou ByRef.</value>
+  </data>
+  <data name="ExtractMethodParameter_PassingIsNotAChoice" xml:space="preserve">
+    <value>« {0} » reste ByRef : la nouvelle procédure y écrit une valeur lue ensuite, ou VBA ne le passe que par référence.</value>
+  </data>
+  <data name="ExtractMethodParameter_OptionalBeforeRequired" xml:space="preserve">
+    <value>Le paramètre Optional « {0} » vient avant « {1} », qui n'est pas Optional : en VBA, les paramètres Optional viennent en dernier.</value>
+  </data>
   <data name="ExtractMethod_Title" xml:space="preserve">
     <value>Extraire une méthode…</value>
   </data>
@@ -51,6 +85,18 @@
   </data>
   <data name="ExtractMethodChoice_ParametersDescription" xml:space="preserve">
     <value>Ce que la nouvelle procédure reçoit, et comment.</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterName" xml:space="preserve">
+    <value>Nom</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterPassing" xml:space="preserve">
+    <value>Passage</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterByVal" xml:space="preserve">
+    <value>Une copie de la valeur : ce que la nouvelle procédure y écrit n'atteint pas l'appelant.</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterByRef" xml:space="preserve">
+    <value>La variable elle-même : ce que la nouvelle procédure y écrit atteint l'appelant.</value>
   </data>
   <data name="ExtractMethodChoice_ReturnValue" xml:space="preserve">
     <value>Valeur de retour</value>

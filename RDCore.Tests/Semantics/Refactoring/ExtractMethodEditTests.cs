@@ -469,4 +469,59 @@ public sealed class ExtractMethodEditTests
             """).TrimEnd(), edit.Call);
         Assert.AreEqual(Lines("Private Enum ExtractedExit\n  ExtractedExitNone\n  ExtractedExitDo\n  ExtractedExitSub\nEnd Enum"), edit.Enumeration);
     }
+
+    // b and a are put in each other's places, and renamed; a is passed by reference. The call passes the variables as the source names them.
+    [TestMethod]
+    public void TheParametersTheUserEdits_AreDeclaredAndNamedAsTheUserSaid_AndTheCallPassesThemInThatOrder()
+    {
+        var (module, _) = ExtractionFixture.Extract("Dim a As Long\nDim b As Long\nDim t As Long\na = n + 1\nt = a * 2\nb = t + n\nDebug.Print a; b", 4, 5,
+            parameters: [new("b", Name: "sum"), new("a", Name: "x", Passing: "ByRef")]);
+
+        Assert.AreEqual(Lines("""
+            Public Sub Run(ByVal n As Long)
+            Dim a As Long
+            Dim b As Long
+            a = n + 1
+            Extracted b, n, a
+            Debug.Print a; b
+            End Sub
+
+            Private Sub Extracted(ByRef sum As Long, ByVal n As Long, ByRef x As Long)
+                Dim t As Long
+                t = x * 2
+                sum = t + n
+            End Sub
+
+            """), FromRun(module));
+    }
+
+    // its type-declaration character stays with the variable it is written after, whatever its name.
+    [TestMethod]
+    public void ARenamedParameterWithATypeDeclarationCharacter_KeepsIt()
+    {
+        var (module, _) = ExtractionFixture.Extract("Dim k%\nk = n\nDebug.Print k% + k\nDebug.Print k", 2, 2, parameters: [new("k", Name: "count")]);
+
+        StringAssert.Contains(module, Lines("Private Sub Extracted(ByVal count%)\n    Debug.Print count% + count\nEnd Sub"));
+        StringAssert.Contains(module, Lines("Extracted k\nDebug.Print k"));
+    }
+
+    // the variable returned is the new procedure's own: the user's name for it is its local's.
+    [TestMethod]
+    public void ARenamedReturnValue_IsTheNewProceduresLocal_UnderItsNewName()
+    {
+        var (module, _) = ExtractionFixture.Extract("Dim a As Long\nDim b As Long\na = n\nb = a + 1\nDebug.Print b", 3, 3, returnValue: "b",
+            parameters: [new("b", Name: "total")]);
+
+        StringAssert.Contains(module, Lines("""
+            b = Extracted(a)
+            Debug.Print b
+            End Sub
+
+            Private Function Extracted(ByVal a As Long) As Long
+                Dim total As Long
+                total = a + 1
+                Extracted = total
+            End Function
+            """));
+    }
 }

@@ -77,4 +77,19 @@ public sealed class ExtractionVerificationTests
 
         Assert.AreEqual(ExtractionVerificationFailureKind.ExitNotReached, failure?.Kind);
     }
+
+    // x is read after the call, passed ByRef to a parameter the new procedure only reads: the call gives it no value, and nothing comes back of it.
+    [TestMethod]
+    public void AVariablePassedByReferenceToAParameterTheNewProcedureOnlyReads_IsNotGivenBackByTheCall()
+        => Assert.IsNull(ExtractionFixture.Verified("Dim x As Long\nx = n\nDebug.Print x * 2\nDebug.Print x", 2, 2, parameters: [new("x", Passing: "ByRef")]));
+
+    // the same parameter, written by the new procedure as the user changed it: what it writes comes back, which the selection did not give back.
+    [TestMethod]
+    public void AVariableTheNewProcedureWritesThroughAByRefParameter_IsGivenBackByTheCall_AndRefused()
+    {
+        var failure = ExtractionFixture.Verified("Dim x As Long\nx = n\nDebug.Print x * 2\nDebug.Print x", 2, 2, parameters: [new("x", Passing: "ByRef")],
+            tamper: edit => ExtractionFixture.Replacing(edit, ExtractionTextEditKind.Procedure, "Debug.Print x * 2", "x = x * 2"));
+
+        Assert.AreEqual(new ExtractionVerificationFailure(ExtractionVerificationFailureKind.DataFlowDiffers, "x"), failure);
+    }
 }

@@ -34,6 +34,40 @@
   <data name="ExtractMethodName_Shadows" xml:space="preserve">
     <value>'{0}' is also {1}, which the new procedure hides in this module.</value>
   </data>
+  <!-- What is wrong with the user's answers for a parameter of the new procedure (ExtractionParameterProblem): {0} is the parameter, {1} the name or the passing the user gave it (for OptionalBeforeRequired, the parameter that is not Optional), {2} the longest a name can be. -->
+  <data name="ExtractMethodParameter_NotAParameter" xml:space="preserve">
+    <value>'{0}' is not a parameter of the new procedure, or it is answered twice.</value>
+  </data>
+  <data name="ExtractMethodParameter_Empty" xml:space="preserve">
+    <value>The parameter '{0}' needs a name.</value>
+  </data>
+  <data name="ExtractMethodParameter_NotAnIdentifier" xml:space="preserve">
+    <value>'{1}' is not a name: a name is a letter, then letters, digits and underscores.</value>
+  </data>
+  <data name="ExtractMethodParameter_Reserved" xml:space="preserve">
+    <value>'{1}' is a keyword of the language: nothing can be named '{1}'.</value>
+  </data>
+  <data name="ExtractMethodParameter_TooLong" xml:space="preserve">
+    <value>A name is at most {2} characters long.</value>
+  </data>
+  <data name="ExtractMethodParameter_Duplicate" xml:space="preserve">
+    <value>Two parameters are named '{1}'.</value>
+  </data>
+  <data name="ExtractMethodParameter_Collision" xml:space="preserve">
+    <value>The new procedure already names something '{1}': the parameter '{0}' cannot take that name.</value>
+  </data>
+  <data name="ExtractMethodParameter_NotKnownWhereWritten" xml:space="preserve">
+    <value>The selection names '{0}' in code whose meaning is not known: '{0}' cannot be renamed.</value>
+  </data>
+  <data name="ExtractMethodParameter_NotAPassing" xml:space="preserve">
+    <value>'{1}' is not a way to pass '{0}': it is ByVal or ByRef.</value>
+  </data>
+  <data name="ExtractMethodParameter_PassingIsNotAChoice" xml:space="preserve">
+    <value>'{0}' stays ByRef: the new procedure writes a value to it that is read after, or VBA passes it only by reference.</value>
+  </data>
+  <data name="ExtractMethodParameter_OptionalBeforeRequired" xml:space="preserve">
+    <value>The Optional parameter '{0}' comes before '{1}', which is not Optional: in VBA, the Optional parameters come last.</value>
+  </data>
   <data name="ExtractMethod_Title" xml:space="preserve">
     <value>Extract method…</value>
   </data>
@@ -51,6 +85,18 @@
   </data>
   <data name="ExtractMethodChoice_ParametersDescription" xml:space="preserve">
     <value>What the new procedure is given, and how.</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterPassing" xml:space="preserve">
+    <value>Passing</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterByVal" xml:space="preserve">
+    <value>A copy of the value: what the new procedure writes to it does not reach the caller.</value>
+  </data>
+  <data name="ExtractMethodChoice_ParameterByRef" xml:space="preserve">
+    <value>The variable itself: what the new procedure writes to it reaches the caller.</value>
   </data>
   <data name="ExtractMethodChoice_ReturnValue" xml:space="preserve">
     <value>Return value</value>

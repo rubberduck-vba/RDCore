@@ -5,6 +5,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Refactoring;
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.LanguageServer.Symbols;
 using RDCore.LanguageServer.Workspace;
 using RDCore.LanguageServer.Workspace.Services;
@@ -132,6 +133,66 @@ public sealed class ExtractMethodServiceTests
         var text = Applied(Module, document.Edits);
         StringAssert.Contains(text, "Private Sub Increment(");
         StringAssert.Matches(text, new System.Text.RegularExpressions.Regex(@"\r\n    Increment (a, b|b, a)\r\n"));
+    }
+
+    // a, which line 5 only reads, is passed by value and can be passed by reference; b, which it gives a value, is passed by reference only.
+    [TestMethod]
+    public async Task TheParameters_CanBeReorderedAndRenamed_AndPassedByReferenceWhereTheyArePassedByValue()
+    {
+        var prepared = await Sut().PrepareAsync(Document, Lines(5, 5), CancellationToken.None);
+
+        var parameters = prepared.Choices.Single(choice => choice.Id == ExtractMethodService.ParametersChoice);
+        Assert.IsTrue(parameters.CanReorder);
+        var a = parameters.Items.Single(item => item.Id == "a");
+        CollectionAssert.AreEqual(new[] { ExtractMethodService.ParameterNameChoice, ExtractMethodService.ParameterPassingChoice }, a.Choices.Select(choice => choice.Id).ToArray());
+        Assert.AreEqual("a", a.Choices[0].Default);
+        Assert.AreEqual("ByVal", a.Choices[1].Default);
+        CollectionAssert.AreEqual(new[] { "ByVal", "ByRef" }, a.Choices[1].Options.Select(option => option.Value).ToArray());
+        var b = parameters.Items.Single(item => item.Id == "b");
+        CollectionAssert.AreEqual(new[] { ExtractMethodService.ParameterNameChoice }, b.Choices.Select(choice => choice.Id).ToArray());
+    }
+
+    [TestMethod]
+    public async Task TheParametersAnswer_IsWhatTheNewProcedureDeclares_AndWhatTheCallPasses()
+    {
+        var answer = await Sut().ApplyAsync(Document, Lines(5, 5),
+        [
+            Answer(ExtractMethodService.NameChoice, "Increment"),
+            new RefactorAnswer
+            {
+                Id = ExtractMethodService.ParametersChoice,
+                Items =
+                [
+                    new RefactorItemAnswer { Id = "b" },
+                    new RefactorItemAnswer
+                    {
+                        Id = "a",
+                        Answers = [Answer(ExtractMethodService.ParameterNameChoice, "x"), Answer(ExtractMethodService.ParameterPassingChoice, "ByRef")],
+                    },
+                ],
+            },
+        ], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Private Sub Increment(ByRef b As Long, ByRef x As Long)\r\n    b = x + 1\r\n");
+        StringAssert.Contains(text, "\r\n    Increment b, a\r\n");
+    }
+
+    [TestMethod]
+    public async Task AParameterThatCannotBePassedByValue_IsRefused_SayingWhy()
+    {
+        var answer = await Sut().ApplyAsync(Document, Lines(5, 5),
+        [
+            new RefactorAnswer
+            {
+                Id = ExtractMethodService.ParametersChoice,
+                Items = [new RefactorItemAnswer { Id = "b", Answers = [Answer(ExtractMethodService.ParameterPassingChoice, "ByVal")] }],
+            },
+        ], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Edit);
+        Assert.AreEqual(new ExtractionParameterProblem(ExtractionParameterProblemKind.PassingIsNotAChoice, "b", "ByVal").ToMessage(), answer.Refusal);
     }
 
     // line 19 is the Property Let's: its Property Get, of the same name, comes first.

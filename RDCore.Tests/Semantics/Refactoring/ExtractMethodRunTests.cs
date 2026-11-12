@@ -285,4 +285,27 @@ public sealed class ExtractMethodRunTests
         Assert.AreEqual("made | after | terminate", before.Output);
         Assert.AreEqual("made | terminate | after", after.Output);
     }
+
+    // b and a in each other's places, renamed, and a passed by reference: the program prints what it did inline.
+    [TestMethod]
+    public async Task ParametersRenamedReorderedAndPassedByReference_RunAsTheSelectionDidInline()
+    {
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync("Dim a As Long\nDim b As Long\nDim t As Long\na = n + 1\nt = a * 2\nb = t + n\nDebug.Print a; b",
+            4, 5, parameters: [new("b", Name: "sum"), new("a", Name: "x", Passing: "ByRef")]);
+
+        Assert.AreEqual(before, after, module);
+        StringAssert.Contains(module, "Private Sub Extracted(ByRef sum As Long, ByVal n As Long, ByRef x As Long)");
+    }
+
+    // a and n take each other's names: a is 4 and n is 3, and b is 2 * a + n as before, not 2 * n + a.
+    [TestMethod]
+    public async Task TwoParametersThatTakeEachOthersNames_RunAsTheSelectionDidInline()
+    {
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync("Dim a As Long\nDim b As Long\nDim t As Long\na = n + 1\nt = a * 2\nb = t + n\nDebug.Print b",
+            4, 5, parameters: [new("a", Name: "n"), new("n", Name: "a")]);
+
+        Assert.AreEqual(before, after, module);
+        Assert.AreEqual("11", before.Output);
+        StringAssert.Contains(module, "Private Sub Extracted(ByVal n As Long, ByVal a As Long, ByRef b As Long)");
+    }
 }
