@@ -663,8 +663,8 @@ public partial class ModuleParser(
         }
         var outputLists = new OutputListCollector();
         parser.AddParseListener(outputLists);
-        var parameterNames = new ReservedParameterNameCollector();
-        parser.AddParseListener(parameterNames);
+        var declarationNames = new ReservedDeclarationNameCollector();
+        parser.AddParseListener(declarationNames);
 
         // the recovery reads a block whose header has an operator right before one of its words as the block it is, without the operator.
         var takenOff = errorStrategy is StatementBoundErrorStrategy && StatementBoundErrorStrategy.TakeOffOperatorsBeforeAWordOfAHeader(tokens) is { Count: > 0 } operators
@@ -679,7 +679,7 @@ public partial class ModuleParser(
         takenOff?.ReportTheRest();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
-        ReportReservedParameterNames(parameterNames.Names, findings);
+        ReportReservedDeclarationNames(declarationNames, findings);
         if (parser.NumberOfSyntaxErrors > 0)
         {
             MarkDanglingOperators(tree, tokens);
@@ -803,18 +803,24 @@ public partial class ModuleParser(
     }
 
     /// <summary>
-    /// Reports each parameter named with a reserved identifier as a syntax error at its name: <c>Sub S(ByVal Mod As Long)</c>.
+    /// Reports each declaration named with a reserved identifier as a syntax error at its name: <c>Sub S(ByVal Mod As Long)</c>, <c>Dim Len As Long</c>.
     /// </summary>
     /// <remarks>
-    /// A parameter's name cannot be a reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>). The grammar still reads one
-    /// there, so the procedure is read whole: its body, its end and the procedures after it parse as they would with a valid name.
+    /// A parameter, a variable, a constant, a procedure, an <c>Enum</c> and its members, a user-defined type, an external procedure and an event are named
+    /// with an <c>IDENTIFIER</c>, which is no reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>); a member of a user-defined
+    /// type can have one. The grammar still reads one there, so the declaration is read whole: the body of a procedure, its end and the procedures after it
+    /// parse as they would with a valid name.
     /// </remarks>
-    private static void ReportReservedParameterNames(IEnumerable<VBAParser.UnrestrictedIdentifierContext> names, ErrorListener findings)
+    private static void ReportReservedDeclarationNames(ReservedDeclarationNameCollector names, ErrorListener findings)
     {
-        foreach (var name in names)
+        foreach (var name in names.Parameters)
         {
-            findings.ReplaceGrammarErrorAt(name.Start, VBCompileErrorId.SyntaxError,
-                string.Format(Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Start.Text));
+            findings.ReplaceGrammarErrorAt(name, VBCompileErrorId.SyntaxError, string.Format(Exceptions.VBCompileError_ReservedParameterName_Verbose, name.Text));
+        }
+
+        foreach (var name in names.Names)
+        {
+            findings.ReplaceGrammarErrorAt(name, VBCompileErrorId.SyntaxError, string.Format(Exceptions.VBCompileError_ReservedDeclarationName_Verbose, name.Text));
         }
     }
 
@@ -1181,18 +1187,87 @@ internal sealed class OutputListCollector : VBAParserBaseListener
     public override void ExitOutputList([NotNull] VBAParser.OutputListContext context) => Lists.Add(context);
 }
 
-// the names of a parse's parameters that are reserved identifiers, registered live: a name the rule read whole, which is no identifier.
-internal sealed class ReservedParameterNameCollector : VBAParserBaseListener
+// the names of a parse's declarations that are reserved identifiers (MS-VBAL 3.3.5.2), registered live: a name the rule read whole, which is no identifier,
+// or an identifier that is one reserved word the grammar reads as a name (Len, Array, Then). A member of a user-defined type is named with any reserved
+// identifier (MS-VBAL 5.2.3.3 <reserved-name-member-dcl>), and is not one of them.
+internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
 {
-    public List<VBAParser.UnrestrictedIdentifierContext> Names { get; } = [];
+    // the words of the grammar's keyword rule that are reserved identifiers: reserved names, special forms, statement keywords, marker keywords and literal
+    // identifiers. The others (Name, Text, Step, Error...) are identifiers.
+    private static readonly HashSet<int> ReservedWords =
+    [
+        VBAParser.ABS, VBAParser.CBOOL, VBAParser.CBYTE, VBAParser.CCUR, VBAParser.CDATE, VBAParser.CDBL, VBAParser.CDEC, VBAParser.CINT, VBAParser.CLNG,
+        VBAParser.CLNGLNG, VBAParser.CLNGPTR, VBAParser.CSNG, VBAParser.CSTR, VBAParser.CVAR, VBAParser.CVERR, VBAParser.DATE, VBAParser.DEBUG,
+        VBAParser.DOEVENTS, VBAParser.FIX, VBAParser.INT, VBAParser.LEN, VBAParser.LENB, VBAParser.ME, VBAParser.PSET, VBAParser.SGN, VBAParser.STRING,
+        VBAParser.ARRAY, VBAParser.INPUT, VBAParser.INPUTB, VBAParser.LBOUND, VBAParser.UBOUND,
+        VBAParser.CLOSE, VBAParser.END, VBAParser.GET, VBAParser.LOCK, VBAParser.OPEN, VBAParser.PRINT, VBAParser.PUT, VBAParser.SEEK, VBAParser.UNLOCK,
+        VBAParser.WRITE,
+        VBAParser.ANY, VBAParser.BYREF, VBAParser.BYVAL, VBAParser.IN, VBAParser.OPTIONAL, VBAParser.PARAMARRAY, VBAParser.PRESERVE, VBAParser.SHARED,
+        VBAParser.SPC, VBAParser.TAB, VBAParser.THEN, VBAParser.TO, VBAParser.UNTIL, VBAParser.WITHEVENTS,
+        VBAParser.TRUE, VBAParser.FALSE, VBAParser.NOTHING, VBAParser.NULL, VBAParser.ATTRIBUTE,
+    ];
+
+    // the reserved identifiers the lexer reads as an IDENTIFIER: the future-reserved ones but CDecl, and the ones reserved for the implementation's use but
+    // Attribute (MS-VBAL 3.3.5.2).
+    private static readonly HashSet<string> ReservedIdentifiers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Decimal", "DefDec", "LINEINPUT", "VB_Base", "VB_Control", "VB_Creatable", "VB_Customizable", "VB_Description", "VB_Exposed", "VB_Ext_KEY",
+        "VB_GlobalNameSpace", "VB_HelpID", "VB_Invoke_Func", "VB_Invoke_Property", "VB_Invoke_PropertyPut", "VB_Invoke_PropertyPutRef", "VB_MemberFlags",
+        "VB_Name", "VB_PredeclaredId", "VB_ProcData", "VB_TemplateDerived", "VB_UserMemId", "VB_VarDescription", "VB_VarHelpID", "VB_VarMemberFlags",
+        "VB_VarProcData", "VB_VarUserMemId",
+    };
+
+    public List<IToken> Parameters { get; } = [];
+
+    public List<IToken> Names { get; } = [];
 
     public override void ExitArg([NotNull] VBAParser.ArgContext context)
     {
-        if (context.unrestrictedIdentifier() is { exception: null, Start.TokenIndex: >= 0 } name && name.identifier() is null && name.ChildCount > 0)
+        if (context.unrestrictedIdentifier() is { exception: null, Start.TokenIndex: >= 0 } name && name.ChildCount > 0
+            && (name.identifier() is null ? name.Start : ReservedWordOf(name.identifier())) is { } word)
         {
-            Names.Add(name);
+            Parameters.Add(word);
         }
     }
+
+    public override void ExitVariableSubStmt([NotNull] VBAParser.VariableSubStmtContext context) => Add(context.identifier());
+
+    public override void ExitConstSubStmt([NotNull] VBAParser.ConstSubStmtContext context) => Add(context.identifier());
+
+    public override void ExitFunctionName([NotNull] VBAParser.FunctionNameContext context) => Add(context.identifier());
+
+    public override void ExitSubroutineName([NotNull] VBAParser.SubroutineNameContext context) => Add(context.identifier());
+
+    public override void ExitEnumerationStmt_Constant([NotNull] VBAParser.EnumerationStmt_ConstantContext context) => Add(context.identifier());
+
+    public override void ExitEnumerationStmt([NotNull] VBAParser.EnumerationStmtContext context) => Add(context.identifier());
+
+    public override void ExitDeclareStmt([NotNull] VBAParser.DeclareStmtContext context) => Add(context.identifier());
+
+    public override void ExitEventStmt([NotNull] VBAParser.EventStmtContext context) => Add(context.identifier());
+
+    public override void ExitUdtDeclaration([NotNull] VBAParser.UdtDeclarationContext context) => Add(ReservedWordOf(context.untypedIdentifier()));
+
+    private void Add(VBAParser.IdentifierContext? identifier) => Add(ReservedWordOf(identifier));
+
+    private void Add(IToken? word)
+    {
+        if (word is not null)
+        {
+            Names.Add(word);
+        }
+    }
+
+    private static IToken? ReservedWordOf(VBAParser.IdentifierContext? identifier)
+        => identifier is { exception: null } ? ReservedWordOf(identifier.untypedIdentifier() ?? identifier.typedIdentifier()?.untypedIdentifier()) : null;
+
+    private static IToken? ReservedWordOf(VBAParser.UntypedIdentifierContext? identifier)
+        => identifier is { exception: null } ? identifier.identifierValue() switch
+        {
+            { exception: null } value when value.keyword() is { exception: null, Start: { TokenIndex: >= 0 } word } && ReservedWords.Contains(word.Type) => word,
+            { exception: null } value when value.IDENTIFIER()?.Symbol is { TokenIndex: >= 0 } word && ReservedIdentifiers.Contains(word.Text) => word,
+            _ => null,
+        } : null;
 }
 
 // grammar-agnostic (implements the plain IParseTreeListener, not a specific grammar's generated base):

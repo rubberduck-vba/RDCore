@@ -28,7 +28,7 @@ public sealed class ShadowedDeclarationAnalyzerTests
     [DataRow("Private Sub Report() ;; End Sub ;; Public Sub Main() ;; Dim Report As String ;; End Sub", "Report", DisplayName = "a procedure of the module")]
     [DataRow("Private Count As Long ;; Public Sub Main(ByVal Count As Long) ;; End Sub", "Count", DisplayName = "a parameter")]
     [DataRow("Public Sub Main() ;; Dim Left As String ;; End Sub", "Left", DisplayName = "a function of the library")]
-    [DataRow("Public Sub Main(ByVal Date As Date) ;; End Sub", "Date", DisplayName = "a parameter, a function of the library")]
+    [DataRow("Public Sub Main(ByVal Now As Date) ;; End Sub", "Now", DisplayName = "a parameter, a function of the library")]
     [DataRow("Public Enum Color ;; Red ;; End Enum ;; Public Sub Main() ;; Dim Red As Long ;; End Sub", "Red", DisplayName = "a member of an enumeration")]
     public async Task ALocalOrAParameterThatHidesAName_IsReported(string program, string name)
     {
