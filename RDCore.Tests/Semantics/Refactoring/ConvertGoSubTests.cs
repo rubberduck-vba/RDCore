@@ -228,6 +228,27 @@ public sealed class ConvertGoSubTests
         Assert.AreEqual(new ExtractionVerificationFailure(ExtractionVerificationFailureKind.DataFlowDiffers, "total"), failure);
     }
 
+    // a module of its own Err raises error 5 with the library's.
+    [TestMethod]
+    public async Task AnOnGoSub_WhereTheModuleDeclaresErr_RaisesErrorFiveWithTheLibrarysErr()
+    {
+        const string body =
+            "    Dim total As Long\n" +
+            "    total = 1\n" +
+            "    On n GoSub Twice\n" +
+            "    Debug.Print total; Err\n" +
+            "    Exit Sub\n" +
+            "Twice:\n" +
+            "    total = total * 2\n" +
+            "    Return";
+
+        var (before, after, module) = await ExtractionRuns.ConvertedBeforeAndAfterAsync(body, "Twice", driver: "Run 1\nRun -1", declarations: "Private Err As Long");
+
+        StringAssert.Contains(module, "        VBA.Err.Raise 5\r\n", module);
+        Assert.AreNotEqual(ExecutionOutcome.Completed, before.Outcome);
+        Assert.AreEqual(before, after);
+    }
+
     [TestMethod]
     public async Task AnOnGoSubAndAGoSub_AreBothCalls()
     {

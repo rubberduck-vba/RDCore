@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
@@ -553,8 +554,14 @@ internal static class ExtractMethodEdit
                 }
             }
 
+            // CInt is a reserved name (MS-VBAL §3.3.5.2), which nothing can declare; Err is not, and is the standard library's where another Err, the
+            // workspace's or a referenced library's, would be meant.
+            var err = source.Scopes.ScopeFor(source.ProcedureId.Uri).SelfAndAncestors().SelectMany(scope => scope.DeclaredAs("Err")).FirstOrDefault() is { } meant
+                && !StandardLibrary.IsLibraryMember(meant)
+                ? $"{StandardLibrary.LibraryName}.Err"
+                : "Err";
             lines.Add($"{indentation}{Indent}Case Is < 0");
-            lines.Add($"{inner}Err.Raise 5");
+            lines.Add($"{inner}{err}.Raise 5");
             lines.Add($"{indentation}End Select");
             return new ExtractionTextEdit(range, string.Join(_newLine, lines), ExtractionTextEditKind.Site, callStart, call.Length);
         }
