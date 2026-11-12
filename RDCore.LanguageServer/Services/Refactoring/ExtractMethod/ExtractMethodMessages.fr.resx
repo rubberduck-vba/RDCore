@@ -37,6 +37,9 @@
   <data name="ExtractMethod_Title" xml:space="preserve">
     <value>Extraire une méthode…</value>
   </data>
+  <data name="ExtractMethod_DocumentChanged" xml:space="preserve">
+    <value>L'extraction n'a pas été effectuée : le document a changé depuis qu'elle a été proposée. Sélectionnez de nouveau les instructions.</value>
+  </data>
   <data name="ExtractMethodChoice_Name" xml:space="preserve">
     <value>Nom</value>
   </data>

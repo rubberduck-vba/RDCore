@@ -96,6 +96,11 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// </summary>
     public static string Title() => Format("ExtractMethod_Title");
 
+    /// <summary>
+    /// Why an extraction offered for one version of a document is not made for another, in the language of the user interface.
+    /// </summary>
+    public static string DocumentChanged() => Format("ExtractMethod_DocumentChanged");
+
     public async Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourceRange range, CancellationToken token)
     {
         if (await ExtractionOfAsync(documentUri, range, token) is not { } extraction)
