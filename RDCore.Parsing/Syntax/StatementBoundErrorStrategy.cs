@@ -679,6 +679,7 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
     /// <c>Then</c> and <c>To</c> are reserved words (MS-VBAL §3.3.5.2), and an operation whose right operand is a variable named <c>Step</c> is followed by
     /// the end of the header, or by the For's own <c>Step</c>.
     /// </remarks>
+    /// <param name="tokens">The module's tokens, before the parse reads them.</param>
     /// <returns>The operators taken off, in the order they are written.</returns>
     internal static IReadOnlyList<IToken> TakeOffOperatorsBeforeAWordOfAHeader(CommonTokenStream tokens)
     {
@@ -732,8 +733,8 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
             or VBALexer.EACH or VBALexer.IN or VBALexer.TO or VBALexer.STEP or VBALexer.THEN or VBALexer.CASE or VBALexer.SELECT or VBALexer.WHILE
             or VBALexer.UNTIL or VBALexer.DO);
 
-    // whether the Step at the index is a Step and its value: something follows it in its statement, and no other Step does, which the operation's Step
-    // would be a variable before.
+    // whether the Step at the index is a Step and its value: something follows it in its statement, and no other Step does. A Step that another Step
+    // follows is a variable, the right operand of the operation.
     private static bool IsTheValueOfAStep(IList<IToken> tokens, int step)
     {
         if (Significant(tokens, step, +1) is not { } value || EndsAStatement(value.Type))
@@ -767,6 +768,8 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 /// Reports each operator <see cref="StatementBoundErrorStrategy.TakeOffOperatorsBeforeAWordOfAHeader"/> took off the parser's channel, where the parse
 /// passes it: before the first token it reads after the operator, so the errors are in the order of their positions, and one statement has one error.
 /// </summary>
+/// <param name="parser">The parser whose parse passes the operators, and that reports them.</param>
+/// <param name="operators">The operators taken off, in the order they are written.</param>
 internal sealed class OperatorsTakenOffReporter(Parser parser, IReadOnlyList<IToken> operators) : IParseTreeListener
 {
     private int _next;
