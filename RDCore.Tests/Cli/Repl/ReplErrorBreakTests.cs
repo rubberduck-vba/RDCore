@@ -20,6 +20,9 @@ public sealed class ReplErrorBreakTests
     private static readonly string[] Program = ["10 N = 1", "20 N = N + 1", "30 PRINT N", "40 N = N / 0", "50 PRINT N", "60 PRINT 2"];
     private static readonly Uri OtherDocument = new(Path.Combine(Path.GetTempPath(), "rdcore-repl-error-break", "Other.bas"));
 
+    // a file of its own for the row of a run that ended, which runs alongside the row of a program that waits.
+    private static readonly Uri OtherEndedDocument = new(Path.Combine(Path.GetTempPath(), "rdcore-repl-error-break-ended", "Other.bas"));
+
     private readonly IReplConsole _console = Substitute.For<IReplConsole>();
     private readonly IReplPlatformClient _platform = Substitute.For<IReplPlatformClient>();
 
@@ -172,6 +175,59 @@ public sealed class ReplErrorBreakTests
         var (said, listedLast) = Order(string.Format(RDCore.CLI.Resources.Repl_RuntimeError_InModuleLine, "RUN-TIME ERROR", "Other", 5));
         Assert.IsTrue(said >= 0 && listedLast < said, $"listed last at {listedLast}, said at {said}");
         _console.DidNotReceive().WriteLine(string.Format(RDCore.CLI.Resources.Repl_Break_InModuleLine, "Other", 5));
+    }
+
+    [TestMethod]
+    public async Task ARunAnErrorInAModuleOfTheWorkspaceEnded_ListsTheModulesLines_ThenSaysTheErrorAndEachActivationByTheModulesLines()
+    {
+        var path = OtherEndedDocument.LocalPath;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllTextAsync(path, string.Join("\r\n", "Option Explicit", "", "Public Sub Divide()", "    Dim X As Double", "    X = 1 / 0", "End Sub"));
+        _platform.FindModuleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<Uri?>(null));
+        _platform.FindModuleAsync("Other", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Uri?>(OtherEndedDocument));
+        _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(DivisionByZero(4) with
+            {
+                Outcome = ExecutionOutcome.RuntimeError,
+                ErrorModule = "Other",
+                StackTrace =
+                [
+                    new ExecuteStackFrame("Divide", 4, 4, null) { Module = "Other" },
+                    new ExecuteStackFrame(ReplProgram.WorkspaceImmediateEntryPointName, 1, 0, null) { Module = ReplProgram.ImmediateModuleName },
+                ],
+            }));
+
+        await RunAsync(attachedToWorkspace: true, "Divide");
+
+        var listed = Listed();
+        CollectionAssert.AreEqual(
+            new[] { "3 Public Sub Divide()", "4     Dim X As Double", "5     X = 1 / 0", "6 End Sub" }, listed.Select(line => line.Text).ToArray());
+        var title = string.Format(RDCore.CLI.Resources.Repl_RuntimeError_InModuleLine, "RUN-TIME ERROR", "Other", 5);
+        var (said, listedLast) = Order(title);
+        Assert.IsTrue(said >= 0 && listedLast < said, $"listed last at {listedLast}, said at {said}");
+        _console.Received().WriteMessage(MessageKind.Error, title, Arg.Is<string?>(detail
+            => detail!.Contains("  Divide (Other line 5)") && detail.Contains($"  {ReplProgram.WorkspaceImmediateEntryPointName}") && !detail.Contains("_Immediate line")));
+    }
+
+    [TestMethod]
+    public async Task ARunAnErrorInTheShellsProgramEnded_SaysItByTheProgramsLineNumber()
+    {
+        _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var line = Array.FindIndex(call.ArgAt<string>(0).Split("\r\n"), text => text.StartsWith("40 ", StringComparison.Ordinal));
+                return Task.FromResult(DivisionByZero(line) with
+                {
+                    Outcome = ExecutionOutcome.RuntimeError,
+                    ErrorModule = ReplProgram.ModuleName,
+                    StackTrace = [new ExecuteStackFrame(ReplProgram.EntryPointName, line, 0, null) { Module = ReplProgram.ModuleName }],
+                });
+            });
+
+        await RunAsync(attachedToWorkspace: false, "RUN");
+
+        _console.Received().WriteMessage(MessageKind.Error, string.Format(RDCore.CLI.Resources.Repl_RuntimeError_InLine, "RUN-TIME ERROR", 40),
+            Arg.Is<string?>(detail => detail!.Contains($"  {ReplProgram.EntryPointName} 40") && !detail.Contains($"({ReplProgram.ModuleName} line")));
     }
 
     [TestMethod]

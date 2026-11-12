@@ -1038,6 +1038,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             Output = output.Lines,
             ErrorLine = stop.Location?.Range.Start.Line ?? -1,
             ErrorCharacter = stop.Location?.Range.Start.Character ?? -1,
+            ErrorModule = session.CallStack.Current is CallStackFrame waitsIn ? ProgramInspector.ModuleNameOf(waitsIn) : string.Empty,
             ErrorNumber = error?.ErrorId ?? 0,
             ErrorMessage = error?.Description ?? string.Empty,
             ErrorCode = error?.ToDiagnosticCode() ?? string.Empty,
@@ -1187,13 +1188,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             ErrorSource = session.Errors.Source is { Length: > 0 } source ? source : provider.ProjectName,
             ErrorLine = error.Location.Range.Start.Line,
             ErrorCharacter = error.Location.Range.Start.Character,
+            // the error was raised in the innermost activation of the trace, which was captured where it was raised.
+            ErrorModule = session.Errors.StackTrace.Frames is [var raisedIn, ..] ? raisedIn.Module : string.Empty,
             StackTrace =
             [
                 .. session.Errors.StackTrace.Frames.Select(frame => new ExecuteStackFrame(
                     frame.ProcedureName,
                     frame.Location?.Range.Start.Line ?? -1,
                     frame.Location?.Range.Start.Character ?? -1,
-                    frame.GoSubs.IsDefaultOrEmpty ? null : [.. frame.GoSubs.Select(gosub => gosub.Range.Start.Line)])),
+                    frame.GoSubs.IsDefaultOrEmpty ? null : [.. frame.GoSubs.Select(gosub => gosub.Range.Start.Line)])
+                {
+                    Module = frame.Module,
+                }),
             ],
             ErrorDetails = error.AsErrorInfo.Details,
         };

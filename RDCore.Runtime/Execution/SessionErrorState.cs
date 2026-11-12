@@ -2,6 +2,7 @@ using RDCore.Runtime.Execution.Frames;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Workspace;
 using System.Collections.Immutable;
@@ -115,12 +116,16 @@ internal sealed class SessionErrorState(ICallStack callStack) : ISessionErrorSta
 
     // the innermost activation is located where the error was raised, at the statement or the expression that faulted; each caller at the call it is
     // suspended at, the call expression or call statement that was running. The GoSubs every activation has not returned from are its own, and are
-    // captured now: by the time anyone reads the trace they are popped.
+    // captured now: by the time anyone reads the trace they are popped. So is the module each is in, which a position alone does not say: the position is
+    // in the module's source, and the module is the parent of the procedure the activation is of.
     private VBStackTrace Capture(IVBRaisableError error)
         => new(
         [
             .. callStack.Frames.Select((frame, depth)
-                => new VBStackTraceFrame(frame.StaticSymbol.Name, depth == 0 ? error.Location : (frame as CallStackFrame)?.CurrentLocation, GoSubsOf(frame))),
+                => new VBStackTraceFrame(frame.StaticSymbol.Name, depth == 0 ? error.Location : (frame as CallStackFrame)?.CurrentLocation, GoSubsOf(frame))
+                {
+                    Module = frame is CallStackFrame { Procedure: { } procedure } ? SymbolUri.ModuleNameOf(procedure.ParentUri) : string.Empty,
+                }),
         ]);
 
     private static ImmutableArray<SourceLocation> GoSubsOf(ICallStackFrame frame)

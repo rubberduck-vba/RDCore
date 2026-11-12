@@ -70,7 +70,20 @@ public sealed class ShellErrorBreakTests
         Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
         Assert.AreEqual(11, stopped.ErrorNumber);
         Assert.AreEqual(20, Program(Divides).LineNumberAt(stopped.ErrorLine));
+        Assert.AreEqual(ReplProgram.ModuleName, stopped.ErrorModule);
         Assert.AreEqual(ReplProgram.EntryPointName, shell.Provider.Execution.Stack().Frames[0].Procedure);
+    }
+
+    [TestMethod]
+    public async Task AnErrorTheProgramRaises_WithoutADebugger_EndsTheRunInTheShellsModule()
+    {
+        var shell = ShellHost.Compose();
+
+        var ended = await shell.RunAsync(Divides, debug: false);
+
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, ended.Outcome, ended.ErrorMessage);
+        Assert.AreEqual(ReplProgram.ModuleName, ended.ErrorModule);
+        Assert.AreEqual((ReplProgram.EntryPointName, ReplProgram.ModuleName), (ended.StackTrace[0].Procedure, ended.StackTrace[0].Module));
     }
 
     [TestMethod]
@@ -154,6 +167,7 @@ public sealed class ShellErrorBreakTests
             });
 
         Assert.AreEqual((ExecutionOutcome.Suspended, 11), (stopped.Outcome, stopped.ErrorNumber), stopped.ErrorMessage);
+        Assert.AreEqual("Other", stopped.ErrorModule);
         Assert.AreEqual(("Divide", "Other"), (innermost!.Procedure, innermost.Module));
         Assert.AreEqual(Array.FindIndex(other.Split("\r\n"), line => line.Trim() == "X = 1 / 0"), innermost.Line);
     }

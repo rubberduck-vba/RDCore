@@ -330,8 +330,19 @@ internal static class ReplExecution
                 break;
 
             // the lines around the statement that raised the error are listed as a break lists the lines around the one it stopped at, and the error is said
-            // after them.
+            // after them. An error raised in a module of the workspace is listed, and said, by that module's own lines.
             case ExecutionOutcome.RuntimeError:
+                if (InAModuleOfTheWorkspace(program, result.ErrorModule))
+                {
+                    if (listsTheBreak)
+                    {
+                        await ListAroundInModuleAsync(context, result.ErrorModule, result.ErrorLine);
+                    }
+
+                    RenderRuntimeError(console, program, result, inModule: (result.ErrorModule, result.ErrorLine + 1));
+                    break;
+                }
+
                 if (listsTheBreak)
                 {
                     await ListAroundAsync(context, program.LineNumberAt(result.ErrorLine));
@@ -391,6 +402,11 @@ internal static class ReplExecution
 
         return innermost;
     }
+
+    // a module other than the shell's own: the shell's program is said by its line numbers, a module by its lines. A run that does not say its module is the
+    // shell's.
+    private static bool InAModuleOfTheWorkspace(ReplProgram program, string module)
+        => module.Length > 0 && !string.Equals(module, program.Module, StringComparison.OrdinalIgnoreCase);
 
     // the lines around the one a break stopped at in a module of the workspace, as LIST lists the program, read from the module's file: as many above it and below
     // it as the setting says. A module the language server cannot find, or a file that cannot be read, lists nothing: the break is said all the same.
@@ -469,8 +485,11 @@ internal static class ReplExecution
             // a frame carries a source position rather than a line number - only the faulting statement's own
             // line number is captured (Erl is one value, not one per activation) - so the buffer maps it back.
             // TODO carry a line number per activation once a frame knows its own instruction list.
+            // An activation of a module of the workspace is at a line of that module's file, as STACK says it.
             var line = program.LineNumberAt(frame.Line);
-            var at = line is { } number ? $"  {frame.Procedure} {number}" : $"  {frame.Procedure}";
+            var at = InAModuleOfTheWorkspace(program, frame.Module) && frame.Line >= 0
+                ? $"  {frame.Procedure} ({frame.Module} line {frame.Line + 1})"
+                : line is { } number ? $"  {frame.Procedure} {number}" : $"  {frame.Procedure}";
 
             // and how the activation got there, when it was by a GoSub: from the line of the last one it had not returned from, and the one before that - as STACK
             // says it of a program that waits.
