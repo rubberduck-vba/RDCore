@@ -143,8 +143,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     public const string DuplicatesChoice = "duplicates";
 
     /// <summary>
-    /// The id of the choice to replace a duplicate, among the choices of an item of <see cref="DuplicatesChoice"/>: ticked by default for one in the module,
-    /// which a <c>Private</c> procedure can be called from.
+    /// The id of the choice to replace a duplicate, among the choices of an item of <see cref="DuplicatesChoice"/>: ticked by default for one the new procedure
+    /// replaces when it is <c>Private</c>, in its standard module; unticked for one in another module, or in its class module, which only a <c>Public</c>
+    /// procedure replaces.
     /// </summary>
     public const string DuplicateReplaceChoice = "replace";
 
@@ -503,13 +504,25 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return analysis;
         }
 
-        // the duplicates a call to the new procedure can replace, by its reach: none for a member of a class module, which is called through an object of the
-        // class; in the project for a procedure of a standard module, which is Public when one is not in its module.
-        public ImmutableArray<ExtractionDuplicate> Duplicates(ExtractionChoices choices) => Module.Type is ModuleType.StdModule
-            ? ExtractionDuplicates.Find(Plan!, Source, choices, Part.Context, Module.Module, [.. Part.Modules.Select(module => module.Module)], AnalysisOf)
-            : [];
+        // the duplicates a call to the new procedure can replace, by its reach: in the project for a procedure of a standard module, which is Public when one is
+        // not in its module; in the class itself for a member of a class module, which is called through an object of the class elsewhere, and which replaces
+        // them when it is Public.
+        public ImmutableArray<ExtractionDuplicate> Duplicates(ExtractionChoices choices) => ExtractionDuplicates.Find(
+            Plan!, Source, choices, Part.Context, Module.Module, Module.Type is ModuleType.StdModule ? [.. Part.Modules.Select(module => module.Module)] : [Module.Module],
+            AnalysisOf);
 
         public bool IsInTheModule(ExtractionDuplicate duplicate) => duplicate.Module.AbsoluteUri == Module.Module.AbsoluteUri;
+
+        // whether the new procedure, so seen, replaces the duplicate: a Private procedure of a standard module those in its module, and a member of a class
+        // module those of the class when it is Public.
+        public bool Replaces(ExtractionDuplicate duplicate, ExtractionAccessibility accessibility) => Module.Type is ModuleType.StdModule
+            ? accessibility is ExtractionAccessibility.Public || IsInTheModule(duplicate)
+            : accessibility is ExtractionAccessibility.Public;
+
+        // why the new procedure, Private, doesn't replace the duplicate.
+        public string NeedsPublic(ExtractionDuplicate duplicate) => Module.Type is ModuleType.StdModule
+            ? Format("ExtractMethodDuplicate_NeedsPublic", Where(duplicate))
+            : Format("ExtractMethodDuplicate_NeedsPublicMember", Where(duplicate));
 
         // where a duplicate is, and the first line of it.
         public string Where(ExtractionDuplicate duplicate)
@@ -539,9 +552,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                 items.FirstOrDefault(item => item.Id == duplicate.Id)?.Answers.FirstOrDefault(each => each.Id == DuplicateReplaceChoice)?.Value is { } ticked
                     && bool.TryParse(ticked, out var isTicked)
                     ? isTicked
-                    : IsInTheModule(duplicate)).ToArray();
-            return choices.Accessibility is ExtractionAccessibility.Private && replaced.FirstOrDefault(duplicate => !IsInTheModule(duplicate)) is { } outside
-                ? ([], Format("ExtractMethodDuplicate_NeedsPublic", Where(outside)))
+                    : Replaces(duplicate, choices.Accessibility)).ToArray();
+            return replaced.FirstOrDefault(duplicate => !Replaces(duplicate, choices.Accessibility)) is { } unreachable
+                ? ([], NeedsPublic(unreachable))
                 : (replaced, null);
         }
 
@@ -679,7 +692,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                     {
                         Id = duplicate.Id,
                         Label = Where(duplicate),
-                        Reason = IsInTheModule(duplicate) ? null : Format("ExtractMethodReason_DuplicateNeedsPublic"),
+                        Reason = Replaces(duplicate, ExtractionAccessibility.Private)
+                            ? null
+                            : Format(Module.Type is ModuleType.StdModule ? "ExtractMethodReason_DuplicateNeedsPublic" : "ExtractMethodReason_DuplicateNeedsPublicMember"),
                         Choices =
                         [
                             new()
@@ -687,7 +702,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                                 Id = DuplicateReplaceChoice,
                                 Kind = RefactorChoiceKind.Flag,
                                 Label = Format("ExtractMethodChoice_DuplicateReplace"),
-                                Default = IsInTheModule(duplicate) ? "true" : "false",
+                                Default = Replaces(duplicate, ExtractionAccessibility.Private) ? "true" : "false",
                             },
                         ],
                     })],

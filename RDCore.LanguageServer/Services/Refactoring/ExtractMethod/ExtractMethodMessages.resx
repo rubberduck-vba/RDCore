@@ -146,12 +146,18 @@
   <data name="ExtractMethodReason_DuplicateNeedsPublic" xml:space="preserve">
     <value>In another module: replaced only when the new procedure is Public.</value>
   </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublicMember" xml:space="preserve">
+    <value>In the class: replaced only when the new member is Public.</value>
+  </data>
   <!-- Why the duplicates the user chose are not replaced: {0} is the duplicate, where it is and its first line (for NotADuplicate, its id); {1} why its replacement is not verified. -->
   <data name="ExtractMethodDuplicate_NotADuplicate" xml:space="preserve">
     <value>'{0}' is not a duplicate of the selection as it is extracted.</value>
   </data>
   <data name="ExtractMethodDuplicate_NeedsPublic" xml:space="preserve">
     <value>The duplicate at {0} is in another module: only a Public procedure can replace it.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublicMember" xml:space="preserve">
+    <value>The duplicate at {0} is in the class: only a Public member can replace it.</value>
   </data>
   <data name="ExtractMethodDuplicate_Overlaps" xml:space="preserve">
     <value>The duplicate at {0} overlaps what the extraction already changes: it cannot be replaced as well.</value>
