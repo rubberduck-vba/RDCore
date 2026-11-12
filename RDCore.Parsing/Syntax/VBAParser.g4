@@ -620,7 +620,11 @@ pSetSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? PSET (whiteSpace 
 tuple : LPAREN whiteSpace? expression whiteSpace? COMMA whiteSpace? expression whiteSpace? RPAREN;
 lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition(1)),"b","bf")}? unrestrictedIdentifier;
 
-unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier;
+unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier | otherReservedIdentifier;
+// MS-VBAL 3.3.5.2: the reserved identifiers no other rule reads where a name is written: the marker keyword Each, the literal identifier Empty, the statement
+// keyword EndIf, and the future-reserved CDecl. Read as a name where a reserved identifier is one (a member, `x.Empty`), and as no name elsewhere: a
+// parameter named with one is a syntax error at the name, and the procedure is read whole.
+otherReservedIdentifier : EACH | EMPTY | END_IF | CDECL;
 // MS-VBAL 3.3.5.2: an operator-identifier is a reserved-identifier, which is no name: it names a member (`x.And`, `d!Mod`), as any keyword does, and
 // nothing else. `Debug.Print 1 Mod` is the operator with no right operand, and not two items, the second a variable named Mod.
 operatorIdentifier : ADDRESSOF | AND | EQV | IMP | IS | LIKE | MOD | NEW | NOT | OR | TYPEOF | XOR;

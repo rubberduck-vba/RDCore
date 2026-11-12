@@ -66,6 +66,28 @@ public sealed class ReservedDeclarationNameTests
         Assert.IsTrue(next.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == after + 1), "its body is its own");
     }
 
+    // reserved identifiers the grammar reads as no name at all: a marker keyword, a literal identifier, a statement keyword, a future-reserved word.
+    [TestMethod]
+    [DataRow("Each")]
+    [DataRow("Empty")]
+    [DataRow("EndIf")]
+    [DataRow("CDecl")]
+    public void AReservedIdentifierTheGrammarReadsAsNoName_AsTheNameOfAParameter_IsOneSyntaxErrorAtTheName_AndTheProcedureIsWhole(string name)
+    {
+        var module = $"Public Sub S(ByVal {name} As Long)\r\n    x = 1\r\nEnd Sub\r\nPublic Sub T()\r\n    y = 2\r\nEnd Sub\r\n";
+
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), module);
+
+        var said = string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.Location.Range}: {error.Verbose}"));
+        var error = Assert.ContainsSingle(parse.SyntaxErrors, said);
+        Assert.AreEqual(new SourceRange(new SourcePosition(0, 19), new SourcePosition(0, 19 + name.Length)), error.Location.Range, "the error is the name");
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToList();
+        var procedure = Assert.ContainsSingle(members.Where(member => member.Name == "S"), "the procedure is read");
+        Assert.AreEqual(2, procedure.SourceLocation.Range.End.Line, "the procedure ends at its end");
+        Assert.IsTrue(procedure.Children.OfType<AssignmentStatementNode>().Any(node => node.SourceLocation.Range.Start.Line == 1), "its body is its own");
+        Assert.ContainsSingle(members.Where(member => member.Name == "T"), "the procedure after it is read");
+    }
+
     // MS-VBA refuses these, where MS-VBAL §3.3.5.2 reads an IDENTIFIER: a reserved-type-identifier is no reserved-identifier, a reserved-member-name can be a
     // reserved-name, and Name is no reserved-identifier. RD-VBA reads them as the specification does, and these rows are ignored until that is settled.
     [TestMethod]
