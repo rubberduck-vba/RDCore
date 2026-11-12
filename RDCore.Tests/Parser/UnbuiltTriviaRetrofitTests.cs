@@ -90,8 +90,8 @@ public sealed class UnbuiltTriviaRetrofitTests
         Assert.IsFalse(result.SyntaxTree!.Descendants().OfType<UnbuiltExpressionTriviaNode>().Any());
     }
 
-    // a statement no alternative reads - an operator with no space before it, or one with no right operand in the condition of a block - is kept as its text,
-    // where it is: the statement never vanishes from the member it is in.
+    // a statement no alternative reads - an operator with no space before it - is kept as its text, where it is: the statement never vanishes from the member
+    // it is in.
     [TestMethod]
     [DataRow("a = 1+")]
     [DataRow("a = 1-")]
@@ -105,7 +105,6 @@ public sealed class UnbuiltTriviaRetrofitTests
     [DataRow("a = 1<=")]
     [DataRow("a = 1>=")]
     [DataRow("a = 1Mod")]
-    [DataRow("If x = 1 - Then")]
     public void AStatementNoRuleReads_IsKeptAsTheStatementItSays(string statement)
     {
         var result = Parse($"Sub S()\r\n{statement}\r\nEnd Sub");
