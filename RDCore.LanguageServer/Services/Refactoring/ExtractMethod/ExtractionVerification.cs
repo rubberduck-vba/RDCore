@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 
@@ -124,11 +125,16 @@ internal static class ExtractionVerification
         return DataFlowOf(plan, replanned, original, PassedByValue(callSite!, edited, extracted, name)) ?? ExitsOf(plan, replanned);
     }
 
-    // the variables the call passes to a ByVal parameter of the new procedure, and only there: the call cannot write them. The data flow takes every variable
-    // passed to a procedure as one it may write, whatever the procedure declares.
+    // the variables the call passes to a parameter of the new procedure that it cannot write, and only there: a ByVal one, or a ByRef one the new procedure
+    // gives no value. The data flow takes every variable passed to a procedure as one it may write, whatever the procedure declares and does.
     private static HashSet<SemanticId> PassedByValue(ExtractionSelection callSite, ExtractionProcedureAnalysis edited, ExtractionProcedureAnalysis extracted, string name)
     {
-        var parameters = extracted.Declaration.Children.OfType<ParameterDeclarationNode>().ToArray();
+        var written = extracted.Accesses.Definitions.Where(definition => definition.Kind is not VariableDefinitionKind.Entry).Select(definition => definition.Variable).ToHashSet();
+        var unwritten = extracted.Declaration.Children.OfType<ParameterDeclarationNode>()
+            .Select(parameter => parameter.ParameterKind is ParameterKind.ExplicitByVal or ParameterKind.ImplicitByVal
+                || extracted.Scope.Declarations.OfType<VBParameterSymbol>().FirstOrDefault(symbol => symbol.Name.Equals(parameter.Name, StringComparison.OrdinalIgnoreCase)) is { } symbol
+                    && !written.Contains(symbol.SemanticId))
+            .ToArray();
         var byValue = callSite.Statements.SelectMany(statement => (IEnumerable<SyntaxNode>)[statement, .. statement.Descendants()])
             .Select(node => node switch
             {
@@ -137,7 +143,7 @@ internal static class ExtractionVerification
                 _ => [],
             })
             .SelectMany(arguments => arguments.Select((argument, index) => (argument, index)))
-            .Where(passed => passed.index < parameters.Length && parameters[passed.index].ParameterKind is ParameterKind.ExplicitByVal or ParameterKind.ImplicitByVal)
+            .Where(passed => passed.index < unwritten.Length && unwritten[passed.index])
             .Select(passed => passed.argument.Identity)
             .ToHashSet();
 
