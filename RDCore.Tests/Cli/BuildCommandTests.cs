@@ -838,13 +838,22 @@ public sealed class BuildCommandTests
     [OSCondition(OperatingSystems.Windows)]
     [Ignore("a built program has no external host: its calls to the outside world are made by rdc in external mode, which its folder does not hold")]
     public async Task TheBuiltProgram_StartedInItsOwnFolder_CallsTheFunctionADeclareNames()
+        => await StartedInItsOwnFolder_PrintsAsync(CallsADeclare, "42");
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [Ignore("a built program has no external host: the objects of an automation server are made by rdc in external mode, which its folder does not hold")]
+    public async Task TheBuiltProgram_StartedInItsOwnFolder_CreatesAnObjectOfAnAutomationServerOfTheMachine()
+        => await StartedInItsOwnFolder_PrintsAsync(CreatesADictionary, "1");
+
+    private static async Task StartedInItsOwnFolder_PrintsAsync(string program, string printed)
     {
         CompiledExecutionTests.RequirePayloads();
         var workspace = Directory.CreateTempSubdirectory("rdcore-build-ws-");
         var folder = Path.Combine(workspace.FullName, "out");
         try
         {
-            File.WriteAllText(Path.Combine(workspace.FullName, "Program.bas"), CallsADeclare);
+            File.WriteAllText(Path.Combine(workspace.FullName, "Program.bas"), program);
             var fileSystem = new System.IO.Abstractions.FileSystem();
             var writer = Substitute.For<IConsoleMessageWriter>();
             var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
@@ -863,7 +872,7 @@ public sealed class BuildCommandTests
             await process.WaitForExitAsync();
 
             Assert.AreEqual(0, process.ExitCode, error);
-            Assert.AreEqual("42", output.Trim());
+            Assert.AreEqual(printed, output.Trim());
         }
         finally
         {
