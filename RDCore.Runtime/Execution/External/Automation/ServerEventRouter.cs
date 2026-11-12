@@ -85,9 +85,12 @@ internal sealed class ServerEventRouter(
     /// <inheritdoc/>
     public void OnEvent(AutomationEvent raised)
     {
+        // the thread the event was raised on is served while the event waits - for the turn, or for a stop of the program to be over - and while a handler of it
+        // waits at a stop itself.
         if (raised.IsSynchronous)
         {
-            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments, raised.DispatchId));
+            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments, raised.DispatchId), raised.Serve);
+            Ended();
             return;
         }
 
@@ -98,13 +101,26 @@ internal sealed class ServerEventRouter(
                 raised.Serve(TimeSpan.FromMilliseconds(10));
             }
 
-            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments, raised.DispatchId));
+            session.Turn.RunEvent(() => Handle(raised.Name, raised.Arguments, raised.DispatchId), raised.Serve);
+        }
+
+        Ended();
+    }
+
+    // a handler that ended the program - an End, or a debugger that stopped it there - ends the wait of the call the program is in, a modal form's Show: the forms
+    // are hidden, and nothing of the program runs as they go (MS-VBAL 5.4.2.20's End is a wipe, SessionWipe).
+    private void Ended()
+    {
+        if (session.Halt.Pending is RuntimeHaltKind.End)
+        {
+            Forms.SessionForms.Of(session).HideAll(session);
         }
     }
 
     private void Handle(string name, object?[] arguments, int? dispatchId)
     {
-        if (intercept?.Invoke(name, arguments) == true || session.Callables is not { } callables)
+        // a program that is ending runs no more of its code: what the server raises as it lets go of the program's objects included.
+        if (session.Halt.Pending is RuntimeHaltKind.End || intercept?.Invoke(name, arguments) == true || session.Callables is not { } callables)
         {
             return;
         }
@@ -200,14 +216,22 @@ internal sealed class ServerEventRouter(
             }
 
             var ran = true;
-            foreach (var (subscriber, handler) in handlers)
+            using (session.CallStack is Frames.RuntimeCallStack stack ? stack.EventBegins() : null)
             {
-                var handled = callables.ForMember(handler).Call(resolver, [new VBObjectValue(subscriber).RuntimeValue, .. bound]);
-                if (!handled.IsSuccess)
+                foreach (var (subscriber, handler) in handlers)
                 {
-                    Report(handled);
-                    ran = false;
-                    break;
+                    var handled = callables.ForMember(handler).Call(resolver, [new VBObjectValue(subscriber).RuntimeValue, .. bound]);
+                    if (!handled.IsSuccess)
+                    {
+                        // a handler the program was stopped in - an End, a debugger that ended it - did not fail: there is nothing to tell.
+                        if (session.Halt.Pending is not RuntimeHaltKind.End)
+                        {
+                            Report(handled);
+                        }
+
+                        ran = false;
+                        break;
+                    }
                 }
             }
 
