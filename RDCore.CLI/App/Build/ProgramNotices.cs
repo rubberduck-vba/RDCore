@@ -11,8 +11,8 @@ namespace RDCore.CLI.App.Build;
 internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot)
 {
     public const string Notice = "NOTICE.md";
-    public const string Licence = "LICENSE-GPLv3.md";
-    public const string SdkLicence = "LICENSE-MIT.md";
+    public const string License = "LICENSE-GPLv3.md";
+    public const string SdkLicense = "LICENSE-MIT.md";
     public const string ThirdPartyNotices = "THIRD-PARTY-NOTICES.txt";
     public const string ThirdPartyData = "THIRD-PARTY-NOTICES.json";
 
@@ -27,7 +27,7 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
     public IReadOnlyList<string> Write(string folder, string program, IReadOnlyCollection<string> assemblies, string? host, string? executable, string runtime)
     {
         var lacking = new List<string>();
-        foreach (var document in new[] { Notice, Licence })
+        foreach (var document in new[] { Notice, License })
         {
             var source = fileSystem.Path.Combine(platformRoot, document);
             if (fileSystem.File.Exists(source))
@@ -42,7 +42,7 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
 
         if (Read() is not { } data)
         {
-            lacking.AddRange([SdkLicence, ThirdPartyNotices]);
+            lacking.AddRange([SdkLicense, ThirdPartyNotices]);
             return lacking;
         }
 
@@ -55,13 +55,13 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
             .ToList();
 
         var sdk = packages.FirstOrDefault(package => string.Equals(package.Package, SdkPackage, StringComparison.OrdinalIgnoreCase));
-        if (sdk is not null && texts.FirstOrDefault(text => text.Kind == LicenseKind && text.Packages.Contains(NameOf(sdk))) is { } sdkLicence)
+        if (sdk is not null && texts.FirstOrDefault(text => text.Kind == LicenseKind && text.Packages.Contains(NameOf(sdk))) is { } sdkLicense)
         {
-            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, SdkLicence), $"{sdkLicence.Body.TrimEnd('\n')}\n", Utf8);
+            fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, SdkLicense), $"{sdkLicense.Body.TrimEnd('\n')}\n", Utf8);
         }
         else
         {
-            lacking.Add(SdkLicence);
+            lacking.Add(SdkLicense);
         }
 
         var rows = packages.Select(package => new Row(package.Package, package.Version, package.License, package.Copyright, package.ProjectUrl)).ToList();
@@ -119,8 +119,8 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
             Line($"The .NET application host is part of it: {executable} is a copy of it, listed below.");
         }
 
-        Line($"RDCore's own license terms are in {Notice} and {Licence} beside this file. {SdkPackage}, listed below, is the MIT-licensed package");
-        Line($"RDCore is built on, from the same authors; {SdkLicence} beside this file is its license.");
+        Line($"RDCore's own license terms are in {Notice} and {License} beside this file. {SdkPackage}, listed below, is the MIT-licensed package");
+        Line($"RDCore is built on, from the same authors; {SdkLicense} beside this file is its license.");
         Line();
         Line($"Third-party packages: {packages}");
         if (executable is not null)
