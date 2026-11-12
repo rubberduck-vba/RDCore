@@ -108,12 +108,18 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
         using var pdb = new MemoryStream();
         builder.Save(assembly, pdb, $"{name}.pdb");
         var folder = options.Output ?? fileSystem.Path.Combine(workspace.Root, "bin", options.Configuration.ToString(), runtime);
-        var executable = Output.Write(folder, name, assembly.ToArray(), pdb.ToArray(), (hosts ?? (rid => AppHost.Find(rid)))(runtime), runtime);
+        var (executable, lacking) = Output.Write(folder, name, assembly.ToArray(), pdb.ToArray(), (hosts ?? (rid => AppHost.Find(rid)))(runtime), runtime);
 
         if (executable is null)
         {
             writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Warning)
                 .WithMessageBody(string.Format(CultureInfo.CurrentCulture, Resources.Build_NoAppHost, runtime, $"{name}.dll")));
+        }
+
+        if (lacking.Count > 0)
+        {
+            writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Warning)
+                .WithMessageBody(string.Format(CultureInfo.CurrentCulture, Resources.Build_NoticesLacking, string.Join(", ", lacking))));
         }
 
         writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Success)

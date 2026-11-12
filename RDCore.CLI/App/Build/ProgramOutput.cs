@@ -5,7 +5,8 @@ using System.Reflection.PortableExecutable;
 
 namespace RDCore.CLI.App.Build;
 
-internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder)
+// a built program's folder; the licence terms it carries are those of the platform rdc runs from, whose root holds its runtime folder (ProgramNotices).
+internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder, string? platformRoot = null)
 {
     private const string RdcName = "rdc";
 
@@ -14,29 +15,35 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
     public bool IsTaken(string program)
         => fileSystem.File.Exists(fileSystem.Path.Combine(runtimeFolder, $"{program}.dll")) || string.Equals(program, RdcName, StringComparison.OrdinalIgnoreCase);
 
-    public string? Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime)
+    // the program's executable, or null when no host was given; and the licence documents the folder lacks, having none to copy.
+    public (string? Executable, IReadOnlyList<string> Lacking) Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime)
     {
         _ = fileSystem.Directory.CreateDirectory(folder);
         var dll = $"{program}.dll";
         fileSystem.File.WriteAllBytes(fileSystem.Path.Combine(folder, dll), assembly);
         fileSystem.File.WriteAllBytes(fileSystem.Path.Combine(folder, $"{program}.pdb"), pdb);
         fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, $"{program}.runtimeconfig.json"), RuntimeConfiguration());
-        CopyRuntime(folder, RuntimeClosure([SupportName, .. ReferencesOf(assembly)]));
+        var closure = RuntimeClosure([SupportName, .. ReferencesOf(assembly)]);
+        CopyRuntime(folder, closure);
 
-        if (host is null)
+        string? executable = null;
+        if (host is not null)
         {
-            return null;
+            executable = fileSystem.Path.Combine(folder, AppHost.ExecutableName(program, runtime));
+            fileSystem.File.WriteAllBytes(executable, AppHost.Patch(fileSystem.File.ReadAllBytes(host), dll));
+            if (!OperatingSystem.IsWindows() && fileSystem is FileSystem)
+            {
+                File.SetUnixFileMode(executable, File.GetUnixFileMode(executable) | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+            }
         }
 
-        var executable = fileSystem.Path.Combine(folder, AppHost.ExecutableName(program, runtime));
-        fileSystem.File.WriteAllBytes(executable, AppHost.Patch(fileSystem.File.ReadAllBytes(host), dll));
-        if (!OperatingSystem.IsWindows() && fileSystem is FileSystem)
-        {
-            File.SetUnixFileMode(executable, File.GetUnixFileMode(executable) | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-        }
-
-        return executable;
+        var lacking = new ProgramNotices(fileSystem, PlatformRoot).Write(folder, program, closure, host,
+            executable is null ? null : fileSystem.Path.GetFileName(executable), runtime);
+        return (executable, lacking);
     }
+
+    // the folder of the platform's rdcore.json, as rdc install has it: the one that holds the runtime folder.
+    private string PlatformRoot => platformRoot ?? fileSystem.Path.GetDirectoryName(fileSystem.Path.TrimEndingDirectorySeparator(runtimeFolder)) ?? runtimeFolder;
 
     // what .NET runs the program on: what it runs rdc on, as rdc's own runtime configuration says, so the runtime's assemblies find what they were built
     // against; the shared framework of the version rdc runs on when rdc has none.
