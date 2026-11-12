@@ -374,6 +374,9 @@
   <data name="Repl_RuntimeError_InLine" xml:space="preserve">
     <value>{0} À LA LIGNE {1}</value>
   </data>
+  <data name="Repl_RuntimeError_InModuleLine" xml:space="preserve">
+    <value>{0} DANS {1} À LA LIGNE {2}</value>
+  </data>
   <data name="Repl_RuntimeError_Source" xml:space="preserve">
     <value>SOURCE: {0}</value>
   </data>
@@ -475,6 +478,9 @@
   </data>
   <data name="Repl_Frame_Summary" xml:space="preserve">
     <value>Choisit la procédure visée par VARS : FRAME 1 est celle qui a appelé.</value>
+  </data>
+  <data name="Repl_Frame_InModuleLine" xml:space="preserve">
+    <value>({0} à la ligne {1})</value>
   </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>il n'y a pas de session d'exécution</value>

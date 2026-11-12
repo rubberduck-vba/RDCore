@@ -40,6 +40,7 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
     private Thread? _thread;
     private SuspensionDecision _decision;
     private bool _suspended;
+    private bool _abandoned;
 
     /// <summary>
     /// Whether the program waits to be resumed.
@@ -141,6 +142,7 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
             _next = NewStop();
             _suspended = false;
             _decision = SuspensionDecision.Abandon;
+            _abandoned = true;
             thread = _thread;
         }
 
@@ -170,6 +172,13 @@ public sealed class SuspendableExecution(IRuntimeSession session) : IExecutionGa
         TaskCompletionSource<ExecutionStop> waiting;
         lock (_gate)
         {
+            // a program that was ended is unwinding, and nothing waits for it to stop again: whatever would hold it on the way out (the error it waited at, met
+            // again by the activation that called the one that raised it) lets it go, or Abandon would wait for a thread that waits for it.
+            if (_abandoned)
+            {
+                return SuspensionDecision.Abandon;
+            }
+
             waiting = _next!;
             _suspended = true;
         }
