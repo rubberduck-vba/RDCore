@@ -23,21 +23,27 @@ namespace RDCore.Runtime.Support.Host.Symbols;
 /// is unreadable or declares no attribute. The language server resolves the same name and kind from
 /// the parsed module, so the members it defines parent onto the module symbol composed here.
 /// </para>
+/// <para>
+/// A built program runs where its workspace's sources are not: the name and the kind its build read of each module are given instead (<c>known</c>),
+/// and no source of a module named there is read.
+/// </para>
 /// </remarks>
-public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem) : ISymbolProvider
+/// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
+/// <param name="project">The project.</param>
+/// <param name="fileSystem">The file system the sources are read from.</param>
+/// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject project, IFileSystem fileSystem,
+    IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known = null) : ISymbolProvider
 {
     public IEnumerable<Symbol> ProvideSymbols()
     {
         var modules = new List<Symbol>();
         foreach (var module in project.Modules)
         {
-            var source = ReadSourceOrNull(module.RelativeUri);
-            var name = ModuleName.Resolve(source, module.RelativeUri);
-
             // the kind is the project's word for a document module, and the source's otherwise (ModuleKinds.Of), as the language server reads it. What a
             // document module's attributes make it is the language server's to send with its members (DefineSymbolsParams.Directives).
             // A document module's host class is the project's word too (ModuleKinds.HostClassOf): its code names that class's members.
-            var kind = ModuleKinds.Of(module, source);
+            var (name, kind) = known is not null && known.TryGetValue(module.RelativeUri, out var given) ? given : Read(module);
             modules.Add(kind.IsClass()
                 ? new VBClassModuleSymbol(workspaceRoot, workspaceRoot, name)
                 {
@@ -60,6 +66,13 @@ public sealed class ProjectSymbolProvider(Uri workspaceRoot, RDCoreProject proje
         {
             yield return module;
         }
+    }
+
+    // the module's name and kind, as its source says them.
+    private (string Name, ModuleType Kind) Read(RDCoreModule module)
+    {
+        var source = ReadSourceOrNull(module.RelativeUri);
+        return (ModuleName.Resolve(source, module.RelativeUri), ModuleKinds.Of(module, source));
     }
 
     private string? ReadSourceOrNull(string relativeUri)

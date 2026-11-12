@@ -5,6 +5,7 @@ using RDCore.Runtime.Execution;
 using RDCore.External;
 using RDCore.External.Settings;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -197,13 +198,22 @@ public sealed class EnvironmentSessionProvider(
     public ProgramExecution Execution { get; private set; } = default!;
 
     /// <inheritdoc/>
-    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot)
+    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot) => Compose(project, workspaceRoot, known: null);
+
+    /// <summary>
+    /// Composes the session as <see cref="Compose(RDCoreProject, Uri)"/> does, the name and the kind of each module in <paramref name="known"/> given rather
+    /// than read from its source: a built program's, whose sources are not where it runs.
+    /// </summary>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
+    /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known)
     {
         // a reload starts where the host did, as at start-up, and not where the session it replaces left the process.
         LeaveSession();
 
         var configuration = new ConfigurationSymbolProvider(environment, project);
-        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
+        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);

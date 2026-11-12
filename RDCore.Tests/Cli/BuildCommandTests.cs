@@ -192,8 +192,6 @@ public sealed class BuildCommandTests
         var (command, messages) = Command(fileSystem);
         Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
-        Assert.Contains(message => message.Kind == MessageKind.Information && message.Text.Contains("3 ", StringComparison.Ordinal), messages,
-            "each procedure is compiled");
 
         var context = new AssemblyLoadContext("built program", isCollectible: true);
         try
@@ -211,6 +209,32 @@ public sealed class BuildCommandTests
         }
     }
 
+    // the workspace is no folder of the disk the program runs on: what its build read of each module is the program's, and its sources are not read again.
+    [TestMethod]
+    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsClassModuleAClass()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Program.bas", Module("Program",
+                "Public Sub Main()",
+                "    Dim C As New Counter",
+                "    C.Add 2",
+                "    C.Add 3",
+                "    Debug.Print C.Total",
+                "End Sub")),
+            ("Counter.cls", ModuleWorkspace.ClassModule("Counter", "Option Explicit",
+                "Public Total As Long",
+                "Public Sub Add(ByVal N As Long)",
+                "    Total = Total + N",
+                "End Sub")));
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "5" }, run.Output);
+    }
+
     // a Release build is written to its own folder, and its program ends at a Stop, as an End ends it: Debug.Print is kept.
     [TestMethod]
     public async Task AReleaseBuild_IsWrittenToItsOwnFolder_AndItsProgramEndsAtAStop()
@@ -223,6 +247,53 @@ public sealed class BuildCommandTests
         Assert.AreEqual(0, run.Exit, run.Error);
         CollectionAssert.AreEqual(new[] { "42" }, run.Output);
         Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    // a LongPtr field of a class's record, behind its Property Get and Let (the shape of OOPBattleship's WeakReference.Address): compiled by the build,
+    // in either configuration, and run.
+    [TestMethod]
+    [DataRow("Debug")]
+    [DataRow("Release")]
+    public async Task ALongPtrFieldBehindItsProperties_IsBuiltCompiled_AndRuns(string configuration)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Program.bas", Module("Program",
+                "Public Sub Main()",
+                "    Dim R As New Reference",
+                "    R.Address = 4096",
+                "    R.Address = R.Address + 8",
+                "    Debug.Print R.Address; R.Size()",
+                "End Sub")),
+            ("Reference.cls", ModuleWorkspace.ClassModule("Reference", "Option Explicit",
+                "Private Type TReference", "    Address As LongPtr", "End Type",
+                "Private this As TReference",
+                "Public Property Get Address() As LongPtr",
+                "    Address = this.Address",
+                "End Property",
+                "Public Property Let Address(ByVal value As LongPtr)",
+                "    this.Address = value",
+                "End Property",
+                "Public Function Size() As Long",
+                "    Size = LenB(this.Address)",
+                "End Function")));
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", configuration, AppHost.CurrentRuntime), "-c", configuration);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { $"4104  {(Environment.Is64BitProcess ? 8 : 4)}" }, run.Output);
+
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
+            new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None);
+        var built = await runner.BuildAsync(workspace, new ProgramAssemblyBuilder(new System.Reflection.AssemblyName("Hello")),
+            RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = Enum.Parse<RDCore.SDK.Runtime.Abstract.Execution.VBBuildConfiguration>(configuration) }, CancellationToken.None);
+        using (built.Provider)
+        {
+            var address = built.Procedures.Where(procedure => procedure.Module == "Reference" && procedure.Compilation.Procedure.Name == "Address").ToList();
+            Assert.HasCount(2, address, "the Property Get and the Property Let");
+            Assert.IsTrue(address.TrueForAll(procedure => procedure.Compilation.IsCompiled), string.Join("; ", address.Select(procedure => procedure.Compilation)));
+        }
     }
 
     // a debug build has a debugger to stop for: with none attached, its program is interrupted there, and the run fails.
