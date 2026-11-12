@@ -40,6 +40,53 @@ public sealed class RuntimeCallStack : StackManager<CallStackFrame>, ICallStack
     /// <summary>How many activations are on the stack, with those compiled code made without a frame.</summary>
     public new int Depth => base.Depth + _lightCount;
 
+    // how deep the stack was when each event of a server's object that is being handled began, outermost first: the activation at that depth is its handler's.
+    private readonly List<int> _eventFloors = [];
+
+    /// <summary>
+    /// Says that the handlers of an event a server's object raised run from now on, above the activations on the stack, until the returned scope is disposed.
+    /// </summary>
+    /// <returns>The scope of the event.</returns>
+    internal IDisposable EventBegins()
+    {
+        var floor = Depth;
+        lock (_eventFloors)
+        {
+            _eventFloors.Add(floor);
+        }
+
+        return new EventScope(this, floor);
+    }
+
+    /// <summary>
+    /// Whether the activation at <paramref name="depth"/>, counted from the bottom of the stack from <c>0</c>, is the first of the handlers of an event a server's object
+    /// raised: the activations above it are the event's, and the one below it is in the call the event was raised by.
+    /// </summary>
+    /// <param name="depth">The activation's place, from the bottom.</param>
+    public bool BeginsAnEvent(int depth)
+    {
+        lock (_eventFloors)
+        {
+            return _eventFloors.Contains(depth);
+        }
+    }
+
+    private sealed class EventScope(RuntimeCallStack stack, int floor) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                lock (stack._eventFloors)
+                {
+                    _ = stack._eventFloors.Remove(floor);
+                }
+            }
+        }
+    }
+
     /// <summary>The activations on the stack, innermost first: those compiled code made without a frame are given theirs first.</summary>
     public new IReadOnlyCollection<CallStackFrame> Frames
     {

@@ -535,9 +535,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <returns>None when no program waits.</returns>
     public DebugVariablesResult Variables(int frameId, DebugVariableScope scope, int reference)
     {
+        // reading a variable that holds a server's object is a call to it, beside the program that waits.
         lock (_sync)
         {
-            return _state is ProgramState.Suspended ? _inspector.Variables(frameId, scope, reference) : new DebugVariablesResult();
+            if (_state is not ProgramState.Suspended)
+            {
+                return new DebugVariablesResult();
+            }
+
+            using (provider.Session.Turn.Alongside())
+            {
+                return _inspector.Variables(frameId, scope, reference);
+            }
         }
     }
 
@@ -710,7 +719,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         {
             // what the code as edited declares, the statement names: the locals an edit added, the fields a class was given.
             ProgramEdits.Prepare(session);
-            return run(session, stack, selected, procedure);
+
+            // the code runs beside the program that waits: the events its calls raise are its own, and none of the program's runs meanwhile.
+            using (session.Turn.Alongside())
+            {
+                return run(session, stack, selected, procedure);
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
