@@ -64,7 +64,7 @@ immediate pane, and edit the program before you go on.
 
 A line typed at the prompt runs under the debugger as `RUN` does: a `Stop`, a breakpoint or an error in the code it calls stops it there, and `STACK`
 shows the line's own procedure under the one that stopped. A stop in a module of a workspace lists the module's lines around it as `LIST` lists the
-program, then says `BREAK IN`, the module and its line. An error in a module of a workspace is shown with the module and its line.
+program, then says `BREAK IN`, the module and its line. A stop at an error in a module of a workspace lists the module's lines the same way, then shows the error with the module and its line.
 
 > [!NOTE]
 > The shell is a way to try the platform. Its current program is a single procedure: a project with more procedures runs in the shell on a workspace.
