@@ -470,6 +470,21 @@ public sealed class ExtractMethodEditTests
         Assert.AreEqual(Lines("Private Enum ExtractedExit\n  ExtractedExitNone\n  ExtractedExitDo\n  ExtractedExitSub\nEnd Enum"), edit.Enumeration);
     }
 
+    // a Public procedure returns a Public Enum: a public member's type is never a private one.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in a standard module")]
+    [DataRow(true, DisplayName = "in a class module")]
+    public void APublicExtraction_IsAPublicProcedure_ReturningAPublicEnum(bool classModule)
+    {
+        var edit = ExtractionFixture.Extracted("Dim i As Long\nDo While i < 10\nIf i = n Then Exit Do\nIf i > n Then Exit Sub\ni = i + 1\nLoop", 2, 4,
+            classModule: classModule, accessibility: ExtractionAccessibility.Public).Edit;
+        var sub = ExtractionFixture.Extracted("Debug.Print n", 0, 0, classModule: classModule, accessibility: ExtractionAccessibility.Public).Edit;
+
+        StringAssert.StartsWith(edit.Procedure, "Public Function Extracted(ByRef i As Long, ByVal n As Long) As ExtractedExit");
+        StringAssert.StartsWith(edit.Enumeration, "Public Enum ExtractedExit");
+        StringAssert.StartsWith(sub.Procedure, "Public Sub Extracted(ByVal n As Long)");
+    }
+
     // b and a are put in each other's places, and renamed; a is passed by reference. The call passes the variables as the source names them.
     [TestMethod]
     public void TheParametersTheUserEdits_AreDeclaredAndNamedAsTheUserSaid_AndTheCallPassesThemInThatOrder()

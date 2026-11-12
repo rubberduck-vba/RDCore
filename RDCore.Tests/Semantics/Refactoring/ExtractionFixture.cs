@@ -46,14 +46,14 @@ internal static class ExtractionFixture
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null,
         IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, SourceRange? range = null,
-        IReadOnlyList<ExtractionParameterAnswer>? parameters = null)
+        IReadOnlyList<ExtractionParameterAnswer>? parameters = null, ExtractionAccessibility accessibility = ExtractionAccessibility.Private)
     {
         var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations, classes, classModule);
         var plan = PlanOf(analyzed, range?.Start ?? new SourcePosition(first, 0), range?.End ?? new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         var (chosen, problem) = ExtractionParameters.Choose(parameters ?? [], plan, source, name, analyzed.Context, analyzed.ModuleAddress);
         Assert.IsNull(problem, problem?.ToMessage());
-        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits, Parameters = chosen };
+        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits, Parameters = chosen, Accessibility = accessibility };
         var edit = ExtractMethodEdit.Of(plan, source, choices);
         if (formatting is not null)
         {
@@ -90,11 +90,13 @@ internal static class ExtractionFixture
         };
     }
 
-    // What a name for the procedure extracted from the lines first to last is checked against.
+    // What a name for the procedure extracted from the lines first to last is checked against; the workspace has the class modules in classes and the standard
+    // modules in modules beside the module, which is a class module itself with classModule.
     public static (ExtractionPlan Plan, ExtractionSource Source, RenameContext Context, Uri Module, FlowFixture.Analyzed Analyzed) Naming(
-        string body, int first, int last, string declarations = "", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub")
+        string body, int first, int last, string declarations = "", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
+        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, IReadOnlyList<(string Name, string Source)>? modules = null)
     {
-        var analyzed = FlowFixture.Analyze(body, header, end, declarations: declarations);
+        var analyzed = FlowFixture.Analyze(body, header, end, declarations: declarations, classes: classes, classModule: classModule, modules: modules);
         var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         return (plan, source, analyzed.Context, analyzed.ModuleAddress, analyzed);

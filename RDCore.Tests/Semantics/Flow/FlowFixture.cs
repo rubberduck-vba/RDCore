@@ -122,26 +122,32 @@ internal static class FlowFixture
     {
         var parse = new ModuleParser().Parse(FileOf(classModule), text);
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(
-            Root, [(ModuleUri("Main"), TypeOf(classModule), parse), .. ClassesOf(classes)], new IntrinsicSymbolResolver());
+            Root, [(ModuleUri("Main"), TypeOf(classModule), parse), .. OthersOf(classes, null).Select(other => (other.Module, other.Type, other.Parse))],
+            new IntrinsicSymbolResolver());
         return ExtractionModuleAnalysis.Of(ModuleUri("Main"), text, parse, composition.Resolver, composition.ScopeTree);
     }
 
-    private static IEnumerable<(Uri, ModuleType, ModuleParseResult)> ClassesOf(IReadOnlyList<(string Name, string Source)>? classes)
-        => (classes ?? []).Select(module =>
-        {
-            var classParse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{module.Name}.cls"), module.Source);
-            Assert.IsTrue(classParse.IsSuccess, string.Join("; ", classParse.SyntaxErrors.Select(error => error.Verbose)));
-            return (ModuleUri(module.Name), ModuleType.ClassModule, classParse);
-        });
+    // the class modules, then the standard modules, beside the module, each parsed.
+    private static (Uri Module, ModuleType Type, ModuleParseResult Parse, string Source)[] OthersOf(
+        IReadOnlyList<(string Name, string Source)>? classes, IReadOnlyList<(string Name, string Source)>? modules)
+        => [.. (classes ?? []).Select(module => (module.Name, module.Source, Type: ModuleType.ClassModule, Extension: "cls"))
+            .Concat((modules ?? []).Select(module => (module.Name, module.Source, Type: ModuleType.StdModule, Extension: "bas")))
+            .Select(other =>
+            {
+                var parse = new ModuleParser().Parse(new Uri($"file:///c:/ws/{other.Name}.{other.Extension}"), other.Source);
+                Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+                return (ModuleUri(other.Name), other.Type, parse, other.Source);
+            })];
 
     /// <summary>
     /// Analyzes a procedure <c>Run</c> whose body is <paramref name="body"/>, in a module that declares what <paramref name="declarations"/> says before the rest.
     /// </summary>
     /// <param name="classes">The name and the source of each class module of the workspace beside the module; none when omitted.</param>
     /// <param name="classModule">Whether the module is a class module, whose procedure <c>Run</c> is a member of each of its objects.</param>
+    /// <param name="modules">The name and the source of each standard module of the workspace beside the module; none when omitted.</param>
     public static Analyzed Analyze(
         string body, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", bool optionExplicit = true, string declarations = "",
-        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false)
+        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, IReadOnlyList<(string Name, string Source)>? modules = null)
     {
         var moduleLevel = $"{declarations}\r\n{Others}".ReplaceLineEndings("\r\n");
         var prefix = $"{(classModule ? ClassHeader : string.Empty)}Attribute VB_Name = \"Main\"\r\n{(optionExplicit ? "Option Explicit" : "' no Option Explicit")}\r\n{moduleLevel}\r\n{header}\r\n";
@@ -149,8 +155,9 @@ internal static class FlowFixture
         var parse = new ModuleParser().Parse(FileOf(classModule), text);
         Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
 
+        var others = OthersOf(classes, modules);
         var composition = WorkspaceSymbolResolver.ComposeWithScopes(
-            Root, [(ModuleUri("Main"), TypeOf(classModule), parse), .. ClassesOf(classes)], new IntrinsicSymbolResolver());
+            Root, [(ModuleUri("Main"), TypeOf(classModule), parse), .. others.Select(other => (other.Module, other.Type, other.Parse))], new IntrinsicSymbolResolver());
         // the first Run, the one whose body is given: a Property Let and its Property Get share the name, and the other comes after it, in end. Its scope is
         // the one its declaration is in, since a property's procedures are not told apart by their name alone.
         var run = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().First(member => member.Name == "Run");
@@ -168,7 +175,8 @@ internal static class FlowFixture
         {
             Module = parse.SyntaxTree!,
             Text = text,
-            Context = new RenameContext(composition.Resolver, composition.ScopeTree, [new RenameModule(ModuleUri("Main"), parse.SyntaxTree!, text)]),
+            Context = new RenameContext(composition.Resolver, composition.ScopeTree,
+                [new RenameModule(ModuleUri("Main"), parse.SyntaxTree!, text), .. others.Select(other => new RenameModule(other.Module, other.Parse.SyntaxTree!, other.Source))]),
             Directives = ExtractionDirectives.Of(parse.PrecompilerTrivia, text),
         };
     }

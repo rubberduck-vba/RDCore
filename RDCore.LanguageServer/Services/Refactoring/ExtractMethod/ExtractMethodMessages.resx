@@ -34,6 +34,9 @@
   <data name="ExtractMethodName_Shadows" xml:space="preserve">
     <value>'{0}' is also {1}, which the new procedure hides in this module.</value>
   </data>
+  <data name="ExtractMethodName_Implemented" xml:space="preserve">
+    <value>{1} implements this class: it would have to implement a Public '{0}' too. Make the new procedure Private.</value>
+  </data>
   <!-- What is wrong with the user's answers for a parameter of the new procedure (ExtractionParameterProblem): {0} is the parameter, {1} the name or the passing the user gave it (for OptionalBeforeRequired, the parameter that is not Optional), {2} the longest a name can be. -->
   <data name="ExtractMethodParameter_NotAParameter" xml:space="preserve">
     <value>'{0}' is not a parameter of the new procedure, or it is answered twice.</value>
@@ -112,6 +115,21 @@
   </data>
   <data name="ExtractMethodChoice_RouteExitsDescription" xml:space="preserve">
     <value>The new procedure returns where the selection leaves to, and the call goes there.</value>
+  </data>
+  <data name="ExtractMethodChoice_Accessibility" xml:space="preserve">
+    <value>Accessibility</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityDescription" xml:space="preserve">
+    <value>Where the new procedure can be called from.</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityPrivate" xml:space="preserve">
+    <value>From this module only.</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityPublic" xml:space="preserve">
+    <value>From anywhere in the project; for a class module, through each of its objects.</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityUnknown" xml:space="preserve">
+    <value>'{0}' is not an accessibility of the new procedure: it is Private or Public.</value>
   </data>
   <data name="ExtractMethodReason_ReadOnly" xml:space="preserve">
     <value>Read by the selection, not written.</value>

@@ -109,6 +109,11 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// </summary>
     public const string ParameterPassingChoice = "passing";
 
+    /// <summary>
+    /// The id of the choice of how far the new procedure is seen: <c>Private</c>, the default, or <c>Public</c>.
+    /// </summary>
+    public const string AccessibilityChoice = "accessibility";
+
     // the value of the option that returns nothing: no variable is named so.
     private const string NoReturnValue = "";
 
@@ -165,15 +170,17 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
     {
         // the name as ApplyAsync reads it: trimmed, and one that is not answered takes its default, which raises nothing.
+        // the name is checked as declared with the accessibility answered, and as Private when that is none.
         if (answers.FirstOrDefault(answer => answer.Id == NameChoice)?.Value is not { Length: > 0 } typed
             || await ExtractionOfAsync(documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
         {
             return new RefactorIdentifierCheckResult();
         }
 
+        var accessibility = AccessibilityOf(answers) ?? ExtractionAccessibility.Private;
         return new RefactorIdentifierCheckResult
         {
-            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).Select(problem => new RefactorNotice
+            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility).Select(problem => new RefactorNotice
             {
                 Code = Code($"Name{problem.Kind}"),
                 Kind = problem.IsWarning ? RefactorNoticeKind.Note : RefactorNoticeKind.Refusal,
@@ -204,7 +211,12 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
         // the answers, each to its choice; one that is not given takes the choice's default.
         string? Answer(string id) => answers.FirstOrDefault(answer => answer.Id == id)?.Value;
-        var name = Answer(NameChoice) is { Length: > 0 } typed ? typed.Trim() : extraction.SuggestedName();
+        if (AccessibilityOf(answers) is not { } accessibility)
+        {
+            return new(null, Format("ExtractMethodChoice_AccessibilityUnknown", Answer(AccessibilityChoice)));
+        }
+
+        var name = Answer(NameChoice) is { Length: > 0 } typed ? typed.Trim() : extraction.SuggestedName(accessibility);
         var returned = Answer(ReturnValueChoice) ?? NoReturnValue;
         var returnValue = returned.Length == 0 ? null : plan.ReturnCandidates.FirstOrDefault(candidate => candidate.Name.Equals(returned, StringComparison.OrdinalIgnoreCase));
         if (returned.Length > 0 && returnValue is null)
@@ -215,7 +227,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var routeExits = !bool.TryParse(Answer(RouteExitsChoice), out var route) || route;
 
         // a name that cannot be declared there is refused; one that hides another declaration is the user's to choose.
-        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).FirstOrDefault(problem => !problem.IsWarning) is { } problem)
+        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility)
+            .FirstOrDefault(problem => !problem.IsWarning) is { } problem)
         {
             return new(null, problem.ToMessage(RenameWorkspace.Locator(extraction.Part)));
         }
@@ -238,7 +251,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new(null, parameterProblem.ToMessage());
         }
 
-        var choices = new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits, Parameters = parameters };
+        var choices = new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits, Parameters = parameters, Accessibility = accessibility };
         var edit = ExtractMethodEdit.Of(plan, extraction.Source, choices);
         if (edit.Refusal is { } refusal)
         {
@@ -326,6 +339,16 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
 
+    // the accessibility answered, Private when none is; null for an answer that is no accessibility.
+    private static ExtractionAccessibility? AccessibilityOf(IReadOnlyList<RefactorAnswer> answers)
+        => answers.FirstOrDefault(answer => answer.Id == AccessibilityChoice)?.Value switch
+        {
+            null => ExtractionAccessibility.Private,
+            var value when value.Equals(nameof(ExtractionAccessibility.Private), StringComparison.OrdinalIgnoreCase) => ExtractionAccessibility.Private,
+            var value when value.Equals(nameof(ExtractionAccessibility.Public), StringComparison.OrdinalIgnoreCase) => ExtractionAccessibility.Public,
+            _ => null,
+        };
+
     // the code of a notice: the same in any language, by which the user accepts a change.
     private static string Code(string kind) => $"extractMethod.{char.ToLowerInvariant(kind[0])}{kind[1..]}";
 
@@ -343,7 +366,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     {
         private Uri DocumentAddress => Module.Document.Id.Uri.ToUri();
 
-        public string SuggestedName() => ExtractionName.Suggest(Plan!, Source, Part.Context, Module.Module);
+        public string SuggestedName(ExtractionAccessibility accessibility = ExtractionAccessibility.Private)
+            => ExtractionName.Suggest(Plan!, Source, Part.Context, Module.Module, accessibility: accessibility);
 
         public string Where(SourceLocation? location) => location is { } at ? RenameWorkspace.Locator(Part)(Module.Module, at.Range.Start) : string.Empty;
 
@@ -445,6 +469,20 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                     Default = "true",
                 });
             }
+
+            choices.Add(new()
+            {
+                Id = AccessibilityChoice,
+                Kind = RefactorChoiceKind.Option,
+                Label = Format("ExtractMethodChoice_Accessibility"),
+                Description = Format("ExtractMethodChoice_AccessibilityDescription"),
+                Default = nameof(ExtractionAccessibility.Private),
+                Options =
+                [
+                    new() { Value = nameof(ExtractionAccessibility.Private), Label = "Private", Description = Format("ExtractMethodChoice_AccessibilityPrivate") },
+                    new() { Value = nameof(ExtractionAccessibility.Public), Label = "Public", Description = Format("ExtractMethodChoice_AccessibilityPublic") },
+                ],
+            });
 
             return choices;
         }
