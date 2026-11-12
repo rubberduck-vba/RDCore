@@ -184,8 +184,8 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
 /// <para>
 /// The call is <c>Name a, b</c>, never <c>Name (a)</c>, which passes a copy; or <c>x = Name(a, b)</c>, <c>Set</c> for an object. A selection that leaves the source
 /// procedure, or a loop or a block around it, returns a code: <c>True</c> for one exit, a member of a <c>Private Enum</c> for several. The call site goes where
-/// the code says. An <c>On…GoTo</c> stays as it is written, its selector evaluated as before, and names, for each of its labels outside the selection, a label
-/// after the new procedure's body that returns that label's code. The source's result, read or written in the selection, is given to the new procedure as a
+/// the code says. An <c>On…GoTo</c> stays as it is written, its selector evaluated as before; each of its labels outside the selection is replaced with a label
+/// after the new procedure's body, which returns that label's exit code. The source's result, read or written in the selection, is given to the new procedure as a
 /// copy, <c>ByRef</c>, and written back after the call: a function's name cannot be passed.
 /// </para>
 /// <para>
@@ -344,7 +344,7 @@ internal static class ExtractMethodEdit
                 lines.AddRange(body.Select(line => line.Length == 0 ? line : Indent + line));
             }
 
-            // the labels an On…GoTo goes to for its labels outside, after the body, which never runs on into them.
+            // the labels an On…GoTo goes to in place of its labels outside: after the body, which never runs on into them.
             var stubs = Stubs(exits);
             for (var index = 0; index < stubs.Count; index++)
             {
