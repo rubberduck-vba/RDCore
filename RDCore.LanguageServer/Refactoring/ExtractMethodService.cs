@@ -2,7 +2,9 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Refactoring;
@@ -18,8 +20,46 @@ namespace RDCore.LanguageServer.Refactoring;
 /// Extract Method, as a client asks it of a range of a document (<see cref="RefactoringKinds.ExtractMethod"/>): what it asks and what it refuses or would change,
 /// and the edit it makes with the user's answers.
 /// </summary>
+/// <remarks>
+/// It converts a <c>GoSub</c> routine to a procedure as well (<see cref="RefactoringKinds.ConvertGoSub"/>), which extracts the routine a label starts, asked for
+/// by kind: the range is on the label, or on a <c>GoSub</c> that names it.
+/// </remarks>
 internal interface IExtractMethodService
 {
+    /// <summary>
+    /// What a refactoring of the kind would ask the user of a range, and what it refuses or would change: Extract Method's, or Convert GoSub's.
+    /// </summary>
+    /// <param name="kind">The refactoring: <see cref="RefactoringKinds.ExtractMethod"/> or <see cref="RefactoringKinds.ConvertGoSub"/>.</param>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="range">The range, in the text of the document.</param>
+    /// <param name="token">A token that cancels the parses.</param>
+    /// <returns>The choices and the notices.</returns>
+    Task<RefactorPrepareResult> PrepareAsync(string kind, Uri documentUri, SourceRange range, CancellationToken token);
+
+    /// <summary>
+    /// The edit a refactoring of the kind makes of a range with the user's answers, verified.
+    /// </summary>
+    /// <param name="kind">The refactoring: <see cref="RefactoringKinds.ExtractMethod"/> or <see cref="RefactoringKinds.ConvertGoSub"/>.</param>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="range">The range, in the text of the document.</param>
+    /// <param name="answers">The user's answers; a choice that is not answered takes its default.</param>
+    /// <param name="accepted">The codes of the changes the user accepts.</param>
+    /// <param name="token">A token that cancels the parses.</param>
+    /// <returns>The edit, or why there is none, in the language of the user interface.</returns>
+    Task<ExtractMethodAnswer> ApplyAsync(
+        string kind, Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token);
+
+    /// <summary>
+    /// What the name the user is typing for a refactoring of the kind raises before it is applied.
+    /// </summary>
+    /// <param name="kind">The refactoring: <see cref="RefactoringKinds.ExtractMethod"/> or <see cref="RefactoringKinds.ConvertGoSub"/>.</param>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="range">The range, in the text of the document.</param>
+    /// <param name="answers">The user's answers, whose name is checked.</param>
+    /// <param name="token">A token that cancels the parses.</param>
+    /// <returns>The notices, each with the choice it answers.</returns>
+    Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(string kind, Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token);
+
     /// <summary>
     /// What extracting the statements of a range would ask the user, and what it refuses or would change.
     /// </summary>
@@ -124,14 +164,24 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// </summary>
     public static string DocumentChanged() => Format("ExtractMethod_DocumentChanged");
 
-    public async Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourceRange range, CancellationToken token)
+    public Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourceRange range, CancellationToken token)
+        => PrepareAsync(RefactoringKinds.ExtractMethod, documentUri, range, token);
+
+    public Task<ExtractMethodAnswer> ApplyAsync(
+        Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token)
+        => ApplyAsync(RefactoringKinds.ExtractMethod, documentUri, range, answers, accepted, token);
+
+    public Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
+        => CheckIdentifierAsync(RefactoringKinds.ExtractMethod, documentUri, range, answers, token);
+
+    public async Task<RefactorPrepareResult> PrepareAsync(string kind, Uri documentUri, SourceRange range, CancellationToken token)
     {
-        if (await ExtractionOfAsync(documentUri, range, token) is not { } extraction)
+        if (await ExtractionOfAsync(kind, documentUri, range, token) is not { } extraction)
         {
-            var kind = nameof(ExtractionSelectionRefusal.NoStatement);
+            var refused = nameof(ExtractionSelectionRefusal.NoStatement);
             return new RefactorPrepareResult
             {
-                Notices = [new RefactorNotice { Code = Code(kind), Kind = RefactorNoticeKind.Refusal, Message = Format($"ExtractMethodSelection_{kind}") }],
+                Notices = [new RefactorNotice { Code = Code(refused), Kind = RefactorNoticeKind.Refusal, Message = Format($"ExtractMethodSelection_{refused}") }],
             };
         }
 
@@ -150,7 +200,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
         // a refusal of the writer that no answer can lift is said before the user answers anything.
         var written = ExtractMethodEdit.Of(plan, extraction.Source, new ExtractionChoices(extraction.SuggestedName()));
-        if (written.Refusal is ExtractionEditRefusalKind.ExitByJumpTable)
+        if (written.Refusal is ExtractionEditRefusalKind.ExitByJumpTable or ExtractionEditRefusalKind.RoutineUsesTheResult or ExtractionEditRefusalKind.RoutineRunsItself
+            or ExtractionEditRefusalKind.RoutineInAWithBlock)
         {
             return new RefactorPrepareResult
             {
@@ -162,11 +213,12 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices, Range = moved };
     }
 
-    public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
+    public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(
+        string kind, Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
     {
         // the name as ApplyAsync reads it: trimmed, and one that is not answered takes its default, which raises nothing.
         if (answers.FirstOrDefault(answer => answer.Id == NameChoice)?.Value is not { Length: > 0 } typed
-            || await ExtractionOfAsync(documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
+            || await ExtractionOfAsync(kind, documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
         {
             return new RefactorIdentifierCheckResult();
         }
@@ -185,9 +237,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     }
 
     public async Task<ExtractMethodAnswer> ApplyAsync(
-        Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token)
+        string kind, Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token)
     {
-        if (await ExtractionOfAsync(documentUri, range, token) is not { } extraction)
+        if (await ExtractionOfAsync(kind, documentUri, range, token) is not { } extraction)
         {
             return new(null, Format("ExtractMethodSelection_NoStatement"));
         }
@@ -290,8 +342,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     private async Task<SDK.Model.AST.ModuleParseResult> ParseAsync(Uri documentAddress, string text, Extraction extraction, CancellationToken token)
         => await parsing.ParseFragmentAsync(documentAddress, text, token) with { Designer = extraction.Module.Parse.Designer };
 
-    // the module, the procedure and the selection a range is of; null when it is of no procedure of a module of the workspace.
-    private async Task<Extraction?> ExtractionOfAsync(Uri documentUri, SourceRange range, CancellationToken token)
+    // the module, the procedure and the selection a range is of, or the GoSub routine for Convert GoSub; null when it is of no procedure of a module of the
+    // workspace.
+    private async Task<Extraction?> ExtractionOfAsync(string kind, Uri documentUri, SourceRange range, CancellationToken token)
     {
         if (await rename.ComposeAsync(token) is not { } workspace
             || workspace.DocumentOf(documentUri) is not ({ } part, { } module)
@@ -309,6 +362,20 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         }
 
         var source = new ExtractionSource(tree, procedure.Declaration, procedure.Model.Procedure, module.Source, analysis.Scopes);
+        if (kind == RefactoringKinds.ConvertGoSub)
+        {
+            var label = LabelAt(procedure.Declaration, range.Start, new ExtractionText(module.Source));
+            ExtractionSelection? routine = null;
+            var why = GoSubRoutineRefusal.NoLabel;
+            if (label is null || !GoSubRoutine.TryFind(procedure.Declaration, procedure.Instructions, procedure.Graph, analysis.Directives, label, out routine, out why))
+            {
+                return new Extraction(part, module, analysis, procedure, source, null,
+                    new RefactorNotice { Code = Code(why.ToString()), Kind = RefactorNoticeKind.Refusal, Message = Format($"ConvertGoSub_{why}", label) });
+            }
+
+            return new Extraction(part, module, analysis, procedure, source, ExtractionAnalysis.Plan(routine!, procedure.Graph, procedure.Accesses, procedure.Model, analysis.Scopes), null);
+        }
+
         if (!ExtractionSelection.TrySnap(procedure.Declaration, procedure.Instructions, analysis.Directives, range, out var selection, out var refused, out var cut))
         {
             var where = cut is null ? string.Empty : RenameWorkspace.Locator(part)(module.Module, cut.SourceLocation.Range.Start);
@@ -325,6 +392,20 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     }
 
     private static bool Contains(SourceRange range, SourcePosition position) => range.Start <= position && position <= range.End;
+
+    // the label of the GoSub routine a position is on: a label on the position's line, or the one a GoSub there names; null when it is on neither.
+    private static string? LabelAt(MemberDeclarationNode procedure, SourcePosition position, ExtractionText text)
+    {
+        var nodes = procedure.Descendants().ToArray();
+        if (nodes.OfType<LineLabelNode>().FirstOrDefault(label => label.SourceLocation.Range.Start.Line == position.Line) is { } written)
+        {
+            return written.Name;
+        }
+
+        return nodes.OfType<GoSubStatementNode>().FirstOrDefault(statement => Contains(statement.SourceLocation.Range, position)) is { } named
+            ? text.Of(named.LabelExpression.SourceLocation.Range).Trim()
+            : null;
+    }
 
     // the code of a notice: the same in any language, by which the user accepts a change.
     private static string Code(string kind) => $"extractMethod.{char.ToLowerInvariant(kind[0])}{kind[1..]}";
@@ -420,7 +501,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                 });
             }
 
-            if (plan.ReturnCandidates is { IsEmpty: false } candidates)
+            // a routine's calls are statements, which take no value back.
+            if (plan.ReturnCandidates is { IsEmpty: false } candidates && plan.Selection.Routine is null)
             {
                 choices.Add(new()
                 {
