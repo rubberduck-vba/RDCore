@@ -62,8 +62,8 @@ internal sealed record class ExtractionVerificationFailure(ExtractionVerificatio
 /// of the selection said, by every variable the source procedure had.
 /// </para>
 /// <para>
-/// A <c>GoSub</c> routine converted to a procedure has a call for each of its <c>GoSub</c> and <c>On…GoSub</c> statements (that one in the <c>Select Case</c> it
-/// becomes), each analyzed so: it takes in what the routine took in,
+/// A <c>GoSub</c> routine converted to a procedure has a call for each of its <c>GoSub</c> and <c>On…GoSub</c> statements (the call of an <c>On…GoSub</c> is in the
+/// <c>Select Case</c> it becomes), each analyzed so: it takes in what the routine took in,
 /// writes nothing the routine did not, gives back what the code after it reads of what the routine wrote, and leaves the source procedure where the routine did.
 /// Each call is checked against what is read after it, which can differ from one call to another; the routine's own analysis merged every <c>GoSub</c>.
 /// </para>

@@ -117,7 +117,7 @@ internal sealed record class GoSubRoutine(string Label, LineLabelNode Declaratio
             return false;
         }
 
-        // an On…GoSub in a single-line If can't be written as the Select Case it becomes: the extraction's plan refuses it.
+        // an On…GoSub in a single-line If cannot be written as the Select Case it becomes: the extraction's plan refuses it.
         var inline = procedure.Descendants().OfType<InlineIfStatementNode>()
             .SelectMany(statement => statement.Descendants().OfType<OnGoSubStatementNode>())
             .ToHashSet();

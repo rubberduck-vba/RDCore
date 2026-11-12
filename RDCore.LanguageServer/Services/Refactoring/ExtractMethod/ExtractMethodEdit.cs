@@ -527,8 +527,9 @@ internal static class ExtractMethodEdit
             }
         }
 
-        // an On…GoSub of the routine as a Select Case of its selector, as an Integer, with a case of each of its labels (MS-VBAL §5.4.2.16): the routine's calls
-        // the procedure, and any other is the GoSub it was. A selector of 0 or past the last label runs none; a negative one raises error 5, as the On…GoSub did.
+        // an On…GoSub of the routine as a Select Case of its selector, as an Integer, with a case of each of its labels (MS-VBAL §5.4.2.16): the routine's case calls
+        // the procedure, and any other is the GoSub it was. A selector of 0 or past the last label runs none; a negative one raises run-time error 5, as the
+        // On…GoSub does.
         private ExtractionTextEdit TableText(GoSubRoutine routine, OnGoSubStatementNode table, string? resultCopy, IReadOnlyList<Exit> exits)
         {
             var range = table.SourceLocation.Range;
