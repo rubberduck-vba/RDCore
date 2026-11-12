@@ -4,6 +4,7 @@ using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.ConsoleIO.Model;
+using RDCore.External.Interaction;
 using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Protocol;
 using System.IO.Abstractions.TestingHelpers;
@@ -42,7 +43,7 @@ public sealed class ReplWorkspaceShellTests
         [
             Quiet(ReplCommandNames.Splash), Quiet(ReplCommandNames.Memory),
             new ListReplCommand(), new RunReplCommand(), new NewReplCommand(), new LoadReplCommand(_files), new SaveReplCommand(_files), new AnalyzeReplCommand(),
-            new BreakReplCommand(), new FoldReplCommand(), new DuckyReplCommand(new ReplUserInteraction(keys, output, consoleWidth: () => 80)),
+            new BreakReplCommand(), new FoldReplCommand(), new DuckyReplCommand(new ConsoleUserInteraction(keys, output, consoleWidth: () => 80)),
             new ContReplCommand(),
         ];
         var shell = new ReplShell(
