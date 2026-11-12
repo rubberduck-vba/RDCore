@@ -98,11 +98,6 @@ internal enum ExtractionEditRefusalKind
     NotAReturnCandidate,
 
     /// <summary>
-    /// An <c>On…GoTo</c> leaves the selection: one statement with several targets, which no exit code of one statement can stand for.
-    /// </summary>
-    ExitByJumpTable,
-
-    /// <summary>
     /// The selection leaves the source procedure, or a loop or a block around it, and the user turned exit routing off (<see cref="ExtractionChoices.RouteExits"/>).
     /// </summary>
     ExitRoutingDeclined,
@@ -189,8 +184,9 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
 /// <para>
 /// The call is <c>Name a, b</c>, never <c>Name (a)</c>, which passes a copy; or <c>x = Name(a, b)</c>, <c>Set</c> for an object. A selection that leaves the source
 /// procedure, or a loop or a block around it, returns a code: <c>True</c> for one exit, a member of a <c>Private Enum</c> for several. The call site goes where
-/// the code says. The source's result, read or written in the selection, is given to the new procedure as a copy, <c>ByRef</c>, and written back after the call:
-/// a function's name cannot be passed.
+/// the code says. An <c>On…GoTo</c> stays as it is written, its selector evaluated as before, and names, for each of its labels outside the selection, a label
+/// after the new procedure's body that returns that label's code. The source's result, read or written in the selection, is given to the new procedure as a
+/// copy, <c>ByRef</c>, and written back after the call: a function's name cannot be passed.
 /// </para>
 /// <para>
 /// The text is indented as the selection was, with the body of the new procedure one level in: <see cref="ExtractionEdit.Formatted"/> indents it as the user's
@@ -222,16 +218,6 @@ internal static class ExtractMethodEdit
         if (!plan.Exits.IsEmpty && !choices.RouteExits)
         {
             return ExtractionEdit.Refused(ExtractionEditRefusalKind.ExitRoutingDeclined);
-        }
-
-        var jumpTables = plan.Selection.Statements
-            .SelectMany(statement => (IEnumerable<SyntaxNode>)[statement, .. statement.Descendants()])
-            .OfType<OnGoToStatementNode>()
-            .Select(statement => statement.SourceLocation.Range)
-            .ToHashSet();
-        if (plan.Exits.SelectMany(exit => exit.From).Any(from => jumpTables.Contains(from.Range)))
-        {
-            return ExtractionEdit.Refused(ExtractionEditRefusalKind.ExitByJumpTable);
         }
 
         return new Writer(plan, source, choices, new ExtractionText(source.Text)).Write();
@@ -358,6 +344,23 @@ internal static class ExtractMethodEdit
                 lines.AddRange(body.Select(line => line.Length == 0 ? line : Indent + line));
             }
 
+            // the labels an On…GoTo goes to for its labels outside, after the body, which never runs on into them.
+            var stubs = Stubs(exits);
+            for (var index = 0; index < stubs.Count; index++)
+            {
+                if (index == 0)
+                {
+                    lines.Add($"{Indent}Exit Function");
+                }
+
+                lines.Add($"{stubs[index].Label}:");
+                lines.Add($"{Indent}{_name} = {stubs[index].Exit.Code}");
+                if (index < stubs.Count - 1)
+                {
+                    lines.Add($"{Indent}Exit Function");
+                }
+            }
+
             if (ReturnValue is { } returned)
             {
                 lines.Add($"{Indent}{(IsObject(returned) ? "Set " : string.Empty)}{_name} = {LocalName(returned)}");
@@ -401,9 +404,24 @@ internal static class ExtractMethodEdit
                 edits.AddRange(plan.ResultNames.Select(range => new ExtractionTextEdit(range, copy, ExtractionTextEditKind.Call)));
             }
 
+            // a statement that leaves returns its exit code; an On…GoTo stays, its selector evaluated as before, and goes to the label that returns it.
+            var jumpTables = JumpTables();
+            var stubs = Stubs(exits).ToDictionary(stub => stub.Exit, stub => stub.Label);
             foreach (var exit in exits)
             {
-                edits.AddRange(exit.From.Select(from => new ExtractionTextEdit(from.Range, $"{_name} = {exit.Code}: Exit Function", ExtractionTextEditKind.Call)));
+                foreach (var from in exit.From)
+                {
+                    if (jumpTables.TryGetValue(from.Range, out var jumpTable))
+                    {
+                        edits.AddRange(jumpTable.Labels
+                            .Where(label => text.Of(label.SourceLocation.Range).Trim().Equals(exit.Label, StringComparison.OrdinalIgnoreCase))
+                            .Select(label => new ExtractionTextEdit(label.SourceLocation.Range, stubs[exit], ExtractionTextEditKind.Call)));
+                    }
+                    else
+                    {
+                        edits.Add(new ExtractionTextEdit(from.Range, $"{_name} = {exit.Code}: Exit Function", ExtractionTextEditKind.Call));
+                    }
+                }
             }
 
             // the names of a variable the user renamed, but in a declaration that stays in the source, which leaves the body.
@@ -512,7 +530,34 @@ internal static class ExtractMethodEdit
 
         // ---- exits ----
 
-        public sealed record class Exit(string Code, string Dispatch, ImmutableArray<SourceLocation> From);
+        public sealed record class Exit(string Code, string Dispatch, ImmutableArray<SourceLocation> From, string? Label);
+
+        // the On…GoTo statements of the selection, by where they are written.
+        private Dictionary<SourceRange, OnGoToStatementNode> JumpTables() => plan.Selection.Statements
+            .SelectMany(statement => (IEnumerable<SyntaxNode>)[statement, .. statement.Descendants()])
+            .OfType<OnGoToStatementNode>()
+            .ToDictionary(statement => statement.SourceLocation.Range);
+
+        // the labels of the new procedure that an On…GoTo goes to for a label outside the selection: each returns the exit code of that label. They are named
+        // for it, and none is named as a label that moves with the selection.
+        private List<(Exit Exit, string Label)> Stubs(IReadOnlyList<Exit> exits)
+        {
+            var jumpTables = JumpTables();
+            var taken = plan.Selection.Labels.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var stubs = new List<(Exit, string)>();
+            foreach (var exit in exits.Where(exit => exit.From.Any(from => jumpTables.ContainsKey(from.Range))))
+            {
+                var label = $"{_name}To{exit.Label}";
+                while (!taken.Add(label))
+                {
+                    label += "_";
+                }
+
+                stubs.Add((exit, label));
+            }
+
+            return stubs;
+        }
 
         public List<Exit> ExitCodes()
         {
@@ -532,7 +577,7 @@ internal static class ExtractMethodEdit
                     member += "_";
                 }
 
-                exits.Add(new Exit(single ? "True" : member, dispatch, exit.From));
+                exits.Add(new Exit(single ? "True" : member, dispatch, exit.From, exit.Label));
             }
 
             return exits;

@@ -12,12 +12,12 @@ namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 internal enum ExtractionPassing
 {
     /// <summary>
-    /// Its value is passed: the new procedure reads it, and what it writes to it stays its own.
+    /// Its value is passed: the new procedure reads it, and what it writes to it does not reach the caller.
     /// </summary>
     ByVal,
 
     /// <summary>
-    /// The variable is passed: what the new procedure writes to it is the caller's.
+    /// The variable is passed: what the new procedure writes to it reaches the caller.
     /// </summary>
     ByRef,
 }

@@ -401,10 +401,51 @@ public sealed class ExtractMethodEditTests
     public void AReturnValueThatIsNoCandidate_IsRefused()
         => Assert.AreEqual(ExtractionEditRefusalKind.NotAReturnCandidate, ExtractionFixture.Extract("Debug.Print n", 0, 0, returnValue: "n").Edit.Refusal);
 
+    // the On…GoTo stays as it is written, its selector coerced and checked as before: each label outside goes to a label of the new procedure that returns its
+    // exit code, and the call goes where that says.
     [TestMethod]
-    public void AnExitByAJumpTable_IsRefused()
-        => Assert.AreEqual(ExtractionEditRefusalKind.ExitByJumpTable,
-            ExtractionFixture.Extract("On n GoTo A, B\nDebug.Print 0\nA:\nDebug.Print 1\nB:\nDebug.Print 2", 0, 1).Edit.Refusal);
+    public void AnOnGoToThatLeavesTheSelection_GoesToALabelThatReturnsTheExitCodeOfEachLabelOutside()
+    {
+        var (module, edit) = ExtractionFixture.Extract("On n GoTo A, B\nDebug.Print 0\nA:\nDebug.Print 1\nB:\nDebug.Print 2", 0, 1);
+
+        Assert.IsNull(edit.Refusal);
+        Assert.AreEqual(Lines("""
+            Public Sub Run(ByVal n As Long)
+            Select Case Extracted(n)
+                Case ExtractedGoToA
+                    GoTo A
+                Case ExtractedGoToB
+                    GoTo B
+            End Select
+            A:
+            Debug.Print 1
+            B:
+            Debug.Print 2
+            End Sub
+
+            Private Function Extracted(ByVal n As Long) As ExtractedExit
+                On n GoTo ExtractedToA, ExtractedToB
+                Debug.Print 0
+                Exit Function
+            ExtractedToA:
+                Extracted = ExtractedGoToA
+                Exit Function
+            ExtractedToB:
+                Extracted = ExtractedGoToB
+            End Function
+
+            """), FromRun(module));
+    }
+
+    // C is in the selection, and stays the On…GoTo's own.
+    [TestMethod]
+    public void AnOnGoToLabelInTheSelection_StaysAsItIs()
+    {
+        var (_, edit) = ExtractionFixture.Extract("On n GoTo A, C\nDebug.Print 0\nC:\nDebug.Print 3\nExit Sub\nA:\nDebug.Print 1", 0, 3);
+
+        StringAssert.Contains(edit.Procedure, "On n GoTo ExtractedToA, C");
+        StringAssert.Contains(edit.Procedure, Lines("ExtractedToA:\n    Extracted = True\nEnd Function"));
+    }
 
     [TestMethod]
     public void AnExit_IsRouted_UnlessExitRoutingIsOff()
