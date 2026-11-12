@@ -11,7 +11,7 @@ using RDCore.SDK.Server;
 namespace RDCore.Runtime.Support.Host;
 
 /// <summary>
-/// The external host of a program: the process that makes the calls it makes to the outside world of the machine (its automation servers, its forms and
+/// The external host of a program: the process that makes the program's calls to the outside world of the machine (its automation servers, its forms and
 /// its native libraries), started by the process that runs the program, from its own executable, with <c>RDCORE_MODE=external</c>.
 /// </summary>
 /// <remarks>

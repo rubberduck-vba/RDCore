@@ -879,7 +879,7 @@ public sealed class BuildCommandTests
         }
     }
 
-    // a folder Windows lets go of a moment after the programs that ran from it ended; a temporary one that it still holds after that is left.
+    // Windows lets go of a folder a moment after the programs that ran from it end; a temporary folder it still holds after the last attempt is left in place.
     private static async Task DeleteAsync(DirectoryInfo folder)
     {
         for (var attempt = 0; attempt < 20; attempt++)

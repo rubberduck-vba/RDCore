@@ -23,7 +23,7 @@ internal static class MachineExternal
 {
     /// <summary>
     /// The executable the external host is started from, run in external mode: <c>rdc</c> beside this process's assemblies, unless this process is a built
-    /// program, whose folder holds no <c>rdc</c> and which is its own. Read once, when the world is first reached.
+    /// program, whose folder holds no <c>rdc</c> and which is its own external host. Read once, when the world is first reached.
     /// </summary>
     public static string Executable { get; set; } = ExternalHost.DefaultExecutable;
 
