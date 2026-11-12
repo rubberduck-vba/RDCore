@@ -132,7 +132,7 @@
     <value>Replace the duplicates</value>
   </data>
   <data name="ExtractMethodChoice_ReplaceDuplicatesDescription" xml:space="preserve">
-    <value>The same code elsewhere is replaced with a call to the new procedure, where it is ticked.</value>
+    <value>Each duplicate that is ticked is replaced with a call to the new procedure.</value>
   </data>
   <data name="ExtractMethodChoice_Duplicates" xml:space="preserve">
     <value>Duplicates</value>
@@ -163,7 +163,7 @@
     <value>Replace the duplicate at {0} with a call</value>
   </data>
   <data name="ExtractMethodChoice_AccessibilityUnknown" xml:space="preserve">
-    <value>'{0}' is not an accessibility of the new procedure: it is Private or Public.</value>
+    <value>'{0}' is not an accessibility the new procedure can have: choose Private or Public.</value>
   </data>
   <data name="ExtractMethodReason_ReadOnly" xml:space="preserve">
     <value>Read by the selection, not written.</value>

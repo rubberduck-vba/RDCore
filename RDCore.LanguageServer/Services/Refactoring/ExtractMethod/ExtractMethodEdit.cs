@@ -56,7 +56,7 @@ internal enum ExtractionAccessibility
 
     /// <summary>
     /// <c>Public</c>: in the project, for a procedure of a standard module; for a member of a class module, through each of its objects. The <c>Enum</c> of its
-    /// exit codes is <c>Public</c> too, since a public member's type is never a private one, and the project's.
+    /// exit codes is <c>Public</c> too, and the project's: a public member's type is never a private one.
     /// </summary>
     Public,
 }

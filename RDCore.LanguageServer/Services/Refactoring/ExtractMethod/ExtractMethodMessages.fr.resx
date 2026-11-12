@@ -132,7 +132,7 @@
     <value>Remplacer les doublons</value>
   </data>
   <data name="ExtractMethodChoice_ReplaceDuplicatesDescription" xml:space="preserve">
-    <value>Le même code ailleurs est remplacé par un appel à la nouvelle procédure, là où il est coché.</value>
+    <value>Chaque doublon coché est remplacé par un appel à la nouvelle procédure.</value>
   </data>
   <data name="ExtractMethodChoice_Duplicates" xml:space="preserve">
     <value>Doublons</value>
@@ -163,7 +163,7 @@
     <value>Remplacer le doublon à {0} par un appel</value>
   </data>
   <data name="ExtractMethodChoice_AccessibilityUnknown" xml:space="preserve">
-    <value>« {0} » n'est pas une accessibilité de la nouvelle procédure : c'est Private ou Public.</value>
+    <value>« {0} » n'est pas une accessibilité que la nouvelle procédure peut avoir : choisissez Private ou Public.</value>
   </data>
   <data name="ExtractMethodReason_ReadOnly" xml:space="preserve">
     <value>Lu par la sélection, sans être écrit.</value>

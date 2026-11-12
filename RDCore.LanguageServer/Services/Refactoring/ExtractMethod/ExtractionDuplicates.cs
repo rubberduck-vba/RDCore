@@ -68,7 +68,7 @@ internal sealed record class ExtractionDuplicate(Uri Module, ExtractionSource So
 /// <para>
 /// The run is then planned as a selection would be, and the call replaces it only when it does what the run did: the variables it stands for are passed as the
 /// selection's are, each declared as the one it stands for, and those the run gives a value that is read after it are passed by reference, or returned; the new
-/// procedure's own variables are those of the run; it leaves for the same places, with the same exit codes; and it changes nothing the user would accept.
+/// procedure's own variables are those of the run; it leaves for the same places, with the same exit codes; and it changes nothing the user would have to accept.
 /// A selection that uses the object of a <c>With</c> block, or the source's result, or that declares what the source procedure keeps, has no duplicates.
 /// </para>
 /// </remarks>
@@ -272,7 +272,7 @@ internal static class ExtractionDuplicates
         return Normalized(own.Append(text.Of(new SourceRange(from, range.End))).ToString());
     }
 
-    // code as it means, whatever it is written with: without its comments and line continuations, its spaces made one, and in one case outside its strings.
+    // code as it means, whatever it is written with: without its comments and line continuations, its spaces made one, and in one letter case outside its strings.
     internal static string Normalized(string code)
     {
         var normalized = new StringBuilder(code.Length);

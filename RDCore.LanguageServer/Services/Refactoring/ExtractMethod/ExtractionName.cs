@@ -105,7 +105,7 @@ internal sealed record class ExtractionNameProblem(ExtractionNameProblemKind Kin
 /// </para>
 /// <para>
 /// A <c>Public</c> procedure of a standard module, and the <c>Public Enum</c> of its exit codes in any module, are the project's (MS-VBAL §5.2.3): the project
-/// must not declare their names either, and no module may write them where they mean something else. Only a library's declaration is hidden, a warning. A
+/// must not declare their names either, and no module may write them where they mean something else. A library's declaration they hide is only a warning. A
 /// <c>Public</c> member of a class module is named through an object of the class, and its name is checked as a <c>Private</c> one; it is refused when another
 /// class implements the class.
 /// </para>
