@@ -121,6 +121,9 @@ Le code de sortie indique comment s'est passée l'exécution :
 `rdc build` compile l'espace de travail en un programme qui s'exécute sans l'analyseur syntaxique de RDCore, et sans les sources de l'espace de travail :
 le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui faut le même point d'entrée qu'à `rdc run`.
 
+Le dossier du programme contient, dans `Symbols`, les descriptions des bibliothèques que son projet référence : le programme les lit là, et non là où
+sont celles de la plateforme.
+
 |Option|Ce qu'elle fait|
 |---|---|
 |`-o`, `--output`|Le dossier où le programme est écrit; `bin/<configuration>/<runtime>/` dans l'espace de travail par défaut.|
