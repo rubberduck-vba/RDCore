@@ -622,7 +622,7 @@ lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition
 
 unrestrictedIdentifier : identifier | statementKeyword | markerKeyword | operatorIdentifier | otherReservedIdentifier;
 // MS-VBAL 3.3.5.2: the reserved identifiers no other rule reads where a name is written: the marker keyword Each, the literal identifier Empty, the statement
-// keyword EndIf, and the future-reserved CDecl. Read as a name where a reserved identifier is one (a member, `x.Empty`), and as no name elsewhere: a
+// keyword EndIf, and the future-reserved CDecl. Read as a name where a reserved identifier can be one (a member, `x.Empty`), and as no name elsewhere: a
 // parameter named with one is a syntax error at the name, and the procedure is read whole.
 otherReservedIdentifier : EACH | EMPTY | END_IF | CDECL;
 // MS-VBAL 3.3.5.2: an operator-identifier is a reserved-identifier, which is no name: it names a member (`x.And`, `d!Mod`), as any keyword does, and

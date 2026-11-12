@@ -11,7 +11,7 @@ namespace RDCore.Tests.Parser;
 /// <summary>
 /// A declaration is named with an <c>IDENTIFIER</c>, which is no reserved identifier (<strong>MS-VBAL §3.3.5.2</strong>): a reserved name (<c>Len</c>,
 /// <c>Date</c>), a special form (<c>Array</c>, <c>LBound</c>), a statement keyword, a marker keyword or a literal identifier names no variable, constant,
-/// procedure or Enum member. A member of a user-defined type can have one (<strong>MS-VBAL §5.2.3.3</strong> <c>reserved-name-member-dcl</c>), and so can a
+/// procedure or Enum member. A member of a user-defined type can be named with one (<strong>MS-VBAL §5.2.3.3</strong> <c>reserved-name-member-dcl</c>), and so can a
 /// name in brackets (<strong>MS-VBAL §3.3.5.3</strong>).
 /// </summary>
 [TestClass]
@@ -91,7 +91,7 @@ public sealed class ReservedDeclarationNameTests
     // MS-VBA refuses these, where MS-VBAL §3.3.5.2 reads an IDENTIFIER: a reserved-type-identifier is no reserved-identifier, a reserved-member-name can be a
     // reserved-name, and Name is no reserved-identifier. RD-VBA reads them as the specification does, and these rows are ignored until that is settled.
     [TestMethod]
-    [Ignore("ruling: MS-VBA refuses a reserved-type-identifier as a name (Dim Long As Long), which MS-VBAL 3.3.5.2 allows")]
+    [Ignore("awaiting a ruling: MS-VBA refuses names that MS-VBAL 3.3.5.2 allows (Dim Long As Long, a Type member Me, an Enum member Name)")]
     [DataRow("Public Sub S()\r\n    Dim Long As Long\r\nEnd Sub", DisplayName = "a variable named Long")]
     [DataRow("Private Type T\r\n    Me As Long\r\nEnd Type", DisplayName = "a member of a user-defined type named Me")]
     [DataRow("Private Enum E\r\n    Name\r\nEnd Enum", DisplayName = "an Enum member named Name")]

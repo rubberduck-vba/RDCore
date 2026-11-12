@@ -808,7 +808,7 @@ public partial class ModuleParser(
     /// <remarks>
     /// A parameter, a variable, a constant, a procedure, an <c>Enum</c> and its members, a user-defined type, an external procedure and an event are named
     /// with an <c>IDENTIFIER</c>, which is no reserved identifier (<strong>MS-VBAL §5.3.1.5</strong>, <strong>§3.3.5.2</strong>); a member of a user-defined
-    /// type can have one. The grammar still reads one there, so the declaration is read whole: the body of a procedure, its end and the procedures after it
+    /// type can be named with one (<strong>MS-VBAL §5.2.3.3</strong>). The grammar still reads one there, so the declaration is read whole: the body of a procedure, its end and the procedures after it
     /// parse as they would with a valid name.
     /// </remarks>
     private static void ReportReservedDeclarationNames(ReservedDeclarationNameCollector names, ErrorListener findings)
@@ -1188,8 +1188,8 @@ internal sealed class OutputListCollector : VBAParserBaseListener
 }
 
 // the names of a parse's declarations that are reserved identifiers (MS-VBAL 3.3.5.2), registered live: a name the rule read whole, which is no identifier,
-// or an identifier that is one reserved word the grammar reads as a name (Len, Array, Then). A member of a user-defined type is named with any reserved
-// identifier (MS-VBAL 5.2.3.3 <reserved-name-member-dcl>), and is not one of them.
+// or an identifier that is one reserved word the grammar reads as a name (Len, Array, Then). A member of a user-defined type can be named with any reserved
+// identifier (MS-VBAL 5.2.3.3 <reserved-name-member-dcl>), and is not collected.
 internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
 {
     // the words of the grammar's keyword rule that are reserved identifiers: reserved names, special forms, statement keywords, marker keywords and literal
@@ -1207,7 +1207,7 @@ internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
         VBAParser.TRUE, VBAParser.FALSE, VBAParser.NOTHING, VBAParser.NULL, VBAParser.ATTRIBUTE,
     ];
 
-    // the reserved identifiers the lexer reads as an IDENTIFIER: the future-reserved ones but CDecl, and the ones reserved for the implementation's use but
+    // the reserved identifiers the lexer reads as an IDENTIFIER: the future-reserved ones except CDecl, and the ones reserved for the implementation's use except
     // Attribute (MS-VBAL 3.3.5.2).
     private static readonly HashSet<string> ReservedIdentifiers = new(StringComparer.OrdinalIgnoreCase)
     {
