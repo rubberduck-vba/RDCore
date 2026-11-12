@@ -90,9 +90,19 @@ internal static class FlowFixture
         public ExtractionDirectives Directives { get; init; } = ExtractionDirectives.None;
 
         /// <summary>
+        /// The analysis of a module of the workspace, by its address in <see cref="Context"/>, as an extraction analyzes it; <see langword="null"/> for none.
+        /// </summary>
+        public Func<Uri, ExtractionModuleAnalysis?> AnalysisOf { get; init; } = _ => null;
+
+        /// <summary>
         /// The module's address in <see cref="Context"/>.
         /// </summary>
         public Uri ModuleAddress => ModuleUri("Main");
+
+        /// <summary>
+        /// The address in <see cref="Context"/> of the module named <paramref name="name"/>.
+        /// </summary>
+        public static Uri AddressOf(string name) => ModuleUri(name);
 
         public LiveVariables Live => LiveVariables.Of(Graph, Accesses);
 
@@ -178,6 +188,9 @@ internal static class FlowFixture
             Context = new RenameContext(composition.Resolver, composition.ScopeTree,
                 [new RenameModule(ModuleUri("Main"), parse.SyntaxTree!, text), .. others.Select(other => new RenameModule(other.Module, other.Parse.SyntaxTree!, other.Source))]),
             Directives = ExtractionDirectives.Of(parse.PrecompilerTrivia, text),
+            AnalysisOf = uri => uri.AbsoluteUri == ModuleUri("Main").AbsoluteUri
+                ? ExtractionModuleAnalysis.Of(uri, text, parse, composition.Resolver, composition.ScopeTree)
+                : others.Where(other => other.Module.AbsoluteUri == uri.AbsoluteUri).Select(other => ExtractionModuleAnalysis.Of(uri, other.Source, other.Parse, composition.Resolver, composition.ScopeTree)).FirstOrDefault(),
         };
     }
 }

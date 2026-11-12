@@ -127,6 +127,16 @@ public sealed class ExtractionNameTests
         Assert.AreEqual(ExtractionNameProblemKind.Shadows, Problems("Format", ExtractionAccessibility.Private).Single().Kind);
     }
 
+    // Other's Helper means its own Private procedure, nearer than a Public one of the project.
+    [TestMethod]
+    public void APublicName_ThatAnotherModuleWritesForItsOwnDeclaration_IsValid()
+    {
+        (string, string)[] own = [("Other", "Attribute VB_Name = \"Other\"\r\nOption Explicit\r\n\r\nPrivate Sub Helper()\r\nEnd Sub\r\n\r\nPublic Sub Show()\r\n    Helper\r\nEnd Sub\r\n")];
+        var (plan, source, context, module, _) = ExtractionFixture.Naming("Debug.Print n", 0, 0, modules: own);
+
+        Assert.IsEmpty(ExtractionName.Validate("Helper", plan, source, context, module, ExtractionAccessibility.Public));
+    }
+
     // a Public member of a class module is a member of each of its objects, which no unqualified name of another module means.
     [TestMethod]
     public void APublicName_InAClassModule_IsCheckedAsAPrivateOne()

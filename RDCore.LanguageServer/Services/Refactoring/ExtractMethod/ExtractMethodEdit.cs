@@ -37,6 +37,11 @@ internal enum ExtractionTextEditKind
     /// The <c>Enum</c> of the exit codes, before the module's first procedure.
     /// </summary>
     Enumeration,
+
+    /// <summary>
+    /// A call that replaces a duplicate of the selection (<see cref="ExtractionDuplicate"/>).
+    /// </summary>
+    Replacement,
 }
 
 /// <summary>
@@ -280,6 +285,15 @@ internal static class ExtractMethodEdit
     // a parameter of the plan as the new procedure's signature writes it (ByRef total As Long).
     internal static string ParameterTextOf(ExtractionPlan plan, ExtractionSource source, ExtractionParameter parameter)
         => new Writer(plan, source, new ExtractionChoices(string.Empty), new ExtractionText(source.Text)).ParameterText(parameter);
+
+    // what a variable, a parameter or a constant of the source procedure is declared as, after its name: its type-declaration character, its bounds, its As
+    // clause, its value (& for `n&`, `(1 To 3) As Long`, ` As Long = 5`); the name of the type it has when nothing declares it.
+    internal static string DeclaredTypeOf(ExtractionPlan plan, ExtractionSource source, SemanticId variable)
+        => new Writer(plan, source, new ExtractionChoices(string.Empty), new ExtractionText(source.Text)).DeclaredType(variable);
+
+    // the exit codes the new procedure returns, each with what the call site does for it.
+    internal static IEnumerable<(string Code, string Dispatch)> ExitCodesOf(ExtractionPlan plan, ExtractionSource source, string name)
+        => new Writer(plan, source, new ExtractionChoices(name), new ExtractionText(source.Text)).ExitCodes().Select(exit => (exit.Code, exit.Dispatch));
 
     private sealed class Writer(ExtractionPlan plan, ExtractionSource source, ExtractionChoices choices, ExtractionText text)
     {
@@ -673,6 +687,20 @@ internal static class ExtractMethodEdit
             }
 
             return (LocalName(variable), false);
+        }
+
+        public string DeclaredType(SemanticId variable)
+        {
+            var declaration = (SyntaxNode?)DeclarationOf(variable)
+                ?? (SyntaxNode?)ConstantNamed(variable)
+                ?? _parameters.FirstOrDefault(node => node.Name.Equals(NameOf(variable), StringComparison.OrdinalIgnoreCase));
+            if (declaration is not null && NameRangeOf(declaration) is { } range)
+            {
+                var written = text.Of(range);
+                return written[SymbolName(written).Length..] + text.Of(new SourceRange(range.End, declaration.SourceLocation.Range.End));
+            }
+
+            return SymbolOf(variable) is ITypedSymbol { ResolvedType: { } type } ? type.Name : "Variant";
         }
 
         // the type a variable is declared as, as a parameter writes it: no New, and a String for a fixed-length one; or the type its DefType gives it.

@@ -5,6 +5,7 @@ using RDCore.Parsing;
 using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Formatting;
 using RDCore.Tests.Semantics.Flow;
+using System.Collections.Immutable;
 
 namespace RDCore.Tests.Semantics.Refactoring;
 
@@ -100,6 +101,21 @@ internal static class ExtractionFixture
         var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
         return (plan, source, analyzed.Context, analyzed.ModuleAddress, analyzed);
+    }
+
+    // The duplicates of the lines first to last of the body, extracted as name returning returnValue, searched for in the modules named (Main's alone when none
+    // are); the workspace has the standard modules in modules beside the module. And the plan and the choices they are found for, and the workspace.
+    public static (ImmutableArray<ExtractionDuplicate> Duplicates, ExtractionPlan Plan, ExtractionChoices Choices, FlowFixture.Analyzed Analyzed) Duplicates(
+        string body, int first, int last, string end = "End Sub", string declarations = "", IReadOnlyList<(string Name, string Source)>? modules = null,
+        IReadOnlyList<string>? searched = null, string name = "Extracted", string? returnValue = null)
+    {
+        var analyzed = FlowFixture.Analyze(body, end: end, declarations: declarations, modules: modules);
+        var plan = PlanOf(analyzed, new SourcePosition(first, 0), new SourcePosition(last, 1));
+        var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
+        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue) };
+        var duplicates = ExtractionDuplicates.Find(
+            plan, source, choices, analyzed.Context, analyzed.ModuleAddress, [.. (searched ?? ["Main"]).Select(FlowFixture.Analyzed.AddressOf)], analyzed.AnalysisOf);
+        return (duplicates, plan, choices, analyzed);
     }
 
     private static ExtractionPlan PlanOf(FlowFixture.Analyzed analyzed, SourcePosition start, SourcePosition end)

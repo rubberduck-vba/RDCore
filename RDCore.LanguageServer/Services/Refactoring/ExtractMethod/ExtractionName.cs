@@ -148,7 +148,7 @@ internal static class ExtractionName
 
         var moduleScope = context.ScopeTree.ScopeFor(module);
         var procedureScope = context.ScopeTree.ScopeFor(source.ProcedureId.Uri);
-        var syntax = context.Modules.FirstOrDefault(candidate => candidate.Module == module);
+        var syntax = context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri);
         var isPublic = accessibility is ExtractionAccessibility.Public;
         var type = NameOccurrences.SymbolOf(context, new SemanticId(module)) as VBClassModuleSymbol;
         var problems = new List<ExtractionNameProblem>();
@@ -171,7 +171,7 @@ internal static class ExtractionName
             }
 
             IReadOnlyList<RenameModule> written = isProjects ? context.Modules : syntax is null ? [] : [syntax];
-            if (written.Select(each => RebindingOf(context, each, each.Module == module ? moduleScope : null, declared)).FirstOrDefault(rebinding => rebinding is not null) is { } rebinding)
+            if (written.Select(each => RebindingOf(context, each, each.Module.AbsoluteUri == module.AbsoluteUri ? moduleScope : null, declared)).FirstOrDefault(rebinding => rebinding is not null) is { } rebinding)
             {
                 problems.Add(rebinding);
                 continue;
@@ -253,7 +253,7 @@ internal static class ExtractionName
             var meant = occurrence.Binding is { } binding ? NameOccurrences.SymbolOf(context, binding) : null;
             var nearest = moduleScope is null
                 ? occurrence.Scope.SelfAndAncestors().TakeWhile(scope => scope.Kind is not LexicalScopeKind.Project).Count() - 1
-                : occurrence.Scope.SelfAndAncestors().TakeWhile(scope => scope.Uri != moduleScope.Uri).Count();
+                : occurrence.Scope.SelfAndAncestors().TakeWhile(scope => scope.Uri.AbsoluteUri != moduleScope.Uri.AbsoluteUri).Count();
             if (meant is null || RenameBinding.ChainIndex(occurrence.Scope, meant) > nearest)
             {
                 return new(ExtractionNameProblemKind.Rebinds, name, meant is null ? name : NameOccurrences.Describe(meant), occurrence.Module, occurrence.Range.Start);
