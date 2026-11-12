@@ -62,7 +62,8 @@ internal sealed record class ExtractionVerificationFailure(ExtractionVerificatio
 /// of the selection said, by every variable the source procedure had.
 /// </para>
 /// <para>
-/// A <c>GoSub</c> routine converted to a procedure has a call for each of its <c>GoSub</c> statements, each analyzed so: it takes in what the routine took in,
+/// A <c>GoSub</c> routine converted to a procedure has a call for each of its <c>GoSub</c> and <c>On…GoSub</c> statements (that one in the <c>Select Case</c> it
+/// becomes), each analyzed so: it takes in what the routine took in,
 /// writes nothing the routine did not, gives back what the code after it reads of what the routine wrote, and leaves the source procedure where the routine did.
 /// Each call is checked against what is read after it, which can differ from one call to another; the routine's own analysis merged every <c>GoSub</c>.
 /// </para>
@@ -148,7 +149,11 @@ internal static class ExtractionVerification
         var inputs = plan.Parameters.Where(parameter => parameter.IsInput).Select(parameter => parameter.Variable).ToArray();
         foreach (var site in Enumerable.Range(0, edit.Edits.Length).Where(index => edit.Edits[index].Kind is ExtractionTextEditKind.Site))
         {
-            var requested = new SourceRange(editedText.PositionOf(written[site].Start), editedText.PositionOf(written[site].End));
+            // the call alone, of the Select Case an On…GoSub becomes.
+            var (start, end) = edit.Edits[site] is { CallStart: >= 0, CallLength: >= 0 } table
+                ? (written[site].Start + table.CallStart, written[site].Start + table.CallStart + table.CallLength)
+                : written[site];
+            var requested = new SourceRange(editedText.PositionOf(start), editedText.PositionOf(end));
             if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, requested, out var callSite, out _, out _))
             {
                 return new(ExtractionVerificationFailureKind.DataFlowDiffers, null);

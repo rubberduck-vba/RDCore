@@ -22,7 +22,7 @@ namespace RDCore.LanguageServer.Refactoring;
 /// </summary>
 /// <remarks>
 /// It converts a <c>GoSub</c> routine to a procedure as well (<see cref="RefactoringKinds.ConvertGoSub"/>), which extracts the routine a label starts, asked for
-/// by kind: the range is on the label, or on a <c>GoSub</c> that names it.
+/// by kind: the range is on the label, on a <c>GoSub</c> that names it, or on one of its <c>Return</c>s.
 /// </remarks>
 internal interface IExtractMethodService
 {

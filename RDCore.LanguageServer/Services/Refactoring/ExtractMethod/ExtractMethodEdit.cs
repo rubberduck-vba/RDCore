@@ -39,7 +39,7 @@ internal enum ExtractionTextEditKind
     Enumeration,
 
     /// <summary>
-    /// A call that replaces a <c>GoSub</c> of a routine converted to a procedure.
+    /// A call that replaces a <c>GoSub</c> of a routine converted to a procedure, or the <c>Select Case</c> with a call that replaces an <c>On…GoSub</c> of it.
     /// </summary>
     Site,
 }
@@ -50,7 +50,9 @@ internal enum ExtractionTextEditKind
 /// <param name="Range">What is replaced; an empty range inserts.</param>
 /// <param name="NewText">What is written there.</param>
 /// <param name="Kind">What it writes.</param>
-internal readonly record struct ExtractionTextEdit(SourceRange Range, string NewText, ExtractionTextEditKind Kind);
+/// <param name="CallStart">Where the call starts in <paramref name="NewText"/>, for a <see cref="ExtractionTextEditKind.Site"/> that writes more than the call.</param>
+/// <param name="CallLength">How long the call is from <paramref name="CallStart"/>; -1 when the call is all of <paramref name="NewText"/>.</param>
+internal readonly record struct ExtractionTextEdit(SourceRange Range, string NewText, ExtractionTextEditKind Kind, int CallStart = 0, int CallLength = -1);
 
 /// <summary>
 /// The module a selection is extracted from: its syntax, its text, and what the procedure the selection is in is.
@@ -172,13 +174,25 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
         {
             var (start, end) = written[index];
             var formatted = edit.NewText;
+            var (callStart, callLength) = (edit.CallStart, edit.CallLength);
             // the line that follows an edit ending with a line break is not the edit's.
             foreach (var indent in indentation.Where(indent => indent.Start >= start && indent.Start < end && indent.End <= end).OrderByDescending(indent => indent.Start))
             {
                 formatted = string.Concat(formatted.AsSpan(0, indent.Start - start), indent.NewText, formatted.AsSpan(indent.End - start));
+
+                // the call of a site that writes more than the call moves with the indentation before it, and spans the indentation of its own lines.
+                var moved = indent.NewText.Length - (indent.End - indent.Start);
+                if (callLength >= 0 && indent.Start - start < edit.CallStart)
+                {
+                    callStart += moved;
+                }
+                else if (callLength >= 0 && indent.Start - start < edit.CallStart + edit.CallLength)
+                {
+                    callLength += moved;
+                }
             }
 
-            return edit with { NewText = formatted };
+            return edit with { NewText = formatted, CallStart = callStart, CallLength = callLength };
         }).ToImmutableArray();
 
         string TextOf(ExtractionTextEditKind kind) => edits.FirstOrDefault(edit => edit.Kind == kind).NewText ?? string.Empty;
@@ -266,7 +280,8 @@ internal static class ExtractMethodEdit
             {
                 (true, _) => ExtractionEditRefusalKind.RoutineUsesTheResult,
                 (_, true) => ExtractionEditRefusalKind.RoutineInAWithBlock,
-                _ when routine.Sites.Any(site => site.SourceLocation.Range.Start >= plan.Selection.Range.Start && site.SourceLocation.Range.End <= plan.Selection.Range.End)
+                _ when routine.Sites.Select(site => site.SourceLocation.Range).Concat(routine.Tables.Select(table => table.SourceLocation.Range))
+                        .Any(site => site.Start >= plan.Selection.Range.Start && site.End <= plan.Selection.Range.End)
                     => ExtractionEditRefusalKind.RoutineRunsItself,
                 _ => (ExtractionEditRefusalKind?)null,
             };
@@ -346,12 +361,18 @@ internal static class ExtractMethodEdit
             var call = CallText(indentation, resultCopy, exits, fromLineStart: start.Character == 0, followed: text.StatementFollows(selection.Range.End));
             if (selection.Routine is { } routine)
             {
-                // the routine leaves the source procedure, but for the declarations in it that stay there; each GoSub of it is a call.
+                // the routine leaves the source procedure, but for the declarations in it that stay there; each GoSub of it is a call, and each On…GoSub a
+                // Select Case with the call.
                 edits.Add(RoutineRemoval(moved, indentation));
                 foreach (var site in routine.Sites.Select(site => site.SourceLocation.Range))
                 {
                     call = CallText(text.IndentationOf(site.Start.Line), resultCopy, exits, fromLineStart: false, followed: text.StatementFollows(site.End));
                     edits.Add(new ExtractionTextEdit(site, call, ExtractionTextEditKind.Site));
+                }
+
+                foreach (var table in routine.Tables)
+                {
+                    edits.Add(TableText(routine, table, resultCopy, exits));
                 }
             }
             else
@@ -504,6 +525,37 @@ internal static class ExtractMethodEdit
             {
                 yield return new ExtractionTextEdit(statement.SourceLocation.Range, leaves, ExtractionTextEditKind.Call);
             }
+        }
+
+        // an On…GoSub of the routine as a Select Case of its selector, as an Integer, with a case of each of its labels (MS-VBAL §5.4.2.16): the routine's calls
+        // the procedure, and any other is the GoSub it was. A selector of 0 or past the last label runs none; a negative one raises error 5, as the On…GoSub did.
+        private ExtractionTextEdit TableText(GoSubRoutine routine, OnGoSubStatementNode table, string? resultCopy, IReadOnlyList<Exit> exits)
+        {
+            var range = table.SourceLocation.Range;
+            var indentation = text.IndentationOf(range.Start.Line);
+            var inner = indentation + Indent + Indent;
+            var call = CallText(inner, resultCopy, exits, fromLineStart: false, followed: false);
+            var lines = new List<string> { $"Select Case CInt({text.Of(table.Selector.SourceLocation.Range).Trim()})" };
+            var callStart = -1;
+            var labels = table.Labels.Select((label, index) => (Name: text.Of(label.SourceLocation.Range).Trim(), Case: index + 1));
+            foreach (var target in labels.GroupBy(label => label.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                lines.Add($"{indentation}{Indent}Case {string.Join(", ", target.Select(label => label.Case))}");
+                if (target.Key.Equals(routine.Label, StringComparison.OrdinalIgnoreCase))
+                {
+                    callStart = lines.Sum(line => line.Length + _newLine.Length) + inner.Length;
+                    lines.Add(inner + call);
+                }
+                else
+                {
+                    lines.Add($"{inner}GoSub {target.Key}");
+                }
+            }
+
+            lines.Add($"{indentation}{Indent}Case Is < 0");
+            lines.Add($"{inner}Err.Raise 5");
+            lines.Add($"{indentation}End Select");
+            return new ExtractionTextEdit(range, string.Join(_newLine, lines), ExtractionTextEditKind.Site, callStart, call.Length);
         }
 
         // the routine's lines leave the source procedure: the declarations in it that stay there are written where it was.

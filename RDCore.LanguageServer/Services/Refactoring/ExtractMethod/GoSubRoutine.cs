@@ -32,15 +32,18 @@ internal enum GoSubRoutineRefusal
 
 /// <summary>
 /// A <c>GoSub</c> routine: the statements that run from a label until a <c>Return</c>, sharing the procedure's frame, which a <c>GoSub</c> runs. Converted to a
-/// procedure, each <c>GoSub</c> of it is a call, and each <c>Return</c> leaves the procedure.
+/// procedure, each <c>GoSub</c> of it is a call, each <c>On…GoSub</c> of it a <c>Select Case</c> with the call in its case, and each <c>Return</c> leaves the
+/// procedure.
 /// </summary>
 /// <param name="Label">The label, as it is written.</param>
 /// <param name="Declaration">The label, where it is written: the routine's first line.</param>
 /// <param name="Sites">The <c>GoSub</c> statements that run the routine.</param>
+/// <param name="Tables">The <c>On…GoSub</c> statements that run the routine, among others, and can be written as a <c>Select Case</c>: none is in a single-line
+/// <c>If</c>.</param>
 /// <param name="Returns">The routine's <c>Return</c> statements.</param>
 /// <param name="IsNamedInside">Whether a jump in the routine names its label, which then stays with it.</param>
-internal sealed record class GoSubRoutine(string Label, LineLabelNode Declaration, ImmutableArray<GoSubStatementNode> Sites, ImmutableArray<ReturnStatementNode> Returns,
-    bool IsNamedInside)
+internal sealed record class GoSubRoutine(string Label, LineLabelNode Declaration, ImmutableArray<GoSubStatementNode> Sites, ImmutableArray<OnGoSubStatementNode> Tables,
+    ImmutableArray<ReturnStatementNode> Returns, bool IsNamedInside)
 {
     /// <summary>
     /// Finds the routine a label starts, as a selection to extract.
@@ -114,10 +117,16 @@ internal sealed record class GoSubRoutine(string Label, LineLabelNode Declaratio
             return false;
         }
 
+        // an On…GoSub in a single-line If can't be written as the Select Case it becomes: the extraction's plan refuses it.
+        var inline = procedure.Descendants().OfType<InlineIfStatementNode>()
+            .SelectMany(statement => statement.Descendants().OfType<OnGoSubStatementNode>())
+            .ToHashSet();
         var routine = new GoSubRoutine(
             declaration.Name,
             declaration,
             [.. items.Where(item => item.Kind is InstructionKind.GoSub && item.Target == start).Select(item => item.Node).OfType<GoSubStatementNode>()],
+            [.. items.Where(item => item.Kind is InstructionKind.GoSubTable && item.Targets.Contains(start)).Select(item => item.Node).OfType<OnGoSubStatementNode>()
+                .Where(statement => !inline.Contains(statement)).Distinct()],
             [.. reached.Order().Select(offset => items[offset].Node).OfType<ReturnStatementNode>()],
             reached.Any(offset => items[offset].Kind is not (InstructionKind.GoSub or InstructionKind.GoSubTable)
                 && (items[offset].Target == start || items[offset].Targets.Contains(start))));

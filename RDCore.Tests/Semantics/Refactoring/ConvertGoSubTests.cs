@@ -101,7 +101,8 @@ public sealed class ConvertGoSubTests
     [TestMethod]
     [DataRow("Dim total As Long\nGoSub Twice\ntotal = n\nTwice:\ntotal = 1\nReturn", nameof(ExtractionRefusalKind.FallsIntoTheRoutine), DisplayName = "the statement before it goes on to it")]
     [DataRow("Dim total As Long\nGoSub Twice\nTwice:\ntotal = 1\nReturn", nameof(ExtractionRefusalKind.FallsIntoTheRoutine), DisplayName = "the GoSub before it returns into it")]
-    [DataRow("Dim total As Long\nOn n GoSub Twice\nExit Sub\nTwice:\ntotal = 1\nReturn", nameof(ExtractionRefusalKind.OnGoSubToTheRoutine), DisplayName = "an On…GoSub runs it")]
+    [DataRow("Dim total As Long\nIf n > 0 Then On n GoSub Twice\nExit Sub\nTwice:\ntotal = 1\nReturn", nameof(ExtractionRefusalKind.OnGoSubInASingleLineIf),
+        DisplayName = "an On…GoSub in a single-line If runs it")]
     [DataRow("Dim total As Long\nGoSub Twice\nGoTo Inside\nTwice:\ntotal = 1\nInside:\ntotal = 2\nReturn", nameof(ExtractionRefusalKind.JumpIntoTheSelection), DisplayName = "a GoTo lands in it")]
     public void ARoutineEnteredOtherwiseThanByItsGoSubs_IsRefused(string body, string kind)
         => CollectionAssert.Contains(ExtractionFixture.RoutinePlan(body, "Twice").Refusals.Select(refusal => refusal.Kind.ToString()).ToArray(), kind);
@@ -172,6 +173,79 @@ public sealed class ConvertGoSubTests
 
         StringAssert.Contains(module, "Private Sub Extracted(ByRef total As Long)\r\n    Dim doubled As Long\r\n    doubled = total * 2\r\n", module);
         Assert.IsFalse(module.Contains("    Dim doubled As Long\r\n    total = n", StringComparison.Ordinal), module);
+        Assert.AreEqual(before, after);
+    }
+
+    // an On…GoSub of the routine and of another: a Select Case of the selector, which the driver runs in range, at 0, past the last label, and negative.
+    private const string Choosing =
+        "    Dim total As Long\n" +
+        "    On Error GoTo Failed\n" +
+        "    total = 1\n" +
+        "    On n GoSub Twice, Thrice, Twice\n" +
+        "    Debug.Print total\n" +
+        "    Exit Sub\n" +
+        "Failed:\n" +
+        "    Debug.Print \"error\"; Err.Number\n" +
+        "    Exit Sub\n" +
+        "Twice:\n" +
+        "    total = total * 2\n" +
+        "    Return\n" +
+        "Thrice:\n" +
+        "    total = total * 3\n" +
+        "    Return";
+
+    [TestMethod]
+    public async Task AnOnGoSub_IsASelectCase_ThatDoesWhatItDid()
+    {
+        var (before, after, module) = await ExtractionRuns.ConvertedBeforeAndAfterAsync(Choosing, "Twice", driver: "Run 1\nRun 2\nRun 3\nRun 0\nRun 4\nRun 1.6\nRun -1");
+
+        StringAssert.Contains(module,
+            "    Select Case CInt(n)\r\n" +
+            "    Case 1, 3\r\n" +
+            "        Extracted total\r\n" +
+            "    Case 2\r\n" +
+            "        GoSub Thrice\r\n" +
+            "    Case Is < 0\r\n" +
+            "        Err.Raise 5\r\n" +
+            "    End Select\r\n" +
+            "    Debug.Print total\r\n", module);
+        StringAssert.Contains(module, "Thrice:\r\n    total = total * 3\r\n    Return\r\nEnd Sub", module);
+        Assert.AreEqual("2 | 3 | 2 | 1 | 1 | 3 | error 5", before.Output);
+        Assert.AreEqual(before, after);
+    }
+
+    [TestMethod]
+    public void AnOnGoSub_IsVerified_ByItsCall()
+        => Assert.IsNull(ExtractionFixture.RoutineVerified(Choosing, "Twice"));
+
+    // the call in the Select Case is the one verified, where the formatter has indented it.
+    [TestMethod]
+    public void TheCallOfAnOnGoSub_ThatDoesNotGiveBackWhatIsReadAfterIt_IsNotVerified()
+    {
+        var failure = ExtractionFixture.RoutineVerified(Choosing, "Twice",
+            edit => ExtractionFixture.Replacing(edit, ExtractionTextEditKind.Procedure, "ByRef total", "ByVal total"));
+
+        Assert.AreEqual(new ExtractionVerificationFailure(ExtractionVerificationFailureKind.DataFlowDiffers, "total"), failure);
+    }
+
+    [TestMethod]
+    public async Task AnOnGoSubAndAGoSub_AreBothCalls()
+    {
+        const string body =
+            "    Dim total As Long\n" +
+            "    total = n\n" +
+            "    GoSub Twice\n" +
+            "    On n GoSub Twice\n" +
+            "    Debug.Print total\n" +
+            "    Exit Sub\n" +
+            "Twice:\n" +
+            "    total = total * 2\n" +
+            "    Return";
+
+        var (before, after, module) = await ExtractionRuns.ConvertedBeforeAndAfterAsync(body, "Twice", driver: "Run 1\nRun 2");
+
+        StringAssert.Contains(module, "    Extracted total\r\n    Select Case CInt(n)\r\n    Case 1\r\n        Extracted total\r\n", module);
+        Assert.AreEqual("4 | 4", before.Output);
         Assert.AreEqual(before, after);
     }
 

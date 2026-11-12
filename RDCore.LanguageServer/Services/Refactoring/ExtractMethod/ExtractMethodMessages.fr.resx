@@ -239,8 +239,8 @@
   <data name="ExtractMethodRefusal_FallsIntoTheRoutine" xml:space="preserve">
     <value>Le code à {1} continue dans la routine, qui atteint alors son Return sans GoSub (erreur d'exécution 3), ce qu'un appel ne ferait pas.</value>
   </data>
-  <data name="ExtractMethodRefusal_OnGoSubToTheRoutine" xml:space="preserve">
-    <value>Le On…GoSub à {1} exécute la routine, parmi d'autres : un appel de la procédure ne peut pas être une de ses cibles.</value>
+  <data name="ExtractMethodRefusal_OnGoSubInASingleLineIf" xml:space="preserve">
+    <value>Le On…GoSub à {1} exécute la routine depuis un If d'une seule ligne, où le Select Case qu'il deviendrait ne peut pas être écrit.</value>
   </data>
   <data name="ExtractMethodEdit_RoutineUsesTheResult" xml:space="preserve">
     <value>La routine lit ou écrit le résultat de la procédure, que chaque appel devrait copier.</value>

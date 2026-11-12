@@ -133,9 +133,10 @@ internal enum ExtractionRefusalKind
     FallsIntoTheRoutine,
 
     /// <summary>
-    /// An <c>On…GoSub</c> runs the <c>GoSub</c> routine, among others: a call of the procedure it is converted to is not one of its targets.
+    /// An <c>On…GoSub</c> in a single-line <c>If</c> runs the <c>GoSub</c> routine: the <c>Select Case</c> it becomes, with a call of the procedure the routine is
+    /// converted to, cannot be written there.
     /// </summary>
-    OnGoSubToTheRoutine,
+    OnGoSubInASingleLineIf,
 }
 
 /// <summary>

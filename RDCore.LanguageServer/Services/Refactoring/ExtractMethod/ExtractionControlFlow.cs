@@ -1,5 +1,6 @@
 using RDCore.Runtime.LanguageCore.Flow;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
@@ -86,13 +87,14 @@ internal static class ExtractionControlFlow
                 var jumps = edge.Kind is ControlFlowEdgeKind.Error
                     || instruction.Kind is InstructionKind.Jump or InstructionKind.JumpTable or InstructionKind.GoSub or InstructionKind.GoSubTable or InstructionKind.ResumeLabel or InstructionKind.Return;
 
-                // a routine converted to a procedure is entered by its GoSub statements, which become its calls, and only by them.
-                if (selection.Routine is not null && starts.Contains(edge.To) && edge.Kind is not ControlFlowEdgeKind.Error && instruction.Kind is not InstructionKind.Return)
+                // a routine converted to a procedure is entered by its GoSub and On…GoSub statements, which become its calls, and only by them.
+                if (selection.Routine is { } routine && starts.Contains(edge.To) && edge.Kind is not ControlFlowEdgeKind.Error && instruction.Kind is not InstructionKind.Return)
                 {
                     var entry = instruction.Kind switch
                     {
                         InstructionKind.GoSub => (ExtractionRefusalKind?)null,
-                        InstructionKind.GoSubTable => ExtractionRefusalKind.OnGoSubToTheRoutine,
+                        InstructionKind.GoSubTable when instruction.Node is OnGoSubStatementNode table && routine.Tables.Contains(table) => null,
+                        InstructionKind.GoSubTable => ExtractionRefusalKind.OnGoSubInASingleLineIf,
                         _ when !jumps => ExtractionRefusalKind.FallsIntoTheRoutine,
                         _ => ExtractionRefusalKind.JumpIntoTheSelection,
                     };
