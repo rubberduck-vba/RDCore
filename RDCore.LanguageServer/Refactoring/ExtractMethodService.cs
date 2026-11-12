@@ -40,6 +40,17 @@ internal interface IExtractMethodService
     /// <param name="token">A token that cancels the parses.</param>
     /// <returns>The edit, or why there is none, in the language of the user interface.</returns>
     Task<ExtractMethodAnswer> ApplyAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token);
+
+    /// <summary>
+    /// What the name the user is typing raises before the extraction is applied: one the code cannot declare there, which <see cref="ApplyAsync"/> refuses, or
+    /// one that hides a declaration outside the module, which it takes.
+    /// </summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="range">The range, in the text of the document.</param>
+    /// <param name="answers">The user's answers, whose name is checked; a name that is not answered, or is answered with nothing, raises nothing.</param>
+    /// <param name="token">A token that cancels the parses.</param>
+    /// <returns>The notices, each with the choice it answers; none for a range that <see cref="PrepareAsync"/> refuses.</returns>
+    Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token);
 }
 
 /// <summary>
@@ -129,10 +140,12 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new RefactorPrepareResult { Notices = [extraction.SelectionRefusal!] };
         }
 
+        // from here the selection snapped: the statements it is of are what the editor shows will move, refused or not.
         var notices = extraction.Notices();
+        var moved = plan.Selection.Range;
         if (!plan.IsExtractable)
         {
-            return new RefactorPrepareResult { Notices = notices };
+            return new RefactorPrepareResult { Notices = notices, Range = moved };
         }
 
         // a refusal of the writer that no answer can lift is said before the user answers anything.
@@ -142,10 +155,33 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new RefactorPrepareResult
             {
                 Notices = [new RefactorNotice { Code = Code(written.Refusal.Value.ToString()), Kind = RefactorNoticeKind.Refusal, Message = EditRefusal(written.Refusal.Value, extraction) }, .. notices],
+                Range = moved,
             };
         }
 
-        return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices };
+        return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices, Range = moved };
+    }
+
+    public async Task<RefactorIdentifierCheckResult> CheckIdentifierAsync(Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
+    {
+        // the name as ApplyAsync reads it: trimmed, and one that is not answered takes its default, which raises nothing.
+        if (answers.FirstOrDefault(answer => answer.Id == NameChoice)?.Value is not { Length: > 0 } typed
+            || await ExtractionOfAsync(documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
+        {
+            return new RefactorIdentifierCheckResult();
+        }
+
+        return new RefactorIdentifierCheckResult
+        {
+            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).Select(problem => new RefactorNotice
+            {
+                Code = Code($"Name{problem.Kind}"),
+                Kind = problem.IsWarning ? RefactorNoticeKind.Note : RefactorNoticeKind.Refusal,
+                Message = problem.ToMessage(RenameWorkspace.Locator(extraction.Part)),
+                Related = extraction.DeclarationOf(problem),
+                Choice = NameChoice,
+            })],
+        };
     }
 
     public async Task<ExtractMethodAnswer> ApplyAsync(
@@ -312,6 +348,19 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         public string Where(SourceLocation? location) => location is { } at ? RenameWorkspace.Locator(Part)(Module.Module, at.Range.Start) : string.Empty;
 
         public string RefusalMessage(ExtractionRefusal refusal) => Format($"ExtractMethodRefusal_{refusal.Kind}", refusal.Name, Where(refusal.Location));
+
+        // the name a problem of a name points to, in the document of a module of the workspace; null for a declaration of a library, or of no module.
+        public SourceLocation? DeclarationOf(ExtractionNameProblem problem)
+        {
+            if (problem.Module is not { } module || Part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is not { } document)
+            {
+                return null;
+            }
+
+            var end = new SourcePosition(problem.Position.Line, problem.Position.Character + problem.Name.Length);
+            var text = document.ToTextRange(new SourceRange(problem.Position, end));
+            return new SourceLocation(document.Document.Id.Uri.ToUri(), new SourceRange(text.Start.Line, text.Start.Character, text.End.Line, text.End.Character));
+        }
 
         public string ChangeMessage(ExtractionBehaviourChange change)
             => Format($"ExtractMethodChange_{change.Kind}", string.Join(", ", change.Handlers), string.Join(", ", change.Variables));

@@ -38,6 +38,20 @@ internal sealed class RefactorApplyHandler(IExtractMethodService extractMethod, 
     }
 }
 
+/// <summary>
+/// Serves <c>rdcore/refactor/checkIdentifier</c>: whether an identifier the user is typing for a refactoring of a range can be declared where the refactoring
+/// declares it, and what it would hide, before the refactoring is applied. A client's dialog asks it as its user types.
+/// </summary>
+internal sealed class RefactorIdentifierCheckHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
+    : RDCoreRequestHandler<RefactorCheckIdentifierRequest, RefactorIdentifierCheckResult>
+{
+    protected override async Task<RefactorIdentifierCheckResult> HandleAsync(RefactorCheckIdentifierRequest request, CancellationToken token)
+    {
+        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
+        return await extractMethod.CheckIdentifierAsync(request.Uri!, request.Range, request.Answers, token);
+    }
+}
+
 // what the refactor requests check before they are served.
 file static class RefactorRequests
 {
