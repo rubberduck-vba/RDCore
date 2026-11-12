@@ -148,6 +148,65 @@ public sealed class ConvertGoSubServiceTests
         Assert.IsFalse(string.IsNullOrEmpty(answer.Refusal));
     }
 
+    [TestMethod]
+    [DataRow(8, 0, 8, 0, DisplayName = "at the label")]
+    [DataRow(4, 12, 4, 12, DisplayName = "at a GoSub that names it")]
+    [DataRow(10, 6, 10, 6, DisplayName = "at its Return")]
+    [DataRow(3, 0, 6, 0, DisplayName = "a selection refused for a GoSub to it")]
+    [DataRow(9, 0, 11, 0, DisplayName = "a selection refused for its Return")]
+    public async Task AClientWithADialog_IsOfferedTheConversion_AsTheRefactorCommand(int startLine, int startCharacter, int endLine, int endCharacter)
+    {
+        var action = await ConversionActionAsync(new SourceRange(startLine, startCharacter, endLine, endCharacter), dialog: true);
+
+        Assert.IsNotNull(action);
+        Assert.AreEqual(RefactoringCommands.Refactor, action.Command!.Name);
+        var prepare = action.Command.Arguments!.Single();
+        Assert.AreEqual(RefactoringKinds.ConvertGoSub, prepare["kind"]!.ToString());
+        var prepared = await Sut().PrepareAsync(RefactoringKinds.ConvertGoSub, Document,
+            new SourceRange((int)prepare["range"]!["start"]!["line"]!, (int)prepare["range"]!["start"]!["character"]!,
+                (int)prepare["range"]!["end"]!["line"]!, (int)prepare["range"]!["end"]!["character"]!), CancellationToken.None);
+        Assert.AreEqual("TwiceProc", prepared.Choices[0].Default);
+    }
+
+    [TestMethod]
+    public async Task AClientWithNoDialog_IsSentTheConversion_MadeWithTheDefaults()
+    {
+        var action = await ConversionActionAsync(At(8, 0), dialog: false);
+
+        Assert.IsNotNull(action);
+        Assert.IsNull(action.Command);
+        var edits = action.Edit!.DocumentChanges?.Single().TextDocumentEdit!.Edits ?? action.Edit.Changes![DocumentUri.From(Document)];
+        Assert.IsTrue(edits.Any(edit => edit.NewText.Contains("Private Sub TwiceProc(", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [DataRow(3, 4, 3, 4, DisplayName = "a position on no routine")]
+    [DataRow(15, 0, 15, 0, DisplayName = "a routine the code before falls into")]
+    [DataRow(2, 0, 3, 0, DisplayName = "a selection refused for nothing of a routine")]
+    public async Task NoConversion_IsOffered_ForWhatHasNoRoutineToConvert(int startLine, int startCharacter, int endLine, int endCharacter)
+    {
+        Assert.IsNull(await ConversionActionAsync(new SourceRange(startLine, startCharacter, endLine, endCharacter), dialog: true));
+    }
+
+    // the conversion a client is offered for a range, among the code actions of the document.
+    private async Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction?> ConversionActionAsync(SourceRange range, bool dialog)
+    {
+        var capabilities = Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>();
+        capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(dialog);
+        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), capabilities,
+            new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+        var actions = await handler.Handle(new OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeActionParams
+        {
+            TextDocument = new OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentIdentifier(DocumentUri.From(Document)),
+            Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character),
+            Context = new OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeActionContext
+            {
+                Diagnostics = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Container<OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic>(),
+            },
+        }, CancellationToken.None);
+        return actions!.Select(action => action.CodeAction!).SingleOrDefault(action => action.Kind == CodeActionHandler.RefactorConvertGoSub);
+    }
+
     // the text with the edits made, each of the text as it was before any of them.
     private static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
     {

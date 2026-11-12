@@ -157,7 +157,13 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// <summary>
     /// The title of the code action that extracts a selection, in the language of the user interface.
     /// </summary>
-    public static string Title() => Format("ExtractMethod_Title");
+    public static string Title() => Title(RefactoringKinds.ExtractMethod);
+
+    /// <summary>
+    /// The title of the code action of a kind of refactoring this service makes, in the language of the user interface.
+    /// </summary>
+    /// <param name="kind"><see cref="RefactoringKinds.ExtractMethod"/> or <see cref="RefactoringKinds.ConvertGoSub"/>.</param>
+    public static string Title(string kind) => Format(kind == RefactoringKinds.ConvertGoSub ? "ConvertGoSub_Title" : "ExtractMethod_Title");
 
     /// <summary>
     /// Why an extraction offered for one version of a document is not made for another, in the language of the user interface.
@@ -364,7 +370,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var source = new ExtractionSource(tree, procedure.Declaration, procedure.Model.Procedure, module.Source, analysis.Scopes);
         if (kind == RefactoringKinds.ConvertGoSub)
         {
-            var label = LabelAt(procedure.Declaration, range.Start, new ExtractionText(module.Source));
+            var label = LabelAt(procedure.Declaration, range.Start, new ExtractionText(module.Source))
+                ?? ReturningLabelAt(procedure.Declaration, range.Start, candidate => GoSubRoutine.TryFind(
+                    procedure.Declaration, procedure.Instructions, procedure.Graph, analysis.Directives, candidate, out var found, out _) ? found!.Routine : null);
             ExtractionSelection? routine = null;
             var why = GoSubRoutineRefusal.NoLabel;
             if (label is null || !GoSubRoutine.TryFind(procedure.Declaration, procedure.Instructions, procedure.Graph, analysis.Directives, label, out routine, out why))
@@ -406,6 +414,27 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             ? text.Of(named.LabelExpression.SourceLocation.Range).Trim()
             : null;
     }
+
+    // the label of the GoSub routine a Return at a position returns from: the first label of the procedure whose routine has that Return; null when the
+    // position is on no Return, or the Return is of no routine that can be found.
+    private static string? ReturningLabelAt(MemberDeclarationNode procedure, SourcePosition position, Func<string, GoSubRoutine?> routineOf)
+    {
+        var nodes = procedure.Descendants().ToArray();
+        if (nodes.OfType<ReturnStatementNode>().FirstOrDefault(statement => Contains(statement.SourceLocation.Range, position)) is not { } returned)
+        {
+            return null;
+        }
+
+        return nodes.OfType<LineLabelNode>()
+            .Select(label => routineOf(label.Name))
+            .FirstOrDefault(routine => routine is not null && routine.Returns.Any(each => each.SourceLocation.Range == returned.SourceLocation.Range))?.Label;
+    }
+
+    /// <summary>
+    /// The code of the notice that refuses an extraction for <paramref name="refusal"/>.
+    /// </summary>
+    /// <param name="refusal">Why the extraction is refused.</param>
+    public static string RefusalCode(ExtractionRefusalKind refusal) => Code(refusal.ToString());
 
     // the code of a notice: the same in any language, by which the user accepts a change.
     private static string Code(string kind) => $"extractMethod.{char.ToLowerInvariant(kind[0])}{kind[1..]}";
