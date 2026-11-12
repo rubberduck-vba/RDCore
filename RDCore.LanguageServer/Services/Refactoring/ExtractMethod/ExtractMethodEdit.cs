@@ -480,7 +480,7 @@ internal static class ExtractMethodEdit
             List<string> body = [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
             if (routine is not null)
             {
-                // the line of a label that goes, and the last Return, which the end of the procedure does.
+                // the line of a label that goes, and the last Return, whose work the end of the procedure does.
                 body = [.. body.SkipWhile(line => line.Length == 0)];
                 if (body.Count > 0 && body[^1].Equals(leaves, StringComparison.Ordinal))
                 {

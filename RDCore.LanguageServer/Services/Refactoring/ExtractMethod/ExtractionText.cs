@@ -86,7 +86,7 @@ internal sealed class ExtractionText
         return index < _text.Length && _text[index] == ':';
     }
 
-    // Where what a label written up to the position is followed by starts: after its colon, and the spaces and tabs after it, on its line.
+    // Where the code after a label written up to the position starts: after its colon, and the spaces and tabs after it, on its line.
     public SourcePosition AfterLabel(SourcePosition position)
     {
         var index = OffsetOf(position);

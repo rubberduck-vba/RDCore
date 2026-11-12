@@ -24,7 +24,7 @@ internal enum GoSubRoutineRefusal
     NoGoSub,
 
     /// <summary>
-    /// What runs from the label until a <c>Return</c> is not one run of whole statements, the label's first: a jump in it goes elsewhere, or it holds code that
+    /// What runs from the label until a <c>Return</c> is not one run of whole statements that starts at the label: a jump in it goes elsewhere, or it holds code that
     /// never runs from the label.
     /// </summary>
     NotContiguous,

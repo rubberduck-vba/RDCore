@@ -64,7 +64,7 @@ internal sealed record class ExtractionVerificationFailure(ExtractionVerificatio
 /// <para>
 /// A <c>GoSub</c> routine converted to a procedure has a call for each of its <c>GoSub</c> statements, each analyzed so: it takes in what the routine took in,
 /// writes nothing the routine did not, gives back what the code after it reads of what the routine wrote, and leaves the source procedure where the routine did.
-/// What is read after one call is not what is read after another, where the routine's analysis took every <c>GoSub</c> for any.
+/// Each call is checked against what is read after it, which can differ from one call to another; the routine's own analysis merged every <c>GoSub</c>.
 /// </para>
 /// </remarks>
 internal static class ExtractionVerification

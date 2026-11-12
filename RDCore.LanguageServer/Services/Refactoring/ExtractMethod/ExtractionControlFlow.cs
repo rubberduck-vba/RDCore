@@ -129,7 +129,7 @@ internal static class ExtractionControlFlow
     /// <param name="states">The error-handling states of the source procedure.</param>
     /// <param name="readsErr">Whether the selection reads <c>Err</c> or <c>Erl</c>.</param>
     /// <param name="isRoutine">Whether the selection is a <c>GoSub</c> routine converted to a procedure, whose <c>Return</c> statements leave it, and cannot raise
-    /// the error 3 a <c>Return</c> with no <c>GoSub</c> raises.</param>
+    /// the run-time error 3 a <c>Return</c> with no <c>GoSub</c> raises.</param>
     public static (bool StartsWithResumeNext, List<ExtractionBehaviourChange> Changes, List<ExtractionRefusal> Refusals) ErrorHandlingOf(
         IReadOnlySet<int> region, ErrorHandlingStates states, bool readsErr, bool isRoutine = false)
     {
