@@ -463,7 +463,9 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     public DebugBreakpointsResult SetBreakpoints(string moduleName, IReadOnlyList<HostBreakpointLine> breakpoints)
     {
         var session = provider.Session;
-        if (!session.Symbols.TryResolveValue(moduleName, GlobalSymbols.UnresolvedSymbol, out var module) || module is null)
+
+        // the module of that name, and not what the name means in code: a class module's name is no value, and a form's is its default instance.
+        if (!session.Symbols.TryGetModule(moduleName, out var module))
         {
             return new DebugBreakpointsResult { Breakpoints = [.. breakpoints.Select(breakpoint => new DebugBreakpoint(breakpoint.Line, false))] };
         }

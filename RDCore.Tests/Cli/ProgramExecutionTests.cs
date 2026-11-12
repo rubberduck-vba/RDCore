@@ -807,6 +807,83 @@ public sealed class ProgramExecutionTests
             Assert.AreEqual(2, provider.Session.CallStack.Depth);
         });
 
+    private static Task<DebugBreakpointsResult> SetBreakpointsIn(EnvironmentSessionProvider provider, string moduleName, params int[] lines)
+        => new HostDebugBreakpointsHandler(provider).Handle(new HostDebugBreakpointsParams
+        {
+            ModuleName = moduleName,
+            Breakpoints = [.. lines.Select(line => new HostBreakpointLine { Line = line })],
+        }, CancellationToken.None).WaitAsync(Patience);
+
+    // a class's and a form's lines are counted from the first of the file, the header and the attributes the VBE writes included.
+    private static readonly (string Name, string Source) Greeter = ("Greeter", ModuleWorkspace.ClassModule("Greeter",
+        "Option Explicit",
+        "Public Sub Greet()",
+        "    Debug.Print \"in Greet\"",
+        "End Sub"));
+
+    private const int GreeterGreetsAt = 7;
+
+    private static readonly string Helpers = ModuleWorkspace.StandardModule("Helpers",
+        "Option Explicit",
+        "Public Sub Help()",
+        "    Debug.Print \"in Help\"",
+        "End Sub");
+
+    private const int HelpersHelpsAt = 3;
+
+    private static (string Name, string Source, RDCore.SDK.Workspace.Forms.FormDescriptor Designer) Form()
+        => UnattendedRunTests.ExampleView("Public Sub Attend()\r\n    Debug.Print \"in Attend\"\r\nEnd Sub\r\n");
+
+    private static int FormAttendsAt()
+        => Array.FindIndex(Form().Source.Split("\r\n"), line => line.Contains("Debug.Print \"in Attend\"", StringComparison.Ordinal));
+
+    private static readonly string CallsTheGreeterAndTheHelper = Program(
+        "Public Sub Main()",
+        "    Dim g As New Greeter",
+        "    Stop",
+        "    g.Greet",
+        "    Helpers.Help",
+        "    Debug.Print \"done\"",
+        "End Sub");
+
+    // the module of a breakpoint is the module named, whatever else the name means in code: a class's name is no value, and a form's is its default instance.
+    [TestMethod]
+    [DataRow("Greeter", DisplayName = "a class module")]
+    [DataRow("ExampleView", DisplayName = "a form module")]
+    [DataRow("Helpers", DisplayName = "a standard module")]
+    public async Task ABreakpoint_OnALineAStatementBeginsOn_IsVerified_InAModuleOfAnyKind(string moduleName)
+        => await ModuleWorkspace.InspectAsync([Greeter], CallsTheGreeterAndTheHelper, async (provider, stopped, _) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            var line = moduleName switch { "Greeter" => GreeterGreetsAt, "ExampleView" => FormAttendsAt(), _ => HelpersHelpsAt };
+
+            var set = await SetBreakpointsIn(provider, moduleName, line - 1, line);
+
+            CollectionAssert.AreEqual(new[] { false, true }, set.Breakpoints.Select(breakpoint => breakpoint.Verified).ToArray());
+            Assert.IsTrue(set.Judged, "the module's code is loaded");
+        }, debug: true, modules: [("Helpers", Helpers)], forms: [Form()],
+            libraries: new ModuleWorkspace.WorkspaceLibraries(["MSForms"], UnattendedRunTests.Shipped));
+
+    [TestMethod]
+    public async Task ABreakpoint_InAClassModule_IsWaitedAtThere()
+        => await ModuleWorkspace.InspectAsync([Greeter], CallsTheGreeterAndTheHelper, async (provider, stopped, rerun) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await SetBreakpointsIn(provider, "Greeter", GreeterGreetsAt);
+
+            var hit = await Resume(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Suspended, hit.Outcome, hit.ErrorMessage);
+            Assert.AreEqual(GreeterGreetsAt, hit.ErrorLine);
+            Assert.AreEqual("Greeter", provider.Execution.Stack().Frames[0].Module);
+            Assert.IsEmpty(Lines(hit), "the line has not run");
+
+            var done = await Resume(provider);
+
+            Assert.AreEqual(ExecutionOutcome.Completed, done.Outcome, done.ErrorMessage);
+            CollectionAssert.AreEqual(new[] { "in Greet", "in Help", "done" }, Lines(done));
+        }, debug: true, modules: [("Helpers", Helpers)]);
+
     // ---- conditional and disabled breakpoints ----
 
     [TestMethod]
