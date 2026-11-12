@@ -130,9 +130,9 @@ le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui 
 
 Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
-> [!NOTE]
-> **Non implémenté.** Un programme construit ne fait aucun appel au monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur
-> d'automation) : ces appels sont faits par `rdc`, que le dossier du programme ne contient pas.
+Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Un programme construit sans exécutable, et exécuté
+avec `dotnet`, ne fait aucun de ces appels.
 
 ### Installer la plateforme
 
