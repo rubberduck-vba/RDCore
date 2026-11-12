@@ -126,7 +126,8 @@ wherever it is. It needs the same entry point as `rdc run`.
 The program shows its dialogs as `rdc run` does, and its exit code says how it ran, as `rdc run`'s does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
 
 A built program calls the outside world (a `Declare`d procedure, an automation server's object) as `rdc run` does, through a second process: its own
-executable, started again as its external host, which ends with it. A program built without an executable, and run with `dotnet`, makes no such call.
+executable, started again as its external host, which ends with it. Where the .NET host for the program's runtime is not installed, the program is built without an executable;
+run with `dotnet <name>.dll`, it makes no such call.
 
 ### Installing the platform
 
