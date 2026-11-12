@@ -146,6 +146,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SessionDebugEditStatusHandler>();
         builder.WithHandler<SessionDebugTerminateHandler>();
         builder.WithHandler<SessionDebugBreakpointsHandler>();
+        builder.WithHandler<SessionDebugErrorBreakHandler>();
         builder.WithHandler<SessionDebugStackHandler>();
         builder.WithHandler<SessionDebugVariablesHandler>();
         builder.WithHandler<SessionDebugEvaluateHandler>();

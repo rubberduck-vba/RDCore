@@ -225,6 +225,10 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         => Platform.DebugBreakpointsAsync(new SessionDebugBreakpointsParams { ModuleName = moduleName, Breakpoints = breakpoints }, token);
 
     /// <inheritdoc/>
+    public Task SetErrorBreakAsync(ErrorBreakMode mode, CancellationToken token)
+        => Platform.DebugErrorBreakAsync(new SessionDebugErrorBreakParams { Mode = mode }, token);
+
+    /// <inheritdoc/>
     public Task<DebugStackResult> GetStackAsync(CancellationToken token)
         => Platform.DebugStackAsync(new SessionDebugStackParams(), token);
 

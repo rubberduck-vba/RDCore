@@ -378,6 +378,10 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_RuntimeError_InLine" xml:space="preserve">
     <value>{0} IN {1}</value>
   </data>
+  <data name="Repl_RuntimeError_InModuleLine" xml:space="preserve">
+    <value>{0} IN {1} LINE {2}</value>
+    <comment>{0} is the error's title, {1} the name of the module the program waits in, {2} the line of the module.</comment>
+  </data>
   <data name="Repl_RuntimeError_Source" xml:space="preserve">
     <value>SOURCE: {0}</value>
   </data>
