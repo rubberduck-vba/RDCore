@@ -237,13 +237,13 @@
     <value>Le code à {1} continue dans la routine, qui atteint alors son Return sans GoSub (erreur d'exécution 3), ce qu'un appel ne ferait pas.</value>
   </data>
   <data name="ExtractMethodRefusal_OnGoSubToTheRoutine" xml:space="preserve">
-    <value>Le On…GoSub à {1} exécute la routine, parmi d'autres : un appel de la procédure n'est pas une de ses cibles.</value>
+    <value>Le On…GoSub à {1} exécute la routine, parmi d'autres : un appel de la procédure ne peut pas être une de ses cibles.</value>
   </data>
   <data name="ExtractMethodEdit_RoutineUsesTheResult" xml:space="preserve">
     <value>La routine lit ou écrit le résultat de la procédure, que chaque appel devrait copier.</value>
   </data>
   <data name="ExtractMethodEdit_RoutineRunsItself" xml:space="preserve">
-    <value>La routine s'exécute elle-même : un GoSub vers elle y est écrit.</value>
+    <value>La routine s'exécute elle-même : un GoSub qu'elle contient la nomme.</value>
   </data>
   <data name="ExtractMethodEdit_RoutineInAWithBlock" xml:space="preserve">
     <value>La routine utilise l'objet d'un bloc With dans lequel elle est écrite.</value>
