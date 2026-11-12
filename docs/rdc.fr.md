@@ -130,6 +130,11 @@ Le code de sortie indique comment s'est passée l'exécution :
 
 Le programme affiche ses boîtes de dialogue comme `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
+Le dossier du programme contient les conditions de licence de ce sur quoi il s'exécute : `NOTICE.md` et `LICENSE-GPLv3.md`, celles de RDCore,
+`LICENSE-MIT.md`, celle de RDCore.SDK, et `THIRD-PARTY-NOTICES.txt`, pour les autres paquets du dossier et son exécutable. Transmettez-les avec le
+programme. `NOTICE.md` dit ce qu'elles vous demandent; votre propre code reste le vôtre. `rdc` les copie depuis la plateforme d'où il s'exécute, et
+avertit quand il n'en a aucune à copier.
+
 ### Installer la plateforme
 
 `rdc install` installe la plateforme d'où il est lancé, comme une archive de version que vous avez décompressée, pour votre compte d'utilisateur.

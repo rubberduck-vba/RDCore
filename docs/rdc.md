@@ -124,6 +124,10 @@ The exit code says how the run went:
 
 The program shows its dialogs as `rdc run` does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
 
+The program's folder holds the licence terms of what it runs on: `NOTICE.md` and `LICENSE-GPLv3.md`, RDCore's, `LICENSE-MIT.md`, RDCore.SDK's, and
+`THIRD-PARTY-NOTICES.txt`, for the other packages in the folder and its executable. Pass them on with the program. `NOTICE.md` says what they ask of
+you; your own code stays yours. `rdc` copies them from the platform it runs from, and warns when it has none to copy.
+
 ### Installing the platform
 
 `rdc install` installs the platform it runs from, such as a release archive you unpacked, for your user account. The IDE add-in installs the
