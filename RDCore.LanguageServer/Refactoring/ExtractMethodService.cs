@@ -168,7 +168,13 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// <summary>
     /// Why an extraction offered for one version of a document is not made for another, in the language of the user interface.
     /// </summary>
-    public static string DocumentChanged() => Format("ExtractMethod_DocumentChanged");
+    public static string DocumentChanged() => DocumentChanged(RefactoringKinds.ExtractMethod);
+
+    /// <summary>
+    /// Why a refactoring of a kind this service makes, offered for one version of a document, is not made for another, in the language of the user interface.
+    /// </summary>
+    /// <param name="kind"><see cref="RefactoringKinds.ExtractMethod"/> or <see cref="RefactoringKinds.ConvertGoSub"/>.</param>
+    public static string DocumentChanged(string kind) => Format(kind == RefactoringKinds.ConvertGoSub ? "ConvertGoSub_DocumentChanged" : "ExtractMethod_DocumentChanged");
 
     public Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourceRange range, CancellationToken token)
         => PrepareAsync(RefactoringKinds.ExtractMethod, documentUri, range, token);

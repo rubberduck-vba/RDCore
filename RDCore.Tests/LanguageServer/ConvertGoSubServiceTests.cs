@@ -180,6 +180,30 @@ public sealed class ConvertGoSubServiceTests
     }
 
     [TestMethod]
+    public async Task AConversionResolved_ForAnotherVersionOfTheDocument_IsRefused_AsAConversion()
+    {
+        var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(),
+            Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>(), new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+        var offered = new OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction
+        {
+            Title = ExtractMethodService.Title(RefactoringKinds.ConvertGoSub),
+            Kind = CodeActionHandler.RefactorConvertGoSub,
+            Data = new Newtonsoft.Json.Linq.JObject
+            {
+                ["refactoring"] = RefactoringKinds.ConvertGoSub,
+                ["uri"] = DocumentUri.From(Document).ToString(),
+                ["range"] = Newtonsoft.Json.Linq.JObject.FromObject(new { start = new { line = 8, character = 0 }, end = new { line = 8, character = 0 } }),
+                ["version"] = 0,
+            },
+        };
+
+        var refused = await Assert.ThrowsAsync<OmniSharp.Extensions.JsonRpc.RpcErrorException>(() => handler.Handle(offered, CancellationToken.None));
+
+        Assert.AreEqual(ExtractMethodService.DocumentChanged(RefactoringKinds.ConvertGoSub), refused.Message);
+        Assert.AreNotEqual(ExtractMethodService.DocumentChanged(), refused.Message);
+    }
+
+    [TestMethod]
     [DataRow(3, 4, 3, 4, DisplayName = "a position on no routine")]
     [DataRow(15, 0, 15, 0, DisplayName = "a routine the code before falls into")]
     [DataRow(2, 0, 3, 0, DisplayName = "a selection refused for nothing of a routine")]

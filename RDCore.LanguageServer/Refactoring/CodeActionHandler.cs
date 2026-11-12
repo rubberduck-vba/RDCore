@@ -246,7 +246,7 @@ internal sealed class CodeActionHandler(
         int? version = offered["version"] is { Type: JTokenType.Integer } number ? number.Value<int>() : null;
 
         var answer = await extractMethod.ApplyAsync(kind, DocumentUri.From(uri).ToUri(), range, [], [], token);
-        var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? ExtractMethodService.DocumentChanged() : answer.Refusal;
+        var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? ExtractMethodService.DocumentChanged(kind) : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
             throw new RpcErrorException(RequestFailedCode, error: null!, refusal ?? string.Empty);

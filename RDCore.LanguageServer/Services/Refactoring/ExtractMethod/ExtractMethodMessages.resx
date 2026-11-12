@@ -74,6 +74,9 @@
   <data name="ExtractMethod_DocumentChanged" xml:space="preserve">
     <value>The extraction was not made: the document has changed since it was offered. Select the statements again.</value>
   </data>
+  <data name="ConvertGoSub_DocumentChanged" xml:space="preserve">
+    <value>The routine was not converted: the document has changed since it was offered. Ask for the conversion again.</value>
+  </data>
   <data name="ExtractMethodChoice_Name" xml:space="preserve">
     <value>Name</value>
   </data>
