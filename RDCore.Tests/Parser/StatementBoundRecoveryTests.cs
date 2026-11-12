@@ -386,6 +386,31 @@ public sealed class StatementBoundRecoveryTests
         Assert.IsInstanceOfType<VBBinaryOperatorExpressionNode>(loop.EndExpression);
     }
 
+    // what an unbuilt node keeps of its source is the text at its range: no token the parse made up for one missing, and no blank after its last token.
+    [TestMethod]
+    [DataRow("Call Foo(-", DisplayName = "a call whose closing parenthesis the parse made up")]
+    [DataRow("x = Foo(Bar(-", DisplayName = "two calls whose closing parentheses the parse made up")]
+    [DataRow("a = (1 +  ", DisplayName = "an operation in parentheses, then blanks")]
+    [DataRow("a = (1 + _\r\n  ", DisplayName = "an operation in parentheses, then a line continuation")]
+    [DataRow("a = (1 +  ' c", DisplayName = "an operation in parentheses, then blanks and a comment")]
+    public void AnUnbuiltNode_KeepsTheTextAtItsRange(string broken)
+    {
+        var source = $"Public Sub Main()\r\n{broken}\r\nb = 2\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var unbuilt = Descendants(member).Where(node => node is UnbuiltExpressionTriviaNode or UnbuiltStatementTriviaNode).ToArray();
+        Assert.IsNotEmpty(unbuilt);
+        foreach (var node in unbuilt)
+        {
+            var kept = node is UnbuiltExpressionTriviaNode expression ? expression.Source : ((UnbuiltStatementTriviaNode)node).Source;
+            Assert.AreEqual(TextOf(source, node.SourceLocation.Range), kept, $"{node.GetType().Name} at {node.SourceLocation.Range}");
+            Assert.AreEqual(kept.TrimEnd(), kept, $"{node.GetType().Name} at {node.SourceLocation.Range}: no blank after its last token");
+        }
+
+        Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"), "the next statement");
+    }
+
     // a statement of a For's body that ends with an operator is a statement of the body: the body goes on after it, and the For ends at its Next.
     [TestMethod]
     [DataRow("For i = 1 To 2", "a = 1 -", "Next", DisplayName = "an assignment, in a For")]
