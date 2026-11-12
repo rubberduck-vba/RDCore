@@ -148,17 +148,6 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new RefactorPrepareResult { Notices = notices, Range = moved };
         }
 
-        // a refusal of the writer that no answer can lift is said before the user answers anything.
-        var written = ExtractMethodEdit.Of(plan, extraction.Source, new ExtractionChoices(extraction.SuggestedName()));
-        if (written.Refusal is ExtractionEditRefusalKind.ExitByJumpTable)
-        {
-            return new RefactorPrepareResult
-            {
-                Notices = [new RefactorNotice { Code = Code(written.Refusal.Value.ToString()), Kind = RefactorNoticeKind.Refusal, Message = EditRefusal(written.Refusal.Value, extraction) }, .. notices],
-                Range = moved,
-            };
-        }
-
         return new RefactorPrepareResult { Choices = extraction.Choices(), Notices = notices, Range = moved };
     }
 

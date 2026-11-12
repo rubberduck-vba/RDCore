@@ -194,9 +194,6 @@
   <data name="ExtractMethodEdit_NotAReturnCandidate" xml:space="preserve">
     <value>« {0} » n'est pas une valeur que la sélection rend.</value>
   </data>
-  <data name="ExtractMethodEdit_ExitByJumpTable" xml:space="preserve">
-    <value>Un On…GoTo quitte la sélection : aucun code de sortie d'une seule instruction ne peut représenter ses différentes cibles.</value>
-  </data>
   <data name="ExtractMethodEdit_ExitRoutingDeclined" xml:space="preserve">
     <value>La sélection quitte la procédure, ou une boucle ou un bloc qui l'entoure, et les sorties ne sont pas acheminées.</value>
   </data>
