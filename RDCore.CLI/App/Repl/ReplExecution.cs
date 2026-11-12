@@ -488,7 +488,7 @@ internal static class ReplExecution
             // An activation of a module of the workspace is at a line of that module's file, as STACK says it.
             var line = program.LineNumberAt(frame.Line);
             var at = InAModuleOfTheWorkspace(program, frame.Module) && frame.Line >= 0
-                ? $"  {frame.Procedure} ({frame.Module} line {frame.Line + 1})"
+                ? $"  {frame.Procedure} {string.Format(Resources.Repl_Frame_InModuleLine, frame.Module, frame.Line + 1)}"
                 : line is { } number ? $"  {frame.Procedure} {number}" : $"  {frame.Procedure}";
 
             // and how the activation got there, when it was by a GoSub: from the line of the last one it had not returned from, and the one before that - as STACK

@@ -210,6 +210,33 @@ public sealed class ReplErrorBreakTests
     }
 
     [TestMethod]
+    public async Task ARunAnErrorInAModuleOfTheWorkspaceEnded_SaysEachActivationByTheModulesLines_InTheSessionsLanguage()
+    {
+        var culture = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo("fr-CA");
+        try
+        {
+            _platform.FindModuleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<Uri?>(null));
+            _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(DivisionByZero(4) with
+                {
+                    Outcome = ExecutionOutcome.RuntimeError,
+                    ErrorModule = "Other",
+                    StackTrace = [new ExecuteStackFrame("Divide", 4, 4, null) { Module = "Other" }],
+                }));
+
+            await RunAsync(attachedToWorkspace: true, "Divide");
+
+            _console.Received().WriteMessage(MessageKind.Error, "RUN-TIME ERROR DANS Other À LA LIGNE 5", Arg.Is<string?>(detail
+                => detail!.Contains("  Divide (Other à la ligne 5)") && !detail.Contains("Other line")));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = culture;
+        }
+    }
+
+    [TestMethod]
     public async Task ARunAnErrorInTheShellsProgramEnded_SaysItByTheProgramsLineNumber()
     {
         _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())

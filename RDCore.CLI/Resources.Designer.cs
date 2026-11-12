@@ -933,6 +933,15 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Frame_Summary", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to ({0} line {1}).
+        /// </summary>
+        public static string Repl_Frame_InModuleLine {
+            get {
+                return ResourceManager.GetString("Repl_Frame_InModuleLine", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Lists the shell commands..

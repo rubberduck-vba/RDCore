@@ -479,6 +479,9 @@
   <data name="Repl_Frame_Summary" xml:space="preserve">
     <value>Choisit la procédure visée par VARS : FRAME 1 est celle qui a appelé.</value>
   </data>
+  <data name="Repl_Frame_InModuleLine" xml:space="preserve">
+    <value>({0} à la ligne {1})</value>
+  </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>il n'y a pas de session d'exécution</value>
   </data>

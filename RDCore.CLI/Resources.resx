@@ -484,6 +484,10 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_Frame_Summary" xml:space="preserve">
     <value>Selects the procedure VARS is about: FRAME 1 is the one that called.</value>
   </data>
+  <data name="Repl_Frame_InModuleLine" xml:space="preserve">
+    <value>({0} line {1})</value>
+    <comment>Where an activation of a module of the workspace is, in STACK and in a run-time error's stack trace. {0} is the name of the module, {1} the line of the module.</comment>
+  </data>
   <data name="Host_NoRuntimeSession" xml:space="preserve">
     <value>there is no runtime session</value>
   </data>
