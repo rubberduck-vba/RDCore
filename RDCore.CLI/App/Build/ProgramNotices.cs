@@ -4,10 +4,10 @@ using System.Text.Json;
 
 namespace RDCore.CLI.App.Build;
 
-// the licence terms a built program's folder carries: RDCore's notice and licence as the platform root has them, the RDCore.SDK package's licence, and the
-// notices of exactly the third-party packages the folder holds, and of the .NET application host when it holds an executable. The packages, their licences
+// the license terms a built program's folder carries: RDCore's notice and license as the platform root has them, the RDCore.SDK package's license, and the
+// notices of exactly the third-party packages the folder holds, and of the .NET application host when it holds an executable. The packages, their licenses
 // and their texts are the data the release writes beside the platform's own THIRD-PARTY-NOTICES.txt (tools/release/New-ThirdPartyNotices.ps1 -DataFile):
-// nothing here decides a licence.
+// nothing here decides a license.
 internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot)
 {
     public const string Notice = "NOTICE.md";
@@ -100,7 +100,7 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
 
     private static string NameOf(PackageData package) => $"{package.Package} {package.Version}";
 
-    // the layout of the platform's THIRD-PARTY-NOTICES.txt: a summary table, then each text once, licences first, with the packages it applies to.
+    // the layout of the platform's THIRD-PARTY-NOTICES.txt: a summary table, then each text once, licenses first, with the packages it applies to.
     private static string Render(string program, int packages, string? executable, IReadOnlyList<Row> rows, IReadOnlyList<Text> texts)
     {
         var text = new StringBuilder();

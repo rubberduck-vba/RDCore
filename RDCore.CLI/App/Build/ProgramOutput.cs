@@ -5,7 +5,7 @@ using System.Reflection.PortableExecutable;
 
 namespace RDCore.CLI.App.Build;
 
-// a built program's folder; the licence terms it carries are those of the platform rdc runs from, whose root holds its runtime folder (ProgramNotices).
+// a built program's folder; the license terms it carries are those of the platform rdc runs from, whose root holds its runtime folder (ProgramNotices).
 internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder, string? platformRoot = null)
 {
     private const string RdcName = "rdc";
@@ -15,7 +15,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
     public bool IsTaken(string program)
         => fileSystem.File.Exists(fileSystem.Path.Combine(runtimeFolder, $"{program}.dll")) || string.Equals(program, RdcName, StringComparison.OrdinalIgnoreCase);
 
-    // the program's executable, or null when no host was given; and the licence documents the folder lacks, having none to copy.
+    // the program's executable, or null when no host was given; and the license documents the folder lacks, having none to copy.
     public (string? Executable, IReadOnlyList<string> Lacking) Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime)
     {
         _ = fileSystem.Directory.CreateDirectory(folder);
