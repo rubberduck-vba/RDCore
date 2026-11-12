@@ -128,6 +128,40 @@
   <data name="ExtractMethodChoice_AccessibilityPublic" xml:space="preserve">
     <value>From anywhere in the project; for a class module, through each of its objects.</value>
   </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicates" xml:space="preserve">
+    <value>Replace the duplicates</value>
+  </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicatesDescription" xml:space="preserve">
+    <value>The same code elsewhere is replaced with a call to the new procedure, where it is ticked.</value>
+  </data>
+  <data name="ExtractMethodChoice_Duplicates" xml:space="preserve">
+    <value>Duplicates</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicatesDescription" xml:space="preserve">
+    <value>Code written as the selection is, which a call to the new procedure can replace.</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicateReplace" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublic" xml:space="preserve">
+    <value>In another module: replaced only when the new procedure is Public.</value>
+  </data>
+  <!-- Why the duplicates the user chose are not replaced: {0} is the duplicate, where it is and its first line (for NotADuplicate, its id); {1} why its replacement is not verified. -->
+  <data name="ExtractMethodDuplicate_NotADuplicate" xml:space="preserve">
+    <value>'{0}' is not a duplicate of the selection as it is extracted.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublic" xml:space="preserve">
+    <value>The duplicate at {0} is in another module: only a Public procedure can replace it.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Overlaps" xml:space="preserve">
+    <value>The duplicate at {0} overlaps what the extraction already changes: it cannot be replaced as well.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NotVerified" xml:space="preserve">
+    <value>The duplicate at {0} cannot be replaced: it would break the code. {1}</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Replacement" xml:space="preserve">
+    <value>Replace the duplicate at {0} with a call</value>
+  </data>
   <data name="ExtractMethodChoice_AccessibilityUnknown" xml:space="preserve">
     <value>'{0}' is not an accessibility of the new procedure: it is Private or Public.</value>
   </data>

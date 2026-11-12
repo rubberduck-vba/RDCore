@@ -128,6 +128,40 @@
   <data name="ExtractMethodChoice_AccessibilityPublic" xml:space="preserve">
     <value>De partout dans le projet; pour un module de classe, par chacun de ses objets.</value>
   </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicates" xml:space="preserve">
+    <value>Remplacer les doublons</value>
+  </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicatesDescription" xml:space="preserve">
+    <value>Le même code ailleurs est remplacé par un appel à la nouvelle procédure, là où il est coché.</value>
+  </data>
+  <data name="ExtractMethodChoice_Duplicates" xml:space="preserve">
+    <value>Doublons</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicatesDescription" xml:space="preserve">
+    <value>Du code écrit comme la sélection, qu'un appel à la nouvelle procédure peut remplacer.</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicateReplace" xml:space="preserve">
+    <value>Remplacer</value>
+  </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublic" xml:space="preserve">
+    <value>Dans un autre module : remplacé seulement si la nouvelle procédure est Public.</value>
+  </data>
+  <!-- Why the duplicates the user chose are not replaced: {0} is the duplicate, where it is and its first line (for NotADuplicate, its id); {1} why its replacement is not verified. -->
+  <data name="ExtractMethodDuplicate_NotADuplicate" xml:space="preserve">
+    <value>« {0} » n'est pas un doublon de la sélection telle qu'elle est extraite.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublic" xml:space="preserve">
+    <value>Le doublon à {0} est dans un autre module : seule une procédure Public peut le remplacer.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Overlaps" xml:space="preserve">
+    <value>Le doublon à {0} chevauche ce que l'extraction change déjà : il ne peut pas être remplacé aussi.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NotVerified" xml:space="preserve">
+    <value>Le doublon à {0} ne peut pas être remplacé : il briserait le code. {1}</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Replacement" xml:space="preserve">
+    <value>Remplacer le doublon à {0} par un appel</value>
+  </data>
   <data name="ExtractMethodChoice_AccessibilityUnknown" xml:space="preserve">
     <value>« {0} » n'est pas une accessibilité de la nouvelle procédure : c'est Private ou Public.</value>
   </data>
