@@ -6,6 +6,7 @@ using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
@@ -1652,8 +1653,9 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
 
     // 🎯 What Erl reports. MS-VBA answers with the last line-number label it passed, which is only ever the
     // truth for code that numbers every line; the document line is the truth for any code at all, and is
-    // what an environment reports unless its workspace depends on MS-VBA's own behaviour.
-    private static long ErlLineOf(IRuntimeSession session, InstructionList list, int faultOffset, IVBRaisableError error)
+    // what an environment reports unless its workspace depends on MS-VBA's own behaviour. Either way it is the line of the activation's own statement
+    // that faulted: an error a callee raised is at the call, as MS-VBA's handler of the caller reports it.
+    private static long ErlLineOf(IRuntimeSession session, InstructionList list, int faultOffset, IVBRaisableError error, SourceLocation? statement)
     {
         if (session.Environment.ErlLineNumbering is VBErlLineNumbering.LineLabel)
         {
@@ -1661,8 +1663,15 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return label;
         }
 
+        // the error is where it was raised, which is a line of the statement when the statement raised it, one of a statement continued over several
+        // lines included; another procedure's when a callee raised it.
+        var raised = error.Location.Range.Start.Line;
+        var line = statement is { } faulting && (faulting.Uri != error.Location.Uri || raised < faulting.Range.Start.Line || raised > faulting.Range.End.Line)
+            ? faulting.Range.Start.Line
+            : raised;
+
         // every position in the platform is zero-based; a line number is what an editor shows, counted from 1.
-        return error.Location.Range.Start.Line + 1;
+        return line + 1;
     }
 
     /// <summary>
@@ -1718,7 +1727,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         // one place every error the interpreter can raise passes through, which is why it is here.
         // the line the fault is at travels with it, which is what Erl reports - counted as the environment
         // says to count it.
-        session.Errors.Raise(outcome.ErrorInfo!, ErlLineOf(session, list, faultOffset, outcome.ErrorInfo!));
+        session.Errors.Raise(outcome.ErrorInfo!, ErlLineOf(session, list, faultOffset, outcome.ErrorInfo!, location));
 
         // a program under a debugger that asked to see errors waits here, where the error was raised and nothing has been unwound: the activation is the one that faulted,
         // at the statement that did. It goes on from here when it is resumed. An error a handler catches is caught; one nothing catches is not given to the

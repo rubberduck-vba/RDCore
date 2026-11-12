@@ -57,7 +57,7 @@ public sealed class ReachingDefinitions
     /// <remarks>What code moved to another procedure must be given by its caller is what it reads of these.</remarks>
     public ImmutableArray<VariableDefinition> ReachingInto(IReadOnlySet<int> region)
         => [.. region
-            .Where(node => node == Graph.Entry || _edges.PredecessorsOf(node).Any(edge => !region.Contains(edge.From)))
+            .Where(node => Graph.Entries.Contains(node) || _edges.PredecessorsOf(node).Any(edge => !region.Contains(edge.From)))
             .SelectMany(node => _reaching[node])
             .Where(definition => !region.Contains(definition.Offset))
             .Distinct()];
@@ -74,7 +74,11 @@ public sealed class ReachingDefinitions
         var definitions = accesses.Definitions;
         var indices = definitions.Select((definition, index) => (definition, index)).ToDictionary(pair => pair.definition, pair => pair.index, (IEqualityComparer<VariableDefinition>)ReferenceEqualityComparer.Instance);
         var reaching = Enumerable.Range(0, edges.Count).Select(_ => new HashSet<int>()).ToArray();
-        reaching[graph.Entry].UnionWith(definitions.Select((definition, index) => (definition, index)).Where(pair => pair.definition.Kind is VariableDefinitionKind.Entry).Select(pair => pair.index));
+        var entryDefinitions = definitions.Select((definition, index) => (definition, index)).Where(pair => pair.definition.Kind is VariableDefinitionKind.Entry).Select(pair => pair.index).ToArray();
+        foreach (var entry in graph.Entries)
+        {
+            reaching[entry].UnionWith(entryDefinitions);
+        }
 
         var pending = new Queue<int>(Enumerable.Range(0, edges.Count));
         var queued = Enumerable.Repeat(true, edges.Count).ToArray();

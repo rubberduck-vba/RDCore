@@ -1,6 +1,6 @@
 ---
 name: Bug Ticket
-about: A ticket that describes a known problem with an existing implementation.
+about: "Maintainers: a ticket that describes a known problem with an existing implementation. To report a bug, use Report a bug."
 title: 'MS-VBAL x.x.x.y.z Description'
 labels: bug
 assignees: ''

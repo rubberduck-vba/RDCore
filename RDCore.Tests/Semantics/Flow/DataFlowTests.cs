@@ -28,6 +28,53 @@ public sealed class DataFlowTests
         Assert.IsTrue(analyzed.Reaching.ReachingInto(body).Any(definition => definition.Variable == x), "and reads what was there before");
     }
 
+    // MS-VBAL §3.4: at most one branch of a #If block is compiled. Lowered with every branch, the branches are alternatives, not one after another.
+    [TestMethod]
+    public void AWriteInOneBranchOfAnIfBlock_DoesNotReplaceTheValueAnotherBranchReads()
+    {
+        var analyzed = Analyze("Dim x As Long\nx = n\n#If False Then\nx = 1\n#Else\nDebug.Print x\n#End If");
+
+        CollectionAssert.AreEqual(new[] { analyzed.Line(1) },
+            analyzed.Reaching.ReachingBefore(analyzed.Line(5), analyzed.Variable("x")).Select(definition => definition.Offset).ToArray());
+    }
+
+    [TestMethod]
+    public void AWriteInTheOnlyBranchOfAnIfBlock_MayNotBeCompiled()
+    {
+        var analyzed = Analyze("Dim x As Long\nx = n\n#If False Then\nx = 1\n#End If\nDebug.Print x");
+
+        CollectionAssert.AreEquivalent(new[] { analyzed.Line(1), analyzed.Line(3) },
+            analyzed.Reaching.ReachingBefore(analyzed.Line(5), analyzed.Variable("x")).Select(definition => definition.Offset).ToArray());
+    }
+
+    [TestMethod]
+    public void TheBranchesOfANestedIfBlock_AreAlternativesToo()
+    {
+        var analyzed = Analyze("Dim x As Long\nx = n\n#If True Then\n#If False Then\nx = 1\n#Else\nDebug.Print x\n#End If\n#End If");
+
+        CollectionAssert.AreEqual(new[] { analyzed.Line(1) },
+            analyzed.Reaching.ReachingBefore(analyzed.Line(6), analyzed.Variable("x")).Select(definition => definition.Offset).ToArray());
+    }
+
+    [TestMethod]
+    public void AnExitInADeadBranch_LeavesTheCodeAfterTheBlockReachable()
+    {
+        var analyzed = Analyze("#If False Then\nExit Sub\n#End If\nDebug.Print n");
+
+        Assert.IsTrue(analyzed.Graph.IsReachable(analyzed.Line(3)));
+    }
+
+    // with an #Else, exactly one branch is compiled: a write in every branch replaces what was there before.
+    [TestMethod]
+    [Ignore("the SDK's ConditionalCompilationBlocks does not say which blocks have an #Else, so every block is taken as one that may compile no branch")]
+    public void AWriteInEveryBranchOfAnIfBlockWithAnElse_ReplacesTheValueBefore()
+    {
+        var analyzed = Analyze("Dim x As Long\nx = n\n#If False Then\nx = 1\n#Else\nx = 2\n#End If\nDebug.Print x");
+
+        CollectionAssert.AreEquivalent(new[] { analyzed.Line(3), analyzed.Line(5) },
+            analyzed.Reaching.ReachingBefore(analyzed.Line(7), analyzed.Variable("x")).Select(definition => definition.Offset).ToArray());
+    }
+
     [TestMethod]
     public void AVariableReplacedBeforeItIsRead_IsNotLive()
     {

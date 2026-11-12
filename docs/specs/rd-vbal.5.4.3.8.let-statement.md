@@ -85,6 +85,18 @@ The Set statement does not use the operator pipeline; see
 [**RD-VBAL §5.4.3.9** Set Statement](rd-vbal.5.4.3.9.set-statement.md). Let-coercion is described in
 [**RD-VBAL §5.5.1.2** Runtime semantics](rd-vbal.5.5.1.2.runtime-semantics.md).
 
+### Targets of a class
+
+A Let of a value to a target declared as a class or `Object` assigns the default property of the object the target holds, as naming that
+property after the target would. This holds for a variable, a public variable of an object, a field of a record and an element of an array.
+
+| The target holds | Result |
+|---|---|
+| An object whose class has a default property | The property is assigned. |
+| `Nothing`, declared `As New` | The target is given its object first, and that object's property is assigned. |
+| `Nothing` | Error 91. |
+| An object whose class has no default property | Error 438. |
+
 ### Function result variable
 
 A Let-assignment to a bare reference to a procedure's own name, from within its own body, assigns the
@@ -109,7 +121,8 @@ A Let-assignment to a bare reference to a procedure's own name, from within its 
 raises error 91. The member is the `Property Let` declared for it (an indexed one takes the index arguments before the value) or else a
 public variable of the class, found through the declared interface when `obj` is declared as one its object's class implements
 ([**RD-VBAL §5.3.1.9**](rd-vbal.5.3.1.9.implemented-name-declarations.md)). A public variable is assigned by Let-coercing the value to
-its declared type; with no such member, error 438 is raised. A `With` block assigns the same way. A member of an object of a standard-library class
+its declared type, or through its object's default property when that type is a class (see [Targets of a class](#targets-of-a-class)); with no
+such member, error 438 is raised. A `With` block assigns the same way. A member of an object of a standard-library class
 reached late-bound that has no `Property Let` is assigned as MS-VBA's `IDispatch` assigns it: 450 for a read-only property, 438 for a method, and a
 member written with arguments invoked, to assign the default member of what it returns
 ([**RD-VBAL §6.0** Late-Bound Calls](rd-vbal.6.0.standard-library.md#late-bound-calls)).
@@ -118,16 +131,17 @@ member written with arguments invoked, to assign the default member of what it r
 
 `a(i, j) = value`, and `obj.Items(i) = value` when the array is what a public variable of an object holds
 (`LetAssignmentEvaluator.AssignArrayElement`), assigns an element in place: the value is Let-coerced to the element type of the array and
-written to the element's own cell, and the array is never copied. A subscript outside the bounds of the array is error 9. `Set a(i) = obj` does
+written to the element's own cell, and the array is never copied. An element of a class is assigned through its object's default property
+([Targets of a class](#targets-of-a-class)). A subscript outside the bounds of the array is error 9. `Set a(i) = obj` does
 the same with Set-coercion, and lets go of the object the element held and takes a reference to the one it is given.
 
 What is indexed can be an object - or a `Variant` holding one - rather than an array: `c(1) = value` assigns the object's default member with the
 arguments, as `c.Item(1) = value` does, and `Set c(1) = obj` its `Property Set` ([**RD-VBAL §5.6.13** Object
 Callee](rd-vbal.5.6.13.index-expressions.md#object-callee)).
 
-A member of an object that is a function - or a `Property Get` that takes no argument, given arguments that index what it returns - has no
-`Property Let` to assign through: it is called, with the arguments written after it, and what it returns is assigned through its default member, as
-a function of a module is. `c(1) = 5` and `c.Item(1) = 5`, with `Dim c As Collection` holding a number, are error 424; an item that is an object is
+Some members of an object have no `Property Let` to assign through: a function, and a `Property Get` that takes no argument when it is given
+arguments that index what it returns, or when it is declared a class, `Object` or `Variant`. Such a member is called, with the arguments written
+after it, and what it returns is assigned through its default member, as a function of a module is. `c(1) = 5` and `c.Item(1) = 5`, with `Dim c As Collection` holding a number, are error 424; an item that is an object is
 assigned its own default member, and one that takes an argument is error 438.
 
 A `ReDim` of an array gives it the element type of the variable's declaration (`Dim a() As Long`), including a variable of an object.
@@ -135,7 +149,8 @@ A `ReDim` of an array gives it the element type of the variable's declaration (`
 ### UDT fields
 
 A Let statement assigns a UDT field by Let-coercing the value to the field's own declared type and writing the
-field's cell. It writes the cell because a UDT field is not an addressable symbol the way a variable is.
+field's cell. It writes the cell because a UDT field is not an addressable symbol the way a variable is. A field of a class is assigned
+through its object's default property ([Targets of a class](#targets-of-a-class)).
 
 A UDT field is reachable from source code in both directions: a member access reads one, and a Let statement
 assigns one. See [**RD-VBAL §5.6.12** Member Access Expressions](rd-vbal.5.6.12.member-access-expressions.md).

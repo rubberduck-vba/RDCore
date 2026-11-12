@@ -117,9 +117,14 @@ public sealed class ShippedLibrariesTests
         foreach (var library in libraries.Libraries)
         {
             Assert.IsTrue(symbols.OfType<VBProjectSymbol>().Any(project => project.Name == library.Name), library.Name);
-            // a class, and the default interface it names, each a type name of the library.
-            var named = library.Classes.Select(declared => declared.Name)
-                .Concat(library.Classes.Select(declared => declared.DefaultInterface).OfType<string>())
+            // a class, and the default interface it names, each a type name of the library; but for the Visual Basic 6.0 library's Global, a module of it.
+            var modules = symbols.OfType<VBStandardModuleSymbol>()
+                .Where(module => module.GetProperty(SymbolProperties.Library) == library.Name)
+                .Select(module => module.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var classes = library.Classes.Where(declared => !(declared.IsApplication && modules.Contains(declared.Name))).ToArray();
+            var named = classes.Select(declared => declared.Name)
+                .Concat(classes.Select(declared => declared.DefaultInterface).OfType<string>())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Count();
             Assert.AreEqual(named, symbols.OfType<VBClassModuleSymbol>().Count(symbol => symbol.GetProperty(SymbolProperties.Library) == library.Name), library.Name);

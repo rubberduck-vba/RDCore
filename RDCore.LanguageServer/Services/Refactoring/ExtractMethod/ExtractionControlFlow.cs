@@ -67,11 +67,14 @@ internal static class ExtractionControlFlow
 
         foreach (var instruction in items.Where(instruction => !region.Contains(instruction.Offset)))
         {
+            // control that comes to the first instruction comes to the selection at its start: when the selection starts with an #If block, that is the start
+            // of any branch of it.
+            var starts = graph.Arrivals(instruction.Offset, first).ToHashSet();
             foreach (var edge in graph.SuccessorsOf(instruction.Offset).Where(edge => region.Contains(edge.To)))
             {
                 var jumps = edge.Kind is ControlFlowEdgeKind.Error
                     || instruction.Kind is InstructionKind.Jump or InstructionKind.JumpTable or InstructionKind.GoSub or InstructionKind.GoSubTable or InstructionKind.ResumeLabel or InstructionKind.Return;
-                if (edge.To != first || jumps && entered)
+                if (!starts.Contains(edge.To) || jumps && entered)
                 {
                     // an error into a handler is told by where the handler is; a jump, by the jump.
                     var where = edge.Kind is ControlFlowEdgeKind.Error ? items[edge.To].Location : instruction.Location;
@@ -119,8 +122,9 @@ internal static class ExtractionControlFlow
             }
         }
 
-        // an On Error of the selection is the new procedure's: what follows the call runs in the state the selection found, which must be what it leaves.
-        if (LeftDifferent(region, graph, entry))
+        // an On Error of the selection is the new procedure's: what follows the call runs in the state the selection found, which must be what it leaves, unless
+        // nothing that follows can tell the two apart.
+        if (LeftDifferent(region, graph, entry) && StateMattersAfter(region, graph))
         {
             refusals.AddRange(region.Order().Select(offset => items[offset])
                 .Where(instruction => instruction.Kind is InstructionKind.OnErrorGoTo or InstructionKind.OnErrorDisable or InstructionKind.OnErrorResumeNext or InstructionKind.OnErrorReset)
@@ -175,6 +179,40 @@ internal static class ExtractionControlFlow
         return (false, changes, refusals);
     }
 
+    // whether the code that can run after the selection depends on the error handling the selection leaves: an instruction of it can raise an error, or the
+    // selection runs again (in a loop), from the state it left inline and from the one it found once extracted.
+    private static bool StateMattersAfter(IReadOnlySet<int> region, ControlFlowGraph graph)
+    {
+        var seen = new HashSet<int>();
+        var pending = new Stack<int>(region
+            .SelectMany(node => graph.SuccessorsOf(node).Where(edge => edge.Kind is not ControlFlowEdgeKind.Error))
+            .Select(edge => edge.To)
+            .Where(node => !region.Contains(node)));
+        while (pending.TryPop(out var node))
+        {
+            if (node >= graph.Exit || !seen.Add(node))
+            {
+                continue;
+            }
+
+            if (region.Contains(node) || graph.CanRaise(node))
+            {
+                return true;
+            }
+
+            foreach (var edge in graph.SuccessorsOf(node))
+            {
+                pending.Push(edge.To);
+            }
+        }
+
+        return false;
+    }
+
+    // where control that comes to the selection arrives: its first instruction, and, when it starts with an #If block, the first of each other branch of the
+    // block, or past the block when the block may compile no branch.
+    internal static IReadOnlySet<int> EntriesOf(IReadOnlySet<int> region, ControlFlowGraph graph) => graph.EntriesOf(region.Min(), region.Max());
+
     // whether a path through the selection, from a state it can start in, leaves it in another: its own On Error statements, run from that state.
     private static bool LeftDifferent(IReadOnlySet<int> region, ControlFlowGraph graph, IEnumerable<ErrorHandlingState> entry)
     {
@@ -183,7 +221,11 @@ internal static class ExtractionControlFlow
         {
             var seen = new HashSet<(int, ErrorHandlingState)>();
             var pending = new Stack<(int Node, ErrorHandlingState State)>();
-            pending.Push((region.Min(), start));
+            foreach (var first in EntriesOf(region, graph))
+            {
+                pending.Push((first, start));
+            }
+
             while (pending.TryPop(out var arrival))
             {
                 if (!region.Contains(arrival.Node))
@@ -213,7 +255,10 @@ internal static class ExtractionControlFlow
                     }
                     else if (arrival.State is { Policy: ErrorHandlingPolicy.ResumeNext, IsHandling: false })
                     {
-                        pending.Push((ControlFlowGraph.NextAfterAnError(instruction), arrival.State));
+                        foreach (var next in graph.ContinuationsAfterAnError(arrival.Node))
+                        {
+                            pending.Push((next, arrival.State));
+                        }
                     }
                 }
 

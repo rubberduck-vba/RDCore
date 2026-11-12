@@ -28,9 +28,9 @@ public sealed class FormHostingTests
     private const uint WM_CLOSE = 0x0010;
 
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL): every control a real form has is one of its classes.
-    private static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
+    internal static DirectoryLibrarySource Shipped => new(new System.IO.Abstractions.FileSystem(), ShippedLibrariesTests.Symbols);
 
-    private static void RequireMicrosoftForms()
+    internal static void RequireMicrosoftForms()
     {
         if (!OperatingSystem.IsWindows() || Type.GetTypeFromProgID("Forms.Form.1") is null)
         {
@@ -39,13 +39,13 @@ public sealed class FormHostingTests
     }
 
     // the servers and the form host of the test's own, on one apartment, as the external host composes them.
-    private static (ExternalWorld World, ComApartment Apartment) InProcess()
+    internal static (ExternalWorld World, ComApartment Apartment) InProcess()
     {
         var apartment = new ComApartment();
         return (new ExternalWorld(new ComAutomationServer(apartment), UnavailableNativeLibraryHost.Instance) { Forms = new WindowsFormHost(apartment) }, apartment);
     }
 
-    private static byte[] Fixture(string fileName)
+    internal static byte[] Fixture(string fileName)
     {
         var assembly = typeof(FormHostingTests).Assembly;
         var name = assembly.GetManifestResourceNames().Single(resource => resource.EndsWith($".Fixtures.{fileName}", StringComparison.Ordinal));
@@ -94,6 +94,29 @@ public sealed class FormHostingTests
             "Debug.Print ExampleView.Name");
 
         CollectionAssert.AreEqual(new[] { "ExampleView", "Changed", "ExampleView" }, printed);
+    }
+
+    // the form object's Left, Top, Width and Height are its window's, which the form host has: a Single, as in Excel, read and written without an error.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the process")]
+    [DataRow(true, DisplayName = "through an external host")]
+    public async Task AFormsLeftTopWidthAndHeight_AreItsWindows(bool external)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        using var host = ExternalHosts.New();
+
+        var printed = await RunAsync(external ? ExternalHosts.WorldOf(host) : world,
+            "Debug.Print TypeName(ExampleView.Left)",
+            "On Error Resume Next",
+            "ExampleView.Width = ExampleView.Width + 30",
+            "ExampleView.Height = ExampleView.Height + 20",
+            "ExampleView.Left = ExampleView.Left",
+            "ExampleView.Top = ExampleView.Top",
+            "Debug.Print Err.Number");
+
+        CollectionAssert.AreEqual(new[] { "Single", "0" }, printed, string.Join(" | ", printed));
     }
 
     [TestMethod]
@@ -538,6 +561,10 @@ public sealed class FormHostingTests
         public string GetCaption(object form) => forms.GetCaption(form);
 
         public void SetCaption(object form, string caption) => forms.SetCaption(form, caption);
+
+        public RDCore.External.Forms.FormBounds GetBounds(object form) => forms.GetBounds(form);
+
+        public void SetBounds(object form, RDCore.External.Forms.FormBounds bounds) => forms.SetBounds(form, bounds);
 
         public void Leave(object form) => forms.Leave(form);
 

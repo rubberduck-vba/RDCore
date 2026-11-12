@@ -10,6 +10,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using RDCore.CLI.App.Commands;
 using RDCore.CLI.App.Configuration;
 using RDCore.CLI.App.Console;
+using RDCore.CLI.App.Install;
 using RDCore.CLI.App.Repl;
 using RDCore.CLI.App.Repl.Commands;
 using RDCore.CLI.App.VerboseMessages;
@@ -70,6 +71,8 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         var mode = Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable);
+        // in every mode, the version of the platform rdc runs from is held until it exits: a deployment into the shared root does not remove it.
+        using var lease = PlatformTree.Hold(PlatformEnvironment.Default.Root);
         try
         {
             // RDCORE_MODE=external (set by the environment host when it launches rdc.exe): run as its external host,
@@ -466,6 +469,7 @@ internal class RDCoreConsoleCommandHost : AppHost<RDCoreConsoleCommandApp>
             .AddSingleton<ICliCommand, CompilationCommand>()
             .AddSingleton<ICliCommand, BuildCommand>()
             .AddSingleton<ICliCommand, RunCommand>()
+            .AddSingleton<ICliCommand, InstallCommand>()
             .AddSingleton<IPlatformSettings, PlatformSettings>()
             .AddSingleton(_ => RubberduckIndenterSettingsReader.ForThisMachine())
             .AddSingleton<ConfigCommand>()

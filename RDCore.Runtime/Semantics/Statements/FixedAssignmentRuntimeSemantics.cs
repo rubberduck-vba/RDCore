@@ -76,13 +76,24 @@ public sealed record class FixedAssignmentRuntimeSemantics(
         // a variable is bound once, and read through the slot it is bound to (IR lowering S0.11).
         var bound = Expressions.BoundVariableOf(session, assignment.Target, context);
         var symbol = bound?.Variable;
-        if (symbol is null && !Assignments.TryResolveTarget(session, context, assignment.Target, out symbol))
+        VBTypedValue current;
+        if (symbol is not null || Assignments.TryResolveTarget(session, context, assignment.Target, out symbol))
         {
-            return RuntimeExecutionOutcome.InternalError;
+            var handle = bound is not null ? Expressions.BindingOf(session, bound).Handle : session.Symbols.Resolver.GetValue(symbol!);
+            current = ((SDK.Model.Symbols.Abstract.ITypedSymbol)symbol!).ResolvedType.CreateValue(handle.ForReading());
         }
+        else
+        {
+            // a field of a record, an element of an array, a field of an element: what the target holds is what its expression reads, and a record it reads
+            // is the record itself, which a byte copy fills in place.
+            var read = Expressions.Evaluate(session, assignment.Target, context);
+            if (!read.IsSuccess)
+            {
+                return read.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(read.ErrorInfo!);
+            }
 
-        var handle = bound is not null ? Expressions.BindingOf(session, bound).Handle : session.Symbols.Resolver.GetValue(symbol!);
-        var current = ((SDK.Model.Symbols.Abstract.ITypedSymbol)symbol!).ResolvedType.CreateValue(handle.ForReading());
+            current = read.Result!;
+        }
 
         var evaluated = Expressions.Evaluate(session, assignment.Value, context);
         if (!evaluated.IsSuccess)
@@ -130,7 +141,9 @@ public sealed record class FixedAssignmentRuntimeSemantics(
         // the byte copy of one record over another is done in place: a UDT has location identity, and LSet assigns no new one.
         return semantics.Flags.HasFlag(FixedAssignmentSemanticFlags.UserDefinedTypeCopy)
             ? RuntimeExecutionOutcome.Next
-            : Assignments.Assign(session, context, assignment, symbol!, assignment.Target, assignment.Value, result.Result!);
+            : symbol is not null
+                ? Assignments.Assign(session, context, assignment, symbol, assignment.Target, assignment.Value, result.Result!)
+                : Assignments.Assign(session, context, assignment, assignment.Target, assignment.Value, result.Result!);
     }
 
     public override ISemanticFlagsAccumulator<FixedAssignmentSemanticFlags> Analyze(

@@ -192,6 +192,22 @@ public sealed class ExtractionControlFlowTests
     public void AnOnErrorThatChangesTheStateAfterTheSelection_IsRefused()
         => CollectionAssert.Contains(RefusalsOf(Plan("On Error Resume Next\nDebug.Print 1 / n", 0, 0)), ExtractionRefusalKind.ErrorHandlingChanged);
 
+    // §3.4: nothing runs under the state the selection leaves.
+    [TestMethod]
+    [DataRow("Debug.Print n\nOn Error Resume Next", 0, 1, DisplayName = "the procedure ends after it")]
+    [DataRow("Dim x As Long\nOn Error Resume Next\nx = 1", 1, 1, DisplayName = "what follows cannot raise an error")]
+    public void AnOnErrorWhoseStateNothingAfterTheSelectionRunsUnder_IsExtracted(string body, int first, int last)
+    {
+        var plan = Plan(body, first, last);
+
+        Assert.IsTrue(plan.IsExtractable, string.Join(", ", RefusalsOf(plan)));
+    }
+
+    // the jump after the selection cannot raise an error, but the selection it goes back to runs under the state it left.
+    [TestMethod]
+    public void AnOnErrorWhoseStateTheSelectionRunsUnderAgain_IsRefused()
+        => CollectionAssert.Contains(RefusalsOf(Plan("L:\nDebug.Print 1 / n\nOn Error Resume Next\nGoTo L", 0, 2)), ExtractionRefusalKind.ErrorHandlingChanged);
+
     [TestMethod]
     public void AnOnErrorTheSelectionRestores_IsExtracted()
     {

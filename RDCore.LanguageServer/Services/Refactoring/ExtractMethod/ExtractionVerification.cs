@@ -68,11 +68,13 @@ internal static class ExtractionVerification
     /// <param name="edit">The extraction, written.</param>
     /// <param name="name">The name of the new procedure.</param>
     /// <param name="sourceProcedure">The name of the source procedure.</param>
+    /// <param name="sourceKind">Its kind, which tells the procedures of a property apart.</param>
     /// <param name="before">The module as it is.</param>
     /// <param name="analyze">Analyzes the module as the edit leaves it, given its text: bound in the workspace as the module is.</param>
     /// <returns>Why the extraction is not made; <see langword="null"/> when it is verified.</returns>
     public static ExtractionVerificationFailure? Verify(
-        ExtractionPlan plan, ExtractionEdit edit, string name, string sourceProcedure, ExtractionModuleAnalysis before, Func<string, ExtractionModuleAnalysis> analyze)
+        ExtractionPlan plan, ExtractionEdit edit, string name, string sourceProcedure, MemberKind sourceKind, ExtractionModuleAnalysis before,
+        Func<string, ExtractionModuleAnalysis> analyze)
     {
         var (text, written) = ExtractionText.Apply(before.Text, edit.Edits);
         var after = analyze(text);
@@ -81,14 +83,17 @@ internal static class ExtractionVerification
             return new(ExtractionVerificationFailureKind.DoesNotParse, after.Parse.SyntaxErrors.FirstOrDefault()?.Verbose);
         }
 
-        if (before.Procedure(sourceProcedure) is not { } original)
+        if (before.Procedure(sourceProcedure, sourceKind) is not { } original)
         {
             return new(ExtractionVerificationFailureKind.DoesNotParse, sourceProcedure);
         }
 
-        if (after.Procedure(sourceProcedure) is not { } edited || after.Procedure(name) is not { } extracted)
+        // the new procedure is a Function when it gives a value or an exit code back, and a Sub otherwise.
+        var edited = after.Procedure(sourceProcedure, sourceKind);
+        var extracted = after.Procedure(name, MemberKind.Function) ?? after.Procedure(name, MemberKind.Procedure);
+        if (edited is null || extracted is null)
         {
-            return new(ExtractionVerificationFailureKind.DoesNotParse, after.Procedure(sourceProcedure) is null ? sourceProcedure : name);
+            return new(ExtractionVerificationFailureKind.DoesNotParse, edited is null ? sourceProcedure : name);
         }
 
         // a variable declared by being named is one the source procedure had, whichever of the two now names it.

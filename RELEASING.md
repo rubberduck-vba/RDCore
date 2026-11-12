@@ -154,6 +154,7 @@ gh release verify-asset v0.1.0 rdcore-0.1.0-win-x64.zip -R rubberduck-vba/RDCore
 
 ## After a release
 
+- Once the release is published, make its version the only option of the **Version** dropdown in `.github/ISSUE_TEMPLATE/bug-report.yml`, so a bug report names the latest release.
 - When work on the next version starts, bump `<VersionPrefix>` in `Directory.Build.props` in a normal pull request (e.g. `0.1.0` → `0.2.0`). Release candidates of the same version (`-rc.2`, …) don't need a bump.
 - 👉 Mind the workspace version: `rdc` stamps each new workspace's `.rdproj` with its own version, and the language server has a guard (`WorkspaceService.LoadAsync`) meant to refuse a `.rdproj` whose version is greater than its own. That guard is currently a **no-op**: `ProjectFileLoader.LoadAsync` returns `project.WithUri(...)`, a record `with` that runs `ProjectFile`'s copy constructor, which re-stamps `Version` with the running server's own version, so the guard only ever compares the server with itself. A bump therefore breaks nothing today. The risk is latent: if the copy constructor is ever changed to keep `source.Version`, the guard starts working and rejects every `.rdproj` stamped `1.0.0` by builds before 0.1.0 (their assemblies were `1.0.0.0`; they are now `0.1.0.0`), and once `main` is bumped, the workspaces its prerelease builds (dry runs, pull request builds) create could no longer be opened by the last released language server.
 

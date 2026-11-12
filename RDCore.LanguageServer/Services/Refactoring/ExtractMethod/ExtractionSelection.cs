@@ -67,6 +67,10 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
     /// naming it, rather than grown across a block boundary.
     /// </para>
     /// <para>
+    /// On a line that holds several statements separated by <c>:</c>, an end takes the statement it is in, or, between two of them, the nearest one inside the
+    /// range: the others of the line stay where they are. A block statement written on one line (a single-line <c>If</c>) is one statement, and is taken whole.
+    /// </para>
+    /// <para>
     /// A declaration of a local, and a label, is one of the block's lines as a statement is: an end on it takes it, and a declaration of several variables
     /// (<c>Dim a, b</c>) is taken whole. A run of declarations and labels alone holds no statement.
     /// </para>
@@ -94,11 +98,27 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
             return false;
         }
 
+        var from = requested.Start;
+        var to = end == requested.End.Line ? requested.End : new SourcePosition(end, int.MaxValue);
         IReadOnlyList<SyntaxNode> list = [.. procedure.Children.Where(IsWrittenInTheBlock)];
         while (true)
         {
             var firstIndex = Enumerable.Range(0, list.Count).FirstOrDefault(index => LastLineOf(list[index]) >= start, -1);
             var lastIndex = Enumerable.Range(0, list.Count).LastOrDefault(index => FirstLineOf(list[index]) <= end, -1);
+
+            // on a line of several statements, an end takes the one it is in, not the line: a statement that ends before the start, or starts past the end, stays.
+            // A label opens its line: an end on it takes the label with the statement after it, and a start past it leaves it before the call, which it then names.
+            while (firstIndex >= 0 && firstIndex + 1 < list.Count && list[firstIndex].SourceLocation.Range.End <= from && FirstLineOf(list[firstIndex + 1]) == from.Line)
+            {
+                firstIndex++;
+            }
+
+            while (lastIndex > 0 && IsAfter(list[lastIndex].SourceLocation.Range.Start, to, empty: from == to) && LastLineOf(list[lastIndex - 1]) == to.Line
+                   && list[lastIndex - 1] is not LineLabelNode)
+            {
+                lastIndex--;
+            }
+
             if (firstIndex < 0 || lastIndex < firstIndex)
             {
                 return false;
@@ -183,6 +203,10 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
     private static bool IsWrittenInTheBlock(SyntaxNode node) => node is StatementNode or LineLabelNode || IsDeclaration(node);
 
     private static bool IsDeclaration(SyntaxNode node) => node is VariableDeclarationNode or ConstantDeclarationNode;
+
+    // whether a statement that starts at the position is past the end of the range: one that starts where the range ends is not in it, unless the range is
+    // empty, a cursor at its start.
+    private static bool IsAfter(SourcePosition position, SourcePosition end, bool empty) => empty ? position > end : position >= end;
 
     private static int FirstLineOf(SyntaxNode node) => node.SourceLocation.Range.Start.Line;
 

@@ -93,6 +93,26 @@ public sealed class WindowsFormHostTests
         host.Forms.Destroy(form);
     }
 
+    // the bounds are the window's, in points, to within a pixel; the form is sized with its window.
+    [TestMethod]
+    public void AFormsBounds_AreItsWindows_AndSizeTheFormWithIt()
+    {
+        using var host = Host();
+        var form = host.Forms.Create(ExampleView(Unique()));
+        var before = host.Forms.GetBounds(form);
+        var inside = Convert.ToDouble(host.Get(form, "InsideWidth"), System.Globalization.CultureInfo.InvariantCulture);
+
+        host.Forms.SetBounds(form, new FormBounds(50, 60, before.Width + 30, before.Height + 20));
+        var after = host.Forms.GetBounds(form);
+
+        Assert.AreEqual(50, after.Left, 1);
+        Assert.AreEqual(60, after.Top, 1);
+        Assert.AreEqual(before.Width + 30, after.Width, 1);
+        Assert.AreEqual(before.Height + 20, after.Height, 1);
+        Assert.IsTrue(Convert.ToDouble(host.Get(form, "InsideWidth"), System.Globalization.CultureInfo.InvariantCulture) > inside, "the form is sized with its window");
+        host.Forms.Destroy(form);
+    }
+
     [TestMethod]
     public void AFormWithNoDesignerState_IsAnEmptyForm()
     {
