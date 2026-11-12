@@ -79,7 +79,8 @@ public sealed class BuildCommandTests
         return fileSystem;
     }
 
-    private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true)
+    private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null)
     {
         var messages = new List<(MessageKind, string)>();
         var writer = Substitute.For<IConsoleMessageWriter>();
@@ -89,7 +90,7 @@ public sealed class BuildCommandTests
             messages.Add((message.Kind, string.Concat(message.Parts.OfType<ConsoleMessageBodyPart>().Select(part => part.Body))));
         });
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
-            new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+            libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
             _ => hasHost ? Host : null), messages);
     }
@@ -187,9 +188,13 @@ public sealed class BuildCommandTests
         "End Function");
 
     // the workspace built with args, then its assembly run: the exit code, what the program printed, and what it said on standard error.
-    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem, string folder, params string[] args)
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem, string folder, params string[] args)
+        => BuildAndRunAsync(fileSystem, null, folder, args);
+
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, params string[] args)
     {
-        var (command, messages) = Command(fileSystem);
+        var (command, messages) = Command(fileSystem, libraries: libraries);
         Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", .. args], CancellationToken.None),
             string.Join("; ", messages.Select(message => message.Text)));
 
@@ -433,6 +438,34 @@ public sealed class BuildCommandTests
             """);
         var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
         return await RunAsync(fileSystem, shipped, Root);
+    }
+
+    // the workspace is no folder of the disk the program runs on: the form's designer, its companion file with it, is what the build read, and the form the
+    // program loads has the controls that file describes, as rdc run's has.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [Ignore("a built program has none of the libraries its project references (MSForms, stdole): its session reads them from no folder, and its image holds none")]
+    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsUserFormTheControlsItsCompanionFileDescribes()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var (_, frm, _) = UnattendedRunTests.ExampleView(string.Empty);
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print ExampleView.Controls.Count; ExampleView.AmountBox.Name", "    Unload ExampleView", "End Sub")),
+            ("ExampleView.frm", frm));
+        fileSystem.File.WriteAllBytes(Path.Combine(Root, "ExampleView.frx"), UnattendedRunTests.Fixture("ExampleView.frx"));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "ExampleView.frm" } ],
+              "References": [ { "Name": "MSForms" } ] } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+        var run = await RunAsync(fileSystem, shipped, Root);
+        Assert.AreEqual(0, run.Exit, run.Error);
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
     }
 
     [TestMethod]
