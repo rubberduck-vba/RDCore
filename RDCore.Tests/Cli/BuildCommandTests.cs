@@ -833,16 +833,15 @@ public sealed class BuildCommandTests
         }
     }
 
-    // the program built into a folder of its own and started there, as its user starts it: the folder holds no rdc to make its calls to the outside world.
+    // the program built into a folder of its own and started there, as its user starts it: the folder holds no rdc, and the program's own executable makes its
+    // calls to the outside world, run as its external host.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    [Ignore("a built program has no external host: its calls to the outside world are made by rdc in external mode, which its folder does not hold")]
     public async Task TheBuiltProgram_StartedInItsOwnFolder_CallsTheFunctionADeclareNames()
         => await StartedInItsOwnFolder_PrintsAsync(CallsADeclare, "42");
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    [Ignore("a built program has no external host: the objects of an automation server are made by rdc in external mode, which its folder does not hold")]
     public async Task TheBuiltProgram_StartedInItsOwnFolder_CreatesAnObjectOfAnAutomationServerOfTheMachine()
         => await StartedInItsOwnFolder_PrintsAsync(CreatesADictionary, "1");
 
@@ -876,7 +875,24 @@ public sealed class BuildCommandTests
         }
         finally
         {
-            workspace.Delete(recursive: true);
+            await DeleteAsync(workspace);
+        }
+    }
+
+    // a folder Windows lets go of a moment after the programs that ran from it ended; a temporary one that it still holds after that is left.
+    private static async Task DeleteAsync(DirectoryInfo folder)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            try
+            {
+                folder.Delete(recursive: true);
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(250);
+            }
         }
     }
 
