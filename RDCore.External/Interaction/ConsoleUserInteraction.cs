@@ -1,11 +1,9 @@
-using RDCore.CLI.App.Console;
-using RDCore.External.Interaction;
 using RDCore.SDK.Runtime.Abstract.StdLib;
 
-namespace RDCore.CLI.App.Repl;
+namespace RDCore.External.Interaction;
 
 /// <summary>
-/// The dialogs of a program run from the shell, asked at the shell's console: each is a box with a border (<see cref="ConsoleDialogBox"/>), centred on the
+/// The dialogs of a program, shown at the console it runs at: each is a box with a border (<see cref="ConsoleDialogBox"/>), centered on the
 /// console, with its title in the top edge and its message inside. A <c>MsgBox</c> ends with a row of buttons (<see cref="ConsoleMenu"/>), and an
 /// <c>InputBox</c> with a line to type on (<see cref="ConsoleLineEditor"/>).
 /// </summary>
@@ -20,7 +18,7 @@ namespace RDCore.CLI.App.Repl;
 /// <c>vbNullString</c> and not with the zero-length string of a line confirmed with nothing on it.
 /// </para>
 /// <para>
-/// A shell whose input is a script reads a line instead of keys: for a <c>MsgBox</c>, the name or the key of a button (an empty line is the default button, and the end of
+/// A console whose input is a script reads a line instead of keys: for a <c>MsgBox</c>, the name or the key of a button (an empty line is the default button, and the end of
 /// the input closes it as <kbd>Esc</kbd> would), and for an <c>InputBox</c> the text (the end of the input cancels it).
 /// </para>
 /// </remarks>
@@ -30,8 +28,8 @@ namespace RDCore.CLI.App.Repl;
 /// Whether <paramref name="output"/> understands ANSI escape sequences, which show the selected default text of an input box, and draw the whole box before it is
 /// answered.
 /// </param>
-/// <param name="consoleWidth">The cells of a line of the console, which a box is centred in; 80 when it is not said.</param>
-public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bool ansi = false, Func<int>? consoleWidth = null) : IUserInteraction
+/// <param name="consoleWidth">The cells of a line of the console, which a box is centered in; 80 when it is not said.</param>
+public sealed class ConsoleUserInteraction(IConsoleKeys keys, TextWriter output, bool ansi = false, Func<int>? consoleWidth = null) : IUserInteraction
 {
     private const int DefaultConsoleWidth = 80;
     private const string InputPrompt = "> ";
@@ -60,6 +58,15 @@ public sealed class ReplUserInteraction(IConsoleKeys keys, TextWriter output, bo
         VBMsgBoxStyle.VBInformation => "ℹ️",
         _ => string.Empty,
     };
+
+    /// <summary>
+    /// The dialogs asked at the console of the process: drawn on its standard output, centered on the width of its window, and answered with
+    /// <paramref name="keys"/>.
+    /// </summary>
+    /// <param name="keys">Where the keys are read: the console's.</param>
+    /// <param name="ansi">Whether the console understands ANSI escape sequences.</param>
+    public static ConsoleUserInteraction OfTheConsole(IConsoleKeys keys, bool ansi)
+        => new(keys, System.Console.Out, ansi, () => System.Console.IsOutputRedirected ? 0 : System.Console.WindowWidth);
 
     private int ConsoleWidth => consoleWidth?.Invoke() is > 0 and var width ? width : DefaultConsoleWidth;
 

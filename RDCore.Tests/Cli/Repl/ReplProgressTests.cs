@@ -1,4 +1,5 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.External.Interaction;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.SDK.Client.Progress;

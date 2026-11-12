@@ -1,4 +1,4 @@
-using RDCore.CLI.App.Console;
+using RDCore.External.Interaction;
 using static RDCore.Tests.Cli.Repl.ScriptedKeys;
 
 namespace RDCore.Tests.Cli.Repl;

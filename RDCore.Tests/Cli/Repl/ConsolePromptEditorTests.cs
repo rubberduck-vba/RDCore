@@ -1,4 +1,5 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.External.Interaction;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.CLI.App.Console;
 using static RDCore.Tests.Cli.Repl.ScriptedKeys;
 
@@ -522,7 +523,7 @@ public sealed class ConsolePromptEditorTests
         var drawn = output.ToString();
         var home = drawn[..drawn.LastIndexOf("\u001b[1G", StringComparison.Ordinal)];
         var line = home[(home.LastIndexOf('\r') + 1)..home.LastIndexOf("\u001b[K", StringComparison.Ordinal)];
-        Assert.IsLessThanOrEqualTo(79, RDCore.CLI.App.Console.ConsoleText.WidthOf(line), "each of them is two cells, as the console draws it");
+        Assert.IsLessThanOrEqualTo(79, ConsoleText.WidthOf(line), "each of them is two cells, as the console draws it");
     }
 
     [TestMethod]

@@ -28,7 +28,7 @@ namespace RDCore.CLI.App.Repl.Commands;
 /// </para>
 /// </remarks>
 /// <param name="interaction">Where the choice and the new name are asked: the dialogs of the shell.</param>
-internal sealed class DuckyReplCommand(ReplUserInteraction interaction) : IReplCommand, IReplCommandDescriptor
+internal sealed class DuckyReplCommand(ConsoleUserInteraction interaction) : IReplCommand, IReplCommandDescriptor
 {
     public string Name => ReplCommandNames.Ducky;
     public IReadOnlyList<string> Aliases => [];

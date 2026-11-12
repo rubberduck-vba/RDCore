@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Console;

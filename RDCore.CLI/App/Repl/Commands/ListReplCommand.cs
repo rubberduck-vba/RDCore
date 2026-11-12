@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using RDCore.CLI.ConsoleIO.Model;
 
 namespace RDCore.CLI.App.Repl.Commands;
@@ -80,14 +81,14 @@ internal sealed class ListReplCommand : IReplCommand
             .Where(fold => context.Program.NumberAt(fold.StartLine) is { } start && IsFolded(start))
             .SelectMany(fold => Enumerable.Range(fold.StartLine + 1, fold.EndLine - fold.StartLine)));
         var glyphs = context.Console.DrawsUnicode ? unicodeFoldGlyphs : asciiFoldGlyphs;
-        var foldLane = blocks.Count == 0 ? 0 : App.Console.ConsoleText.WidthOf(glyphs.Open);
+        var foldLane = blocks.Count == 0 ? 0 : ConsoleText.WidthOf(glyphs.Open);
 
         // the lines a diagnostic with a fix is on, and the lane they are marked in: the cells of the light bulb on every line when any line has one, so that the
         // lane is as wide on a line with a breakpoint, or with none, as on a line with a bulb.
         var fixes = lines.Length == 0 ? new HashSet<int>() : await LinesWithAFixAsync(context, token);
         var fixGlyph = context.Console.DrawsUnicode ? UnicodeFixGlyph : AsciiFixGlyph;
         var breakpointLane = lines.Any(line => fixes.Contains(context.Program.IndexOf(line.Number)) && !hidden.Contains(context.Program.IndexOf(line.Number)))
-            ? Math.Max(1, App.Console.ConsoleText.WidthOf(fixGlyph))
+            ? Math.Max(1, ConsoleText.WidthOf(fixGlyph))
             : 1;
 
         foreach (var (number, statement) in lines)
@@ -147,7 +148,7 @@ internal sealed class ListReplCommand : IReplCommand
         context.Console.WriteLine();
     }
 
-    private static string Padded(string mark, int lane) => mark + new string(' ', Math.Max(0, lane - App.Console.ConsoleText.WidthOf(mark)));
+    private static string Padded(string mark, int lane) => mark + new string(' ', Math.Max(0, lane - ConsoleText.WidthOf(mark)));
 
     // the lines of the program a diagnostic with a fix is on, by their position in the program; none when the server cannot be asked.
     private static async Task<IReadOnlySet<int>> LinesWithAFixAsync(ReplCommandContext context, CancellationToken token)
@@ -158,7 +159,7 @@ internal sealed class ListReplCommand : IReplCommand
 
     // the first line of a folded block, cut with an ellipsis to what is left of the console's width after the margin; as it is when the width cannot be told.
     private static string FittedToTheConsole(IReplConsole console, string text, int before)
-        => console.Width > before ? App.Console.ConsoleText.Truncate(text, console.Width - before - 1) : text;
+        => console.Width > before ? ConsoleText.Truncate(text, console.Width - before - 1) : text;
 
     /// <summary>
     /// The blocks of the program, as the language server answers <c>textDocument/foldingRange</c>; none when it cannot be asked.

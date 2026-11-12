@@ -1,4 +1,5 @@
-﻿using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+﻿using RDCore.External.Interaction;
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.SDK.Formatting;
 using System.Globalization;
 using System.Text;
