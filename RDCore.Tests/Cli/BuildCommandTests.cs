@@ -169,6 +169,176 @@ public sealed class BuildCommandTests
         }
     }
 
+    // a Stop between two lines it prints, each a call that compiled code runs.
+    private static readonly string Stops = Module("Program",
+        "Public Sub Main()",
+        "    Debug.Print Twice(21)",
+        "    Stop",
+        "    Debug.Print Total(100)",
+        "End Sub",
+        "Private Function Twice(ByVal N As Long) As Long",
+        "    Twice = N * 2",
+        "End Function",
+        "Private Function Total(ByVal Count As Long) As Double",
+        "    Dim I As Long",
+        "    For I = 1 To Count",
+        "        Total = Total + I",
+        "    Next",
+        "End Function");
+
+    // the workspace built with args, then its assembly run: the exit code, what the program printed, and what it said on standard error.
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem, string folder, params string[] args)
+    {
+        var (command, messages) = Command(fileSystem);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", .. args], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, "Hello.dll"))));
+            var output = new StringWriter();
+            var error = new StringWriter();
+            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None);
+            return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(),
+                error.ToString());
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    // the workspace is no folder of the disk the program runs on: what its build read of each module is the program's, and its sources are not read again.
+    [TestMethod]
+    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsClassModuleAClass()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Program.bas", Module("Program",
+                "Public Sub Main()",
+                "    Dim C As New Counter",
+                "    C.Add 2",
+                "    C.Add 3",
+                "    Debug.Print C.Total",
+                "End Sub")),
+            ("Counter.cls", ModuleWorkspace.ClassModule("Counter", "Option Explicit",
+                "Public Total As Long",
+                "Public Sub Add(ByVal N As Long)",
+                "    Total = Total + N",
+                "End Sub")));
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "5" }, run.Output);
+    }
+
+    // a Release build is written to its own folder, and its program ends at a Stop, as an End ends it: Debug.Print is kept.
+    [TestMethod]
+    public async Task AReleaseBuild_IsWrittenToItsOwnFolder_AndItsProgramEndsAtAStop()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Stops));
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Release", AppHost.CurrentRuntime), "-c", "Release");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output);
+        Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    // a LongPtr field of a class's record, behind its Property Get and Let (the shape of a weak reference's Address): compiled by the build,
+    // in either configuration, and run.
+    [TestMethod]
+    [DataRow("Debug")]
+    [DataRow("Release")]
+    public async Task ALongPtrFieldBehindItsProperties_IsBuiltCompiled_AndRuns(string configuration)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Program.bas", Module("Program",
+                "Public Sub Main()",
+                "    Dim R As New Reference",
+                "    R.Address = 4096",
+                "    R.Address = R.Address + 8",
+                "    Debug.Print R.Address; R.Size()",
+                "End Sub")),
+            ("Reference.cls", ModuleWorkspace.ClassModule("Reference", "Option Explicit",
+                "Private Type TReference", "    Address As LongPtr", "End Type",
+                "Private this As TReference",
+                "Public Property Get Address() As LongPtr",
+                "    Address = this.Address",
+                "End Property",
+                "Public Property Let Address(ByVal value As LongPtr)",
+                "    this.Address = value",
+                "End Property",
+                "Public Function Size() As Long",
+                "    Size = LenB(this.Address)",
+                "End Function")));
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", configuration, AppHost.CurrentRuntime), "-c", configuration);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { $"4104  {(Environment.Is64BitProcess ? 8 : 4)}" }, run.Output);
+
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
+            new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None);
+        var built = await runner.BuildAsync(workspace, new ProgramAssemblyBuilder(new System.Reflection.AssemblyName("Hello")),
+            RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = Enum.Parse<RDCore.SDK.Runtime.Abstract.Execution.VBBuildConfiguration>(configuration) }, CancellationToken.None);
+        using (built.Provider)
+        {
+            var address = built.Procedures.Where(procedure => procedure.Module == "Reference" && procedure.Compilation.Procedure.Name == "Address").ToList();
+            Assert.HasCount(2, address, "the Property Get and the Property Let");
+            Assert.IsTrue(address.TrueForAll(procedure => procedure.Compilation.IsCompiled), string.Join("; ", address.Select(procedure => procedure.Compilation)));
+        }
+    }
+
+    // a debug build has a debugger to stop for: with none attached, its program is interrupted there, and the run fails.
+    [TestMethod]
+    public async Task ADebugBuild_IsWrittenToItsOwnFolder_AndItsProgramIsInterruptedAtAStop()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Stops));
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(ProgramRunner.Failed, run.Exit);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output);
+        Assert.Contains("Interrupted", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAProgramThatEnds_ExitsWith0()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program",
+            "Public Sub Main()",
+            "    Debug.Print \"before\"",
+            "    End",
+            "    Debug.Print \"after\"",
+            "End Sub")));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "before" }, run.Output);
+        Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_InRelease_EndsTheProgramAtAStop()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Stops));
+
+        var run = await RunAsync(fileSystem, Root, "-c", "Release");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output);
+    }
+
     [TestMethod]
     public async Task TheDebuggingInformation_MapsTheCodeOfAProcedure_ToTheLinesOfItsModule()
     {
@@ -660,6 +830,44 @@ public sealed class BuildCommandTests
         finally
         {
             context.Unload();
+        }
+    }
+
+    // the program built into a folder of its own and started there, as its user starts it: the folder holds no rdc to make its calls to the outside world.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [Ignore("a built program has no external host: its calls to the outside world are made by rdc in external mode, which its folder does not hold")]
+    public async Task TheBuiltProgram_StartedInItsOwnFolder_CallsTheFunctionADeclareNames()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var workspace = Directory.CreateTempSubdirectory("rdcore-build-ws-");
+        var folder = Path.Combine(workspace.FullName, "out");
+        try
+        {
+            File.WriteAllText(Path.Combine(workspace.FullName, "Program.bas"), CallsADeclare);
+            var fileSystem = new System.IO.Abstractions.FileSystem();
+            var writer = Substitute.For<IConsoleMessageWriter>();
+            var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
+                new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+            var command = new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner);
+            Assert.AreEqual(0, await command.ExecuteAsync([workspace.FullName, "--name", "Hello", "--output", folder], CancellationToken.None));
+            Assert.IsFalse(File.Exists(Path.Combine(folder, "rdc.exe")), "the program's folder holds no rdc");
+
+            var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(folder, "Hello.exe"))
+            {
+                RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = folder,
+            };
+            using var process = System.Diagnostics.Process.Start(start)!;
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            Assert.AreEqual(0, process.ExitCode, error);
+            Assert.AreEqual("42", output.Trim());
+        }
+        finally
+        {
+            workspace.Delete(recursive: true);
         }
     }
 

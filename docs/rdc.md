@@ -107,13 +107,14 @@ The exit code says how the run went:
 
 |Exit code|Meaning|
 |---|---|
-|`0`|The program ended.|
-|`1`|A run-time error ended it. The error's number and description are written to the standard error.|
+|`0`|The program ended: its entry point returned, it ran an `End`, or it ran a `Stop` in `Release`.|
+|`1`|A run-time error ended it, or a `Stop` in `Debug` interrupted it, with no debugger to stop for. The standard error says which, with the error's number and description.|
 |`2`|It could not start: no entry point, or a module that does not load.|
 
 ### Building a program
 
-`rdc build` compiles the workspace into a program that runs without RDCore's parser. It needs the same entry point as `rdc run`.
+`rdc build` compiles the workspace into a program that runs without RDCore's parser, and without the workspace's sources: the program runs from its own folder,
+wherever it is. It needs the same entry point as `rdc run`.
 
 |Option|What it does|
 |---|---|
@@ -122,7 +123,11 @@ The exit code says how the run went:
 |`-c`, `--configuration`|`Debug` (the default) or `Release`.|
 |`-r`, `--runtime`|The platform the program is built for, such as `win-x64` or `linux-x64`; the one `rdc` runs on by default.|
 
-The program shows its dialogs as `rdc run` does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+The program shows its dialogs as `rdc run` does, and its exit code says how it ran, as `rdc run`'s does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+
+> [!NOTE]
+> **Not implemented.** A built program makes no call to the outside world (a `Declare`d procedure, an automation server's object): those calls are made by
+> `rdc`, which the program's folder does not hold.
 
 ### Installing the platform
 
