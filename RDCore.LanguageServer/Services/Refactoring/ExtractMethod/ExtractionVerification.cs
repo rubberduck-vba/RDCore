@@ -57,8 +57,15 @@ internal sealed record class ExtractionVerificationFailure(ExtractionVerificatio
 /// call does what the selection did (the same variables in and out, the same live after it, the same exits).
 /// </summary>
 /// <remarks>
+/// <para>
 /// The call is analyzed as a selection to extract would be, in the edited source procedure: what its plan says of the data flow and the exits is what the plan
 /// of the selection said, by every variable the source procedure had.
+/// </para>
+/// <para>
+/// A <c>GoSub</c> routine converted to a procedure has a call for each of its <c>GoSub</c> statements, each analyzed so: it takes in what the routine took in,
+/// writes nothing the routine did not, gives back what the code after it reads of what the routine wrote, and leaves the source procedure where the routine did.
+/// What is read after one call is not what is read after another, where the routine's analysis took every <c>GoSub</c> for any.
+/// </para>
 /// </remarks>
 internal static class ExtractionVerification
 {
@@ -112,9 +119,14 @@ internal static class ExtractionVerification
             return new(ExtractionVerificationFailureKind.NewCompileError, errorsAfter.First(error => error.ErrorId == newError).Description);
         }
 
+        var editedText = new ExtractionText(text);
+        if (plan.Selection.Routine is not null)
+        {
+            return SitesOf(plan, edit, editedText, written, after, original, edited, extracted, name);
+        }
+
         // the call, and what the call site does with what it returns, is where the selection was.
         var call = Enumerable.Range(0, edit.Edits.Length).Single(index => edit.Edits[index].Kind is ExtractionTextEditKind.Call);
-        var editedText = new ExtractionText(text);
         var requested = new SourceRange(editedText.PositionOf(written[call].Start), editedText.PositionOf(written[call].End));
         if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, requested, out var callSite, out _, out _))
         {
@@ -123,6 +135,49 @@ internal static class ExtractionVerification
 
         var replanned = ExtractionAnalysis.Plan(callSite!, edited.Graph, edited.Accesses, edited.Model, after.Scopes);
         return DataFlowOf(plan, replanned, original, PassedByValue(callSite!, edited, extracted, name)) ?? ExitsOf(plan, replanned);
+    }
+
+    // each call that replaces a GoSub of a routine takes in what the routine took in, writes nothing it did not, gives back what the code after it reads of what
+    // it wrote, and leaves the source procedure where it did.
+    private static ExtractionVerificationFailure? SitesOf(
+        ExtractionPlan plan, ExtractionEdit edit, ExtractionText editedText, IReadOnlyList<(int Start, int End)> written, ExtractionModuleAnalysis after,
+        ExtractionProcedureAnalysis original, ExtractionProcedureAnalysis edited, ExtractionProcedureAnalysis extracted, string name)
+    {
+        var known = original.Accesses.Variables.ToHashSet();
+        var outputs = plan.Parameters.Where(parameter => parameter.IsOutput).Select(parameter => parameter.Variable).ToHashSet();
+        var inputs = plan.Parameters.Where(parameter => parameter.IsInput).Select(parameter => parameter.Variable).ToArray();
+        foreach (var site in Enumerable.Range(0, edit.Edits.Length).Where(index => edit.Edits[index].Kind is ExtractionTextEditKind.Site))
+        {
+            var requested = new SourceRange(editedText.PositionOf(written[site].Start), editedText.PositionOf(written[site].End));
+            if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, requested, out var callSite, out _, out _))
+            {
+                return new(ExtractionVerificationFailureKind.DataFlowDiffers, null);
+            }
+
+            var replanned = ExtractionAnalysis.Plan(callSite!, edited.Graph, edited.Accesses, edited.Model, after.Scopes);
+            var passedByValue = PassedByValue(callSite!, edited, extracted, name);
+            var outputsAfter = replanned.Parameters
+                .Where(parameter => parameter.IsOutput && known.Contains(parameter.Variable) && !passedByValue.Contains(parameter.Variable))
+                .Select(parameter => parameter.Variable)
+                .ToHashSet();
+            var inputsAfter = replanned.Parameters.Where(parameter => parameter.IsInput).Select(parameter => parameter.Variable).ToHashSet();
+            var differs = outputsAfter.Where(variable => !outputs.Contains(variable))
+                .Concat(replanned.LiveAfter.Where(variable => outputs.Contains(variable) && !outputsAfter.Contains(variable)))
+                .Concat(inputs.Where(variable => !inputsAfter.Contains(variable)))
+                .Select(variable => (SemanticId?)variable)
+                .FirstOrDefault();
+            if (differs is { } variable)
+            {
+                return new(ExtractionVerificationFailureKind.DataFlowDiffers, NameOf(variable, plan, replanned));
+            }
+
+            if (ExitsOf(plan, replanned) is { } exits)
+            {
+                return exits;
+            }
+        }
+
+        return null;
     }
 
     // the variables the call passes to a parameter of the new procedure that it cannot write, and only there: a ByVal one, or a ByRef one the new procedure

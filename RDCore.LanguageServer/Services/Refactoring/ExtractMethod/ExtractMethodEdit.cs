@@ -37,6 +37,11 @@ internal enum ExtractionTextEditKind
     /// The <c>Private Enum</c> of the exit codes, before the module's first procedure.
     /// </summary>
     Enumeration,
+
+    /// <summary>
+    /// A call that replaces a <c>GoSub</c> of a routine converted to a procedure.
+    /// </summary>
+    Site,
 }
 
 /// <summary>
@@ -106,6 +111,21 @@ internal enum ExtractionEditRefusalKind
     /// The selection leaves the source procedure, or a loop or a block around it, and the user turned exit routing off (<see cref="ExtractionChoices.RouteExits"/>).
     /// </summary>
     ExitRoutingDeclined,
+
+    /// <summary>
+    /// A <c>GoSub</c> routine converted to a procedure reads or writes the source procedure's result, which each of its calls would have to copy.
+    /// </summary>
+    RoutineUsesTheResult,
+
+    /// <summary>
+    /// A <c>GoSub</c> routine converted to a procedure runs itself: a <c>GoSub</c> of it is written in it.
+    /// </summary>
+    RoutineRunsItself,
+
+    /// <summary>
+    /// A <c>GoSub</c> routine converted to a procedure uses the object of a <c>With</c> block it is written in.
+    /// </summary>
+    RoutineInAWithBlock,
 }
 
 /// <summary>
@@ -234,6 +254,28 @@ internal static class ExtractMethodEdit
             return ExtractionEdit.Refused(ExtractionEditRefusalKind.ExitByJumpTable);
         }
 
+        if (plan.Selection.Routine is { } routine)
+        {
+            // each GoSub becomes a statement that calls the procedure, which returns no value: a Return leaves it as Exit Sub does.
+            if (choices.ReturnValue is not null)
+            {
+                return ExtractionEdit.Refused(ExtractionEditRefusalKind.NotAReturnCandidate);
+            }
+
+            var refusal = (plan.AssignsResult || plan.ReadsResult, plan.WithTarget is not null) switch
+            {
+                (true, _) => ExtractionEditRefusalKind.RoutineUsesTheResult,
+                (_, true) => ExtractionEditRefusalKind.RoutineInAWithBlock,
+                _ when routine.Sites.Any(site => site.SourceLocation.Range.Start >= plan.Selection.Range.Start && site.SourceLocation.Range.End <= plan.Selection.Range.End)
+                    => ExtractionEditRefusalKind.RoutineRunsItself,
+                _ => (ExtractionEditRefusalKind?)null,
+            };
+            if (refusal is { } refused)
+            {
+                return ExtractionEdit.Refused(refused);
+            }
+        }
+
         return new Writer(plan, source, choices, new ExtractionText(source.Text)).Write();
     }
 
@@ -302,8 +344,21 @@ internal static class ExtractMethodEdit
             var body = Body(moved, start.Character == 0 ? string.Empty : indentation, resultCopy, exits);
             var procedure = ProcedureText(body, resultCopy, exits);
             var call = CallText(indentation, resultCopy, exits, fromLineStart: start.Character == 0, followed: text.StatementFollows(selection.Range.End));
+            if (selection.Routine is { } routine)
+            {
+                // the routine leaves the source procedure, but for the declarations in it that stay there; each GoSub of it is a call.
+                edits.Add(RoutineRemoval(moved, indentation));
+                foreach (var site in routine.Sites.Select(site => site.SourceLocation.Range))
+                {
+                    call = CallText(text.IndentationOf(site.Start.Line), resultCopy, exits, fromLineStart: false, followed: text.StatementFollows(site.End));
+                    edits.Add(new ExtractionTextEdit(site, call, ExtractionTextEditKind.Site));
+                }
+            }
+            else
+            {
+                edits.Add(new ExtractionTextEdit(moved, call, ExtractionTextEditKind.Call));
+            }
 
-            edits.Add(new ExtractionTextEdit(moved, call, ExtractionTextEditKind.Call));
             var after = source.Procedure.SourceLocation.Range.End;
             edits.Add(new ExtractionTextEdit(new SourceRange(after, after), $"{_newLine}{_newLine}{procedure}", ExtractionTextEditKind.Procedure));
 
@@ -406,6 +461,13 @@ internal static class ExtractMethodEdit
                 edits.AddRange(exit.From.Select(from => new ExtractionTextEdit(from.Range, $"{_name} = {exit.Code}: Exit Function", ExtractionTextEditKind.Call)));
             }
 
+            var routine = plan.Selection.Routine;
+            var leaves = $"Exit {(exits.Count > 0 ? "Function" : "Sub")}";
+            if (routine is not null)
+            {
+                edits.AddRange(RoutineEdits(routine, leaves));
+            }
+
             // the names of a variable the user renamed, but in a declaration that stays in the source, which leaves the body.
             var removed = edits.Select(edit => edit.Range).ToArray();
             edits.AddRange(choices.Parameters
@@ -415,7 +477,46 @@ internal static class ExtractMethodEdit
             var lines = text.Of(moved, edits).Split(["\r\n", "\n"], StringSplitOptions.None).ToList();
             lines[0] = lineIndentation + lines[0];
             var dedent = lines.Where(line => line.Trim().Length > 0).Select(line => line.Length - line.TrimStart().Length).DefaultIfEmpty(0).Min();
-            return [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
+            List<string> body = [.. lines.Select(line => line.Trim().Length == 0 ? string.Empty : line[Math.Min(dedent, line.Length - line.TrimStart().Length)..])];
+            if (routine is not null)
+            {
+                // the line of a label that goes, and the last Return, which the end of the procedure does.
+                body = [.. body.SkipWhile(line => line.Length == 0)];
+                if (body.Count > 0 && body[^1].Equals(leaves, StringComparison.Ordinal))
+                {
+                    body.RemoveAt(body.Count - 1);
+                }
+            }
+
+            return body;
+        }
+
+        // the routine as the new procedure's body: its label goes, unless a jump in it names it, and each Return leaves the procedure.
+        private IEnumerable<ExtractionTextEdit> RoutineEdits(GoSubRoutine routine, string leaves)
+        {
+            if (!routine.IsNamedInside)
+            {
+                var label = routine.Declaration.SourceLocation.Range;
+                yield return new ExtractionTextEdit(new SourceRange(label.Start, text.AfterLabel(label.End)), string.Empty, ExtractionTextEditKind.Call);
+            }
+
+            foreach (var statement in routine.Returns)
+            {
+                yield return new ExtractionTextEdit(statement.SourceLocation.Range, leaves, ExtractionTextEditKind.Call);
+            }
+        }
+
+        // the routine's lines leave the source procedure: the declarations in it that stay there are written where it was.
+        private ExtractionTextEdit RoutineRemoval(SourceRange moved, string indentation)
+        {
+            var stays = StayingDeclarations().ToArray();
+            if (moved.Start.Character == 0 && text.OnlySpaceAfter(moved.End))
+            {
+                return new ExtractionTextEdit(new SourceRange(moved.Start, text.StartOfNextLine(moved.End)), string.Concat(stays.Select(line => indentation + line + _newLine)),
+                    ExtractionTextEditKind.Call);
+            }
+
+            return new ExtractionTextEdit(moved, string.Join(_newLine + indentation, stays), ExtractionTextEditKind.Call);
         }
 
         // the parameters the new procedure is given, in the order it declares them: the required ones, or the Optional ones, which come after every other.
@@ -445,6 +546,20 @@ internal static class ExtractMethodEdit
 
         // ---- the call site ----
 
+        // the declarations in the selection that stay in the source, as they were: those of one statement in it again.
+        private IEnumerable<string> StayingDeclarations()
+        {
+            var movedOut = plan.MovedOut.Select(id => SymbolOf(id)?.Name).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var statement in Statements(_variables).Where(statement => InTheSelection(statement[0].SourceLocation.Range)))
+            {
+                var stays = statement.Where(node => movedOut.Contains(node.Name)).Select(DeclaratorOf).ToArray();
+                if (stays.Length > 0)
+                {
+                    yield return $"{KeywordOf(statement[0]).TrimEnd()} {string.Join(", ", stays)}";
+                }
+            }
+        }
+
         // followed: another statement of the line comes after the call, which a single-line If would take into its Then.
         private string CallText(string indentation, string? resultCopy, IReadOnlyList<Exit> exits, bool fromLineStart, bool followed)
         {
@@ -453,18 +568,8 @@ internal static class ExtractMethodEdit
                 .Concat(resultCopy is { } copy ? [copy] : [])
                 .Concat(Given(optional: true).Select(parameter => parameter.Name))
                 .ToArray();
-            var lines = new List<string>();
-
-            // the declarations that stay in the source come before the call, as they were: those of one statement in it again.
-            var movedOut = plan.MovedOut.Select(id => SymbolOf(id)?.Name).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var statement in Statements(_variables).Where(statement => InTheSelection(statement[0].SourceLocation.Range)))
-            {
-                var stays = statement.Where(node => movedOut.Contains(node.Name)).Select(DeclaratorOf).ToArray();
-                if (stays.Length > 0)
-                {
-                    lines.Add($"{KeywordOf(statement[0]).TrimEnd()} {string.Join(", ", stays)}");
-                }
-            }
+            // the declarations that stay in the source come before the call, as they were; those of a routine, where it was.
+            var lines = plan.Selection.Routine is null ? StayingDeclarations().ToList() : [];
 
             var result = source.Procedure.Name;
             if (resultCopy is { } copied)

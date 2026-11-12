@@ -125,6 +125,17 @@ internal enum ExtractionRefusalKind
     /// A <c>Resume</c> in the selection, about an error raised before it: the new procedure has no error of its own to resume.
     /// </summary>
     ResumeOfAnErrorBefore,
+
+    /// <summary>
+    /// The statement before a <c>GoSub</c> routine goes on to it: control that falls into the routine reaches its <c>Return</c> with no <c>GoSub</c>, which
+    /// raises run-time error 3, where a call of the procedure it is converted to would not.
+    /// </summary>
+    FallsIntoTheRoutine,
+
+    /// <summary>
+    /// An <c>On…GoSub</c> runs the <c>GoSub</c> routine, among others: a call of the procedure it is converted to is not one of its targets.
+    /// </summary>
+    OnGoSubToTheRoutine,
 }
 
 /// <summary>

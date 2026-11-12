@@ -49,6 +49,12 @@ internal sealed record class ExtractionSelection(SourceRange Range, ImmutableArr
     public ImmutableArray<string> Labels { get; init; } = [];
 
     /// <summary>
+    /// The <c>GoSub</c> routine the run is, when it is one converted to a procedure (<see cref="GoSubRoutine.TryFind"/>): each of its <c>GoSub</c> statements
+    /// is a call, and its text leaves the source procedure; <see langword="null"/> for a selection extracted where it is.
+    /// </summary>
+    public GoSubRoutine? Routine { get; init; }
+
+    /// <summary>
     /// Snaps a requested range to whole statements.
     /// </summary>
     /// <param name="procedure">The procedure the range is in.</param>
