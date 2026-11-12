@@ -30,11 +30,13 @@ internal static class ExtractionFixture
 
     // The module after extracting the lines of the body from first to last (zero-based) as a procedure name, returning the variable returnValue
     // names; and the edit. With formatting, the edit is formatted as it says. A range, lines zero-based from the body's first, is extracted instead of the lines.
+    // The parameters are answered as parameters says, which must be valid answers.
     public static (string Module, ExtractionEdit Edit) Extract(
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
-        bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null, SourceRange? range = null)
+        bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null, SourceRange? range = null,
+        IReadOnlyList<ExtractionParameterAnswer>? parameters = null)
     {
-        var extracted = Extracted(body, first, last, name, returnValue, header, end, optionExplicit, declarations, routeExits, formatting, range: range);
+        var extracted = Extracted(body, first, last, name, returnValue, header, end, optionExplicit, declarations, routeExits, formatting, range: range, parameters: parameters);
         return (extracted.Module, extracted.Edit);
     }
 
@@ -43,12 +45,15 @@ internal static class ExtractionFixture
     public static (string Original, string Module, ExtractionEdit Edit, ExtractionPlan Plan) Extracted(
         string body, int first, int last, string name = "Extracted", string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
         bool optionExplicit = true, string declarations = "", bool routeExits = true, CodeFormattingOptions? formatting = null,
-        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, SourceRange? range = null)
+        IReadOnlyList<(string Name, string Source)>? classes = null, bool classModule = false, SourceRange? range = null,
+        IReadOnlyList<ExtractionParameterAnswer>? parameters = null)
     {
         var analyzed = FlowFixture.Analyze(body, header, end, optionExplicit, declarations, classes, classModule);
         var plan = PlanOf(analyzed, range?.Start ?? new SourcePosition(first, 0), range?.End ?? new SourcePosition(last, 1));
         var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
-        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits };
+        var (chosen, problem) = ExtractionParameters.Choose(parameters ?? [], plan, source, name, analyzed.Context, analyzed.ModuleAddress);
+        Assert.IsNull(problem, problem?.ToMessage());
+        var choices = new ExtractionChoices(name) { ReturnValue = returnValue is null ? null : analyzed.Variable(returnValue), RouteExits = routeExits, Parameters = chosen };
         var edit = ExtractMethodEdit.Of(plan, source, choices);
         if (formatting is not null)
         {
@@ -60,13 +65,14 @@ internal static class ExtractionFixture
     }
 
     // The verification of extracting the lines first to last as Extracted, formatted as for a user who set nothing; tamper, when given, changes the edit before it
-    // is verified, as a writer that got it wrong would have written it.
+    // is verified, as a writer that got it wrong would have written it. The parameters are answered as parameters says.
     public static ExtractionVerificationFailure? Verified(
         string body, int first, int last, string? returnValue = null, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub",
-        bool optionExplicit = true, string declarations = "", Func<ExtractionEdit, ExtractionEdit>? tamper = null)
+        bool optionExplicit = true, string declarations = "", Func<ExtractionEdit, ExtractionEdit>? tamper = null,
+        IReadOnlyList<ExtractionParameterAnswer>? parameters = null)
     {
         var extracted = Extracted(body, first, last, returnValue: returnValue, header: header, end: end, optionExplicit: optionExplicit, declarations: declarations,
-            formatting: CodeFormattingOptions.Default);
+            formatting: CodeFormattingOptions.Default, parameters: parameters);
         Assert.IsNull(extracted.Edit.Refusal, $"refused: {extracted.Edit.Refusal}");
         var edit = tamper?.Invoke(extracted.Edit) ?? extracted.Edit;
         var before = FlowFixture.Module(extracted.Original);

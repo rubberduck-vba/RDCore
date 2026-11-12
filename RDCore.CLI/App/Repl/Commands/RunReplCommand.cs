@@ -19,6 +19,7 @@ internal sealed class RunReplCommand : IReplCommand
 {
     public string Name => ReplCommandNames.Run;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_Run_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)

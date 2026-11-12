@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RDCore.CLI.App.Console;
@@ -119,6 +120,10 @@ internal sealed class ReplShell(
             case ReplInputKind.Empty:
                 return ReplCommandResult.Continue;
 
+            case ReplInputKind.StoreLine or ReplInputKind.DeleteLine when program.AttachedToWorkspace:
+                ReplProgramRefusal.Write(console);
+                return ReplCommandResult.Continue;
+
             case ReplInputKind.StoreLine:
                 program.Store(input.LineNumber, input.Text);
                 context.Diagnostics.RefreshWhenIdle(context);
@@ -191,9 +196,9 @@ internal sealed class ReplShell(
     }
 
     /// Runs one unnumbered statement on the spot. It is compiled as a procedure of the same module
-    /// the program lives in, so it sees the same scope the program does, and a break cancels it the
-    /// same way it cancels a RUN. While a program waits it runs in the activation FRAME selected
-    /// instead, and sees that procedure's locals.
+    /// the program lives in, so it sees the same scope the program does. It runs under the debugger as
+    /// a RUN does: a Stop or a breakpoint in what it calls leaves it waiting there, and a break pauses it.
+    /// While a program waits it runs in the activation FRAME selected instead, and sees that procedure's locals.
     private async Task RunImmediateAsync(ReplCommandContext context, string statement, CancellationToken token)
     {
         using var running = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -201,7 +206,7 @@ internal sealed class ReplShell(
         try
         {
             await ReplExecution.ExecuteAsync(
-                context, program.ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, running.Token, statement: statement);
+                context, program.ToImmediateModuleSource(statement), program.ImmediateEntryPoint, running.Token, debug: true, statement: statement);
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
         {

@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using System.IO.Abstractions.TestingHelpers;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -434,7 +435,7 @@ public sealed class WorkspaceLoaderTests
         var shell = new RDCore.CLI.RDCoreConsoleClientApp(
             Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions { Server = { MaxRestartAttempts = 0 } }),
             languageServer,
-            new RDCore.CLI.App.Repl.ReplUserInteraction(keys, new StringWriter()),
+            new ConsoleUserInteraction(keys, new StringWriter()),
             console,
             new RDCore.SDK.Formatting.RubberduckIndenterSettingsReader(
                 new MockFileSystem(), Root, Substitute.For<RDCore.SDK.Formatting.ILegacyIndenterRegistry>(), isWindows: false),

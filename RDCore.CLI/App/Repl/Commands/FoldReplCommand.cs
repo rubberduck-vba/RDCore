@@ -15,6 +15,7 @@ internal sealed class FoldReplCommand : IReplCommand, IReplCommandDescriptor
 {
     public string Name => ReplCommandNames.Fold;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_Fold_Summary;
 
     public VerbDescriptor Descriptor => new()

@@ -92,9 +92,18 @@ public sealed class ReplDebugger
     }
 
     /// <summary>
-    /// Clears every breakpoint.
+    /// Clears every breakpoint, the program's and those of the modules of the workspace.
     /// </summary>
-    public void ClearBreakpoints() => _breakpoints.Clear();
+    public void ClearBreakpoints()
+    {
+        _breakpoints.Clear();
+        ModuleBreakpoints.Clear();
+    }
+
+    /// <summary>
+    /// The breakpoints of the modules of the workspace the shell is attached to, by the lines of each module.
+    /// </summary>
+    public ReplModuleBreakpoints ModuleBreakpoints { get; } = new();
 
     /// <summary>
     /// The activation <c>VARS</c> is about, by its place on the stack: the innermost, <c>0</c>, until <c>FRAME</c> selects another. It is the innermost
@@ -127,10 +136,11 @@ public sealed class ReplDebugger
     /// statement in it yet.
     /// </param>
     /// <returns>
-    /// The breakpoints whose condition the platform refused - it is not an expression - and why. They are dropped whether or not the verdict is final: what is not an
-    /// expression is not one whatever the code is.
+    /// The breakpoints the platform refused, and why: the program's whose condition is not an expression, which are dropped whether or not the verdict is final,
+    /// since what is not an expression is not one whatever the code is; and those of a module of the workspace whose condition is not one, or whose line no statement
+    /// begins on. The code of a module is the code of its file, so the platform's verdict on its lines is final whenever it has one.
     /// </returns>
-    public async Task<IReadOnlyList<(Breakpoint Breakpoint, string Reason)>> PushBreakpointsAsync(ReplCommandContext context, CancellationToken token, bool judge = false)
+    public async Task<IReadOnlyList<ReplBreakpointRefusal>> PushBreakpointsAsync(ReplCommandContext context, CancellationToken token, bool judge = false)
     {
         _ = _breakpoints.RemoveWhere(breakpoint => context.Program.IndexOf(breakpoint.LineNumber) < 0);
         if (!context.Platform.Provides<ProgramDebugging>())
@@ -138,34 +148,203 @@ public sealed class ReplDebugger
             return [];
         }
 
+        var refused = new List<ReplBreakpointRefusal>();
         var breakpoints = _breakpoints.ToArray();
-        var wireBreakpoints = breakpoints.Select(breakpoint => new SessionBreakpointLine
+        var result = await context.Platform.SetBreakpointsAsync(
+            context.Program.Module, [.. breakpoints.Select(breakpoint => WireOf(breakpoint, context.Program.SourceLineOf(breakpoint.LineNumber)))], token);
+        if (result.Breakpoints.Count == breakpoints.Length)
         {
-            Line = context.Program.SourceLineOf(breakpoint.LineNumber),
-            IsEnabled = breakpoint.Enabled,
-            Condition = breakpoint.ConditionExpression
-        }).ToArray();
-
-        var result = await context.Platform.SetBreakpointsAsync(ReplProgram.ModuleName, wireBreakpoints, token);
-        if (result.Breakpoints.Count != breakpoints.Length)
-        {
-            return [];
+            for (var i = 0; i < breakpoints.Length; i++)
+            {
+                if (result.Breakpoints[i].ConditionError is { } reason)
+                {
+                    _ = _breakpoints.Remove(breakpoints[i]);
+                    refused.Add(new ReplBreakpointRefusal(breakpoints[i], Module: null, reason));
+                }
+                else if (judge && result.Judged && !result.Breakpoints[i].Verified)
+                {
+                    _ = _breakpoints.Remove(breakpoints[i]);
+                }
+            }
         }
 
-        var refused = new List<(Breakpoint, string)>();
-        for (var i = 0; i < breakpoints.Length; i++)
+        // every module that had a breakpoint is told, one that has none now included: it is how the platform is told they are gone.
+        foreach (var (module, moduleBreakpoints) in ModuleBreakpoints.ByModule())
         {
-            if (result.Breakpoints[i].ConditionError is { } reason)
+            var told = await context.Platform.SetBreakpointsAsync(
+                module, [.. moduleBreakpoints.Select(breakpoint => WireOf(breakpoint, breakpoint.LineNumber - 1))], token);
+            if (told.Breakpoints.Count != moduleBreakpoints.Length)
             {
-                _ = _breakpoints.Remove(breakpoints[i]);
-                refused.Add((breakpoints[i], reason));
+                continue;
             }
-            else if (judge && result.Judged && !result.Breakpoints[i].Verified)
+
+            for (var i = 0; i < moduleBreakpoints.Length; i++)
             {
-                _ = _breakpoints.Remove(breakpoints[i]);
+                if (told.Breakpoints[i].ConditionError is { } reason)
+                {
+                    ModuleBreakpoints.Remove(module, moduleBreakpoints[i].LineNumber);
+                    refused.Add(new ReplBreakpointRefusal(moduleBreakpoints[i], module, reason));
+                }
+                else if (told.Judged && !told.Breakpoints[i].Verified)
+                {
+                    ModuleBreakpoints.Remove(module, moduleBreakpoints[i].LineNumber);
+                    refused.Add(new ReplBreakpointRefusal(moduleBreakpoints[i], module, ConditionError: null));
+                }
             }
         }
 
         return refused;
+    }
+
+    private static SessionBreakpointLine WireOf(Breakpoint breakpoint, int sourceLine)
+        => new() { Line = sourceLine, IsEnabled = breakpoint.Enabled, Condition = breakpoint.ConditionExpression };
+}
+
+/// <summary>
+/// A breakpoint the platform refused, and why.
+/// </summary>
+/// <param name="Breakpoint">The breakpoint, by the line number of the program or the line of its module.</param>
+/// <param name="Module">The module of the workspace it is in; <see langword="null"/> for one of the program.</param>
+/// <param name="ConditionError">Why its condition is not an expression; <see langword="null"/> when it was refused because no statement begins on its line.</param>
+public readonly record struct ReplBreakpointRefusal(Breakpoint Breakpoint, string? Module, string? ConditionError)
+{
+    /// <summary>
+    /// Where the breakpoint is, as <c>BREAK</c> is told it: the line number of the program, or the module and its line.
+    /// </summary>
+    public string Where => ReplModuleBreakpoints.Where(Module, Breakpoint.LineNumber);
+
+    /// <summary>
+    /// What the shell says of the refusal.
+    /// </summary>
+    public string Message => ConditionError is { } reason
+        ? string.Format(Resources.Repl_Breakpoint_ConditionRefused, Where, reason)
+        : string.Format(Resources.Repl_Breakpoint_NoStatement, Where);
+}
+
+/// <summary>
+/// The breakpoints of the modules of a workspace, each on a line of its module, one-based as a listing numbers the lines.
+/// </summary>
+/// <remarks>
+/// A module's name is matched in any case, as VBA matches names, and is kept as it was first given. A module whose breakpoints were all removed is kept, with
+/// none, until the platform is told (<see cref="ByModule"/>).
+/// </remarks>
+public sealed class ReplModuleBreakpoints
+{
+    private readonly Dictionary<string, SortedSet<Breakpoint>> _byModule = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Where a breakpoint is, as <c>BREAK</c> is told it and lists it: the line number of the program, or the module and its line (<c>Other 9</c>).
+    /// </summary>
+    /// <param name="module">The module of the workspace; <see langword="null"/> for the program.</param>
+    /// <param name="line">The line number of the program, or the line of the module.</param>
+    public static string Where(string? module, int line) => module is null ? line.ToString() : $"{module} {line}";
+
+    /// <summary>
+    /// The number of breakpoints, in every module.
+    /// </summary>
+    public int Count => _byModule.Values.Sum(breakpoints => breakpoints.Count);
+
+    /// <summary>
+    /// Every breakpoint, by module and line.
+    /// </summary>
+    public IEnumerable<(string Module, Breakpoint Breakpoint)> All
+        => _byModule.OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase).SelectMany(entry => entry.Value.Select(breakpoint => (entry.Key, breakpoint)));
+
+    /// <summary>
+    /// The breakpoints of a module.
+    /// </summary>
+    /// <param name="module">The module's name, in any case.</param>
+    public IReadOnlyCollection<Breakpoint> Of(string module) => _byModule.TryGetValue(module, out var breakpoints) ? breakpoints : [];
+
+    /// <summary>
+    /// The breakpoint of a line of a module, when it has one.
+    /// </summary>
+    /// <param name="module">The module's name, in any case.</param>
+    /// <param name="line">The line of the module.</param>
+    /// <param name="breakpoint">The breakpoint.</param>
+    public bool TryGet(string module, int line, out Breakpoint breakpoint)
+    {
+        breakpoint = default;
+        return _byModule.TryGetValue(module, out var breakpoints) && breakpoints.TryGetValue(new(line), out breakpoint);
+    }
+
+    /// <summary>
+    /// Sets the breakpoint of a line of a module, or clears it if it has one.
+    /// </summary>
+    /// <param name="module">The module's name.</param>
+    /// <param name="line">The line of the module.</param>
+    /// <returns>Whether the line has a breakpoint now.</returns>
+    public bool Toggle(string module, int line) => !Breakpoints(module).Remove(new(line)) && Breakpoints(module).Add(new(line));
+
+    /// <summary>
+    /// Sets a breakpoint of a module, replacing the one its line had.
+    /// </summary>
+    /// <param name="module">The module's name.</param>
+    /// <param name="breakpoint">The breakpoint.</param>
+    public void Set(string module, Breakpoint breakpoint)
+    {
+        _ = Breakpoints(module).Remove(breakpoint);
+        _ = Breakpoints(module).Add(breakpoint);
+    }
+
+    /// <summary>
+    /// Disables the breakpoint of a line of a module, or enables it if it is disabled; a line that has none is given one, enabled.
+    /// </summary>
+    /// <param name="module">The module's name.</param>
+    /// <param name="line">The line of the module.</param>
+    /// <returns>Whether the line has an enabled breakpoint now.</returns>
+    public bool ToggleEnabled(string module, int line)
+    {
+        var toggled = TryGet(module, line, out var breakpoint) ? breakpoint with { Enabled = !breakpoint.Enabled } : new Breakpoint(line);
+        Set(module, toggled);
+        return toggled.Enabled;
+    }
+
+    /// <summary>
+    /// Removes the breakpoint of a line of a module.
+    /// </summary>
+    /// <param name="module">The module's name.</param>
+    /// <param name="line">The line of the module.</param>
+    public void Remove(string module, int line)
+    {
+        if (_byModule.TryGetValue(module, out var breakpoints))
+        {
+            _ = breakpoints.Remove(new(line));
+        }
+    }
+
+    /// <summary>
+    /// Removes every breakpoint of every module.
+    /// </summary>
+    public void Clear()
+    {
+        foreach (var breakpoints in _byModule.Values)
+        {
+            breakpoints.Clear();
+        }
+    }
+
+    /// <summary>
+    /// The breakpoints of each module that has had one, for the platform to be told them; a module that has none now is then forgotten.
+    /// </summary>
+    public IEnumerable<(string Module, Breakpoint[] Breakpoints)> ByModule()
+    {
+        var modules = _byModule.Select(entry => (entry.Key, entry.Value.ToArray())).ToArray();
+        foreach (var (module, _) in modules.Where(entry => entry.Item2.Length == 0))
+        {
+            _byModule.Remove(module);
+        }
+
+        return modules;
+    }
+
+    private SortedSet<Breakpoint> Breakpoints(string module)
+    {
+        if (!_byModule.TryGetValue(module, out var breakpoints))
+        {
+            _byModule[module] = breakpoints = [];
+        }
+
+        return breakpoints;
     }
 }

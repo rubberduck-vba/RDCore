@@ -1,4 +1,5 @@
-﻿using RDCore.SDK.Client.Progress;
+﻿using RDCore.External.Interaction;
+using RDCore.SDK.Client.Progress;
 
 namespace RDCore.CLI.App.Console;
 

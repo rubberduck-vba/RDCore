@@ -36,6 +36,19 @@ public sealed class ReplProgram
     /// <summary>The name of the procedure an immediate-mode line is wrapped in.</summary>
     public const string ImmediateEntryPointName = "Immediate";
 
+    /// <summary>
+    /// The name of the module a line typed at the prompt runs in when the shell is attached to a workspace (<see cref="AttachedToWorkspace"/>). It is not an
+    /// identifier, so no module of the workspace's project has it, and no code names it.
+    /// </summary>
+    public const string ImmediateModuleName = "_Immediate";
+
+    /// <summary>
+    /// The name of the procedure a line typed at the prompt is wrapped in when the shell is attached to a workspace (<see cref="AttachedToWorkspace"/>). The
+    /// workspace's project may have a procedure named <see cref="ImmediateEntryPointName"/>, which the line calls unqualified: a procedure of the line's own
+    /// module of that name would be found first (MS-VBAL §5.6.10).
+    /// </summary>
+    public const string WorkspaceImmediateEntryPointName = "Immediate_";
+
     // VBA source is CRLF, and the parser's own line/column positions are reported against it.
     private const string NewLine = "\r\n";
 
@@ -74,6 +87,25 @@ public sealed class ReplProgram
         _indent = indent;
         _indentFailed = indentFailed;
     }
+
+    /// <summary>
+    /// Whether the shell is attached to a workspace of the user's (<c>rdc --workspace</c>), whose project the lines typed at the prompt run in. The buffer then
+    /// holds no numbered lines, and renders to <see cref="ImmediateModuleName"/>, a module that declares nothing but the line it runs: a name the line uses is
+    /// the project's.
+    /// </summary>
+    public bool AttachedToWorkspace { get; init; }
+
+    /// <summary>
+    /// The name of the module the buffer renders to: <see cref="ImmediateModuleName"/> when the shell is attached to a workspace, <see cref="ModuleName"/>
+    /// otherwise.
+    /// </summary>
+    public string Module => AttachedToWorkspace ? ImmediateModuleName : ModuleName;
+
+    /// <summary>
+    /// The name of the procedure a line typed at the prompt is wrapped in: <see cref="WorkspaceImmediateEntryPointName"/> when the shell is attached to a
+    /// workspace, <see cref="ImmediateEntryPointName"/> otherwise.
+    /// </summary>
+    public string ImmediateEntryPoint => AttachedToWorkspace ? WorkspaceImmediateEntryPointName : ImmediateEntryPointName;
 
     /// <summary>The number of lines currently in the buffer.</summary>
     public int Count
@@ -384,12 +416,16 @@ public sealed class ReplProgram
 
     /// <summary>
     /// The buffer as a VBA standard module: every numbered line is a labelled statement in the
-    /// <see cref="EntryPointName"/> procedure, which is what <c>RUN</c> invokes.
+    /// <see cref="EntryPointName"/> procedure, which is what <c>RUN</c> invokes. Attached to a workspace, the module declares nothing.
     /// </summary>
     public string ToModuleSource()
     {
         var source = new StringBuilder();
-        AppendProcedure(source, EntryPointName, Lines().Select(line => $"{line.Number} {line.Statement}"));
+        if (!AttachedToWorkspace)
+        {
+            AppendProcedure(source, EntryPointName, Lines().Select(line => $"{line.Number} {line.Statement}"));
+        }
+
         return source.ToString();
     }
 
@@ -419,17 +455,21 @@ public sealed class ReplProgram
     /// <summary>
     /// The buffer as a VBA standard module with <paramref name="statement"/> appended as a second,
     /// parameterless procedure — how an immediate-mode line is compiled, so that it sees the same
-    /// module scope the program itself runs in.
+    /// module scope the program itself runs in. Attached to a workspace, the statement's procedure is the module's only one.
     /// </summary>
     /// <param name="statement">The statement typed at the prompt.</param>
     public string ToImmediateModuleSource(string statement) => ImmediateModuleSource(Lines(), statement);
 
-    private static string ImmediateModuleSource(IEnumerable<(int Number, string Statement)> lines, string statement)
+    private string ImmediateModuleSource(IEnumerable<(int Number, string Statement)> lines, string statement)
     {
         var source = new StringBuilder();
-        AppendProcedure(source, EntryPointName, lines.Select(line => $"{line.Number} {line.Statement}"));
-        source.Append(NewLine);
-        AppendProcedure(source, ImmediateEntryPointName, [statement]);
+        if (!AttachedToWorkspace)
+        {
+            AppendProcedure(source, EntryPointName, lines.Select(line => $"{line.Number} {line.Statement}"));
+            source.Append(NewLine);
+        }
+
+        AppendProcedure(source, ImmediateEntryPoint, [statement]);
         return source.ToString();
     }
 
@@ -449,7 +489,10 @@ public sealed class ReplProgram
     /// </summary>
     /// <param name="typed">The line, as it is typed so far.</param>
     /// <param name="cursor">Where the cursor is in <paramref name="typed"/>.</param>
-    /// <returns>The module source, and the zero-based line and character of the cursor in it; <see langword="null"/> while the cursor is in a line number.</returns>
+    /// <returns>
+    /// The module source, and the zero-based line and character of the cursor in it; <see langword="null"/> while the cursor is in a line number, and for a
+    /// numbered line when the shell is attached to a workspace, which stores none.
+    /// </returns>
     public (string Source, int Line, int Character)? ToCompletionSource(string typed, int cursor)
     {
         var start = typed.Length - typed.TrimStart().Length;
@@ -461,7 +504,7 @@ public sealed class ReplProgram
 
         if (digits > start && int.TryParse(typed[start..digits], out var number))
         {
-            if (cursor <= digits)
+            if (cursor <= digits || AttachedToWorkspace)
             {
                 return null;
             }
@@ -484,9 +527,10 @@ public sealed class ReplProgram
 
         var (immediate, at) = Expanded(typed[start..], Math.Max(0, cursor - start));
 
-        // the program's procedure - its header, its lines, its end - and the line between the two, then the immediate procedure's header.
+        // the program's procedure (its header, its lines, its end) and the line between the two, then the immediate procedure's header; only the last,
+        // attached to a workspace.
         var stored = StoredLines();
-        return (ImmediateModuleSource(stored, immediate), stored.Length + 4, at);
+        return (ImmediateModuleSource(stored, immediate), AttachedToWorkspace ? 1 : stored.Length + 4, at);
     }
 
     // a statement with its leading `?` written as the Print it is, and where the cursor is once it is.

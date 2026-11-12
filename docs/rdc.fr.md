@@ -21,6 +21,15 @@ Le _shell_ exécute ce que vous tapez. Une ligne sans numéro de ligne s'exécut
 de ligne est écrite dans le _programme courant_ : `10 Debug.Print "Bonjour"`. Le programme courant est le corps d'une procédure implicite nommée `Main`,
 dans un module implicite nommé `Program`. Il reste en mémoire jusqu'à `NEW`, `LOAD` ou `EXIT`.
 
+Sur un espace de travail (`rdc --workspace <chemin>`), le _shell_ exécute chaque ligne dans le projet de l'espace de travail : `Main`, `Program.Main` et
+les autres procédures publiques du projet peuvent être appelées depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
+servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, et `CONT` vers une ligne), répondent
+`ERREUR : AUCUN PROGRAMME`.
+
+Sur un espace de travail, `BREAK` prend un module et une ligne de son fichier : `BREAK Other 9`, `BREAK Other 9 I > 5`, `BREAK TOGGLE Other 9`.
+`BREAK` seul les liste sous la forme `Other 9`, et `BREAK CLEAR` les retire tous. Un module que l'espace de travail n'a pas répond
+`ERREUR : MODULE NON DÉFINI`, et une ligne où ne commence aucune instruction répond `AUCUNE INSTRUCTION À Other 9`.
+
 La langue du _shell_ est le BASIC de RDCore : la variable qu'une ligne assigne est celle que lit la ligne suivante, sans `Dim`, et `Print` seul est
 une instruction.
 
@@ -47,15 +56,21 @@ une instruction.
 |`MEMORY`, `PEEK <adresse>`, `POKE <adresse>, <octet>`|Affiche un sommaire de la mémoire de la session, en lit un octet, ou en écrit un.|
 |`EXIT`|Termine la session et quitte. `BYE` et `QUIT` font de même.|
 
-`Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un point d'arrêt, un pas ou `Ctrl+C`), le _shell_ affiche
-`INTERRUPTION À LA LIGNE` et le numéro de ligne, puis liste les deux lignes au-dessus de cette ligne et les deux au-dessous, la ligne de l'arrêt étant
-mise en évidence. `CONFIG CLI.BreakListingLines` fixe combien de lignes sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0`
-n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme dans le volet _exécution_ du VBIDE, et modifier le programme avant de
-reprendre.
+`Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un `Debug.Assert` qui échoue, un point d'arrêt ou `Ctrl+C`),
+le _shell_ liste les deux lignes au-dessus de la ligne de l'arrêt et les deux au-dessous, la ligne de l'arrêt étant mise en évidence, puis affiche
+`INTERRUPTION À LA LIGNE` et le numéro de ligne. Lors d'une erreur d'exécution dans le programme, le _shell_ liste de la même façon les
+lignes autour de l'instruction qui l'a déclenchée, puis affiche l'erreur. Un pas ne liste rien : il affiche seulement `INTERRUPTION À LA LIGNE` et le
+numéro de ligne, et affiche une erreur d'exécution qu'il déclenche sans les lignes qui l'entourent. `CONFIG CLI.BreakListingLines` fixe combien de lignes
+sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme
+dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
+
+Une ligne tapée à l'invite s'exécute sous le débogueur comme avec `RUN` : un `Stop` ou un point d'arrêt dans le code qu'elle appelle l'arrête là, et
+`STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail liste les lignes du module
+autour de cet arrêt comme `LIST` liste le programme, puis affiche `INTERRUPTION DANS`, le module et sa ligne.
 
 > [!NOTE]
-> Le _shell_ est une façon d'essayer la plateforme. Il ne prend pas en charge un projet de plus d'une portée de procédure, ni les numéros de ligne à la
-> BASIC dans vos propres modules.
+> Le _shell_ est une façon d'essayer la plateforme. Son programme courant est une seule procédure : un projet qui en a plus s'exécute dans le _shell_
+> sur un espace de travail. Le _shell_ ne prend pas en charge les numéros de ligne à la BASIC dans vos propres modules.
 
 ---
 ## Les commandes
@@ -84,7 +99,7 @@ travaille sur le dossier courant.
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
 Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Un projet dont un module ne se charge pas non
-plus. `Debug.Print` écrit sur la sortie standard.
+plus. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il s'affiche dans la console et on y répond, comme dans le _shell_.
 
 |Option|Ce qu'elle fait|
 |---|---|
@@ -110,6 +125,8 @@ Le code de sortie indique comment s'est passée l'exécution :
 |`-n`, `--name`|Le nom du programme; celui du projet par défaut.|
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
 |`-r`, `--runtime`|La plateforme pour laquelle le programme est construit, comme `win-x64` ou `linux-x64`; celle où s'exécute `rdc` par défaut.|
+
+Le programme affiche ses boîtes de dialogue comme `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
 ### Installer la plateforme
 

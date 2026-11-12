@@ -57,8 +57,9 @@ internal sealed record class ExtractMethodAnswer(RefactorWorkspaceEdit? Edit, st
 /// <remarks>
 /// <para>
 /// It asks the name of the new procedure, the variable it returns as a <c>Function</c> when the selection gives any back, and whether the exits of a selection
-/// that leaves the procedure, or a loop or a block around it, are routed; it shows the parameters and why each is passed as it is. Each behaviour change of the
-/// extraction is a change the user accepts, or a note.
+/// that leaves the procedure, or a loop or a block around it, are routed; it shows the parameters and why each is passed as it is, which the user renames,
+/// reorders, and passes by reference where they are passed by value (<see cref="ExtractionParameters"/>). Each behavior change of the extraction is a change
+/// the user accepts, or a note.
 /// </para>
 /// <para>
 /// A program of the platform's BASIC is not extracted from: its lines are not the module they are the body of.
@@ -86,6 +87,17 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// </summary>
     public const string RouteExitsChoice = "routeExits";
 
+    /// <summary>
+    /// The id of the choice of a parameter's name, among the choices of an item of <see cref="ParametersChoice"/>.
+    /// </summary>
+    public const string ParameterNameChoice = "name";
+
+    /// <summary>
+    /// The id of the choice of how a parameter is passed, <c>ByVal</c> or <c>ByRef</c>, among the choices of an item of <see cref="ParametersChoice"/>: only a
+    /// parameter whose passing is the user's to choose has it (<see cref="ExtractionParameters.PassingIsAChoice"/>).
+    /// </summary>
+    public const string ParameterPassingChoice = "passing";
+
     // the value of the option that returns nothing: no variable is named so.
     private const string NoReturnValue = "";
 
@@ -95,6 +107,11 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// The title of the code action that extracts a selection, in the language of the user interface.
     /// </summary>
     public static string Title() => Format("ExtractMethod_Title");
+
+    /// <summary>
+    /// Why an extraction offered for one version of a document is not made for another, in the language of the user interface.
+    /// </summary>
+    public static string DocumentChanged() => Format("ExtractMethod_DocumentChanged");
 
     public async Task<RefactorPrepareResult> PrepareAsync(Uri documentUri, SourceRange range, CancellationToken token)
     {
@@ -173,7 +190,19 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new(null, Format("ExtractMethodEdit_NotAccepted", extraction.ChangeMessage(declined)));
         }
 
-        var choices = new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits };
+        // the parameters as the user renamed them, put them in order and passes them; an item that is not answered is kept as it is, where it is.
+        var parameterAnswers = answers.FirstOrDefault(answer => answer.Id == ParametersChoice)?.Items
+            .Select(item => new ExtractionParameterAnswer(item.Id,
+                item.Answers.FirstOrDefault(each => each.Id == ParameterNameChoice)?.Value,
+                item.Answers.FirstOrDefault(each => each.Id == ParameterPassingChoice)?.Value))
+            .ToArray() ?? [];
+        var (parameters, parameterProblem) = ExtractionParameters.Choose(parameterAnswers, plan, extraction.Source, name, extraction.Part.Context, extraction.Module.Module);
+        if (parameterProblem is not null)
+        {
+            return new(null, parameterProblem.ToMessage());
+        }
+
+        var choices = new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits, Parameters = parameters };
         var edit = ExtractMethodEdit.Of(plan, extraction.Source, choices);
         if (edit.Refusal is { } refusal)
         {
@@ -321,7 +350,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                 },
             ];
 
-            // the parameters are shown, with why each is passed as it is: the plan decides them.
+            // the parameters are shown, with why each is passed as it is: the user renames them, puts them in another order, and passes by reference one the
+            // plan passes by value.
             if (!plan.Parameters.IsEmpty)
             {
                 choices.Add(new()
@@ -330,11 +360,13 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                     Kind = RefactorChoiceKind.List,
                     Label = Format("ExtractMethodChoice_Parameters"),
                     Description = Format("ExtractMethodChoice_ParametersDescription"),
-                    Items = [.. plan.Parameters.Select(parameter => new RefactorItem
+                    CanReorder = true,
+                    Items = [.. ExtractionParameters.InDeclarationOrder(plan).Select(parameter => new RefactorItem
                     {
                         Id = parameter.Name,
                         Label = ExtractMethodEdit.ParameterTextOf(plan, Source, parameter),
                         Reason = Format($"ExtractMethodReason_{parameter.Reason}"),
+                        Choices = ParameterChoices(parameter),
                     })],
                 });
             }
@@ -362,6 +394,39 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                     Label = Format("ExtractMethodChoice_RouteExits"),
                     Description = Format("ExtractMethodChoice_RouteExitsDescription"),
                     Default = "true",
+                });
+            }
+
+            return choices;
+        }
+
+        // the name of a parameter, and how it is passed when that is the user's to choose.
+        private static IReadOnlyList<RefactorChoice> ParameterChoices(ExtractionParameter parameter)
+        {
+            List<RefactorChoice> choices =
+            [
+                new()
+                {
+                    Id = ParameterNameChoice,
+                    Kind = RefactorChoiceKind.Name,
+                    Label = Format("ExtractMethodChoice_ParameterName"),
+                    Default = parameter.Name,
+                },
+            ];
+
+            if (ExtractionParameters.PassingIsAChoice(parameter))
+            {
+                choices.Add(new()
+                {
+                    Id = ParameterPassingChoice,
+                    Kind = RefactorChoiceKind.Option,
+                    Label = Format("ExtractMethodChoice_ParameterPassing"),
+                    Default = ExtractionParameters.ValueOf(parameter.Passing),
+                    Options =
+                    [
+                        new() { Value = ExtractionParameters.ValueOf(ExtractionPassing.ByVal), Label = "ByVal", Description = Format("ExtractMethodChoice_ParameterByVal") },
+                        new() { Value = ExtractionParameters.ValueOf(ExtractionPassing.ByRef), Label = "ByRef", Description = Format("ExtractMethodChoice_ParameterByRef") },
+                    ],
                 });
             }
 

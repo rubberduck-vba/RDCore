@@ -1,4 +1,4 @@
-﻿namespace RDCore.CLI.App.Console;
+﻿namespace RDCore.External.Interaction;
 
 /// <summary>
 /// The characters a <see cref="ConsoleDialogBox"/> is drawn with.

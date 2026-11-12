@@ -28,6 +28,13 @@ internal sealed class ContReplCommand : IReplCommand
         var text = arguments.Trim();
         if (text.Length > 0)
         {
+            // a line number is one of the numbered program's, which a shell attached to a workspace has none of.
+            if (context.Program.AttachedToWorkspace)
+            {
+                ReplProgramRefusal.Write(context.Console);
+                return ReplCommandResult.Continue;
+            }
+
             if (!int.TryParse(text, out var number))
             {
                 context.Console.WriteMessage(MessageKind.Error, Resources.Repl_SyntaxError, arguments);

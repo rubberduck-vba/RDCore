@@ -1,3 +1,5 @@
+using RDCore.CLI.ConsoleIO.Model;
+
 namespace RDCore.CLI.App.Repl;
 
 /// <summary>
@@ -44,7 +46,32 @@ public sealed class ReplCommandDispatcher(IEnumerable<IReplCommand> commands) : 
 
     /// <inheritdoc/>
     public Task<ReplCommandResult> DispatchAsync(ReplCommandContext context, string name, string arguments, CancellationToken token)
-        => _byName.TryGetValue(name, out var command)
-            ? command.ExecuteAsync(context, arguments, token)
-            : throw new KeyNotFoundException($"No shell command answers to '{name}'.");
+    {
+        if (!_byName.TryGetValue(name, out var command))
+        {
+            throw new KeyNotFoundException($"No shell command answers to '{name}'.");
+        }
+
+        // in a workspace, "the program" could be any of its modules: a command on the numbered program says so rather than act on a module that is the shell's.
+        if (command.WorksOnTheProgram && context.Program.AttachedToWorkspace)
+        {
+            ReplProgramRefusal.Write(context.Console);
+            return Task.FromResult(ReplCommandResult.Continue);
+        }
+
+        return command.ExecuteAsync(context, arguments, token);
+    }
+}
+
+/// <summary>
+/// What a shell attached to a workspace says of a numbered line, and of a command on the numbered program, which it has none of.
+/// </summary>
+internal static class ReplProgramRefusal
+{
+    /// <summary>
+    /// Writes the refusal.
+    /// </summary>
+    /// <param name="console">The shell's console.</param>
+    public static void Write(IReplConsole console)
+        => console.WriteMessage(MessageKind.Error, Resources.Repl_NoProgramInWorkspace, Resources.Repl_NoProgramInWorkspace_Verbose);
 }

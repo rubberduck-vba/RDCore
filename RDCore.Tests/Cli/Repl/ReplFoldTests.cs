@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using NSubstitute;
 using RDCore.CLI;
 using RDCore.CLI.App.Repl;
@@ -130,7 +131,7 @@ public sealed class ReplFoldTests
         var folded = (await ListAsync())[1];
         var text = folded.Runs[^1].Text;
         StringAssert.EndsWith(text, "…");
-        Assert.IsLessThanOrEqualTo(16, folded.Margin.Concat(folded.Runs).Sum(run => RDCore.CLI.App.Console.ConsoleText.WidthOf(run.Text)) + 1);
+        Assert.IsLessThanOrEqualTo(16, folded.Margin.Concat(folded.Runs).Sum(run => ConsoleText.WidthOf(run.Text)) + 1);
     }
 
     [TestMethod]

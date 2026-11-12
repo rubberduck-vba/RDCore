@@ -23,6 +23,7 @@ internal sealed class AnalyzeReplCommand : IReplCommand
 {
     public string Name => ReplCommandNames.Analyze;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_Analyze_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)

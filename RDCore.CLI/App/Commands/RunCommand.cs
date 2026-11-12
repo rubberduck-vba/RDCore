@@ -1,6 +1,8 @@
 using CommandLine;
 using RDCore.CLI.App.Bench;
 using RDCore.CLI.App.Build;
+using RDCore.CLI.App.Repl;
+using RDCore.External.Interaction;
 using RDCore.Runtime.Semantics;
 using RDCore.Runtime.Support.Build;
 using RDCore.SDK.Runtime;
@@ -24,10 +26,15 @@ internal sealed class RunCommandOptions
 
 // rdc run [path] [-- args…]: the workspace loaded as rdc bench loads it, and run as the program rdc build builds of it runs (ProgramRunner). Nothing is written.
 internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader projects, BenchRunner runner, IErrorDetailsRecorder errorDetails,
-    TextWriter? output = null, TextWriter? error = null) : ICliCommand
+    TextWriter? output = null, TextWriter? error = null, IConsoleKeys? keys = null) : ICliCommand
 {
     private TextWriter Output => output ?? global::System.Console.Out;
     private TextWriter Error => error ?? global::System.Console.Error;
+
+    // the dialogs of the program: Windows shows its own, and elsewhere they are asked at the console, as the shell asks them.
+    private IUserInteraction? Dialogs => OperatingSystem.IsWindows() ? null
+        : output is null ? ConsoleUserInteraction.OfTheConsole(keys ?? new SystemConsoleKeys(), Spectre.Console.AnsiConsole.Profile.Capabilities.Ansi)
+        : new ConsoleUserInteraction(keys ?? new SystemConsoleKeys(), output);
 
     public string Name => CommandNames.RunCommand.Name;
     public IReadOnlyList<string> Aliases => [CommandNames.RunCommand.Alias];
@@ -58,7 +65,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
         }
 
         var profile = RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = options.Configuration };
-        var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, token);
+        var (provider, modules, problems) = await runner.LoadProgramAsync(workspace, profile, Dialogs, token);
         using var session = provider;
 
         // nothing of the project runs while a module of it does not load (RD-VBAL 2.6.1).

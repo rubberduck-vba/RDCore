@@ -690,7 +690,16 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_Break_InLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to BREAK IN {0} LINE {1}.
+        /// </summary>
+        public static string Repl_Break_InModuleLine {
+            get {
+                return ResourceManager.GetString("Repl_Break_InModuleLine", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Sets or clears a breakpoint at a line (BREAK 40). BREAK alone lists them, BREAK CLEAR removes them all..
         /// </summary>
@@ -1232,6 +1241,24 @@ namespace RDCore.CLI {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to NO PROGRAM ERROR.
+        /// </summary>
+        public static string Repl_NoProgramInWorkspace {
+            get {
+                return ResourceManager.GetString("Repl_NoProgramInWorkspace", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to With a workspace, the shell runs statements in its project. The numbered program, and the commands that work on it, are for the shell without a workspace..
+        /// </summary>
+        public static string Repl_NoProgramInWorkspace_Verbose {
+            get {
+                return ResourceManager.GetString("Repl_NoProgramInWorkspace_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to UNDEF&apos;D LINE ERROR.
         /// </summary>
         public static string Repl_UndefinedLine {
@@ -1239,7 +1266,25 @@ namespace RDCore.CLI {
                 return ResourceManager.GetString("Repl_UndefinedLine", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to UNDEF&apos;D MODULE ERROR.
+        /// </summary>
+        public static string Repl_UndefinedModule {
+            get {
+                return ResourceManager.GetString("Repl_UndefinedModule", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to NO STATEMENT AT {0}.
+        /// </summary>
+        public static string Repl_Breakpoint_NoStatement {
+            get {
+                return ResourceManager.GetString("Repl_Breakpoint_NoStatement", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Shows the variables of the stopped program: VARS, or VARS 1 for the procedure that called..
         /// </summary>

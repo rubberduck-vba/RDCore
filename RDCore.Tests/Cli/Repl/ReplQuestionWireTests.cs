@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using System.Collections.Concurrent;
 using System.IO.Abstractions.TestingHelpers;
 using System.IO.Pipes;
@@ -11,7 +12,6 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
 using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 using OmniSharp.Extensions.LanguageServer.Server;
-using RDCore.CLI.App.Console;
 using RDCore.CLI.App.Repl;
 using RDCore.SDK.Client;
 using RDCore.SDK.Client.Connection;
@@ -145,7 +145,7 @@ public sealed class ReplQuestionWireTests
         var shell = new RDCore.CLI.RDCoreConsoleClientApp(
             Microsoft.Extensions.Options.Options.Create(new SdkAppOptions { Server = { MaxRestartAttempts = 0 } }),
             languageServer,
-            new ReplUserInteraction(keys, new StringWriter()),
+            new ConsoleUserInteraction(keys, new StringWriter()),
             Substitute.For<IReplConsole>(),
             new RDCore.SDK.Formatting.RubberduckIndenterSettingsReader(
                 new MockFileSystem(), "C:\\", Substitute.For<RDCore.SDK.Formatting.ILegacyIndenterRegistry>(), isWindows: false),

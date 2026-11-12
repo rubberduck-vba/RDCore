@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using System.Collections.Concurrent;
 using RDCore.CLI.App.Console;
 using static RDCore.Tests.Cli.Repl.ScriptedKeys;

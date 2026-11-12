@@ -52,7 +52,7 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
 
             await RegisterAsync(token);
             var command = new SessionCommandCompletion { Verb = verb, Arguments = typed[verb.Length..] };
-            return [.. (await platform.CompleteCommandAsync(program.ToModuleSource(), ReplProgram.ModuleName, command, token)).Items];
+            return [.. (await platform.CompleteCommandAsync(program.ToModuleSource(), program.Module, command, token)).Items];
         }
 
         var items = new List<CompletionItem>();
@@ -72,7 +72,7 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
         var trigger = listedAfterSpace is not null && cursor <= line.Length && line[..cursor] == listedAfterSpace ? " " : null;
         if (platform.Provides<SessionCompletion>() && program.ToCompletionSource(line, cursor) is { } site)
         {
-            var list = await platform.CompleteAsync(site.Source, ReplProgram.ModuleName, site.Line, site.Character, token, trigger);
+            var list = await platform.CompleteAsync(site.Source, program.Module, site.Line, site.Character, token, trigger);
             var commandNames = new HashSet<string>(items.Select(item => item.Label), StringComparer.OrdinalIgnoreCase);
             items.AddRange(list.Items.Where(item => !commandNames.Contains(item.Label)));
         }
@@ -97,7 +97,7 @@ internal sealed class ReplCompletion(ReplProgram program, IReplPlatformClient pl
             return null;
         }
 
-        return await platform.SignatureHelpAsync(site.Source, ReplProgram.ModuleName, site.Line, site.Character, token);
+        return await platform.SignatureHelpAsync(site.Source, program.Module, site.Line, site.Character, token);
     }
 
     /// <summary>

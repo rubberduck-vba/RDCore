@@ -1,12 +1,12 @@
-namespace RDCore.CLI.App.Console;
+namespace RDCore.External.Interaction;
 
 /// <summary>
-/// Where an interactive prompt of the shell reads what is typed: a key at a time at a console, or a line at a time when the input is a script.
+/// Where a prompt or a dialog at a console reads what is typed: a key at a time at a console, or a line at a time when the input is a script.
 /// </summary>
 public interface IConsoleKeys
 {
     /// <summary>
-    /// Whether a key can be read at a time: <see langword="false"/> when the input is redirected - a script piped to the shell - and a prompt reads a line instead.
+    /// Whether a key can be read at a time: <see langword="false"/> when the input is redirected (a script piped to the program), and a prompt reads a line instead.
     /// </summary>
     bool IsInteractive { get; }
 
@@ -15,7 +15,7 @@ public interface IConsoleKeys
     /// </summary>
     /// <remarks>
     /// A key that is there when <paramref name="token"/> is cancelled is read, not left for whatever reads the keys next: the prompt stops reading its key to
-    /// have a question asked, and a key typed before then is the prompt's (<see cref="ConsolePromptEditor.Interjections"/>).
+    /// have a question asked, and a key typed before then is the prompt's.
     /// </remarks>
     /// <param name="token">Stops waiting for one.</param>
     /// <exception cref="OperationCanceledException"><paramref name="token"/> was cancelled before a key was pressed.</exception>
@@ -35,7 +35,7 @@ public interface IConsoleKeys
 /// A key is waited for by asking whether one is available, so that a prompt whose program is stopped stops waiting: <see cref="System.Console.ReadKey(bool)"/> blocks
 /// its thread, and nothing can interrupt it.
 /// </remarks>
-internal sealed class SystemConsoleKeys : IConsoleKeys
+public sealed class SystemConsoleKeys : IConsoleKeys
 {
     private static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(15);
 

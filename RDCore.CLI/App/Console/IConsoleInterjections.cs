@@ -1,3 +1,5 @@
+using RDCore.External.Interaction;
+
 namespace RDCore.CLI.App.Console;
 
 /// <summary>

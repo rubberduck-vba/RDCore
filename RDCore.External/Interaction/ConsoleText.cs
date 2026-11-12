@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace RDCore.CLI.App.Console;
+namespace RDCore.External.Interaction;
 
 /// <summary>
 /// Text as a terminal lays it out: in cells, which is not in characters - an emoji or a CJK character takes two, and a combining mark or a variation selector

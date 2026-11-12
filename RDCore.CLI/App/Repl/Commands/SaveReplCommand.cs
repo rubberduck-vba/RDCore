@@ -15,6 +15,7 @@ internal sealed class SaveReplCommand(IFileSystem fileSystem) : IReplCommand
 {
     public string Name => ReplCommandNames.Save;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_Save_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)

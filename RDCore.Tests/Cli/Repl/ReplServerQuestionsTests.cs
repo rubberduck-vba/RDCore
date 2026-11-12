@@ -1,3 +1,4 @@
+using RDCore.External.Interaction;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;

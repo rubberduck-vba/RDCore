@@ -48,7 +48,7 @@ internal static class ReplExecution
         debug &= context.Platform.Provides<ProgramDebugging>();
         if (!debug)
         {
-            await RenderAsync(context, await context.Platform.ExecuteAsync(source, ReplProgram.ModuleName, entryPoint, token));
+            await RenderAsync(context, await context.Platform.ExecuteAsync(source, context.Program.Module, entryPoint, token));
             return;
         }
 
@@ -56,7 +56,7 @@ internal static class ReplExecution
         context.Debugger.Running();
         try
         {
-            var result = await context.Platform.ExecuteAsync(source, ReplProgram.ModuleName, entryPoint, debug: true, immediate: false, CancellationToken.None);
+            var result = await context.Platform.ExecuteAsync(source, context.Program.Module, entryPoint, debug: true, immediate: false, CancellationToken.None);
             await RenderAsync(context, result);
             if (result.Outcome is ExecutionOutcome.Refused)
             {
@@ -64,8 +64,10 @@ internal static class ReplExecution
             }
             else if (result.Outcome is not (ExecutionOutcome.SyntaxError or ExecutionOutcome.NotFound))
             {
-                // the program was loaded as it is typed now, so the platform can say which lines a breakpoint can be on, and the others are dropped.
-                await context.Debugger.PushBreakpointsAsync(context, CancellationToken.None, judge: true);
+                // the program was loaded as it is typed now, so the platform can say which lines a breakpoint can be on, and the others are dropped. A dropped
+                // breakpoint of a workspace module was set on a line of a file, not of the program, so the shell says it.
+                var dropped = await context.Debugger.PushBreakpointsAsync(context, CancellationToken.None, judge: true);
+                Report(context, [.. dropped.Where(refusal => refusal.Module is not null)]);
             }
         }
         catch
@@ -76,12 +78,12 @@ internal static class ReplExecution
     }
 
     // a breakpoint whose condition is refused is dropped before the program goes, and the person is told which, and why: BREAK refuses the condition as it is typed,
-    // and this is the one a platform that did not debug then refuses now.
-    private static void Report(ReplCommandContext context, IReadOnlyList<(Breakpoint Breakpoint, string Reason)> refused)
+    // and this is the one a platform that did not debug then refuses now. So is one of a module whose line no statement begins on.
+    private static void Report(ReplCommandContext context, IReadOnlyList<ReplBreakpointRefusal> refused)
     {
-        foreach (var (breakpoint, reason) in refused)
+        foreach (var refusal in refused)
         {
-            context.Console.WriteMessage(MessageKind.Error, string.Format(Resources.Repl_Breakpoint_ConditionRefused, breakpoint.LineNumber, reason));
+            context.Console.WriteMessage(MessageKind.Error, refusal.Message);
         }
     }
 
@@ -223,23 +225,24 @@ internal static class ReplExecution
         // a program that waits is ended with the program it is: clearing the program is what a person does to be rid of it.
         if (context.Platform.Provides<ProgramDebugging>())
         {
-            await context.Platform.DiscardAsync(ReplProgram.ModuleName, endProgram: true, token);
+            await context.Platform.DiscardAsync(context.Program.Module, endProgram: true, token);
         }
         else
         {
-            await context.Platform.DiscardAsync(ReplProgram.ModuleName, token);
+            await context.Platform.DiscardAsync(context.Program.Module, token);
         }
 
         context.Debugger.Idle();
     }
 
     /// <summary>
-    /// Writes what a run printed, then what ended it - or what it waits at - as BASIC says it. A break also lists the lines around the one it stopped at, as
-    /// many on either side as <see cref="ReplCommandContext.BreakListingLines"/> says, with that line marked as the statement the program waits before.
+    /// Writes what a run printed, then what ended it - or what it waits at - as BASIC says it. A break first lists the lines around the one it stopped at, as
+    /// many on either side as <see cref="ReplCommandContext.BreakListingLines"/> says, with that line marked as the statement the program waits before; a
+    /// run-time error lists them the same way around the line of the program that raised it, before it is said.
     /// </summary>
     /// <param name="context">The live session.</param>
     /// <param name="result">The answer to the request that ran the program, or went on with it.</param>
-    /// <param name="listsTheBreak">Whether a break lists the lines around the one it stopped at.</param>
+    /// <param name="listsTheBreak">Whether a break, or a run-time error, lists the lines around the one it stopped at.</param>
     public static async Task RenderAsync(ReplCommandContext context, ExecuteResult result, bool listsTheBreak = true)
     {
         var (console, program) = (context.Console, context.Program);
@@ -266,10 +269,26 @@ internal static class ReplExecution
             case ExecutionOutcome.Suspended:
                 var waitsBefore = program.LineNumberAt(result.ErrorLine);
                 context.Debugger.Suspended(waitsBefore);
-                console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
-                if (listsTheBreak)
+
+                // the lines around the stop come first, and what stopped it after them. A program that waits in a module of the workspace is listed, and
+                // said, by that module's own lines.
+                if (waitsBefore is null && await WaitsInAModuleAsync(context) is { } frame)
                 {
-                    await ListAroundAsync(context, waitsBefore);
+                    if (listsTheBreak)
+                    {
+                        await ListAroundInModuleAsync(context, frame.Module, frame.Line);
+                    }
+
+                    console.WriteLine(string.Format(Resources.Repl_Break_InModuleLine, frame.Module, frame.Line + 1));
+                }
+                else
+                {
+                    if (listsTheBreak)
+                    {
+                        await ListAroundAsync(context, waitsBefore);
+                    }
+
+                    console.WriteLine(waitsBefore is { } waiting ? string.Format(Resources.Repl_Break_InLine, waiting) : Resources.Repl_Break);
                 }
 
                 // a breakpoint whose condition could not be evaluated is waited at, and what the condition raised is said with it.
@@ -289,7 +308,14 @@ internal static class ReplExecution
                     string.Join("; ", result.Diagnostics));
                 break;
 
+            // the lines around the statement that raised the error are listed as a break lists the lines around the one it stopped at, and the error is said
+            // after them.
             case ExecutionOutcome.RuntimeError:
+                if (listsTheBreak)
+                {
+                    await ListAroundAsync(context, program.LineNumberAt(result.ErrorLine));
+                }
+
                 RenderRuntimeError(console, program, result);
                 break;
 
@@ -297,11 +323,12 @@ internal static class ReplExecution
             // program wrote - is a break all the same.
             case ExecutionOutcome.Interrupted:
                 var stoppedAt = program.LineNumberAt(result.ErrorLine);
-                console.WriteLine(stoppedAt is { } line ? string.Format(Resources.Repl_Break_InLine, line) : Resources.Repl_Break);
                 if (listsTheBreak)
                 {
                     await ListAroundAsync(context, stoppedAt);
                 }
+
+                console.WriteLine(stoppedAt is { } line ? string.Format(Resources.Repl_Break_InLine, line) : Resources.Repl_Break);
                 break;
 
             case ExecutionOutcome.NotFound:
@@ -328,6 +355,51 @@ internal static class ReplExecution
         var from = context.Program.NumberAt(Math.Max(0, index - around));
         var to = context.Program.NumberAt(Math.Min(context.Program.Count - 1, index + around));
         await ListReplCommand.WriteAsync(context, from, to, current: stopped, withFolds: false, CancellationToken.None);
+    }
+
+    // the activation the program waits in, when it is in a module other than the shell's own: the shell's program is said by its line numbers, a module by its
+    // lines. Nothing when the platform cannot say.
+    private static async Task<DebugStackFrame?> WaitsInAModuleAsync(ReplCommandContext context)
+    {
+        if (!context.Platform.Provides<ProgramDebugging>()
+            || (await context.Platform.GetStackAsync(CancellationToken.None))?.Frames.FirstOrDefault() is not { Line: >= 0 } innermost
+            || string.Equals(innermost.Module, context.Program.Module, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return innermost;
+    }
+
+    // the lines around the one a break stopped at in a module of the workspace, as LIST lists the program, read from the module's file: as many above it and below
+    // it as the setting says. A module the language server cannot find, or a file that cannot be read, lists nothing: the break is said all the same.
+    private static async Task ListAroundInModuleAsync(ReplCommandContext context, string module, int line)
+    {
+        var around = Math.Clamp(context.BreakListingLines, 0, AppOptions.MaximumBreakListingLines);
+        if (around == 0)
+        {
+            return;
+        }
+
+        Uri? document;
+        string[] text;
+        try
+        {
+            document = await context.Platform.FindModuleAsync(module, CancellationToken.None);
+            if (document is not { IsFile: true })
+            {
+                return;
+            }
+
+            text = context.Files.File.ReadAllText(document.LocalPath).Split(["\r\n", "\n"], StringSplitOptions.None);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return;
+        }
+
+        await ListReplCommand.WriteModuleAsync(
+            context, document, text, line - around, line + around, line, context.Debugger.ModuleBreakpoints.Of(module), CancellationToken.None);
     }
 
     // BASIC has always said which line it died on, and so does this: the title carries the program's own

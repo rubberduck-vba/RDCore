@@ -258,6 +258,77 @@ internal static class ModuleWorkspace
         => RunCoreAsync(classes, program, errorsOnly: true, afterLoading: inspect);
 
     /// <summary>
+    /// Loads the workspace like <see cref="LoadErrorsAsync"/>, then runs a procedure of a module of the client's own, which the project does not list
+    /// (<see cref="DefineSymbolsParams.SessionModule"/>), as the language server runs a line a shell attached to the workspace sends: its symbols are bound
+    /// among the project's modules and defined in the session, and the host runs it from its parse.
+    /// </summary>
+    /// <param name="modules">The standard modules of the workspace other than <c>Program</c> (<see cref="StandardModule"/>).</param>
+    /// <param name="program">The source of the <c>Program</c> standard module.</param>
+    /// <param name="moduleName">The name of the client's module.</param>
+    /// <param name="source">The source of the client's module.</param>
+    /// <param name="entryPoint">The procedure of the client's module that is run.</param>
+    /// <param name="debug">Whether it runs under the debugger, as the shell runs a line: a <c>Stop</c> then leaves the program waiting.</param>
+    /// <param name="afterRun">Given what came of the run and the host's session provider, while the session is up: a program that waits is looked at here.</param>
+    /// <returns>What came of the run, whatever it was.</returns>
+    public static async Task<ExecuteResult> RunSessionModuleAsync(
+        IReadOnlyList<(string Name, string Source)> modules, string program, string moduleName, string source, string entryPoint, bool debug = false,
+        Func<ExecuteResult, EnvironmentSessionProvider, Task>? afterRun = null)
+    {
+        ExecuteResult? ran = null;
+        await RunCoreAsync([], program, errorsOnly: true, modules: modules, afterLoading: async sessionProvider =>
+        {
+            var workspaceRoot = Wire.FileUri(Root);
+            var moduleUri = new UriBuilder(workspaceRoot) { Fragment = moduleName }.Uri;
+            var parse = new ModuleParser().Parse(moduleUri, source);
+            Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+            // as SymbolSyncService.SyncModuleAsync binds it: among the project's modules, the client's own added to them.
+            (Uri Uri, ModuleType Type, ModuleParseResult Parse)[] workspace =
+            [
+                .. modules.Append(("Program", program)).Select(module =>
+                {
+                    var uri = Wire.FileUri(Path.Combine(Root, $"{module.Item1}.bas"));
+                    return (new UriBuilder(workspaceRoot) { Fragment = module.Item1 }.Uri, ModuleType.StdModule, new ModuleParser().Parse(uri, module.Item2));
+                }),
+                (moduleUri, ModuleType.StdModule, parse),
+            ];
+            var resolver = WorkspaceSymbolResolver.Compose(workspaceRoot, workspace, new IntrinsicSymbolResolver(), "Project1");
+            var symbols = new SyntaxTreeSymbolProvider(workspaceRoot, moduleUri, ModuleType.StdModule, parse, resolver, withImplicitDeclarations: true).ProvideSymbols();
+            foreach (var declareTypesOnly in new[] { true, false })
+            {
+                await new DefineSymbolsHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<DefineSymbolsHandler>.Instance)
+                    .Handle(Wire.RoundTrip(new DefineSymbolsParams
+                    {
+                        WorkspaceRoot = workspaceRoot,
+                        ModuleUri = moduleUri,
+                        ModuleName = moduleName,
+                        Symbols = SymbolDescriptorProjector.Project(symbols, moduleUri),
+                        Directives = ModuleKinds.DirectivesOf(ModuleType.StdModule, parse.SyntaxTree!.GetModuleDirectives()),
+                        Replace = true,
+                        DeclareTypesOnly = declareTypesOnly,
+                        SessionModule = true,
+                    }), CancellationToken.None);
+            }
+
+            ran = await new HostExecuteHandler(sessionProvider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
+                .Handle(new HostExecuteParams
+                {
+                    Json = PlatformJson.Serialize(new HostExecutePayload(moduleUri, parse)),
+                    ModuleName = moduleName,
+                    EntryPoint = entryPoint,
+                    Debug = debug,
+                }, CancellationToken.None);
+
+            if (afterRun is not null)
+            {
+                await afterRun(ran, sessionProvider);
+            }
+        });
+
+        return ran!;
+    }
+
+    /// <summary>
     /// Loads the workspace like <see cref="LoadErrorsAsync"/>, and gives the model of a module as the host keeps it, before it travels.
     /// </summary>
     /// <param name="classes">The class modules of the workspace.</param>
@@ -298,16 +369,18 @@ internal static class ModuleWorkspace
     /// <param name="releaseDropsDebugStatements">Whether a release build leaves out the <c>Debug</c> statements; it keeps them when omitted.</param>
     /// <param name="modules">The name and the source of each standard module beside <c>Program</c>; none when omitted.</param>
     /// <param name="environment">What else the environment says, given the profile the other arguments make; that profile when omitted.</param>
+    /// <param name="forms">The name, the source and the designer of each form module of the workspace; none when omitted.</param>
     public static Task InspectAsync(
         IReadOnlyList<(string Name, string Source)> classes, string program,
         Func<EnvironmentSessionProvider, ExecuteResult, Func<Task<ExecuteResult>>, Task> inspect, Func<EnvironmentSessionProvider, Task>? cancelWhen = null,
         bool debug = false,
         WorkspaceLibraries? libraries = null, SupportedLanguage? language = null, VBBuildConfiguration configuration = VBBuildConfiguration.Debug,
         VBExecutionEngine? engine = null, bool releaseDropsDebugStatements = false, IReadOnlyList<(string Name, string Source)>? modules = null,
-        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IHostInteractionChannel? interaction = null)
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IHostInteractionChannel? interaction = null,
+        IReadOnlyList<(string Name, string Source, FormDescriptor Designer)>? forms = null)
         => RunCoreAsync(classes, program, errorsOnly: false, language: language, inspect: inspect, cancelWhen: cancelWhen, debug: debug, libraries: libraries,
             configuration: configuration, engine: engine, releaseDropsDebugStatements: releaseDropsDebugStatements, modules: modules, environment: environment,
-            interaction: interaction);
+            interaction: interaction, forms: forms);
 
     /// <summary>
     /// A task that completes once the program runs, as the session's execution says when its state changes: for <c>cancelWhen</c>, a break of a program that runs.

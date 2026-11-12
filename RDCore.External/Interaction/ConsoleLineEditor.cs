@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace RDCore.CLI.App.Console;
+namespace RDCore.External.Interaction;
 
 /// <summary>
 /// What a key did to a <see cref="ConsoleLineEditor"/>.

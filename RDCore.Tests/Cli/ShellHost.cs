@@ -84,8 +84,8 @@ internal sealed class ShellHost
     /// <summary>
     /// Runs a line typed at the prompt, the way the shell does: the program and the line, as a second procedure of the module.
     /// </summary>
-    public Task<ExecuteResult> ImmediateAsync(IEnumerable<(int Number, string Statement)> lines, string statement, bool alongside = false)
-        => ExecuteAsync(Program(lines).ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, debug: false, immediate: alongside);
+    public Task<ExecuteResult> ImmediateAsync(IEnumerable<(int Number, string Statement)> lines, string statement, bool alongside = false, bool debug = false)
+        => ExecuteAsync(Program(lines).ToImmediateModuleSource(statement), ReplProgram.ImmediateEntryPointName, debug: debug, immediate: alongside);
 
     /// <summary>
     /// Takes the program's module out of the session (<c>rdcore/host/discard</c>).
