@@ -91,9 +91,10 @@ internal enum ExtractionParameterProblemKind
 /// <summary>
 /// What is wrong with the user's answers for a parameter.
 /// </summary>
-/// <param name="Kind">What.</param>
+/// <param name="Kind">What is wrong.</param>
 /// <param name="Parameter">The parameter: the name of the variable it is given.</param>
-/// <param name="Name">The name the user gave it, or the passing, when the problem is of either.</param>
+/// <param name="Name">The name or the passing the user gave it, when the problem is of either; for
+/// <see cref="ExtractionParameterProblemKind.OptionalBeforeRequired"/>, the parameter that is not <c>Optional</c>.</param>
 internal sealed record class ExtractionParameterProblem(ExtractionParameterProblemKind Kind, string Parameter, string? Name = null)
 {
     private static readonly ResourceManager Messages = new("RDCore.LanguageServer.Services.Refactoring.ExtractMethod.ExtractMethodMessages", typeof(ExtractionParameterProblem).Assembly);
@@ -114,8 +115,8 @@ internal sealed record class ExtractionParameterProblem(ExtractionParameterProbl
 /// </summary>
 /// <remarks>
 /// <para>
-/// A parameter the selection only reads is passed by value, and can be passed by reference: the new procedure does not write it, or writes it with a value that
-/// is never read after. One the plan passes by reference stays so (MS-VBAL §5.3.1.5): passing it by value would lose what it writes, or VBA passes it by
+/// A parameter the plan passes by value can be passed by reference: the new procedure does not write it, or writes it with a value that is never read after.
+/// One the plan passes by reference stays so (MS-VBAL §5.3.1.5): passing it by value would lose what it writes, or VBA passes it by
 /// reference only.
 /// </para>
 /// <para>

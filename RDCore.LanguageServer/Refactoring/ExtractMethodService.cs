@@ -58,7 +58,7 @@ internal sealed record class ExtractMethodAnswer(RefactorWorkspaceEdit? Edit, st
 /// <para>
 /// It asks the name of the new procedure, the variable it returns as a <c>Function</c> when the selection gives any back, and whether the exits of a selection
 /// that leaves the procedure, or a loop or a block around it, are routed; it shows the parameters and why each is passed as it is, which the user renames,
-/// reorders, and passes by reference where they are passed by value (<see cref="ExtractionParameters"/>). Each behaviour change of the extraction is a change
+/// reorders, and passes by reference where they are passed by value (<see cref="ExtractionParameters"/>). Each behavior change of the extraction is a change
 /// the user accepts, or a note.
 /// </para>
 /// <para>
@@ -94,7 +94,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
     /// <summary>
     /// The id of the choice of how a parameter is passed, <c>ByVal</c> or <c>ByRef</c>, among the choices of an item of <see cref="ParametersChoice"/>: only a
-    /// parameter the selection only reads has it.
+    /// parameter whose passing is the user's to choose has it (<see cref="ExtractionParameters.PassingIsAChoice"/>).
     /// </summary>
     public const string ParameterPassingChoice = "passing";
 
