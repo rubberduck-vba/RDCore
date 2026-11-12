@@ -142,7 +142,7 @@ namespace RDCore.LanguageServer.Debugging {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to This place on the stack is not code of the program: it has no variables, and nothing is evaluated there..
+        ///   Looks up a localized string similar to This entry of the call stack is not the program&apos;s code: it has no variables, and nothing can be evaluated there..
         /// </summary>
         internal static string FrameIsNotCode {
             get {

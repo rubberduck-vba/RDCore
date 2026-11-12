@@ -106,7 +106,7 @@
     <value>&lt;Non-Basic Code&gt;</value>
   </data>
   <data name="FrameIsNotCode" xml:space="preserve">
-    <value>This place on the stack is not code of the program: it has no variables, and nothing is evaluated there.</value>
+    <value>This entry of the call stack is not the program's code: it has no variables, and nothing can be evaluated there.</value>
   </data>
   <data name="ExpressionHasNoValue" xml:space="preserve">
     <value>the expression has no value</value>

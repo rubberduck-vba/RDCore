@@ -65,8 +65,8 @@ internal sealed class SessionForms
     private RDCore.External.Forms.IFormHost? _host;
 
     /// <summary>
-    /// Hides every loaded form of the session that is shown, as a program that ends does - an <c>End</c> in a handler of one of their events, or a debugger that ended
-    /// the program there: the modal form the program waits for returns from its <c>Show</c>, and the program goes on to its end.
+    /// Hides every loaded form of the session that is shown, as a program that ends does (an <c>End</c> in a handler of one of their events, or a debugger that ended
+    /// the program there): the modal form the program waits for returns from its <c>Show</c>, and the program goes on to its end.
     /// </summary>
     /// <remarks>
     /// Hiding runs none of the program's code: no <c>QueryClose</c>, no <c>Deactivate</c>; the events the forms raise as they go find a program that is ending.
