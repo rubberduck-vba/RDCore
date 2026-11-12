@@ -1,4 +1,5 @@
 using RDCore.Runtime.Support.Build;
+using RDCore.SDK.Runtime.Libraries;
 using System.IO.Abstractions;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
@@ -14,7 +15,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
     public bool IsTaken(string program)
         => fileSystem.File.Exists(fileSystem.Path.Combine(runtimeFolder, $"{program}.dll")) || string.Equals(program, RdcName, StringComparison.OrdinalIgnoreCase);
 
-    public string? Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime)
+    public string? Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime, IReadOnlyList<LibraryDescription> libraries)
     {
         _ = fileSystem.Directory.CreateDirectory(folder);
         var dll = $"{program}.dll";
@@ -22,6 +23,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         fileSystem.File.WriteAllBytes(fileSystem.Path.Combine(folder, $"{program}.pdb"), pdb);
         fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, $"{program}.runtimeconfig.json"), RuntimeConfiguration());
         CopyRuntime(folder, RuntimeClosure([SupportName, .. ReferencesOf(assembly)]));
+        WriteLibraries(fileSystem.Path.Combine(folder, BuiltProgram.LibrariesFolder), libraries);
 
         if (host is null)
         {
@@ -36,6 +38,30 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         }
 
         return executable;
+    }
+
+    // the libraries the program's project references, described as the platform describes them, one file each by its name: what the program's session
+    // reads where the platform's are not. A library an earlier build of the folder wrote, and that the project no longer references, is not left there.
+    private void WriteLibraries(string symbols, IReadOnlyList<LibraryDescription> libraries)
+    {
+        if (fileSystem.Directory.Exists(symbols))
+        {
+            foreach (var stale in fileSystem.Directory.EnumerateFiles(symbols, "*" + DirectoryLibrarySource.Extension).ToArray())
+            {
+                fileSystem.File.Delete(stale);
+            }
+        }
+
+        if (libraries.Count == 0)
+        {
+            return;
+        }
+
+        _ = fileSystem.Directory.CreateDirectory(symbols);
+        foreach (var library in libraries)
+        {
+            fileSystem.File.WriteAllText(fileSystem.Path.Combine(symbols, library.Name + DirectoryLibrarySource.Extension), LibraryJson.Write(library));
+        }
     }
 
     // what .NET runs the program on: what it runs rdc on, as rdc's own runtime configuration says, so the runtime's assemblies find what they were built

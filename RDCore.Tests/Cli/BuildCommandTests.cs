@@ -204,7 +204,9 @@ public sealed class BuildCommandTests
             var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, "Hello.dll"))));
             var output = new StringWriter();
             var error = new StringWriter();
-            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None);
+            // the libraries the program reads from its own folder: the one it was built to, and not the folder the test runs it from.
+            var own = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, Path.Combine(folder, BuiltProgram.LibrariesFolder));
+            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None, libraries: own);
             return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(),
                 error.ToString());
         }
@@ -444,7 +446,6 @@ public sealed class BuildCommandTests
     // program loads has the controls that file describes, as rdc run's has.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    [Ignore("a built program has none of the libraries its project references (MSForms, stdole): its session reads them from no folder, and its image holds none")]
     public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsUserFormTheControlsItsCompanionFileDescribes()
     {
         CompiledExecutionTests.RequirePayloads();
@@ -466,6 +467,9 @@ public sealed class BuildCommandTests
 
         Assert.AreEqual(0, built.Exit, built.Error);
         CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+        var symbols = Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime, BuiltProgram.LibrariesFolder);
+        CollectionAssert.IsSubsetOf(new[] { "MSForms.json", "stdole.json" },
+            fileSystem.Directory.GetFiles(symbols).Select(Path.GetFileName).ToArray(), "the program's folder holds the libraries its project references");
     }
 
     [TestMethod]
