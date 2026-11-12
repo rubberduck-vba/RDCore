@@ -64,6 +64,20 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         return ranges is null ? [] : [.. ranges.Where(range => range.Kind is null).Select(range => new ReplFold(range.StartLine, range.EndLine))];
     }
 
+    /// <inheritdoc/>
+    public async Task<Uri?> FindModuleAsync(string moduleName, CancellationToken token)
+    {
+        // a module is a symbol of its document that is declared in nothing; what a module declares is named with the module it is declared in.
+        var symbols = await client.SendRequestAsync<WorkspaceSymbolParams, Container<WorkspaceSymbol>?>(new WorkspaceSymbolParams { Query = moduleName }, token);
+        var module = symbols?.FirstOrDefault(symbol => symbol.ContainerName is null && string.Equals(symbol.Name, moduleName, StringComparison.OrdinalIgnoreCase));
+        return module?.Location switch
+        {
+            { IsLocation: true, Location: { } location } => location.Uri.ToUri(),
+            { IsFileLocation: true, FileLocation: { } file } => file.Uri.ToUri(),
+            _ => null,
+        };
+    }
+
     // the end of the range is a line past any program: int.MaxValue overflows the line shift of the header the program is listed under.
     private const int WholeProgramLines = 100_000;
 
@@ -186,7 +200,9 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         }, token);
 
     // the shell's program is its own module, of the session: the project of a workspace the shell is attached to does not list it (SessionExecuteParams.SessionModule).
-    private static bool IsProgram(string moduleName) => string.Equals(moduleName, ReplProgram.ModuleName, StringComparison.OrdinalIgnoreCase);
+    private static bool IsProgram(string moduleName)
+        => string.Equals(moduleName, ReplProgram.ModuleName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(moduleName, ReplProgram.ImmediateModuleName, StringComparison.OrdinalIgnoreCase);
 
     /// <inheritdoc/>
     public Task<ExecuteResult> ResumeAsync(StepKind? step, CancellationToken token)

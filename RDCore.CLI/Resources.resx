@@ -295,8 +295,21 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Repl_SyntaxError" xml:space="preserve">
     <value>SYNTAX ERROR</value>
   </data>
+  <data name="Repl_NoProgramInWorkspace" xml:space="preserve">
+    <value>NO PROGRAM ERROR</value>
+  </data>
+  <data name="Repl_NoProgramInWorkspace_Verbose" xml:space="preserve">
+    <value>With a workspace, the shell runs statements in its project. The numbered program, and the commands that work on it, are for the shell without a workspace.</value>
+  </data>
   <data name="Repl_UndefinedLine" xml:space="preserve">
     <value>UNDEF'D LINE ERROR</value>
+  </data>
+  <data name="Repl_UndefinedModule" xml:space="preserve">
+    <value>UNDEF'D MODULE ERROR</value>
+  </data>
+  <data name="Repl_Breakpoint_NoStatement" xml:space="preserve">
+    <value>NO STATEMENT AT {0}</value>
+    <comment>{0} is where the breakpoint is: a module and its line, such as Other 9.</comment>
   </data>
   <data name="Repl_NotAvailable" xml:space="preserve">
     <value>NOT AVAILABLE ERROR</value>
@@ -309,6 +322,10 @@ Long Live the Cucumber (Latin)</comment>
   </data>
   <data name="Repl_Break_InLine" xml:space="preserve">
     <value>BREAK IN {0}</value>
+  </data>
+  <data name="Repl_Break_InModuleLine" xml:space="preserve">
+    <value>BREAK IN {0} LINE {1}</value>
+    <comment>{0} is the name of the module the program waits in, {1} the line of the module.</comment>
   </data>
   <data name="Repl_HelpHint" xml:space="preserve">
     <value>Type HELP for a list of commands.</value>
@@ -401,7 +418,7 @@ Long Live the Cucumber (Latin)</comment>
     <value>Clears the console content.</value>
   </data>
   <data name="Repl_Break_Summary" xml:space="preserve">
-    <value>Sets or clears a breakpoint at a line (BREAK 40), or sets one that waits on a condition (BREAK 40 I &gt; 5). BREAK TOGGLE 40 disables or enables it. BREAK alone lists them, BREAK CLEAR removes them all.</value>
+    <value>Sets or clears a breakpoint at a line (BREAK 40), or sets one that waits on a condition (BREAK 40 I &gt; 5). BREAK TOGGLE 40 disables or enables it. BREAK alone lists them, BREAK CLEAR removes them all. On a workspace, a breakpoint is on a line of a module: BREAK Other 9.</value>
   </data>
   <data name="Repl_Cont_Summary" xml:space="preserve">
     <value>Continues the program that was stopped, from where it stopped or from a line (CONT 200).</value>

@@ -18,12 +18,16 @@ internal static class ReplIndentation
     /// <param name="options">The shell's settings, read each time the program is indented.</param>
     /// <param name="liveSettings">The shell's live settings: the program is indented again when they change; never, without them.</param>
     /// <param name="logger">Where a program that cannot be indented is logged.</param>
-    public static ReplProgram Program(IOptions<SdkAppOptions> options, ILiveSettings? liveSettings, ILogger? logger)
+    /// <param name="attachedToWorkspace">Whether the shell is attached to a workspace of the user's (<see cref="ReplProgram.AttachedToWorkspace"/>).</param>
+    public static ReplProgram Program(IOptions<SdkAppOptions> options, ILiveSettings? liveSettings, ILogger? logger, bool attachedToWorkspace = false)
     {
         var parser = new ModuleParser();
         var program = new ReplProgram(
             statements => ProgramIndenter.Indent(statements, text => parser.Parse(ReplProgram.IndentedModuleUri, text), options.Value.Formatting.ToOptions()),
-            exception => logger?.LogWarning(exception, "⚠️ The program could not be indented; its lines are kept as they were typed."));
+            exception => logger?.LogWarning(exception, "⚠️ The program could not be indented; its lines are kept as they were typed."))
+        {
+            AttachedToWorkspace = attachedToWorkspace,
+        };
         if (liveSettings is not null)
         {
             liveSettings.Changed += (_, _) => program.IndentationChanged();

@@ -21,6 +21,14 @@ The shell runs what you type. A line with no line number runs right away: `Debug
 the _current program_: `10 Debug.Print "Hello"`. The current program is the body of an implicit procedure named `Main`, in an implicit module named
 `Program`. It stays in memory until `NEW`, `LOAD` or `EXIT`.
 
+On a workspace (`rdc --workspace <path>`), the shell runs each line in the workspace's project: `Main`, `Program.Main` and the other public procedures
+of the project can be called from the prompt. There is no current program. A numbered line, and the commands that work on the program (`LIST`,
+`FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, and `CONT` to a line), answer `NO PROGRAM ERROR`.
+
+On a workspace, `BREAK` takes a module and a line of its file: `BREAK Other 9`, `BREAK Other 9 I > 5`, `BREAK TOGGLE Other 9`. `BREAK` alone lists them
+as `Other 9`, and `BREAK CLEAR` removes them all. A module the workspace does not have answers `UNDEF'D MODULE ERROR`, and a line no statement begins on
+answers `NO STATEMENT AT Other 9`.
+
 The shell's language is RDCore BASIC: a variable one line assigns is the one the next line reads, without a `Dim`, and `Print` alone is a statement.
 
 |Command|What it does|
@@ -46,14 +54,20 @@ The shell's language is RDCore BASIC: a variable one line assigns is the one the
 |`MEMORY`, `PEEK <address>`, `POKE <address>, <byte>`|Shows a summary of the session's memory, reads a byte of it, or writes one.|
 |`EXIT`|Ends the session and exits. `BYE` and `QUIT` do the same.|
 
-`Ctrl+C` stops a running program. At a stop (a `Stop` statement, a breakpoint, a step or `Ctrl+C`) the shell says `BREAK IN` and the line number, and
-lists the two lines above it and the two below it, with the stopped line highlighted. `CONFIG CLI.BreakListingLines` sets how many lines are listed on
-each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's immediate pane, and edit the program
-before you go on.
+`Ctrl+C` stops a running program. At a stop (a `Stop` statement, a failed `Debug.Assert`, a breakpoint or `Ctrl+C`) the shell lists the two lines above
+the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. At a run-time error in the program,
+the shell lists the lines around the statement that raised it the same way, then shows the error. A step lists nothing: it says only `BREAK IN` and the
+line number, and shows a run-time error it raises without the lines around it. `CONFIG CLI.BreakListingLines`
+sets how many lines are listed on each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's
+immediate pane, and edit the program before you go on.
+
+A line typed at the prompt runs under the debugger as `RUN` does: a `Stop` or a breakpoint in the code it calls stops it there, and `STACK` shows the
+line's own procedure under the one that stopped. A stop in a module of a workspace lists the module's lines around it as `LIST` lists the program, then
+says `BREAK IN`, the module and its line.
 
 > [!NOTE]
-> The shell is a way to try the platform. It does not handle a project with more than one procedure scope, or BASIC-style line numbers in your own
-> modules.
+> The shell is a way to try the platform. Its current program is a single procedure: a project with more procedures runs in the shell on a workspace.
+> The shell does not handle BASIC-style line numbers in your own modules.
 
 ---
 ## Commands

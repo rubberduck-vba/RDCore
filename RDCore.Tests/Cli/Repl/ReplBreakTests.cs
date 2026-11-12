@@ -11,8 +11,8 @@ using System.IO.Abstractions.TestingHelpers;
 namespace RDCore.Tests.Cli.Repl;
 
 /// <summary>
-/// A program that was stopped - by a <c>STOP</c>, or by a break at the keyboard - says where, as BASIC has always done, in the lines the program was typed in;
-/// and lists the lines around that one, with it marked as the statement the program waits before.
+/// A program that was stopped - by a <c>STOP</c>, or by a break at the keyboard - lists the lines around the one it stopped at, with it marked as the statement
+/// the program waits before; then says where, as BASIC has always done, in the lines the program was typed in.
 /// </summary>
 [TestClass]
 public sealed class ReplBreakTests
@@ -168,19 +168,36 @@ public sealed class ReplBreakTests
         }
     }
 
+    // the code first, then what stopped it.
+    private void AssertListedBeforeSaid(int number)
+    {
+        var calls = _console.ReceivedCalls().ToList();
+        var said = calls.FindIndex(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteLine)
+            && call.GetArguments() is [string text] && text == string.Format(Resources.Repl_Break_InLine, number));
+        var listed = calls.FindLastIndex(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteListingLine));
+        Assert.IsGreaterThanOrEqualTo(0, said, $"BREAK IN {number} was said");
+        Assert.IsGreaterThanOrEqualTo(0, listed, "the lines were listed");
+        Assert.IsLessThan(said, listed, "the listing comes before it");
+    }
+
     [TestMethod]
-    public async Task ABreak_ListsTheLines_AfterItSaysWhereItStopped()
+    public async Task ABreak_ListsTheLines_BeforeItSaysWhereItStopped()
     {
         StoreSevenLines();
 
         await RunAsync(InterruptedAt(40));
 
-        var calls = _console.ReceivedCalls().ToList();
-        var said = calls.FindIndex(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteLine)
-            && call.GetArguments() is [string text] && text == string.Format(Resources.Repl_Break_InLine, 40));
-        var listed = calls.FindIndex(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteListingLine));
-        Assert.IsGreaterThanOrEqualTo(0, said, "BREAK IN 40 was said");
-        Assert.IsGreaterThan(said, listed, "the listing follows it");
+        AssertListedBeforeSaid(40);
+    }
+
+    [TestMethod]
+    public async Task AProgramThatWaits_ListsTheLines_BeforeItSaysWhereItWaits()
+    {
+        StoreSevenLines();
+
+        await RunUnderTheDebuggerAsync(SuspendedAt(30));
+
+        AssertListedBeforeSaid(30);
     }
 
     // under a debugger the program waits where it stopped: at a STOP, a breakpoint or a break at the keyboard, which the platform answers alike.

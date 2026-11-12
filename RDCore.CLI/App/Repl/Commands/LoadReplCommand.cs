@@ -14,6 +14,7 @@ internal sealed class LoadReplCommand(IFileSystem fileSystem) : IReplCommand
 {
     public string Name => ReplCommandNames.Load;
     public IReadOnlyList<string> Aliases => [];
+    public bool WorksOnTheProgram => true;
     public string Summary => Resources.Repl_Load_Summary;
 
     public async Task<ReplCommandResult> ExecuteAsync(ReplCommandContext context, string arguments, CancellationToken token)
