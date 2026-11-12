@@ -157,4 +157,19 @@ public sealed class ShellErrorBreakTests
         Assert.AreEqual(("Divide", "Other"), (innermost!.Procedure, innermost.Module));
         Assert.AreEqual(Array.FindIndex(other.Split("\r\n"), line => line.Trim() == "X = 1 / 0"), innermost.Line);
     }
+
+    [TestMethod]
+    public async Task AProgramThatWaitsAtAnErrorInAModuleOfTheWorkspace_EndedByAnEnd_IsOver()
+    {
+        var other = ModuleWorkspace.StandardModule("Other", "Public Sub Divide()", "    Dim X As Double", "    X = 1 / 0", "End Sub");
+        var shell = new ReplProgram { AttachedToWorkspace = true };
+        DebugEvaluateResult? ended = null;
+
+        var stopped = await ModuleWorkspace.RunSessionModuleAsync(
+            [("Other", other)], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n", shell.Module, shell.ToImmediateModuleSource("Divide"), shell.ImmediateEntryPoint,
+            debug: true, errorBreak: ErrorBreakMode.Unhandled, afterRun: async (_, provider) => ended = await TypeAsync(provider, "End"));
+
+        Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+        Assert.IsTrue(ended!.EndedTheProgram, ended.Error);
+    }
 }
