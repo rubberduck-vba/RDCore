@@ -249,7 +249,7 @@ public sealed class BuildCommandTests
         Assert.AreEqual(string.Empty, run.Error);
     }
 
-    // a LongPtr field of a class's record, behind its Property Get and Let (the shape of OOPBattleship's WeakReference.Address): compiled by the build,
+    // a LongPtr field of a class's record, behind its Property Get and Let (the shape of a weak reference's Address): compiled by the build,
     // in either configuration, and run.
     [TestMethod]
     [DataRow("Debug")]

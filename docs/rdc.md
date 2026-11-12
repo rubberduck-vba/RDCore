@@ -113,7 +113,8 @@ The exit code says how the run went:
 
 ### Building a program
 
-`rdc build` compiles the workspace into a program that runs without RDCore's parser. It needs the same entry point as `rdc run`.
+`rdc build` compiles the workspace into a program that runs without RDCore's parser, and without the workspace's sources: the program runs from its own folder,
+wherever it is. It needs the same entry point as `rdc run`.
 
 |Option|What it does|
 |---|---|
@@ -123,6 +124,10 @@ The exit code says how the run went:
 |`-r`, `--runtime`|The platform the program is built for, such as `win-x64` or `linux-x64`; the one `rdc` runs on by default.|
 
 The program shows its dialogs as `rdc run` does, and its exit code says how it ran, as `rdc run`'s does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+
+> [!NOTE]
+> **Not implemented.** A built program makes no call to the outside world (a `Declare`d procedure, an automation server's object): those calls are made by
+> `rdc`, which the program's folder does not hold.
 
 ### Installing the platform
 
