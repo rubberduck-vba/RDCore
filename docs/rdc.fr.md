@@ -58,8 +58,9 @@ une instruction.
 
 `Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un `Debug.Assert` qui échoue, un point d'arrêt ou `Ctrl+C`),
 le _shell_ liste les deux lignes au-dessus de la ligne de l'arrêt et les deux au-dessous, la ligne de l'arrêt étant mise en évidence, puis affiche
-`INTERRUPTION À LA LIGNE` et le numéro de ligne. Un pas affiche seulement `INTERRUPTION À LA LIGNE`. Une erreur d'exécution dans le programme est listée
-de la même façon, autour de l'instruction qui l'a déclenchée, avant que l'erreur soit affichée. `CONFIG CLI.BreakListingLines` fixe combien de lignes
+`INTERRUPTION À LA LIGNE` et le numéro de ligne. Lors d'une erreur d'exécution dans le programme, le _shell_ liste de la même façon les
+lignes autour de l'instruction qui l'a déclenchée, puis affiche l'erreur. Un pas ne liste rien : il affiche seulement `INTERRUPTION À LA LIGNE` et le
+numéro de ligne, et affiche une erreur d'exécution qu'il déclenche sans les lignes qui l'entourent. `CONFIG CLI.BreakListingLines` fixe combien de lignes
 sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme
 dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
 

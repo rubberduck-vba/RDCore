@@ -10,8 +10,8 @@ using RDCore.SDK.Platform.Protocol;
 namespace RDCore.Tests.Cli.Repl;
 
 /// <summary>
-/// A run-time error the shell's program raises is said as it always was, then the lines around the statement that raised it are listed as a break lists them:
-/// two above and two below, as many as the program has, with that statement marked as the current one and the breakpoints marked in the margin.
+/// Before a run-time error the shell's program raises is said, the lines around the statement that raised it are listed as a break lists them: two above and
+/// two below, as many as the program has, with that statement marked as the current one and the breakpoints marked in the margin.
 /// </summary>
 [TestClass]
 public sealed class ReplErrorListingTests
@@ -77,7 +77,7 @@ public sealed class ReplErrorListingTests
                 (ReplLineStyle)call.GetArguments()[2]!))];
 
     [TestMethod]
-    public async Task ARunTimeError_IsSaid_ThenTheLinesAroundTheStatementThatRaisedItAreListed_WithItMarkedAsTheCurrentStatement()
+    public async Task ARunTimeError_ListsTheLinesAroundTheStatementThatRaisedIt_WithItMarkedAsTheCurrentStatement_ThenIsSaid()
     {
         RaisesAt(40);
 
@@ -86,7 +86,7 @@ public sealed class ReplErrorListingTests
         var calls = _console.ReceivedCalls().Select(call => call.GetMethodInfo().Name).ToList();
         var said = _console.ReceivedCalls().ToList().FindIndex(call => call.GetMethodInfo().Name == nameof(IReplConsole.WriteMessage)
             && Equals(call.GetArguments()[1], string.Format(RDCore.CLI.Resources.Repl_RuntimeError_InLine, "RUN-TIME ERROR", 40)));
-        Assert.IsTrue(said >= 0, "the error is said as it was");
+        Assert.IsTrue(said >= 0, "the error is said");
         Assert.IsTrue(calls.LastIndexOf(nameof(IReplConsole.WriteListingLine)) is var listedLast && listedLast >= 0 && listedLast < said, "the listing comes first, then the error");
 
         var listed = Listed();

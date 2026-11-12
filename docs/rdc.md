@@ -55,8 +55,9 @@ The shell's language is RDCore BASIC: a variable one line assigns is the one the
 |`EXIT`|Ends the session and exits. `BYE` and `QUIT` do the same.|
 
 `Ctrl+C` stops a running program. At a stop (a `Stop` statement, a failed `Debug.Assert`, a breakpoint or `Ctrl+C`) the shell lists the two lines above
-the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. A step says only `BREAK IN`. A
-run-time error in the program is listed the same way, around the statement that raised it, before the error is shown. `CONFIG CLI.BreakListingLines`
+the stopped line and the two below it, with the stopped line highlighted, then says `BREAK IN` and the line number. At a run-time error in the program,
+the shell lists the lines around the statement that raised it the same way, then shows the error. A step lists nothing: it says only `BREAK IN` and the
+line number, and shows a run-time error it raises without the lines around it. `CONFIG CLI.BreakListingLines`
 sets how many lines are listed on each side, from the next start of the shell; `0` lists none. At a stop you can type statements as in the VBIDE's
 immediate pane, and edit the program before you go on.
 
