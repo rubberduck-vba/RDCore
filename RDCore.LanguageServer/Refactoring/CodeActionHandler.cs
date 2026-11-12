@@ -199,7 +199,8 @@ internal sealed class CodeActionHandler(
             };
         }
 
-        if ((await extractMethod.ApplyAsync(documentUri, range, [], [], token)).Edit is not { } edit || ForTheClient(LspEditOf(edit)) is not { } applicable)
+        var answer = await extractMethod.ApplyAsync(documentUri, range, DefaultAnswers(), [], token);
+        if (answer.Edit is null || ForTheClient(LspEditOf(answer)) is not { } applicable)
         {
             return null;
         }
@@ -220,7 +221,7 @@ internal sealed class CodeActionHandler(
         var range = new SourceRange(lspRange.Start.Line, lspRange.Start.Character, lspRange.End.Line, lspRange.End.Character);
         int? version = offered["version"] is { Type: JTokenType.Integer } number ? number.Value<int>() : null;
 
-        var answer = await extractMethod.ApplyAsync(DocumentUri.From(uri).ToUri(), range, [], [], token);
+        var answer = await extractMethod.ApplyAsync(DocumentUri.From(uri).ToUri(), range, DefaultAnswers(), [], token);
         var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? ExtractMethodService.DocumentChanged() : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
@@ -229,7 +230,7 @@ internal sealed class CodeActionHandler(
 
         try
         {
-            return new CodeAction { Title = action.Title, Kind = RefactorExtractMethod, Data = action.Data, Edit = LspEditOf(answer.Edit).For(_client) };
+            return new CodeAction { Title = action.Title, Kind = RefactorExtractMethod, Data = action.Data, Edit = LspEditOf(answer).For(_client) };
         }
         catch (WorkspaceEditNotSupportedException unsupported)
         {
@@ -237,19 +238,40 @@ internal sealed class CodeActionHandler(
         }
     }
 
-    // a refactoring's edit as LSP writes it: the edits of each document, of the version the client said it last.
-    private static WorkspaceEdit LspEditOf(RefactorWorkspaceEdit edit) => new()
+    // what a client with no dialog extracts with: the defaults, but for the duplicates, which the user confirms each of where the client asks for change
+    // annotations, and which are not replaced where it cannot.
+    private IReadOnlyList<RefactorAnswer> DefaultAnswers()
+        => _client.TakesChangeAnnotations() ? [] : [new RefactorAnswer { Id = ExtractMethodService.ReplaceDuplicatesChoice, Value = "false" }];
+
+    // an extraction's edit as LSP writes it: the edits of each document, of the version the client said it last; those that replace a duplicate of the
+    // selection are annotated as changes the user confirms, one annotation for each duplicate.
+    private static WorkspaceEdit LspEditOf(ExtractMethodAnswer answer)
     {
-        DocumentChanges = new Container<WorkspaceEditDocumentChange>(edit.Documents.Select(document => new WorkspaceEditDocumentChange(new TextDocumentEdit
+        ChangeAnnotationIdentifier? AnnotationOf(Uri document, SourceRange range)
+            => answer.Replacements.FirstOrDefault(replacement => replacement.Document.AbsoluteUri == document.AbsoluteUri && replacement.Ranges.Contains(range)) is { } replaced
+                ? (ChangeAnnotationIdentifier)replaced.Id
+                : null;
+
+        return new WorkspaceEdit
         {
-            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(document.Uri!), Version = document.Version },
-            Edits = new TextEditContainer(document.Edits.Select(each => new TextEdit
+            DocumentChanges = new Container<WorkspaceEditDocumentChange>(answer.Edit!.Documents.Select(document => new WorkspaceEditDocumentChange(new TextDocumentEdit
             {
-                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(each.Range.Start.Line, each.Range.Start.Character, each.Range.End.Line, each.Range.End.Character),
-                NewText = each.NewText,
-            })),
-        }))),
-    };
+                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(document.Uri!), Version = document.Version },
+                Edits = new TextEditContainer(document.Edits.Select(each =>
+                {
+                    var range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(each.Range.Start.Line, each.Range.Start.Character, each.Range.End.Line, each.Range.End.Character);
+                    return AnnotationOf(document.Uri!, each.Range) is { } annotation
+                        ? new AnnotatedTextEdit { Range = range, NewText = each.NewText, AnnotationId = annotation }
+                        : new TextEdit { Range = range, NewText = each.NewText };
+                })),
+            }))),
+            ChangeAnnotations = answer.Replacements.Count == 0
+                ? null
+                : answer.Replacements.ToDictionary(
+                    replacement => (ChangeAnnotationIdentifier)replacement.Id,
+                    replacement => new ChangeAnnotation { Label = replacement.Label, NeedsConfirmation = true }),
+        };
+    }
 
     // the edit as the client applies it; an action whose edit the client can't apply is not offered - the rename command, which says why, still is.
     private WorkspaceEdit? ForTheClient(WorkspaceEdit edit)

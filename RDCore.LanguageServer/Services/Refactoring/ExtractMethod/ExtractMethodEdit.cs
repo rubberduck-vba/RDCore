@@ -34,9 +34,31 @@ internal enum ExtractionTextEditKind
     Procedure,
 
     /// <summary>
-    /// The <c>Private Enum</c> of the exit codes, before the module's first procedure.
+    /// The <c>Enum</c> of the exit codes, before the module's first procedure.
     /// </summary>
     Enumeration,
+
+    /// <summary>
+    /// A call that replaces a duplicate of the selection (<see cref="ExtractionDuplicate"/>).
+    /// </summary>
+    Replacement,
+}
+
+/// <summary>
+/// How far the new procedure is seen.
+/// </summary>
+internal enum ExtractionAccessibility
+{
+    /// <summary>
+    /// <c>Private</c>: in its module only. The default.
+    /// </summary>
+    Private,
+
+    /// <summary>
+    /// <c>Public</c>: in the project, for a procedure of a standard module; for a member of a class module, through each of its objects. The <c>Enum</c> of its
+    /// exit codes is <c>Public</c> too, and the project's: a public member's type is never a private one.
+    /// </summary>
+    Public,
 }
 
 /// <summary>
@@ -80,6 +102,11 @@ internal sealed record class ExtractionChoices(string Name)
     /// as <see cref="ExtractionParameters.InDeclarationOrder"/> puts them.
     /// </summary>
     public ImmutableArray<ExtractionParameterChoice> Parameters { get; init; } = [];
+
+    /// <summary>
+    /// How far the new procedure is seen; <see cref="ExtractionAccessibility.Private"/> by default.
+    /// </summary>
+    public ExtractionAccessibility Accessibility { get; init; }
 }
 
 /// <summary>
@@ -109,7 +136,7 @@ internal enum ExtractionEditRefusalKind
 /// <param name="Edits">The edits of the module, in the order of the text, none of which overlaps another; empty when <see cref="Refusal"/> says why.</param>
 /// <param name="Procedure">The new procedure, as it is inserted after the source procedure.</param>
 /// <param name="Call">What replaces the selection: the declarations that stay in the source, and the call.</param>
-/// <param name="Enumeration">The <c>Private Enum</c> of the exit codes, inserted before the module's first procedure; <see langword="null"/> when there is none.</param>
+/// <param name="Enumeration">The <c>Enum</c> of the exit codes, inserted before the module's first procedure; <see langword="null"/> when there is none.</param>
 /// <param name="Refusal">Why nothing is written, when nothing is.</param>
 internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> Edits, string Procedure, string Call, string? Enumeration, ExtractionEditRefusalKind? Refusal)
 {
@@ -170,8 +197,8 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
 }
 
 /// <summary>
-/// Writes the extraction a plan says: the new procedure, <c>Private</c>, after the source procedure; the call that replaces the selection; the declarations that
-/// move; and the routing of the exits.
+/// Writes the extraction a plan says: the new procedure, <c>Private</c> or <c>Public</c> as the user chose, after the source procedure; the call that replaces the
+/// selection; the declarations that move; and the routing of the exits.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -183,10 +210,10 @@ internal sealed record class ExtractionEdit(ImmutableArray<ExtractionTextEdit> E
 /// </para>
 /// <para>
 /// The call is <c>Name a, b</c>, never <c>Name (a)</c>, which passes a copy; or <c>x = Name(a, b)</c>, <c>Set</c> for an object. A selection that leaves the source
-/// procedure, or a loop or a block around it, returns a code: <c>True</c> for one exit, a member of a <c>Private Enum</c> for several. The call site goes where
-/// the code says. An <c>On…GoTo</c> stays as it is written, its selector evaluated as before; each of its labels outside the selection is replaced with a label
-/// after the new procedure's body, which returns that label's exit code. The source's result, read or written in the selection, is given to the new procedure as a
-/// copy, <c>ByRef</c>, and written back after the call: a function's name cannot be passed.
+/// procedure, or a loop or a block around it, returns a code: <c>True</c> for one exit, a member of an <c>Enum</c> for several, as public as the procedure is.
+/// The call site goes where the code says. An <c>On…GoTo</c> stays as it is written, its selector evaluated as before; each of its labels outside the selection is
+/// replaced with a label after the new procedure's body, which returns that label's exit code. The source's result, read or written in the selection, is given to
+/// the new procedure as a copy, <c>ByRef</c>, and written back after the call: a function's name cannot be passed.
 /// </para>
 /// <para>
 /// The text is indented as the selection was, with the body of the new procedure one level in: <see cref="ExtractionEdit.Formatted"/> indents it as the user's
@@ -244,6 +271,15 @@ internal static class ExtractMethodEdit
     // a parameter of the plan as the new procedure's signature writes it (ByRef total As Long).
     internal static string ParameterTextOf(ExtractionPlan plan, ExtractionSource source, ExtractionParameter parameter)
         => new Writer(plan, source, new ExtractionChoices(string.Empty), new ExtractionText(source.Text)).ParameterText(parameter);
+
+    // what a variable, a parameter or a constant of the source procedure is declared as, after its name: its type-declaration character, its bounds, its As
+    // clause, its value (& for `n&`, `(1 To 3) As Long`, ` As Long = 5`); the name of the type it has when nothing declares it.
+    internal static string DeclaredTypeOf(ExtractionPlan plan, ExtractionSource source, SemanticId variable)
+        => new Writer(plan, source, new ExtractionChoices(string.Empty), new ExtractionText(source.Text)).DeclaredType(variable);
+
+    // the exit codes the new procedure returns, each with what the call site does for it.
+    internal static IEnumerable<(string Code, string Dispatch)> ExitCodesOf(ExtractionPlan plan, ExtractionSource source, string name)
+        => new Writer(plan, source, new ExtractionChoices(name), new ExtractionText(source.Text)).ExitCodes().Select(exit => (exit.Code, exit.Dispatch));
 
     private sealed class Writer(ExtractionPlan plan, ExtractionSource source, ExtractionChoices choices, ExtractionText text)
     {
@@ -326,7 +362,7 @@ internal static class ExtractMethodEdit
             };
             var keyword = returns.Length > 0 ? "Function" : "Sub";
 
-            var lines = new List<string> { $"Private {keyword} {_name}({string.Join(", ", parameters)}){returns}" };
+            var lines = new List<string> { $"{choices.Accessibility} {keyword} {_name}({string.Join(", ", parameters)}){returns}" };
             lines.AddRange(Declarations().Select(declaration => Indent + declaration));
             if (plan.StartsWithResumeNext)
             {
@@ -584,7 +620,7 @@ internal static class ExtractMethodEdit
         }
 
         private string EnumerationText(IReadOnlyList<Exit> exits)
-            => string.Join(_newLine, [$"Private Enum {_name}Exit", $"{Indent}{_name}ExitNone", .. exits.Select(exit => Indent + exit.Code), "End Enum"]);
+            => string.Join(_newLine, [$"{choices.Accessibility} Enum {_name}Exit", $"{Indent}{_name}ExitNone", .. exits.Select(exit => Indent + exit.Code), "End Enum"]);
 
         // ---- declarations ----
 
@@ -696,6 +732,20 @@ internal static class ExtractMethodEdit
             }
 
             return (LocalName(variable), false);
+        }
+
+        public string DeclaredType(SemanticId variable)
+        {
+            var declaration = (SyntaxNode?)DeclarationOf(variable)
+                ?? (SyntaxNode?)ConstantNamed(variable)
+                ?? _parameters.FirstOrDefault(node => node.Name.Equals(NameOf(variable), StringComparison.OrdinalIgnoreCase));
+            if (declaration is not null && NameRangeOf(declaration) is { } range)
+            {
+                var written = text.Of(range);
+                return written[SymbolName(written).Length..] + text.Of(new SourceRange(range.End, declaration.SourceLocation.Range.End));
+            }
+
+            return SymbolOf(variable) is ITypedSymbol { ResolvedType: { } type } ? type.Name : "Variant";
         }
 
         // the type a variable is declared as, as a parameter writes it: no New, and a String for a fixed-length one; or the type its DefType gives it.
