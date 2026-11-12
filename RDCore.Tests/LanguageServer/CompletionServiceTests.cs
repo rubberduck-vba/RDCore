@@ -1653,7 +1653,7 @@ public sealed class CompletionServiceTests
     [DataRow("    |", DisplayName = "nothing typed")]
     [DataRow("    x = |", DisplayName = "nothing typed, an operand")]
     [DataRow("    My|", DisplayName = "the start of the name")]
-    [DataRow("    x = my|", DisplayName = "the start of the name, in another case")]
+    [DataRow("    x = my|", DisplayName = "the start of the name, in another letter case")]
     [DataRow("    [My|", DisplayName = "the opening bracket and the start of the name")]
     [DataRow("    x = [|", DisplayName = "the opening bracket alone")]
     public async Task ANameInBrackets_IsOfferedInItsBrackets(string line)
