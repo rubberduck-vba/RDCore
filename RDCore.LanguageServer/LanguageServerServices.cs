@@ -74,6 +74,7 @@ internal static class LanguageServerServices
             .AddSingleton<ICompletionService, CompletionService>()
             .AddSingleton<IRenameService, RenameService>()
             .AddSingleton<RDCore.LanguageServer.Refactoring.IExtractMethodService, RDCore.LanguageServer.Refactoring.ExtractMethodService>()
+            .AddSingleton<RDCore.LanguageServer.Refactoring.IMoveMemberService, RDCore.LanguageServer.Refactoring.MoveMemberService>()
             .AddSingleton<IDocumentDiagnosticsService, DocumentDiagnosticsService>()
             .AddSingleton<IDiagnosticsPublisher, DiagnosticsPublisher>()
             .AddSingleton<IWorkspaceRefresh>(_ => new WorkspaceRefresh(WorkspaceRefresh.Burst))

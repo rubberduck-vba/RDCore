@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Move Member Up and Move Member Down: {0} is the procedure moved, {1} the one it would go past. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="MoveMember_UpTitle" xml:space="preserve">
+    <value>Move '{0}' up</value>
+  </data>
+  <data name="MoveMember_DownTitle" xml:space="preserve">
+    <value>Move '{0}' down</value>
+  </data>
+  <data name="MoveMember_LeavesItsBranch" xml:space="preserve">
+    <value>'{0}' is in a branch of an #If block that '{1}' is not in: moved past it, '{0}' would leave the branch, and be compiled when other constants say so.</value>
+  </data>
+  <data name="MoveMember_EntersABranch" xml:space="preserve">
+    <value>'{1}' is in a branch of an #If block that '{0}' is not in: moved past it, '{0}' would go into the branch, and be compiled only when the branch is.</value>
+  </data>
+  <data name="MoveMember_Nothing" xml:space="preserve">
+    <value>There is no procedure to move here.</value>
+  </data>
+  <data name="MoveMember_VerificationFailed" xml:space="preserve">
+    <value>Moved, '{0}' would not leave the module as it should: it is not moved.</value>
+  </data>
+  <data name="MoveMember_DocumentChanged" xml:space="preserve">
+    <value>The document has changed since the move was offered: ask for it again.</value>
+  </data>
+</root>
