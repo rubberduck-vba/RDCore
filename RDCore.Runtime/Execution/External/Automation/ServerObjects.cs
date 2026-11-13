@@ -45,9 +45,9 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// <param name="declared">The type it was declared to be.</param>
     /// <param name="resolver">Finds the classes of the referenced libraries.</param>
     /// <remarks>
-    /// An object a member declared <c>Object</c> or <c>Variant</c> returns is a late-bound one, as in MS-VBA, whose members are reached by name
-    /// (<see cref="LateBinding"/>): what <c>CreateObject</c> gives, and what a member of a late-bound object returns. The server is not asked what its class is
-    /// until something needs it (<see cref="ClassOf(IRuntimeSession, VBRuntimeObjectId, VBClassModuleSymbol)"/>).
+    /// An object that a member declared <c>Object</c> or <c>Variant</c> returns is late-bound, as in MS-VBA: its members are reached by name
+    /// (<see cref="LateBinding"/>). <c>CreateObject</c> gives one, and so does a member of a late-bound object. Its server is asked what its class is only when
+    /// something needs it (<see cref="ClassOf(IRuntimeSession, VBRuntimeObjectId, VBClassModuleSymbol)"/>).
     /// </remarks>
     public VBTypedValue Wrap(object value, VBType declared, IRuntimeSymbolResolver resolver)
     {
@@ -124,8 +124,9 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// events of a <c>WithEvents</c> variable.
     /// </summary>
     /// <remarks>
-    /// A late-bound object a member declared <c>Object</c> or <c>Variant</c> returned is of no class until then (<see cref="Wrap"/>): its server is asked what it is,
-    /// each time, as MS-VBA asks it. It is the class of a referenced library that declares it, or a late-bound class of its name, and stays late-bound.
+    /// A late-bound object (<see cref="Wrap"/>) is held with no class of its own: each call asks its server what its class is, as MS-VBA does. The answer is the
+    /// class of that name in a referenced library, or else a late-bound class of that name; the object itself stays late-bound. Any other object's class is
+    /// <paramref name="held"/>.
     /// </remarks>
     /// <param name="session">The session that holds the object.</param>
     /// <param name="identity">The object.</param>

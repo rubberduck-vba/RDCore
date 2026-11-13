@@ -9,9 +9,9 @@ using static RDCore.Tests.Cli.ModuleWorkspace;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// An object a member declared <c>Object</c> or <c>Variant</c> returns is late-bound, as in MS-VBA, whether or not the project references a library that declares
-/// its class: its server is asked what its class is only when something needs it, which is <c>TypeName</c>, and <c>TypeOf</c> and a Set to a variable of a class
-/// when the server cannot tell whether the object is one. The server here is a fake that counts how often it is asked.
+/// An object that a member declared <c>Object</c> or <c>Variant</c> returns is late-bound, as in MS-VBA, whether or not the project references a library that
+/// declares its class. Its server is asked what its class is only when something needs it: <c>TypeName</c>, and also <c>TypeOf</c> or a Set to a variable of a
+/// class when the server cannot tell whether the object is one. The server here is a fake that counts how often it is asked.
 /// </summary>
 [TestClass]
 public sealed class LateBoundClassTests
