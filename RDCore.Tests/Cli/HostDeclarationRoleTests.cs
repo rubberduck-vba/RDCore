@@ -79,6 +79,46 @@ public sealed class HostDeclarationRoleTests
         Assert.AreEqual(DeclarationRole.None, RoleOf(model!, "Other_Draw"));
     }
 
+    // MS-VBAL §5.3.1.10: a subroutine with no parameters, named Class_Initialize or Class_Terminate, of a class module.
+    [TestMethod]
+    [DataRow("Public Sub Class_Initialize()", "Class_Initialize", DeclarationRole.EventHandler, DisplayName = "Initialize, Public")]
+    [DataRow("Private Sub Class_Terminate()", "Class_Terminate", DeclarationRole.EventHandler, DisplayName = "Terminate, Private")]
+    [DataRow("Public Sub class_initialize()", "class_initialize", DeclarationRole.EventHandler, DisplayName = "in any case")]
+    [DataRow("Public Sub Class_Initialize(ByVal n As Long)", "Class_Initialize", DeclarationRole.None, DisplayName = "with a parameter")]
+    [DataRow("Public Function Class_Initialize() As Long", "Class_Initialize", DeclarationRole.None, DisplayName = "a function")]
+    [DataRow("Public Sub Class_Activate()", "Class_Activate", DeclarationRole.None, DisplayName = "no event of the lifecycle")]
+    public async Task ALifecycleHandlerOfAClass_HandlesItsEvent(string declaration, string name, DeclarationRole expected)
+    {
+        var model = await ModelOfAsync("Implementer", ("Implementer", Implementer(declaration, declaration.Contains("Function") ? "End Function" : "End Sub")));
+
+        Assert.AreEqual(expected, RoleOf(model!, name));
+    }
+
+    [TestMethod]
+    public async Task ALifecycleHandlerOfAStandardModule_IsAProcedureLikeAnyOther()
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync([], Program("Public Sub Class_Initialize()", "End Sub"));
+
+        Assert.AreEqual(DeclarationRole.None, RoleOf(payload.Modules.Single(), "Class_Initialize"));
+    }
+
+    // what MS-VBA's host calls when its document raises an event, which RD-VBA analyzes and does not host.
+    [TestMethod]
+    [DataRow("GameSheet", DocClassType.ExcelWorksheet, "Public Sub Worksheet_Change(ByVal Target As Range)", "Worksheet_Change", DeclarationRole.EventHandler,
+        DisplayName = "a worksheet's")]
+    [DataRow("ThisWorkbook", DocClassType.ExcelWorkbook, "Public Sub Workbook_Open()", "Workbook_Open", DeclarationRole.EventHandler, DisplayName = "a workbook's")]
+    [DataRow("GameSheet", DocClassType.ExcelWorksheet, "Public Sub Worksheet_Foo()", "Worksheet_Foo", DeclarationRole.None,
+        DisplayName = "no event of the host's class")]
+    [DataRow("GameSheet", DocClassType.ExcelWorksheet, "Public Sub Workbook_Open()", "Workbook_Open", DeclarationRole.None,
+        DisplayName = "an event of another class")]
+    public async Task AHandlerOfAnEventOfADocumentsHost_HandlesIt(string module, DocClassType super, string declaration, string name, DeclarationRole expected)
+    {
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], Program("Public Sub Main()", "End Sub"), libraries: DocumentModuleTests.Excel, documents: [(module, $"Option Explicit\r\n{declaration}\r\nEnd Sub\r\n", super)]);
+
+        Assert.AreEqual(expected, RoleOf(payload.Modules.Single(candidate => SDK.Model.Symbols.SymbolUri.ModuleNameOf(candidate.Module) == module), name));
+    }
+
     [TestMethod]
     public async Task AModuleThatImplementsNothing_HasNoMemberWithARole()
     {

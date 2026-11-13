@@ -179,16 +179,18 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             .AddRange(ReservedNameStaticSemantics.CheckSyntax(syntaxTree))
             .AddRange(DeclarationStaticSemanticsEvaluator.Evaluate(module, members, session.Symbols.Resolver, DeclarationRules.DeclaredTypes));
         var declared = DeclarationUsage.DeclaredBy(members).ToList();
+        var document = module is VBClassModuleSymbol documentClass ? DocumentModuleFact.Of(documentClass, session.Symbols.Resolver) : null;
         var moduleModel = new ModuleSemanticModel(module.Uri, declarationErrors, procedureModels.ToImmutable())
         {
             // a language that has no such directive has no fact to state about it.
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
-                declared, procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
+                declared, procedureModels,
+                module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer, document) : null,
                 symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri), arguments, declarationFacts),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
-            Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
+            Document = document,
             Classes = ClassFacts.Of(syntaxTree, procedureModels, declared),
             DocumentModules = DocumentModuleNames.Of(session.Symbols.Resolver, session.Symbols.Scopes.Global, module.Uri),
         };
