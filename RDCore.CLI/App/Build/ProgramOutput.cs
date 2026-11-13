@@ -41,7 +41,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
     }
 
     // the libraries the program's project references, described as the platform describes them, one file each by its name: what the program's session
-    // reads where the platform's are not. A library an earlier build of the folder wrote, and that the project no longer references, is not left there.
+    // reads in place of the platform's. A library an earlier build of the folder wrote, and that the project no longer references, is not left there.
     private void WriteLibraries(string symbols, IReadOnlyList<LibraryDescription> libraries)
     {
         if (fileSystem.Directory.Exists(symbols))

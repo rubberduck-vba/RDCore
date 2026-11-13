@@ -57,7 +57,7 @@ public static class BuiltProgram
     // the switch rdc run takes for the same: nobody answers a dialog, and the first one fails the run.
     private const string UnattendedSwitch = "--unattended";
 
-    // the folder of the program's own folder that holds the descriptions of the libraries its project references, named as the platform's is: the
+    // the subfolder of the program's folder that holds the descriptions of the libraries its project references, named as the platform's is: the
     // program's session reads them there, and nowhere else.
     internal const string LibrariesFolder = PlatformEnvironment.SymbolsDirectory;
 

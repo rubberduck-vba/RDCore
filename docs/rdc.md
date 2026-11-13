@@ -116,8 +116,8 @@ The exit code says how the run went:
 `rdc build` compiles the workspace into a program that runs without RDCore's parser, and without the workspace's sources: the program runs from its own folder,
 wherever it is. It needs the same entry point as `rdc run`.
 
-The program's folder holds, in `Symbols`, the descriptions of the libraries its project references: the program reads them there, and not where the
-platform's are.
+The program's folder holds, in `Symbols`, a description of each library its project references. The program reads them from there, wherever the
+folder is.
 
 |Option|What it does|
 |---|---|
