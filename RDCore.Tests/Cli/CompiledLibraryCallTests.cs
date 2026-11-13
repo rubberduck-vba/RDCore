@@ -181,7 +181,7 @@ public sealed class CompiledLibraryCallTests
             "End Function"), [("Described", 0)]);
 
     // a function of the Math module of a Double parameter, given an Integer, a Long, a Single, a Boolean and a Double let-coerced to a Double as the
-    // interpreter coerces them; an error each raises of its domain (5) is raised where the interpreter raises it.
+    // interpreter coerces them; the error 5 one raises outside its domain (Sqr of a negative number) is raised where the interpreter raises it.
     [TestMethod]
     public async Task AFunctionOfADoubleParameter_IsGivenItsArgumentCoerced()
         => await AssertAlikeAsync(Program(
