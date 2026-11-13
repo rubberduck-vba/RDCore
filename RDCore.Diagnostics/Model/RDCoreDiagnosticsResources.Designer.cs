@@ -747,6 +747,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a control of form &apos;{1}&apos;, used from outside the form..
+        /// </summary>
+        public static string PublicControlFieldAccess_Message {
+            get {
+                return ResourceManager.GetString("PublicControlFieldAccess_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
         /// </summary>
         public static string LineContinuationBetweenKeywords_Message {
