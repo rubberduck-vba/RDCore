@@ -97,9 +97,13 @@ public static class DeclarationUsage
         DeclarationKind.Variable when symbol is VBLocalVariableSymbol => true,
         // a variable that is declared with Dim or with no modifier at all is Private.
         DeclarationKind.Variable => symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private or AccessModifier.Implicit },
-        // a constant is referred to where its value is substituted, which includes the bounds of an array and the value of another constant, of an enumeration
-        // member and of an optional parameter: expressions of the declarations of a module, which the pass does not evaluate as it does those of its procedures.
-        // 🚧 TODO count the references of a constant once the expressions of declarations are evaluated.
+        // a constant of a procedure is referred to by that procedure's code alone: its statements, and the declarations of its body - the value of another of
+        // its constants, the bounds of its arrays - which are analyzed with the statements.
+        DeclarationKind.Constant when symbol is VBLocalConstantSymbol => true,
+        // a constant of the module is referred to where its value is substituted, which includes the bounds of an array and the value of another constant, of
+        // an enumeration member and of an optional parameter: expressions of the declarations of the module, which the pass does not evaluate as it does those
+        // of its procedures.
+        // 🚧 TODO count the references of a constant of the module once the expressions of the module's declarations are evaluated.
         _ => false,
     };
 
