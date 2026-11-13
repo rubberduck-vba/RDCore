@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Encapsulate Field : {0} est le champ, {1} l'endroit d'une référence, ou le nom déjà pris. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="EncapsulateField_Title" xml:space="preserve">
+    <value>Encapsuler le champ</value>
+  </data>
+  <data name="EncapsulateField_DocumentChanged" xml:space="preserve">
+    <value>Le champ n'a pas été encapsulé : le document a changé depuis que l'encapsulation a été proposée. Demandez l'encapsulation de nouveau.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NotAField" xml:space="preserve">
+    <value>L'encapsulation porte sur une variable de la section des déclarations d'un module, et aucune n'est nommée ici.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NotPublic" xml:space="preserve">
+    <value>'{0}' n'est pas Public : seul un champ Public est encapsulé.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WithEvents" xml:space="preserve">
+    <value>'{0}' est déclaré WithEvents : ses événements sont gérés par les procédures nommées d'après lui, qu'une propriété ne déclenche pas.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NotSupported" xml:space="preserve">
+    <value>'{0}' est un tableau, une chaîne de longueur fixe ou une variable déclarée As New, ou son type n'est pas connu : l'encapsulation ne lui écrit aucune propriété.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_Conditional" xml:space="preserve">
+    <value>'{0}' est déclaré dans une branche d'un bloc #If : il n'est compilé que lorsque cette branche est active, et ses propriétés le seraient toujours.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_SharesItsLine" xml:space="preserve">
+    <value>'{0}' partage sa ligne avec une autre instruction. Écrivez d'abord sa déclaration sur une ligne à part.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_DeclarationsConditional" xml:space="preserve">
+    <value>La section des déclarations se termine dans une branche d'un bloc #If, où le type qui contient '{0}' ne serait compilé que lorsque cette branche est active.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NameTaken" xml:space="preserve">
+    <value>'{1}' est déjà un nom du module.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WritesThroughACopy" xml:space="preserve">
+    <value>{1} écrit dans '{0}', un type défini par l'utilisateur : par une propriété, l'écriture irait à une copie et serait perdue sans erreur.</value>
+  </data>
+  <data name="EncapsulateFieldChange_PassedByRef" xml:space="preserve">
+    <value>{1} passe '{0}' à un paramètre qui peut être ByRef : par une propriété, ce que la procédure y écrit va à une copie et est perdu.</value>
+  </data>
+  <data name="EncapsulateField_NotAccepted" xml:space="preserve">
+    <value>L'encapsulation changerait ce que fait le code, et le changement n'a pas été accepté : {0}</value>
+  </data>
+  <data name="EncapsulateField_NotVerified" xml:space="preserve">
+    <value>Le champ n'a pas été encapsulé : il briserait le code. {0}</value>
+  </data>
+  <data name="EncapsulateFieldVerification_DoesNotParse" xml:space="preserve">
+    <value>Le module ne serait plus analysable.</value>
+  </data>
+  <data name="EncapsulateFieldVerification_Lost" xml:space="preserve">
+    <value>{1} ne ferait plus référence à rien.</value>
+  </data>
+  <data name="EncapsulateFieldVerification_Retargeted" xml:space="preserve">
+    <value>{1} ferait référence à autre chose.</value>
+  </data>
+</root>

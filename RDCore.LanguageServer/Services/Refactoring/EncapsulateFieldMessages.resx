@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Encapsulate Field: {0} is the field, {1} where a reference is, or the name that is taken. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="EncapsulateField_Title" xml:space="preserve">
+    <value>Encapsulate field</value>
+  </data>
+  <data name="EncapsulateField_DocumentChanged" xml:space="preserve">
+    <value>The field was not encapsulated: the document has changed since it was offered. Ask for the encapsulation again.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NotAField" xml:space="preserve">
+    <value>Encapsulate Field encapsulates a variable of the declarations section of a module, and none is named here.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NotPublic" xml:space="preserve">
+    <value>'{0}' is not Public: only a Public field is encapsulated.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WithEvents" xml:space="preserve">
+    <value>'{0}' is declared WithEvents: its events are handled by the procedures named after it, which a property does not raise.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NotSupported" xml:space="preserve">
+    <value>'{0}' is an array, a fixed-length string or a variable declared As New, or its type is not known: the encapsulation writes no properties for it.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_Conditional" xml:space="preserve">
+    <value>'{0}' is declared in a branch of an #If block: it is compiled only when that branch is live, and its properties would always be.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_SharesItsLine" xml:space="preserve">
+    <value>'{0}' shares its line with another statement. Write its declaration on a line of its own first.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_DeclarationsConditional" xml:space="preserve">
+    <value>The declarations section ends in a branch of an #If block, where the type that holds '{0}' would be compiled only when that branch is live.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_NameTaken" xml:space="preserve">
+    <value>'{1}' is already a name of the module.</value>
+  </data>
+  <data name="EncapsulateFieldRefusal_WritesThroughACopy" xml:space="preserve">
+    <value>{1} writes '{0}', a user-defined type: through a property, it would write to a copy, and the write would be lost without an error.</value>
+  </data>
+  <data name="EncapsulateFieldChange_PassedByRef" xml:space="preserve">
+    <value>{1} passes '{0}' to a parameter that may be ByRef: through a property, what the procedure writes to it is written to a copy, and lost.</value>
+  </data>
+  <data name="EncapsulateField_NotAccepted" xml:space="preserve">
+    <value>The encapsulation would change what the code does, and the change was not accepted: {0}</value>
+  </data>
+  <data name="EncapsulateField_NotVerified" xml:space="preserve">
+    <value>The field was not encapsulated: it would break the code. {0}</value>
+  </data>
+  <data name="EncapsulateFieldVerification_DoesNotParse" xml:space="preserve">
+    <value>The module would not parse.</value>
+  </data>
+  <data name="EncapsulateFieldVerification_Lost" xml:space="preserve">
+    <value>{1} would refer to nothing.</value>
+  </data>
+  <data name="EncapsulateFieldVerification_Retargeted" xml:space="preserve">
+    <value>{1} would refer to something else.</value>
+  </data>
+</root>
