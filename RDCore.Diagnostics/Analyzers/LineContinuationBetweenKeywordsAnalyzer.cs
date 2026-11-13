@@ -3,7 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
+using RDCore.SDK.Server.ProtocolExtensions;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -57,7 +57,7 @@ internal sealed class LineContinuationBetweenKeywordsAnalyzer : IModuleAnalyzer
                 Edit = new EditFix
                 {
                     Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.LineContinuationBetweenKeywords_Fix, first.Keyword!),
-                    Edits = [new TextEdit { Range = new Range(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character), NewText = " " }],
+                    Edits = [new TextEdit { Range = range.ToLsp(), NewText = " " }],
                 },
             },
         };
