@@ -6,6 +6,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Runtime.StdLib;
 using System.Collections.Immutable;
 
@@ -20,8 +21,8 @@ internal sealed partial class ProcedureAnalysis
     /// </summary>
     public List<CompiledLibraryCall> Libraries { get; } = [];
 
-    // the functions compiled code calls, each of parameters of the Variant type passed by value, and whether each keeps anything from call to call: none
-    // does but Rnd, whose seed moves at each call, so a call of it is made once in an instruction, and never again by the interpreter.
+    // the functions compiled code calls, each of parameters of the Variant type or of a scalar type passed by value, and whether each keeps anything from
+    // call to call: none does but Rnd, whose seed moves at each call, so a call of it is made once in an instruction, and never again by the interpreter.
     private static readonly ImmutableDictionary<string, bool> CompiledLibraryFunctions = new Dictionary<string, bool>
     {
         ["IStdConversionModule.CBool/1"] = false,
@@ -35,14 +36,32 @@ internal sealed partial class ProcedureAnalysis
         ["IStdConversionModule.CSng/1"] = false,
         ["IStdConversionModule.Fix/1"] = false,
         ["IStdConversionModule.Int/1"] = false,
+        ["IStdInformationModule.IsEmpty/1"] = false,
+        ["IStdInformationModule.IsNull/1"] = false,
+        ["IStdInformationModule.IsNumeric/1"] = false,
+        ["IStdInformationModule.VarType/1"] = false,
         ["IStdMathModule.Abs/1"] = false,
+        ["IStdMathModule.Atn/1"] = false,
+        ["IStdMathModule.Cos/1"] = false,
+        ["IStdMathModule.Exp/1"] = false,
+        ["IStdMathModule.Log/1"] = false,
         ["IStdMathModule.Rnd/1"] = true,
+        ["IStdMathModule.Sin/1"] = false,
+        ["IStdMathModule.Sqr/1"] = false,
+        ["IStdMathModule.Tan/1"] = false,
     }.ToImmutableDictionary(StringComparer.Ordinal);
 
     // the functions compiled code calls for a Variant they return, each of parameters of the Variant type passed by value, and keeping nothing: IIf, which
-    // is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11).
+    // is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11); Sgn; and the parts of a date.
     private static readonly ImmutableHashSet<string> VariantLibraryFunctions = ImmutableHashSet.Create(StringComparer.Ordinal,
-        "IStdInteractionModule.IIf/3");
+        "IStdInteractionModule.IIf/3",
+        "IStdMathModule.Sgn/1",
+        "IStdDateTimeModule.Year/1",
+        "IStdDateTimeModule.Month/1",
+        "IStdDateTimeModule.Day/1",
+        "IStdDateTimeModule.Hour/1",
+        "IStdDateTimeModule.Minute/1",
+        "IStdDateTimeModule.Second/1");
 
     // whether symbol is a function of the standard library compiled code calls for the Variant it returns.
     private static bool IsVariantLibrary(Symbol symbol)
@@ -123,8 +142,10 @@ internal sealed partial class ProcedureAnalysis
         for (var i = 0; i < parameters.Length; i++)
         {
             var parameter = parameters[i];
-            if (parameter is ParamArrayParameterSymbol || parameter.ResolvedType is not VBVariantType || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind)
-                || parameter.GetProperty(SymbolProperties.PassedByAddress) || i >= given && !parameter.IsOptional)
+            var typed = parameter.ResolvedType is VBEnumType ? null : ScalarKinds.Of(parameter.ResolvedType);
+            if (parameter is ParamArrayParameterSymbol || parameter.ResolvedType is not VBVariantType && typed is null
+                || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter.GetProperty(SymbolProperties.PassedByAddress)
+                || i >= given && !parameter.IsOptional)
             {
                 return Unsupported(node);
             }
@@ -134,7 +155,9 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value } || Dynamic(value) is not { } argument)
+            // a parameter of a scalar type is given its argument let-coerced to that type, as the interpreter gives it (MS-VBAL §5.3.1.11).
+            if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value }
+                || (typed is { } destination ? PayloadAs(value, destination) is { } coerced ? new VariantOfNode(coerced) : null : Dynamic(value)) is not { } argument)
             {
                 return Unsupported(node);
             }
