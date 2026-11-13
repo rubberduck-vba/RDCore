@@ -39,6 +39,7 @@ internal sealed partial class ProcedureAnalysis
         ["IStdInformationModule.IsEmpty/1"] = false,
         ["IStdInformationModule.IsNull/1"] = false,
         ["IStdInformationModule.IsNumeric/1"] = false,
+        ["IStdInformationModule.IsObject/1"] = false,
         ["IStdInformationModule.VarType/1"] = false,
         ["IStdMathModule.Abs/1"] = false,
         ["IStdMathModule.Atn/1"] = false,
@@ -120,8 +121,10 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
+            // a Variant variable given to a Variant parameter is given what it holds, whatever it holds (VariantValueNode).
             if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value }
-                || (typed is { } destination ? PayloadAs(value, destination) is { } coerced ? new VariantOfNode(coerced) : null : Dynamic(value)) is not { } argument)
+                || (typed is { } destination ? PayloadAs(value, destination) is { } coerced ? new VariantOfNode(coerced) : null
+                    : value is BoundVariable variable && VariantSlotOf(variable) is { } slot ? new VariantValueNode(slot) : Dynamic(value)) is not { } argument)
             {
                 return null;
             }

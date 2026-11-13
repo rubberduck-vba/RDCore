@@ -28,6 +28,12 @@ public sealed partial class CompiledActivation
     /// <param name="first">The first argument, when it is given one.</param>
     /// <param name="second">The second argument, when it is given two.</param>
     /// <param name="third">The third argument, when it is given three.</param>
+    /// <param name="firstValue">
+    /// What the Variant variable given as the first argument holds (<see cref="VariantOperations.ValueOf"/>), given in place of <paramref name="first"/>;
+    /// <see langword="null"/> when the argument is <paramref name="first"/>.
+    /// </param>
+    /// <param name="secondValue">The same of the second argument.</param>
+    /// <param name="thirdValue">The same of the third argument.</param>
     /// <param name="kind">The kind of what the function returns.</param>
     /// <param name="integral">What the function returned, when <paramref name="kind"/> is integral.</param>
     /// <param name="floating">What the function returned, when <paramref name="kind"/> is floating-point.</param>
@@ -35,11 +41,12 @@ public sealed partial class CompiledActivation
     /// Whether the call returned a payload of <paramref name="kind"/>. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>), with the
     /// error the function raised, or to make it as it always does.
     /// </returns>
-    public bool CallLibrary(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third, ScalarKind kind,
+    public bool CallLibrary(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
+        IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, ScalarKind kind,
         out long integral, out double floating)
     {
         (integral, floating) = (0, 0);
-        if (!TryCallLibrary(pc, library, count, first, second, third, out var payload) || ScalarKinds.Of(payload.Type) != kind)
+        if (!TryCallLibrary(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var payload) || ScalarKinds.Of(payload.Type) != kind)
         {
             return false;
         }
@@ -58,15 +65,22 @@ public sealed partial class CompiledActivation
     /// <param name="first">The first argument, when it is given one.</param>
     /// <param name="second">The second argument, when it is given two.</param>
     /// <param name="third">The third argument, when it is given three.</param>
+    /// <param name="firstValue">
+    /// What the Variant variable given as the first argument holds (<see cref="VariantOperations.ValueOf"/>), given in place of <paramref name="first"/>;
+    /// <see langword="null"/> when the argument is <paramref name="first"/>.
+    /// </param>
+    /// <param name="secondValue">The same of the second argument.</param>
+    /// <param name="thirdValue">The same of the third argument.</param>
     /// <param name="value">What the <c>Variant</c> the function returned holds, when it holds a value of a scalar type.</param>
     /// <returns>
     /// Whether the <c>Variant</c> holds a value of a scalar type. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>), with the error
     /// the function raised, or to make it as it always does.
     /// </returns>
-    public bool CallLibraryVariant(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third, out VariantPayload value)
+    public bool CallLibraryVariant(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
+        IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out VariantPayload value)
     {
         value = default;
-        if (!TryCallLibrary(pc, library, count, first, second, third, out var payload))
+        if (!TryCallLibrary(pc, library, count, first, second, third, firstValue, secondValue, thirdValue, out var payload))
         {
             return false;
         }
@@ -75,9 +89,38 @@ public sealed partial class CompiledActivation
         return true;
     }
 
+    /// <summary>
+    /// What the <c>Variant</c> parameter or variable in <paramref name="slot"/> holds when the frame holds it in no Variant's cell
+    /// (<see cref="VariantCellOf"/>): a parameter passed a <c>String</c>, an error, an object or no argument by value.
+    /// </summary>
+    /// <param name="slot">The slot of the parameter or variable.</param>
+    /// <returns>
+    /// <see langword="null"/> when the frame holds no <c>Variant</c> there, or one whose value is unknown or holds an array or a record: the interpreter
+    /// is then given the call.
+    /// </returns>
+    public IRuntimeValue? VariantValueOf(int slot)
+    {
+        var frame = Frame;
+        if (!(frame.TryGetSlotCell(slot, out var cell) || frame.TryResolve(_body.SlotSymbols[slot], out cell)))
+        {
+            return null;
+        }
+
+        if (cell is VariantCell)
+        {
+            return VariantOperations.ValueOf(cell);
+        }
+
+        return cell is not IKnowledgeBinding { IsKnown: false }
+            && cell.Value is VBRuntimeVariantValue { WrappedValue.TypeInfo: not (VBArrayType or VBUserDefinedType) } held
+                ? held
+                : null;
+    }
+
     // the call made, and what it returned: a Variant is what it holds, a value of a scalar type a payload of its subtype; anything else - Null, Empty, a
     // String - is the interpreter's.
-    private bool TryCallLibrary(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third, out ScalarPayload payload)
+    private bool TryCallLibrary(int pc, int library, int count, VariantPayload first, VariantPayload second, VariantPayload third,
+        IRuntimeValue? firstValue, IRuntimeValue? secondValue, IRuntimeValue? thirdValue, out ScalarPayload payload)
     {
         payload = default;
         SetLibraryCall(pc, library);
@@ -86,6 +129,13 @@ public sealed partial class CompiledActivation
         var arguments = new IRuntimeValue[called.Parameters.Length];
         for (var i = 0; i < arguments.Length; i++)
         {
+            // a Variant variable given to a Variant parameter is given what it held when the argument was evaluated.
+            if (i < count && (i == 0 ? firstValue : i == 1 ? secondValue : thirdValue) is { } held)
+            {
+                arguments[i] = held;
+                continue;
+            }
+
             if (i < count)
             {
                 // a parameter of a scalar type is given the value compiled code let-coerced to it, as the interpreter gives it; a Variant one, a Variant.

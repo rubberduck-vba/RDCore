@@ -213,6 +213,10 @@ internal abstract record class VariantNode;
 // a Variant parameter or variable of the activation, read in the cell its frame holds it in, by the number of its slot.
 internal sealed record class VariantSlotNode(int Slot) : VariantNode;
 
+// a Variant parameter or variable of the activation given by value to a Variant parameter of a function of the standard library: what it holds when the
+// argument is evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
+internal sealed record class VariantValueNode(int Slot) : VariantNode;
+
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
 
