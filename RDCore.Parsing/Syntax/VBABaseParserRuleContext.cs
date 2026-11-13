@@ -71,9 +71,11 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     }
 
     /// <summary>
-    /// The range of <paramref name="length"/> characters of one token of the rule from <paramref name="offset"/>, which may hold line terminators, anchored
-    /// as <see cref="SourceRange"/> is.
+    /// The range of a part of one token of the rule, which may span line terminators, anchored as <see cref="SourceRange"/> is.
     /// </summary>
+    /// <param name="token">A token of the rule.</param>
+    /// <param name="offset">Where the part starts, in characters from the start of the token's text.</param>
+    /// <param name="length">The number of characters in the part.</param>
     internal SourceRange RangeWithin(IToken token, int offset, int length)
     {
         var text = token.Text ?? string.Empty;

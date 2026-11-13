@@ -2149,8 +2149,8 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
     private readonly HashSet<int> _lineContinuations = [];
 
-    // a line continuation as the lexer reads one (LINE_CONTINUATION): the blanks that begin the next line are its own, but for the one before the underscore of
-    // another continuation. And a keyword of words with blanks and line continuations between them.
+    // a line continuation as the lexer reads one (LINE_CONTINUATION), with the blanks that begin the next line, except the blank that starts another continuation
+    // on that line. A keyword across lines is its words, with blanks and line continuations between them.
     private const string Continuation = @"[ \t]_[ \t]*\r?\n[ \t]*?(?=[ \t]_[ \t]*\r?\n|[^ \t\r\n])";
     private static readonly Regex ContinuationInAKeyword = new(Continuation, RegexOptions.CultureInvariant);
     private static readonly Regex BlanksOfAKeyword = new($@"(?:{Continuation}|[ \t])+", RegexOptions.CultureInvariant);
