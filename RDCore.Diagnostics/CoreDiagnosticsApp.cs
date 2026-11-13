@@ -105,6 +105,10 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, WriteOnlyPropertyAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NegativeLineNumberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NonBreakingSpaceInNameAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, OnErrorGoToMinusOneAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnrestoredOnErrorResumeNextAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ImplicitConstantTypeAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnderscoreInPublicClassMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, RedundantByValArgumentAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedByRefAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedLateAnalyzer>();

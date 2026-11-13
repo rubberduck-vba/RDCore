@@ -256,6 +256,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00112](rdc00112.md)|Implicit narrowing conversion|A value converted implicitly into a type that holds less of it|
 |[RDC00114](rdc00114.md)|Implicit array declaration|A `ReDim` that declares the array it re-dimensions|
 |[RDC00115](rdc00115.md)|Implicit result local|A function that reads its own return value, as the local variable it implicitly is|
+|[RDC00117](rdc00117.md)|Implicit constant type|A constant with no As clause and no type character|
 |[RDC00119](rdc00119.md)|Implicit default member access|An object of a known class used as a value, or assigned one without `Set`, through a default member the code does not name|
 |[RDC00120](rdc00120.md)|Implicit unbound default member access|An `Object` used as a value, or assigned one without `Set`: its default member is known only at run time|
 |[RDC00121](rdc00121.md)|Indexed default member access|An argument list given to an object of a known class, which its default member takes|
@@ -271,6 +272,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00206](rdc00206.md)|Not all code paths return a value|A function or property getter with a code path that does not assign its return value|
 |[RDC00207](rdc00207.md)|IsMissing that is always False|IsMissing of a parameter that is not a Variant, or an Optional Variant with a default value|
 |[RDC00208](rdc00208.md)|Shadowed declaration|A local or a parameter named like a member of the module, of another module, or of a library|
+|[RDC00211](rdc00211.md)|On Error GoTo -1|An On Error GoTo -1 statement|
+|[RDC00212](rdc00212.md)|Unrestored On Error Resume Next|An On Error Resume Next that no On Error GoTo follows in its procedure|
 |[RDC00214](rdc00214.md)|Procedure can be written as a function|A `Sub` that gives its result back through its only `ByRef` parameter|
 |[RDC00215](rdc00215.md)|Self-assigned declaration|A variable declared `As New`|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
@@ -285,6 +288,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00311](rdc00311.md)|Early binding opportunity|`CreateObject` of a class that a referenced library declares|
 |[RDC00405](rdc00405.md)|Implementations should be private|A Public implementation of an interface member or handler of an event|
 |[RDC00407](rdc00407.md)|Unmatched event handler|A handler of a form control's event that does not match the event, and that nothing calls|
+|[RDC00408](rdc00408.md)|Underscore in a public class member|A public member of a class module with an underscore in its name|
 |[RDC00409](rdc00409.md)|Public field|A `Public` variable of a class module|
 |[RDC00410](rdc00410.md)|Default instance in its own class|The code of a predeclared class naming its own default instance|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|

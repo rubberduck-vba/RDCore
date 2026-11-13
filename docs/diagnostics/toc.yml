@@ -408,6 +408,8 @@
   href: rdc00114.md
 - name: "RDC00115: Implicit result local"
   href: rdc00115.md
+- name: "RDC00117: Implicit constant type"
+  href: rdc00117.md
 - name: "RDC00119: Implicit default member access"
   href: rdc00119.md
 - name: "RDC00120: Implicit unbound default member access"
@@ -438,6 +440,10 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00211: On Error GoTo -1"
+  href: rdc00211.md
+- name: "RDC00212: Unrestored On Error Resume Next"
+  href: rdc00212.md
 - name: "RDC00214: Procedure can be written as a function"
   href: rdc00214.md
 - name: "RDC00215: Self-assigned declaration"
@@ -466,6 +472,8 @@
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"
   href: rdc00407.md
+- name: "RDC00408: Underscore in a public class member"
+  href: rdc00408.md
 - name: "RDC00409: Public field"
   href: rdc00409.md
 - name: "RDC00410: Default instance in its own class"

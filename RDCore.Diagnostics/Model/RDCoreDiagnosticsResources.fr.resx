@@ -450,4 +450,16 @@
   <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
     <value>Un objet est assigné à un objet sans Set : la valeur d&apos;un membre par défaut est assignée à celui de l&apos;autre. Écrivez Set pour assigner l&apos;objet lui-même.</value>
   </data>
+  <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
+    <value>On Error GoTo -1 met fin à l&apos;erreur en cours de traitement, et MS-VBAL ne le documente pas : un Resume met fin au gestionnaire et dit où la procédure continue.</value>
+  </data>
+  <data name="UnrestoredOnErrorResumeNext_Message" xml:space="preserve">
+    <value>Aucun On Error GoTo ne suit cet On Error Resume Next : toute erreur dans le reste de la procédure est ignorée.</value>
+  </data>
+  <data name="ImplicitConstantType_Message" xml:space="preserve">
+    <value>La constante &apos;{0}&apos; n&apos;indique aucun type : une clause As dit lequel elle a.</value>
+  </data>
+  <data name="UnderscoreInPublicClassMember_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; a un trait de soulignement dans son nom : aucune classe ne peut implémenter celle-ci.</value>
+  </data>
 </root>
