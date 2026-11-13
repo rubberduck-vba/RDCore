@@ -83,6 +83,35 @@ public sealed class NotAllPathsReturnValueAnalyzerTests
     }
 
     [TestMethod]
+    [DataRow("As Long", "    F = 0", DisplayName = "a number")]
+    [DataRow("As Date", "    F = 0", DisplayName = "a date")]
+    [DataRow("As String", "    F = vbNullString", DisplayName = "a string")]
+    [DataRow("As Boolean", "    F = False", DisplayName = "a Boolean")]
+    [DataRow("As Variant", "    F = Empty", DisplayName = "a Variant")]
+    [DataRow("", "    F = Empty", DisplayName = "no As clause")]
+    [DataRow("As Object", "    Set F = Nothing", DisplayName = "an object")]
+    public async Task TheFix_AssignsTheDefaultValueBeforeTheFirstStatement(string returns, string assignment)
+    {
+        var source = $"Attribute VB_Name = \"Program\"\r\nPublic Function F(ByVal c As Boolean) {returns}\r\n    If c Then Exit Function\r\n    Debug.Print c\r\nEnd Function";
+
+        var fix = Assert.ContainsSingle(await FindAsync(source)).Fixes?.Edit;
+
+        Assert.IsNotNull(fix);
+        var edit = Assert.ContainsSingle(fix.Edits);
+        Assert.AreEqual(edit.Range.Start, edit.Range.End);
+        Assert.AreEqual(2, edit.Range.Start.Line, "before the first statement");
+        Assert.AreEqual(0, edit.Range.Start.Character);
+        Assert.AreEqual($"{assignment}\r\n", edit.NewText);
+    }
+
+    [TestMethod]
+    [DataRow("Attribute VB_Name = \"Program\"\r\nPublic Type Shape\r\n    Sides As Long\r\nEnd Type\r\nPublic Function F(ByVal c As Boolean) As Shape\r\n    If c Then Exit Function\r\nEnd Function", DisplayName = "a user-defined type")]
+    [DataRow("Attribute VB_Name = \"Program\"\r\nPublic Function F(ByVal c As Boolean) As Long()\r\n    If c Then Exit Function\r\nEnd Function", DisplayName = "an array")]
+    [DataRow("Attribute VB_Name = \"Program\"\r\nDefLng A-Z\r\nPublic Function F(ByVal c As Boolean)\r\n    If c Then Exit Function\r\nEnd Function", DisplayName = "a type a DefType statement sets")]
+    public async Task NoFixIsOffered_WhereTheDefaultHasNoLiteral(string source)
+        => Assert.IsNull(Assert.ContainsSingle(await FindAsync(source)).Fixes?.Edit);
+
+    [TestMethod]
     public async Task WithNoFactsFromTheHost_TheAnalyzerWillNotGuess()
     {
         var uri = TestUri.TestModuleUri();

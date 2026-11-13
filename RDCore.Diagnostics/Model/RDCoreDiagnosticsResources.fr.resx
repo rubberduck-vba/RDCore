@@ -249,6 +249,9 @@
   <data name="NotAllPathsReturnValue_NeverAssigned_Message" xml:space="preserve">
     <value>'{0}' n'assigne jamais sa valeur de retour: l'appelant reçoit toujours la valeur par défaut du type (0, une chaîne vide, Empty ou Nothing).</value>
   </data>
+  <data name="NotAllPathsReturnValue_Fix" xml:space="preserve">
+    <value>Assigner à '{0}' sa valeur par défaut ({1}) au début</value>
+  </data>
   <data name="IsMissingAlwaysFalse_Message" xml:space="preserve">
     <value>IsMissing({0}) est toujours False: '{0}' est {1}, qu'un argument omis ne laisse jamais manquant. Seul un paramètre Variant sans valeur par défaut peut être manquant.</value>
   </data>
