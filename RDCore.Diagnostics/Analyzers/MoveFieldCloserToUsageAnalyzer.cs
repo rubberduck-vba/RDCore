@@ -9,7 +9,7 @@ using RDCore.SDK.Semantics;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC00413</c>: a <c>Private</c> variable of the module whose every reference is in one procedure: it can be a local of that procedure.
+/// <c>RDC00413</c>: a <c>Private</c> or <c>Dim</c> variable of the module whose every reference is in one procedure: it can be a local of that procedure.
 /// </summary>
 /// <remarks>
 /// The host states where each reference is (<see cref="RDCore.SDK.Platform.Protocol.DeclarationFactDto.ReferencedFrom"/>). A <c>WithEvents</c> variable is
