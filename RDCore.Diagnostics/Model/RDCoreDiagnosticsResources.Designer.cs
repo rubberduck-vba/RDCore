@@ -888,7 +888,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by value and assigned: the argument of the caller does not change..
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change..
         /// </summary>
         public static string AssignedByValParameter_Message {
             get {

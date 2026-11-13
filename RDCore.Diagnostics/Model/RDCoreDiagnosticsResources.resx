@@ -394,7 +394,7 @@
     <value>Parameter &apos;{0}&apos; is never used.</value>
   </data>
   <data name="AssignedByValParameter_Message" xml:space="preserve">
-    <value>Parameter &apos;{0}&apos; is passed by value and assigned: the argument of the caller does not change.</value>
+    <value>Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change.</value>
   </data>
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Nothing jumps to line label &apos;{0}&apos;.</value>
