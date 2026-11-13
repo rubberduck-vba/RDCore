@@ -14,7 +14,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// <strong>MS-VBAL §5.4.2.4</strong> leaves the enumeration implementation-defined. The loop holds the object it walks, which its own loop does not destroy:
 /// the loop reaches every member, and the variable still refers to the object after it. MS-VBA lets go of a <c>Collection</c> there, which is destroyed with
-/// the members the loop has not reached, and the loop ends (observed in Excel). A warning, because a program that relies on MS-VBA's behaviour runs
+/// the members the loop has not reached, and the loop ends (observed in Excel). A warning, because a program that relies on MS-VBA's behavior runs
 /// differently. The host states it of the <c>Set</c>'s target (<see cref="ValueExpressionSemanticFlags.CollectionSetToNothingInItsOwnLoop"/>).
 /// </remarks>
 internal sealed class CollectionSetToNothingInItsOwnLoopAnalyzer : IModuleAnalyzer
