@@ -6,7 +6,7 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.Parsing.Syntax;
 
 /// <summary>
-/// What MS-VBA says of a syntax error the grammar reports, and where it puts the caret (RD-VBAL 2.6.1): in the body of a procedure, <c>Syntax error</c>,
+/// What MS-VBA says of a syntax error the grammar reports, and where it puts the caret (RD-VBAL §2.6.1): in the body of a procedure, <c>Syntax error</c>,
 /// over the whole line; outside it, in a procedure's header or a declaration of the module, <c>Expected: …</c>, at the token where what it expects is
 /// missing.
 /// </summary>
