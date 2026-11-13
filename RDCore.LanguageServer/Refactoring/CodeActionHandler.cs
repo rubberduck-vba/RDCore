@@ -51,8 +51,10 @@ internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer) : CodeActionHandlerBase
 {
-    /// <summary>The kind of the action that renames a symbol: a refactoring (<c>refactor.rename</c>).</summary>
-    public static readonly CodeActionKind RefactorRename = new("refactor.rename");
+    /// <summary>
+    /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorRename = new(RefactoringKinds.Rename);
 
     /// <summary>
     /// The kind of the action that extracts the statements of a selection as a procedure (<see cref="RefactoringKinds.ExtractMethod"/>).
@@ -64,8 +66,10 @@ internal sealed class CodeActionHandler(
     /// </summary>
     public static readonly CodeActionKind RefactorConvertGoSub = new(RefactoringKinds.ConvertGoSub);
 
-    /// <summary>The kind of the action that imports a VB6 project: a source action of the whole workspace (<c>source.rdcore.importProject</c>).</summary>
-    public static readonly CodeActionKind SourceImportProject = new("source.rdcore.importProject");
+    /// <summary>
+    /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
+    /// </summary>
+    public static readonly CodeActionKind SourceImportProject = new(RefactoringKinds.ImportProject);
 
     // LSP "RequestFailed": the request is valid, and is refused.
     private const int RequestFailedCode = -32803;
