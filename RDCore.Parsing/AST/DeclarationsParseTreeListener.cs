@@ -931,6 +931,23 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
     }
 
+    // so is a statement written outside the procedures (x = 1 before the first one, Loop after an End Sub): it is kept where it is written, in the module.
+    public override void ExitModuleDeclarationsElement([NotNull] VBAParser.ModuleDeclarationsElementContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
+    public override void ExitModuleBodyElement([NotNull] VBAParser.ModuleBodyElementContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
     // Let (MS-VBAL §5.4.3.8) and Set (§5.4.3.9) share one shape: both are `[keyword] lExpression =
     // expression`, and only their static/runtime coercion semantics differ, not their syntax.
     public override void ExitLetStmt([NotNull] VBAParser.LetStmtContext context)
