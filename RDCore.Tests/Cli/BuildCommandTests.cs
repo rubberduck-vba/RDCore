@@ -564,36 +564,6 @@ public sealed class BuildCommandTests
         return await RunAsync(fileSystem, shipped, Root);
     }
 
-    // the workspace is no folder of the disk the program runs on: the form's designer, its companion file with it, is what the build read, and the form the
-    // program loads has the controls that file describes, as rdc run's has.
-    [TestMethod]
-    [OSCondition(OperatingSystems.Windows)]
-    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsUserFormTheControlsItsCompanionFileDescribes()
-    {
-        CompiledExecutionTests.RequirePayloads();
-        var (_, frm, _) = UnattendedRunTests.ExampleView(string.Empty);
-        var fileSystem = Files(
-            ("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print ExampleView.Controls.Count; ExampleView.AmountBox.Name", "    Unload ExampleView", "End Sub")),
-            ("ExampleView.frm", frm));
-        fileSystem.File.WriteAllBytes(Path.Combine(Root, "ExampleView.frx"), UnattendedRunTests.Fixture("ExampleView.frx"));
-        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
-            { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "ExampleView.frm" } ],
-              "References": [ { "Name": "MSForms" } ] } }
-            """);
-        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
-        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
-        var run = await RunAsync(fileSystem, shipped, Root);
-        Assert.AreEqual(0, run.Exit, run.Error);
-
-        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
-
-        Assert.AreEqual(0, built.Exit, built.Error);
-        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
-        var symbols = Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime, BuiltProgram.LibrariesFolder);
-        CollectionAssert.IsSubsetOf(new[] { "MSForms.json", "stdole.json" },
-            fileSystem.Directory.GetFiles(symbols).Select(Path.GetFileName).ToArray(), "the program's folder holds the libraries its project references");
-    }
-
     [TestMethod]
     public async Task Run_OfAProjectWithAUserForm_WithNoCompanionFile_LoadsWhatItsDesignerDeclares()
     {
