@@ -100,7 +100,7 @@ public sealed class ExtractMethodFormCodeTests
 
     private static Uri DocumentOf(string file) => DocumentUri.From(Path.Combine(Root, file)).ToUri();
 
-    // the whole line of the text that is the statement drawn with.
+    // the range of the whole line that holds the drawing statement.
     private static SourceRange DrawingLine(string text)
     {
         var line = Array.IndexOf(text.Split("\r\n"), Drawing);
@@ -134,7 +134,7 @@ public sealed class ExtractMethodFormCodeTests
             string.Join(" | ", errors.Select(error => error.Verbose)));
     }
 
-    // the text with the edits made, each of the text as it was before any of them.
+    // the text with the edits made; the range of each edit is in the text as it was before any of them.
     private static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
     {
         var starts = new List<int> { 0 };

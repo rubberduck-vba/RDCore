@@ -230,7 +230,7 @@ public sealed class VisualBasicFormGraphicsTests
 
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
-    // a shown Form4 and a program that stops in halt, Form4's Halt or its own; the statement is run in that activation, as the Immediate window runs it, and
+    // a shown Form4, and a program stopped by the call halt, to Form4's Halt or to the program's own; the statement is run in that activation, as the Immediate window runs it, and
     // the program then goes on and prints the point the statement draws.
     private static async Task<(DebugEvaluateResult Done, string[] Printed)> StoppedAsync(string halt, string statement)
     {
