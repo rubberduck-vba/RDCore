@@ -30,7 +30,7 @@ internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
             // the implicit Me of a class member is a parameter fact too, with no declaration in the source.
             if (UnusedDeclarations.ParameterOf(module, fact) is not { } parameter
                 || UnusedDeclarations.ProcedureAt(module, fact.Location.Range.Start) is not { } procedure
-                || !ChoosesItsSignature(procedure, semantics))
+                || !UnusedDeclarations.ChoosesItsSignature(procedure, semantics))
             {
                 continue;
             }
@@ -42,13 +42,6 @@ internal sealed class ParameterNotUsedAnalyzer : IModuleAnalyzer
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.ParameterNotUsed_Message, fact.Name));
         }
     }
-
-    private static bool ChoosesItsSignature(MemberDeclarationNode procedure, ModuleSemanticsDto semantics)
-        => procedure is not ExternalMemberDeclarationNode
-            && procedure.MemberKind is not MemberKind.Event
-            && !(semantics.Class is not null && procedure.AccessModifier is AccessModifier.Public or AccessModifier.Implicit)
-            && !semantics.Declarations.Any(declaration => declaration is { Role: DeclarationRole.InterfaceImplementation or DeclarationRole.EventHandler }
-                && string.Equals(declaration.Name, procedure.Name, StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>

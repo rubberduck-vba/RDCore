@@ -56,6 +56,8 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00206`](../diagnostics/rdc00206.md)|Not all code paths return a value|Warning|`ProcedureSemanticModel.ReturnValue`, from the `ControlFlowGraph` of the procedure|
 |[`RDC00207`](../diagnostics/rdc00207.md)|IsMissing that is always False|Warning|`ValueExpressionSemanticFlags.IsMissingAlwaysFalse`|
 |[`RDC00208`](../diagnostics/rdc00208.md)|Shadowed declaration|Information|`DeclarationFact.Hides`, from the resolver: what the name of a local or a parameter means as seen from the module|
+|[`RDC00214`](../diagnostics/rdc00214.md)|Procedure can be written as a function|Information|the syntax tree: a `Sub` with one `ByRef` parameter that is no `ParamArray`; the host's reference counts of that parameter: written; not a `Declare`, an implementation, a handler, or a `Public` member of a class module|
+|[`RDC00215`](../diagnostics/rdc00215.md)|Self-assigned declaration|Hint|the syntax tree: `AsTypeExpressionNode.AsAutoObject` of a variable declaration|
 |[`RDC00302`](../diagnostics/rdc00302.md)|Obsolete Call statement|Hint|`ValueExpressionSemanticFlags.ExplicitCallKeyword`|
 |[`RDC00303`](../diagnostics/rdc00303.md)|Obsolete comment syntax|Information|`ModuleSemanticModel.Language` (`SupportedLanguage.UsesClassicBasicSyntax`), and the comments of the syntax tree|
 |[`RDC00304`](../diagnostics/rdc00304.md)|Obsolete error syntax|Information|`ModuleSemanticModel.Language`, and the syntax tree: an `Error` statement|
@@ -68,6 +70,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00311`](../diagnostics/rdc00311.md)|Early binding opportunity|Information|`ExpressionFact.Creates` (`ObjectClassSource.ReferencedLibrary`)|
 |[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`|
 |[`RDC00407`](../diagnostics/rdc00407.md)|Unmatched event handler|Hint|`DeclarationFact.Role` (`DeclarationRole.UnmatchedEventHandler`) and `DeclarationFact.References`|
+|[`RDC00409`](../diagnostics/rdc00409.md)|Public field|Information|`ModuleSemanticsDto.Class` (a class module), and the syntax tree: a module-level variable declared `Public`|
 |[`RDC01001`](../diagnostics/rdc01001.md)|Use meaningful identifier names|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.MeaningfulNames`|
 |[`RDC01002`](../diagnostics/rdc01002.md)|Hungarian notation|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.HungarianNotation`|
 |[`RDC01005`](../diagnostics/rdc01005.md)|Hosted document code|Error|the host's `DocumentModuleFact` of a document module whose code presumes its host, with the bindings of its expressions and its procedures named as the host's event handlers; and `ValueExpressionSemanticFlags.HostedDocumentName` of a name in another module, which it reports in place of _Variable not defined_|

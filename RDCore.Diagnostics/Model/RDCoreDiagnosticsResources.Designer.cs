@@ -401,6 +401,33 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ShadowedDeclaration_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it..
+        /// </summary>
+        public static string ProcedureCanBeWrittenAsFunction_Message {
+            get {
+                return ResourceManager.GetString("ProcedureCanBeWrittenAsFunction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is declared As New: its object is created when it is first used, and again when it is used after it is set to Nothing..
+        /// </summary>
+        public static string SelfAssignedDeclaration_Message {
+            get {
+                return ResourceManager.GetString("SelfAssignedDeclaration_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value..
+        /// </summary>
+        public static string EncapsulatePublicField_Message {
+            get {
+                return ResourceManager.GetString("EncapsulatePublicField_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..

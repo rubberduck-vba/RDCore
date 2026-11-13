@@ -237,6 +237,15 @@
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' hides '{1}': in this procedure, the name means '{0}', and '{1}' everywhere else. Give '{0}' a name of its own.</value>
   </data>
+  <data name="ProcedureCanBeWrittenAsFunction_Message" xml:space="preserve">
+    <value>Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it.</value>
+  </data>
+  <data name="SelfAssignedDeclaration_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is declared As New: its object is created when it is first used, and again when it is used after it is set to Nothing.</value>
+  </data>
+  <data name="EncapsulatePublicField_Message" xml:space="preserve">
+    <value>Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>

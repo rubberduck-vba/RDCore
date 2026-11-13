@@ -424,6 +424,10 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00214: Procedure can be written as a function"
+  href: rdc00214.md
+- name: "RDC00215: Self-assigned declaration"
+  href: rdc00215.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"
@@ -448,6 +452,8 @@
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"
   href: rdc00407.md
+- name: "RDC00409: Public field"
+  href: rdc00409.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"

@@ -60,6 +60,8 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, NotAllPathsReturnValueAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IsMissingAlwaysFalseAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ShadowedDeclarationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ProcedureCanBeWrittenAsFunctionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, SelfAssignedDeclarationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ImplicitNarrowingConversionAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, BitwiseSemanticsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, AmbiguousConcatenationAnalyzer>();
@@ -120,6 +122,7 @@ internal class CoreDiagnosticsApp(
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UnmatchedEventHandlerAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EncapsulatePublicFieldAnalyzer>();
 
         // what RD-VBA does not host: the code of a host's document, which is analyzed and does not run.
         services.AddSingleton<IModuleAnalyzer, HostedDocumentCodeAnalyzer>();
