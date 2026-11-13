@@ -129,7 +129,7 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
     }
 
     // no As clause, or one that names an intrinsic type, Object included, unqualified or of the VBA library: no user-defined type has such a name. A class
-    // can't be told from a user-defined type by its name alone, so neither is judged.
+    // cannot be told from a user-defined type by its name alone, so neither is judged.
     private static bool IsOfAnIntrinsicType(VariableDeclarationNode declaration)
         => declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is not { } asType
             || !asType.IsArrayDef
