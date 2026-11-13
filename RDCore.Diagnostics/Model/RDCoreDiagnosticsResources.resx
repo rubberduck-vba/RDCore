@@ -387,4 +387,7 @@
   <data name="LineContinuationBetweenKeywords_Message" xml:space="preserve">
     <value>A line continuation splits the keyword '{0}' over several lines. Write its words on one line.</value>
   </data>
+  <data name="LineContinuationBetweenKeywords_Fix" xml:space="preserve">
+    <value>Write '{0}' on one line</value>
+  </data>
 </root>

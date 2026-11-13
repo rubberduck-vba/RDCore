@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Source;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -41,10 +42,24 @@ internal sealed class LineContinuationBetweenKeywordsAnalyzer : IModuleAnalyzer
         }
     }
 
+    // the fix writes the keyword's words on one line: one space in place of the continuations, which are white space between them.
     private static AnalyzerFinding Finding(LineContinuationTriviaNode first, LineContinuationTriviaNode last)
-        => new(
+    {
+        var range = new SourceRange(first.SourceLocation.Range.Start, last.SourceLocation.Range.End);
+        return new(
             RDCoreDiagnosticId.LineContinuationBetweenKeywords.ToCode(),
-            new SourceRange(first.SourceLocation.Range.Start, last.SourceLocation.Range.End),
+            range,
             DiagnosticSeverity.Information,
-            AnalyzerMessages.Format(RDCoreDiagnosticsResources.LineContinuationBetweenKeywords_Message, first.Keyword!));
+            AnalyzerMessages.Format(RDCoreDiagnosticsResources.LineContinuationBetweenKeywords_Message, first.Keyword!))
+        {
+            Fixes = new DiagnosticFixes
+            {
+                Edit = new EditFix
+                {
+                    Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.LineContinuationBetweenKeywords_Fix, first.Keyword!),
+                    Edits = [new TextEdit { Range = new Range(range.Start.Line, range.Start.Character, range.End.Line, range.End.Character), NewText = " " }],
+                },
+            },
+        };
+    }
 }
