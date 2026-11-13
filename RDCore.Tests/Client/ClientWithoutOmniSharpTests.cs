@@ -232,7 +232,7 @@ public sealed class ClientWithoutOmniSharpTests
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
-        Assert.IsNull((await diagnostics)["error"]);
+        Assert.IsNull((await diagnostics)["error"], (await diagnostics).ToJsonString());
         await platform.ShutdownAsync(6);
 
         // the log is read once the language server has exited, from every file it wrote: a server that runs past midnight writes the line to the next day's.
@@ -264,12 +264,12 @@ public sealed class ClientWithoutOmniSharpTests
 
         var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        Assert.IsNull((await handshake)["error"]);
+        Assert.IsNull((await handshake)["error"], (await handshake).ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
-        Assert.IsNull((await diagnostics)["error"]);
+        Assert.IsNull((await diagnostics)["error"], (await diagnostics).ToJsonString());
         await platform.ShutdownAsync(6);
     }
 
@@ -347,7 +347,7 @@ public sealed class ClientWithoutOmniSharpTests
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
         });
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        Assert.IsNull((await handshake)["error"]);
+        Assert.IsNull((await handshake)["error"], (await handshake).ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
@@ -416,7 +416,7 @@ public sealed class ClientWithoutOmniSharpTests
         });
         var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        Assert.IsNull((await handshake)["error"]);
+        Assert.IsNull((await handshake)["error"], (await handshake).ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
