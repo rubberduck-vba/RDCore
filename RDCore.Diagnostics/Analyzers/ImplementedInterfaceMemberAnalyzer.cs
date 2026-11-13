@@ -22,7 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// The class is reported once, at the first member that has code: a statement, or a <c>Dim</c>, <c>Static</c> or <c>Const</c> declaration. Comments and line
 /// labels are not code. Whether another module implements the class is a fact the host states (<see cref="ClassModuleSemanticFlags.Implemented"/>);
 /// without it, the analyzer reports nothing. The finding comes with the fix that removes the code of every member that has some, its title saying what
-/// changes: an object created from the class itself then runs none of it, and its functions return the default value of their type.
+/// changes: an object created from the class itself then runs none of it, and its functions and <c>Property Get</c> members return the default value of
+/// their type.
 /// </remarks>
 internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
 {
@@ -82,7 +83,7 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
         => member.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode);
 
     // the whole lines from the member's first statement, label or declaration to the line before its End, less its Attribute lines: the comments above the
-    // first statement stay. Null when the analyzer can't tell those lines from the header and the End: code on the line of either, an Attribute line
+    // first statement stay. Null when the analyzer cannot tell those lines from the header and the End: code on the line of either, an Attribute line
     // after the last statement (the member's range then ends after the End), or an #If in the member.
     private static IEnumerable<TextEdit>? CodeOf(ModuleParseResult parse, MemberDeclarationNode member)
     {
