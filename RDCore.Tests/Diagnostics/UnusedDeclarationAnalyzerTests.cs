@@ -353,6 +353,68 @@ public sealed class UnusedDeclarationAnalyzerTests
         StringAssert.Contains(findings[0].Message, "'copy'");
     }
 
+    // the module with every edit of the fix made, the last one first.
+    private static string WithEdits(string program, EditFix fix)
+    {
+        var lines = program.Split("\r\n");
+        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
+        foreach (var edit in fix.Edits.OrderByDescending(edit => OffsetOf(edit.Range.Start)))
+        {
+            program = program[..OffsetOf(edit.Range.Start)] + edit.NewText + program[OffsetOf(edit.Range.End)..];
+        }
+
+        return program;
+    }
+
+    private static async Task AssertLocalCopyAsync(string[] before, string[] after, string title)
+    {
+        var program = ModuleWorkspace.StandardModule("Program", before);
+        var fix = Assert.ContainsSingle(await ProgramAsync(new AssignedByValParameterAnalyzer(), before)).Fixes?.Edit;
+        Assert.IsNotNull(fix);
+        Assert.AreEqual(title, fix.Title);
+
+        var fixedProgram = WithEdits(program, fix);
+        Assert.AreEqual(ModuleWorkspace.StandardModule("Program", after), fixedProgram);
+        Assert.IsEmpty(await ProgramAsync(new AssignedByValParameterAnalyzer(), after), "the parameter is no longer assigned");
+        CollectionAssert.AreEqual(await ModuleWorkspace.RunAsync([], program), await ModuleWorkspace.RunAsync([], fixedProgram), "the program prints the same");
+    }
+
+    [TestMethod]
+    public async Task TheFix_CopiesTheParameterIntoALocal_AndUsesIt()
+        => await AssertLocalCopyAsync(
+            ["Public Sub Main()", "    Debug.Print Twice(3)", "End Sub",
+             "Public Function Twice(ByVal n As Long) As Long", "    n = n * 2", "    Twice = n", "End Function"],
+            ["Public Sub Main()", "    Debug.Print Twice(3)", "End Sub",
+             "Public Function Twice(ByVal n As Long) As Long", "    Dim localN As Long", "    localN = n", "    localN = localN * 2", "    Twice = localN", "End Function"],
+            "Copy 'n' into a local variable 'localN', and use it in place of the parameter");
+
+    [TestMethod]
+    public async Task TheFix_CopiesAnObjectWithSet()
+        => await AssertLocalCopyAsync(
+            ["Public Sub Main()", "    Dim c As New Collection", "    c.Add 1", "    Show c", "End Sub",
+             "Public Sub Show(ByVal items As Collection)", "    Debug.Print items.Count", "    Set items = Nothing", "    Debug.Print items Is Nothing", "End Sub"],
+            ["Public Sub Main()", "    Dim c As New Collection", "    c.Add 1", "    Show c", "End Sub",
+             "Public Sub Show(ByVal items As Collection)", "    Dim localItems As Collection", "    Set localItems = items", "    Debug.Print localItems.Count",
+             "    Set localItems = Nothing", "    Debug.Print localItems Is Nothing", "End Sub"],
+            "Copy 'items' into a local variable 'localItems', and use it in place of the parameter");
+
+    [TestMethod]
+    public async Task TheFix_CopiesAVariant_AsWhatItHolds()
+        => await AssertLocalCopyAsync(
+            ["Public Sub Main()", "    Bump 41", "End Sub",
+             "Public Sub Bump(ByVal v)", "    v = v + 1", "    Debug.Print v", "End Sub"],
+            ["Public Sub Main()", "    Bump 41", "End Sub",
+             "Public Sub Bump(ByVal v)", "    Dim localV As Variant", "    If IsObject(v) Then Set localV = v Else localV = v", "    localV = localV + 1", "    Debug.Print localV", "End Sub"],
+            "Copy 'v' into a local variable 'localV', and use it in place of the parameter");
+
+    [TestMethod]
+    public async Task NoCopyIsOffered_ForAOneLineProcedure()
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new AssignedByValParameterAnalyzer(), "Public Sub Work(ByVal n As Long): n = 1: End Sub"));
+
+        Assert.IsNull(finding.Fixes?.Edit);
+    }
+
     #endregion
 
     #region RDC01015 a constant never used
