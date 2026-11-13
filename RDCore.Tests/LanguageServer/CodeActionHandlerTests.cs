@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Refactoring;
@@ -36,17 +37,37 @@ public sealed class CodeActionHandlerTests
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
 
-    public CodeActionHandlerTests()
+    // what the client said it can do, as it initialized; none, a client that takes neither documentChanges nor change annotations.
+    private ClientCapabilities? _client;
+
+    public CodeActionHandlerTests() => Hold(new WorkspaceDocument("Main.rdc", Root, Program, version: 2));
+
+    // the documents of the workspace: the program, or the modules a test holds instead.
+    private void Hold(params WorkspaceDocument[] documents)
     {
         _documents.WorkspaceRoot.Returns(Root);
-        var program = new WorkspaceDocument("Main.rdc", Root, Program, version: 2);
-        _documents.GetAllDocuments().Returns([program]);
-        var uri = program.Id.Uri.ToUri();
-        _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = program; return true; });
-        _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(program))));
+        _documents.GetAllDocuments().Returns(documents);
+        foreach (var document in documents)
+        {
+            var uri = document.Id.Uri.ToUri();
+            _documents.TryGetDocument(uri, out Arg.Any<WorkspaceDocument>()).Returns(call => { call[1] = document; return true; });
+            _parsing.ParseDocumentAsync(uri, Arg.Any<CancellationToken>()).Returns(Task.FromResult(new ModuleParser().Parse(uri, ParsingClientService.ModuleSourceOf(document))));
+        }
     }
 
     private CodeActionHandler Sut()
+    {
+        var handler = Handler();
+        if (_client is not null)
+        {
+            ((IRegistration<CodeActionRegistrationOptions, CodeActionCapability>)handler)
+                .GetRegistrationOptions(new CodeActionCapability(), _client);
+        }
+
+        return handler;
+    }
+
+    private CodeActionHandler Handler()
     {
         var libraries = Substitute.For<IReferencedLibraryService>();
         libraries.SymbolsUnder(Arg.Any<Uri>()).Returns(call
@@ -68,7 +89,10 @@ public sealed class CodeActionHandlerTests
         Data = new DiagnosticFixes { Rename = new RenameFix { Suggestions = suggestions } }.ToData(),
     };
 
-    private async Task<List<CodeAction>> ActionsAsync(Range range, CodeActionKind[]? only = null, params Diagnostic[] diagnostics)
+    private Task<List<CodeAction>> ActionsAsync(Range range, CodeActionKind[]? only = null, params Diagnostic[] diagnostics)
+        => ActionsAsync(Document, range, only, diagnostics);
+
+    private async Task<List<CodeAction>> ActionsAsync(DocumentUri document, Range range, CodeActionKind[]? only, params Diagnostic[] diagnostics)
     {
         var culture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
@@ -76,7 +100,7 @@ public sealed class CodeActionHandlerTests
         {
             var answer = await Sut().Handle(new CodeActionParams
             {
-                TextDocument = new TextDocumentIdentifier(Document),
+                TextDocument = new TextDocumentIdentifier(document),
                 Range = range,
                 Context = new CodeActionContext
                 {
@@ -167,4 +191,32 @@ public sealed class CodeActionHandlerTests
     [TestMethod]
     public async Task AClientThatAsksForQuickFixesOnly_IsNotOfferedTheRefactorings()
         => Assert.IsEmpty(await ActionsAsync(new Range(0, 0, 3, 0), [CodeActionKind.QuickFix]));
+
+    // a member called late-bound: nothing says what o holds; the code says w holds a Widget.
+    private const string Widget = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Widget\"\r\nPublic Sub Spin()\r\nEnd Sub\r\n";
+    private const string Caller = "Attribute VB_Name = \"Module1\"\r\nPublic Sub Bar(ByVal o As Object)\r\n    o.Spin\r\n    Dim w As Object\r\n    Set w = New Widget\r\n    w.Spin\r\nEnd Sub\r\n";
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "a client that can't ask its user")]
+    [DataRow(true, DisplayName = "a client that takes change annotations")]
+    public async Task ARenameFixWithLateBoundEdits_IsOfferedAsAnEdit_OnlyToAClientThatAsksItsUser(bool annotations)
+    {
+        Hold(new WorkspaceDocument("Widget.cls", Root, Widget, version: 1), new WorkspaceDocument("Module1.bas", Root, Caller, version: 1));
+        _client = annotations
+            ? new ClientCapabilities
+            {
+                Workspace = new WorkspaceClientCapabilities
+                {
+                    WorkspaceEdit = new WorkspaceEditCapability { DocumentChanges = true, ChangeAnnotationSupport = new WorkspaceEditSupportCapabilitiesChangeAnnotationSupport() },
+                },
+            }
+            : null;
+        var name = new Range(5, 11, 5, 15);
+
+        var actions = await ActionsAsync(DocumentUri.From(Path.Combine(Root, "Widget.cls")), name, [CodeActionKind.QuickFix], Finding(name, "Turn"));
+
+        var titles = actions.Select(action => action.Title).ToArray();
+        CollectionAssert.AreEqual(annotations ? new[] { "Rename 'Spin' to 'Turn'", "Rename 'Spin'…" } : new[] { "Rename 'Spin'…" }, titles,
+            "an edit without the late-bound calls would leave o.Spin and w.Spin calling a member Widget no longer has");
+    }
 }
