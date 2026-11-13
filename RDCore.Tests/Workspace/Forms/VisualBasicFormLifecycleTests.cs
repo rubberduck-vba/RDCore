@@ -581,7 +581,7 @@ public sealed class VisualBasicFormLifecycleTests
     }
 
     // the forms of a world whose user closes the first form shown, as its close button does (vbFormControlMenu), once the program runs on after showing it.
-    private sealed class ClosedByItsUser(RDCore.External.Forms.IFormHost forms) : RDCore.External.Forms.IFormHost
+    internal sealed class ClosedByItsUser(RDCore.External.Forms.IFormHost forms) : RDCore.External.Forms.IFormHost
     {
         private bool _closed;
 
