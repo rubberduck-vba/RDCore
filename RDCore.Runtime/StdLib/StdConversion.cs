@@ -407,7 +407,7 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
             : Fail<VBStringValue>(text.Error ?? VBRuntimeErrorId.TypeMismatch, "The number has no text.");
     }
 
-    // the text of a number, with "." as its decimal separator, as MS-VBA's Str and Write # write it: less the zero before the decimal point of a number
+    // the text of a number, with "." as its decimal separator, as MS-VBA's Str and Write # write it: without the zero before the decimal point of a number
     // between -1 and 1 (0.5 is .5, -0.25 is -.25). Anything else is left as it is.
     internal static string WithoutLeadingZero(string text)
         => text.StartsWith("0.", StringComparison.Ordinal) ? text[1..]
