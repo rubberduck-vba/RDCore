@@ -98,11 +98,20 @@ public sealed class DeclarationUsageTests
     [DataRow("Abs")]
     [DataRow("Int")]
     [DataRow("Sgn")]
-    public void AVariablePassedToAFunctionOfTheLibrary_IsPassedAsAnArgument(string function)
+    public void AVariablePassedToAByValParameterOfTheLibrary_IsRead(string function)
     {
         var facts = Facts("Public Sub Run()", "Dim x As Long", "x = 5", $"Debug.Print {function}(x)", "End Sub");
 
-        Assert.AreEqual(new DeclarationReferences(0, 1, 1), References(facts, "x"));
+        // MS-VBAL §5.3.1.11: the function takes its argument ByVal, which the call cannot assign.
+        Assert.AreEqual(new DeclarationReferences(1, 1, 0), References(facts, "x"));
+    }
+
+    [TestMethod]
+    public void AVariablePassedToAByValParameter_IsRead()
+    {
+        var facts = Facts("Private Sub Work(ByVal n As Long)", "End Sub", "Public Sub Run()", "Dim local As Long", "Work local", "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), References(facts, "local"));
     }
 
     [TestMethod]

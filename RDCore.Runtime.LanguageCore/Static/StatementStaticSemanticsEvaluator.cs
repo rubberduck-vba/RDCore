@@ -519,7 +519,7 @@ public static class StatementStaticSemanticsEvaluator
                 // the arguments of the statement may be taken by reference like those of a call written as an expression, unless the callee is an array.
                 if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
                 {
-                    ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Arguments);
+                    ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Callee, callStatement.Arguments);
                     ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, callStatement.Callee, callStatement.Arguments);
                 }
 
@@ -772,12 +772,12 @@ public static class StatementStaticSemanticsEvaluator
             argumentTypes[i] = result.IsSuccess ? result.Result : null;
         }
 
-        // a handler of the event may write to what it is given by reference, as a procedure called may: Cancel, say.
-        ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, arguments);
-
         var declared = context.Scope.SelfAndAncestors()
             .FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?
             .DeclaredAs(eventName.IdentifierName).OfType<VBEventMemberSymbol>().FirstOrDefault();
+
+        // a handler of the event may write to what it is given by reference, as a procedure called may: Cancel, say.
+        ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, declared?.Parameters, arguments, recordsParameters: false);
         if (declared is null)
         {
             walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.EventNotDefined, eventName.Location,
