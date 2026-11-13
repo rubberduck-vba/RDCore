@@ -438,7 +438,8 @@ public sealed partial class RuntimeExpressionEvaluator
 
     // the member an object of `actual` invokes for a member of the class the expression is declared as (MS-VBAL §5.3.1.9): the member itself, of an object of
     // that class; the one implementing it, of a class that implements it as an interface; or the class's own member by that name, as it is found
-    // late-bound.
+    // late-bound. A late-bound object held by a variable of a library's class is reached through that class, as MS-VBA binds it early: the Set that put it
+    // there found it is one.
     private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
     {
         if (_memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual))
@@ -449,7 +450,7 @@ public sealed partial class RuntimeExpressionEvaluator
         // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
         var name = bound.Access.Member.IdentifierName;
         var declared = bound.DeclaredClass!.Uri.AbsoluteUri;
-        var member = ReferenceEquals(actual, bound.DeclaredClass)
+        var member = ReferenceEquals(actual, bound.DeclaredClass) || IsLateBoundAsLibraryClass(actual, bound.DeclaredClass)
             ? bound.Member
             : (actual.ImplementedInterfaces.FirstOrDefault(implemented => implemented.Uri.AbsoluteUri == declared) is { } implementedInterface
                 ? ImplementationIn(actual, implementedInterface, name)
@@ -458,6 +459,10 @@ public sealed partial class RuntimeExpressionEvaluator
         _memberSites[bound] = (actual, member);
         return member;
     }
+
+    private static bool IsLateBoundAsLibraryClass(VBClassModuleSymbol actual, VBClassModuleSymbol declared)
+        => Execution.External.Automation.LateBinding.IsLateBound(actual) && !Execution.External.Automation.LateBinding.IsLateBound(declared)
+            && declared.GetProperty(SymbolProperties.Library) is { Length: > 0 };
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundBinary(IRuntimeSession session, BoundBinary binary, RuntimeEvaluationContext context)
     {

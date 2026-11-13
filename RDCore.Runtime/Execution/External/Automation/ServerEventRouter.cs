@@ -54,10 +54,15 @@ internal sealed class ServerEventRouter(
     /// <param name="server">The server that raises them.</param>
     /// <param name="source">The object that raises them.</param>
     public ServerEventRouter(IRuntimeSession session, IAutomationServer server, VBRuntimeObjectId source)
-        : this(session, server, name => session.Symbols.TryGetInstance(source, out var live) && live.ClassModule.FindEvent(name) is { } raised
-            ? new ServerEventRoute(raised, SubscribersOf(session, source, raised))
-            : null, source: source)
+        : this(session, server, RoutesOf(session, source), source: source)
     {
+    }
+
+    // the events of the source's class, which a late-bound object's server is asked once for (ServerObjects.ClassOf).
+    private static Func<string, ServerEventRoute?> RoutesOf(IRuntimeSession session, VBRuntimeObjectId source)
+    {
+        var raising = session.Symbols.TryGetInstance(source, out var live) ? ServerObjects.ClassOf(session, source, live.ClassModule) : null;
+        return name => raising?.FindEvent(name) is { } raised ? new ServerEventRoute(raised, SubscribersOf(session, source, raised)) : null;
     }
 
     /// <summary>

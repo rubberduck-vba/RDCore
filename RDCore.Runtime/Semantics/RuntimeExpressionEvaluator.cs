@@ -3446,7 +3446,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return answered;
         }
 
-        return session.Symbols.TryGetInstance(instance, out var held) ? IsOrImplements(held.ClassModule, targetClass, []) : null;
+        return session.Symbols.TryGetInstance(instance, out var held)
+            ? IsOrImplements(Execution.External.Automation.ServerObjects.ClassOf(session, instance, held.ClassModule), targetClass, [])
+            : null;
     }
 
     // Uri.Equals/GetHashCode ignore the fragment, where a Symbol's own identity lives - AbsoluteUri
