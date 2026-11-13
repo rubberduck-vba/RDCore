@@ -193,7 +193,7 @@ public sealed class CompiledEditAndContinueTests
         CompiledExecutionTests.RequirePayloads();
         await ModuleWorkspace.InspectAsync([], CallingStrings, async (provider, first, runAgain) =>
         {
-            // the activation that was stopped went on in the edited code with the Strings it had made compiled: u is "a-", and t is made from it. The next
+            // the activation that was stopped went on in the edited code with the Strings its compiled code had made: u is "a-", and t is made from it. The next
             // call ran the edited code, where the body compiled before the edit returns "b-x".
             await BreakEditContinueAsync(provider, first, new() { ["Program"] = CallingStrings }, "Program", 5 + StringLoopLine, ["a-x!", "b-x!"], atBreak: null,
                 edit: EditedStrings);
