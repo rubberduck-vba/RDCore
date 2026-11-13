@@ -143,9 +143,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     public const string DuplicatesChoice = "duplicates";
 
     /// <summary>
-    /// The id of the choice to replace a duplicate, among the choices of an item of <see cref="DuplicatesChoice"/>: ticked by default for one the new procedure
-    /// replaces when it is <c>Private</c>, in its standard module; unticked for one in another module, or in its class module, which only a <c>Public</c>
-    /// procedure replaces.
+    /// The id of the choice to replace a duplicate, among the choices of an item of <see cref="DuplicatesChoice"/>: ticked by default for one in the new
+    /// procedure's standard module, which a <c>Private</c> procedure replaces; unticked for one in another module, or in its class module, which only a
+    /// <c>Public</c> procedure replaces.
     /// </summary>
     public const string DuplicateReplaceChoice = "replace";
 
@@ -519,7 +519,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             ? accessibility is ExtractionAccessibility.Public || IsInTheModule(duplicate)
             : accessibility is ExtractionAccessibility.Public;
 
-        // why the new procedure, Private, doesn't replace the duplicate.
+        // why the new procedure, Private, does not replace the duplicate.
         public string NeedsPublic(ExtractionDuplicate duplicate) => Module.Type is ModuleType.StdModule
             ? Format("ExtractMethodDuplicate_NeedsPublic", Where(duplicate))
             : Format("ExtractMethodDuplicate_NeedsPublicMember", Where(duplicate));
