@@ -11,7 +11,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// Only a procedure whose references the host counts over the project is found (<see cref="RDCore.SDK.Platform.Protocol.DeclarationFactDto.ReferencedFrom"/>):
-/// a <c>Friend</c> one. A <c>Public</c> function can be called by another project, and a <c>Private</c> one by its name, with no expression that names it.
+/// a <c>Friend</c> one. A <c>Public</c> function can be called by another project, and a <c>Private</c> one through a string that holds its name, which no reference counts.
 /// A function no code calls is not found here.
 /// </remarks>
 internal sealed class FunctionReturnValueAlwaysDiscardedAnalyzer : IModuleAnalyzer
