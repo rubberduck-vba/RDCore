@@ -264,6 +264,50 @@ public sealed class UnusedDeclarationAnalyzerTests
             "    Debug.Print resized(0)",
             "End Sub"));
 
+    [TestMethod]
+    [DataRow("Dim n As Long", "n = 0", "0", DisplayName = "a Long")]
+    [DataRow("Dim n As Date", "n = 0", "0", DisplayName = "a Date")]
+    [DataRow("Dim n As String", "n = vbNullString", "0", DisplayName = "a String, which StrPtr tells from an empty one")]
+    [DataRow("Dim n As Boolean", "n = False", "False", DisplayName = "a Boolean")]
+    [DataRow("Dim n", "n = Empty", "True", DisplayName = "a Variant")]
+    [DataRow("Dim n&", "n = 0", "0", DisplayName = "a type character")]
+    [DataRow("Static n As Long", "n = 0", "0", DisplayName = "a Static local")]
+    public async Task TheFix_AssignsTheDefaultValueAfterTheDeclaration_AndTheProgramPrintsTheSame(string declaration, string assignment, string printed)
+    {
+        // a Date prints in the session's regional settings; its serial number does not.
+        var read = declaration.Contains("String") ? "StrPtr(n)" : declaration.Contains("Date") ? "CDbl(n)" : declaration == "Dim n" ? "IsEmpty(n)" : "n";
+        string[] before = ["Public Sub Main()", $"    {declaration}", $"    Debug.Print {read}", "End Sub"];
+        var program = ModuleWorkspace.StandardModule("Program", before);
+
+        var fix = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), before)).Fixes?.Edit;
+
+        Assert.IsNotNull(fix);
+        var edit = Assert.ContainsSingle(fix.Edits);
+        Assert.AreEqual(new Position(3, 0), edit.Range.Start, "on the line after the declaration");
+        Assert.AreEqual($"    {assignment}\r\n", edit.NewText);
+        var lines = program.Split("\r\n").ToList();
+        lines.Insert(3, $"    {assignment}");
+        var fixedProgram = string.Join("\r\n", lines);
+        CollectionAssert.AreEqual(new[] { printed }, await ModuleWorkspace.RunAsync([], program), "before the fix");
+        CollectionAssert.AreEqual(new[] { printed }, await ModuleWorkspace.RunAsync([], fixedProgram), "after the fix");
+    }
+
+    [TestMethod]
+    [DataRow("Dim s As String * 3", DisplayName = "a fixed-length string, whose default is null characters")]
+    [DataRow("Dim n", "DefLng A-Z", DisplayName = "no As clause where a DefType statement may type it")]
+    public async Task NoFixIsOffered_WhereTheDefaultHasNoLiteral(string declaration, string directive = "")
+    {
+        var name = declaration.Split(' ')[1];
+        string[] lines = [.. directive.Length > 0 ? [directive] : Array.Empty<string>(), "Public Sub Main()", $"    {declaration}", $"    Debug.Print {name}", "End Sub"];
+
+        Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(), lines)).Fixes?.Edit);
+    }
+
+    [TestMethod]
+    public async Task NoFixIsOffered_ForAFieldOfTheModule()
+        => Assert.IsNull(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Private count As Long", "Public Sub Main()", "    Debug.Print count", "End Sub")).Fixes?.Edit);
+
     #endregion
 
     #region RDC01013 a parameter never used

@@ -3,10 +3,13 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -98,8 +101,62 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
                 RDCoreDiagnosticId.VariableNotAssigned.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Warning,
-                AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name));
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Message, fact.Name))
+            {
+                Fixes = FixOf(module, fact, declaration) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+            };
         }
+    }
+
+    // the local assigned the default value of its type on a line of its own after its declaration: nothing else assigns it, so it holds that value wherever
+    // it is read, and the code does what it did. Not offered for a field of the module, which no one procedure starts with; for a fixed-length string, whose
+    // default is made of null characters; nor for a declaration with no As clause or type character in a module whose DefType statements may type it.
+    private static EditFix? FixOf(ModuleNode module, DeclarationFactDto fact, VariableDeclarationNode declaration)
+    {
+        if (UnusedDeclarations.ProcedureAt(module, fact.Location.Range.Start) is not { } procedure
+            || DefaultOf(declaration, module.Descendants().OfType<TypeDefDirectiveNode>().Any()) is not { } value
+            || procedure.Descendants().Prepend(procedure).FirstOrDefault(node => !node.Children.IsDefaultOrEmpty && node.Children.Contains(declaration)) is not { } parent
+            || DeclarationStatements.In(parent.Children).FirstOrDefault(declarations => declarations.Contains(declaration)) is not { } declarations)
+        {
+            return null;
+        }
+
+        var statement = DeclarationStatements.RangeOf(declarations);
+        if (statement.End.Line >= procedure.SourceLocation.Range.End.Line)
+        {
+            return null;
+        }
+
+        var line = statement.End.Line + 1;
+        var indent = new string(' ', statement.Start.Character);
+        return new EditFix
+        {
+            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotAssigned_Fix, fact.Name, value),
+            Edits = [new TextEdit { Range = new Range(line, 0, line, 0), NewText = $"{indent}{fact.Name} = {value}\r\n" }],
+        };
+    }
+
+    private static string? DefaultOf(VariableDeclarationNode declaration, bool hasDefType)
+    {
+        if (declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is { } asType)
+        {
+            return asType.FixedLength is not null ? null : asType.TypeName.ToUpperInvariant() switch
+            {
+                "BYTE" or "INTEGER" or "LONG" or "LONGLONG" or "LONGPTR" or "SINGLE" or "DOUBLE" or "CURRENCY" or "DECIMAL" or "DATE" => "0",
+                "STRING" => "vbNullString",
+                "BOOLEAN" => "False",
+                "VARIANT" => "Empty",
+                _ => null,
+            };
+        }
+
+        return declaration.TypeHint switch
+        {
+            "%" or "&" or "^" or "!" or "#" or "@" => "0",
+            "$" => "vbNullString",
+            null when !hasDefType => "Empty",
+            _ => null,
+        };
     }
 
     // no As clause, or one that names an intrinsic type other than Object, unqualified or of the VBA library.

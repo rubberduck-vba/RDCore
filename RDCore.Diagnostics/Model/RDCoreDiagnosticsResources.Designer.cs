@@ -1286,6 +1286,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Assign &apos;{0}&apos; its default value ({1}) explicitly.
+        /// </summary>
+        public static string VariableNotAssigned_Fix {
+            get {
+                return ResourceManager.GetString("VariableNotAssigned_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is never used..
         /// </summary>
         public static string ParameterNotUsed_Message {
