@@ -44,7 +44,7 @@ internal enum EncapsulationRefusalKind
     WithEvents,
 
     /// <summary>
-    /// The field is an array, or a fixed-length string, or is declared <c>As New</c>, or its type is not known: its properties are not written yet.
+    /// The field is an array, or a fixed-length string, or is declared <c>As New</c>, or its type is not known: the encapsulation writes no properties for it.
     /// </summary>
     NotSupported,
 

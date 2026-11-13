@@ -187,7 +187,7 @@ public sealed class EncapsulateFieldTests
     [DataRow("#If VBA7 Then\r\nPublic count As Long\r\n#End If", "Conditional", DisplayName = "in an #If branch")]
     [DataRow("Public count As Long: Public other As Long", "SharesItsLine", DisplayName = "sharing its line")]
     [DataRow("Public count As Long\r\nPublic Sub Main()\r\n    Dim this As Long\r\nEnd Sub", "NameTaken", DisplayName = "this taken")]
-    public void AFieldThatIsNotEncapsulatedYet_IsRefused(string declaration, string expected)
+    public void AFieldThatIsNotEncapsulated_IsRefused(string declaration, string expected)
     {
         var (encapsulation, refusal) = Encapsulate(Compose(Header + declaration + "\r\n", UserHeader), "count");
 
@@ -207,7 +207,7 @@ public sealed class EncapsulateFieldTests
     }
 
     [TestMethod]
-    public void TheReferences_RefertoThePropertiesOutside_AndToTheTypeMemberInside_AndNoneIsLost()
+    public void TheReferences_ReferToThePropertiesOutside_AndToTheTypeMemberInside_AndNoneIsLost()
     {
         var module1 = Header + "Public count As Long\r\n\r\nPublic Sub Reset()\r\n    count = 0\r\nEnd Sub\r\n";
         var module2 = UserHeader + "Public Sub Main()\r\n    count = count + 1\r\n    Module1.count = 2\r\nEnd Sub\r\n";
