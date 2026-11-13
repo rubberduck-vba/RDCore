@@ -364,6 +364,32 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(new[] { "5" }, run.Output);
     }
 
+    // the workspace is no folder of the disk the program runs on: the libraries its project references are in the program's folder, each with the ones it
+    // depends on, and a constant of one is the program's as it is rdc run's - no object of the library is created, so no COM library is asked for.
+    [TestMethod]
+    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsReferencedLibrariesInItsOwnFolder()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print MSForms.fmMousePointerCustom", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "LibraryProbe", "Modules": [ { "RelativeUri": "Program.bas" } ],
+              "References": [ { "Name": "MSForms" } ] } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+        var run = await RunAsync(fileSystem, shipped, Root);
+        Assert.AreEqual(0, run.Exit, run.Error);
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { "99" }, built.Output, built.Error);
+        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+        var symbols = Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime, BuiltProgram.LibrariesFolder);
+        CollectionAssert.IsSubsetOf(new[] { "MSForms.json", "stdole.json" },
+            fileSystem.Directory.GetFiles(symbols).Select(Path.GetFileName).ToArray(), "the program's folder holds the libraries its project references, and theirs");
+    }
+
     // a Release build is written to its own folder, and its program ends at a Stop, as an End ends it: Debug.Print is kept.
     [TestMethod]
     public async Task AReleaseBuild_IsWrittenToItsOwnFolder_AndItsProgramEndsAtAStop()
