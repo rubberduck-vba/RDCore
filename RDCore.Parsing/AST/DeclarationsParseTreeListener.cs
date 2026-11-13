@@ -770,7 +770,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         var arguments = context.eventArgumentList()?.eventArgument().Select((argument, index) => CaptureEventArgument(id.Add(0).Add(index), argument)) ?? [];
         var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
@@ -1533,8 +1533,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
 
+        // a name in brackets is the name without them, as a declaration's is (MS-VBAL §3.3.5.3): the node says it was written in them.
+        var isBracketed = identifier.IsBracketed();
         var location = context.GetSourceLocation(_rootUri);
-        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value, identifier.TypeHint()));
+        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, isBracketed ? identifier.Name() : value, identifier.TypeHint(), isBracketed));
     }
 
     // MS-VBAL §3.3.5.3: an intrinsic type written where an expression is - after TypeOf ... Is, or where a value is. It is no value, and the static semantics
@@ -1595,7 +1597,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1612,7 +1614,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -1629,7 +1631,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1646,7 +1648,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
