@@ -360,7 +360,7 @@ public sealed class BenchCommandTests
             "Calls.BenchProcedureCalls", "Calls.BenchClassMemberCalls", "Calls.BenchStandardLibraryCalls",
             "Calls.BenchFactoryCalls", "Calls.BenchDefaultInstanceCalls", "Calls.BenchSiblingCalls",
             "Calls.BenchRecursion", "Strings.BenchStringBuilding", "Strings.BenchStringArguments", "Statements.BenchOnErrorResumeNext",
-            "Numeric.BenchVariantTypedMix",
+            "Numeric.BenchVariantTypedMix", "StdLib.BenchCStr", "StdLib.BenchLen", "StdLib.BenchFormat", "StdLib.BenchDateAdd",
         })
         {
             StringAssert.Contains(text, expected);
