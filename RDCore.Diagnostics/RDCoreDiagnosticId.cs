@@ -36,6 +36,13 @@ public enum RDCoreDiagnosticId
     ImplicitWideningConversion = 113,
     ImplicitArrayDeclaration = 114, // a ReDim whose name matches nothing declares the array it re-dimensions: a Dim before it says so
     ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
+    ImplicitDefaultMemberAccess = 119, // an object of a known class used as a value, or assigned one without Set: its default member, not named
+    ImplicitUnboundDefaultMemberAccess = 120, // an Object used as a value, or assigned one without Set: its default member is known only at run time
+    IndexedDefaultMemberAccess = 121, // an argument list given to an object of a known class: its default member takes it, not named
+    IndexedUnboundDefaultMemberAccess = 122, // an argument list given to an Object: its default member is known only at run time
+    BangNotation = 123, // b!key: the default member of a known class given the name as a String
+    UnboundBangNotation = 124, // v!key of an Object: its default member is known only at run time
+    SuspiciousLetAssignment = 125, // an object assigned to an object without Set: default member to default member, where Set was likelier meant
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,

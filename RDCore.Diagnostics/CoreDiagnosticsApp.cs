@@ -121,6 +121,13 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ProcedureTooLargeAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ValueOfObjectWithNoDefaultMemberAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyLetToArrayAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ImplicitDefaultMemberAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ImplicitUnboundDefaultMemberAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, IndexedDefaultMemberAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, IndexedUnboundDefaultMemberAccessAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, BangNotationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, UnboundBangNotationAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, SuspiciousLetAssignmentAnalyzer>();
 
         // what the host vouches for about a member, and the names a module chooses.
         services.AddSingleton<IModuleAnalyzer, ImplementationsShouldBePrivateAnalyzer>();
