@@ -105,6 +105,32 @@ public sealed class ReservedDeclarationNameTests
         Assert.IsEmpty(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.Location.Range}: {error.Verbose}")));
     }
 
+    // the reserved type identifiers that are no reserved name, and Local, which is no reserved identifier: MS-VBAL §3.3.5.2 reads each as an IDENTIFIER, which
+    // names any declaration. MS-VBA refuses them but as the name of a member of a user-defined type, and a warning says so (RDC11034).
+    private static readonly string[] TypeNames = ["Boolean", "Byte", "Currency", "Double", "Integer", "Long", "LongLong", "LongPtr", "Single", "Variant", "Local"];
+
+    public static IEnumerable<object[]> TypeNameDeclarations => Kinds.SelectMany(kind => TypeNames.Select(name => new object[] { kind.Kind, name }));
+
+    [TestMethod]
+    [DynamicData(nameof(TypeNameDeclarations), DynamicDataDisplayName = nameof(DeclarationName))]
+    public void AReservedTypeIdentifierAsTheNameOfADeclaration_IsValid(string kind, string name)
+    {
+        var module = string.Join("\r\n", Kinds.Single(row => row.Kind == kind).Lines.Select(line => string.Format(line, name))) + "\r\n";
+
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), module);
+
+        Assert.IsEmpty(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.Location.Range}: {error.Verbose}")));
+        var declared = parse.SyntaxTree!.Descendants().Select(node => node switch
+        {
+            ConstantDeclarationNode constant => constant.Name,
+            VariableDeclarationNode variable => variable.Name,
+            ParameterDeclarationNode parameter => parameter.Name,
+            MemberDeclarationNode member => member.Name,
+            _ => null,
+        }).ToList();
+        Assert.Contains(name, declared, "the declaration has the name");
+    }
+
     // MS-VBA compiles these, which MS-VBAL §3.3.5.2 reserves: RD-VBA compiles them too, and a warning says the specification reserves the name (RDC11033).
     [TestMethod]
     [DataRow("Date")]

@@ -10,8 +10,9 @@ namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
 /// <c>RDC11033</c>: an Enum member named <c>Date</c>, <c>DoEvents</c> or <c>CDec</c>, which <strong>MS-VBAL §3.3.5.2</strong> reserves and MS-VBA compiles.
-/// <c>RDC11034</c>: a name <strong>MS-VBAL §3.3.5.2</strong> allows and MS-VBA refuses: <c>Long</c> as the name of anything but a member of a user-defined
-/// type, <c>Me</c> as a member of a user-defined type, <c>Name</c> as an Enum member.
+/// <c>RDC11034</c>: a name <strong>MS-VBAL §3.3.5.2</strong> allows and MS-VBA refuses: a reserved type identifier that is no reserved name (<c>Long</c>,
+/// <c>Integer</c>, <c>Variant</c>) or <c>Local</c> as the name of anything but a member of a user-defined type, <c>Me</c> as a member of a user-defined type,
+/// <c>Name</c> as an Enum member.
 /// </summary>
 /// <remarks>
 /// RD-VBA compiles each of them. A name written in brackets is a foreign name (<strong>MS-VBAL §3.3.5.3</strong>), which both compile, and is not reported.
@@ -19,6 +20,13 @@ namespace RDCore.Diagnostics.Analyzers;
 internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
 {
     private static readonly HashSet<string> EnumMemberNamesTheSpecificationReserves = new(StringComparer.OrdinalIgnoreCase) { "Date", "DoEvents", "CDec" };
+
+    // the reserved type identifiers that are no reserved name (Date and String are both), and Local, which is no reserved identifier at all: MS-VBA refuses
+    // each as the name of anything but a member of a user-defined type.
+    private static readonly HashSet<string> NamesMSVBARefusesButAsATypeMember = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Boolean", "Byte", "Currency", "Double", "Integer", "Long", "LongLong", "LongPtr", "Single", "Variant", "Local",
+    };
 
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
     {
@@ -52,8 +60,8 @@ internal sealed class DeclarationNameDivergenceAnalyzer : SyntaxTreeAnalyzer
     private static bool IsRefusedByMSVBA(string name, Kind kind) => kind switch
     {
         Kind.TypeMember => string.Equals(name, "Me", StringComparison.OrdinalIgnoreCase),
-        Kind.EnumMember => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "Long", StringComparison.OrdinalIgnoreCase),
-        _ => string.Equals(name, "Long", StringComparison.OrdinalIgnoreCase),
+        Kind.EnumMember => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase) || NamesMSVBARefusesButAsATypeMember.Contains(name),
+        _ => NamesMSVBARefusesButAsATypeMember.Contains(name),
     };
 
     // the brackets are no part of the name the tree keeps, and are written around it; a type-declaration character (Long&) is one character more.

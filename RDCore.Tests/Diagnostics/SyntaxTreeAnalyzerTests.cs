@@ -349,6 +349,58 @@ public sealed class SyntaxTreeAnalyzerTests
         Assert.AreEqual(new SourceRange(new SourcePosition(13, 8), new SourcePosition(13, 8 + "Long".Length)), findings[3].Range, "the name");
     }
 
+    // MS-VBA refuses each of these as the name of anything but a member of a user-defined type (observed in Excel), as it does Long.
+    [TestMethod]
+    [DataRow("Boolean")]
+    [DataRow("Byte")]
+    [DataRow("Currency")]
+    [DataRow("Double")]
+    [DataRow("Integer")]
+    [DataRow("LongLong")]
+    [DataRow("LongPtr")]
+    [DataRow("Single")]
+    [DataRow("Variant")]
+    [DataRow("Local")]
+    [DataRow("integer", DisplayName = "integer, written in lower case")]
+    public void ANameMSVBARefusesButAsATypeMember_IsAWarningAtTheName_ButAsATypeMember(string name)
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), $"""
+            Private Type T
+                {name} As Long
+            End Type
+            Private Enum E
+                {name}
+            End Enum
+            Private {name} As Long
+            Public Function {name}(ByVal {name} As Long) As Long
+                Const {name} As Long = 1
+                Dim [{name}] As Long
+            End Function
+            """);
+
+        CollectionAssert.AreEqual(new[] { 4, 6, 7, 7, 8 }, Lines(findings));
+        Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.NameRefusedByMSVBA, Severity: DiagnosticSeverity.Warning }));
+        Assert.AreEqual(new SourceRange(new SourcePosition(8, 10), new SourcePosition(8, 10 + name.Length)), findings[4].Range, "the name");
+        StringAssert.Contains(findings[0].Message, name);
+    }
+
+    [TestMethod]
+    [DataRow("Object", DisplayName = "Object, which is no reserved type identifier")]
+    [DataRow("Foo")]
+    public void ANameMSVBACompiles_IsNoWarning(string name)
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), $"""
+            Private Enum E
+                {name}
+            End Enum
+            Private {name} As Long
+            Public Sub Work(ByVal {name} As Long)
+            End Sub
+            """);
+
+        Assert.IsEmpty(findings);
+    }
+
     #endregion
 
     #region RDC00203 multi-line parameter
