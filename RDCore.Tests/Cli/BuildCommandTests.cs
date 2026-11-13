@@ -568,6 +568,7 @@ public sealed class BuildCommandTests
     // program loads has the controls that file describes, as rdc run's has.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    [Ignore("a UserForm's controls are native MSForms controls, which need the MSForms COM library registered on the machine; the row runs once RDForms hosts the form")]
     public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsUserFormTheControlsItsCompanionFileDescribes()
     {
         CompiledExecutionTests.RequirePayloads();
