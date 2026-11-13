@@ -375,6 +375,35 @@ public sealed class ExplicitConversionFunctionTests
         Assert.AreEqual(" 1.5", ((VBStringValue)Inner(Conversion().Str(Variant(new VBDoubleValue(1.5))))).Value);
     }
 
+    // RD-VBAL §6.1.2.3.1.20: MS-VBA's Str writes a number between -1 and 1 with no zero before its decimal point, whatever its numeric type, where the
+    // Let-coercion to String that MS-VBAL names writes one (observed in Excel). CStr keeps it.
+    [TestMethod]
+    [DataRow(0.5, " .5")]
+    [DataRow(-0.5, "-.5")]
+    [DataRow(0.05, " .05")]
+    [DataRow(-0.05, "-.05")]
+    [DataRow(0.00001, " .00001")]
+    [DataRow(1.5, " 1.5")]
+    [DataRow(100.5, " 100.5")]
+    [DataRow(0d, " 0")]
+    [DataRow(1.5E+20, " 1.5E+20")]
+    public void Str_OfADoubleBetweenMinusOneAndOne_HasNoZeroBeforeItsPoint(double value, string expected)
+        => Assert.AreEqual(expected, ValueOf(Conversion().StrStr(Variant(new VBDoubleValue(value)))).Value);
+
+    [TestMethod]
+    public void Str_OfAnyNumericTypeBetweenMinusOneAndOne_HasNoZeroBeforeItsPoint()
+    {
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Variant(new VBSingleValue(0.5f)))).Value);
+        Assert.AreEqual("-.75", ValueOf(Conversion().StrStr(Variant(new VBSingleValue(-0.75f)))).Value);
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Variant(new VBCurrencyValue(0.5m)))).Value);
+        Assert.AreEqual("-.25", ValueOf(Conversion().StrStr(Variant(new VBCurrencyValue(-0.25m)))).Value);
+        Assert.AreEqual(" .0001", ValueOf(Conversion().StrStr(Variant(new VBCurrencyValue(0.0001m)))).Value);
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Variant(new VBDecimalValue(0.5m)))).Value);
+        Assert.AreEqual(" .5", ValueOf(Conversion().StrStr(Text("0.5"))).Value);
+        Assert.AreEqual(" .5", ((VBStringValue)Inner(Conversion().Str(Variant(new VBDoubleValue(0.5))))).Value);
+        Assert.AreEqual("0.5", ValueOf(Conversion().CStr(Variant(new VBDoubleValue(0.5)))).Value);
+    }
+
     [TestMethod]
     public void Str_OfOtherTypesGoesThroughDouble()
     {

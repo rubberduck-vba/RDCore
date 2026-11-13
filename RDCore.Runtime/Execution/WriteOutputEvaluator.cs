@@ -168,9 +168,11 @@ public sealed record class WriteOutputEvaluator(RuntimeExpressionEvaluator Expre
 
     private static string Text(VBStringValue value) => value.Handle.Value.BoxedValue as string ?? string.Empty;
 
+    // MS-VBA writes a number between -1 and 1 without the zero before its decimal point, as Str does: 0.5 is .5 and -0.25 is -.25 (RD-VBAL §5.4.5.9,
+    // observed in Excel).
     private static string Invariant(VBNumericTypedValue value)
-        => value.Handle.Value.BoxedValue is IConvertible convertible
-            ? convertible.ToString(CultureInfo.InvariantCulture)
+        => ValueConversions.ToText(value, CultureInfo.InvariantCulture).Value is VBStringValue text
+            ? StdLib.StdConversion.WithoutLeadingZero(text.Value)
             : string.Empty;
 
     private string Coerced(VBTypedValue value) => value.Handle.Value.BoxedValue?.ToString() ?? string.Empty;
