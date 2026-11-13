@@ -70,6 +70,32 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
         return new(start.AnchoredAt(_offset), (start with { Character = start.Character + (token.Text?.Length ?? 0) }).AnchoredAt(_offset));
     }
 
+    /// <summary>
+    /// The range of <paramref name="length"/> characters of one token of the rule from <paramref name="offset"/>, which may hold line terminators, anchored
+    /// as <see cref="SourceRange"/> is.
+    /// </summary>
+    internal SourceRange RangeWithin(IToken token, int offset, int length)
+    {
+        var text = token.Text ?? string.Empty;
+        SourcePosition At(int index)
+        {
+            var breaks = 0;
+            var lineStart = -1;
+            for (var character = 0; character < index; character++)
+            {
+                if (text[character] == '\n')
+                {
+                    breaks++;
+                    lineStart = character;
+                }
+            }
+
+            return breaks == 0 ? new SourcePosition(token.Line - 1, token.Column + index) : new SourcePosition(token.Line - 1 + breaks, index - lineStart - 1);
+        }
+
+        return new(At(offset).AnchoredAt(_offset), At(offset + length).AnchoredAt(_offset));
+    }
+
     private SourceRange RangeThrough(IToken? stop)
     {
         var start = new SourcePosition(Start?.Line - 1 ?? 0, Start?.Column ?? 0);

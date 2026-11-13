@@ -18,6 +18,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing.AST;
@@ -2116,6 +2117,44 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             _trivia.Add(new ErasedPlusTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeOf(plus))));
         }
     }
+
+    // MS-VBAL §3.2.2: a line continuation is no code, and builds no node: it is trivia, kept once however many walks read it. One stands between two tokens,
+    // a token of its own; the lexer reads one inside a keyword of two words (`End _` then `If`) as a part of that keyword's token, which says which keyword.
+    // A comment that ends with one goes on to the next line: what is in it is the comment's, and no continuation of the code.
+    public override void VisitTerminal([NotNull] ITerminalNode node)
+    {
+        if (node.Symbol is not { TokenIndex: >= 0, Text: { Length: > 0 } text } token || node.Parent is not VBABaseParserRuleContext context
+            || context is VBAParser.CommentBodyContext || !text.Contains('\n') || !_lineContinuations.Add(token.TokenIndex))
+        {
+            return;
+        }
+
+        if (token.Type == VBAParser.LINE_CONTINUATION)
+        {
+            _trivia.Add(new LineContinuationTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeWithin(token, 0, text.Length))));
+            return;
+        }
+
+        if (!KeywordAcrossLines.IsMatch(text))
+        {
+            return;
+        }
+
+        var keyword = BlanksOfAKeyword.Replace(text, " ");
+        foreach (Match continuation in ContinuationInAKeyword.Matches(text))
+        {
+            _trivia.Add(new LineContinuationTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeWithin(token, continuation.Index, continuation.Length)), keyword));
+        }
+    }
+
+    private readonly HashSet<int> _lineContinuations = [];
+
+    // a line continuation as the lexer reads one (LINE_CONTINUATION): the blanks that begin the next line are its own, but for the one before the underscore of
+    // another continuation. And a keyword of words with blanks and line continuations between them.
+    private const string Continuation = @"[ \t]_[ \t]*\r?\n[ \t]*?(?=[ \t]_[ \t]*\r?\n|[^ \t\r\n])";
+    private static readonly Regex ContinuationInAKeyword = new(Continuation, RegexOptions.CultureInvariant);
+    private static readonly Regex BlanksOfAKeyword = new($@"(?:{Continuation}|[ \t])+", RegexOptions.CultureInvariant);
+    private static readonly Regex KeywordAcrossLines = new($@"^[A-Za-z]+(?:(?:{Continuation}|[ \t])+[A-Za-z]+)+$", RegexOptions.CultureInvariant);
 
     // MS-VBAL 5.6.6: a parenthesized expression is a value expression — its parentheses are an operator,
     // not punctuation, and this builds it. Erasing them made `Foo (x)` and `Foo x` the same tree, so an
