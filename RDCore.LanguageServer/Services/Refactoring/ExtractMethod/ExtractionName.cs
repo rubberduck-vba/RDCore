@@ -217,6 +217,12 @@ internal static class ExtractionName
 
     private static string Stem(ExtractionPlan plan, ExtractionSource source, SemanticId? returnValue)
     {
+        // a GoSub routine is named after its label: Twice gives TwiceProc, and the line number 100 gives Routine100.
+        if (plan.Selection.Routine is { } routine)
+        {
+            return VBIdentifier.Validate($"{routine.Label}Proc") is VBIdentifierValidity.Valid ? $"{routine.Label}Proc" : $"Routine{routine.Label}";
+        }
+
         var outputs = plan.Parameters.Where(parameter => parameter.IsOutput).ToArray();
         var output = returnValue is { } chosen ? plan.Parameters.FirstOrDefault(parameter => parameter.Variable == chosen) : outputs.Length == 1 ? outputs[0] : null;
         if (output is not null)

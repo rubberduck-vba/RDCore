@@ -103,6 +103,54 @@ internal static class ExtractionFixture
         return (plan, source, analyzed.Context, analyzed.ModuleAddress, analyzed);
     }
 
+    // The plan of converting the GoSub routine the label starts to a procedure.
+    public static ExtractionPlan RoutinePlan(string body, string label, string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", string declarations = "")
+        => RoutinePlanOf(FlowFixture.Analyze(body, header, end, declarations: declarations), label);
+
+    // The module after converting the GoSub routine the label starts to a procedure name, formatted as for a user who set nothing; with the module before it, the
+    // edit and the plan the edit was written from.
+    public static (string Original, string Module, ExtractionEdit Edit, ExtractionPlan Plan) Converted(
+        string body, string label, string name = "Extracted", string header = "Public Sub Run(ByVal n As Long)", string end = "End Sub", string declarations = "")
+    {
+        var analyzed = FlowFixture.Analyze(body, header, end, declarations: declarations);
+        var plan = RoutinePlanOf(analyzed, label);
+        var source = new ExtractionSource(analyzed.Module, analyzed.Procedure, analyzed.Model.Procedure, analyzed.Text, analyzed.Scopes);
+        var (chosen, problem) = ExtractionParameters.Choose([], plan, source, name, analyzed.Context, analyzed.ModuleAddress);
+        Assert.IsNull(problem, problem?.ToMessage());
+        var edit = ExtractMethodEdit.Of(plan, source, new ExtractionChoices(name) { Parameters = chosen });
+        if (edit.Refusal is null)
+        {
+            var edited = new ModuleParser().Parse(FlowFixture.FileOf(false), edit.ApplyTo(analyzed.Text));
+            edit = edit.Formatted(analyzed.Text, edited, CodeFormattingOptions.Default);
+        }
+
+        return (analyzed.Text, edit.ApplyTo(analyzed.Text), edit, plan);
+    }
+
+    // The verification of converting the GoSub routine the label starts to the procedure Extracted; tamper, when given, changes the edit before it is verified.
+    public static ExtractionVerificationFailure? RoutineVerified(string body, string label, Func<ExtractionEdit, ExtractionEdit>? tamper = null)
+    {
+        var converted = Converted(body, label);
+        Assert.IsNull(converted.Edit.Refusal, $"refused: {converted.Edit.Refusal}");
+        var edit = tamper?.Invoke(converted.Edit) ?? converted.Edit;
+        var before = FlowFixture.Module(converted.Original);
+        var kind = before.Parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().First(member => member.Name == "Run").MemberKind;
+        return ExtractionVerification.Verify(converted.Plan, edit, "Extracted", "Run", kind, before, text => FlowFixture.Module(text));
+    }
+
+    // Why the label starts no GoSub routine; null when it starts one.
+    public static GoSubRoutineRefusal? RoutineRefusal(string body, string label)
+    {
+        var analyzed = FlowFixture.Analyze(body);
+        return GoSubRoutine.TryFind(analyzed.Procedure, analyzed.Instructions, analyzed.Graph, analyzed.Directives, label, out _, out var refusal) ? null : refusal;
+    }
+
+    private static ExtractionPlan RoutinePlanOf(FlowFixture.Analyzed analyzed, string label)
+    {
+        Assert.IsTrue(GoSubRoutine.TryFind(analyzed.Procedure, analyzed.Instructions, analyzed.Graph, analyzed.Directives, label, out var selection, out var refusal), $"refused: {refusal}");
+        return ExtractionAnalysis.Plan(selection!, analyzed.Graph, analyzed.Accesses, analyzed.Model, analyzed.Scopes);
+    }
+
     // The duplicates of the lines first to last of the body, extracted as name returning returnValue, searched for in the modules named (Main's alone when none
     // are); the workspace has the standard modules in modules beside the module. And the plan and the choices they are found for, and the workspace.
     public static (ImmutableArray<ExtractionDuplicate> Duplicates, ExtractionPlan Plan, ExtractionChoices Choices, FlowFixture.Analyzed Analyzed) Duplicates(
