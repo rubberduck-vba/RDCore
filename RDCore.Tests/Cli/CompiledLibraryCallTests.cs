@@ -161,6 +161,66 @@ public sealed class CompiledLibraryCallTests
             "    LeastOfALong = Abs(L)",
             "End Function"), [("LeastConstant", 0), ("LeastOfALong", 0)], walkBacks: 1);
 
+    // IsEmpty, IsNull, IsNumeric and VarType of a Variant of each subtype a payload holds.
+    [TestMethod]
+    public async Task AnInformationFunction_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Described(CInt(3)), Described(3&), Described(2.5), Described(CSng(1.5)), Described(CCur(1.5))",
+            "    Debug.Print Described(#1/2/2000#), Described(True), Described(CByte(7)), Described(-1)",
+            "End Sub",
+            "Private Function Described(ByVal V As Variant) As Long",
+            "    Dim I As Long, T As Long, E As Boolean, N As Boolean, U As Boolean",
+            "    For I = 1 To 2",
+            "        T = VarType(V)",
+            "        E = IsEmpty(V)",
+            "        N = IsNull(V)",
+            "        U = IsNumeric(V)",
+            "    Next",
+            "    Described = T * 1000 - E * 100 - N * 10 - U",
+            "End Function"), [("Described", 0)]);
+
+    // a function of the Math module of a Double parameter, given an Integer, a Long, a Single, a Boolean and a Double let-coerced to a Double as the
+    // interpreter coerces them; an error each raises of its domain (5) is raised where the interpreter raises it.
+    [TestMethod]
+    public async Task AFunctionOfADoubleParameter_IsGivenItsArgumentCoerced()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Computed(CInt(4), 3&, CSng(2.25), True, 0.5)",
+            "    Debug.Print Computed(1, 2, 3, False, -0.25)",
+            "End Sub",
+            "Private Function Computed(ByVal A As Integer, ByVal B As Long, ByVal S As Single, ByVal F As Boolean, ByVal D As Double) As Double",
+            "    Dim I As Long, R As Double",
+            "    For I = 1 To 2",
+            "        R = Sqr(A)",
+            "        R = R + Sqr(B) + Sqr(S) + Exp(F) + Exp(D) + Log(A) + Atn(D) + Cos(B) + Sin(S) + Tan(D)",
+            "        Computed = R",
+            "    Next",
+            "    Computed = Computed + Sqr(D)",
+            "End Function"), [("Computed", 0)], walkBacks: 1);
+
+    // Sgn and the parts of a date, of a Variant they return: of a Date, of a Double read as a Date, and of numbers of each sign.
+    [TestMethod]
+    public async Task AFunctionOfAVariantItReturns_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Parts(#3/14/2015 9:26:53 PM#, -2.5), Parts(36526.75, 0), Parts(#12/31/1899#, 7)",
+            "End Sub",
+            "Private Function Parts(ByVal D As Date, ByVal X As Double) As Double",
+            "    Dim I As Long, R As Double, V As Variant",
+            "    V = X",
+            "    For I = 1 To 2",
+            "        R = Year(D)",
+            "        R = R * 100 + Month(D)",
+            "        R = R * 100 + Day(D)",
+            "        R = R * 100 + Hour(D)",
+            "        R = R * 100 + Minute(D)",
+            "        R = R * 100 + Second(D)",
+            "        R = R * 10 + Sgn(X) + Sgn(V)",
+            "    Next",
+            "    Parts = R",
+            "End Function"), [("Parts", 0)]);
+
     // with a comma for its decimal separator (fr-FR): a number converted is the same in any locale, and a String a Variant holds ("2,5") is converted
     // by the interpreter, which reads it in the session's locale.
     [TestMethod]
