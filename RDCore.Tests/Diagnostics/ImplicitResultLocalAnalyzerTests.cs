@@ -51,6 +51,64 @@ public sealed class ImplicitResultLocalAnalyzerTests
         Assert.IsEmpty(await ModuleWorkspace.LoadErrorsAsync([], fixedProgram), "and it compiles");
     }
 
+    // the fix as AssertFixedAsync checks it, and the program prints the same before it and after it.
+    private static async Task AssertRunsTheSameAsync(string[] before, string[] after, params string[] printed)
+    {
+        await AssertFixedAsync(before, after);
+        CollectionAssert.AreEqual(printed, await ModuleWorkspace.RunAsync([], Module(before)), "before the fix");
+        CollectionAssert.AreEqual(printed, await ModuleWorkspace.RunAsync([], Module(after)), "after the fix");
+    }
+
+    private static async Task<EditFix?> FixOfAsync(params string[] lines)
+        => (await FindingsAsync(lines)).Select(finding => finding.Fixes?.Edit).Distinct().Single();
+
+    [TestMethod]
+    public async Task InAStaticProcedure_TheLocalStartsEachCallWithItsDefaultValue_AsTheResultDoes()
+        => await AssertRunsTheSameAsync(
+            ["Public Static Function NextId() As Long", "    NextId = NextId + 1", "End Function",
+                "Public Sub Main()", "    Debug.Print NextId", "    Debug.Print NextId", "End Sub"],
+            ["Public Static Function NextId() As Long", "    Dim result As Long", "    result = 0", "    result = result + 1", "    NextId = result", "End Function",
+                "Public Sub Main()", "    Debug.Print NextId", "    Debug.Print NextId", "End Sub"],
+            "1", "1");
+
+    [TestMethod]
+    public async Task InAStaticProcedure_ThatReturnsAClass_NoFixIsOffered()
+        => Assert.IsNull(await FixOfAsync("Public Static Function Items() As Collection", "    Set Items = New Collection", "    Items.Add 1", "End Function"));
+
+    [TestMethod]
+    public async Task AResultThatIsSetAndAssignedAValue_IsReturnedAsWhatItHolds()
+        => await AssertRunsTheSameAsync(
+            ["Public Function Find(ByVal k As Long) As Variant", "    Find = Null", "    If k = 1 Then Set Find = New Collection", "    If IsNull(Find) Then Debug.Print \"none\"", "End Function",
+                "Public Sub Main()", "    Debug.Print TypeName(Find(1))", "    Debug.Print TypeName(Find(2))", "End Sub"],
+            ["Public Function Find(ByVal k As Long) As Variant", "    Dim result As Variant", "    result = Null", "    If k = 1 Then Set result = New Collection",
+                "    If IsNull(result) Then Debug.Print \"none\"", "    If IsObject(result) Then Set Find = result Else Find = result", "End Function",
+                "Public Sub Main()", "    Debug.Print TypeName(Find(1))", "    Debug.Print TypeName(Find(2))", "End Sub"],
+            "Collection", "none", "Null");
+
+    [TestMethod]
+    public async Task AResultThatIsSetAndAssignedAValue_AndExits_IsNotFixed()
+        => Assert.IsNull(await FixOfAsync(
+            "Public Function Find(ByVal k As Long) As Variant", "    Find = Null", "    If k = 1 Then Set Find = New Collection: Exit Function", "    Debug.Print IsNull(Find)", "End Function"));
+
+    [TestMethod]
+    public async Task TheLastReturn_GoesAfterALabelOnTheLineOfEndFunction_SoThatAGoToReturnsItToo()
+        => await AssertRunsTheSameAsync(
+            ["Public Function Total(ByVal n As Long) As Long", "    Total = n", "    If n > 1 Then GoTo Done", "    Total = Total * 10", "Done: End Function",
+                "Public Sub Main()", "    Debug.Print Total(1)", "    Debug.Print Total(2)", "End Sub"],
+            ["Public Function Total(ByVal n As Long) As Long", "    Dim result As Long", "    result = n", "    If n > 1 Then GoTo Done", "    result = result * 10",
+                "Done: Total = result: End Function",
+                "Public Sub Main()", "    Debug.Print Total(1)", "    Debug.Print Total(2)", "End Sub"],
+            "10", "2");
+
+    [TestMethod]
+    public async Task TheLastReturn_GoesAfterAStatementOnTheLineOfEndFunction()
+        => await AssertRunsTheSameAsync(
+            ["Public Function Total(ByVal n As Long) As Long", "    Total = n", "    Total = Total + 1: End Function",
+                "Public Sub Main()", "    Debug.Print Total(1)", "End Sub"],
+            ["Public Function Total(ByVal n As Long) As Long", "    Dim result As Long", "    result = n", "    result = result + 1: Total = result: End Function",
+                "Public Sub Main()", "    Debug.Print Total(1)", "End Sub"],
+            "2");
+
     [TestMethod]
     public async Task TheFix_DeclaresALocal_UsesIt_AndAssignsTheResultAtTheEnd()
         => await AssertFixedAsync(

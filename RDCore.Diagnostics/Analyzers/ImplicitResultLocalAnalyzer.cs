@@ -29,7 +29,11 @@ namespace RDCore.Diagnostics.Analyzers;
 /// The fix (<see cref="DiagnosticFixes.Edits"/>) is made of the procedure's own syntax tree: a <c>Dim</c> of a local before the first statement, of the
 /// procedure's return type; the local in place of each name of the result variable in the body, read or assigned; and the local assigned to the return value
 /// before each <c>Exit Function</c> (or <c>Exit Property</c>) - on its line, so that it is where the exit is, after a <c>Then</c> too - and before the end of the
-/// procedure, with <c>Set</c> when the body <c>Set</c>s its result. It is not offered for a procedure whose body starts on the line of its declaration.
+/// procedure, after a label or a statement on the line of <c>End Function</c>, with <c>Set</c> when the body <c>Set</c>s its result. A result the body both
+/// <c>Set</c>s and assigns a value is returned with <c>If IsObject(...)</c>. In a <c>Static</c> procedure the local is given its type's default value after
+/// its <c>Dim</c>, as the result variable is at each call. It is not offered for a procedure whose body starts on the line of its declaration; for a
+/// result both <c>Set</c> and assigned a value, when it has an <c>Exit</c> or a statement before <c>End Function</c>; nor, in a <c>Static</c> procedure, for a
+/// type whose default value has no literal.
 /// </para>
 /// </remarks>
 internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
@@ -93,20 +97,53 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
 
         var indent = new string(' ', first.SourceLocation.Range.Start.Character);
         var local = LocalName(body, semantics);
+        var type = ResultTypeOf(procedure, names);
         var identities = names.Select(occurrence => occurrence.Name.Identity).ToHashSet();
-        var assignsAnObject = body.OfType<AssignmentStatementNode>()
-            .Any(assignment => assignment.Kind is AssignmentKind.Set && assignment.Target is SimpleNameExpressionNode target && identities.Contains(target.Identity));
-        var returns = $"{(assignsAnObject ? "Set " : string.Empty)}{procedure.Name} = {local}";
+        var assignments = body.OfType<AssignmentStatementNode>()
+            .Where(assignment => assignment.Target is SimpleNameExpressionNode target && identities.Contains(target.Identity))
+            .ToArray();
+        var assignsAnObject = assignments.Any(assignment => assignment.Kind is AssignmentKind.Set);
+        var exits = body.OfType<KeywordStatementNode>().Where(statement => statement.Token is Tokens.ExitFunction or Tokens.ExitProperty).ToArray();
+
+        // what is written before End Function on its line (a label, a statement), which the last return goes after so that a GoTo to the label returns it too.
+        var end = procedure.SourceLocation.Range.End;
+        var endToken = procedure.MemberKind is MemberKind.Function ? "End Function" : "End Property";
+        var endIsAlone = !body.Any(node => node.SourceLocation.Range.Start.Line == end.Line);
+
+        // a result that is Set and also Let-assigned (a Variant that holds an object or a value) is returned as what it holds; the If that says which cannot share
+        // a line with an Exit or with End Function, of which it would make a branch.
+        var mixed = assignsAnObject && assignments.Any(assignment => assignment.Kind is not AssignmentKind.Set);
+        if (mixed && (exits.Length > 0 || !endIsAlone))
+        {
+            return null;
+        }
+
+        var returns = mixed
+            ? $"If IsObject({local}) Then Set {procedure.Name} = {local} Else {procedure.Name} = {local}"
+            : $"{(assignsAnObject ? "Set " : string.Empty)}{procedure.Name} = {local}";
+
+        // every local of a Static procedure keeps its value from one call to the next, and the result variable does not: each call starts with its default value
+        // (MS-VBAL §5.3.1.6), which the local is then given first.
+        var declaration = $"{indent}{Declaration(local, type)}{NewLine}";
+        if (procedure.IsStatic)
+        {
+            if (ResetOf(local, type) is not { } reset)
+            {
+                return null;
+            }
+
+            declaration += $"{indent}{reset}{NewLine}";
+        }
 
         var edits = new List<TextEdit>
         {
-            Insert(first.SourceLocation.Range.Start.Line, 0, $"{indent}{Declaration(procedure, local, names)}{NewLine}"),
+            Insert(first.SourceLocation.Range.Start.Line, 0, declaration),
         };
         edits.AddRange(names.Select(occurrence => new TextEdit { Range = RangeOf(occurrence.Name.Location.Range), NewText = local }));
-        edits.AddRange(body.OfType<KeywordStatementNode>()
-            .Where(statement => statement.Token is Tokens.ExitFunction or Tokens.ExitProperty)
-            .Select(exit => Insert(exit.SourceLocation.Range.Start.Line, exit.SourceLocation.Range.Start.Character, $"{returns}: ")));
-        edits.Add(Insert(procedure.SourceLocation.Range.End.Line, 0, $"{indent}{returns}{NewLine}"));
+        edits.AddRange(exits.Select(exit => Insert(exit.SourceLocation.Range.Start.Line, exit.SourceLocation.Range.Start.Character, $"{returns}: ")));
+        edits.Add(endIsAlone
+            ? Insert(end.Line, 0, $"{indent}{returns}{NewLine}")
+            : Insert(end.Line, end.Character - endToken.Length, $"{returns}: "));
 
         return new EditFix
         {
@@ -115,18 +152,35 @@ internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
         };
     }
 
-    // the Dim of the local: the procedure's return type as it is written - an As clause, or a type character - and otherwise the type the host says the result has.
-    private static string Declaration(MemberDeclarationNode procedure, string local, (SimpleNameExpressionNode Name, ExpressionFactDto? Fact)[] names)
+    // the procedure's return type as it is written - an As clause, or a type character - and otherwise the type the host says the result has.
+    private static (string Name, bool IsArray) ResultTypeOf(MemberDeclarationNode procedure, (SimpleNameExpressionNode Name, ExpressionFactDto? Fact)[] names)
     {
         if (procedure.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is { } asType)
         {
-            var typeName = asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName;
-            return $"Dim {local}{(asType.IsArrayDef ? "()" : string.Empty)} As {typeName}";
+            return (asType.QualifierName is { Length: > 0 } qualifier ? $"{qualifier}.{asType.TypeName}" : asType.TypeName, asType.IsArrayDef);
         }
 
         var declared = TypeOfHint(procedure.TypeHint) ?? names.Select(occurrence => occurrence.Fact?.DeclaredType).FirstOrDefault(type => type is { Length: > 0 }) ?? "Variant";
-        return declared.EndsWith("()", StringComparison.Ordinal) ? $"Dim {local}() As {declared[..^2]}" : $"Dim {local} As {declared}";
+        return declared.EndsWith("()", StringComparison.Ordinal) ? (declared[..^2], true) : (declared, false);
     }
+
+    private static string Declaration(string local, (string Name, bool IsArray) type)
+        => $"Dim {local}{(type.IsArray ? "()" : string.Empty)} As {type.Name}";
+
+    // the statement that gives the local the default value of the type; none for a type whose default only its declaration knows (a class, a user-defined type,
+    // an Enum).
+    private static string? ResetOf(string local, (string Name, bool IsArray) type)
+        => type.IsArray
+            ? $"Erase {local}"
+            : type.Name.ToUpperInvariant() switch
+            {
+                "BYTE" or "INTEGER" or "LONG" or "LONGLONG" or "LONGPTR" or "SINGLE" or "DOUBLE" or "CURRENCY" or "DECIMAL" or "DATE" => $"{local} = 0",
+                "STRING" => $"{local} = vbNullString",
+                "BOOLEAN" => $"{local} = False",
+                "VARIANT" => $"{local} = Empty",
+                "OBJECT" => $"Set {local} = Nothing",
+                _ => null,
+            };
 
     private static string? TypeOfHint(string? hint) => hint switch
     {
