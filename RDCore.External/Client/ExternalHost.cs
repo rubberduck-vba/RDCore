@@ -181,9 +181,9 @@ public sealed class ExternalHost : IDisposable
     /// Starts the external host in the background, ahead of the first call that needs it, unless it is running or already being started.
     /// </summary>
     /// <remarks>
-    /// Every session of the environment host gets the external host ready when it is composed, and a start waits for a process to come up: one start is made, on a thread
-    /// of its own, and the sessions that ask while it is made wait for nothing. A start that waited on the thread pool, once per session, would hold the threads the
-    /// programs of those sessions go on with until the process is up.
+    /// Every session of the environment host gets the external host ready when it is composed, and a start waits for a process to come up. One start is made, on a
+    /// thread of its own, and a session that asks while it is being made returns at once. The start does not wait on the thread pool: one waiting start per session
+    /// would hold, until the process is up, the pool threads that the programs of those sessions run on.
     /// </remarks>
     internal void Prepare()
     {
