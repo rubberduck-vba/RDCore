@@ -185,9 +185,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     // undone, on the ordinary VBA call form.
     private RuntimeExecutionOutcome ExecuteCall(IRuntimeSession session, RuntimeEvaluationContext context, CallStatementNode call)
     {
-        var result = call.Arguments.IsEmpty
-            ? _expressionEvaluator.Evaluate(session, call.Callee, context)
-            : _expressionEvaluator.Invoke(session, context, call.Callee, call.Arguments);
+        var result = _expressionEvaluator.EvaluateCallStatement(session, context, call);
 
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
