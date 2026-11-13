@@ -526,7 +526,7 @@
   href: rdc11031.md
 - name: "RDC11032: For Each variable read after the loop ran out"
   href: rdc11032.md
-- name: "RDC11039: Function called in both parts of IIf"
+- name: "RDC11039: Function called whatever the IIf condition"
   href: rdc11039.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md

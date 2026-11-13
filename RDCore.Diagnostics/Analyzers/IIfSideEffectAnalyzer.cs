@@ -16,8 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// whatever it changes and whatever error it raises.
 /// </summary>
 /// <remarks>
-/// A function of the project and one of a library are both found. The functions of the VBA library that change nothing and are unlikely to raise an error are
-/// left out (<see cref="Pure"/>), by the module and the name the call is bound to. A call bound late is not found.
+/// A function of the project and one of a library are both found. The functions of the VBA library that change nothing and raise no error for an argument of the
+/// type they declare are left out (<see cref="Pure"/>), by the module and the name the call is bound to. A call bound late is not found.
 /// </remarks>
 internal sealed class IIfSideEffectAnalyzer : IModuleAnalyzer
 {
