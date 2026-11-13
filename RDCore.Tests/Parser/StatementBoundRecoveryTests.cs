@@ -65,7 +65,7 @@ public sealed class StatementBoundRecoveryTests
     }
 
     // the parse's decision for an item of Debug.Print looks past the operator to the line end, and fails; the statement fails before that, at the operator,
-    // and that is its one error.
+    // and that is its one error, over its line.
     [TestMethod]
     [DataRow("+")]
     [DataRow("-")]
@@ -74,29 +74,28 @@ public sealed class StatementBoundRecoveryTests
     [DataRow("Mod")]
     [DataRow("Like")]
     [DataRow("And")]
-    public void ADanglingOperatorAfterAnItemOfDebugPrint_IsOneErrorAtTheOperator(string op)
+    public void ADanglingOperatorAfterAnItemOfDebugPrint_IsOneErrorOverItsLine(string op)
     {
         var statement = $"Debug.Print 1 {op}";
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n");
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors);
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
-        var at = new SourcePosition(1, statement.Length - op.Length);
-        Assert.AreEqual(new SourceRange(at, at), error.Location.Range);
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, statement.Length)), error.Location.Range);
     }
 
     // a statement the parse fails in, and fails in again after - the rule the statement is in fails at what its recovery left of it - is one syntax error,
-    // the first.
+    // over its line.
     [TestMethod]
-    [DataRow("Dim For As Long", 4, DisplayName = "a statement keyword as the name of a variable")]
-    [DataRow("Dim Sub As Long", 4, DisplayName = "a procedure keyword as the name of a variable")]
-    [DataRow("Dim 1 As Long", 4, DisplayName = "a number as the name of a variable")]
-    public void AStatementTheParseFailsInTwice_IsOneSyntaxError_TheFirst(string statement, int column)
+    [DataRow("Dim For As Long", DisplayName = "a statement keyword as the name of a variable")]
+    [DataRow("Dim Sub As Long", DisplayName = "a procedure keyword as the name of a variable")]
+    [DataRow("Dim 1 As Long", DisplayName = "a number as the name of a variable")]
+    public void AStatementTheParseFailsInTwice_IsOneSyntaxError(string statement)
     {
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{statement}\r\nEnd Sub\r\n");
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
-        Assert.AreEqual(new SourcePosition(1, column), error.Location.Range.Start);
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, statement.Length)), error.Location.Range);
     }
 
     // the errors of two statements are two, the statements on one line too.
@@ -322,27 +321,27 @@ public sealed class StatementBoundRecoveryTests
         Assert.AreEqual(header[last..], TextOf(source, operation.SourceLocation.Range), "the header's last expression");
     }
 
-    // a binary operator right before a word of a block's header (To, Step, Then), or a run of operators at the end of a For's header, is one error at the
-    // operator: the block is the block it is, its body, its end, the statements after it and the end of the procedure read as they are.
+    // a binary operator right before a word of a block's header (To, Step, Then), or a run of operators at the end of a For's header, is one error over the
+    // header's line: the block is the block it is, its body, its end, the statements after it and the end of the procedure read as they are.
     [TestMethod]
-    [DataRow("For i = 1 - To 2", "Next", typeof(ForStatementNode), 10, DisplayName = "an operator before To")]
-    [DataRow("For i = 1 To 2 - Step 1", "Next", typeof(ForStatementNode), 15, DisplayName = "an operator before Step")]
-    [DataRow("For i = 1 To 2 * Step 1", "Next", typeof(ForStatementNode), 15, DisplayName = "a multiplication before Step")]
-    [DataRow("For i = 1 To 2 - -", "Next", typeof(ForStatementNode), 15, DisplayName = "two operators at the end of a For header")]
-    [DataRow("For i = 1 To 2 - - ' c", "Next", typeof(ForStatementNode), 15, DisplayName = "two operators at the end of a For header, then a comment")]
-    [DataRow("For i = 1 To 9 Step 2 + -", "Next", typeof(ForStatementNode), 22, DisplayName = "two operators at the end of a Step")]
-    [DataRow("For Each x In xs - -", "Next", typeof(ForEachStatementNode), 17, DisplayName = "two operators at the end of a For Each header")]
-    [DataRow("If x - Then", "End If", typeof(IfBlockStatementNode), 5, DisplayName = "an operator before Then")]
-    [DataRow("If x And Then", "End If", typeof(IfBlockStatementNode), 5, DisplayName = "an operator the parse reads as a name, before Then")]
-    [DataRow("If x = Then", "End If", typeof(IfBlockStatementNode), 5, DisplayName = "a comparison before Then")]
-    public void AnOperatorRightBeforeAWordOfABlocksHeader_IsOneErrorAtTheOperator_AndTheBlockIsKept(string header, string closes, Type kind, int column)
+    [DataRow("For i = 1 - To 2", "Next", typeof(ForStatementNode), DisplayName = "an operator before To")]
+    [DataRow("For i = 1 To 2 - Step 1", "Next", typeof(ForStatementNode), DisplayName = "an operator before Step")]
+    [DataRow("For i = 1 To 2 * Step 1", "Next", typeof(ForStatementNode), DisplayName = "a multiplication before Step")]
+    [DataRow("For i = 1 To 2 - -", "Next", typeof(ForStatementNode), DisplayName = "two operators at the end of a For header")]
+    [DataRow("For i = 1 To 2 - - ' c", "Next", typeof(ForStatementNode), DisplayName = "two operators at the end of a For header, then a comment")]
+    [DataRow("For i = 1 To 9 Step 2 + -", "Next", typeof(ForStatementNode), DisplayName = "two operators at the end of a Step")]
+    [DataRow("For Each x In xs - -", "Next", typeof(ForEachStatementNode), DisplayName = "two operators at the end of a For Each header")]
+    [DataRow("If x - Then", "End If", typeof(IfBlockStatementNode), DisplayName = "an operator before Then")]
+    [DataRow("If x And Then", "End If", typeof(IfBlockStatementNode), DisplayName = "an operator the parse reads as a name, before Then")]
+    [DataRow("If x = Then", "End If", typeof(IfBlockStatementNode), DisplayName = "a comparison before Then")]
+    public void AnOperatorRightBeforeAWordOfABlocksHeader_IsOneErrorOverItsLine_AndTheBlockIsKept(string header, string closes, Type kind)
     {
         var source = $"Public Sub Main()\r\n{header}\r\nb = 2\r\n{closes}\r\nc = 3\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
 
         var error = Assert.ContainsSingle(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
         Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
-        Assert.AreEqual(new SourcePosition(1, column), error.Location.Range.Start, "the error is at the operator");
+        Assert.AreEqual(new SourceRange(new SourcePosition(1, 0), new SourcePosition(1, header.Length)), error.Location.Range, "the error is the header's line");
         var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
         Assert.HasCount(2, members);
         Assert.AreEqual(5, members[0].SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
@@ -355,12 +354,12 @@ public sealed class StatementBoundRecoveryTests
 
     // the same in an ElseIf: the If keeps its branches.
     [TestMethod]
-    public void AnOperatorRightBeforeTheThenOfAnElseIf_IsOneErrorAtTheOperator_AndTheIfKeepsItsBranches()
+    public void AnOperatorRightBeforeTheThenOfAnElseIf_IsOneErrorOverItsLine_AndTheIfKeepsItsBranches()
     {
         var source = "Public Sub Main()\r\nIf a Then\r\nb = 1\r\nElseIf x - Then\r\nb = 2\r\nElse\r\nb = 3\r\nEnd If\r\nc = 3\r\nEnd Sub\r\n";
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
 
-        Assert.AreEqual(new SourcePosition(3, 9), Assert.ContainsSingle(parse.SyntaxErrors).Location.Range.Start);
+        Assert.AreEqual(new SourceRange(new SourcePosition(3, 0), new SourcePosition(3, "ElseIf x - Then".Length)), Assert.ContainsSingle(parse.SyntaxErrors).Location.Range);
         var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
         var block = Assert.ContainsSingle(member.Children.OfType<IfBlockStatementNode>());
         Assert.AreEqual(7, block.SourceLocation.Range.End.Line, "the If ends at its End If");
