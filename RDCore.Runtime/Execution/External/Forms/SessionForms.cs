@@ -48,6 +48,10 @@ internal sealed class SessionForms
     // the form host's side of the pipeline that runs the session's program: what says whether a host can create a form, when a New makes one.
     private FormCallProvider? _creator;
 
+    // a program that waits for its forms (WaitWhileLoaded), and the error no handler of its forms caught, which ends it.
+    private bool _waiting;
+    private RuntimeSemanticsEvaluationResult? _failed;
+
     /// <summary>
     /// Sets <paramref name="provider"/> as what says, from then on, whether a <c>New</c> of a form's class can make its form (<see cref="CreationFailure"/>):
     /// the provider of the pipeline that runs the session's program.
@@ -286,24 +290,29 @@ internal sealed class SessionForms
     /// when no VB6 form is loaded.
     /// </summary>
     /// <remarks>
-    /// The wait is over when the last VB6 form is unloaded, when a handler ends or stops the program (<see cref="ISessionHalt.Pending"/>), or when
-    /// <paramref name="end"/> is cancelled. When <paramref name="end"/> is cancelled, the program is ended as an <c>End</c> ends it, and its forms are hidden
-    /// with none of its code run.
+    /// The wait is over when the last VB6 form is unloaded, when a handler ends or stops the program (<see cref="ISessionHalt.Pending"/>), when a handler
+    /// fails with an error nothing catches (<see cref="TryFail"/>), or when <paramref name="end"/> is cancelled. When <paramref name="end"/> is cancelled, the
+    /// program is ended as an <c>End</c> ends it, and its forms are hidden with none of its code run. A handler's error ends the program with that error, its
+    /// forms hidden the same way.
     /// </remarks>
     /// <param name="session">The session the program runs in.</param>
     /// <param name="end">Ends the program, as the debugger's End or a cancelled run does.</param>
-    public void WaitWhileLoaded(IRuntimeSession session, CancellationToken end)
+    /// <returns>The error a handler failed with, which the program ends with; <see langword="null"/> otherwise.</returns>
+    public RuntimeSemanticsEvaluationResult? WaitWhileLoaded(IRuntimeSession session, CancellationToken end)
     {
         RDCore.External.Forms.IFormHost? host;
         lock (_gate)
         {
             if (_loadedVisualBasic6.Count == 0)
             {
-                return;
+                return null;
             }
 
             host = _host;
+            (_waiting, _failed) = (true, null);
         }
+
+        RuntimeSemanticsEvaluationResult? failed;
 
         // nothing of the program runs while it waits: the windows' messages its run holds (Turn.Running, which a yield does not tell) reach the forms, a close
         // button's included, until it runs again.
@@ -315,7 +324,7 @@ internal sealed class SessionForms
             {
                 lock (_gate)
                 {
-                    while (_loadedVisualBasic6.Count > 0 && session.Halt.Pending is null && !end.IsCancellationRequested)
+                    while (_loadedVisualBasic6.Count > 0 && session.Halt.Pending is null && _failed is null && !end.IsCancellationRequested)
                     {
                         _ = Monitor.Wait(_gate);
                     }
@@ -323,14 +332,49 @@ internal sealed class SessionForms
             }
             finally
             {
+                lock (_gate)
+                {
+                    failed = _failed;
+                    (_waiting, _failed) = (false, null);
+                }
+
                 host?.Hold(true);
             }
+        }
+
+        if (failed is not null)
+        {
+            HideAll(session);
+            return failed;
         }
 
         if (end.IsCancellationRequested && session.Halt.Pending is null)
         {
             session.Halt.Request(RuntimeHaltKind.End);
             HideAll(session);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Ends a program that waits for its forms (<see cref="WaitWhileLoaded"/>) with the error a handler of its forms failed with: an error nothing catches ends
+    /// a Visual Basic 6.0 program, wherever it is raised.
+    /// </summary>
+    /// <param name="failed">What the handler failed with.</param>
+    /// <returns>Whether a program waits for its forms, and is ended with the error; <see langword="false"/> when none waits, and the error is only told.</returns>
+    public bool TryFail(RuntimeSemanticsEvaluationResult failed)
+    {
+        lock (_gate)
+        {
+            if (!_waiting)
+            {
+                return false;
+            }
+
+            _failed ??= failed;
+            Monitor.PulseAll(_gate);
+            return true;
         }
     }
 

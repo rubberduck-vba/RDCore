@@ -91,8 +91,10 @@ public sealed class RuntimeExecutionPipeline
     /// <param name="resolver">What the program's names resolve with.</param>
     /// <param name="arguments">What the entry point is given.</param>
     /// <param name="end">Ends a program that waits for its forms, as an <c>End</c> does.</param>
-    /// <returns>What the entry point answered, or <c>VBR50001</c> for a program run unattended that left a VB6 form loaded. When a handler of its forms ends or
-    /// stops the program, or <paramref name="end"/> ends it, the session's halt says so.</returns>
+    /// <returns>
+    /// What the entry point answered, <c>VBR50001</c> for a program run unattended that left a VB6 form loaded, or the error a handler of its forms failed
+    /// with while it waited. When a handler of its forms ends or stops the program, or <paramref name="end"/> ends it, the session's halt says so.
+    /// </returns>
     public RuntimeSemanticsEvaluationResult RunProgram(
         VBTypeMemberSymbol entryPoint, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments, CancellationToken end = default)
     {
@@ -105,7 +107,10 @@ public sealed class RuntimeExecutionPipeline
                 return RuntimeSemanticsEvaluationResult.Error(Unattended.NobodyToUnload(_session, loaded));
             }
 
-            forms.WaitWhileLoaded(_session, end);
+            if (forms.WaitWhileLoaded(_session, end) is { } failed)
+            {
+                return failed;
+            }
         }
 
         return result;
