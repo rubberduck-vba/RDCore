@@ -5,6 +5,7 @@ using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
+using RDCore.SDK.Model.Values.Runtime;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -36,12 +37,24 @@ public sealed partial class CompiledActivation
 
     // the Set at offset of what holder holds to source's object, or Nothing, Set-coerced to declared.
     private bool TrySetIn(int offset, ValueBindingHandle holder, VBType declared, object? source, bool nothing)
-        => ValueOf(source, nothing) is { } value && Coerced(offset, value, declared) is { } coerced && Assign(holder, coerced);
+        => HoldsAlready(holder, source, nothing)
+            || ValueOf(source, nothing) is { } value && Coerced(offset, value, declared) is { } coerced && Assign(holder, coerced);
+
+    // whether holder holds the object Set to it already, or Nothing when Nothing is: the Set stores what is there, counts it there and lets it go there, which
+    // leaves the cell and the object as they were. The object was Set-coerced to the cell's type when it was stored.
+    private static bool HoldsAlready(ValueBindingHandle holder, object? source, bool nothing)
+        => holder is { IsKnown: true, Value: VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var held } }
+            && (nothing ? held.Equals(VBObjectValue.Nothing.Value) : ObjectOperations.TryRead(source, out var instance) && held.Equals(instance));
 
     // a Set-coerced value stored in holder, counted there, and what holder held before let go of (ObjectReferences.Rebind); false, with nothing stored, when
     // letting go of what it held would destroy an object.
     private bool Assign(ValueBindingHandle holder, VBTypedValue coerced)
     {
+        if (holder.Value is VBRuntimeValue<VBRuntimeObjectId> { StoredValue: var held } && coerced is VBObjectValue { Value: var instance })
+        {
+            return Rebind(holder, held, instance, coerced);
+        }
+
         var before = ObjectReferences.HeldIn(_session, holder);
         if (Destroys(before))
         {
@@ -50,6 +63,30 @@ public sealed partial class CompiledActivation
 
         holder.Store(_session.Symbols.Resolver, coerced);
         ObjectReferences.Rebind(_session, holder, before);
+        return true;
+    }
+
+    // an object variable's cell, which holds one reference and nothing else: the object Set to it is counted there, and the one it held let go of there, as
+    // ObjectReferences.Rebind counts them, without walking what the cell holds; false, with nothing stored, when letting go of the one it held would destroy it.
+    private bool Rebind(ValueBindingHandle holder, VBRuntimeObjectId held, VBRuntimeObjectId instance, VBTypedValue coerced)
+    {
+        var heldHere = !held.Equals(VBObjectValue.Nothing.Value) && _session.Objects.IsHeldBy(held, holder);
+        if (heldHere && _session.Objects.RefCount(held) <= 1)
+        {
+            return false;
+        }
+
+        holder.Store(_session.Symbols.Resolver, coerced);
+        if (!instance.Equals(VBObjectValue.Nothing.Value))
+        {
+            _session.Objects.AddRef(instance, holder);
+        }
+
+        if (heldHere)
+        {
+            _session.ReleaseReference(held, holder);
+        }
+
         return true;
     }
 
