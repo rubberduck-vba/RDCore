@@ -262,6 +262,22 @@ internal sealed class SessionForms
     }
 
     /// <summary>
+    /// The name of a Visual Basic 6.0 form that is loaded.
+    /// </summary>
+    /// <param name="session">The session the forms are of.</param>
+    /// <returns>The form's name, or <see langword="null"/> when no VB6 form is loaded.</returns>
+    public string? LoadedVisualBasic6(IRuntimeSession session)
+    {
+        VBRuntimeObjectId[] loaded;
+        lock (_gate)
+        {
+            loaded = [.. _loadedVisualBasic6];
+        }
+
+        return loaded.Select(form => session.Symbols.TryGetInstance(form, out var live) ? live.ClassModule.Name : null).FirstOrDefault(name => name is not null);
+    }
+
+    /// <summary>
     /// Waits while a Visual Basic 6.0 form is loaded: a VB6 program does not end with its entry point, and runs until its last form is unloaded (measured in
     /// VB6, a form shown or only loaded). Meanwhile the turn is given up, so that the forms' events are handled as the program's, as in a modal form's
     /// <c>Show</c>, and the messages of the forms' windows are let through, as they are once a program ends (<see cref="HoldWhileRunning"/>). Returns at once

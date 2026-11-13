@@ -83,20 +83,29 @@ public sealed class RuntimeExecutionPipeline
 
     /// <summary>
     /// Runs a program: invokes its entry point, and then, for a Visual Basic 6.0 program that returned with a form loaded, waits until its last form is unloaded,
-    /// handling the forms' events meanwhile (measured in VB6: the program runs past its <c>Sub Main</c> while a form is loaded).
+    /// handling the forms' events meanwhile (measured in VB6: the program runs past its <c>Sub Main</c> while a form is loaded). A program run unattended
+    /// (<see cref="IRuntimeSession.RunsUnattended"/>) has nobody to unload its forms: one that returns with a VB6 form loaded fails with <c>VBR50001</c>, as a
+    /// form's <c>Show</c> does.
     /// </summary>
     /// <param name="entryPoint">The procedure the program starts with.</param>
     /// <param name="resolver">What the program's names resolve with.</param>
     /// <param name="arguments">What the entry point is given.</param>
     /// <param name="end">Ends a program that waits for its forms, as an <c>End</c> does.</param>
-    /// <returns>What the entry point answered. When a handler of its forms ends or stops the program, the session's halt says so.</returns>
+    /// <returns>What the entry point answered, or <c>VBR50001</c> for a program run unattended that left a VB6 form loaded. When a handler of its forms ends or
+    /// stops the program, the session's halt says so.</returns>
     public RuntimeSemanticsEvaluationResult RunProgram(
         VBTypeMemberSymbol entryPoint, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments, CancellationToken end = default)
     {
         var result = Invoker.Invoke(entryPoint, resolver, arguments);
         if (result.IsSuccess && _session.Halt.Pending is null)
         {
-            External.Forms.SessionForms.Of(_session).WaitWhileLoaded(_session, end);
+            var forms = External.Forms.SessionForms.Of(_session);
+            if (_session.RunsUnattended && forms.LoadedVisualBasic6(_session) is { } loaded)
+            {
+                return RuntimeSemanticsEvaluationResult.Error(Unattended.NobodyToAnswer(_session, loaded));
+            }
+
+            forms.WaitWhileLoaded(_session, end);
         }
 
         return result;

@@ -539,9 +539,8 @@ public sealed class VisualBasicFormLifecycleTests
         CollectionAssert.AreEqual(new[] { "Initialize", "Load", "main end", "QueryUnload 0" }, printed, string.Join(" | ", printed));
     }
 
-    // run unattended, nobody can unload a form Main leaves loaded: the run would wait forever.
+    // run unattended, nobody can unload a form Main leaves loaded: the run fails, as a form's Show does, once Main has run.
     [TestMethod]
-    [Ignore("not implemented: a run unattended whose Main ends with a VB6 form still loaded waits for the form to be unloaded, which nobody can do")]
     public async Task MainEnding_WithAFormLoaded_FailsARunUnattended()
     {
         var result = await ModuleWorkspace.RunUnattendedAsync([], Program(["Load Form2", "Debug.Print \"main end\""]), Libraries, Forms(), SupportedLanguages.VB6);
