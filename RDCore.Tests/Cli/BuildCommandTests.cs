@@ -833,18 +833,26 @@ public sealed class BuildCommandTests
         }
     }
 
-    // the program built into a folder of its own and started there, as its user starts it: the folder holds no rdc to make its calls to the outside world.
+    // the program built into a folder of its own and started there, as its user starts it: the folder holds no rdc, and the program's own executable makes its
+    // calls to the outside world, run as its external host.
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    [Ignore("a built program has no external host: its calls to the outside world are made by rdc in external mode, which its folder does not hold")]
     public async Task TheBuiltProgram_StartedInItsOwnFolder_CallsTheFunctionADeclareNames()
+        => await StartedInItsOwnFolder_PrintsAsync(CallsADeclare, "42");
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task TheBuiltProgram_StartedInItsOwnFolder_CreatesAnObjectOfAnAutomationServerOfTheMachine()
+        => await StartedInItsOwnFolder_PrintsAsync(CreatesADictionary, "1");
+
+    private static async Task StartedInItsOwnFolder_PrintsAsync(string program, string printed)
     {
         CompiledExecutionTests.RequirePayloads();
         var workspace = Directory.CreateTempSubdirectory("rdcore-build-ws-");
         var folder = Path.Combine(workspace.FullName, "out");
         try
         {
-            File.WriteAllText(Path.Combine(workspace.FullName, "Program.bas"), CallsADeclare);
+            File.WriteAllText(Path.Combine(workspace.FullName, "Program.bas"), program);
             var fileSystem = new System.IO.Abstractions.FileSystem();
             var writer = Substitute.For<IConsoleMessageWriter>();
             var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
@@ -863,11 +871,28 @@ public sealed class BuildCommandTests
             await process.WaitForExitAsync();
 
             Assert.AreEqual(0, process.ExitCode, error);
-            Assert.AreEqual("42", output.Trim());
+            Assert.AreEqual(printed, output.Trim());
         }
         finally
         {
-            workspace.Delete(recursive: true);
+            await DeleteAsync(workspace);
+        }
+    }
+
+    // Windows lets go of a folder a moment after the programs that ran from it end; a temporary folder it still holds after the last attempt is left in place.
+    private static async Task DeleteAsync(DirectoryInfo folder)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            try
+            {
+                folder.Delete(recursive: true);
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(250);
+            }
         }
     }
 
