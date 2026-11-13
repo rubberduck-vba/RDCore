@@ -51,11 +51,15 @@ internal sealed partial class ProcedureAnalysis
         ["IStdMathModule.Tan/1"] = false,
     }.ToImmutableDictionary(StringComparer.Ordinal);
 
-    // the functions compiled code calls for a Variant they return, each of parameters of the Variant type passed by value, and keeping nothing: IIf, which
-    // is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11); Sgn; and the parts of a date.
+    // the functions compiled code calls for a Variant they return, each of parameters of the Variant type or of a scalar type passed by value, and keeping
+    // nothing: IIf, which is given both its parts, evaluated, the true part first (MS-VBAL §6.1.2.8.1.11); Round and Sgn; and the dates made of their
+    // parts, and the parts of a date.
     private static readonly ImmutableHashSet<string> VariantLibraryFunctions = ImmutableHashSet.Create(StringComparer.Ordinal,
         "IStdInteractionModule.IIf/3",
+        "IStdMathModule.Round/2",
         "IStdMathModule.Sgn/1",
+        "IStdDateTimeModule.DateSerial/3",
+        "IStdDateTimeModule.TimeSerial/3",
         "IStdDateTimeModule.Year/1",
         "IStdDateTimeModule.Month/1",
         "IStdDateTimeModule.Day/1",
@@ -68,65 +72,26 @@ internal sealed partial class ProcedureAnalysis
         => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && VariantLibraryFunctions.Contains(target)
             && StandardLibrary.IsLibraryMember(symbol);
 
-    // a call of such a function, with its arguments as LibraryCallOf takes them: every parameter given one, by value.
+    // a call of such a function, with its arguments as LibraryCallOf takes them (LibraryArgumentsOf).
     private VariantNode? LibraryVariantOf(BoundCall call, VBTypeMemberSymbol function)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(function);
-        if (call.BoundArguments is not { } arguments || arguments.Length != parameters.Length || parameters.Length > 3)
+        if (call.BoundArguments is not { } arguments || LibraryArgumentsOf(parameters, arguments) is not { } values)
         {
             Unsupported(call);
             return null;
-        }
-
-        var values = new List<VariantNode>(parameters.Length);
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (parameters[i] is ParamArrayParameterSymbol || parameters[i].ResolvedType is not VBVariantType || RuntimeProcedureInvoker.IsByRef(parameters[i].ParameterKind)
-                || parameters[i].GetProperty(SymbolProperties.PassedByAddress))
-            {
-                Unsupported(call);
-                return null;
-            }
-
-            if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value })
-            {
-                Unsupported(call);
-                return null;
-            }
-
-            if (Dynamic(value) is not { } argument)
-            {
-                return null;
-            }
-
-            values.Add(argument);
         }
 
         Libraries.Add(new CompiledLibraryCall(function, parameters, call.Expression.SourceLocation));
         return new LibraryVariantNode(Libraries.Count - 1, values);
     }
 
-    // whether symbol is a function of the standard library compiled code calls.
-    private static bool IsCompiledLibrary(Symbol symbol)
-        => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && CompiledLibraryFunctions.ContainsKey(target)
-            && StandardLibrary.IsLibraryMember(symbol);
-
-    // a call of a function of the standard library (IsCompiledLibrary), written with its arguments, or by its name when it is given none, as the
-    // interpreter makes it (InvokeProcedureFrom): each argument evaluated on payloads and held in a Variant of its own subtype, the parameters it gives no
-    // argument given what an omitted one is. What it returns is a scalar of its type, or of the type of its argument for a function typed by it
-    // (ArgumentTypedFunctions, the call's ResultType). Inside an instruction that calls inside an expression, the call is known once it is made, as any is;
-    // in any other, it is of a function that keeps nothing, which the interpreter makes again when the instruction is handed to it.
-    private PayloadNode? LibraryCallOf(BoundNode node, VBTypeMemberSymbol function, ImmutableArray<BoundArgument>? bound, VBType? resultType)
+    // the arguments of a call of a function of the standard library as the interpreter gives them (InvokeProcedureFrom), each passed by value: evaluated on
+    // payloads and held in a Variant of its own subtype, or let-coerced to the type of a parameter of a scalar type (MS-VBAL §5.3.1.11). An argument left
+    // out at the end is no argument (Rnd() is Rnd), and its parameter, which is optional, is given what an omitted one is. None when compiled code cannot
+    // give them.
+    private List<VariantNode>? LibraryArgumentsOf(ImmutableArray<VBParameterSymbol> parameters, ImmutableArray<BoundArgument> arguments)
     {
-        var parameters = RuntimeProcedureInvoker.GetParameters(function);
-        var syntax = _nesting is null ? -1 : KnownOperands.IndexOf(_nesting, node.Expression);
-        var keeps = CompiledLibraryFunctions[function.GetProperty(SymbolProperties.ExternalTarget)!];
-        if (bound is not { } arguments || ScalarKinds.Of(resultType ?? ReturnedType(function)) is not { } kind || _nesting is not null && syntax < 0 || keeps && syntax < 0)
-        {
-            return Unsupported(node);
-        }
-
-        // an argument left out at the end is no argument: Rnd() is Rnd.
         var given = arguments.Length;
         while (given > 0 && arguments[given - 1].Passing is ArgumentPassing.Omitted)
         {
@@ -135,7 +100,7 @@ internal sealed partial class ProcedureAnalysis
 
         if (given > 3 || given > parameters.Length)
         {
-            return Unsupported(node);
+            return null;
         }
 
         var values = new List<VariantNode>(given);
@@ -147,7 +112,7 @@ internal sealed partial class ProcedureAnalysis
                 || RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind) || parameter.GetProperty(SymbolProperties.PassedByAddress)
                 || i >= given && !parameter.IsOptional)
             {
-                return Unsupported(node);
+                return null;
             }
 
             if (i >= given)
@@ -155,14 +120,36 @@ internal sealed partial class ProcedureAnalysis
                 continue;
             }
 
-            // a parameter of a scalar type is given its argument let-coerced to that type, as the interpreter gives it (MS-VBAL §5.3.1.11).
             if (arguments[i] is not { Passing: ArgumentPassing.Value, Value: { } value }
                 || (typed is { } destination ? PayloadAs(value, destination) is { } coerced ? new VariantOfNode(coerced) : null : Dynamic(value)) is not { } argument)
             {
-                return Unsupported(node);
+                return null;
             }
 
             values.Add(argument);
+        }
+
+        return values;
+    }
+
+    // whether symbol is a function of the standard library compiled code calls.
+    private static bool IsCompiledLibrary(Symbol symbol)
+        => symbol is VBFunctionMemberSymbol && symbol.GetProperty(SymbolProperties.ExternalTarget) is { } target && CompiledLibraryFunctions.ContainsKey(target)
+            && StandardLibrary.IsLibraryMember(symbol);
+
+    // a call of a function of the standard library (IsCompiledLibrary), written with its arguments, or by its name when it is given none, as the
+    // interpreter makes it (LibraryArgumentsOf). What it returns is a scalar of its type, or of the type of its argument for a function typed by it
+    // (ArgumentTypedFunctions, the call's ResultType). Inside an instruction that calls inside an expression, the call is known once it is made, as any is;
+    // in any other, it is of a function that keeps nothing, which the interpreter makes again when the instruction is handed to it.
+    private PayloadNode? LibraryCallOf(BoundNode node, VBTypeMemberSymbol function, ImmutableArray<BoundArgument>? bound, VBType? resultType)
+    {
+        var parameters = RuntimeProcedureInvoker.GetParameters(function);
+        var syntax = _nesting is null ? -1 : KnownOperands.IndexOf(_nesting, node.Expression);
+        var keeps = CompiledLibraryFunctions[function.GetProperty(SymbolProperties.ExternalTarget)!];
+        if (bound is not { } arguments || ScalarKinds.Of(resultType ?? ReturnedType(function)) is not { } kind || _nesting is not null && syntax < 0 || keeps && syntax < 0
+            || LibraryArgumentsOf(parameters, arguments) is not { } values)
+        {
+            return Unsupported(node);
         }
 
         Libraries.Add(new CompiledLibraryCall(function, parameters, node.Expression.SourceLocation));
