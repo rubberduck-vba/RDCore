@@ -79,6 +79,22 @@ public sealed class HostDeclarationRoleTests
         Assert.AreEqual(DeclarationRole.None, RoleOf(model!, "Other_Draw"));
     }
 
+    [TestMethod]
+    [DataRow("Get", DisplayName = "the Get first")]
+    [DataRow("Let", DisplayName = "the Let first")]
+    public async Task APropertyNamedAfterAnInterfaceProperty_ImplementsIt_WhicheverAccessorComesFirst(string first)
+    {
+        var sized = ("ISized", ModuleWorkspace.ClassModule("ISized",
+            "Public Property Get Size() As Long", "End Property", "Public Property Let Size(ByVal value As Long)", "End Property"));
+        string[] get = ["Public Property Get ISized_Size() As Long", "End Property"];
+        string[] let = ["Public Property Let ISized_Size(ByVal value As Long)", "End Property"];
+        var source = ModuleWorkspace.ClassModule("Sized", ["Implements ISized", .. first == "Get" ? get.Concat(let) : let.Concat(get)]);
+
+        var model = await ModelOfAsync("Sized", sized, ("Sized", source));
+
+        Assert.AreEqual(DeclarationRole.InterfaceImplementation, RoleOf(model!, "ISized_Size"));
+    }
+
     // MS-VBAL §5.3.1.10: a subroutine with no parameters, named Class_Initialize or Class_Terminate, of a class module.
     [TestMethod]
     [DataRow("Public Sub Class_Initialize()", "Class_Initialize", DeclarationRole.EventHandler, DisplayName = "Initialize, Public")]
