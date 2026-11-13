@@ -15,6 +15,7 @@ using RDCore.Runtime.Semantics.SetCoercion;
 using RDCore.Runtime.Semantics.Statements;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
@@ -39,7 +40,10 @@ namespace RDCore.Runtime.Execution;
 /// </remarks>
 public sealed class RuntimeExecutionPipeline
 {
+    private readonly IRuntimeSession _session;
+
     private RuntimeExecutionPipeline(
+        IRuntimeSession session,
         RuntimeExpressionEvaluator expressions,
         ILetCoercionRuntimeSemanticsProvider letCoercion,
         IStatementRuntimeSemanticsProvider statements,
@@ -47,6 +51,7 @@ public sealed class RuntimeExecutionPipeline
         IProcedureInvoker invoker,
         RuntimeProcedureInvoker? sweeper)
     {
+        _session = session;
         Expressions = expressions;
         LetCoercion = letCoercion;
         Statements = statements;
@@ -75,6 +80,27 @@ public sealed class RuntimeExecutionPipeline
 
     /// <summary>Invokes a procedure of the session, from a call site or from a host.</summary>
     public IProcedureInvoker Invoker { get; }
+
+    /// <summary>
+    /// Runs a program: invokes its entry point, and then, for a Visual Basic 6.0 program that returned with a form loaded, waits until its last form is unloaded,
+    /// handling the forms' events meanwhile (VB6 measured: the program runs past its <c>Sub Main</c> while a form is loaded).
+    /// </summary>
+    /// <param name="entryPoint">The procedure the program starts with.</param>
+    /// <param name="resolver">What the program's names resolve with.</param>
+    /// <param name="arguments">What the entry point is given.</param>
+    /// <param name="end">Ends a program that waits for its forms, as an <c>End</c> does.</param>
+    /// <returns>What the entry point answered; a program its forms' handlers ended or stopped says so in the session's halt.</returns>
+    public RuntimeSemanticsEvaluationResult RunProgram(
+        VBTypeMemberSymbol entryPoint, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments, CancellationToken end = default)
+    {
+        var result = Invoker.Invoke(entryPoint, resolver, arguments);
+        if (result.IsSuccess && _session.Halt.Pending is null)
+        {
+            External.Forms.SessionForms.Of(_session).WaitWhileLoaded(_session, end);
+        }
+
+        return result;
+    }
 
     /// <summary>
     /// Composes the pipeline for <paramref name="session"/>.
@@ -319,7 +345,7 @@ public sealed class RuntimeExecutionPipeline
             session.Symbols.Defaults = defaults;
         }
 
-        return new RuntimeExecutionPipeline(expressions, letCoercion, statements, executor, invoker, mode is PipelineMode.Sweep ? running : null);
+        return new RuntimeExecutionPipeline(session, expressions, letCoercion, statements, executor, invoker, mode is PipelineMode.Sweep ? running : null);
     }
 
     /// <summary>

@@ -42,6 +42,7 @@ internal sealed class SessionForms
     private readonly Dictionary<VBRuntimeObjectId, IBindingHandle> _loadedHolds = [];
     private readonly HashSet<VBRuntimeObjectId> _unloading = [];
     private readonly List<VBRuntimeObjectId> _modal = [];
+    private readonly HashSet<VBRuntimeObjectId> _loadedVisualBasic6 = [];
     private bool _holding;
 
     // the form host's side of the pipeline that runs the session's program: what says whether a host can create a form, when a New makes one.
@@ -125,6 +126,7 @@ internal sealed class SessionForms
             }
 
             _loaded.Add(form);
+            _ = _loadedVisualBasic6.Add(form);
             _loadedHolds[form] = holder;
         }
 
@@ -169,6 +171,8 @@ internal sealed class SessionForms
             if (unloaded)
             {
                 _ = _loaded.Remove(form);
+                _ = _loadedVisualBasic6.Remove(form);
+                Monitor.PulseAll(_gate);
             }
         }
     }
@@ -250,8 +254,75 @@ internal sealed class SessionForms
             _loadedHolds.Clear();
             _unloading.Clear();
             _modal.Clear();
+            _loadedVisualBasic6.Clear();
             Collection = null;
             FormsCollection = null;
+            Monitor.PulseAll(_gate);
+        }
+    }
+
+    /// <summary>
+    /// Waits while a Visual Basic 6.0 form is loaded: a VB6 program does not end with its entry point, and runs until its last form is unloaded (measured in
+    /// VB6, a form shown or only loaded). Meanwhile the turn is given up, so that the forms' events are handled as the program's, as in a modal form's
+    /// <c>Show</c>, and the messages of the forms' windows are let through, as they are once a program ends (<see cref="HoldWhileRunning"/>). Returns at once
+    /// when no VB6 form is loaded.
+    /// </summary>
+    /// <remarks>
+    /// The wait is over when the last VB6 form is unloaded, when a handler ends or stops the program (<see cref="ISessionHalt.Pending"/>), or when
+    /// <paramref name="end"/> is cancelled: then the program is ended as an <c>End</c> ends it, and its forms are hidden with none of its code run.
+    /// </remarks>
+    /// <param name="session">The session the program runs in.</param>
+    /// <param name="end">Ends the program, as the debugger's End or a cancelled run does.</param>
+    public void WaitWhileLoaded(IRuntimeSession session, CancellationToken end)
+    {
+        RDCore.External.Forms.IFormHost? host;
+        lock (_gate)
+        {
+            if (_loadedVisualBasic6.Count == 0)
+            {
+                return;
+            }
+
+            host = _host;
+        }
+
+        // nothing of the program runs while it waits: the windows' messages its run holds (Turn.Running, which a yield does not tell) reach the forms, a close
+        // button's included, until it runs again.
+        using (end.Register(Wake))
+        using (session.Turn.Yield())
+        {
+            host?.Hold(false);
+            try
+            {
+                lock (_gate)
+                {
+                    while (_loadedVisualBasic6.Count > 0 && session.Halt.Pending is null && !end.IsCancellationRequested)
+                    {
+                        _ = Monitor.Wait(_gate);
+                    }
+                }
+            }
+            finally
+            {
+                host?.Hold(true);
+            }
+        }
+
+        if (end.IsCancellationRequested && session.Halt.Pending is null)
+        {
+            session.Halt.Request(RuntimeHaltKind.End);
+            HideAll(session);
+        }
+    }
+
+    /// <summary>
+    /// Wakes a program that waits for its forms to be unloaded (<see cref="WaitWhileLoaded"/>), to look again: an event was handled, which may have ended it.
+    /// </summary>
+    public void Wake()
+    {
+        lock (_gate)
+        {
+            Monitor.PulseAll(_gate);
         }
     }
 

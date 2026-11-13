@@ -120,6 +120,8 @@ internal sealed class ServerEventRouter(
         {
             Forms.SessionForms.Of(session).HideAll(session);
         }
+
+        Forms.SessionForms.Of(session).Wake();
     }
 
     private void Handle(string name, object?[] arguments, int? dispatchId)

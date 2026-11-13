@@ -29,11 +29,12 @@ public sealed class VisualBasicFormLifecycleTests
             "Public CancelQuery As Integer",
             "Public CancelUnload As Integer",
             "Public UnloadInLoad As Boolean",
+            "Public EndInQueryUnload As Boolean",
             "Public Sub Foo()", "    Debug.Print \"Foo\"", "End Sub",
             "Private Sub Form_Initialize()", "    Debug.Print \"Initialize\"", .. counted, "    If FailInitialize Then Debug.Print 1 \\ pub", "End Sub",
             "Private Sub Form_Load()", "    Debug.Print \"Load\"", .. counted, "    If UnloadInLoad Then", "        Unload Me", "        Debug.Print \"rest of Load\"", "    End If",
             "    If FailLoad Then Debug.Print 1 \\ pub", "End Sub",
-            "Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)", "    Debug.Print \"QueryUnload \" & UnloadMode", .. counted, "    Cancel = CancelQuery", "End Sub",
+            "Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)", "    Debug.Print \"QueryUnload \" & UnloadMode", .. counted, "    Cancel = CancelQuery", "    If EndInQueryUnload Then End", "End Sub",
             "Private Sub Form_Unload(Cancel As Integer)", "    Debug.Print \"Unload\"", .. counted, "    Cancel = CancelUnload", "End Sub",
             "Private Sub Form_Terminate()", "    Debug.Print \"Terminate\"", "End Sub",
             "Private Sub Form_Resize()",
@@ -507,6 +508,98 @@ public sealed class VisualBasicFormLifecycleTests
         var printed = await RunAsync("On Error GoTo h", "FailLoad = True", "Load Form2", "Exit Sub", "h:", "Debug.Print \"caught \" & Err.Number");
 
         CollectionAssert.AreEqual(new[] { "Initialize", "Load" }, printed);
+    }
+
+    // the user closes the form once Main runs on after showing it: the close waits, as every message does while the program runs, and reaches the form after
+    // Main has returned, while the run lasts for the form (VB6: a run lasts while a form is shown or loaded, and ends with the Unload of the last).
+    [TestMethod]
+    public async Task TheRun_LastsPastMain_UntilItsLastFormIsUnloaded()
+    {
+        var libraries = new ModuleWorkspace.WorkspaceLibraries([], Shipped) with { Outside = RDFormsWorld(forms => new ClosedByItsUser(forms)) };
+
+        var printed = await ModuleWorkspace.RunAsync(
+            [], Program(["Form2.Show", "Debug.Print \"main end \" & Forms.Count"]), libraries, Forms(), SupportedLanguages.VB6);
+
+        CollectionAssert.AreEqual(new[] { "Initialize", "Load", "main end 1", "QueryUnload 0", "Unload" }, printed, string.Join(" | ", printed));
+    }
+
+    [TestMethod]
+    public async Task AnEnd_InAHandlerOfAFormLeftLoaded_EndsTheRun()
+    {
+        var libraries = new ModuleWorkspace.WorkspaceLibraries([], Shipped) with { Outside = RDFormsWorld(forms => new ClosedByItsUser(forms)) };
+        ExecuteResult? ended = null;
+        await ModuleWorkspace.InspectAsync([], Program(["Form2.EndInQueryUnload = True", "Form2.Show", "Debug.Print \"main end\""]), (_, result, _) =>
+        {
+            ended = result;
+            return Task.CompletedTask;
+        }, libraries: libraries, language: SupportedLanguages.VB6, forms: Forms());
+
+        var printed = ended!.Output.Select(line => line.Trim()).ToArray();
+        Assert.AreEqual(ExecutionOutcome.Halted, ended.Outcome, ended.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "Initialize", "Load", "main end", "QueryUnload 0" }, printed, string.Join(" | ", printed));
+    }
+
+    // run unattended, nobody can unload a form Main leaves loaded: the run would wait forever.
+    [TestMethod]
+    [Ignore("Main ending in a run unattended with a VB6 form still loaded is undecided: failing the run with VBR50001, as a Show does, is the proposed rule")]
+    public async Task MainEnding_WithAFormLoaded_FailsARunUnattended()
+    {
+        var result = await ModuleWorkspace.RunUnattendedAsync([], Program(["Load Form2", "Debug.Print \"main end\""]), Libraries, Forms(), SupportedLanguages.VB6);
+
+        Assert.AreEqual(ExecutionOutcome.RuntimeError, result.Outcome, result.ErrorMessage);
+        Assert.AreEqual(("VBR50001", 50001), (result.ErrorCode, result.ErrorNumber), result.ErrorMessage);
+    }
+
+    // the forms of a world whose user closes the first form shown, as its close button does (vbFormControlMenu), once the program runs on after showing it.
+    private sealed class ClosedByItsUser(RDCore.External.Forms.IFormHost forms) : RDCore.External.Forms.IFormHost
+    {
+        private bool _closed;
+
+        public bool IsAvailable => forms.IsAvailable;
+
+        public bool HostsVisualBasic6Forms => forms.HostsVisualBasic6Forms;
+
+        public object Create(RDCore.External.Forms.FormDefinition form) => forms.Create(form);
+
+        // the program runs on, its window's messages held: the close is posted behind the hold, as the window posts it, and reaches the form once the hold
+        // is released.
+        public void Show(object form, bool modal, object? owner = null)
+        {
+            forms.Show(form, modal, owner);
+            if (form is RDCore.External.Forms.RDForms.RDFormsObject shown && !_closed)
+            {
+                _closed = true;
+                RDCore.External.Forms.RDForms.RDFormsUI.Dispatcher.Post(() => shown.Form.Window.UnloadRequestHandler?.Invoke(0));
+            }
+        }
+
+        public void Hold(bool running) => forms.Hold(running);
+
+        public void Hide(object form) => forms.Hide(form);
+
+        public bool IsShown(object form) => forms.IsShown(form);
+
+        public string GetCaption(object form) => forms.GetCaption(form);
+
+        public void SetCaption(object form, string caption) => forms.SetCaption(form, caption);
+
+        public RDCore.External.Forms.FormBounds GetBounds(object form) => forms.GetBounds(form);
+
+        public void SetBounds(object form, RDCore.External.Forms.FormBounds bounds) => forms.SetBounds(form, bounds);
+
+        public void Leave(object form) => forms.Leave(form);
+
+        public void Destroy(object form) => forms.Destroy(form);
+
+        public void DoEvents() => forms.DoEvents();
+    }
+
+    [TestMethod]
+    public async Task TheRun_EndsWithMain_WhenNoFormIsLoaded()
+    {
+        var printed = await RunAsync("Load Form2", "Unload Form2", "Debug.Print \"main end \" & Forms.Count");
+
+        CollectionAssert.AreEqual(new[] { "Initialize", "Load", "QueryUnload 1", "Unload", "main end 0" }, printed);
     }
 
     [TestMethod]
