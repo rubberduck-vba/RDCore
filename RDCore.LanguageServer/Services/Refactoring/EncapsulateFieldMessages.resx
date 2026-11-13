@@ -26,7 +26,7 @@
     <value>'{0}' is not Public: only a Public field is encapsulated.</value>
   </data>
   <data name="EncapsulateFieldRefusal_WithEvents" xml:space="preserve">
-    <value>'{0}' is declared WithEvents: its events are handled by the procedures named after it, which a property does not raise.</value>
+    <value>'{0}' is declared WithEvents: the procedures named after it handle its events, and a property cannot be declared WithEvents.</value>
   </data>
   <data name="EncapsulateFieldRefusal_NotSupported" xml:space="preserve">
     <value>'{0}' is an array, a fixed-length string or a variable declared As New, or its type is not known: the encapsulation writes no properties for it.</value>

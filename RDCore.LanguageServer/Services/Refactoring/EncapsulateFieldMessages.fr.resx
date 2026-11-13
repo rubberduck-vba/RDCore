@@ -26,7 +26,7 @@
     <value>'{0}' n'est pas Public : seul un champ Public est encapsulé.</value>
   </data>
   <data name="EncapsulateFieldRefusal_WithEvents" xml:space="preserve">
-    <value>'{0}' est déclaré WithEvents : ses événements sont gérés par les procédures nommées d'après lui, qu'une propriété ne déclenche pas.</value>
+    <value>'{0}' est déclaré WithEvents : les procédures nommées d'après lui gèrent ses événements, et une propriété ne peut pas être déclarée WithEvents.</value>
   </data>
   <data name="EncapsulateFieldRefusal_NotSupported" xml:space="preserve">
     <value>'{0}' est un tableau, une chaîne de longueur fixe ou une variable déclarée As New, ou son type n'est pas connu : l'encapsulation ne lui écrit aucune propriété.</value>

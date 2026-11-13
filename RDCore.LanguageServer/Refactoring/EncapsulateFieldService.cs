@@ -40,6 +40,7 @@ internal interface IEncapsulateFieldService
     /// <param name="position">The position, in the text of the document.</param>
     /// <param name="accepted">The codes of the changes the user accepted.</param>
     /// <param name="token">A token that cancels the parses.</param>
+    /// <returns>The edit, or why it is not made.</returns>
     Task<EncapsulateFieldAnswer> ApplyAsync(Uri documentUri, SourcePosition position, IReadOnlyList<string> accepted, CancellationToken token);
 }
 
@@ -150,7 +151,7 @@ internal sealed class EncapsulateFieldService(IRenameService rename, IParsingCli
         });
 
     // the edits verified against the project composed again with the module as they leave it: every reference the edits leave in place still refers to the
-    // field, now the properties outside the module and the member of the private type inside it. Why they are not made, or null.
+    // field: to its properties outside the module, and to the member of the private type inside it. Why they are not made, or null.
     private static string? Verified(
         RenameWorkspace.ProjectPart part, Encapsulation encapsulation, RenameWorkspace.DocumentModule module, string text, ModuleParseResult parse,
         IReadOnlyList<RefactorTextEdit> edits)
