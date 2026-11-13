@@ -5,12 +5,16 @@ using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics;
+using RDCore.SDK.Client;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Reflection;
@@ -35,10 +39,15 @@ internal sealed record class BuiltEnvironment(
         ReleaseDropsDebugStatements: ReleaseDropsDebugStatements, ErlAfterErrClear: ErlAfterErrClear, OperatingSystem: OperatingSystem);
 }
 
+// a module of the project as the build read it: its name and its kind, which its source says and which the program cannot read where it runs.
+internal sealed record class BuiltModule(string RelativeUri, string Name, ModuleType Kind);
+
 // the load of the workspace as the build made it (Definitions: in order, every module's types, then declarations, then code), replayed when the program
-// runs, so that it runs with no parser and no resolver. Root is what the identities of its symbols are relative to.
+// runs, so that it runs with no parser and no resolver, and with no source: Modules are what the build read of each. Root is what the identities of its
+// symbols are relative to.
 internal sealed record class BuiltProgramImage(
-    RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions)
+    RDCoreProject Project, Uri Root, BuiltEnvironment Environment, string EntryModule, string EntryPoint, IReadOnlyList<DefineSymbolsParams> Definitions,
+    IReadOnlyList<BuiltModule> Modules)
 {
     public const string ResourceName = "RDCore.Program.json";
 }
@@ -49,22 +58,54 @@ public static class BuiltProgram
     // the switch rdc run takes for the same: nobody answers a dialog, and the first one fails the run.
     private const string UnattendedSwitch = "--unattended";
 
+    // the subfolder of the program's folder that holds the descriptions of the libraries its project references, named as the platform's is: the
+    // program's session reads them there, and nowhere else.
+    internal const string LibrariesFolder = PlatformEnvironment.SymbolsDirectory;
+
     public static int Run(Assembly program, string[] args)
     {
         ArgumentNullException.ThrowIfNull(program);
 
         // the process's entry point: nothing awaits it, and the main thread has no context a continuation would wait for.
 #pragma warning disable VSTHRD002
-        return RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None).GetAwaiter().GetResult();
+        // started by the program as its external host: it makes the calls the program makes to the outside world, and runs no program of its own.
+        if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
+        {
+            using var host = new MachineExternalHost(logFileName: null);
+            return host.RunAsync(args).GetAwaiter().GetResult();
+        }
+
+        if (ExecutableOf(program) is { } executable)
+        {
+            MachineExternal.Executable = executable;
+        }
+
+        try
+        {
+            return RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            MachineExternal.Shutdown();
+        }
 #pragma warning restore VSTHRD002
     }
 
-    // keys: the console's, unless a test types them; the dialogs are then drawn on output.
-    internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys = null)
+    // the program's executable beside its assembly, which is its external host too; none when the program was built without one (and is run with dotnet).
+    private static string? ExecutableOf(Assembly program)
+    {
+        var executable = Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{program.GetName().Name}.exe" : program.GetName().Name!);
+        return File.Exists(executable) ? executable : null;
+    }
+
+    // keys: the console's, unless a test types them; the dialogs are then drawn on output. libraries: the program's own folder's, unless a test runs the
+    // program from a folder that is not the process's.
+    internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys = null,
+        ILibrarySource? libraries = null)
     {
         try
         {
-            return await RunImageAsync(program, args, output, error, token, keys);
+            return await RunImageAsync(program, args, output, error, token, keys, libraries);
         }
         catch (InvalidDataException exception)
         {
@@ -74,14 +115,17 @@ public static class BuiltProgram
     }
 
     // the image replayed, the assembly bound, and the entry point run on the runner rdc run runs a workspace with.
-    private static async Task<int> RunImageAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys)
+    private static async Task<int> RunImageAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys,
+        ILibrarySource? libraries)
     {
         var image = ImageOf(program);
         var errorDetails = new ErrorDetailsRecorder();
 
-        using var provider = new EnvironmentSessionProvider(image.Environment.Profile, new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance,
-            outside: DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
-        provider.Compose(image.Project, image.Root);
+        var fileSystem = new FileSystem();
+        using var provider = new EnvironmentSessionProvider(image.Environment.Profile, fileSystem, NullLogger<EnvironmentSessionProvider>.Instance,
+            libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
+            DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
+        provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
         var define = new DefineSymbolsHandler(provider, errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)
         {

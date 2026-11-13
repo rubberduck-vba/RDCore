@@ -301,8 +301,9 @@ public partial class ModuleParser(
     }
 
     // the module's segments parsed each on its own, in order, each anchored where it starts and numbering its nodes where the one before it left off, and
-    // stitched: the tree, the trivia and the errors a parse of the whole module gives. None when a segment has a syntax error - what the grammar says is
-    // wrong, and what the block scanner says instead, is a whole module's to say - or when its parse fails: the module is then parsed whole, as a module
+    // stitched: the tree, the trivia and the errors a parse of the whole module gives. A member's syntax errors bound to its statements are kept with it
+    // (KeepsItsErrors), and only the member is read slowly. None when a segment has another syntax error - what the grammar says is wrong, and what the
+    // block scanner says instead, is a whole module's to say - or when its parse fails: the module is then parsed whole, as a module
     // whose parse fails is, its partial tree salvaged. A segment nested deeper than the parse reads is not: the module is not read again whole, as a segment's
     // parse has read it to that depth slowly already, and it stops where a parse of the whole module would. What that parse found wrong before it stopped is
     // the module's (errorListener), as a slow parse of the whole module would have found it.
@@ -350,19 +351,30 @@ public partial class ModuleParser(
                 throw;
             }
 
-            if (segmentErrors.HasGrammarErrors)
+            var read = listener.BuildModuleNode();
+            if (segmentErrors.HasGrammarErrors && !KeepsItsErrors(segmentErrors, read))
             {
                 statistics?.Count(SegmentationStatistics.Path.SegmentHadErrors);
                 return null;
             }
 
             next = listener.NextModuleChildId;
-            children.AddRange(listener.BuildModuleNode().Children);
+            children.AddRange(read.Children);
             trivia.AddRange(listener.Trivia);
             errors.AddRange(segmentErrors.Errors);
         }
 
         return (node with { Children = children.ToImmutable() }, trivia.ToImmutable(), errors.ToImmutable());
+    }
+
+    // whether a segment's syntax errors are what a parse of the whole module reports there, and the segment what it reads: each error is in a member, from
+    // its header to its end, and none is that of a block its parse found not closed (StatementStart). A parse of the whole module reads a block that is not
+    // closed past the member's end; and it reads what is wrong outside the members - in the declarations section, or between them - by what follows it.
+    private static bool KeepsItsErrors(ErrorListener errors, ModuleNode segment)
+    {
+        var members = segment.Children.OfType<MemberDeclarationNode>().Select(member => member.SourceLocation.Range).ToList();
+        return errors.Errors.All(error => error.StatementStart is null
+            && members.Any(member => member.Start.CompareTo(error.Location.Range.Start) <= 0 && error.Location.Range.Start.CompareTo(member.End) <= 0));
     }
 
     // the source with the lines of the alternatives' branches blank, as a directive is: every position stays where it is.
@@ -633,14 +645,6 @@ public partial class ModuleParser(
         {
             ErrorHandler = errorStrategy,
         };
-
-        // where no alternative reads an If, the recovering parse reads it as the If its line is written as (IfLinePredictionSimulator), on the same ATN,
-        // whose predictions it shares.
-        if (errorStrategy is StatementBoundErrorStrategy)
-        {
-            parser.Interpreter = new IfLinePredictionSimulator(parser, parser.Interpreter.atn);
-        }
-
         parser.Interpreter.PredictionMode = mode;
         parser.RemoveErrorListeners();
         if (errorListener is not null)
@@ -662,7 +666,17 @@ public partial class ModuleParser(
         var parameterNames = new ReservedParameterNameCollector();
         parser.AddParseListener(parameterNames);
 
+        // the recovery reads a block whose header has an operator right before one of its words as the block it is, without the operator.
+        var takenOff = errorStrategy is StatementBoundErrorStrategy && StatementBoundErrorStrategy.TakeOffOperatorsBeforeAWordOfAHeader(tokens) is { Count: > 0 } operators
+            ? new OperatorsTakenOffReporter(parser, operators)
+            : null;
+        if (takenOff is not null)
+        {
+            parser.AddParseListener(takenOff);
+        }
+
         var tree = parser.startRule();
+        takenOff?.ReportTheRest();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
         ReportReservedParameterNames(parameterNames.Names, findings);
@@ -680,10 +694,6 @@ public partial class ModuleParser(
         VBAParser.EQ, VBAParser.NEQ, VBAParser.LT, VBAParser.GT, VBAParser.LEQ, VBAParser.GEQ, VBAParser.LIKE, VBAParser.IS,
         VBAParser.AND, VBAParser.OR, VBAParser.XOR, VBAParser.EQV, VBAParser.IMP,
     ];
-
-    // the marker keywords (MS-VBAL §3.3.5.2) a statement goes on with after an expression, which the grammar also reads as names: after an operator,
-    // none of them is ever an operand.
-    internal static readonly HashSet<int> MarkerKeywordsAfterAnOperand = [VBAParser.TO, VBAParser.THEN];
 
     // what ends a statement: a line, a colon, a comment, the end of the module.
     private static readonly HashSet<int> EndsOfStatement = [VBAParser.NEWLINE, VBAParser.COLON, VBAParser.SINGLEQUOTE, VBAParser.REM, TokenConstants.Eof];
@@ -703,7 +713,7 @@ public partial class ModuleParser(
     private static void MarkDanglingOperators(IParseTree tree, CommonTokenStream tokens)
     {
         // each token no rule read, and the outermost expression that ends at each token: an expression is met before the ones it holds.
-        var unread = new List<IErrorNode>();
+        var unread = new List<IToken>();
         var expressions = new Dictionary<int, VBAParser.ExpressionContext>();
         var pending = new Stack<IParseTree>([tree]);
         while (pending.TryPop(out var node))
@@ -711,7 +721,7 @@ public partial class ModuleParser(
             switch (node)
             {
                 case IErrorNode error:
-                    unread.Add(error);
+                    unread.Add(error.Symbol);
                     break;
                 case VBAParser.ExpressionContext { Stop: { } stop } expression:
                     expressions.TryAdd(stop.TokenIndex, expression);
@@ -724,18 +734,10 @@ public partial class ModuleParser(
             }
         }
 
-        foreach (var error in unread.Where(error => BinaryOperators.Contains(error.Symbol.Type)))
+        foreach (var token in unread.Where(token => BinaryOperators.Contains(token.Type)))
         {
-            var token = error.Symbol;
-            var after = tokens.Get(SignificantIndex(tokens, token.TokenIndex, +1)).Type;
-
-            // before To or Then (If x - Then), the expression the parse ended at the operator holds it (StatementBoundErrorStrategy reads it there): that
-            // expression is the operand, and what holds the expression ends at the operator already.
-            if (MarkerKeywordsAfterAnOperand.Contains(after) && error.Parent is VBAParser.ExpressionContext held)
-            {
-                held.DanglingOperator = (token, tokens.GetText(held.Start, token));
-            }
-            else if (EndsOfStatement.Contains(after) && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
+            if (EndsOfStatement.Contains(tokens.Get(SignificantIndex(tokens, token.TokenIndex, +1)).Type)
+                && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
             {
                 operand.DanglingOperator = (token, tokens.GetText(operand.Start, token));
 

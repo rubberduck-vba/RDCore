@@ -639,4 +639,7 @@
   <data name="VBCompileError_MemberAlreadyExistsInDesigner_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; est le nom d&apos;un contrôle du formulaire, qui est déjà un membre de la classe du formulaire.</value>
   </data>
+  <data name="VBCompileError_BlockEndsInAnotherBranch_Verbose" xml:space="preserve">
+    <value>Le début et la fin de ce bloc ne sont pas dans la même branche #If.</value>
+  </data>
 </root>

@@ -32,7 +32,7 @@ public sealed class UnbuiltWrittenTextTests
     [DataRow("x = Foo(a:=1 -  ", DisplayName = "a named argument, blanks after it")]
     [DataRow("Debug.Print Spc(  ", DisplayName = "a Spc clause, blanks after it")]
     [DataRow("a = - _\r\n", DisplayName = "a negation, a line continuation and a blank line")]
-    [DataRow("If a + Then  \r\nEnd If", DisplayName = "the condition of an If, blanks after it")]
+    [DataRow("Do Until  \r\na = 1\r\nLoop", DisplayName = "a Do whose condition is missing, blanks after it")]
     public void AnUnbuiltNode_IsItsTextAsWritten(string statement)
     {
         var source = $"Public Sub Main()\r\n{statement}\r\nb = 2\r\nEnd Sub\r\n";

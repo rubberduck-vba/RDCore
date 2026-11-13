@@ -89,6 +89,8 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11029`](../diagnostics/rdc11029.md)|Public variable of an object passed late as a copy|Hint|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.ObjectVariablePassedLateAsACopy` of the `ExpressionFact`s|
 |[`RDC11031`](../diagnostics/rdc11031.md)|True value that is not -1|Warning|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.TrueValueIsNotMinusOne` of the `ExpressionFact`s in a condition (`TruthValueOperations`); the syntax tree's precompiler trivia for `#If`, `#ElseIf` and `#Const`, with the module's own `#Const` values and the predefined constants, `1` or `0` (`PredefinedConditionalConstants`)|
 |[`RDC11032`](../diagnostics/rdc11032.md)|For Each variable read after the loop ran out|Warning|`ProcedureSemanticModel.EmptiedControlReads`: the `EmptiedControlReadFact`s `ForEachControlAnalysis` finds on the `ControlFlowGraph`|
+|[`RDC11036`](../diagnostics/rdc11036.md)|Negative line number|Warning|the syntax tree: a `LineNumberNode` below 0, or a jump whose label is a negated literal (`On Error GoTo -1` aside)|
+|[`RDC11037`](../diagnostics/rdc11037.md)|Non-breaking space in a name|Warning|the syntax tree: the name of a declaration or a line label with a U+00A0|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same

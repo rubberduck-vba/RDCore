@@ -110,14 +110,14 @@ Le code de sortie indique comment s'est passée l'exécution :
 
 |Code de sortie|Signification|
 |---|---|
-|`0`|Le programme s'est terminé.|
-|`1`|Une erreur d'exécution l'a terminé. Le numéro et la description de l'erreur sont écrits sur la sortie d'erreur.|
+|`0`|Le programme s'est terminé : son point d'entrée est revenu, il a exécuté un `End`, ou il a exécuté un `Stop` en `Release`.|
+|`1`|Une erreur d'exécution l'a terminé, ou un `Stop` en `Debug` l'a interrompu, sans débogueur où s'arrêter. La sortie d'erreur indique lequel, avec le numéro et la description de l'erreur.|
 |`2`|Il n'a pas pu démarrer : aucun point d'entrée, ou un module qui ne se charge pas.|
 
 ### Construire un programme
 
-`rdc build` compile l'espace de travail en un programme qui s'exécute sans l'analyseur syntaxique de RDCore. Il lui faut le même point d'entrée qu'à
-`rdc run`.
+`rdc build` compile l'espace de travail en un programme qui s'exécute sans l'analyseur syntaxique de RDCore, et sans les sources de l'espace de travail :
+le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui faut le même point d'entrée qu'à `rdc run`.
 
 |Option|Ce qu'elle fait|
 |---|---|
@@ -126,7 +126,25 @@ Le code de sortie indique comment s'est passée l'exécution :
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
 |`-r`, `--runtime`|La plateforme pour laquelle le programme est construit, comme `win-x64` ou `linux-x64`; celle où s'exécute `rdc` par défaut.|
 
-Le programme affiche ses boîtes de dialogue comme `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
+Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
+
+Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
+installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
+
+Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
+dépendent. Le programme les lit à partir de là, où que soit le dossier.
+
+Le dossier contient aussi les conditions de licence de ce sur quoi le programme s'exécute :
+
+|Fichier|Conditions de|
+|---|---|
+|`NOTICE.md`, `LICENSE-GPLv3.md`|RDCore.|
+|`LICENSE-MIT.md`|RDCore.SDK.|
+|`THIRD-PARTY-NOTICES.txt`|Les autres paquets du dossier, et l'exécutable du programme.|
+
+Transmettez-les avec le programme. `NOTICE.md` dit ce qu'elles vous demandent, et que votre propre code reste le vôtre. `rdc` les copie depuis la
+plateforme d'où il s'exécute, et avertit quand il n'en a aucune à copier.
 
 ### Installer la plateforme
 

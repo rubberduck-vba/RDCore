@@ -27,13 +27,15 @@ public sealed class SegmentedParseEquivalenceTests
 
     // the module parsed whole; as the parser parses it; and a segment at a time without its fast parse as a whole tried first, which takes the segmented
     // path wherever it can - and which, said by stitches, it does or doesn't. All three are the same.
-    private static bool AssertTheSameAsAWholeParse(string source, SourcePosition anchor = default, bool? stitches = true)
+    // A module with a syntax error is read a segment at a time as the parser parses it, as when forced: its fast parse as a whole fails at the error, so
+    // the parse as the parser parses it can be left out of a check that only breaks modules (asTheParserParsesIt).
+    private static bool AssertTheSameAsAWholeParse(string source, SourcePosition anchor = default, bool? stitches = true, bool asTheParserParsesIt = true)
     {
         var expected = Written(new ModuleParser { Segmented = false }.Parse(Module, source, anchor));
         var forced = new ModuleParser { ForceSegments = true };
         string[] parts = ["the tree", "the trivia", "the directive trivia", "the errors"];
-        foreach (var (how, written) in new[] { ("as the parser parses it", Written(new ModuleParser().Parse(Module, source, anchor))),
-            ("a segment at a time", Written(forced.Parse(Module, source, anchor))) })
+        var ways = asTheParserParsesIt ? new[] { ("as the parser parses it", Written(new ModuleParser().Parse(Module, source, anchor))) } : [];
+        foreach (var (how, written) in ways.Append(("a segment at a time", Written(forced.Parse(Module, source, anchor)))))
         {
             for (var part = 0; part < parts.Length; part++)
             {
@@ -175,10 +177,9 @@ public sealed class SegmentedParseEquivalenceTests
         _ = AssertTheSameAsAWholeParse(source, stitches: false);
     }
 
-    // a segment with a syntax error is a whole module's to report: the module is parsed whole.
+    // a segment with a syntax error that is not bound to a member's statements is a whole module's to report: the module is parsed whole.
     [TestMethod]
     [DataRow("Public Sub A()|    If x Then|End Sub|Public Sub B()|End Sub", DisplayName = "a block not closed")]
-    [DataRow("Public Sub A()|    x = = 1|End Sub|Public Sub B()|End Sub", DisplayName = "a statement the grammar refuses")]
     [DataRow("Private x As|Public Sub A()|End Sub", DisplayName = "a declaration the grammar refuses")]
     public void AModuleWithASyntaxError_ParsesAsAWhole(string lines)
         => _ = AssertTheSameAsAWholeParse(Lines(lines.Split('|')), stitches: false);
@@ -187,6 +188,71 @@ public sealed class SegmentedParseEquivalenceTests
     [TestMethod]
     public void EveryModuleOfTheCorpus_ParsesAsAWhole()
     {
+        var modules = CorpusModules();
+        Assert.IsNotEmpty(modules);
+
+        // a module of one member, or of none, is one segment, and a module with a syntax error that no member's statements hold is parsed whole: whichever
+        // way it is read, it is a whole parse's. Most of the corpus is stitched.
+        var stitched = modules.Count(module => AssertTheSameAsAWholeParse(File.ReadAllText(module), stitches: null));
+        Assert.IsGreaterThan(modules.Length / 2, stitched, "most of the corpus is stitched");
+    }
+
+    // the modules of the corpus, each broken at one line at a time - by an operator with no right operand, a statement the grammar refuses, a block with no
+    // end, an end with no block, a call with no closing parenthesis, or the line taken out, which takes out an End, a header or a declaration - each in turn:
+    // whichever way a broken module is read, it is a whole parse's, its errors included.
+    [TestMethod]
+    public void EveryModuleOfTheCorpus_BrokenAtAnyLine_ParsesAsAWhole()
+    {
+        string[] inserted = ["    x = = 1", "    If x Then", "    Loop", "    Foo(1"];
+        var differences = new List<string>();
+        var broken = 0;
+        var stitched = 0;
+        foreach (var module in CorpusModules())
+        {
+            var lines = File.ReadAllText(module).Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+            for (var line = 0; line < lines.Length; line++)
+            {
+                var kind = line % (inserted.Length + 2);
+                List<string> mutated = [.. lines];
+                switch (kind)
+                {
+                    case 0:
+                        mutated[line] += " -";
+                        break;
+                    case var insertion when insertion <= inserted.Length:
+                        mutated.Insert(line + 1, inserted[insertion - 1]);
+                        break;
+                    default:
+                        mutated.RemoveAt(line);
+                        break;
+                }
+
+                broken++;
+                try
+                {
+                    stitched += AssertTheSameAsAWholeParse(Lines([.. mutated]), stitches: null, asTheParserParsesIt: false) ? 1 : 0;
+                }
+                catch (AssertFailedException failure)
+                {
+                    var source = Lines([.. mutated]);
+                    var whole = Written(new ModuleParser { Segmented = false }.Parse(Module, source));
+                    var forced = Written(new ModuleParser { ForceSegments = true }.Parse(Module, source));
+                    var part = Enumerable.Range(0, 4).FirstOrDefault(index => whole[index] != forced[index], -1);
+                    var at = part < 0 ? 0 : Enumerable.Range(0, Math.Min(whole[part].Length, forced[part].Length)).FirstOrDefault(index => whole[part][index] != forced[part][index]);
+                    string Near(string text) => part < 0 ? "" : text.Substring(Math.Max(0, at - 60), Math.Min(200, text.Length - Math.Max(0, at - 60)));
+                    differences.Add($"{Path.GetFileName(module)}:{line + 1} ({kind}) part {part}: {failure.Message.Split('\n').FirstOrDefault(text => text.Contains(" of a parse "))}\n   whole:  {Near(whole[Math.Max(part, 0)])}\n   forced: {Near(forced[Math.Max(part, 0)])}");
+                }
+            }
+        }
+
+        Assert.IsEmpty(differences, $"{differences.Count} of {broken} broken modules:\n{string.Join("\n", differences.Take(40))}");
+
+        // a member broken in one of its statements is read on its own, and stitched: a third of the broken modules, or more, are.
+        Assert.IsGreaterThan(broken / 3, stitched, $"{stitched} of {broken} broken modules stitched");
+    }
+
+    private static string[] CorpusModules()
+    {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "RDCore.slnx")))
         {
@@ -194,14 +260,17 @@ public sealed class SegmentedParseEquivalenceTests
         }
 
         Assert.IsNotNull(root, "the repository's root");
-        var modules = Directory.GetFiles(Path.Combine(root.FullName, "RDCore.CLI", "Bench", "Corpus"));
-        Assert.IsNotEmpty(modules);
-
-        // a module of one member, or of none, is one segment, and a module with a syntax error is parsed whole: whichever way it is read, it is a whole
-        // parse's. Most of the corpus is stitched.
-        var stitched = modules.Count(module => AssertTheSameAsAWholeParse(File.ReadAllText(module), stitches: null));
-        Assert.IsGreaterThan(modules.Length / 2, stitched, "most of the corpus is stitched");
+        return Directory.GetFiles(Path.Combine(root.FullName, "RDCore.CLI", "Bench", "Corpus"));
     }
+
+    // a syntax error bound to one statement of a member: the member is read on its own, its error with it, and the others are stitched to it - the module is
+    // not read again whole.
+    [TestMethod]
+    [DataRow("Public Sub A()|    x = = 1|End Sub|Public Sub B()|End Sub", DisplayName = "a statement the grammar refuses")]
+    [DataRow("Public Sub A()|    y = 1|End Sub|Public Sub B()|    x = 1 -|End Sub", DisplayName = "an operator with no right operand, in a later member")]
+    [DataRow("Public Sub A()|    Foo(1|End Sub|Public Sub B()|End Sub", DisplayName = "a call with no closing parenthesis")]
+    public void AModuleWithASyntaxErrorBoundToAStatement_IsStitched(string lines)
+        => _ = AssertTheSameAsAWholeParse(Lines(lines.Split('|')), stitches: true);
 
     // a parenthesized argument of a call statement with no space before it - `Foo(5)` - is a grouping, whose location is read off its token, not off a rule
     // the tree is anchored at: in a member that is not the first, its segment starts further down the module than the module does.
@@ -221,7 +290,7 @@ public sealed class SegmentedParseEquivalenceTests
             "End Sub"), new SourcePosition(line, character));
 
     // the arguments of a call statement in parentheses, with no Call - `Foo(1, 2)` - are a syntax error the listener reports from the parenthesis' token: in a
-    // module anchored in a larger document, it is where the document has it.
+    // module anchored in a larger document, it is where the document has it, and the member that has it is stitched to the others.
     [TestMethod]
     public void ArgumentsInParenthesesWithoutCall_AreReportedWhereTheDocumentHasThem()
     {
@@ -241,7 +310,7 @@ public sealed class SegmentedParseEquivalenceTests
         var anchored = Assert.ContainsSingle(new ModuleParser().Parse(Module, source, anchor).SyntaxErrors).Location.Range;
 
         Assert.AreEqual(new SourceRange(atTheStart.Start.AnchoredAt(anchor), atTheStart.End.AnchoredAt(anchor)), anchored);
-        _ = AssertTheSameAsAWholeParse(source, anchor, stitches: false);
+        _ = AssertTheSameAsAWholeParse(source, anchor, stitches: true);
     }
 
     // a block If around a one-line If whose Then a colon follows: the fast prediction can't read it, and the member that holds it is read slowly on its own.

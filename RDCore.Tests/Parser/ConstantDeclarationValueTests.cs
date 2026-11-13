@@ -54,6 +54,16 @@ public sealed class ConstantDeclarationValueTests
     }
 
     [TestMethod]
+    public void ANegatedLiteral_IsOneLiteral_WrittenWithItsSign()
+    {
+        var value = Assert.IsInstanceOfType<LiteralExpressionNode>(ValueOf(Constant("Attribute VB_Name = \"M\"\r\nPublic Const K As Long = -5\r\n")));
+
+        Assert.AreEqual(-5, value.StaticValue is VBIntegerValue v ? (int)v.Value : 0);
+        Assert.AreEqual(25, value.SourceLocation.Range.Start.Character, "the sign is part of it");
+        Assert.AreEqual(27, value.SourceLocation.Range.End.Character);
+    }
+
+    [TestMethod]
     public void ALocalConstant_WithANonLiteralExpression_CarriesTheWholeTree()
         // a constant expression is not always a literal, so the declaration keeps the expression rather
         // than a folded value: what reduces it is the host, where the operator semantics live.

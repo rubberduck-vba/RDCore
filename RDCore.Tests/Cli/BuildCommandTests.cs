@@ -28,8 +28,10 @@ namespace RDCore.Tests.Cli;
 public sealed class BuildCommandTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-build-ws");
-    private static readonly string Runtime = Path.Combine(Path.GetTempPath(), "rdcore-build-runtime");
-    private static readonly string Host = Path.Combine(Path.GetTempPath(), "rdcore-build-packs", "apphost.exe");
+    private static readonly string Platform = Path.Combine(Path.GetTempPath(), "rdcore-build-platform");
+    private static readonly string Runtime = Path.Combine(Platform, "RDCore.CLI");
+    private static readonly string Host = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.win-x64", "10.0.11",
+        "runtimes", "win-x64", "native", "apphost.exe");
     private static readonly string Output = Path.Combine(Path.GetTempPath(), "rdcore-build-out");
 
     private static string Module(string name, params string[] body) => $"Attribute VB_Name = \"{name}\"\r\nOption Explicit\r\n{string.Join("\r\n", body)}\r\n";
@@ -76,10 +78,56 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net10.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
+
+        // the package the support is built on, and one of rdc's that no program runs on; the platform's notices, as its release writes them.
+        fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.SDK.dll"), SdkAssembly.Value);
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "Antlr4.Runtime.dll"), "the parser's runtime");
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "NOTICE.md"), PlatformNotice);
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "LICENSE-GPLv3.md"), PlatformLicense);
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "THIRD-PARTY-NOTICES.json"), PlatformThirdPartyNotices);
         return fileSystem;
     }
 
-    private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true)
+    private static readonly Lazy<byte[]> SdkAssembly = new(() => File.ReadAllBytes(typeof(RDCore.SDK.Model.Symbols.Abstract.Symbol).Assembly.Location));
+
+    private const string PlatformNotice = "# Notice\n\nYour projects are yours.\n";
+    private const string PlatformLicense = "# GNU General Public License\n\nVersion 3, 29 June 2007\n";
+    // as the release reads them: lines joined by \n, with no line ending at the end.
+    private const string SdkLicense = "MIT License\n\nCopyright (c) 2026 the SDK's authors\n\nPermission is hereby granted, free of charge.";
+    private const string ParserLicense = "Copyright (c) 2013 the parser's authors\n\nRedistribution and use in source and binary forms are permitted.";
+    private const string HostLicense = "The MIT License (MIT)\n\nCopyright (c) .NET Foundation and Contributors";
+    private const string HostNotice = ".NET Runtime uses third-party libraries or other resources.";
+
+    // the data a release writes beside its THIRD-PARTY-NOTICES.txt (tools/release/New-ThirdPartyNotices.ps1 -DataFile).
+    private static readonly string PlatformThirdPartyNotices = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        schema = 1,
+        packages = new object[]
+        {
+            new { package = "Antlr4.Runtime", version = "4.6.6", license = "BSD-3-Clause (override)", copyright = "-", projectUrl = "https://github.com/tunnelvisionlabs/antlr4cs", assemblies = new[] { "Antlr4.Runtime" } },
+            new { package = "RDCore.SDK", version = "0.1.2-alpha", license = "MIT", copyright = "Copyright (c) 2026 the SDK's authors", projectUrl = "https://github.com/rubberduck-vba/RDCore.SDK", assemblies = new[] { "RDCore.SDK", "RDCore.SDK.Protocol" } },
+        },
+        texts = new object[]
+        {
+            new { kind = "license", title = "BSD-3-Clause", packages = new[] { "Antlr4.Runtime 4.6.6" }, sources = new[] { "tools/release/licenses/Antlr4.Runtime-4.6.6.txt (override)" }, text = ParserLicense },
+            new { kind = "license", title = "MIT", packages = new[] { "RDCore.SDK 0.1.2-alpha" }, sources = new[] { "LICENSE shipped in the package" }, text = SdkLicense },
+            new { kind = "license", title = "MIT", packages = new[] { "Microsoft.NETCore.App.Host.win-x64 10.0.11" }, sources = new[] { "tools/release/licenses/dotnet-runtime-LICENSE.txt" }, text = HostLicense },
+        },
+        applicationHost = new
+        {
+            license = "MIT",
+            copyright = "Copyright (c) .NET Foundation and Contributors",
+            projectUrl = "https://github.com/dotnet/runtime",
+            texts = new object[]
+            {
+                new { kind = "license", title = "MIT", source = "tools/release/licenses/dotnet-runtime-LICENSE.txt", text = HostLicense },
+                new { kind = "notice", title = "THIRD-PARTY-NOTICES.TXT", source = "tools/release/licenses/dotnet-runtime-THIRD-PARTY-NOTICES.txt", text = HostNotice },
+            },
+        },
+    });
+
+    private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries = null)
     {
         var messages = new List<(MessageKind, string)>();
         var writer = Substitute.For<IConsoleMessageWriter>();
@@ -89,7 +137,7 @@ public sealed class BuildCommandTests
             messages.Add((message.Kind, string.Concat(message.Parts.OfType<ConsoleMessageBodyPart>().Select(part => part.Body))));
         });
         var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
-            new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+            libraries ?? new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
         return (new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner, new ProgramOutput(fileSystem, Runtime),
             _ => hasHost ? Host : null), messages);
     }
@@ -141,6 +189,81 @@ public sealed class BuildCommandTests
     }
 
     [TestMethod]
+    public async Task ABuiltProgram_CarriesTheNotice_TheLicenses_AndTheThirdPartyNoticesOfWhatItRunsOn_AndNoParser()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        var (command, messages) = Command(fileSystem);
+
+        var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
+        Assert.DoesNotContain(message => message.Kind == MessageKind.Warning, messages);
+        Assert.AreEqual(PlatformNotice, fileSystem.File.ReadAllText(Path.Combine(Output, "NOTICE.md")));
+        Assert.AreEqual(PlatformLicense, fileSystem.File.ReadAllText(Path.Combine(Output, "LICENSE-GPLv3.md")));
+        Assert.AreEqual($"{SdkLicense}\n", fileSystem.File.ReadAllText(Path.Combine(Output, "LICENSE-MIT.md")));
+        foreach (var file in new[] { "RDCore.SDK.dll", "RDCore.Runtime.Support.dll" })
+        {
+            Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        foreach (var file in new[] { "RDCore.Parsing.dll", "Antlr4.Runtime.dll", "THIRD-PARTY-NOTICES.json" })
+        {
+            Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        // the packages the program's folder holds, and its executable; not the parser's, which it does not hold.
+        var notices = fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt"));
+        Assert.Contains("RDCore.SDK", notices);
+        Assert.Contains("0.1.2-alpha", notices);
+        Assert.Contains(SdkLicense.TrimEnd(), notices);
+        Assert.Contains("Microsoft.NETCore.App.Host.win-x64", notices);
+        Assert.Contains("10.0.11", notices);
+        Assert.Contains("Hello.exe", notices);
+        Assert.Contains(HostLicense.TrimEnd(), notices);
+        Assert.Contains(HostNotice.TrimEnd(), notices);
+        Assert.DoesNotContain("Antlr4.Runtime", notices);
+        Assert.DoesNotContain(ParserLicense.TrimEnd(), notices);
+    }
+
+    [TestMethod]
+    public async Task ABuiltProgramWithoutAnExecutable_CarriesNoNoticeOfTheApplicationHost()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        var (command, messages) = Command(fileSystem, hasHost: false);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "linux-x64"], CancellationToken.None));
+
+        var notices = fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt"));
+        Assert.Contains(SdkLicense.TrimEnd(), notices);
+        Assert.DoesNotContain("Microsoft.NETCore.App.Host", notices);
+        Assert.DoesNotContain(HostNotice.TrimEnd(), notices);
+    }
+
+    [TestMethod]
+    public async Task AnRdcWithoutTheNotices_BuildsTheProgram_AndWarnsOfWhatItsFolderLacks()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        fileSystem.File.Delete(Path.Combine(Platform, "THIRD-PARTY-NOTICES.json"));
+        fileSystem.File.Delete(Path.Combine(Platform, "NOTICE.md"));
+        var (command, messages) = Command(fileSystem);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"], CancellationToken.None));
+
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "LICENSE-GPLv3.md")));
+        var warning = messages.Single(message => message.Kind == MessageKind.Warning).Text;
+        foreach (var file in new[] { "NOTICE.md", "LICENSE-MIT.md", "THIRD-PARTY-NOTICES.txt" })
+        {
+            Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+            Assert.Contains(file, warning);
+        }
+
+        Assert.DoesNotContain("LICENSE-GPLv3.md", warning);
+    }
+
+    [TestMethod]
     public async Task TheBuiltAssembly_RunsTheProgram_ItsProceduresTheCodeTheyWereBuiltTo()
     {
         CompiledExecutionTests.RequirePayloads();
@@ -167,6 +290,209 @@ public sealed class BuildCommandTests
         {
             context.Unload();
         }
+    }
+
+    // a Stop between two lines it prints, each a call that compiled code runs.
+    private static readonly string Stops = Module("Program",
+        "Public Sub Main()",
+        "    Debug.Print Twice(21)",
+        "    Stop",
+        "    Debug.Print Total(100)",
+        "End Sub",
+        "Private Function Twice(ByVal N As Long) As Long",
+        "    Twice = N * 2",
+        "End Function",
+        "Private Function Total(ByVal Count As Long) As Double",
+        "    Dim I As Long",
+        "    For I = 1 To Count",
+        "        Total = Total + I",
+        "    Next",
+        "End Function");
+
+    // the workspace built with args, then its assembly run: the exit code, what the program printed, and what it said on standard error.
+    private static Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem, string folder, params string[] args)
+        => BuildAndRunAsync(fileSystem, null, folder, args);
+
+    private static async Task<(int Exit, string[] Output, string Error)> BuildAndRunAsync(MockFileSystem fileSystem,
+        RDCore.SDK.Runtime.Libraries.ILibrarySource? libraries, string folder, params string[] args)
+    {
+        var (command, messages) = Command(fileSystem, libraries: libraries);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", .. args], CancellationToken.None),
+            string.Join("; ", messages.Select(message => message.Text)));
+
+        var context = new AssemblyLoadContext("built program", isCollectible: true);
+        try
+        {
+            var assembly = context.LoadFromStream(new MemoryStream(fileSystem.File.ReadAllBytes(Path.Combine(folder, "Hello.dll"))));
+            var output = new StringWriter();
+            var error = new StringWriter();
+            // the libraries the program reads from its own folder: the one it was built to, and not the folder the test runs it from.
+            var own = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, Path.Combine(folder, BuiltProgram.LibrariesFolder));
+            var exit = await BuiltProgram.RunAsync(assembly, [], output, error, CancellationToken.None, libraries: own);
+            return (exit, output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray(),
+                error.ToString());
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    // the workspace is no folder of the disk the program runs on: what its build read of each module is the program's, and its sources are not read again.
+    [TestMethod]
+    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsClassModuleAClass()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Program.bas", Module("Program",
+                "Public Sub Main()",
+                "    Dim C As New Counter",
+                "    C.Add 2",
+                "    C.Add 3",
+                "    Debug.Print C.Total",
+                "End Sub")),
+            ("Counter.cls", ModuleWorkspace.ClassModule("Counter", "Option Explicit",
+                "Public Total As Long",
+                "Public Sub Add(ByVal N As Long)",
+                "    Total = Total + N",
+                "End Sub")));
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "5" }, run.Output);
+    }
+
+    // the workspace is not a folder on the disk the program runs on: the libraries its project references are in the program's folder, each with the
+    // libraries it depends on, and a library's constant has the same value in the program as in rdc run - no object of the library is created, so no COM
+    // library is asked for.
+    [TestMethod]
+    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsReferencedLibrariesInItsOwnFolder()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print MSForms.fmMousePointerCustom", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "LibraryProbe", "Modules": [ { "RelativeUri": "Program.bas" } ],
+              "References": [ { "Name": "MSForms" } ] } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+        var run = await RunAsync(fileSystem, shipped, Root);
+        Assert.AreEqual(0, run.Exit, run.Error);
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(new[] { "99" }, built.Output, built.Error);
+        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+        var symbols = Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime, BuiltProgram.LibrariesFolder);
+        CollectionAssert.IsSubsetOf(new[] { "MSForms.json", "stdole.json" },
+            fileSystem.Directory.GetFiles(symbols).Select(Path.GetFileName).ToArray(), "the program's folder holds the libraries its project references, and theirs");
+    }
+
+    // a Release build is written to its own folder, and its program ends at a Stop, as an End ends it: Debug.Print is kept.
+    [TestMethod]
+    public async Task AReleaseBuild_IsWrittenToItsOwnFolder_AndItsProgramEndsAtAStop()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Stops));
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Release", AppHost.CurrentRuntime), "-c", "Release");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output);
+        Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    // a LongPtr field of a class's record, behind its Property Get and Let (the shape of a weak reference's Address): compiled by the build,
+    // in either configuration, and run.
+    [TestMethod]
+    [DataRow("Debug")]
+    [DataRow("Release")]
+    public async Task ALongPtrFieldBehindItsProperties_IsBuiltCompiled_AndRuns(string configuration)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(
+            ("Program.bas", Module("Program",
+                "Public Sub Main()",
+                "    Dim R As New Reference",
+                "    R.Address = 4096",
+                "    R.Address = R.Address + 8",
+                "    Debug.Print R.Address; R.Size()",
+                "End Sub")),
+            ("Reference.cls", ModuleWorkspace.ClassModule("Reference", "Option Explicit",
+                "Private Type TReference", "    Address As LongPtr", "End Type",
+                "Private this As TReference",
+                "Public Property Get Address() As LongPtr",
+                "    Address = this.Address",
+                "End Property",
+                "Public Property Let Address(ByVal value As LongPtr)",
+                "    this.Address = value",
+                "End Property",
+                "Public Function Size() As Long",
+                "    Size = LenB(this.Address)",
+                "End Function")));
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", configuration, AppHost.CurrentRuntime), "-c", configuration);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { $"4104  {(Environment.Is64BitProcess ? 8 : 4)}" }, run.Output);
+
+        var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
+            new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+        var workspace = await BenchWorkspace.LoadAsync(fileSystem, new ProjectFileLoader(fileSystem), Root, CancellationToken.None);
+        var built = await runner.BuildAsync(workspace, new ProgramAssemblyBuilder(new System.Reflection.AssemblyName("Hello")),
+            RuntimeEnvironmentProfile.Of(runner.Environment) with { Configuration = Enum.Parse<RDCore.SDK.Runtime.Abstract.Execution.VBBuildConfiguration>(configuration) }, CancellationToken.None);
+        using (built.Provider)
+        {
+            var address = built.Procedures.Where(procedure => procedure.Module == "Reference" && procedure.Compilation.Procedure.Name == "Address").ToList();
+            Assert.HasCount(2, address, "the Property Get and the Property Let");
+            Assert.IsTrue(address.TrueForAll(procedure => procedure.Compilation.IsCompiled), string.Join("; ", address.Select(procedure => procedure.Compilation)));
+        }
+    }
+
+    // a debug build has a debugger to stop for: with none attached, its program is interrupted there, and the run fails.
+    [TestMethod]
+    public async Task ADebugBuild_IsWrittenToItsOwnFolder_AndItsProgramIsInterruptedAtAStop()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Stops));
+
+        var run = await BuildAndRunAsync(fileSystem, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(ProgramRunner.Failed, run.Exit);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output);
+        Assert.Contains("Interrupted", run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_OfAProgramThatEnds_ExitsWith0()
+    {
+        var fileSystem = Files(("Program.bas", Module("Program",
+            "Public Sub Main()",
+            "    Debug.Print \"before\"",
+            "    End",
+            "    Debug.Print \"after\"",
+            "End Sub")));
+
+        var run = await RunAsync(fileSystem, Root);
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "before" }, run.Output);
+        Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    [TestMethod]
+    public async Task Run_InRelease_EndsTheProgramAtAStop()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Stops));
+
+        var run = await RunAsync(fileSystem, Root, "-c", "Release");
+
+        Assert.AreEqual(0, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "42" }, run.Output);
     }
 
     [TestMethod]
@@ -263,6 +589,37 @@ public sealed class BuildCommandTests
             """);
         var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
         return await RunAsync(fileSystem, shipped, Root);
+    }
+
+    // the workspace is no folder of the disk the program runs on: the form's designer, its companion file with it, is what the build read, and the form the
+    // program loads has the controls that file describes, as rdc run's has.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [Ignore("a UserForm's controls are native MSForms controls, which need the MSForms COM library registered on the machine; the row runs once RDForms hosts the form")]
+    public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsUserFormTheControlsItsCompanionFileDescribes()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var (_, frm, _) = UnattendedRunTests.ExampleView(string.Empty);
+        var fileSystem = Files(
+            ("Program.bas", Module("Program", "Public Sub Main()", "    Debug.Print ExampleView.Controls.Count; ExampleView.AmountBox.Name", "    Unload ExampleView", "End Sub")),
+            ("ExampleView.frm", frm));
+        fileSystem.File.WriteAllBytes(Path.Combine(Root, "ExampleView.frx"), UnattendedRunTests.Fixture("ExampleView.frx"));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ".rdproj"), """
+            { "Version": "0.1.0", "ProjectInfo": { "Name": "FormProbe", "Modules": [ { "RelativeUri": "Program.bas" }, { "RelativeUri": "ExampleView.frm" } ],
+              "References": [ { "Name": "MSForms" } ] } }
+            """);
+        var shipped = new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(new System.IO.Abstractions.FileSystem(), RDCore.Tests.Runtime.Libraries.ShippedLibrariesTests.Symbols);
+        Assert.IsFalse(Directory.Exists(Root), "the workspace is not on the disk");
+        var run = await RunAsync(fileSystem, shipped, Root);
+        Assert.AreEqual(0, run.Exit, run.Error);
+
+        var built = await BuildAndRunAsync(fileSystem, shipped, Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(0, built.Exit, built.Error);
+        CollectionAssert.AreEqual(run.Output, built.Output, built.Error);
+        var symbols = Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime, BuiltProgram.LibrariesFolder);
+        CollectionAssert.IsSubsetOf(new[] { "MSForms.json", "stdole.json" },
+            fileSystem.Directory.GetFiles(symbols).Select(Path.GetFileName).ToArray(), "the program's folder holds the libraries its project references");
     }
 
     [TestMethod]
@@ -660,6 +1017,69 @@ public sealed class BuildCommandTests
         finally
         {
             context.Unload();
+        }
+    }
+
+    // the program built into a folder of its own and started there, as its user starts it: the folder holds no rdc, and the program's own executable makes its
+    // calls to the outside world, run as its external host.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task TheBuiltProgram_StartedInItsOwnFolder_CallsTheFunctionADeclareNames()
+        => await StartedInItsOwnFolder_PrintsAsync(CallsADeclare, "42");
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task TheBuiltProgram_StartedInItsOwnFolder_CreatesAnObjectOfAnAutomationServerOfTheMachine()
+        => await StartedInItsOwnFolder_PrintsAsync(CreatesADictionary, "1");
+
+    private static async Task StartedInItsOwnFolder_PrintsAsync(string program, string printed)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var workspace = Directory.CreateTempSubdirectory("rdcore-build-ws-");
+        var folder = Path.Combine(workspace.FullName, "out");
+        try
+        {
+            File.WriteAllText(Path.Combine(workspace.FullName, "Program.bas"), program);
+            var fileSystem = new System.IO.Abstractions.FileSystem();
+            var writer = Substitute.For<IConsoleMessageWriter>();
+            var runner = new BenchRunner(RuntimeEnvironmentProfile.Default, fileSystem, Substitute.For<IErrorDetailsRecorder>(), NullLoggerFactory.Instance,
+                new RDCore.SDK.Runtime.Libraries.DirectoryLibrarySource(fileSystem, string.Empty));
+            var command = new BuildCommand(writer, fileSystem, new ProjectFileLoader(fileSystem), runner);
+            Assert.AreEqual(0, await command.ExecuteAsync([workspace.FullName, "--name", "Hello", "--output", folder], CancellationToken.None));
+            Assert.IsFalse(File.Exists(Path.Combine(folder, "rdc.exe")), "the program's folder holds no rdc");
+
+            var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(folder, "Hello.exe"))
+            {
+                RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = folder,
+            };
+            using var process = System.Diagnostics.Process.Start(start)!;
+            var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            Assert.AreEqual(0, process.ExitCode, error);
+            Assert.AreEqual(printed, output.Trim());
+        }
+        finally
+        {
+            await DeleteAsync(workspace);
+        }
+    }
+
+    // Windows lets go of a folder a moment after the programs that ran from it end; a temporary folder it still holds after the last attempt is left in place.
+    private static async Task DeleteAsync(DirectoryInfo folder)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            try
+            {
+                folder.Delete(recursive: true);
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(250);
+            }
         }
     }
 

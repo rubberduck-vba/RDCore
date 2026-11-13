@@ -639,4 +639,7 @@
   <data name="VBCompileError_MemberAlreadyExistsInDesigner_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; is the name of a control of the form, which is already a member of the form&apos;s class.</value>
   </data>
+  <data name="VBCompileError_BlockEndsInAnotherBranch_Verbose" xml:space="preserve">
+    <value>The start and the end of this block are not in the same #If branch.</value>
+  </data>
 </root>

@@ -118,7 +118,7 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     /// </summary>
     internal (SourceLocation Location, string Text) Written(Uri documentUri)
         => LastWrittenToken(this) is { } last && Start is { StartIndex: >= 0 }
-            ?(GetSourceLocation(documentUri, last), Start.InputStream.GetText(Interval.Of(Start.StartIndex, last.StopIndex)))
+            ? (GetSourceLocation(documentUri, last), Start.InputStream.GetText(Interval.Of(Start.StartIndex, last.StopIndex)))
             : (GetSourceLocation(documentUri), GetText());
 
     private static IToken? LastWrittenToken(IParseTree node) => node switch
