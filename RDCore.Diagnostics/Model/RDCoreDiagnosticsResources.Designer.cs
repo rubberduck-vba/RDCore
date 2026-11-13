@@ -97,7 +97,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to MS-VBA refuses &apos;{0}&apos; as this name, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not compile the module. Give it another name to keep the module compatible with MS-VBA..
+        ///   Looks up a localized string similar to MS-VBA refuses &apos;{0}&apos; as the name of this declaration, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not compile the module. Give it another name to keep the module compatible with MS-VBA..
         /// </summary>
         public static string NameRefusedByMSVBA_Message {
             get {
