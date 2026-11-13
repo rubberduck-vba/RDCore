@@ -1,4 +1,5 @@
 using RDCore.Runtime.Support.Build;
+using RDCore.SDK.Runtime.Libraries;
 using System.IO.Abstractions;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
@@ -16,7 +17,8 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         => fileSystem.File.Exists(fileSystem.Path.Combine(runtimeFolder, $"{program}.dll")) || string.Equals(program, RdcName, StringComparison.OrdinalIgnoreCase);
 
     // the program's executable, or null when no host was given; and the license documents the folder lacks, having none to copy.
-    public (string? Executable, IReadOnlyList<string> Lacking) Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime)
+    public (string? Executable, IReadOnlyList<string> Lacking) Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime,
+        IReadOnlyList<LibraryDescription> libraries)
     {
         _ = fileSystem.Directory.CreateDirectory(folder);
         var dll = $"{program}.dll";
@@ -25,6 +27,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, $"{program}.runtimeconfig.json"), RuntimeConfiguration());
         var closure = RuntimeClosure([SupportName, .. ReferencesOf(assembly)]);
         CopyRuntime(folder, closure);
+        WriteLibraries(fileSystem.Path.Combine(folder, BuiltProgram.LibrariesFolder), libraries);
 
         string? executable = null;
         if (host is not null)
@@ -40,6 +43,30 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         var lacking = new ProgramNotices(fileSystem, PlatformRoot).Write(folder, program, closure, host,
             executable is null ? null : fileSystem.Path.GetFileName(executable), runtime);
         return (executable, lacking);
+    }
+
+    // the libraries the program's project references, and those they depend on, described as the platform describes them, one file each by its name: what the program's session
+    // reads in place of the platform's. A library an earlier build of the folder wrote, and that the project no longer references, is not left there.
+    private void WriteLibraries(string symbols, IReadOnlyList<LibraryDescription> libraries)
+    {
+        if (fileSystem.Directory.Exists(symbols))
+        {
+            foreach (var stale in fileSystem.Directory.EnumerateFiles(symbols, "*" + DirectoryLibrarySource.Extension).ToArray())
+            {
+                fileSystem.File.Delete(stale);
+            }
+        }
+
+        if (libraries.Count == 0)
+        {
+            return;
+        }
+
+        _ = fileSystem.Directory.CreateDirectory(symbols);
+        foreach (var library in libraries)
+        {
+            fileSystem.File.WriteAllText(fileSystem.Path.Combine(symbols, library.Name + DirectoryLibrarySource.Extension), LibraryJson.Write(library));
+        }
     }
 
     // the folder of the platform's rdcore.json, as rdc install has it: the one that holds the runtime folder.
