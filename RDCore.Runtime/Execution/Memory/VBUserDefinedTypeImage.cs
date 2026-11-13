@@ -237,7 +237,8 @@ public static class VBUserDefinedTypeImage
     /// <para>
     /// Only the bytes both types have are copied, as MS-VBA copies them (observed in Excel): the source's bytes go over the start of the destination, and the
     /// rest of the destination keeps what it held. A place the source's image reaches only part of is its own bytes with the source's laid over their start,
-    /// so a <c>Long</c> given the two bytes of an <c>Integer</c> keeps its high two. A place past the end of the source's image is left as it was.
+    /// so a <c>Long</c> given the two bytes of an <c>Integer</c> keeps its high two. A place past the end of the source's image is left as it was. An object field the source's image
+    /// reaches only part of is set to <c>Nothing</c> (RD-VBAL §5.4.3.6).
     /// </para>
     /// <para>
     /// The specification leaves how the bytes are copied to the implementation. RD-VBA copies the data a place points at: a <c>String</c>, a resizable

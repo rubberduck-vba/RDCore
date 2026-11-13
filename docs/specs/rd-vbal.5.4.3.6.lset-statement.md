@@ -17,8 +17,9 @@ See [**RD-VBAL §3.4.2** Simple Statements](rd-vbal.3.4.2.simple-statements.md).
 
 ## Static Semantics
 
-A program written against MS-VBA that uses `LSet` over a record holding a variable-length `String` member relies
-on what MS-VBA does with it (see [UDT form](#udt-form)). The statement says so with a semantic flag, and not with an error: it is not wrong.
+MS-VBAL §5.4.3.6 allows `LSet` between any two UDTs. MS-VBA refuses `LSet` onto a record whose type holds a
+variable-length `String` member, with "Compile error: Type mismatch" (observed in Excel; see [UDT form](#udt-form)).
+RD-VBA runs the statement, and records a variable-length `String` member on either side with a semantic flag.
 
 `FixedAssignmentRuntimeSemantics``.Analyze` sets the
 [FixedAssignmentSemanticFlags](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Semantics.Flags.FixedAssignmentSemanticFlags.html) of the statement, the way an operator's `Analyze` sets its own:
@@ -72,8 +73,14 @@ between two UDTs is how VBA emulates a union.
    nested record and each element of a fixed-size array field, at its offset from the start of the record. For
    example, a `Long` is read back as two `Integer`s, and a `Currency` of 1 as a `Byte` array whose first two
    elements are 16 and 39.
-4. A place of the destination that the source's image does not reach is set to its declared type's default value, so
-   that no place holds half a value.
+4. The rest of the destination keeps what it held, as in MS-VBA (observed in Excel):
+   - A place the source's image reaches only part of holds its own bytes, with the source's laid over their start. A
+     `Long` given the two bytes of an `Integer` keeps its high two bytes; a `Double` given a `Long` keeps its high four;
+     a `String * 4` that holds `"wxyz"`, given an `Integer` of 65, holds `"Axyz"`.
+   - A place past the end of the source's image is left as it was.
+
+**RD-VBA differs from MS-VBA:** an object field that the source's image reaches only part of is set to `Nothing`,
+because part of an address is the address of no object. MS-VBA keeps the mixed bytes as the field's address.
 
 Each place is written where it is, so a `ByRef` parameter given a field or an element of the destination reads what
 `LSet` wrote.
@@ -89,8 +96,8 @@ fixed-length `String` field's width is two bytes per character, so what is read 
 
 A variable-length `String` member is not part of the byte image:
 
-- In MS-VBA, `LSet` over a UDT with a variable-length `String` member copies the pointer, leaving two records
-  owning one allocation, which corrupts the process.
+- In MS-VBA, `LSet` onto a record whose type holds a variable-length `String` member is a compile error: "Type
+  mismatch" (observed in Excel).
 - In RD-VBA, a variable-length `String` member of a UDT has no byte image.
 - The value of a variable-length `String` member is carried across only when the destination has a field of the
   same type at the same offset.
