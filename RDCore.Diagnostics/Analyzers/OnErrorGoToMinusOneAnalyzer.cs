@@ -30,7 +30,7 @@ internal sealed class OnErrorGoToMinusOneAnalyzer : SyntaxTreeAnalyzer
                 DiagnosticSeverity.Hint,
                 RDCoreDiagnosticsResources.OnErrorGoToMinusOne_Message));
 
-    private static bool IsMinusOne(ExpressionNode label) => label switch
+    internal static bool IsMinusOne(ExpressionNode label) => label switch
     {
         LiteralExpressionNode { StaticValue: VBIntegerValue { Value: -1 } } => true,
         VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp, Operand: LiteralExpressionNode { StaticValue: VBIntegerValue { Value: 1 } } } => true,

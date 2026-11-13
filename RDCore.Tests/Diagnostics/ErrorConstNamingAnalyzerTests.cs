@@ -69,10 +69,15 @@ public sealed class ErrorConstNamingAnalyzerTests
     [TestMethod]
     [DataRow("On Error GoTo 0", DisplayName = "GoTo 0")]
     [DataRow("On Error GoTo Handler", DisplayName = "GoTo a label")]
-    [DataRow("On Error GoTo -1", DisplayName = "GoTo -1")]
     public void AnOnErrorGoToAfterIt_SetsAnotherPolicy(string after)
         => Assert.IsEmpty(Run(new UnrestoredOnErrorResumeNextAnalyzer(),
             Module($"Public Sub DoSomething()\n    On Error Resume Next\n    Debug.Print 1 / 0\n    {after}\n    Exit Sub\nHandler:\nEnd Sub")));
+
+    [TestMethod]
+    public void OnErrorGoToMinusOne_KeepsResumeNext()
+        => CollectionAssert.AreEqual(new[] { 2 }, Lines(Run(new UnrestoredOnErrorResumeNextAnalyzer(),
+            Module("Public Sub DoSomething()\n    On Error Resume Next\n    Debug.Print 1 / 0\n    On Error GoTo -1\n    Debug.Print 1 / 0\nEnd Sub"))),
+            "-1 ends the error being handled and keeps the policy");
 
     [TestMethod]
     public void EachProcedure_IsReadByItself()
