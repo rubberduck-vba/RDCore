@@ -136,12 +136,16 @@ default member's value. What the property does with the object is its own:
 |Property|`Nothing`|An object with a default member|
 |---|---|---|
 |A `Property Let Item(ByVal v As Variant)` of a class|The parameter holds `Nothing`.|The parameter holds the object.|
-|`Scripting.Dictionary.Item`|Error 91.|The default member's value (a `Collection`'s takes an argument: error 450).|
+|`Scripting.Dictionary.Item`|Error 91.|The default member's value.|
 |`Excel.Range.Value`|Error 1004.|The default member's value (another range's value).|
 
 A value parameter of any other type is given the default member's value. An object with no default member is error 438 early bound and error 13
 late bound, as the `IDispatch` the call goes through makes it. A Let to a `Variant` variable or a public `Variant` variable of an object assigns the
 default member's value, as the specification says.
+
+> [!NOTE]
+> **Not implemented.** A `Collection` given to a `Dictionary`'s `Item` is error -2147467259 (`E_FAIL`), where MS-VBA raises 450: a `Collection`
+> read through `IDispatch` with no argument answers with the error of a missing argument (449), and MS-VBA's with `DISP_E_BADPARAMCOUNT`.
 
 ### Elements of an array
 
