@@ -263,19 +263,19 @@ public sealed class AutomationEndToEndTests
     }
 
     /// <summary>
-    /// An Error crosses to Excel and back as MS-VBA's does, each row measured in Excel 16.0 (oracle\bench-msvba\grid): a cell given <c>CVErr(2007)</c> shows
+    /// An Error crosses to Excel and back as MS-VBA's does, each row observed in Excel 16.0: a cell given <c>CVErr(2007)</c> shows
     /// <c>#DIV/0!</c>, an array holding <c>CVErr(2042)</c> puts <c>#N/A</c> in its cell, and a <c>#DIV/0!</c> cell reads back as an Error. Skipped on a machine
     /// that does not have Excel.
     /// </summary>
     [TestMethod]
-    [DataRow(new[] { "sheet.Range(\"H1\").Value = CVErr(2007)", "Debug.Print sheet.Range(\"H1\").Text" }, "#DIV/0!", DisplayName = "C10 CVErr(2007) into a cell")]
+    [DataRow(new[] { "sheet.Range(\"H1\").Value = CVErr(2007)", "Debug.Print sheet.Range(\"H1\").Text" }, "#DIV/0!", DisplayName = "CVErr(2007) into a cell")]
     [DataRow(new[] { "Dim a(1 To 1, 1 To 2) As Variant", "a(1, 1) = CVErr(2042): a(1, 2) = 1", "sheet.Range(\"H1:I1\").Value = a",
         "Debug.Print sheet.Range(\"H1\").Text & \" \" & TypeName(sheet.Range(\"I1\").Value) & \" \" & sheet.Range(\"I1\").Value" }, "#N/A Double 1",
-        DisplayName = "S14 a Variant array holding an Error, into a range")]
+        DisplayName = "a Variant array holding an Error, into a range")]
     [DataRow(new[] { "sheet.Range(\"D5\").Formula = \"=1/0\"", "Dim v As Variant", "v = sheet.Range(\"D5\").Value", "Debug.Print IsError(v) & \" \" & CLng(v)" },
         "True 2007",
-        IgnoreMessage = "A #DIV/0! cell reads back as the Long -2146826281, not as Error 2007: the .NET late binder makes a VT_ERROR result a number, and RD-VBA does not call IDispatch itself yet.",
-        DisplayName = "C11 a #DIV/0! cell read back")]
+        IgnoreMessage = "a #DIV/0! cell read back: RD-VBA reads the Long -2146826281 where MS-VBA reads Error 2007, because the .NET late binder turns a VT_ERROR result into a number and RD-VBA does not call IDispatch itself",
+        DisplayName = "a #DIV/0! cell read back")]
     public async Task AnError_CrossesToExcelAndBack_AsMSVBAsDoes(string[] lines, string expected)
     {
         if (Type.GetTypeFromProgID("Excel.Application") is null)
