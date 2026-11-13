@@ -121,6 +121,54 @@ internal static partial class MemberMoves
     }
 
     /// <summary>
+    /// The edits that sort the procedures of a module (<see cref="MemberEdits.Reorder"/>): by kind, the <c>Sub</c>s, then the <c>Function</c>s, then the
+    /// properties, then by name, among those written one after another with nothing but blank lines between them. A <c>Property Get</c>, <c>Let</c> and
+    /// <c>Set</c> of one name stay together, in the order they are written. None when the module does not parse, or when its procedures are sorted already.
+    /// </summary>
+    public static IReadOnlyList<RefactorTextEdit> Sort(ModuleParseResult parse, string text)
+    {
+        if (!parse.IsSuccess || parse.SyntaxTree is null)
+        {
+            return [];
+        }
+
+        var units = UnitsOf(parse, text);
+        var unitOf = units.ToDictionary(unit => unit.Extent);
+        var order = Comparer<MemberExtent>.Create((first, second) => SortOrder(unitOf[first], unitOf[second]));
+        return MemberEdits.Reorder(text, [.. units.Select(unit => unit.Extent)], order);
+    }
+
+    /// <summary>
+    /// Whether the module, sorted, is the module as the sort leaves it: it parses, it has the procedures it had, each in the branches of the <c>#If</c> blocks
+    /// it was in, and they are sorted.
+    /// </summary>
+    public static bool VerifySort(ModuleParseResult parse, ModuleParseResult sorted, string sortedText)
+    {
+        if (!sorted.IsSuccess || sorted.SyntaxTree is null)
+        {
+            return false;
+        }
+
+        static IEnumerable<string> Keys(ModuleParseResult module) => ProceduresOf(module)
+            .Select(procedure => $"{procedure.Member.MemberKind} {procedure.Member.Name} {string.Join(",", procedure.Branches)}")
+            .Order(StringComparer.OrdinalIgnoreCase);
+        return Keys(parse).SequenceEqual(Keys(sorted), StringComparer.OrdinalIgnoreCase) && Sort(sorted, sortedText).Count == 0;
+    }
+
+    // by kind, then by name: the Subs, then the Functions, then the properties.
+    private static int SortOrder(MemberUnit first, MemberUnit second)
+    {
+        static int Rank(MemberUnit unit) => unit.Members[0].MemberKind switch
+        {
+            MemberKind.Procedure => 0,
+            MemberKind.Function => 1,
+            _ => 2,
+        };
+
+        return Rank(first) != Rank(second) ? Rank(first).CompareTo(Rank(second)) : StringComparer.OrdinalIgnoreCase.Compare(first.Name, second.Name);
+    }
+
+    /// <summary>
     /// A text with edits made, each of the text as it was before any of them.
     /// </summary>
     public static string Applied(string text, IReadOnlyList<RefactorTextEdit> edits)
