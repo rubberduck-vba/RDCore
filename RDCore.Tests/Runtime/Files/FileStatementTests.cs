@@ -231,11 +231,14 @@ public sealed class FileStatementTests
 
         var (_, outcome) = Run(fileSystem,
             $"Open \"{Root}/out.txt\" For Output As #1",
-            "Write #1, 0.5, -0.5, CCur(0.25), CSng(0.5), CDec(-0.5), 0.00001, 1.5",
+            "Dim c As Currency, s As Single",
+            "c = 0.25",
+            "s = -0.5",
+            "Write #1, 0.5, -0.5, c, s, 0.00001, 1.5",
             "Close #1");
 
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
-        Assert.AreEqual(".5,-.5,.25,.5,-.5,.00001,1.5\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+        Assert.AreEqual(".5,-.5,.25,-.5,.00001,1.5\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
     }
 
     [TestMethod]
@@ -368,11 +371,14 @@ public sealed class FileStatementTests
         // where MS-VBAL inserts a space before the text of any number (observed in Excel). The zero before the point stays: 0.5 is " 0.5 ".
         var fileSystem = WithFile($"{Root}/out.txt");
 
-        Run(fileSystem,
+        var (_, outcome) = Run(fileSystem,
             $"Open \"{Root}/out.txt\" For Output As #1",
-            "Print #1, -1; -0.5; 0.5; CCur(-0.25)",
+            "Dim c As Currency",
+            "c = -0.25",
+            "Print #1, -1; -0.5; 0.5; c",
             "Close #1");
 
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
         Assert.AreEqual("-1 -0.5  0.5 -0.25 \r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
     }
 
