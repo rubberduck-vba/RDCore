@@ -108,6 +108,7 @@ public enum RDCoreDiagnosticId
     ObjectVariablePassedLateIsACopy = 11029, // o.Twice b.Count, o an Object: MS-VBA passes a copy of b's public variable to a procedure called late
     TrueValueIsNotMinusOne = 11031, // #If Not DEV with #Const DEV = 1: a True that is not -1, read through an operator that works on its bits (Not 1 is -2)
     ForEachControlEmptiedAfterLoop = 11032, // For Each c In r ... Next: Debug.Print c.Address - MS-VBAL keeps the last element in c; MS-VBA empties it (Nothing)
+    CollectionSetToNothingInItsOwnLoop = 11035, // Set c = Nothing in For Each v In c: RD-VBA leaves c as it is while the loop runs; MS-VBA destroys the Collection, the loop ends
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits
