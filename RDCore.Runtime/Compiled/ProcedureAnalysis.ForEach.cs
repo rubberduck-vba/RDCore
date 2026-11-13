@@ -11,6 +11,18 @@ internal sealed partial class ProcedureAnalysis
     // the For Each statements analyzed so far, by offset, whose control variable the frame holds: a Next comes after its statement.
     private readonly HashSet<int> _framedForEach = [];
 
+    // every For Each block of the body, by the offset of its statement and the offset right past it.
+    private readonly List<(int Opener, int Past)> _forEachBlocks = [];
+
+    /// <summary>
+    /// Whether a jump from <paramref name="from"/> to <paramref name="to"/> leaves a <c>For Each</c> block (an <c>Exit For</c>), which ends the loop: what
+    /// it held is let go of there (<see cref="CompiledActivation.LeaveLoops"/>), as the interpreter lets go of it.
+    /// </summary>
+    /// <param name="from">The offset of the jump.</param>
+    /// <param name="to">The offset it goes to.</param>
+    public bool LeavesForEach(int from, int to)
+        => _forEachBlocks.Exists(block => from >= block.Opener && from < block.Past && (to < block.Opener || to >= block.Past));
+
     // MS-VBAL §5.4.2.4: the For Each statement, which evaluates the collection and assigns the control variable its first element, or skips the loop; and its
     // Next, which assigns it the next one, or ends the loop. The interpreter runs either for compiled code (CompiledActivation.StepForEach), the enumerator and
     // the array it reads held in the frame, where the interpreter holds them. The control variable is a Variant or an object, which the frame holds too. One

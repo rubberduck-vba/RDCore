@@ -816,6 +816,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not set to Nothing here: the For Each loop that walks it holds the object until the loop is over. MS-VBA lets go of a Collection here: it is destroyed, with the members the loop has not reached, and the loop ends. Leave the loop with Exit For, then set &apos;{0}&apos; to Nothing..
+        /// </summary>
+        public static string CollectionSetToNothingInItsOwnLoop_Message {
+            get {
+                return ResourceManager.GetString("CollectionSetToNothingInItsOwnLoop_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
         /// </summary>
         public static string NewOfAClassNotCreatable_New_Message {
