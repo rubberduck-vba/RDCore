@@ -9,9 +9,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>RDC01015</c>: a constant nothing refers to.
 /// </summary>
 /// <remarks>
-/// The host counts the references of a constant of a procedure (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>): its statements, the values
-/// of its other constants and the bounds of its arrays. A constant of the module may be read by the declarations of the module, which the pass does not
-/// evaluate, and is not reported.
+/// The host counts the references of a constant (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>). A constant of a procedure is counted over
+/// the code of the procedure: its statements, the values of its other constants and the bounds of its arrays. A <c>Private</c> constant of the module is
+/// counted over the code and the declarations of the module. A <c>Public</c> constant has no count, and is not reported.
 /// </remarks>
 internal sealed class ConstantNotUsedAnalyzer : IModuleAnalyzer
 {
