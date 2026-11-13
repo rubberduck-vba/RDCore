@@ -113,4 +113,43 @@ public sealed partial class CompiledActivation
         (integral, floating) = (payload.Integral, payload.Floating);
         return true;
     }
+
+    /// <summary>
+    /// Writes the public variable numbered <paramref name="number"/> of the body (MS-VBAL §5.4.3.8), of the object the variable whose cell is
+    /// <paramref name="cell"/> refers to, as the interpreter assigns it (<c>LetAssignmentEvaluator.AssignObjectMember</c>): the variable the object's class
+    /// has for it is found as <see cref="TryReadMemberField"/> finds it, and given the value, already let-coerced to its kind, in its cell. Not when
+    /// <see cref="TryReadMemberField"/> would not read it: the interpreter assigns it then, and makes the object of a variable declared <c>As New</c> that
+    /// holds none, raises error 91 for <c>Nothing</c>, or calls the <c>Property Let</c> a class that implements the declared one has for it.
+    /// </summary>
+    /// <param name="number">The number of the variable among the body's.</param>
+    /// <param name="cell">The cell of the object variable the variable is written of.</param>
+    /// <param name="integral">The value, of an integral kind.</param>
+    /// <param name="floating">The value, of a floating-point kind.</param>
+    public bool TryLetMemberField(int number, object? cell, long integral, double floating) => TryLetFieldOf(number, InstanceIn(cell), integral, floating);
+
+    /// <summary>
+    /// Writes the public variable numbered <paramref name="number"/> of the body, of the object of the <c>With</c> block opened at
+    /// <paramref name="opener"/> (MS-VBAL §5.4.2.21), as <see cref="TryLetMemberField"/> writes one of the object a variable refers to.
+    /// </summary>
+    /// <param name="number">The number of the variable among the body's.</param>
+    /// <param name="opener">The offset of the <c>With</c> statement of the block.</param>
+    /// <param name="integral">The value, of an integral kind.</param>
+    /// <param name="floating">The value, of a floating-point kind.</param>
+    public bool TryLetMemberFieldOfWith(int number, int opener, long integral, double floating)
+        => TryLetFieldOf(number, InstanceOfBlock(opener), integral, floating);
+
+    // the value written in the cell of a scalar public variable of instance, of the kind it was let-coerced to; nothing written when the cell is of another kind.
+    private bool TryLetFieldOf(int number, IObjectInstance? instance, long integral, double floating)
+    {
+        var let = _body.MemberFields[number];
+        if (FailsAccessAtRandom() || instance is null
+            || _executor.Expressions.MemberOf(let.Site, instance.ClassModule) is not VBModuleFieldVariableMemberSymbol field
+            || !instance.TryResolve(field, out var held) || held is not ScalarCell cell || ScalarKinds.Of(cell.Type) != let.Kind)
+        {
+            return false;
+        }
+
+        cell.Write(new ScalarPayload(cell.Type, integral, floating));
+        return true;
+    }
 }
