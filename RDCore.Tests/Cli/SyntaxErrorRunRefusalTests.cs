@@ -359,6 +359,116 @@ public sealed class SyntaxErrorRunRefusalTests
         Assert.IsEmpty(resumed.Output, "nothing after the Stop runs");
     }
 
+    private static string AddedSource(bool compiles)
+        => Module("Added", "Public Sub Hello()", compiles ? "    Debug.Print \"hello\"" : "    Debug.Print 1 +", "End Sub");
+
+    // a module the project gains while the program waits at its Stop is not of the program, which the session has no code of: whether it compiles or not,
+    // the program is not resumed without it, and the refusal names it.
+    [TestMethod]
+    [DataRow(false, ModuleType.StdModule, DisplayName = "a standard module that does not compile")]
+    [DataRow(true, ModuleType.StdModule, DisplayName = "a standard module that compiles")]
+    [DataRow(true, ModuleType.ClassModule, DisplayName = "a class module")]
+    public async Task AModuleAddedAtAStop_IsNotResumedOn(bool compiles, ModuleType type)
+    {
+        var added = ("Added", type, type == ModuleType.ClassModule ? ModuleWorkspace.ClassModule("Added", "Public Sub Hello()", "End Sub") : AddedSource(compiles));
+        ExecuteResult? resumed = null;
+        IReadOnlyList<DebugEdit>? status = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], syntaxErrors: !compiles, ("Program", ModuleType.StdModule, StoppedProgram()), GoodOther, added);
+            status = provider.Execution.EditStatus().Edits;
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        var edit = Assert.ContainsSingle(status!, string.Join("; ", status!.Select(edit => $"{edit.Name} ({edit.Reason})")));
+        Assert.AreEqual("Added", edit.Name);
+        Assert.AreEqual(DebugEditKind.Restart, edit.Kind);
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed!.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "Added (" + RDCore.Runtime.Support.Resources.Host_Edit_ModuleAdded);
+        Assert.IsEmpty(resumed.Output, "nothing after the Stop runs");
+    }
+
+    // the module taken out again, the program goes on without it, as it ran.
+    [TestMethod]
+    public async Task AModuleAddedAtAStop_TakenOutAgain_IsResumedOn()
+    {
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            Assert.IsTrue((await ProjectReloaded(provider, "Other", "Program", "Added")).IsProgramRunning);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], ("Program", ModuleType.StdModule, StoppedProgram()), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+            Assert.IsTrue((await ProjectReloaded(provider, "Other", "Program")).IsProgramRunning);
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "good", "after" }, resumed.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // the project file lists these modules now, as the language server tells the host of a change of the project.
+    private static async Task<HostProjectReloadResult> ProjectReloaded(EnvironmentSessionProvider provider, params string[] modules)
+    {
+        var files = new System.IO.Abstractions.TestingHelpers.MockFileSystem();
+        files.AddFile(Path.Combine(ModuleWorkspace.Root, ProjectFile.FileName), new(System.Text.Json.JsonSerializer.Serialize(new ProjectFile(ModuleWorkspace.Root,
+            new RDCoreProject { Name = "Project1", Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = module + ".bas" })] }))));
+        return await new HostProjectReloadHandler(provider, new ProjectFileLoader(files),
+                Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions()), NullLogger<HostProjectReloadHandler>.Instance)
+            .Handle(new HostProjectReloadParams { WorkspaceRoot = Wire.FileUri(ModuleWorkspace.Root) }, CancellationToken.None).WaitAsync(Patience);
+    }
+
+    // once the program is over, the module the project gained is part of the project, without the project file being saved again: the next run calls it.
+    [TestMethod]
+    public async Task AModuleAddedAtAStop_IsPartOfTheProject_OnceTheProgramIsOver()
+    {
+        var calls = Module("Program", "Public Sub Main()", "    Added.Hello", "End Sub");
+        ExecuteResult? after = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+
+            // the project file lists it now, and its document is defined, as the language server does with a change of the project.
+            Assert.IsTrue((await ProjectReloaded(provider, "Other", "Program", "Added")).IsProgramRunning);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], ("Program", ModuleType.StdModule, calls), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+
+            _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, calls), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+            after = await new HostExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
+                .Handle(new HostExecuteParams
+                {
+                    Json = PlatformJson.Serialize(new HostExecutePayload(new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Program" }.Uri,
+                        new ModuleParser().Parse(Wire.FileUri(Path.Combine(ModuleWorkspace.Root, "Program.bas")), calls))),
+                    ModuleName = "Program",
+                    EntryPoint = "Main",
+                }, CancellationToken.None).WaitAsync(Patience);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, after!.Outcome, $"{after.ErrorMessage} {string.Join("; ", after.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "hello" }, after.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // a module the session was not told of by the project is still no module of it once the program is over, as a definition of one is when no program runs.
+    [TestMethod]
+    public async Task AModuleAddedAtAStop_ThatTheProjectDoesNotList_IsNoModule_OnceTheProgramIsOver()
+    {
+        ExecuteResult? after = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], ("Program", ModuleType.StdModule, StoppedProgram()), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+            _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+            Assert.IsFalse(provider.Session.Symbols.TryGetModule("Added", out _));
+            after = await runAgain();
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Suspended, after!.Outcome, $"{after.ErrorMessage} {string.Join("; ", after.Diagnostics ?? [])}");
+    }
+
     // what a debugger evaluates or runs at the stop is code of the project too, which can call into the module that does not load.
     [TestMethod]
     [DataRow(false, DisplayName = "an expression evaluated")]

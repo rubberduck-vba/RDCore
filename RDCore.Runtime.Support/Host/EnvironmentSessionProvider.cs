@@ -107,6 +107,14 @@ public interface IEnvironmentSessionProvider
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
     IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot);
+
+    /// <summary>
+    /// The module symbols a project lists, each a standard module or a class as <see cref="Compose"/> composes it, without composing anything: what a project
+    /// gained while a program is in progress is.
+    /// </summary>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
+    IReadOnlyList<VBModuleSymbol> ModulesOf(RDCoreProject project, Uri workspaceRoot);
 }
 
 /// <inheritdoc cref="IEnvironmentSessionProvider"/>
@@ -196,6 +204,9 @@ public sealed class EnvironmentSessionProvider(
 
     /// <inheritdoc/>
     public ProgramExecution Execution { get; private set; } = default!;
+
+    public IReadOnlyList<VBModuleSymbol> ModulesOf(RDCoreProject project, Uri workspaceRoot)
+        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem).ProvideSymbols().OfType<VBModuleSymbol>()];
 
     /// <inheritdoc/>
     public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot) => Compose(project, workspaceRoot, known: null);

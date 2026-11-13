@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using RDCore.Runtime.Execution;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Abstract.Execution;
 
@@ -31,13 +32,17 @@ internal static class HeldDefinitions
     private static readonly ConditionalWeakTable<IRuntimeSession, Requests> ReceivedBySession = new();
 
     // LoadsCode: the request loads the module's code, and what it says is wrong with it is what the module fails to load with.
-    private sealed record class Request(string Key, string Module, bool LoadsCode, Func<ImmutableArray<string>> Again);
+    // Held: a definition was held when it was made, and it was made against the declarations as they were.
+    private sealed record class Request(string Key, string Module, bool LoadsCode, bool Held, Func<ImmutableArray<string>> Again);
 
     private sealed class Requests
     {
         private readonly Lock _sync = new();
         private ImmutableList<Request> _requests = [];
         private ImmutableDictionary<string, ImmutableArray<string>> _failed = ImmutableDictionary.Create<string, ImmutableArray<string>>(StringComparer.OrdinalIgnoreCase);
+
+        // the modules the project gained while the program is in progress, each with its module symbol once the project says what it is (null until then).
+        private ImmutableDictionary<string, VBModuleSymbol?> _added = ImmutableDictionary.Create<string, VBModuleSymbol?>(StringComparer.OrdinalIgnoreCase);
 
         // taken by a request for as long as it defines and loads, and by a release for as long as it applies and makes the requests again: neither is made in
         // the middle of the other.
@@ -59,21 +64,53 @@ internal static class HeldDefinitions
             }
         }
 
-        public bool Contains(string module)
+        public bool ContainsHeld(string module)
         {
             lock (_sync)
             {
-                return _requests.Any(request => string.Equals(request.Module, module, StringComparison.OrdinalIgnoreCase));
+                return _requests.Any(request => request.Held && string.Equals(request.Module, module, StringComparison.OrdinalIgnoreCase));
             }
         }
 
-        public ImmutableList<Request> Take()
+        public (ImmutableList<Request> Requests, ImmutableDictionary<string, VBModuleSymbol?> Added) Take()
         {
             lock (_sync)
             {
-                var taken = _requests;
+                var taken = (_requests, _added);
                 _requests = [];
+                _added = _added.Clear();
                 return taken;
+            }
+        }
+
+        public ImmutableDictionary<string, VBModuleSymbol?> Added
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _added;
+                }
+            }
+        }
+
+        public void Add(string module, VBModuleSymbol? symbol)
+        {
+            lock (_sync)
+            {
+                _added = _added.SetItem(module, symbol ?? _added.GetValueOrDefault(module));
+            }
+        }
+
+        public void Remove(string module, bool requests)
+        {
+            lock (_sync)
+            {
+                _added = _added.Remove(module);
+                if (requests)
+                {
+                    _requests = _requests.RemoveAll(request => string.Equals(request.Module, module, StringComparison.OrdinalIgnoreCase));
+                }
             }
         }
 
@@ -123,18 +160,29 @@ internal static class HeldDefinitions
         lock (received.Defining)
         {
             var result = define();
-            if (session.Symbols.HeldDefinitions.Count > 0)
+            var held = session.Symbols.HeldDefinitions.Count > 0;
+            var inProgress = held || session.Symbols.HoldsStoredValues;
+
+            // a module the session does not have, defined while the program is in progress: the project gained it, and the program runs without it.
+            if (inProgress && module.Length > 0 && !session.Symbols.TryGetModule(module, out _))
             {
-                received.Add(new Request(key, module, codeErrors is not null, again));
+                received.Add(module, null);
+            }
+
+            if (inProgress)
+            {
+                // made again once the program is over, when a definition was held or the project gained a module (Release).
+                received.Add(new Request(key, module, codeErrors is not null, held, again));
             }
             else
             {
                 received.Remove(key);
-                if (codeErrors is not null)
-                {
-                    // what is wrong with the module's code is the request's to say now: nothing of the project runs while it does not load.
-                    received.Loaded(module, codeErrors(result));
-                }
+            }
+
+            if (!held && codeErrors is not null && !received.Added.ContainsKey(module))
+            {
+                // what is wrong with the module's code is the request's to say now: nothing of the project runs while it does not load.
+                received.Loaded(module, codeErrors(result));
             }
 
             return result;
@@ -142,11 +190,29 @@ internal static class HeldDefinitions
     }
 
     /// <summary>
+    /// The project gained a module while the program is in progress: the program runs without it, its code is not loaded, and it is not resumed until the
+    /// module is taken out again (<see cref="AddedWhileTheProgramIsInProgress"/>). Once the program is over, the module is defined, and its requests are
+    /// made again (<see cref="Release"/>).
+    /// </summary>
+    /// <param name="session">The session the program is in.</param>
+    /// <param name="module">The module the project gained, what the project makes of it: a standard module or a class.</param>
+    public static void Added(IRuntimeSession session, VBModuleSymbol module)
+        => ReceivedBySession.GetOrCreateValue(session).Add(module.Name, module);
+
+    /// <summary>
+    /// The modules the project gained while the program is in progress, which the program runs without, in the order of their names (<see cref="Added"/>).
+    /// </summary>
+    public static IReadOnlyList<string> AddedWhileTheProgramIsInProgress(IRuntimeSession session)
+        => ReceivedBySession.TryGetValue(session, out var received)
+            ? [.. received.Added.Keys.Order(StringComparer.OrdinalIgnoreCase)]
+            : [];
+
+    /// <summary>
     /// Whether <paramref name="module"/> was defined or loaded while a definition is held: it was checked against the declarations as they were, not as
     /// edited.
     /// </summary>
     public static bool LoweredUnderAHold(IRuntimeSession session, string module)
-        => session.Symbols.HeldDefinitions.Count > 0 && ReceivedBySession.TryGetValue(session, out var received) && received.Contains(module);
+        => session.Symbols.HeldDefinitions.Count > 0 && ReceivedBySession.TryGetValue(session, out var received) && received.ContainsHeld(module);
 
     /// <summary>
     /// What is wrong with the code of each module that failed to load (at a request, or once it was made again by <see cref="Release"/>) and that no request
@@ -170,9 +236,18 @@ internal static class HeldDefinitions
             : [];
 
     /// <summary>
-    /// A module was taken out of the session: it is no module of the project, and nothing it failed to load with refuses a run.
+    /// A module was taken out of the session: it is no module of the project, and nothing it failed to load with refuses a run. One the project gained while
+    /// the program is in progress is taken out again, and the program is resumed without it, as it ran.
     /// </summary>
-    public static void Discarded(IRuntimeSession session, string module) => Loaded(session, module);
+    public static void Discarded(IRuntimeSession session, string module)
+    {
+        if (ReceivedBySession.TryGetValue(session, out var received) && received.Added.ContainsKey(module))
+        {
+            received.Remove(module, requests: true);
+        }
+
+        Loaded(session, module);
+    }
 
     /// <summary>
     /// A module was loaded by a run: what is wrong with its code, if anything, is the run's to say from now on.
@@ -188,7 +263,8 @@ internal static class HeldDefinitions
     /// <summary>
     /// The program is over: nothing is held from now on, what was held is applied, and every request made against it is made again, in the order it came in
     /// - each says what is wrong with its module's code as it did, which the next run is refused with (<see cref="FailedToLoad"/>). A Type given other fields
-    /// resets the project then (see the remarks of <see cref="HeldDefinitions"/>).
+    /// resets the project then (see the remarks of <see cref="HeldDefinitions"/>). A module the project gained meanwhile is defined (<see cref="Added"/>), and
+    /// every request made while the program was in progress is made again.
     /// </summary>
     /// <param name="session">The session the program was in.</param>
     /// <returns>The names of the modules defined and lowered again; none when nothing was held.</returns>
@@ -200,10 +276,22 @@ internal static class HeldDefinitions
             // stopping to hold and taking what is held are one step (ISessionSymbols.ApplyHeldDefinitions): a definition that arrives meanwhile is held before
             // it, or waits for the requests made again here, which it is newer than.
             var applied = session.Symbols.ApplyHeldDefinitions();
-            var requests = received.Take();
-            if (applied.Count == 0)
+            var (requests, added) = received.Take();
+            if (applied.Count == 0 && added.IsEmpty)
             {
                 return [];
+            }
+
+            // a module the project gained is the project's now: it is defined, and every request is made again, so that the code that names it - its own,
+            // and the code of the modules loaded while it was not there - is checked and lowered with it. One the project said nothing of is still no module.
+            foreach (var module in added.Values.OfType<VBModuleSymbol>())
+            {
+                _ = session.Symbols.TryDefine(module, module.ScopeKind);
+            }
+
+            if (added.IsEmpty)
+            {
+                requests = requests.RemoveAll(request => !request.Held);
             }
 
             var modules = requests.Select(request => request.Module).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
