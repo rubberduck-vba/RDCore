@@ -300,6 +300,9 @@
   <data name="FunctionReturnValueDiscarded_Message" xml:space="preserve">
     <value>Function &apos;{0}&apos; is called as a statement: the value it returns is discarded.</value>
   </data>
+  <data name="FunctionReturnValueAlwaysDiscarded_Message" xml:space="preserve">
+    <value>Every call of function &apos;{0}&apos; discards the value it returns: it can be a Sub.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>
