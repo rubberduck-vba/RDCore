@@ -530,6 +530,9 @@ Long Live the Cucumber (Latin)</comment>
   <data name="Build_NoAppHost" xml:space="preserve">
     <value>No .NET application host for {0} is installed, so no executable was written: run the program with dotnet {1}.</value>
   </data>
+  <data name="Build_NoticesLacking" xml:space="preserve">
+    <value>The program's folder lacks {0}: this copy of RDCore has none to put there. A released RDCore has them all.</value>
+  </data>
   <data name="Build_Built" xml:space="preserve">
     <value>Built {0} in {1}.</value>
   </data>

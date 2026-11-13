@@ -28,8 +28,10 @@ namespace RDCore.Tests.Cli;
 public sealed class BuildCommandTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-build-ws");
-    private static readonly string Runtime = Path.Combine(Path.GetTempPath(), "rdcore-build-runtime");
-    private static readonly string Host = Path.Combine(Path.GetTempPath(), "rdcore-build-packs", "apphost.exe");
+    private static readonly string Platform = Path.Combine(Path.GetTempPath(), "rdcore-build-platform");
+    private static readonly string Runtime = Path.Combine(Platform, "RDCore.CLI");
+    private static readonly string Host = Path.Combine(Path.GetTempPath(), "rdcore-build-dotnet", "packs", "Microsoft.NETCore.App.Host.win-x64", "10.0.11",
+        "runtimes", "win-x64", "native", "apphost.exe");
     private static readonly string Output = Path.Combine(Path.GetTempPath(), "rdcore-build-out");
 
     private static string Module(string name, params string[] body) => $"Attribute VB_Name = \"{name}\"\r\nOption Explicit\r\n{string.Join("\r\n", body)}\r\n";
@@ -76,8 +78,53 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net10.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
+
+        // the package the support is built on, and one of rdc's that no program runs on; the platform's notices, as its release writes them.
+        fileSystem.File.WriteAllBytes(Path.Combine(Runtime, "RDCore.SDK.dll"), SdkAssembly.Value);
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "Antlr4.Runtime.dll"), "the parser's runtime");
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "NOTICE.md"), PlatformNotice);
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "LICENSE-GPLv3.md"), PlatformLicense);
+        fileSystem.File.WriteAllText(Path.Combine(Platform, "THIRD-PARTY-NOTICES.json"), PlatformThirdPartyNotices);
         return fileSystem;
     }
+
+    private static readonly Lazy<byte[]> SdkAssembly = new(() => File.ReadAllBytes(typeof(RDCore.SDK.Model.Symbols.Abstract.Symbol).Assembly.Location));
+
+    private const string PlatformNotice = "# Notice\n\nYour projects are yours.\n";
+    private const string PlatformLicense = "# GNU General Public License\n\nVersion 3, 29 June 2007\n";
+    // as the release reads them: lines joined by \n, with no line ending at the end.
+    private const string SdkLicense = "MIT License\n\nCopyright (c) 2026 the SDK's authors\n\nPermission is hereby granted, free of charge.";
+    private const string ParserLicense = "Copyright (c) 2013 the parser's authors\n\nRedistribution and use in source and binary forms are permitted.";
+    private const string HostLicense = "The MIT License (MIT)\n\nCopyright (c) .NET Foundation and Contributors";
+    private const string HostNotice = ".NET Runtime uses third-party libraries or other resources.";
+
+    // the data a release writes beside its THIRD-PARTY-NOTICES.txt (tools/release/New-ThirdPartyNotices.ps1 -DataFile).
+    private static readonly string PlatformThirdPartyNotices = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        schema = 1,
+        packages = new object[]
+        {
+            new { package = "Antlr4.Runtime", version = "4.6.6", license = "BSD-3-Clause (override)", copyright = "-", projectUrl = "https://github.com/tunnelvisionlabs/antlr4cs", assemblies = new[] { "Antlr4.Runtime" } },
+            new { package = "RDCore.SDK", version = "0.1.2-alpha", license = "MIT", copyright = "Copyright (c) 2026 the SDK's authors", projectUrl = "https://github.com/rubberduck-vba/RDCore.SDK", assemblies = new[] { "RDCore.SDK", "RDCore.SDK.Protocol" } },
+        },
+        texts = new object[]
+        {
+            new { kind = "license", title = "BSD-3-Clause", packages = new[] { "Antlr4.Runtime 4.6.6" }, sources = new[] { "tools/release/licenses/Antlr4.Runtime-4.6.6.txt (override)" }, text = ParserLicense },
+            new { kind = "license", title = "MIT", packages = new[] { "RDCore.SDK 0.1.2-alpha" }, sources = new[] { "LICENSE shipped in the package" }, text = SdkLicense },
+            new { kind = "license", title = "MIT", packages = new[] { "Microsoft.NETCore.App.Host.win-x64 10.0.11" }, sources = new[] { "tools/release/licenses/dotnet-runtime-LICENSE.txt" }, text = HostLicense },
+        },
+        applicationHost = new
+        {
+            license = "MIT",
+            copyright = "Copyright (c) .NET Foundation and Contributors",
+            projectUrl = "https://github.com/dotnet/runtime",
+            texts = new object[]
+            {
+                new { kind = "license", title = "MIT", source = "tools/release/licenses/dotnet-runtime-LICENSE.txt", text = HostLicense },
+                new { kind = "notice", title = "THIRD-PARTY-NOTICES.TXT", source = "tools/release/licenses/dotnet-runtime-THIRD-PARTY-NOTICES.txt", text = HostNotice },
+            },
+        },
+    });
 
     private static (BuildCommand Command, List<(MessageKind Kind, string Text)> Messages) Command(MockFileSystem fileSystem, bool hasHost = true)
     {
@@ -138,6 +185,81 @@ public sealed class BuildCommandTests
         Assert.AreEqual(fileSystem.File.ReadAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json")), fileSystem.File.ReadAllText(Path.Combine(Output, "Hello.runtimeconfig.json")));
         CollectionAssert.AreEqual(AppHost.Patch(FakeHost, "Hello.dll"), fileSystem.File.ReadAllBytes(Path.Combine(Output, "Hello.exe")));
         Assert.Contains(message => message.Kind == MessageKind.Information && message.Text.Contains("3 ", StringComparison.Ordinal), messages);
+    }
+
+    [TestMethod]
+    public async Task ABuiltProgram_CarriesTheNotice_TheLicenses_AndTheThirdPartyNoticesOfWhatItRunsOn_AndNoParser()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        var (command, messages) = Command(fileSystem);
+
+        var exit = await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"], CancellationToken.None);
+
+        Assert.AreEqual(0, exit, string.Join("; ", messages.Select(message => message.Text)));
+        Assert.DoesNotContain(message => message.Kind == MessageKind.Warning, messages);
+        Assert.AreEqual(PlatformNotice, fileSystem.File.ReadAllText(Path.Combine(Output, "NOTICE.md")));
+        Assert.AreEqual(PlatformLicense, fileSystem.File.ReadAllText(Path.Combine(Output, "LICENSE-GPLv3.md")));
+        Assert.AreEqual($"{SdkLicense}\n", fileSystem.File.ReadAllText(Path.Combine(Output, "LICENSE-MIT.md")));
+        foreach (var file in new[] { "RDCore.SDK.dll", "RDCore.Runtime.Support.dll" })
+        {
+            Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        foreach (var file in new[] { "RDCore.Parsing.dll", "Antlr4.Runtime.dll", "THIRD-PARTY-NOTICES.json" })
+        {
+            Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+        }
+
+        // the packages the program's folder holds, and its executable; not the parser's, which it does not hold.
+        var notices = fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt"));
+        Assert.Contains("RDCore.SDK", notices);
+        Assert.Contains("0.1.2-alpha", notices);
+        Assert.Contains(SdkLicense.TrimEnd(), notices);
+        Assert.Contains("Microsoft.NETCore.App.Host.win-x64", notices);
+        Assert.Contains("10.0.11", notices);
+        Assert.Contains("Hello.exe", notices);
+        Assert.Contains(HostLicense.TrimEnd(), notices);
+        Assert.Contains(HostNotice.TrimEnd(), notices);
+        Assert.DoesNotContain("Antlr4.Runtime", notices);
+        Assert.DoesNotContain(ParserLicense.TrimEnd(), notices);
+    }
+
+    [TestMethod]
+    public async Task ABuiltProgramWithoutAnExecutable_CarriesNoNoticeOfTheApplicationHost()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        var (command, messages) = Command(fileSystem, hasHost: false);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "linux-x64"], CancellationToken.None));
+
+        var notices = fileSystem.File.ReadAllText(Path.Combine(Output, "THIRD-PARTY-NOTICES.txt"));
+        Assert.Contains(SdkLicense.TrimEnd(), notices);
+        Assert.DoesNotContain("Microsoft.NETCore.App.Host", notices);
+        Assert.DoesNotContain(HostNotice.TrimEnd(), notices);
+    }
+
+    [TestMethod]
+    public async Task AnRdcWithoutTheNotices_BuildsTheProgram_AndWarnsOfWhatItsFolderLacks()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var fileSystem = Files(("Program.bas", Program));
+        fileSystem.File.Delete(Path.Combine(Platform, "THIRD-PARTY-NOTICES.json"));
+        fileSystem.File.Delete(Path.Combine(Platform, "NOTICE.md"));
+        var (command, messages) = Command(fileSystem);
+
+        Assert.AreEqual(0, await command.ExecuteAsync([Root, "--name", "Hello", "--output", Output, "--runtime", "win-x64"], CancellationToken.None));
+
+        Assert.IsTrue(fileSystem.File.Exists(Path.Combine(Output, "LICENSE-GPLv3.md")));
+        var warning = messages.Single(message => message.Kind == MessageKind.Warning).Text;
+        foreach (var file in new[] { "NOTICE.md", "LICENSE-MIT.md", "THIRD-PARTY-NOTICES.txt" })
+        {
+            Assert.IsFalse(fileSystem.File.Exists(Path.Combine(Output, file)), file);
+            Assert.Contains(file, warning);
+        }
+
+        Assert.DoesNotContain("LICENSE-GPLv3.md", warning);
     }
 
     [TestMethod]
