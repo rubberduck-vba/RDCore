@@ -57,8 +57,28 @@ public sealed class ExtractMethodDuplicatesServiceTests
         "    Debug.Print z\r\n" +
         "End Sub\r\n";
 
+    // a class module: lines 8 and 9 are extracted; Twin, lines 13 and 14, does what they do, which nothing in the standard modules does.
+    private const string Worker =
+        "VERSION 1.0 CLASS\r\n" +
+        "BEGIN\r\n" +
+        "  MultiUse = -1  'True\r\n" +
+        "END\r\n" +
+        "Attribute VB_Name = \"Worker\"\r\n" +
+        "Option Explicit\r\n" +
+        "Public Sub Run(ByVal n As Long)\r\n" +
+        "    Dim x As Long\r\n" +
+        "    x = n + 7\r\n" +
+        "    Debug.Print x\r\n" +
+        "End Sub\r\n" +
+        "Public Sub Twin(ByVal m As Long)\r\n" +
+        "    Dim y As Long\r\n" +
+        "    y = m + 7\r\n" +
+        "    Debug.Print y\r\n" +
+        "End Sub\r\n";
+
     private const string InMain = "y = m * 2";
     private const string InOther = "z = k * 2";
+    private const string InWorker = "y = m + 7";
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
@@ -69,7 +89,7 @@ public sealed class ExtractMethodDuplicatesServiceTests
     public ExtractMethodDuplicatesServiceTests()
     {
         _documents.WorkspaceRoot.Returns(Root);
-        WorkspaceDocument[] documents = [new("Main.bas", Root, Main, version: 3), new("Other.bas", Root, Other, version: 5)];
+        WorkspaceDocument[] documents = [new("Main.bas", Root, Main, version: 3), new("Other.bas", Root, Other, version: 5), new("Worker.cls", Root, Worker, version: 7)];
         _documents.GetAllDocuments().Returns(documents);
         foreach (var document in documents)
         {
@@ -89,7 +109,11 @@ public sealed class ExtractMethodDuplicatesServiceTests
 
     private static Uri DocumentOf(string name) => DocumentUri.From(Path.Combine(Root, $"{name}.bas")).ToUri();
 
+    private static Uri ClassDocument => DocumentUri.From(Path.Combine(Root, "Worker.cls")).ToUri();
+
     private static readonly SourceRange Selection = new(3, 0, 5, 0);
+
+    private static readonly SourceRange ClassSelection = new(8, 0, 10, 0);
 
     private ExtractMethodService Sut() => new(_rename, _parsing, _options);
 
@@ -128,6 +152,53 @@ public sealed class ExtractMethodDuplicatesServiceTests
         var inOther = items.Single(item => item.Label.EndsWith(InOther, StringComparison.Ordinal));
         Assert.IsFalse(string.IsNullOrEmpty(inOther.Reason));
         Assert.AreEqual("false", inOther.Choices.Single(choice => choice.Id == ExtractMethodService.DuplicateReplaceChoice).Default);
+    }
+
+    [TestMethod]
+    public async Task TheDuplicatesOfAClassMember_AreThoseOfTheClass_OfferedUnticked_SayingTheyNeedAPublicMember()
+    {
+        var prepared = await Sut().PrepareAsync(ClassDocument, ClassSelection, CancellationToken.None);
+
+        var item = prepared.Choices.Single(choice => choice.Id == ExtractMethodService.DuplicatesChoice).Items.Single();
+        StringAssert.EndsWith(item.Label, InWorker);
+        Assert.IsFalse(string.IsNullOrEmpty(item.Reason));
+        Assert.AreEqual("false", item.Choices.Single(choice => choice.Id == ExtractMethodService.DuplicateReplaceChoice).Default);
+    }
+
+    [TestMethod]
+    public async Task APublicClassMember_ReplacesTheDuplicateOfTheClass_ByDefault()
+    {
+        var answer = await Sut().ApplyAsync(ClassDocument, ClassSelection,
+            [Answer(ExtractMethodService.NameChoice, "Added"), Answer(ExtractMethodService.AccessibilityChoice, "Public")], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = Applied(Worker, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Public Sub Run(ByVal n As Long)\r\n    Added n\r\nEnd Sub", text);
+        StringAssert.Contains(text, "Public Sub Twin(ByVal m As Long)\r\n    Added m\r\nEnd Sub", text);
+        StringAssert.Contains(answer.Replacements.Single().Label, InWorker);
+    }
+
+    [TestMethod]
+    public async Task APrivateClassMember_ReplacesNoDuplicate_AndIsRefusedOneTicked()
+    {
+        var untouched = await Sut().ApplyAsync(ClassDocument, ClassSelection, [Answer(ExtractMethodService.NameChoice, "Added")], [], CancellationToken.None);
+        var items = (await Sut().PrepareAsync(ClassDocument, ClassSelection, CancellationToken.None)).Choices
+            .Single(choice => choice.Id == ExtractMethodService.DuplicatesChoice).Items;
+        var ticked = await Sut().ApplyAsync(ClassDocument, ClassSelection,
+        [
+            Answer(ExtractMethodService.NameChoice, "Added"),
+            new RefactorAnswer
+            {
+                Id = ExtractMethodService.DuplicatesChoice,
+                Items = [new RefactorItemAnswer { Id = items.Single().Id, Answers = [Answer(ExtractMethodService.DuplicateReplaceChoice, "true")] }],
+            },
+        ], [], CancellationToken.None);
+
+        Assert.IsNull(untouched.Refusal, untouched.Refusal);
+        Assert.IsEmpty(untouched.Replacements);
+        StringAssert.Contains(Applied(Worker, untouched.Edit!.Documents.Single().Edits), "    y = m + 7\r\n");
+        Assert.IsNull(ticked.Edit);
+        StringAssert.Contains(ticked.Refusal, InWorker);
     }
 
     [TestMethod]

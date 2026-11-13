@@ -164,12 +164,18 @@
   <data name="ExtractMethodReason_DuplicateNeedsPublic" xml:space="preserve">
     <value>Dans un autre module : remplacé seulement si la nouvelle procédure est Public.</value>
   </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublicMember" xml:space="preserve">
+    <value>Dans la classe : remplacé seulement quand le nouveau membre est Public.</value>
+  </data>
   <!-- Why the duplicates the user chose are not replaced: {0} is the duplicate, where it is and its first line (for NotADuplicate, its id); {1} why its replacement is not verified. -->
   <data name="ExtractMethodDuplicate_NotADuplicate" xml:space="preserve">
     <value>« {0} » n'est pas un doublon de la sélection telle qu'elle est extraite.</value>
   </data>
   <data name="ExtractMethodDuplicate_NeedsPublic" xml:space="preserve">
     <value>Le doublon à {0} est dans un autre module : seule une procédure Public peut le remplacer.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublicMember" xml:space="preserve">
+    <value>Le doublon à {0} est dans la classe : seul un membre Public peut le remplacer.</value>
   </data>
   <data name="ExtractMethodDuplicate_Overlaps" xml:space="preserve">
     <value>Le doublon à {0} chevauche ce que l'extraction change déjà : il ne peut pas être remplacé aussi.</value>
