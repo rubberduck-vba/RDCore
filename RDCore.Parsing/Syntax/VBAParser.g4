@@ -615,7 +615,9 @@ lineSpecialForm : lExpression whiteSpace ((STEP whiteSpace?)? tuple)?
 ;
 // the object is optional before the dot as well as with it: `.Circle` is the Circle of the object of the enclosing With block.
 circleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? CIRCLE whiteSpace (STEP whiteSpace?)? tuple whiteSpace? COMMA whiteSpace? expression (whiteSpace? COMMA whiteSpace? expression?)*;
-scaleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? SCALE whiteSpace tuple whiteSpace? MINUS whiteSpace? tuple;
+// Scale with no corners sets the scale back to twips: the corners are written both or neither. Without them, `Form1.Scale` is a call of a member named Scale
+// as well, and the alternative listed first, this one, is what it is read as.
+scaleSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? SCALE (whiteSpace tuple whiteSpace? MINUS whiteSpace? tuple)?;
 pSetSpecialForm : ((expression whiteSpace?)? DOT whiteSpace?)? PSET (whiteSpace STEP)? whiteSpace? tuple whiteSpace? (COMMA whiteSpace? expression)?;
 tuple : LPAREN whiteSpace? expression whiteSpace? COMMA whiteSpace? expression whiteSpace? RPAREN;
 lineSpecialFormOption : {EqualsStringIgnoringCase(TextOf(TokenAtRelativePosition(1)),"b","bf")}? unrestrictedIdentifier;
