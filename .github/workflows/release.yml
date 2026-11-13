@@ -292,8 +292,9 @@ jobs:
           if ($env:VERSION_SUFFIX) { $publish.VersionSuffix = $env:VERSION_SUFFIX }
           ./PlatformPublish.ps1 @publish
 
+      # the .json is the same data, which rdc build writes a built program's notices from
       - name: Write THIRD-PARTY-NOTICES.txt
-        run: ./tools/release/New-ThirdPartyNotices.ps1 -PlatformRoot "$env:RUNNER_TEMP/platform" -OutFile "$env:RUNNER_TEMP/platform/THIRD-PARTY-NOTICES.txt"
+        run: ./tools/release/New-ThirdPartyNotices.ps1 -PlatformRoot "$env:RUNNER_TEMP/platform" -OutFile "$env:RUNNER_TEMP/platform/THIRD-PARTY-NOTICES.txt" -DataFile "$env:RUNNER_TEMP/platform/THIRD-PARTY-NOTICES.json"
 
       # last to write into the tree: release.json hashes every file
       - name: Write SOURCE.md and release.json

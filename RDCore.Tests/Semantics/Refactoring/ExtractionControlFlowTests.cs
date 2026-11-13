@@ -52,6 +52,22 @@ public sealed class ExtractionControlFlowTests
         Assert.IsEmpty(plan.Exits);
     }
 
+    // a selector out of range falls through to the instruction after: that is how the selection ends, and no exit. A label written twice is one exit.
+    [TestMethod]
+    public void AnOnGoTo_LeavesForEachLabelOutside_AndItsFallThroughIsNoExit()
+    {
+        var plan = Plan("On n GoTo A, B, A\nDebug.Print 0\nA:\nDebug.Print 1\nB:\nDebug.Print 2", 0, 0);
+
+        Assert.IsTrue(plan.IsExtractable, string.Join(", ", RefusalsOf(plan)));
+        CollectionAssert.AreEqual(new[] { "A", "B" }, plan.Exits.Select(exit => exit.Label).ToArray());
+        Assert.IsTrue(plan.Exits.All(exit => exit.From.Length == 1), "the statement leaves once for each label");
+    }
+
+    // a routine outside shares the source procedure's frame: it is converted to a procedure first, as for a GoSub.
+    [TestMethod]
+    public void AnOnGoSubToARoutineOutside_IsRefused()
+        => CollectionAssert.Contains(RefusalsOf(Plan("On n GoSub R\nDebug.Print 0\nExit Sub\nR:\nDebug.Print 1\nReturn", 0, 1)), ExtractionRefusalKind.GoSubToOutside);
+
     [TestMethod]
     public void AGoToTheInstructionAfter_IsAnExitAllTheSame()
         => Assert.AreEqual("L", Plan("If n > 2 Then GoTo L\nL:\nDebug.Print 0", 0, 0).Exits.Single().Label);

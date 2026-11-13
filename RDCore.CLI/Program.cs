@@ -20,13 +20,7 @@ using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
 using RDCore.External;
-using RDCore.External.Automation;
 using RDCore.External.Client;
-using RDCore.External.Hosting;
-using RDCore.External.Native;
-using RDCore.External.Windows.Automation;
-using RDCore.External.Windows.Forms;
-using RDCore.External.Windows.Native;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK;
 using RDCore.SDK.Client;
@@ -80,7 +74,7 @@ public class Program
             // the process that makes the calls a program makes to the outside world.
             if (string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
             {
-                using var externalHost = new RDCoreConsoleExternalHost();
+                using var externalHost = new MachineExternalHost("RDCore.ExternalHost.log");
                 return await externalHost.RunAsync(args);
             }
 
@@ -562,36 +556,6 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
     }
 
     protected override string? LogFileName => "RDCore.EnvironmentHost.log";
-}
-
-/// <summary>
-/// <c>rdc.exe</c> in external mode: the external host of an environment host, an LSP server owned and launched by it, that makes the calls its program makes to
-/// the outside world with the servers of the platform it runs on.
-/// </summary>
-internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHostApp>
-{
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
-    {
-        base.ConfigureAdditionalExternalServices(services, configuration);
-        services
-            .AddSingleton(AutomationService())
-            .AddSingleton(new NativeCallService(
-                OperatingSystem.IsWindows() ? new WindowsNativePlatform() : UnsupportedNativePlatform.Instance));
-    }
-
-    // on Windows, the servers and the form host live on one apartment: a form's controls are objects of the servers, called on the thread its window is pumped on.
-    private static ExternalAutomationService AutomationService()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return new ExternalAutomationService(UnavailableAutomationServer.Instance);
-        }
-
-        var apartment = new ComApartment();
-        return new ExternalAutomationService(new ComAutomationServer(apartment), new WindowsFormHost(apartment));
-    }
-
-    protected override string? LogFileName => "RDCore.ExternalHost.log";
 }
 
 internal class RDCoreConsoleEnvironmentHostApp(

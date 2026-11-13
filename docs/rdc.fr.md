@@ -133,9 +133,20 @@ dépendent. Le programme les lit à partir de là, où que soit le dossier.
 
 Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
 
-> [!NOTE]
-> **Non implémenté.** Un programme construit ne fait aucun appel au monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur
-> d'automation) : ces appels sont faits par `rdc`, que le dossier du programme ne contient pas.
+Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
+installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
+
+Le dossier du programme contient les conditions de licence de ce sur quoi il s'exécute :
+
+|Fichier|Conditions de|
+|---|---|
+|`NOTICE.md`, `LICENSE-GPLv3.md`|RDCore.|
+|`LICENSE-MIT.md`|RDCore.SDK.|
+|`THIRD-PARTY-NOTICES.txt`|Les autres paquets du dossier, et l'exécutable du programme.|
+
+Transmettez-les avec le programme. `NOTICE.md` dit ce qu'elles vous demandent, et que votre propre code reste le vôtre. `rdc` les copie depuis la
+plateforme d'où il s'exécute, et avertit quand il n'en a aucune à copier.
 
 ### Installer la plateforme
 

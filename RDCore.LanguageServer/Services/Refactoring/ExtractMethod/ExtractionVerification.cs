@@ -114,8 +114,61 @@ internal static class ExtractionVerification
 
         // the call, and what the call site does with what it returns, is where the selection was.
         var call = Enumerable.Range(0, edit.Edits.Length).Single(index => edit.Edits[index].Kind is ExtractionTextEditKind.Call);
+        return CallOf(plan, original, edited, extracted, name, after, text, written[call]);
+    }
+
+    /// <summary>
+    /// Verifies the replacement of a duplicate of the selection with a call to the new procedure, in the module it is in: the module parses, every name binds,
+    /// the procedure the duplicate is in has no compile error it did not have, and the call does what the duplicate did.
+    /// </summary>
+    /// <param name="duplicate">The duplicate.</param>
+    /// <param name="edit">The edits of the duplicate's module, the duplicate's replacement among them.</param>
+    /// <param name="call">The range of the call that replaces the duplicate, in the module as it is (<see cref="ExtractionTextEditKind.Replacement"/>).</param>
+    /// <param name="name">The name of the new procedure.</param>
+    /// <param name="before">The duplicate's module as it is.</param>
+    /// <param name="after">The duplicate's module as the edits leave it, bound in the workspace as the edits leave it.</param>
+    /// <param name="extracted">The new procedure, in the module it is declared in, as the edits leave it.</param>
+    /// <returns>Why the duplicate is not replaced; <see langword="null"/> when its replacement is verified.</returns>
+    public static ExtractionVerificationFailure? VerifyReplacement(
+        ExtractionDuplicate duplicate, ExtractionEdit edit, SourceRange call, string name, ExtractionModuleAnalysis before, ExtractionModuleAnalysis after,
+        ExtractionProcedureAnalysis extracted)
+    {
+        var (text, written) = ExtractionText.Apply(before.Text, edit.Edits);
+        if (!after.Parse.IsSuccess)
+        {
+            return new(ExtractionVerificationFailureKind.DoesNotParse, after.Parse.SyntaxErrors.FirstOrDefault()?.Verbose);
+        }
+
+        var procedure = duplicate.Source.Procedure;
+        if (before.Procedure(procedure.Name, procedure.MemberKind) is not { } original || after.Procedure(procedure.Name, procedure.MemberKind) is not { } edited)
+        {
+            return new(ExtractionVerificationFailureKind.DoesNotParse, procedure.Name);
+        }
+
+        var implicitBefore = ImplicitNamesOf(original).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (ImplicitNamesOf(edited).FirstOrDefault(implicitName => !implicitBefore.Contains(implicitName)) is { } unbound)
+        {
+            return new(ExtractionVerificationFailureKind.NameDoesNotBind, unbound);
+        }
+
+        var errorsBefore = before.DeclarationErrors.Concat(original.Model.CompileErrors).CountBy(error => error.ErrorId).ToDictionary();
+        var errorsAfter = after.DeclarationErrors.Concat(edited.Model.CompileErrors).ToArray();
+        if (errorsAfter.CountBy(error => error.ErrorId).FirstOrDefault(count => count.Value > errorsBefore.GetValueOrDefault(count.Key)) is { Key: var newError, Value: > 0 })
+        {
+            return new(ExtractionVerificationFailureKind.NewCompileError, errorsAfter.First(error => error.ErrorId == newError).Description);
+        }
+
+        var index = Enumerable.Range(0, edit.Edits.Length).Single(each => edit.Edits[each].Kind is ExtractionTextEditKind.Replacement && edit.Edits[each].Range == call);
+        return CallOf(duplicate.Plan, original, edited, extracted, name, after, text, written[index]);
+    }
+
+    // the call, written at the offsets given in the text the edits leave, does what the selection of the plan did.
+    private static ExtractionVerificationFailure? CallOf(
+        ExtractionPlan plan, ExtractionProcedureAnalysis original, ExtractionProcedureAnalysis edited, ExtractionProcedureAnalysis extracted, string name,
+        ExtractionModuleAnalysis after, string text, (int Start, int End) written)
+    {
         var editedText = new ExtractionText(text);
-        var requested = new SourceRange(editedText.PositionOf(written[call].Start), editedText.PositionOf(written[call].End));
+        var requested = new SourceRange(editedText.PositionOf(written.Start), editedText.PositionOf(written.End));
         if (!ExtractionSelection.TrySnap(edited.Declaration, edited.Instructions, after.Directives, requested, out var callSite, out _, out _))
         {
             return new(ExtractionVerificationFailureKind.DataFlowDiffers, null);
