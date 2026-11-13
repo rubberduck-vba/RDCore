@@ -1349,8 +1349,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         var assigned = false;
         try
         {
+            var lateBound = receiver is not null && reachedThrough is not null && DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType;
             var result = InvokeAssignment(session, context, accessor, receiver, indexArguments, value, source, isSet, borrowed,
-                DispatchedThrough(accessor, reachedThrough));
+                DispatchedThrough(accessor, reachedThrough), lateBound);
             assigned = result.IsSuccess;
             return result;
         }
@@ -1363,7 +1364,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private RuntimeSemanticsEvaluationResult InvokeAssignment(
         IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol accessor, IRuntimeValue? receiver,
         ImmutableArray<ExpressionNode> indexArguments, VBTypedValue value, ExpressionNode source, bool isSet, List<MemoryAddress> borrowed,
-        ExpressionNode? dispatchedThrough)
+        ExpressionNode? dispatchedThrough, bool lateBound)
     {
         var parameters = RuntimeProcedureInvoker.GetParameters(accessor);
         parameters = receiver is not null && parameters is [{ Name: "Me" }, ..] ? parameters.RemoveAt(0) : parameters;
@@ -1397,6 +1398,19 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             coerced = setResult.Result!;
         }
+        else if (valueParameter.ResolvedType is VBVariantType && HeldObject(value) is { } given && SetCoercion is { } objectCoercion)
+        {
+            // RD-VBAL §5.4.3.8: MS-VBA gives a Variant value parameter the object a Let assigns as it is, early bound or late bound, where MS-VBAL evaluates
+            // it as a simple data value: what happens to it is up to the procedure, or the server (observed in Excel: Range.Value = Nothing is Excel's
+            // error 1004, a Dictionary's Item reads the object's default member itself).
+            var passed = objectCoercion.EvaluateSetCoercion(session, source, given, VBVariantType.TypeInfo);
+            if (!passed.IsSuccess)
+            {
+                return RuntimeSemanticsEvaluationResult.Error(passed.ErrorInfo!);
+            }
+
+            coerced = passed.Result!;
+        }
         else
         {
             var letResult = LetCoercionProvider.EvaluateLetCoercionSemantics(
@@ -1409,7 +1423,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             if (!letResult.IsSuccess)
             {
-                return RuntimeSemanticsEvaluationResult.Error(AsDispatched(session, context, dispatchedThrough, letResult.ErrorInfo!));
+                // reached late bound, an object with no default member given to a parameter of another type is a type mismatch, as the IDispatch the call
+                // goes through makes it, and not error 438 (observed in Excel).
+                return RuntimeSemanticsEvaluationResult.Error(
+                    lateBound && HeldObject(value) is not null && letResult.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod
+                        ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, source.Location, letResult.ErrorInfo.Verbose)
+                        : AsDispatched(session, context, dispatchedThrough, letResult.ErrorInfo!));
             }
 
             coerced = letResult.Result!;

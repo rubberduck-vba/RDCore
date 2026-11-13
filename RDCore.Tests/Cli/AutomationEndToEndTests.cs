@@ -199,6 +199,88 @@ public sealed class AutomationEndToEndTests
             "d.Add \"a\", 2",
             "Debug.Print Err.Number"));
 
+    // a Let of an object to the Item of a Dictionary passes the object, and the Dictionary reads its default member itself: Nothing has none (91), and the
+    // value of a class's default member is what the Dictionary holds (MS-VBA, observed in Excel).
+    [TestMethod]
+    [DataRow("d(\"k\") = Nothing", "error 91", DisplayName = "Nothing")]
+    [DataRow("d.Item(\"k\") = New Defaulted ;; Debug.Print TypeName(d(\"k\")) & \" \" & IsObject(d(\"k\"))", "Long False", DisplayName = "an object with a default member")]
+    public async Task AnObjectLetToTheItemOfADictionary_IsReadByTheDictionary(string body, string expected)
+        => CollectionAssert.AreEqual(new[] { expected }, await RunInDictionaryProgram(body));
+
+    // a Collection's default member takes an argument: MS-VBA's Collection answers the Dictionary's read of its value with DISP_E_BADPARAMCOUNT, which
+    // is error 450 (observed in Excel).
+    [TestMethod]
+    [Ignore("A Collection read through IDispatch with no argument answers with the HRESULT of error 449, and the Dictionary reports E_FAIL; MS-VBA's answers DISP_E_BADPARAMCOUNT, which is error 450.")]
+    public async Task ACollectionLetToTheItemOfADictionary_IsError450()
+        => CollectionAssert.AreEqual(new[] { "error 450" }, await RunInDictionaryProgram("d(\"k\") = New Collection"));
+
+    private static Task<string[]> RunInDictionaryProgram(string body)
+        => RunAsync([("Defaulted", ClassModule("Defaulted",
+                "Option Explicit",
+                "Public Property Get Value() As Long",
+                "Attribute Value.VB_UserMemId = 0",
+                "    Value = 42",
+                "End Property"))],
+            StandardModule("Program",
+                "Option Explicit",
+                "Public Sub Main()",
+                "    On Error GoTo Failed",
+                "    Dim d As Object",
+                "    Set d = CreateObject(\"Scripting.Dictionary\")",
+                string.Join("\r\n", body.Split(" ;; ").Select(line => "    " + line)),
+                "    Exit Sub",
+                "Failed:",
+                "    Debug.Print \"error \" & Err.Number",
+                "End Sub"), Scripting);
+
+    /// <summary>
+    /// A Let of an object to the <c>Value</c> of an Excel range passes the object, early bound and late bound, and Excel decides: <c>Nothing</c> is its error
+    /// 1004, and another range gives its value. Skipped on a machine that does not have Excel.
+    /// </summary>
+    [TestMethod]
+    public async Task AnObjectLetToTheValueOfARange_IsReadByExcel()
+    {
+        if (Type.GetTypeFromProgID("Excel.Application") is null)
+        {
+            Assert.Inconclusive("Excel is not installed on this machine.");
+        }
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var libraries = new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
+        var output = await RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n",
+            "Dim app As Object",
+            "Set app = CreateObject(\"Excel.Application\")",
+            "On Error Resume Next",
+            "Dim book As Object",
+            "Set book = app.Workbooks.Add",
+            "Dim sheet As Object",
+            "Set sheet = book.Worksheets(1)",
+            "sheet.Range(\"A1\").Value = 1",
+            "sheet.Range(\"B1\").Value = Nothing",
+            "Debug.Print \"late Nothing \" & Err.Number",
+            "Err.Clear",
+            "sheet.Range(\"C1\").Value = sheet.Range(\"A1\")",
+            "Debug.Print \"late range \" & Err.Number & \" \" & sheet.Range(\"C1\").Value",
+            "Err.Clear",
+            "Dim early As Excel.Worksheet",
+            "Set early = sheet",
+            "early.Range(\"D1\").Value = Nothing",
+            "Debug.Print \"early Nothing \" & Err.Number",
+            "Err.Clear",
+            "early.Range(\"E1\").Value = early.Range(\"A1\")",
+            "Debug.Print \"early range \" & Err.Number & \" \" & early.Range(\"E1\").Value",
+            "Err.Clear",
+            "book.Close False",
+            "app.Quit") + "\r\nEnd Sub\r\n", libraries);
+
+        CollectionAssert.AreEqual(new[] { "late Nothing 1004", "late range 0 1", "early Nothing 1004", "early range 0 1" }, output, string.Join("\n", output));
+    }
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
