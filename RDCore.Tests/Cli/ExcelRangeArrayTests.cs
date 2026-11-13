@@ -320,7 +320,7 @@ public sealed class ExcelRangeArrayTests
     [DataRow("P06", "Variant()(1 To 2, 1 To 2){Double:1, String:\"text\"; Double:4, Double:5}", DisplayName = "through a helper's ByVal Variant parameter")]
     [DataRow("P07", "Variant()(1 To 2, 1 To 2){Empty, Empty; Empty, Empty}", IgnoreMessage = "a Range assigned to Value: RD-VBA evaluates the Range as a simple data value, as MS-VBAL §5.4.3.8 specifies for a late-bound Let, and writes its values where MS-VBA passes Excel the Range object and the cells are left Empty", DisplayName = "a Range object assigned to Value: its own values")]
     [DataRow("V01", "Variant()(1 To 2, 1 To 3){Empty, Empty, Empty; Empty, Empty, Integer:7}", DisplayName = "ReDim v(1 To 2, 1 To 3) in a Variant, written and read")]
-    [DataRow("V02", "Variant()(1 To 2, 1 To 3){Integer:99, String:\"text\", Double:2.5; Double:4, Double:5, Double:6} / Double:1", DisplayName = "an element written after the get: the sheet is not")]
+    [DataRow("V02", "Variant()(1 To 2, 1 To 3){Integer:99, String:\"text\", Double:2.5; Double:4, Double:5, Double:6} / Double:1", DisplayName = "an element written after the get: the sheet does not change")]
     [DataRow("V03", "1 2 1 3", DisplayName = "LBound and UBound of each dimension after the get")]
     [DataRow("V04", "|error 9", DisplayName = "UBound of a third dimension")]
     [DataRow("V05", "|error 9", DisplayName = "one subscript of a 2-D array")]
