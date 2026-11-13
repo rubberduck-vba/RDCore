@@ -403,6 +403,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
+        /// </summary>
+        public static string LineContinuationBetweenKeywords_Message {
+            get {
+                return ResourceManager.GetString("LineContinuationBetweenKeywords_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..
         /// </summary>
         public static string ObsoleteCallStatement_Message {

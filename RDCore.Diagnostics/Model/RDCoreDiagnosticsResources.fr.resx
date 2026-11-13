@@ -384,4 +384,7 @@
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
   </data>
+  <data name="LineContinuationBetweenKeywords_Message" xml:space="preserve">
+    <value>Une continuation de ligne répartit le mot-clé '{0}' sur plusieurs lignes. Écrivez ses mots sur une seule ligne.</value>
+  </data>
 </root>
