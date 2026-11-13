@@ -426,6 +426,8 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00213: Line continuation between keywords"
+  href: rdc00213.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"

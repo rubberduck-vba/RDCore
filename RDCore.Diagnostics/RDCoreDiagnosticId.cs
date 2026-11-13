@@ -45,6 +45,7 @@ public enum RDCoreDiagnosticId
     NotAllPathsReturnValue = 206, // [RD2:NonReturningFunctionInspection], but for any path that does not assign the return value, not only when none does
     IsMissingAlwaysFalse = 207, // [RD2:IsMissingOnInappropriateArgumentInspection] IsMissing of a parameter that is no Variant, or an Optional Variant with a default
     ShadowedDeclaration = 208, // [RD2:ShadowedDeclarationInspection] a local or a parameter named like a member of the module, of another module or of a library
+    LineContinuationBetweenKeywords = 213, // [RD2:LineContinuationBetweenKeywordsInspection] End _ / If: a line continuation between the words of a keyword
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,

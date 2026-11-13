@@ -124,6 +124,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.NotAllPathsReturnValue, 206),
         (RDCoreDiagnosticId.IsMissingAlwaysFalse, 207),
         (RDCoreDiagnosticId.ShadowedDeclaration, 208),
+        (RDCoreDiagnosticId.LineContinuationBetweenKeywords, 213),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),
         (RDCoreDiagnosticId.ObsoleteCommentSyntax, 303),
         (RDCoreDiagnosticId.ObsoleteErrorSyntax, 304),
