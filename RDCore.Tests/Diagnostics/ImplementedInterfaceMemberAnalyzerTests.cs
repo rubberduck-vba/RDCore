@@ -55,13 +55,27 @@ public sealed class ImplementedInterfaceMemberAnalyzerTests
     }
 
     [TestMethod]
-    public async Task AnImplementedClassWhoseMembersHaveNoStatement_IsNotFound()
+    public async Task AnImplementedClassWhoseMembersHoldOnlyCommentsAndLabels_IsNotFound()
         => Assert.IsEmpty(await ShapeAsync(true,
             "Option Explicit",
             "Public Function Area() As Double",
             "    ' implemented by each shape",
-            "    Dim unused As Long",
+            "Done:",
             "End Function"));
+
+    [TestMethod]
+    [DataRow("    Dim unused As Long", DisplayName = "Dim")]
+    [DataRow("    Static calls As Long", DisplayName = "Static")]
+    [DataRow("    Const Sides As Long = 4", DisplayName = "Const")]
+    public async Task ADeclarationInAMemberOfAnImplementedClass_IsCode(string declaration)
+    {
+        var source = ModuleWorkspace.ClassModule("IShape", "Option Explicit", "Public Function Area() As Double", "    ' implemented by each shape", declaration, "End Function");
+        var finding = Assert.ContainsSingle(await ShapeAsync(true, source));
+
+        StringAssert.Contains(finding.Message, "'Area'");
+        Assert.AreEqual(ModuleWorkspace.ClassModule("IShape", "Option Explicit", "Public Function Area() As Double", "    ' implemented by each shape", "End Function"),
+            Fixed(source, finding.Fixes!.Edit!), "the fix removes the declaration too");
+    }
 
     // the source with the fix's edits made, the last first so that the ranges of the others still hold.
     private static string Fixed(string source, EditFix fix)

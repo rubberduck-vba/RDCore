@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
 using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
@@ -18,10 +19,10 @@ namespace RDCore.Diagnostics.Analyzers;
 /// module gives each member of the interface a body of its own, and the code of the class runs only on an object created from the class itself.
 /// </summary>
 /// <remarks>
-/// The class is reported once, at the first member that has a statement. Comments, line labels and declarations are not statements. Whether another
-/// module implements the class is a fact the host states (<see cref="ClassModuleSemanticFlags.Implemented"/>); without it, the analyzer reports nothing.
-/// The finding comes with the fix that removes the code of every member that has a statement, its title saying what changes: an object created from the
-/// class itself then runs none of it, and its functions return the default value of their type.
+/// The class is reported once, at the first member that has code: a statement, or a <c>Dim</c>, <c>Static</c> or <c>Const</c> declaration. Comments and line
+/// labels are not code. Whether another module implements the class is a fact the host states (<see cref="ClassModuleSemanticFlags.Implemented"/>);
+/// without it, the analyzer reports nothing. The finding comes with the fix that removes the code of every member that has some, its title saying what
+/// changes: an object created from the class itself then runs none of it, and its functions return the default value of their type.
 /// </remarks>
 internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
 {
@@ -34,7 +35,7 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
             return [];
         }
 
-        var withCode = module.Children.OfType<MemberDeclarationNode>().Where(member => IsProcedure(member) && !BodyOf(member).HasNoStatement()).ToArray();
+        var withCode = module.Children.OfType<MemberDeclarationNode>().Where(member => IsProcedure(member) && BodyOf(member).Any(IsCode)).ToArray();
         if (withCode.Length == 0)
         {
             return [];
@@ -67,6 +68,15 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
     private static bool IsProcedure(MemberDeclarationNode member)
         => member is not ExternalMemberDeclarationNode
             && member.MemberKind is MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
+
+    // a declaration is code here: an interface's member declares nothing. A block of a #If is judged by what it holds, whichever branch is live.
+    private static bool IsCode(SyntaxNode node) => node switch
+    {
+        VariableDeclarationNode or ConstantDeclarationNode => true,
+        PrecompilerIfBlockStatementNode or PrecompilerElseIfBlockStatementNode or PrecompilerElseBlockStatementNode or PrecompilerInlineIfStatementNode
+            => node.Children.Any(IsCode),
+        _ => !new[] { node }.HasNoStatement(),
+    };
 
     private static IEnumerable<SyntaxNode> BodyOf(MemberDeclarationNode member)
         => member.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode);
