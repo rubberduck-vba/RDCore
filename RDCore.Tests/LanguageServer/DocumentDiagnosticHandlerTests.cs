@@ -17,6 +17,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class DocumentDiagnosticHandlerTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly Uri DocUri = new("file:///c:/ws/src/Mod1.bas");
 
     private readonly IDocumentDiagnosticsService _service = Substitute.For<IDocumentDiagnosticsService>();
@@ -49,7 +52,7 @@ public sealed class DocumentDiagnosticHandlerTests
     {
         var (_, answer) = ProgramWaitingForADialog();
 
-        var declined = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30)));
+        var declined = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(SafetyCap));
 
         AssertDeclinedNotRetriggered(declined);
         await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
@@ -66,12 +69,12 @@ public sealed class DocumentDiagnosticHandlerTests
             return Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
         });
         var pull = Sut().Handle(Request(), CancellationToken.None);
-        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await waiting.Task.WaitAsync(SafetyCap);
 
         var answer = new TaskCompletionSource<int>();
         _ = _dialogs.WhileOpenAsync(() => answer.Task);
 
-        AssertDeclinedNotRetriggered(await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(TimeSpan.FromSeconds(30))));
+        AssertDeclinedNotRetriggered(await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(SafetyCap)));
         answer.SetResult(1);
     }
 
@@ -82,14 +85,14 @@ public sealed class DocumentDiagnosticHandlerTests
         var pullAgain = 0;
         _dialogs.PullAgain = () => Interlocked.Increment(ref pullAgain);
         var (asked, answer) = ProgramWaitingForADialog();
-        await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30)));
+        await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(SafetyCap));
         Assert.AreEqual(0, pullAgain, "not while the dialog is open");
 
         answer.SetResult(1);
-        await asked.WaitAsync(TimeSpan.FromSeconds(30));
+        await asked.WaitAsync(SafetyCap);
 
         Assert.AreEqual(1, pullAgain, "once it is answered");
-        var report = await Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30));
+        var report = await Sut().Handle(Request(), CancellationToken.None).WaitAsync(SafetyCap);
         Assert.AreEqual("v2.0", ((RelatedFullDocumentDiagnosticReport)report).ResultId);
     }
 
@@ -101,7 +104,7 @@ public sealed class DocumentDiagnosticHandlerTests
         var (asked, answer) = ProgramWaitingForADialog();
 
         answer.SetResult(1);
-        await asked.WaitAsync(TimeSpan.FromSeconds(30));
+        await asked.WaitAsync(SafetyCap);
 
         Assert.AreEqual(0, pullAgain);
     }
@@ -113,10 +116,10 @@ public sealed class DocumentDiagnosticHandlerTests
         var pullAgain = 0;
         _dialogs.PullAgain = () => Interlocked.Increment(ref pullAgain);
         var (asked, answer) = ProgramWaitingForADialog();
-        await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30)));
+        await Assert.ThrowsExactlyAsync<RpcErrorException>(() => Sut().Handle(Request(), CancellationToken.None).WaitAsync(SafetyCap));
 
         answer.SetException(new InvalidOperationException("the client is gone"));
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => asked.WaitAsync(TimeSpan.FromSeconds(30)));
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => asked.WaitAsync(SafetyCap));
 
         Assert.AreEqual(1, pullAgain);
     }
@@ -135,11 +138,11 @@ public sealed class DocumentDiagnosticHandlerTests
         _service.GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(DocumentDiagnosticsResult.Fresh(2, []));
 
         var pull = Sut().Handle(Request(), CancellationToken.None);
-        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await waiting.Task.WaitAsync(SafetyCap);
 
         await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
         synced.SetResult();
-        await pull.WaitAsync(TimeSpan.FromSeconds(30));
+        await pull.WaitAsync(SafetyCap);
         await _service.Received(1).GetAsync(DocUri, null, Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>());
     }
 
@@ -155,10 +158,10 @@ public sealed class DocumentDiagnosticHandlerTests
         });
 
         var pull = Sut().Handle(Request(), CancellationToken.None);
-        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await waiting.Task.WaitAsync(SafetyCap);
         _incoming.Arrived(DocUri);
 
-        var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(TimeSpan.FromSeconds(30)));
+        var refused = await Assert.ThrowsExactlyAsync<RpcErrorException>(() => pull.WaitAsync(SafetyCap));
         Assert.AreEqual(ErrorCodes.ContentModified, refused.Code);
         await _service.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default);
     }
