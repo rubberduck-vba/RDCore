@@ -852,6 +852,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one..
+        /// </summary>
+        public static string IIfSideEffect_Message {
+            get {
+                return ResourceManager.GetString("IIfSideEffect_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
         /// </summary>
         public static string NewOfAClassNotCreatable_New_Message {

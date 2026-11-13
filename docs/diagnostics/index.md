@@ -308,6 +308,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11029](rdc11029.md)|Public variable of an object passed late as a copy|What a procedure called late assigns to it is not written back|
 |[RDC11031](rdc11031.md)|True value that is not -1|`#Const DEV = 1`, then `#If Not DEV`: `Not 1` is `-2`, which is `True`|
 |[RDC11032](rdc11032.md)|For Each variable read after the loop ran out|MS-VBA leaves it Empty or Nothing, where MS-VBAL says it keeps the last element|
+|[RDC11039](rdc11039.md)|Function called in both parts of IIf|A `Function` or `Property Get` in the `TruePart` or `FalsePart` of `IIf`, which runs whatever the condition|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 
 ---
