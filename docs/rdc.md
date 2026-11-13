@@ -116,9 +116,6 @@ The exit code says how the run went:
 `rdc build` compiles the workspace into a program that runs without RDCore's parser, and without the workspace's sources: the program runs from its own folder,
 wherever it is. It needs the same entry point as `rdc run`.
 
-The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
-reads them from there, wherever the folder is.
-
 |Option|What it does|
 |---|---|
 |`-o`, `--output`|The folder the program is written to; `bin/<configuration>/<runtime>/` in the workspace by default.|
@@ -132,7 +129,10 @@ A built program calls the outside world (a `Declare`d procedure, an automation s
 executable, started again as its external host, which ends with it. Where the .NET host for the program's runtime is not installed, the program is built without an executable;
 run with `dotnet <name>.dll`, it makes no such call.
 
-The program's folder holds the license terms of what it runs on:
+The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
+reads them from there, wherever the folder is.
+
+The folder also holds the license terms of what the program runs on:
 
 |File|Terms of|
 |---|---|
