@@ -522,11 +522,11 @@ public sealed class CompiledEditAndContinueTests
         }
 
         /// <summary>
-        /// The next event of the type, whenever it comes, that is what <paramref name="where"/> says when it is given; the events before it of other types,
-        /// or that are not that, are kept.
+        /// The next event of the type that <paramref name="where"/> accepts, when it is given, whenever it comes; the events before it that are of another
+        /// type, or that it does not accept, are kept.
         /// </summary>
         /// <typeparam name="TEvent">The type of the event waited for.</typeparam>
-        /// <param name="where">What the event waited for is.</param>
+        /// <param name="where">Whether an event of the type is the one waited for; any event of the type is, when it is not given.</param>
         public async Task<TEvent> NextAsync<TEvent>(Func<TEvent, bool>? where = null)
         {
             using var hangGuard = new CancellationTokenSource(Patience);
