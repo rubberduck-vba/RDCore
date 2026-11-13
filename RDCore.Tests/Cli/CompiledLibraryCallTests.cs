@@ -16,13 +16,15 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledLibraryCallTests
 {
-    // the program run both ways, with the session's locale lcid: what it printed, the error it raised and where, alike; and each procedure named compiled,
-    // with as many statements recovered, and handed to the interpreter as many times, as said.
-    private static async Task AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, long walkBacks = 0, int lcid = 0)
+    // the program run both ways, with the classes given, the session's locale lcid and its environment changed as environment says: what it printed, the
+    // error it raised and where, alike, which is returned; and each procedure named compiled, with as many statements recovered, and handed to the
+    // interpreter as many times, as said.
+    private static async Task<string> AssertAlikeAsync(string program, (string Name, long Recoveries)[] compiled, long walkBacks = 0, int lcid = 0,
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment = null, IReadOnlyList<(string Name, string Source)>? classes = null)
     {
         CompiledExecutionTests.RequirePayloads();
-        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, lcid);
-        var run = await RunAsync(program, VBExecutionEngine.Compiled, lcid);
+        var interpreted = await RunAsync(program, VBExecutionEngine.Interpreter, lcid, environment, classes);
+        var run = await RunAsync(program, VBExecutionEngine.Compiled, lcid, environment, classes);
         Assert.AreEqual(interpreted.Observed, run.Observed);
 
         foreach (var (name, recoveries) in compiled)
@@ -36,17 +38,20 @@ public sealed class CompiledLibraryCallTests
                     $"{name}'s recoveries; stepped: {string.Join("; ", result.Stepped.Select(reason => $"{reason.Kind} {reason.Detail} {reason.Location}"))}");
             }
         }
+
+        return run.Observed;
     }
 
-    private static async Task<(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled)> RunAsync(string program, VBExecutionEngine engine, int lcid)
+    private static async Task<(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled)> RunAsync(string program, VBExecutionEngine engine, int lcid,
+        Func<RuntimeEnvironmentProfile, RuntimeEnvironmentProfile>? environment, IReadOnlyList<(string Name, string Source)>? classes)
     {
         (string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled) made = default;
         using var running = CompiledExecution.Running(engine);
-        await ModuleWorkspace.InspectAsync([], program, (provider, run, _) =>
+        await ModuleWorkspace.InspectAsync(classes ?? [], program, (provider, run, _) =>
         {
             made = (Observed(run), CompiledExecutionTests.ByName(provider));
             return Task.CompletedTask;
-        }, engine: engine, environment: lcid == 0 ? null : profile => profile with { Lcid = lcid });
+        }, engine: engine, environment: lcid == 0 && environment is null ? null : profile => (environment ?? (same => same))(lcid == 0 ? profile : profile with { Lcid = lcid }));
         return made;
     }
 
@@ -245,10 +250,91 @@ public sealed class CompiledLibraryCallTests
             "    Made = R",
             "End Function"), [("Made", 0)], walkBacks: 1);
 
-    // with a comma for its decimal separator (fr-FR): a number converted is the same in any locale, and a String a Variant holds ("2,5") is converted
-    // by the interpreter, which reads it in the session's locale.
+    // IsEmpty, IsNull, IsNumeric and VarType of a Variant that holds Empty, Null, a String, an error, Missing or an object, which compiled code gives the
+    // function as the interpreter gives it.
     [TestMethod]
-    public async Task AConversionInACommaDecimalLocale_IsTheInterpreters()
+    public async Task AnInformationFunctionOfAnyVariant_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Dim V As Variant",
+            "    Debug.Print Described(V), Described(Null), Described(\"12\"), Described(\"x\"), Described(CVErr(5)), Described()",
+            "    Debug.Print Described(New Collection)",
+            "End Sub",
+            "Private Function Described(Optional ByVal V As Variant) As Long",
+            "    Dim I As Long, T As Long, E As Boolean, N As Boolean, U As Boolean",
+            "    For I = 1 To 2",
+            "        T = VarType(V)",
+            "        E = IsEmpty(V)",
+            "        N = IsNull(V)",
+            "        U = IsNumeric(V)",
+            "    Next",
+            "    Described = T * 1000 - E * 100 - N * 10 - U",
+            "End Function"), [("Described", 0)]);
+
+    // a Variant given to a function of the library is what it holds where the argument is evaluated, before a call to its right writes it (MS-VBAL
+    // §5.3.1.11).
+    [TestMethod]
+    public async Task AVariantArgument_IsReadBeforeTheArgumentsToItsRight()
+        => await AssertAlikeAsync(Program(
+            "Private V As Variant",
+            "Public Sub Main()",
+            "    Debug.Print Chosen(), V",
+            "End Sub",
+            "Private Function Chosen() As Long",
+            "    Dim W As Variant",
+            "    W = 1",
+            "    Chosen = IIf(True, W, Written(W))",
+            "End Function",
+            "Private Function Written(ByRef W As Variant) As Long",
+            "    W = 99",
+            "    V = W",
+            "End Function"), []);
+
+    // a Declare'd function the environment refuses is refused by compiled code as by the interpreter, with error 70: what goes straight to the library is
+    // a function of the standard library, and nothing else.
+    [TestMethod]
+    public async Task ADeclaredFunctionThePolicyRefuses_IsRefusedByCompiledCode()
+    {
+        var observed = await AssertAlikeAsync(Program(
+            "Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long",
+            "Public Sub Main()",
+            "    Debug.Print Ticks(3)",
+            "End Sub",
+            "Private Function Ticks(ByVal N As Long) As Long",
+            "    Dim I As Long",
+            "    For I = 1 To N",
+            "        Ticks = Ticks + CLng(I * 1.5)",
+            "    Next",
+            "    Ticks = Ticks + GetTickCount()",
+            "End Function"), [], environment: profile => profile with { AllowDllImports = false });
+        StringAssert.Contains(observed, "70");
+    }
+
+    // IsEmpty, IsNull, IsNumeric, IsObject and VarType of a Variant that holds an object, with a default member or without one: what the interpreter
+    // says of it, its default member evaluated where the function evaluates it.
+    [TestMethod]
+    public async Task AnInformationFunctionOfAnObject_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Described(New Valued), Described(New Collection)",
+            "End Sub",
+            "Private Function Described(ByVal V As Variant) As Long",
+            "    Dim I As Long, T As Long, E As Boolean, N As Boolean, U As Boolean, O As Boolean",
+            "    For I = 1 To 2",
+            "        T = VarType(V)",
+            "        E = IsEmpty(V)",
+            "        N = IsNull(V)",
+            "        U = IsNumeric(V)",
+            "        O = IsObject(V)",
+            "    Next",
+            "    Described = T * 10000 - E * 1000 - N * 100 - U * 10 - O",
+            "End Function"), [("Described", 0)],
+            classes: [("Valued", ModuleWorkspace.ClassModule("Valued", "Public Property Get Value() As Long", "Attribute Value.VB_UserMemId = 0", "    Value = 100", "End Property"))]);
+
+    // with a comma for its decimal separator (fr-FR): a number converted is the same in any locale, and a String a Variant holds ("2,5") is given to the
+    // library, which reads it in the session's locale.
+    [TestMethod]
+    public async Task AStringConvertedInACommaDecimalLocale_IsReadInTheSessionsLocale()
         => await AssertAlikeAsync(Program(
             "Public Sub Main()",
             "    Debug.Print Parsed(\"2,5\", 3)",
@@ -259,5 +345,5 @@ public sealed class CompiledLibraryCallTests
             "        D = CDbl(V)",
             "        Parsed = Parsed * 10 + D + CLng(I * 1.5)",
             "    Next",
-            "End Function"), [("Parsed", 3)], lcid: 1036);
+            "End Function"), [("Parsed", 0)], lcid: 1036);
 }
