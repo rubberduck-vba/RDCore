@@ -264,6 +264,24 @@ public sealed class UnusedDeclarationAnalyzerTests
             "    Debug.Print resized(0)",
             "End Sub"));
 
+    [TestMethod]
+    [DataRow("    o.MoveNext", DisplayName = "a member call")]
+    [DataRow("    Debug.Print o Is Nothing", DisplayName = "an Is test")]
+    [DataRow("    Dim other As Object\r\n    Set other = o\r\n    Debug.Print other Is Nothing", DisplayName = "a Set from it")]
+    public async Task AnObjectVariableThatNoSetAssigns_IsNotAssigned(string read)
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit", "Public Sub Main()", "    Dim o As Object", read, "End Sub"));
+
+        Assert.AreEqual(RDCoreDiagnosticId.VariableNotAssigned, finding.Id);
+        StringAssert.Contains(finding.Message, "'o'");
+    }
+
+    [TestMethod]
+    public async Task AnObjectVariableThatASetAssigns_IsAssigned()
+        => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit", "Public Sub Main()", "    Dim o As Object", "    Set o = New Collection", "    Debug.Print o.Count", "End Sub"));
+
     #endregion
 
     #region RDC01013 a parameter never used

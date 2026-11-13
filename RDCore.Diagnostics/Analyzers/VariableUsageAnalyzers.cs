@@ -64,9 +64,9 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
 /// its declared type (<strong>MS-VBAL §5.2.3.1.4</strong>).
 /// </summary>
 /// <remarks>
-/// An array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a type that is no intrinsic value type (an object, a user-defined
-/// type) are left out: such a variable is given what it holds otherwise than by an assignment. The host counts the references of a local and of a
-/// <c>Private</c> variable of the module.
+/// An array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a class or a user-defined type are left out: such a variable is
+/// given what it holds otherwise than by an assignment (<c>As New</c>, its members). A variable declared <c>As Object</c> is judged: it is <c>Nothing</c> until
+/// a <c>Set</c> assigns it. The host counts the references of a local and of a <c>Private</c> variable of the module.
 /// </remarks>
 internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
 {
@@ -89,7 +89,7 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
         {
             if (UnusedDeclarations.DeclarationOf<VariableDeclarationNode>(module, fact, node => node.NameRange ?? node.SourceLocation.Range) is not { IsWithEvents: false } declaration
                 || declaration.Children.OfType<ArrayBoundsNode>().Any()
-                || !IsOfAnIntrinsicValueType(declaration))
+                || !IsOfAnIntrinsicType(declaration))
             {
                 continue;
             }
@@ -102,11 +102,11 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
         }
     }
 
-    // no As clause, or one that names an intrinsic type other than Object, unqualified or of the VBA library.
-    private static bool IsOfAnIntrinsicValueType(VariableDeclarationNode declaration)
+    // no As clause, or one that names an intrinsic type, Object included, unqualified or of the VBA library: no user-defined type has such a name. A class
+    // can't be told from a user-defined type by its name alone, so neither is judged.
+    private static bool IsOfAnIntrinsicType(VariableDeclarationNode declaration)
         => declaration.Children.OfType<AsTypeExpressionNode>().FirstOrDefault() is not { } asType
             || !asType.IsArrayDef
                 && (asType.QualifierName is null || string.Equals(asType.QualifierName, "VBA", StringComparison.OrdinalIgnoreCase))
-                && IntrinsicVBTypes.IsIntrinsic(asType.TypeName)
-                && !string.Equals(asType.TypeName, VBTypeNames.VBObject, StringComparison.OrdinalIgnoreCase);
+                && IntrinsicVBTypes.IsIntrinsic(asType.TypeName);
 }
