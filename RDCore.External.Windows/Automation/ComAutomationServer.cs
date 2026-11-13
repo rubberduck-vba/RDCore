@@ -1009,7 +1009,9 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         var flags = BindingFlags.Public | BindingFlags.Instance | invocation switch
         {
             AutomationInvocation.Get => BindingFlags.GetProperty | BindingFlags.InvokeMethod,
-            AutomationInvocation.Let => BindingFlags.SetProperty,
+            // DISPATCH_PROPERTYPUT, whatever the value: SetProperty asks for PROPERTYPUTREF when the value is an object, where a Let gives the server the
+            // object to read its default member itself (a Dictionary's Item) or to make what it will of it (a Range's Value).
+            AutomationInvocation.Let => BindingFlags.PutDispProperty,
             AutomationInvocation.Set => BindingFlags.PutRefDispProperty,
             _ => BindingFlags.InvokeMethod,
         };
