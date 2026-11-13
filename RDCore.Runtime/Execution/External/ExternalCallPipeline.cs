@@ -87,8 +87,8 @@ public sealed record class ExternalCallPipeline(
     }
 
     // a call of a function of the standard library made without the pipeline, as compiled code makes it: when the only interceptors are the platform's
-    // own policies, which refuse automation and library imports and nothing of the library's functions, and when the library is the provider the
-    // pipeline would give it to. Interception is involved where it is needed: an extension's interceptor, or an analysis's, sees every call. What the
+    // own policies, which refuse automation and library imports but never a function of the library, and when the library is the provider the
+    // pipeline would give it to. Any other interceptor, an extension's or an analysis's, keeps the pipeline and sees every call. What the
     // call returns is held as the pipeline holds it.
     internal bool TryCallLibraryDirectly(
         VBTypeMemberSymbol member, IRuntimeValue[] arguments, IRuntimeSymbolResolver resolver, out RuntimeSemanticsEvaluationResult result)
