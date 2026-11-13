@@ -110,6 +110,54 @@ public sealed class UnusedDeclarationAnalyzerTests
         AssertAre(findings, RDCoreDiagnosticId.VariableNotAssigned, DiagnosticSeverity.Warning);
     }
 
+    // MS-VBAL §5.3.1.11: a call assigns an argument only through a ByRef parameter that its procedure writes, or passes on by reference to one that does.
+    [TestMethod]
+    public async Task AVariablePassedWhereNoProcedureAssignsIt_HasItsDefaultValue()
+    {
+        var findings = await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim byValue As Long",
+            "    Show byValue",
+            "    Dim onlyRead As Long",
+            "    Peek onlyRead",
+            "    Dim relayed As Long",
+            "    Relay relayed",
+            "    Dim recursive As Long",
+            "    Spin recursive, 3",
+            "    Dim named As Long",
+            "    Peek x:=named",
+            "    Debug.Print byValue + onlyRead + relayed + recursive + named",
+            "End Sub",
+            "Private Sub Show(ByVal x As Long)", "    Debug.Print x", "End Sub",
+            "Private Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub",
+            "Private Sub Relay(ByRef x As Long)", "    Bump x", "End Sub",
+            "Private Sub Bump(ByRef x As Long)", "    x = x + 1", "End Sub",
+            "Private Sub Spin(ByRef x As Long, ByVal n As Long)", "    If n > 0 Then Spin x, n - 1", "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 3, 5, 9, 11 }, Lines(findings),
+            "given ByVal, given ByRef to a procedure that only reads it, by name, to one that calls itself and never assigns it; not one relayed to Bump");
+        AssertAre(findings, RDCoreDiagnosticId.VariableNotAssigned, DiagnosticSeverity.Warning);
+    }
+
+    // a procedure called through an object may be another class's that implements the class; one of another module, or of a library, is not followed.
+    [TestMethod]
+    public async Task AVariablePassedToAProcedureNotFollowed_IsNotReported()
+    {
+        var findings = await ClassAsync(new VariableNotAssignedAnalyzer(), "Counter",
+            "Option Explicit",
+            "Public Sub Peek(ByRef x As Long)", "    Debug.Print x", "End Sub",
+            "Public Sub Main(ByVal other As Counter)",
+            "    Dim throughObject As Long",
+            "    other.Peek throughObject",
+            "    Dim throughMe As Long",
+            "    Me.Peek throughMe",
+            "    Debug.Print throughObject + throughMe",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 12 }, Lines(findings), "only the one passed through Me, whose procedure is the class's own");
+    }
+
     [TestMethod]
     public async Task AnArray_AnObject_AndAReDim_AreGivenWhatTheyHoldOtherwise()
         => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),

@@ -351,7 +351,7 @@ public static class ExpressionStaticSemanticsEvaluator
         // an index of an array is no argument: any other callee may take what is written in its argument list by reference.
         if (!indexesAnArray)
         {
-            MarkPassedAsArguments(context, indexExpression.Arguments);
+            MarkPassedAsArguments(context, indexExpression.Callee, indexExpression.Arguments);
             ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, indexExpression.Callee, indexExpression.Arguments);
         }
 
@@ -407,24 +407,53 @@ public static class ExpressionStaticSemanticsEvaluator
         return IndexExpressionStaticSemantics.Instance.DetermineDeclaredType(context, expression, calleeResult.Result!);
     }
 
-    internal static void MarkPassedAsArguments(StaticEvaluationContext context, IEnumerable<ExpressionNode> arguments)
+    // MS-VBAL §5.3.1.11: an argument the procedure called may take by reference. One given to a parameter declared ByVal is passed by value, as one written
+    // ByVal is. Where the procedure is known, the parameter each argument is given is recorded, for a count of what the argument names to follow.
+    internal static void MarkPassedAsArguments(StaticEvaluationContext context, ExpressionNode callee, IReadOnlyList<ExpressionNode> arguments)
+    {
+        var member = ObjectValueStaticSemantics.MemberOfCallee(context, callee);
+        MarkPassedAsArguments(context, member is null ? null : ObjectValueStaticSemantics.ParametersOfCallee(context, callee), arguments,
+            recordsParameters: member is not null && CallsItsOwnProcedure(context, callee, member));
+    }
+
+    // a procedure of the module the call is written in, called by its name or through Me: the procedure that runs is the one the module declares. A call
+    // through a variable of a class may run the procedure of another class that implements it, and a Declare runs code outside the project.
+    private static bool CallsItsOwnProcedure(StaticEvaluationContext context, ExpressionNode callee, VBTypeMemberSymbol member)
+        => callee is SimpleNameExpressionNode or MemberAccessExpressionNode { Owner: InstanceExpressionNode }
+            && member.GetProperty(SymbolProperties.ExternalTarget) is null
+            && context.Scope.SelfAndAncestors().FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?.Uri is { } module
+            && member.ParentUri.AbsoluteUri == module.AbsoluteUri;
+
+    // the handlers of an event are the procedures a RaiseEvent calls, which no parameter of the event stands for: what it is given is followed no further.
+    internal static void MarkPassedAsArguments(
+        StaticEvaluationContext context, ImmutableArray<VBParameterSymbol>? parameters, IReadOnlyList<ExpressionNode> arguments, bool recordsParameters)
     {
         if (context.Facts is not { } facts)
         {
             return;
         }
 
-        foreach (var argument in arguments)
+        ImmutableArray<VBParameterSymbol>? own = parameters is { } declared
+            ? [.. declared.Where(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef))]
+            : null;
+        for (var index = 0; index < arguments.Count; index++)
         {
-            var passed = argument is NamedArgumentNode named ? named.Value : argument;
+            var (name, passed) = arguments[index] is NamedArgumentNode named ? (named.Name, named.Value) : ((string?)null, arguments[index]);
             if (passed is ByValArgumentExpressionNode or AddressOfExpressionNode or MissingArgumentNode)
             {
                 continue;
             }
 
-            if (facts.TryGet(passed.Identity, out var fact))
+            var parameter = own is { } ownParameters ? ObjectVariableArgumentStaticSemantics.ParameterOf(ownParameters, index, name) : null;
+            if (parameter is { ParameterKind: ParameterKind.ExplicitByVal } || !facts.TryGet(passed.Identity, out var fact))
             {
-                facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.PassedAsArgument });
+                continue;
+            }
+
+            facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.PassedAsArgument });
+            if (recordsParameters && parameter is not null and not ParamArrayParameterSymbol)
+            {
+                context.Arguments?.Record(passed.Identity, parameter.SemanticId);
             }
         }
     }
