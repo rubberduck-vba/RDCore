@@ -3,6 +3,7 @@ using RDCore.LanguageServer.Symbols;
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Source;
+using RDCore.SDK.Platform.Protocol;
 using RDCore.Symbols;
 using RDCore.Runtime.LanguageCore.Refactoring;
 
@@ -34,7 +35,7 @@ public sealed class BindingCheckTests
     }
 
     // the edits of one module, applied to its text from the last to the first.
-    private static (IReadOnlyDictionary<string, IReadOnlyList<ModuleTextEdit>> Edits, string Text) Edited(Uri module, string text, params ModuleTextEdit[] edits)
+    private static (IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> Edits, string Text) Edited(Uri module, string text, params RefactorTextEdit[] edits)
     {
         var lines = text.Split("\r\n").ToList();
         foreach (var edit in edits.OrderByDescending(edit => edit.Range.Start))
@@ -45,10 +46,10 @@ public sealed class BindingCheckTests
             lines.InsertRange(start.Line, joined.Split("\r\n"));
         }
 
-        return (new Dictionary<string, IReadOnlyList<ModuleTextEdit>> { [module.AbsoluteUri] = edits }, string.Join("\r\n", lines));
+        return (new Dictionary<string, IReadOnlyList<RefactorTextEdit>> { [module.AbsoluteUri] = edits }, string.Join("\r\n", lines));
     }
 
-    private static ModuleTextEdit Edit(int line, int start, int end, string text) => new(new SourceRange(line, start, line, end), text);
+    private static RefactorTextEdit Edit(int line, int start, int end, string text) => new() { Range = new SourceRange(line, start, line, end), NewText = text };
 
     [TestMethod]
     public void AnEditThatOnlyMovesTheCode_ChangesNoReference()

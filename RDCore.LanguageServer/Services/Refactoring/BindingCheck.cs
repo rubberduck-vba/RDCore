@@ -2,6 +2,8 @@ using RDCore.Runtime.LanguageCore.Refactoring;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Platform;
+using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Semantics.Refactoring;
 
 namespace RDCore.LanguageServer.Services.Refactoring;
 
@@ -46,13 +48,6 @@ internal sealed record class BindingChange(
     BindingChangeKind Kind, Uri Module, string Name, SourceRange? Before, SourceRange? After, SemanticId? Was, SemanticId? Is);
 
 /// <summary>
-/// An edit of the text of a module: the range of the text it replaces, before the edit, and the text it writes there.
-/// </summary>
-/// <param name="Range">The range it replaces, empty for an insertion.</param>
-/// <param name="NewText">The text it writes.</param>
-internal sealed record class ModuleTextEdit(SourceRange Range, string NewText);
-
-/// <summary>
 /// What an edit of the code changes of the references of its names, which a refactoring verifies before it is offered: every name of the edited modules,
 /// and every reference to one of those names in any module, is bound before the edit and again after it, the way a rename binds it
 /// (<see cref="NameOccurrences"/>), and the two are compared.
@@ -70,7 +65,7 @@ internal static class BindingCheck
     /// <param name="before">The workspace before the edit.</param>
     /// <param name="after">The workspace after the edit: the same modules, the edited ones parsed from the text the edit leaves.</param>
     /// <param name="edits">The edits of each edited module, by the module's absolute URI; they do not overlap.</param>
-    public static IReadOnlyList<BindingChange> Changes(RenameContext before, RenameContext after, IReadOnlyDictionary<string, IReadOnlyList<ModuleTextEdit>> edits)
+    public static IReadOnlyList<BindingChange> Changes(RenameContext before, RenameContext after, IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits)
     {
         // the static pass recurses once per expression level: one large-stack thread for the whole check.
         if (!LargeStackThread.IsCurrent)
@@ -90,7 +85,7 @@ internal static class BindingCheck
             foreach (var occurrence in was.Occurrences)
             {
                 // a name inside the text an edit replaced is not kept: what is written in its place is the edit's.
-                if (Moved(before, after, edits, occurrence.Module, occurrence.Range) is not { } moved)
+                if (Moved(edits, occurrence.Module, occurrence.Range) is not { } moved)
                 {
                     continue;
                 }
@@ -123,11 +118,11 @@ internal static class BindingCheck
     private static (string, SourcePosition) Key(NameOccurrence occurrence) => (occurrence.Module.AbsoluteUri, occurrence.Range.Start);
 
     // every name the edited modules write: their references, and their declarations, which a module that is not edited may refer to.
-    private static IEnumerable<string> NamesOf(RenameContext context, IReadOnlyDictionary<string, IReadOnlyList<ModuleTextEdit>> edits)
+    private static IEnumerable<string> NamesOf(RenameContext context, IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits)
     {
         foreach (var module in context.Modules.Where(module => edits.ContainsKey(module.Module.AbsoluteUri)))
         {
-            var whole = new SourceRange(SourcePosition.Zero, PositionAt(module.Source, module.Source.Length));
+            var whole = new SourceRange(SourcePosition.Zero, new SourcePosition(int.MaxValue, int.MaxValue));
             foreach (var name in NameOccurrences.NamesIn(module, whole))
             {
                 yield return name;
@@ -144,64 +139,6 @@ internal static class BindingCheck
     }
 
     // where a range of a module is after the edits; null when an edit replaced any of it. A module that is not edited is as it was.
-    private static SourceRange? Moved(
-        RenameContext before, RenameContext after, IReadOnlyDictionary<string, IReadOnlyList<ModuleTextEdit>> edits, Uri module, SourceRange range)
-    {
-        if (!edits.TryGetValue(module.AbsoluteUri, out var moduleEdits) || moduleEdits.Count == 0)
-        {
-            return range;
-        }
-
-        var was = before.Modules.First(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri).Source;
-        var now = after.Modules.First(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri).Source;
-        var (start, end) = (OffsetOf(was, range.Start), OffsetOf(was, range.End));
-        var shift = 0;
-        foreach (var edit in moduleEdits)
-        {
-            var (from, to) = (OffsetOf(was, edit.Range.Start), OffsetOf(was, edit.Range.End));
-            if ((from < end && start < to) || (from == to && start < from && from < end))
-            {
-                return null;
-            }
-
-            if (to <= start)
-            {
-                shift += edit.NewText.Length - (to - from);
-            }
-        }
-
-        return new SourceRange(PositionAt(now, start + shift), PositionAt(now, end + shift));
-    }
-
-    // the offset of a position in a text, its lines ended by LF or CR LF.
-    private static int OffsetOf(string text, SourcePosition position)
-    {
-        var offset = 0;
-        for (var line = 0; line < position.Line; line++)
-        {
-            var ended = text.IndexOf('\n', offset);
-            if (ended < 0)
-            {
-                return text.Length;
-            }
-
-            offset = ended + 1;
-        }
-
-        return Math.Min(offset + position.Character, text.Length);
-    }
-
-    // the position of an offset of a text.
-    private static SourcePosition PositionAt(string text, int offset)
-    {
-        var line = 0;
-        var start = 0;
-        for (var at = text.IndexOf('\n'); at >= 0 && at < offset; at = text.IndexOf('\n', at + 1))
-        {
-            line++;
-            start = at + 1;
-        }
-
-        return new SourcePosition(line, offset - start);
-    }
+    private static SourceRange? Moved(IReadOnlyDictionary<string, IReadOnlyList<RefactorTextEdit>> edits, Uri module, SourceRange range)
+        => edits.TryGetValue(module.AbsoluteUri, out var moduleEdits) ? DeclarationEdits.RangeAfter(range, moduleEdits) : range;
 }
