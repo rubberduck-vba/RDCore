@@ -6,7 +6,7 @@
 
 RD-VBA runs most of a program as compiled code. The figures below compare it to MS-VBA running the same code in Excel, on the same machine
 (Windows 11 x64, Excel 64-bit). Each is the time RD-VBA takes as a multiple of the time MS-VBA takes for the same work: below 1 is faster, above 1 slower.
-They describe the default settings: the `Compiled` execution engine and the `Debug` configuration.
+They describe the default settings: the `Compiled` execution engine and the `Debug` program configuration (`--configuration`, see [The shell and the rdc commands](rdc.md)).
 
 | Kind of code | Time compared to MS-VBA |
 |---|---|
