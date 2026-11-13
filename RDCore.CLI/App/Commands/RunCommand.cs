@@ -79,7 +79,7 @@ internal sealed class RunCommand(IFileSystem fileSystem, IProjectFileLoader proj
             return ProgramRunner.Refused;
         }
 
-        if (ProgramRunner.EntryPointOf(provider.Session, modules, ProjectBuildSettings.Of(workspace.Project), out var refusal) is not { } entryPoint)
+        if (ProgramRunner.EntryPointOf(provider.Session, modules, workspace.Project.Build, out var refusal) is not { } entryPoint)
         {
             await Error.WriteLineAsync(refusal);
             return ProgramRunner.Refused;
