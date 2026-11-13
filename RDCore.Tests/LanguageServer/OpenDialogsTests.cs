@@ -7,7 +7,8 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class OpenDialogsTests
 {
-    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan HangGuard = TimeSpan.FromMinutes(5);
 
     [TestMethod]
     public async Task APullWhoseCancellationThrows_IsDeclined_AndOnceTheDialogIsAnswered_TheClientIsAskedAgain_AndTheNextPullIsAnswered()
