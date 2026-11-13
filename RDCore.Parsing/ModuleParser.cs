@@ -633,6 +633,13 @@ public partial class ModuleParser(
         {
             ErrorHandler = errorStrategy,
         };
+
+        // the parse that recovers reads an If whose line no alternative reads as the If its line is; on the same ATN, whose predictions it shares.
+        if (errorStrategy is StatementBoundErrorStrategy)
+        {
+            parser.Interpreter = new IfLinePredictionSimulator(parser, parser.Interpreter.atn);
+        }
+
         parser.Interpreter.PredictionMode = mode;
         parser.RemoveErrorListeners();
         if (errorListener is not null)
@@ -673,6 +680,10 @@ public partial class ModuleParser(
         VBAParser.AND, VBAParser.OR, VBAParser.XOR, VBAParser.EQV, VBAParser.IMP,
     ];
 
+    // the marker keywords (MS-VBAL §3.3.5.2) a statement goes on with after an expression, which the grammar also reads as names: no operand, after an
+    // operator, ever is one of them.
+    internal static readonly HashSet<int> MarkerKeywordsAfterAnOperand = [VBAParser.TO, VBAParser.THEN];
+
     // what ends a statement: a line, a colon, a comment, the end of the module.
     private static readonly HashSet<int> EndsOfStatement = [VBAParser.NEWLINE, VBAParser.COLON, VBAParser.SINGLEQUOTE, VBAParser.REM, TokenConstants.Eof];
 
@@ -691,7 +702,7 @@ public partial class ModuleParser(
     private static void MarkDanglingOperators(IParseTree tree, CommonTokenStream tokens)
     {
         // each token no rule read, and the outermost expression that ends at each token: an expression is met before the ones it holds.
-        var unread = new List<IToken>();
+        var unread = new List<IErrorNode>();
         var expressions = new Dictionary<int, VBAParser.ExpressionContext>();
         var pending = new Stack<IParseTree>([tree]);
         while (pending.TryPop(out var node))
@@ -699,7 +710,7 @@ public partial class ModuleParser(
             switch (node)
             {
                 case IErrorNode error:
-                    unread.Add(error.Symbol);
+                    unread.Add(error);
                     break;
                 case VBAParser.ExpressionContext { Stop: { } stop } expression:
                     expressions.TryAdd(stop.TokenIndex, expression);
@@ -712,10 +723,18 @@ public partial class ModuleParser(
             }
         }
 
-        foreach (var token in unread.Where(token => BinaryOperators.Contains(token.Type)))
+        foreach (var error in unread.Where(error => BinaryOperators.Contains(error.Symbol.Type)))
         {
-            if (EndsOfStatement.Contains(tokens.Get(SignificantIndex(tokens, token.TokenIndex, +1)).Type)
-                && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
+            var token = error.Symbol;
+            var after = tokens.Get(SignificantIndex(tokens, token.TokenIndex, +1)).Type;
+
+            // before To or Then (If x - Then), the expression the parse ended at the operator holds it (StatementBoundErrorStrategy reads it there): that
+            // expression is the operand, and what holds the expression ends at the operator already.
+            if (MarkerKeywordsAfterAnOperand.Contains(after) && error.Parent is VBAParser.ExpressionContext held)
+            {
+                held.DanglingOperator = (token, tokens.GetText(held.Start, token));
+            }
+            else if (EndsOfStatement.Contains(after) && expressions.TryGetValue(SignificantIndex(tokens, token.TokenIndex, -1), out var operand))
             {
                 operand.DanglingOperator = (token, tokens.GetText(operand.Start, token));
 

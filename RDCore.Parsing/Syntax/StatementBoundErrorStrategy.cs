@@ -194,11 +194,25 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
             }
         }
 
+        // an operator before To or Then, with no operand between them (For i = 1 - To 2, If x - Then): To and Then are marker keywords (MS-VBAL §3.3.5.2), and
+        // no operand, but the grammar reads a keyword as a name, and the expression would read the keyword as its operand. The For's header, or the If, would
+        // then fail at what follows it, and be no For or no If at all: its body would be read as statements of the procedure, and its end as a statement no
+        // rule reads. The operator is a token no rule reads, reported where it is, and the expression ends before it.
+        if (recognizer is VBAParser { Context: VBAParser.ExpressionContext } expression && !InErrorRecoveryMode(expression)
+            && GoesOnWithAnOperator(expression.Interpreter.atn.states[expression.State]) && OperatorBeforeAMarkerKeywordAhead(expression) is { } @operator)
+        {
+            ReadTokensNoRuleReads(expression, @operator, @operator);
+        }
+
         if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } loop && !InErrorRecoveryMode(loop))
         {
-            if (DanglingOperatorAhead(loop) is { } through)
+            if (DanglingOperatorAhead(loop) is { } dangling)
             {
-                ReadADanglingOperatorOfTheHeader(loop, through);
+                ReadTokensNoRuleReads(loop, dangling, dangling);
+            }
+            else if (RestOfTheHeaderAhead(loop) is var (first, last))
+            {
+                ReadTokensNoRuleReads(loop, first, last);
             }
 
             // a For's statements are no block: the loop decides on the end of a statement and the statement after it together, and decides on neither when
@@ -624,17 +638,14 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         throw new InvalidOperationException($"No state of rule {rule} calls rule {called}.");
     }
 
-    // a For's header that ends with a binary operator the parse leaves unread (For i = 1 To 2 -): the decision after its last expression looks past the
-    // operator to the end of the line, and fails, and the For would end there, with no body and no Next: the procedure's recovery would then skip to the
-    // next procedure. The operator is a token no rule reads, reported where it is, and the For goes on to its body.
-    private void ReadADanglingOperatorOfTheHeader(VBAParser parser, int through)
+    // the tokens from the first to the last, as far ahead as each is: tokens no rule reads, reported at the first, and read with the blanks before them.
+    private void ReadTokensNoRuleReads(VBAParser parser, int first, int last)
     {
         var stream = (ITokenStream)parser.InputStream;
-        var @operator = stream.Lt(through);
+        var at = stream.Lt(first);
         BeginErrorCondition(parser);
-        parser.NotifyErrorListeners(@operator,
-            $"extraneous input {GetTokenErrorDisplay(@operator)} expecting {GetExpectedTokens(parser).ToString(parser.Vocabulary)}", null);
-        for (var i = 0; i < through; i++)
+        parser.NotifyErrorListeners(at, $"extraneous input {GetTokenErrorDisplay(at)} expecting {GetExpectedTokens(parser).ToString(parser.Vocabulary)}", null);
+        for (var i = 0; i < last; i++)
         {
             parser.Consume();
         }
@@ -642,7 +653,10 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         EndErrorCondition(parser);
     }
 
-    // how far ahead, past the blanks, a binary operator is that the parse does not expect here, when the end of the statement follows it; none otherwise.
+    // a binary operator the parse does not expect here, as far ahead as it is past the blanks, when the end of the statement follows it: the end of a For's
+    // header (For i = 1 To 2 -), or of a statement of its body (a = 1 -). The decision after the expression looks past the operator to the end of the line,
+    // and fails, and the For would end there, with no body and no Next: the procedure's recovery would then skip to the next procedure. The operator is a
+    // token no rule reads, reported where it is, and the For goes on.
     private static int? DanglingOperatorAhead(Parser parser)
     {
         var stream = (ITokenStream)parser.InputStream;
@@ -653,6 +667,51 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         }
 
         return EndsAStatement(stream.La(PastTheBlanks(stream, at + 1))) ? at : null;
+    }
+
+    // a For's header whose rest the parse does not expect where the header can end, as far ahead as it begins and ends, past the blanks: what follows an
+    // operator with no operand (To 2 - -), what follows a Step the end read as a name (To 2 - Step 1). The For would end there, as it does at a dangling
+    // operator. What is left of the line is tokens no rule reads, and the For goes on to its body.
+    private static (int First, int Last)? RestOfTheHeaderAhead(VBAParser loop)
+    {
+        if (loop.Context.children?.Any(child => child is VBAParser.EndOfStatementContext) == true)
+        {
+            return null;
+        }
+
+        var expected = loop.GetExpectedTokens();
+        var stream = (ITokenStream)loop.InputStream;
+        var first = PastTheBlanks(stream, 1);
+        // Step is what the header goes on with past the blanks: stepStmt reads the blank before it.
+        if (!expected.Contains(VBALexer.NEWLINE) || EndsAStatement(stream.La(first)) || expected.Contains(stream.La(first)) || stream.La(first) == VBALexer.STEP)
+        {
+            return null;
+        }
+
+        var last = first;
+        for (var at = first; !EndsAStatement(stream.La(at)); at++)
+        {
+            if (stream.La(at) is not (VBALexer.WS or VBALexer.LINE_CONTINUATION))
+            {
+                last = at;
+            }
+        }
+
+        return (first, last);
+    }
+
+    // the states where an expression decides whether an operator and its right operand go on with it.
+    private static bool GoesOnWithAnOperator(ATNState state)
+        => state.ruleIndex == VBAParser.RULE_expression && state is StarLoopEntryState or StarLoopbackState;
+
+    // how far ahead, past the blanks, a binary operator is that To or Then follows, past the blanks.
+    private static int? OperatorBeforeAMarkerKeywordAhead(Parser parser)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var at = PastTheBlanks(stream, 1);
+        return ModuleParser.BinaryOperators.Contains(stream.La(at)) && ModuleParser.MarkerKeywordsAfterAnOperand.Contains(stream.La(PastTheBlanks(stream, at + 1)))
+            ? at
+            : null;
     }
 
     // nor a procedure's header, which begins the next procedure.
