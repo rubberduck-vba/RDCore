@@ -5,6 +5,7 @@ using RDCore.Runtime.Support.Host.Handlers;
 using RDCore.Runtime.Compiled;
 using RDCore.Runtime.Execution;
 using RDCore.Runtime.Semantics;
+using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -61,8 +62,34 @@ public static class BuiltProgram
 
         // the process's entry point: nothing awaits it, and the main thread has no context a continuation would wait for.
 #pragma warning disable VSTHRD002
-        return RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None).GetAwaiter().GetResult();
+        // started by the program as its external host: it makes the calls the program makes to the outside world, and runs no program of its own.
+        if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
+        {
+            using var host = new MachineExternalHost(logFileName: null);
+            return host.RunAsync(args).GetAwaiter().GetResult();
+        }
+
+        if (ExecutableOf(program) is { } executable)
+        {
+            MachineExternal.Executable = executable;
+        }
+
+        try
+        {
+            return RunAsync(program, args, global::System.Console.Out, global::System.Console.Error, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            MachineExternal.Shutdown();
+        }
 #pragma warning restore VSTHRD002
+    }
+
+    // the program's executable beside its assembly, which is its external host too; none when the program was built without one (and is run with dotnet).
+    private static string? ExecutableOf(Assembly program)
+    {
+        var executable = Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? $"{program.GetName().Name}.exe" : program.GetName().Name!);
+        return File.Exists(executable) ? executable : null;
     }
 
     // keys: the console's, unless a test types them; the dialogs are then drawn on output.
