@@ -57,7 +57,13 @@ public sealed class ExtractMethodServiceTests
         "    Dim t As Long\r\n" +
         "    t = v * 2\r\n" +
         "    Debug.Print t\r\n" +
-        "End Property\r\n";
+        "End Property\r\n" +
+        "Public Sub Jumps()\r\n" +
+        "    GoTo Done\r\n" +
+        "    Debug.Print 1\r\n" +
+        "Done:\r\n" +
+        "    Debug.Print 2\r\n" +
+        "End Sub\r\n";
 
     private const int Version = 3;
 
@@ -306,11 +312,39 @@ public sealed class ExtractMethodServiceTests
         Assert.IsNull(await ExtractMethodActionAsync(new Range(startLine, startCharacter, endLine, endCharacter)));
     }
 
-    // the extraction a client is offered for a range, among the code actions of the document.
-    private async Task<CodeAction?> ExtractMethodActionAsync(Range range)
+    // the GoTo of line 23 lands on the label of line 25, inside the lines 24 to 26.
+    [TestMethod]
+    public async Task ARefusedExtraction_IsOfferedDisabled_WithWhy_ToAClientThatShowsSo()
+    {
+        var refusal = (await Sut().PrepareAsync(Document, Lines(24, 26), CancellationToken.None)).Notices.First(notice => notice.Kind is RefactorNoticeKind.Refusal);
+
+        var action = await ExtractMethodActionAsync(new Range(24, 0, 27, 0), showsDisabled: true);
+
+        Assert.IsNotNull(action);
+        Assert.AreEqual(refusal.Message, action.Disabled?.Reason);
+        Assert.IsNull(action.Edit);
+        Assert.IsNull(action.Command);
+        Assert.IsNull(action.Data);
+    }
+
+    [TestMethod]
+    public async Task ARefusedExtraction_IsNotOffered_ToAClientThatDoesNotShowDisabledActions()
+        => Assert.IsNull(await ExtractMethodActionAsync(new Range(24, 0, 27, 0)));
+
+    [TestMethod]
+    public async Task ASelectionOfNoProcedure_IsNotOfferedDisabled()
+        => Assert.IsNull(await ExtractMethodActionAsync(new Range(0, 0, 1, 0), showsDisabled: true));
+
+    // the extraction a client is offered for a range, among the code actions of the document; showsDisabled, when it shows an action it cannot take.
+    private async Task<CodeAction?> ExtractMethodActionAsync(Range range, bool showsDisabled = false)
     {
         var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), _capabilities,
             new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+        ((OmniSharp.Extensions.LanguageServer.Protocol.IRegistration<CodeActionRegistrationOptions, OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability>)handler)
+            .GetRegistrationOptions(new(), new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+            {
+                TextDocument = new() { CodeAction = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability { DisabledSupport = showsDisabled } },
+            });
         var actions = await handler.Handle(new CodeActionParams
         {
             TextDocument = new TextDocumentIdentifier(DocumentUri.From(Document)),
