@@ -220,6 +220,9 @@ public enum VBCompileErrorId
     UserDefinedTypeMayNotBePassedByVal = 9381,
     // MS-VBAL §5.5.1.2 Let-coercion.
     UserDefinedTypeNotCoercibleToVariant = 9382,
+    // MS-VBAL §3.3.5.3 Special Identifier Forms, §5.6.10 Simple Name Expressions: a name in brackets that nothing declares is an expression for a host
+    // application to evaluate, and RD-VBA has none.
+    NoHostApplicationToEvaluateExpression = 9383,
 
 
     /***********************************************************************************************

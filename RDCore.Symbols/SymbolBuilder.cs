@@ -778,6 +778,10 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     /// (<c>Debug.Print</c>'s <c>Print</c>) is resolved against the owner's type, not against the
     /// enclosing scope — only the owner is a simple name in this sense.
     /// <para>
+    /// A name in brackets (<c>[A1]</c>, <strong>MS-VBAL §3.3.5.3</strong>) is not among them either: one that nothing declares is an expression for
+    /// the host application to evaluate, never a variable.
+    /// </para>
+    /// <para>
     /// Like <c>DescendantsAndSelf</c>, this grows with the AST: a new node type that carries an
     /// expression the walker does not know to skip would have its names treated as value references.
     /// </para>
@@ -786,6 +790,9 @@ public sealed class SymbolBuilder(Uri workspaceRoot, Uri moduleUri, ScopeKind me
     {
         switch (node)
         {
+            case SimpleNameExpressionNode { IsBracketed: true }:
+                yield break;
+
             case SimpleNameExpressionNode simpleName:
                 yield return simpleName;
                 yield break;
