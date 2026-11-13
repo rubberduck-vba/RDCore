@@ -2431,10 +2431,11 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
 
             // an object is Set-assigned to the Variant it is collected into, as it is to a Variant parameter of its own (MS-VBAL §5.3.1.11): the element holds the
-            // object, and nothing asks it for a default value it may not have - which is what CallByName(obj, "Prop", VbSet, other) passes.
-            if (SetCoercion is { } setCoercion && argumentResult.Value.Result is VBObjectValue)
+            // object, and nothing asks it for a default value it may not have - which is what CallByName(obj, "Prop", VbSet, other) passes. So is an object a
+            // Variant holds, which is what a late-bound member returns: Excel's Range(Cells(1, 1), Cells(2, 2)) is given two Ranges, not their values.
+            if (SetCoercion is { } setCoercion && HeldObject(argumentResult.Value.Result) is { } collectedObject)
             {
-                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, argumentResult.Value.Result!, VBVariantType.TypeInfo);
+                var setResult = setCoercion.EvaluateSetCoercion(session, argumentNode, collectedObject, VBVariantType.TypeInfo);
                 if (!setResult.IsSuccess)
                 {
                     return new ParamArrayCollectResult(null, RuntimeSemanticsEvaluationResult.Error(setResult.ErrorInfo!));
