@@ -381,4 +381,28 @@
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
   </data>
+  <data name="ImplicitDefaultMemberAccess_Message" xml:space="preserve">
+    <value>An object of class &apos;{0}&apos; is used as a value: its default member gives the value, and the code does not name it.</value>
+  </data>
+  <data name="ImplicitDefaultMemberAccess_Assigned_Message" xml:space="preserve">
+    <value>The value is assigned to &apos;{0}&apos;, the default member of class &apos;{1}&apos;, and the code does not name it.</value>
+  </data>
+  <data name="ImplicitUnboundDefaultMemberAccess_Message" xml:space="preserve">
+    <value>An Object is used as a value, or assigned one without Set: which default member gives or takes the value is known only at run time, and an object with none raises run-time error 438.</value>
+  </data>
+  <data name="IndexedDefaultMemberAccess_Message" xml:space="preserve">
+    <value>The arguments go to &apos;{0}&apos;, the default member of the object, and the code does not name it.</value>
+  </data>
+  <data name="IndexedUnboundDefaultMemberAccess_Message" xml:space="preserve">
+    <value>The arguments go to the default member of an Object, known only at run time: an object with none raises run-time error 438.</value>
+  </data>
+  <data name="BangNotation_Message" xml:space="preserve">
+    <value>&apos;!&apos; gives the name as a String to &apos;{0}&apos;, the default member of the object.</value>
+  </data>
+  <data name="UnboundBangNotation_Message" xml:space="preserve">
+    <value>&apos;!&apos; gives the name as a String to the default member of an Object, known only at run time: an object with none raises run-time error 438.</value>
+  </data>
+  <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
+    <value>An object is assigned to an object without Set: the value of one default member is assigned to the other&apos;s. Write Set to assign the object itself.</value>
+  </data>
 </root>

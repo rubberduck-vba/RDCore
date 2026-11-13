@@ -851,5 +851,77 @@ namespace RDCore.Diagnostics.Model {
             }
         }
 
+        /// <summary>
+        ///   Looks up a localized string similar to An object of class &apos;{0}&apos; is used as a value: its default member gives the value, and the code does not name it..
+        /// </summary>
+        public static string ImplicitDefaultMemberAccess_Message {
+            get {
+                return ResourceManager.GetString("ImplicitDefaultMemberAccess_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The value is assigned to &apos;{0}&apos;, the default member of class &apos;{1}&apos;, and the code does not name it..
+        /// </summary>
+        public static string ImplicitDefaultMemberAccess_Assigned_Message {
+            get {
+                return ResourceManager.GetString("ImplicitDefaultMemberAccess_Assigned_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to An Object is used as a value, or assigned one without Set: which default member gives or takes the value is known only at run time, and an object with none raises run-time error 438..
+        /// </summary>
+        public static string ImplicitUnboundDefaultMemberAccess_Message {
+            get {
+                return ResourceManager.GetString("ImplicitUnboundDefaultMemberAccess_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The arguments go to &apos;{0}&apos;, the default member of the object, and the code does not name it..
+        /// </summary>
+        public static string IndexedDefaultMemberAccess_Message {
+            get {
+                return ResourceManager.GetString("IndexedDefaultMemberAccess_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The arguments go to the default member of an Object, known only at run time: an object with none raises run-time error 438..
+        /// </summary>
+        public static string IndexedUnboundDefaultMemberAccess_Message {
+            get {
+                return ResourceManager.GetString("IndexedUnboundDefaultMemberAccess_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;!&apos; gives the name as a String to &apos;{0}&apos;, the default member of the object..
+        /// </summary>
+        public static string BangNotation_Message {
+            get {
+                return ResourceManager.GetString("BangNotation_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;!&apos; gives the name as a String to the default member of an Object, known only at run time: an object with none raises run-time error 438..
+        /// </summary>
+        public static string UnboundBangNotation_Message {
+            get {
+                return ResourceManager.GetString("UnboundBangNotation_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to An object is assigned to an object without Set: the value of one default member is assigned to the other&apos;s. Write Set to assign the object itself..
+        /// </summary>
+        public static string SuspiciousLetAssignment_Message {
+            get {
+                return ResourceManager.GetString("SuspiciousLetAssignment_Message", resourceCulture);
+            }
+        }
+
     }
 }

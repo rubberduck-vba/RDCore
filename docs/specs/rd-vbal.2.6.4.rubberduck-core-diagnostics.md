@@ -41,6 +41,13 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00112`](../diagnostics/rdc00112.md)|Implicit narrowing conversion|Warning|`ProcedureSemanticModel.Runtime`: the `ConversionFact`s the language core states about the code of the procedure|
 |[`RDC00114`](../diagnostics/rdc00114.md)|Implicit array declaration|Information|`ModuleSemanticModel.Declarations`: a local whose `DeclarationFact.DeclaredBy` is `ReDim`|
 |[`RDC00115`](../diagnostics/rdc00115.md)|Implicit result local|Information|the syntax tree, and `ProcedureSemanticModel.Expressions`: a name of the procedure, read in its body, bound to it and not a call of it|
+|[`RDC00119`](../diagnostics/rdc00119.md)|Implicit default member access|Information|`ProcedureSemanticModel.Runtime`: a `ConversionFact` with `ConversionSemanticFlags.ObjectOperand`, at its operand of a class type; and the syntax tree's `Let` assignments whose target has a `MemberAccessOperationSemanticFlags.DefaultMember` access|
+|[`RDC00120`](../diagnostics/rdc00120.md)|Implicit unbound default member access|Warning|the same facts as `RDC00119`, at an operand or a `Let` target declared `Object`|
+|[`RDC00121`](../diagnostics/rdc00121.md)|Indexed default member access|Information|`ProcedureSemanticModel.Runtime`: the member accesses with `MemberAccessOperationSemanticFlags.Implicit` and `DefaultMember`, and neither `DictionaryAccess` nor `LateBound`|
+|[`RDC00122`](../diagnostics/rdc00122.md)|Indexed unbound default member access|Warning|the same, with `LateBound` and not `DictionaryAccess`|
+|[`RDC00123`](../diagnostics/rdc00123.md)|Bang notation|Information|the same, with `DictionaryAccess` and not `LateBound`|
+|[`RDC00124`](../diagnostics/rdc00124.md)|Unbound bang notation|Warning|the same, with `DictionaryAccess` and `LateBound`|
+|[`RDC00125`](../diagnostics/rdc00125.md)|Suspicious Let assignment|Warning|the syntax tree's `Let` assignments whose target is an object (a `DefaultMember` access, or declared `Object`) and whose value is the operand of a `ConversionSemanticFlags.ObjectOperand` conversion|
 |[`RDC00201`](../diagnostics/rdc00201.md)|Integer data type declaration|Information|the syntax tree: `AsTypeExpressionNode`|
 |[`RDC00202`](../diagnostics/rdc00202.md)|Module-scope Dim declaration|Information|the syntax tree: a module-level variable with no access modifier|
 |[`RDC00203`](../diagnostics/rdc00203.md)|Multiline parameter declaration|Information|the syntax tree: the range of a `ParameterDeclarationNode`|

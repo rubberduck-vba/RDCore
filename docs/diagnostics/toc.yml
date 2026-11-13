@@ -408,6 +408,20 @@
   href: rdc00114.md
 - name: "RDC00115: Implicit result local"
   href: rdc00115.md
+- name: "RDC00119: Implicit default member access"
+  href: rdc00119.md
+- name: "RDC00120: Implicit unbound default member access"
+  href: rdc00120.md
+- name: "RDC00121: Indexed default member access"
+  href: rdc00121.md
+- name: "RDC00122: Indexed unbound default member access"
+  href: rdc00122.md
+- name: "RDC00123: Bang notation"
+  href: rdc00123.md
+- name: "RDC00124: Unbound bang notation"
+  href: rdc00124.md
+- name: "RDC00125: Suspicious Let assignment"
+  href: rdc00125.md
 - name: "RDC00201: Integer data type declaration"
   href: rdc00201.md
 - name: "RDC00202: Module-scope Dim declaration"

@@ -381,4 +381,28 @@
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
   </data>
+  <data name="ImplicitDefaultMemberAccess_Message" xml:space="preserve">
+    <value>Un objet de la classe &apos;{0}&apos; est utilisé comme valeur : c&apos;est son membre par défaut qui la donne, et le code ne le nomme pas.</value>
+  </data>
+  <data name="ImplicitDefaultMemberAccess_Assigned_Message" xml:space="preserve">
+    <value>La valeur est assignée à &apos;{0}&apos;, le membre par défaut de la classe &apos;{1}&apos;, et le code ne le nomme pas.</value>
+  </data>
+  <data name="ImplicitUnboundDefaultMemberAccess_Message" xml:space="preserve">
+    <value>Un Object est utilisé comme valeur, ou reçoit une valeur sans Set : le membre par défaut qui la donne ou la reçoit n&apos;est connu qu&apos;à l&apos;exécution, et un objet qui n&apos;en a pas lève l&apos;erreur d&apos;exécution 438.</value>
+  </data>
+  <data name="IndexedDefaultMemberAccess_Message" xml:space="preserve">
+    <value>Les arguments vont à &apos;{0}&apos;, le membre par défaut de l&apos;objet, et le code ne le nomme pas.</value>
+  </data>
+  <data name="IndexedUnboundDefaultMemberAccess_Message" xml:space="preserve">
+    <value>Les arguments vont au membre par défaut d&apos;un Object, connu seulement à l&apos;exécution : un objet qui n&apos;en a pas lève l&apos;erreur d&apos;exécution 438.</value>
+  </data>
+  <data name="BangNotation_Message" xml:space="preserve">
+    <value>Le &apos;!&apos; donne le nom, en String, à &apos;{0}&apos;, le membre par défaut de l&apos;objet.</value>
+  </data>
+  <data name="UnboundBangNotation_Message" xml:space="preserve">
+    <value>Le &apos;!&apos; donne le nom, en String, au membre par défaut d&apos;un Object, connu seulement à l&apos;exécution : un objet qui n&apos;en a pas lève l&apos;erreur d&apos;exécution 438.</value>
+  </data>
+  <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
+    <value>Un objet est assigné à un objet sans Set : la valeur d&apos;un membre par défaut est assignée à celui de l&apos;autre. Écrivez Set pour assigner l&apos;objet lui-même.</value>
+  </data>
 </root>
