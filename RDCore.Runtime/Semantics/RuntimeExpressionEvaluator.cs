@@ -1888,6 +1888,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     private RuntimeSemanticsEvaluationResult InvokeProcedureFrom(IRuntimeSession session, RuntimeEvaluationContext context, VBTypeMemberSymbol procedure,
         ImmutableArray<ExpressionNode> argumentNodes, IRuntimeValue? receiver, ImmutableArray<BoundArgument>? boundArguments, ExpressionNode? reachedThrough)
     {
+        // a member of a late-bound object called with named arguments is told their names, as MS-VBA tells the server through IDispatch.
+        if (argumentNodes.Any(argument => argument is NamedArgumentNode) && Execution.External.Automation.LateBinding.IsLateBoundMember(procedure))
+        {
+            procedure = Execution.External.Automation.LateBinding.WithArgumentNames(
+                procedure, [.. argumentNodes.OfType<NamedArgumentNode>().Select(named => named.Name)]);
+            boundArguments = null;
+        }
+
         var allParameters = RuntimeProcedureInvoker.GetParameters(procedure);
 
         // MS-VBAL §5.6.10: a member of the class whose code is running, named bare - `Helper`, `Twice(3)`, a Property Get read by its name - is a member

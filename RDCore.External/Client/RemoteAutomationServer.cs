@@ -278,6 +278,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
 
     /// <inheritdoc/>
     public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
+        => Invoke(target, member, invocation, arguments, byReference, [], culture);
+
+    /// <inheritdoc/>
+    public object? Invoke(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
     {
         var remote = Live(target);
         var incarnation = remote.Incarnation;
@@ -293,6 +298,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
             Invocation = invocation,
             Arguments = [.. arguments.Select(argument => ExternalValues.ToWire(argument, value => HandleIn(incarnation, value)))],
             ByReference = byReference,
+            ArgumentNames = [.. names],
             Culture = culture.Name,
             HandlingEvent = _handlingEvent,
         });

@@ -245,7 +245,7 @@ public sealed class ExternalAutomationService(IAutomationServer platform, Forms.
     {
         var target = _handles.ObjectOf(request.Target);
         var arguments = request.Arguments.Select(argument => ExternalValues.FromWire(argument, _handles.ObjectOf, SessionObjectOf)).ToArray();
-        var returned = platform.Invoke(target, request.Member, request.Invocation, arguments, request.ByReference, CultureInfo.GetCultureInfo(request.Culture));
+        var returned = platform.Invoke(target, request.Member, request.Invocation, arguments, request.ByReference, request.ArgumentNames, CultureInfo.GetCultureInfo(request.Culture));
 
         // what the server wrote to an argument passed by reference is all the caller reads of the arguments.
         return new AutomationInvokeResult

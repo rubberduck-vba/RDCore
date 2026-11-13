@@ -59,7 +59,17 @@ public static class ArgumentMapping
             arguments = [];
         }
 
-        var paramArrayIndex = parameters.Length > 0 && parameters[^1] is ParamArrayParameterSymbol ? parameters.Length - 1 : -1;
+        // a ParamArray is the last parameter source can declare. A member of a late-bound object called with named arguments has a parameter of each name
+        // after it, which only a name reaches.
+        var paramArrayIndex = -1;
+        for (var index = parameters.Length - 1; index >= 0; index--)
+        {
+            if (parameters[index] is ParamArrayParameterSymbol)
+            {
+                paramArrayIndex = index;
+                break;
+            }
+        }
         var mapped = new ExpressionNode?[parameters.Length];
         var paramArrayArguments = ImmutableArray.CreateBuilder<ExpressionNode>();
         var positionalIndex = 0;
