@@ -891,7 +891,7 @@ internal sealed partial class ProcedureAnalysis
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundInstance { Slot: { } me }, IsLateBound: false }
             && MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot)
         {
-            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns);
+            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns, returnsObject);
         }
 
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: null, IsLateBound: false }
@@ -939,8 +939,10 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        // a member called with no parentheses is given no argument; one written with them is given the arguments bound for it.
-        var arguments = call.BoundArguments ?? (call.Arguments is null ? [] : default);
+        // a member called with no parentheses is given no argument, each Optional parameter left out as the interpreter binds it (MS-VBAL §5.3.1.11); one
+        // written with them is given the arguments bound for it.
+        var arguments = call.BoundArguments
+            ?? (call.Arguments is null ? ArgumentMapping.Bind([.. parameters.Skip(1)], [], static _ => null, static _ => null) ?? default : default);
         if (arguments.IsDefault || arguments.Length != parameters.Length - 1)
         {
             return null;
