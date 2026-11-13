@@ -159,6 +159,9 @@
   <data name="VBCompileError_ConstDirectiveExpression_Verbose" xml:space="preserve">
     <value>Attendu : expression. La valeur d&apos;une directive #Const est une expression constante de littéraux, de constantes de compilation conditionnelle et d&apos;opérateurs.</value>
   </data>
+  <data name="VBCompileError_ReservedDeclarationName_Verbose" xml:space="preserve">
+    <value>Attendu : identificateur. &apos;{0}&apos; est un mot réservé et ne peut pas nommer une déclaration.</value>
+  </data>
   <data name="VBCompileError_ReservedParameterName_Verbose" xml:space="preserve">
     <value>Attendu : identificateur. &apos;{0}&apos; est un mot réservé et ne peut pas nommer un paramètre.</value>
   </data>

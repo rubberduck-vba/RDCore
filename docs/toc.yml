@@ -10,6 +10,8 @@
   href: hexide.md
 - name: Edit and Continue
   href: edit-and-continue.md
+- name: Performance
+  href: performance.md
 - name: Diagnostics
   href: diagnostics/index.md
 - name: Contributors

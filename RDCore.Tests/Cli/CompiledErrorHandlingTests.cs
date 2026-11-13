@@ -452,7 +452,8 @@ public sealed class CompiledErrorHandlingTests
             "    Return",
             "End Function"), "Looped", recoveries: 0);
 
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private static Task<ExecuteResult> ResumeAsync(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)

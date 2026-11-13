@@ -55,6 +55,10 @@ Instruction-list lowering is told the language the body is written in (`Instruct
 
 A number or a date in an output list is let-coerced to `String`, as **MS-VBAL §5.4.5.8.1** says, in the regional
 settings of the session's environment ([**RD-VBAL §5.5.1.2.4** Let-coercion to and from String](rd-vbal.5.5.1.2.runtime-semantics.md#55124-let-coercion-to-and-from-string)).
+A number is followed by a space, and preceded by one where its sign would be: a negative number's sign takes that place, so `1` is printed `" 1 "`
+and `-1` is printed `"-1 "`, as in MS-VBA (recorded in Excel). The Runtime Semantics of **MS-VBAL §5.4.5.8** insert a space before every number,
+so the specification prints `-1` as `" -1 "`.
+
 Every form of `Print` is a text channel: a `String` is written as its whole characters, and a trailing byte is not
 written ([**RD-VBAL §2.4.1.2** VBStringType](rd-vbal.2.4.1.intrinsic-types.md#2412-vbstringtype)).
 

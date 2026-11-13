@@ -248,12 +248,6 @@ internal sealed partial class ProcedureEmitter
                 marked = step.Offset;
             }
 
-            // a jump out of a For Each lands here: what the block held is let go of before the instruction, as the interpreter does.
-            if (_analysis.BlockExits.Contains(step.Offset))
-            {
-                EmitLeaveBlocks(() => _il.Emit(OpCodes.Ldc_I4, step.Offset));
-            }
-
             // every instruction boundary is a safepoint: under the random walk-back the activation may be handed to the interpreter at any of them, and not only
             // where it polls for a program to stop - which a step that polls already does, before it.
             if (CompiledExecution.WalksBackAtRandom && step is not (LoopBackStep or ForNextStep or VariantForNextStep or ForEachNextStep) && !(step is JumpStep jump && jump.Target <= jump.Offset))
@@ -403,6 +397,14 @@ internal sealed partial class ProcedureEmitter
                     EmitPoll(jump.Offset);
                 }
 
+                if (_analysis.LeavesForEach(jump.Offset, jump.Target))
+                {
+                    _il.Emit(OpCodes.Ldarg_0);
+                    _il.Emit(OpCodes.Ldc_I4, jump.Offset);
+                    _il.Emit(OpCodes.Ldc_I4, jump.Target);
+                    _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.LeaveLoops))!);
+                }
+
                 _il.Emit(OpCodes.Br, _instructions[jump.Target]);
                 break;
 
@@ -458,13 +460,6 @@ internal sealed partial class ProcedureEmitter
                 _il.Emit(OpCodes.Ldloca, _pc);
                 _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.TryReturnFromGoSub))!);
                 _il.Emit(OpCodes.Brfalse, RecoverAt(returnStep.Offset));
-
-                // a Return out of a For Each lets go of what it held, as a jump out of it does.
-                if (_analysis.HasForEach)
-                {
-                    EmitLeaveBlocks(() => _il.Emit(OpCodes.Ldloc, _pc));
-                }
-
                 _il.Emit(OpCodes.Br, _dispatch);
                 break;
 
@@ -709,13 +704,6 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Ldloc, left);
         _il.Emit(OpCodes.Ldloc, right);
         _il.Emit(OpCodes.Call, Payloads.GetMethod(nameof(PayloadOperations.Compare), [typeof(ComparisonOperator), ClrTypeOf(kind), ClrTypeOf(kind)])!);
-    }
-
-    private void EmitLeaveBlocks(Action loadPc)
-    {
-        _il.Emit(OpCodes.Ldarg_0);
-        loadPc();
-        _il.Emit(OpCodes.Call, Activation.GetMethod(nameof(CompiledActivation.LeaveBlocks))!);
     }
 
     // CaseMatchEvaluator.TryMatchUnboxed: the first clause that matches falls through into the Case's block - the two comparisons of a To range both made -

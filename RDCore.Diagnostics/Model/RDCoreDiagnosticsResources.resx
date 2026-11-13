@@ -237,6 +237,18 @@
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' hides '{1}': in this procedure, the name means '{0}', and '{1}' everywhere else. Give '{0}' a name of its own.</value>
   </data>
+  <data name="ProcedureCanBeWrittenAsFunction_Message" xml:space="preserve">
+    <value>Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it.</value>
+  </data>
+  <data name="SelfAssignedDeclaration_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is declared As New: its object is created when it is first used, and again when it is used after it is set to Nothing.</value>
+  </data>
+  <data name="EncapsulatePublicField_Message" xml:space="preserve">
+    <value>Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value.</value>
+  </data>
+  <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>
@@ -378,13 +390,82 @@
   <data name="ForEachControlEmptiedAfterLoop_Nothing_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is Nothing here: MS-VBA sets the control variable of a For Each loop that runs out to Nothing, where MS-VBAL §5.4.2.4 says it keeps the last element.</value>
   </data>
+  <data name="IIfSideEffect_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one.</value>
+  </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
+  </data>
+  <data name="VariableNotUsed_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is never used.</value>
+  </data>
+  <data name="VariableNotUsed_Assigned_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is assigned and never read: what is assigned to it is never used.</value>
+  </data>
+  <data name="VariableNotAssigned_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is read and never assigned: it always has the default value of its type.</value>
+  </data>
+  <data name="ParameterNotUsed_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is never used.</value>
+  </data>
+  <data name="AssignedByValParameter_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change.</value>
+  </data>
+  <data name="ConstantNotUsed_Message" xml:space="preserve">
+    <value>Constant &apos;{0}&apos; is never used.</value>
+  </data>
+  <data name="LineLabelNotUsed_Message" xml:space="preserve">
+    <value>Nothing jumps to line label &apos;{0}&apos;.</value>
+  </data>
+  <data name="WriteOnlyProperty_Message" xml:space="preserve">
+    <value>Property &apos;{0}&apos; has no Property Get: it can be assigned and never read.</value>
   </data>
   <data name="NegativeLineNumber_Message" xml:space="preserve">
     <value>A line number below 0: MS-VBAL has no such line number, and MS-VBA compiles it.</value>
   </data>
   <data name="NonBreakingSpaceInName_Message" xml:space="preserve">
     <value>&apos;{0}&apos; has a non-breaking space in its name: it looks like an ordinary space, and the name typed with an ordinary space is another name.</value>
+  </data>
+  <data name="ImplicitDefaultMemberAccess_Message" xml:space="preserve">
+    <value>An object of class &apos;{0}&apos; is used as a value: its default member gives the value, and the code does not name it.</value>
+  </data>
+  <data name="ImplicitDefaultMemberAccess_Assigned_Message" xml:space="preserve">
+    <value>The value is assigned to &apos;{0}&apos;, the default member of class &apos;{1}&apos;, and the code does not name it.</value>
+  </data>
+  <data name="ImplicitUnboundDefaultMemberAccess_Message" xml:space="preserve">
+    <value>An Object is used as a value, or assigned one without Set: which default member gives or takes the value is known only at run time, and an object with none raises run-time error 438.</value>
+  </data>
+  <data name="IndexedDefaultMemberAccess_Message" xml:space="preserve">
+    <value>The arguments go to &apos;{0}&apos;, the default member of the object, and the code does not name it.</value>
+  </data>
+  <data name="IndexedUnboundDefaultMemberAccess_Message" xml:space="preserve">
+    <value>The arguments go to the default member of an Object, known only at run time: an object with none raises run-time error 438.</value>
+  </data>
+  <data name="BangNotation_Message" xml:space="preserve">
+    <value>&apos;!&apos; gives the name as a String to &apos;{0}&apos;, the default member of the object.</value>
+  </data>
+  <data name="UnboundBangNotation_Message" xml:space="preserve">
+    <value>&apos;!&apos; gives the name as a String to the default member of an Object, known only at run time: an object with none raises run-time error 438.</value>
+  </data>
+  <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
+    <value>An object is assigned to an object without Set: the value of one default member is assigned to the other&apos;s. Write Set to assign the object itself.</value>
+  </data>
+  <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
+    <value>On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on.</value>
+  </data>
+  <data name="UnrestoredOnErrorResumeNext_Message" xml:space="preserve">
+    <value>No On Error GoTo 0 and no On Error GoTo to a label follows this On Error Resume Next: every error in the rest of the procedure is ignored.</value>
+  </data>
+  <data name="ImplicitConstantType_Message" xml:space="preserve">
+    <value>Constant &apos;{0}&apos; states no type: an As clause says which one it has.</value>
+  </data>
+  <data name="UnderscoreInPublicClassMember_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; has an underscore in its name: no class can implement this one.</value>
+  </data>
+  <data name="ReservedNameAcceptedByMSVBA_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is a reserved name, which MS-VBAL §3.3.5.2 says no Enum member can have. MS-VBA compiles it, and so does RD-VBA. Give the member another name to keep to the specification.</value>
+  </data>
+  <data name="NameRefusedByMSVBA_Message" xml:space="preserve">
+    <value>MS-VBA refuses &apos;{0}&apos; as the name of this declaration, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not compile the module. Give it another name to keep the module compatible with MS-VBA.</value>
   </data>
 </root>

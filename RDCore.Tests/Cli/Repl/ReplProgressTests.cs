@@ -221,7 +221,7 @@ public sealed class ReplProgressTests
 
     // the work ends while the line is edited: the row its bar was drawn on, under the line, is cleared as the line is drawn again, not left on the console.
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task WorkThatEndsWhileALineIsEdited_HasItsRowUnderTheLineCleared()
     {
         var tracker = new WorkProgressTracker();

@@ -684,7 +684,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             var count = parameters.ArgumentCount;
             var first = parameters.Arguments;
             var locations = Enumerable.Range(0, count).Select(index => first + ((count - 1 - index) * size)).ToArray();
-            var arguments = locations.Select(Marshal.GetObjectForNativeVariant).ToArray();
+            var arguments = locations.Select(ArgumentAt).ToArray();
             var sent = (object?[])arguments.Clone();
 
             var outer = _handlingEvent;
@@ -717,6 +717,29 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         }
 
         public static Exception? LastFailure { get; private set; }
+
+        // an argument as the server passed it. The runtime's own conversion makes VT_ERROR a number, the same as a VT_I4, so an Error is read here as what it is:
+        // its HRESULT, whole. DISP_E_PARAMNOTFOUND is how a server leaves an argument out, and is an argument left out.
+        internal static object? ArgumentAt(IntPtr location)
+        {
+            const ushort Error = 10;
+            const ushort Variant = 12;
+            const int ParameterNotFound = unchecked((int)0x80020004);
+
+            var kind = (ushort)Marshal.ReadInt16(location);
+            if (kind == (Variant | ByReference))
+            {
+                return ArgumentAt(Marshal.ReadIntPtr(location, 8));
+            }
+
+            if ((kind & ~ByReference) != Error)
+            {
+                return Marshal.GetObjectForNativeVariant(location);
+            }
+
+            var code = (kind & ByReference) != 0 ? Marshal.ReadInt32(Marshal.ReadIntPtr(location, 8)) : Marshal.ReadInt32(location, 8);
+            return code == ParameterNotFound ? Missing.Value : new ErrorWrapper(code);
+        }
 
         internal static void WriteBack(IntPtr location, object? value, ushort byReference)
         {
@@ -879,7 +902,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
             var count = parameters.ArgumentCount;
             var first = parameters.Arguments;
             var locations = Enumerable.Range(0, count).Select(index => first + ((count - 1 - index) * size)).ToArray();
-            var arguments = locations.Select(Marshal.GetObjectForNativeVariant).ToArray();
+            var arguments = locations.Select(EventReceiver.ArgumentAt).ToArray();
             var sent = (object?[])arguments.Clone();
 
             var invocation = (flags & PropertyPutReference) != 0 ? AutomationInvocation.Set
@@ -986,7 +1009,9 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
         var flags = BindingFlags.Public | BindingFlags.Instance | invocation switch
         {
             AutomationInvocation.Get => BindingFlags.GetProperty | BindingFlags.InvokeMethod,
-            AutomationInvocation.Let => BindingFlags.SetProperty,
+            // DISPATCH_PROPERTYPUT, whatever the value: SetProperty asks for PROPERTYPUTREF when the value is an object, where a Let gives the server the
+            // object to read its default member itself (a Dictionary's Item) or to make what it will of it (a Range's Value).
+            AutomationInvocation.Let => BindingFlags.PutDispProperty,
             AutomationInvocation.Set => BindingFlags.PutRefDispProperty,
             _ => BindingFlags.InvokeMethod,
         };

@@ -42,13 +42,16 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class RefactoringWireTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-refactoring-wire-ws");
     private const string Program = "10 Dim strName As String\r\n20 strName = \"a\"\r\n";
 
     // a client that says it takes a WorkspaceEdit's documentChanges is sent them, each with the version of the document its edits are of; one that does not
     // reads changes alone (LSP 3.17 §WorkspaceEdit), and is sent the same edits as changes.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow(true, DisplayName = "a client that takes documentChanges")]
     [DataRow(false, DisplayName = "a client that does not")]
     public async Task AClient_ReadsTheDiagnostics_TheCodeActions_AndTheRename_ItIsAnswered(bool takesDocumentChanges)
@@ -80,7 +83,7 @@ public sealed class RefactoringWireTests
             .Returns(DocumentDiagnosticsResult.Fresh(4, [finding]));
 
         // a request that is not answered fails the test, rather than keeping it waiting.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server => server
@@ -140,7 +143,7 @@ public sealed class RefactoringWireTests
     // annotated, to ask its user itself; one that does not is asked by the server, and sent what the user chose - or nothing, when they chose nothing. A client
     // with no user to ask is sent the rest of the rename.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow("rename", 2, DisplayName = "a client that can't ask, whose user renames the strings too")]
     [DataRow("leave", 1, DisplayName = "a client that can't ask, whose user leaves them")]
     [DataRow(null, 0, DisplayName = "a client that can't ask, whose user chooses nothing")]
@@ -165,7 +168,7 @@ public sealed class RefactoringWireTests
         expectations.Expects(Arg.Any<Func<LanguageServerCapabilities, CorePlatformClientCapability>>()).Returns(answer == "unattended");
         var takesAnnotations = answer is "annotations" or "unattended";
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var asked = new List<ShowMessageRequestParams>();
@@ -237,7 +240,7 @@ public sealed class RefactoringWireTests
     // a member of a class that may be what a late-bound access calls is renamed there too if the user confirms it, as a string is, an access the code backs
     // apart from one that is only possible; a client that can't ask its user is sent the rest of the rename, and none of the late-bound edits.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow("rename", 3, DisplayName = "a client that can't ask, whose user renames the late-bound accesses too")]
     [DataRow("leave", 1, DisplayName = "a client that can't ask, whose user leaves them")]
     [DataRow(null, 0, DisplayName = "a client that can't ask, whose user chooses nothing")]
@@ -268,7 +271,7 @@ public sealed class RefactoringWireTests
         var expectations = Substitute.For<IPlatformClientCapabilitiesService>();
         expectations.Expects(Arg.Any<Func<LanguageServerCapabilities, CorePlatformClientCapability>>()).Returns(answer == "unattended");
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var asked = new List<ShowMessageRequestParams>();

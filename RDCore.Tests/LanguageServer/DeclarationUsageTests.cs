@@ -98,11 +98,20 @@ public sealed class DeclarationUsageTests
     [DataRow("Abs")]
     [DataRow("Int")]
     [DataRow("Sgn")]
-    public void AVariablePassedToAFunctionOfTheLibrary_IsPassedAsAnArgument(string function)
+    public void AVariablePassedToAByValParameterOfTheLibrary_IsRead(string function)
     {
         var facts = Facts("Public Sub Run()", "Dim x As Long", "x = 5", $"Debug.Print {function}(x)", "End Sub");
 
-        Assert.AreEqual(new DeclarationReferences(0, 1, 1), References(facts, "x"));
+        // MS-VBAL §5.3.1.11: the function takes its argument ByVal, which the call cannot assign.
+        Assert.AreEqual(new DeclarationReferences(1, 1, 0), References(facts, "x"));
+    }
+
+    [TestMethod]
+    public void AVariablePassedToAByValParameter_IsRead()
+    {
+        var facts = Facts("Private Sub Work(ByVal n As Long)", "End Sub", "Public Sub Run()", "Dim local As Long", "Work local", "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(1, 0, 0), References(facts, "local"));
     }
 
     [TestMethod]
@@ -174,9 +183,36 @@ public sealed class DeclarationUsageTests
     }
 
     [TestMethod]
-    public void AConstant_HasNoCount_ForItIsAlsoReferredToByDeclarations()
+    public void AConstantOfTheModule_HasNoCount_ForItIsAlsoReferredToByTheModulesDeclarations()
         // the bounds of an array, and the value of another constant, are expressions of declarations: not evaluated as those of a procedure are.
         => Assert.IsNull(Fact(Facts("Private Const Size As Long = 3", "Public Sub Run()", "Dim a(1 To Size) As Long", "End Sub"), "Size").References);
+
+    // a constant of a procedure is read by the procedure alone: its statements, the value of another of its constants, the bounds of its arrays.
+    [TestMethod]
+    [DataRow("Unused", 0, DisplayName = "read by nothing")]
+    [DataRow("Read", 1, DisplayName = "read by a statement")]
+    [DataRow("Base", 1, DisplayName = "read by the value of another constant")]
+    [DataRow("Derived", 1, DisplayName = "read by the bounds of an array")]
+    public void AConstantOfAProcedure_HasItsReadsCounted(string name, int reads)
+    {
+        var facts = Facts(
+            "Option Explicit",
+            "Public Sub Run()",
+            "Const Unused As Long = 1",
+            "Const Read As Long = 2",
+            "Debug.Print Read",
+            "Const Base As Long = 3",
+            "Const Derived As Long = Base + 1",
+            "Dim items(Derived) As Long",
+            "Debug.Print items(0)",
+            "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(reads, 0, 0), References(facts, name));
+    }
+
+    [TestMethod]
+    public void AConstantOfAProcedureWithAnError_HasNoCount()
+        => Assert.IsNull(Fact(Facts("Option Explicit", "Public Sub Run()", "Const Size As Long = 3", "Debug.Print Undeclared + Size", "End Sub"), "Size").References);
 
     [TestMethod]
     public void AVariableInTheBoundsOfAnArray_IsNeverStatedAsNeverRead()

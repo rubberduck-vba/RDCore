@@ -25,6 +25,9 @@ namespace RDCore.Tests.Workspace.Forms;
 [SupportedOSPlatform("windows")]
 public sealed class FormHostingTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private const uint WM_CLOSE = 0x0010;
 
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL): every control a real form has is one of its classes.
@@ -171,7 +174,7 @@ public sealed class FormHostingTests
         Assert.IsFalse(running.IsCompleted, "Show waits for a modal form, as the designer's ShowModal says it is");
 
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        CollectionAssert.AreEqual(new[] { "shown, and closed" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+        CollectionAssert.AreEqual(new[] { "shown, and closed" }, await running.WaitAsync(SafetyCap));
     }
 
     [TestMethod]
@@ -282,7 +285,7 @@ public sealed class FormHostingTests
         Assert.IsTrue(PostMessage(form, 0x0201, (IntPtr)1, at));
         Assert.IsTrue(PostMessage(form, 0x0202, IntPtr.Zero, at));
 
-        CollectionAssert.AreEqual(new[] { "form clicked", "after" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+        CollectionAssert.AreEqual(new[] { "form clicked", "after" }, await running.WaitAsync(SafetyCap));
     }
 
     // oracle\s41 V01-V03: Show activates the form; showing another deactivates the first, then activates the other.
@@ -333,8 +336,42 @@ public sealed class FormHostingTests
         Assert.AreNotEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption));
 
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+        CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(SafetyCap));
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
+    }
+
+    // a class that holds the form in a WithEvents variable, assigned once the form is hosted: the close button still asks the form, which ends its Show.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the process")]
+    [DataRow(true, DisplayName = "through an external host")]
+    public async Task TheCloseButton_OfAFormAClassHoldsWithEvents_AsksTheForm(bool external)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        using var host = ExternalHosts.New();
+        var caption = $"ExampleView {Guid.NewGuid():N}";
+        string[] code =
+        [
+            "Public Event Closed()",
+            "Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)", "    Debug.Print \"QueryClose\"; CloseMode", "    RaiseEvent Closed", "End Sub",
+        ];
+        (string Name, string Source)[] classes =
+        [
+            ("Owner", ModuleWorkspace.ClassModule(
+                "Owner",
+                "Private WithEvents Held As ExampleView",
+                "Public Sub Run()", "    Set Held = ExampleView", "    Held.Show", "    Debug.Print \"shown\"", "End Sub",
+                "Private Sub Held_Closed()", "    Debug.Print \"Closed\"", "End Sub")),
+        ];
+
+        var running = ModuleWorkspace.RunAsync(
+            classes, Program($"ExampleView.Caption = \"{caption}\"", "Dim o As New Owner", "o.Run"),
+            new ModuleWorkspace.WorkspaceLibraries(["MSForms"], Shipped, Outside: external ? ExternalHosts.WorldOf(host) : world), [ExampleView(code)]);
+
+        var window = await WindowOfAsync(caption);
+        Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
+        CollectionAssert.AreEqual(new[] { "QueryClose 0", "Closed", "shown" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
     }
 
     // a control added at run time, held by a WithEvents variable, and a handler named after it - which MS-VBA does not run (oracle\s41 C02)
@@ -766,7 +803,7 @@ public sealed class FormHostingTests
         var started = DateTime.UtcNow;
         while (FindWindow("RDCore.UserForm", caption) is var window && window == IntPtr.Zero)
         {
-            if (DateTime.UtcNow - started > TimeSpan.FromSeconds(20))
+            if (DateTime.UtcNow - started > SafetyCap)
             {
                 Assert.Fail("The form was not shown in time.");
             }

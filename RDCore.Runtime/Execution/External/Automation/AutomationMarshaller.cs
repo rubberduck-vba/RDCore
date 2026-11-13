@@ -88,7 +88,7 @@ internal static class AutomationMarshaller
             case VBStringValue text:
                 return text.Value ?? string.Empty;
             case VBErrorValue error:
-                return new ErrorWrapper(error.Value);
+                return new ErrorWrapper(AutomationErrors.HResultOfError(error.Value));
             case VBObjectValue { } reference:
                 // CA1416: a wrapper of no object asks nothing of COM; it is how Nothing is given to a server, whatever the platform.
 #pragma warning disable CA1416
@@ -226,7 +226,7 @@ internal static class AutomationMarshaller
         decimal @decimal => @decimal == decimal.Round(@decimal, CurrencyScale) ? new VBCurrencyValue(@decimal) : new VBDecimalValue(@decimal),
         string text => new VBStringValue(text),
         DateTime date => new VBDateValue(date.ToOADate()),
-        ErrorWrapper error => new VBErrorValue(error.ErrorCode),
+        ErrorWrapper error => new VBErrorValue(AutomationErrors.ErrorOfHResult(error.ErrorCode)),
         Array array => FromAutomation(array, wrap),
         _ => wrap(value, VBObjectType.TypeInfo),
     };

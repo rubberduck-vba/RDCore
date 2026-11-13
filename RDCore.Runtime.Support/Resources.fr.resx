@@ -192,6 +192,9 @@
   <data name="Host_Edit_ValueThatSizesStoredData" xml:space="preserve">
     <value>une constante qui dimensionne ce que détient une variable, dont la valeur a changé</value>
   </data>
+  <data name="Host_Edit_ModuleAdded" xml:space="preserve">
+    <value>un module ajouté pendant que le programme attend, dont le programme n'a pas le code, et qui fait partie du projet une fois le programme terminé; retirez-le pour poursuivre</value>
+  </data>
   <data name="Host_Edit_ValueAnActiveProcedureRead" xml:space="preserve">
     <value>une constante déjà lue par une procédure où se trouve le programme, dont la valeur a changé, ce qui n'est pas encore appliqué à un programme en attente</value>
   </data>

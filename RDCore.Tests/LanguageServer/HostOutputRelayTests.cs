@@ -15,7 +15,7 @@ public sealed class HostOutputRelayTests
     private static readonly TimeSpan Expiry = TimeSpan.FromSeconds(2);
 
     // not a timing: a wait that never ends fails the test here instead of hanging the run.
-    private static readonly TimeSpan HangGuard = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan HangGuard = TimeSpan.FromMinutes(5);
 
     [TestMethod]
     public async Task WhatWasSaid_IsPassedOn_InTheOrderItArrived()

@@ -58,6 +58,11 @@ public sealed class ExternalValuesTests
         Assert.AreEqual(448, Assert.IsInstanceOfType<ErrorWrapper>(RoundTrip(new ErrorWrapper(448))).ErrorCode);
     }
 
+    // the HRESULT of an Error crosses whole: the facility of VBA's errors is what tells a standard error code apart from another error value.
+    [TestMethod]
+    public void AnError_KeepsItsFacility()
+        => Assert.AreEqual(unchecked((int)0x800A07D7), Assert.IsInstanceOfType<ErrorWrapper>(RoundTrip(new ErrorWrapper(unchecked((int)0x800A07D7)))).ErrorCode);
+
     [TestMethod]
     public void AnObject_CrossesAsItsHandle_AndNothingAsNoObject()
     {

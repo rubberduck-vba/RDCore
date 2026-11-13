@@ -310,8 +310,8 @@ public sealed partial class CompiledActivation : ILightActivation
 
     // the call numbered callee the activation makes at the instruction at pc, which its frame locates it at while the callee runs (CallStackFrame.EnterCall),
     // as the interpreter's does: a frame is told it now, one the activation is given later is told it then (MakeFrame). The call is not taken back when it
-    // returns: the frame says the activation is at another instruction before anything can be called on top of it again (SetPc, Return, LeaveBlocks, a
-    // hand-over to the interpreter), and a call is the frame's only at the instruction that made it.
+    // returns: the frame says the activation is at another instruction before anything can be called on top of it again (SetPc, Return, a hand-over to
+    // the interpreter), and a call is the frame's only at the instruction that made it.
     private void SetCall(int pc, int callee)
     {
         if (_frame is { } frame)
@@ -1458,28 +1458,7 @@ public sealed partial class CompiledActivation : ILightActivation
 
         _body.CountRecovered();
         frame.RunsCompiled = true;
-        LeaveBlocks(frame.Pc);
         return frame.Pc;
-    }
-
-    /// <summary>
-    /// Lets go of what a block the activation is no longer in held at <paramref name="pc"/> - a <c>For Each</c>'s enumerator, or the array it reads - as the
-    /// interpreter does before each instruction it runs (<c>ProcedureExecutor.RunInstructions</c>): after a step, and where a jump of compiled code out of
-    /// a <c>For Each</c> lands.
-    /// </summary>
-    public void LeaveBlocks(int pc)
-    {
-        if (_frame is not { } frame)
-        {
-            return;
-        }
-
-        // the frame says the activation is at pc, as the interpreter's does when it lets go of them: a Class_Terminate that runs of one sees it there.
-        foreach (var holder in frame.TakeBlockHoldersOutside(pc))
-        {
-            frame.Pc = pc;
-            ObjectReferences.Release(_session, holder);
-        }
     }
 
     /// <summary>What the activation returns when <see cref="Recover"/> said it goes on nowhere.</summary>
@@ -1589,6 +1568,18 @@ public sealed partial class CompiledActivation : ILightActivation
 
     /// <summary>A <c>GoSub</c>: <paramref name="returnPc"/> pushed onto the activation's GoSub Resumption List (MS-VBAL §5.4.2.14).</summary>
     public void GoSub(int returnPc) => Frame.PushGoSubReturn(returnPc);
+
+    /// <summary>
+    /// A jump from <paramref name="from"/> to <paramref name="to"/> that leaves a <c>For Each</c> block (an <c>Exit For</c>) ends the loop: what it held is
+    /// let go of, as the interpreter lets go of it. The frame says the jump is the instruction being run, for a <c>Terminate</c> that runs there.
+    /// </summary>
+    /// <param name="from">The offset of the jump.</param>
+    /// <param name="to">The offset it goes to.</param>
+    public void LeaveLoops(int from, int to)
+    {
+        Frame.Pc = from;
+        ProcedureExecutor.LeaveLoops(_session, Frame, from, to);
+    }
 
     /// <summary>A <c>Return</c>: the offset popped off the GoSub Resumption List; <see langword="false"/> when it is empty (MS-VBAL §5.4.2.15).</summary>
     public bool TryReturnFromGoSub(out int pc) => Frame.TryPopGoSubReturn(out pc);

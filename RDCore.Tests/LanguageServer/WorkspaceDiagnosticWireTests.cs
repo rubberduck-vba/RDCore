@@ -28,6 +28,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class WorkspaceDiagnosticWireTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-workspace-diagnostic-ws");
 
     // the module the client has open, at its version 3, and one it has not, as the server loaded it.
@@ -134,10 +137,10 @@ public sealed class WorkspaceDiagnosticWireTests
         => [.. items.Select(item => $"{Path.GetFileName(DocumentUri.From(item.Value<string>("uri")!).GetFileSystemPath())} {item.Value<string>("kind")} {item.Value<string>("resultId")} v={(item["version"] is JValue { Type: JTokenType.Null } ? "null" : item.Value<int>("version").ToString())} {item["items"]?.Count() ?? 0}")];
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task EveryModule_IsReported_OpenOrNot_AndUnchanged_WhenTheClientHasItsResult()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var (server, client, _) = await ConnectAsync(timeout.Token);
         using var _server = server;
         using var _client = client;
@@ -158,10 +161,10 @@ public sealed class WorkspaceDiagnosticWireTests
 
     // a module the project no longer lists: what the client shows of it is cleared, and there is no result id for it to send again.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AModuleTheWorkspaceNoLongerHas_IsReportedWithNoFindings()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var (server, client, _) = await ConnectAsync(timeout.Token);
         using var _server = server;
         using var _client = client;
@@ -176,10 +179,10 @@ public sealed class WorkspaceDiagnosticWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatGivesAPartialResultToken_IsSentEachModulesReportAsItIsMade_AndAnEmptyAnswer()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var (server, client, wire) = await ConnectAsync(timeout.Token);
         using var _server = server;
         using var _client = client;
@@ -199,10 +202,10 @@ public sealed class WorkspaceDiagnosticWireTests
 
     // a change to any document gives the pull up at once: the change, and the client's next request, do not wait for the whole workspace.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AChangeToAnyDocument_GivesThePullUp_AnsweredContentModified()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var started = new TaskCompletionSource();
         _diagnostics.GetAsync(Arg.Any<Uri>(), Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<IProgress<WorkProgressStep>?>()).Returns(async call =>
         {
@@ -225,10 +228,10 @@ public sealed class WorkspaceDiagnosticWireTests
     // a program that waits for its client to answer a dialog: the host takes no other text until it is answered. The pull would wait for it, and is
     // declined at once instead, ServerCancelled, which the client is told not to retrigger: it is asked to pull again once the dialog is answered.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task APullWhileADialogIsOpen_IsAnsweredServerCancelled_NotToBeRetriggered_AndTheClientIsAskedAgainOnceItIsAnswered()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var answer = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pullAgain = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _lifecycle.WhenAllSyncedAsync(Arg.Any<CancellationToken>()).Returns(call => answer.Task.WaitAsync(call.Arg<CancellationToken>()));

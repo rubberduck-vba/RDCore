@@ -159,6 +159,29 @@ public sealed class SessionObjectTests
         server.Release(dictionary);
     }
 
+    // a server that calls the program with an Error passes VT_ERROR, which the runtime's own conversion makes a number - the same as a Long: the session is given
+    // what it is, the HRESULT whole. An argument the server left out is VT_ERROR too, DISP_E_PARAMNOTFOUND, and is an argument left out.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AnErrorAServerPassesTheProgram_IsAnError_AndAnArgumentLeftOut_IsLeftOut()
+    {
+        using var apartment = new ComApartment();
+        using var server = new ComAutomationServer(apartment);
+        var host = new RecordingHost(_ => null);
+
+        var dictionary = server.CreateObject("Scripting.Dictionary");
+        _ = server.Invoke(dictionary, "Add", AutomationInvocation.Method, ["k", new SessionObjectReference("object-1", host)], [false, false], CultureInfo.InvariantCulture);
+        var standIn = server.Invoke(dictionary, "Item", AutomationInvocation.Get, ["k"], [false], CultureInfo.InvariantCulture);
+        Assert.AreEqual(0, CallThroughDispatch(standIn!, "Take", 0, new ErrorWrapper(unchecked((int)0x800A07D7)), System.Reflection.Missing.Value, 5).Status);
+        _ = server.Invoke(dictionary, "RemoveAll", AutomationInvocation.Method, [], [], CultureInfo.InvariantCulture);
+        server.Release(dictionary);
+
+        var arguments = host.Calls.Single().Arguments;
+        Assert.AreEqual(unchecked((int)0x800A07D7), Assert.IsInstanceOfType<ErrorWrapper>(arguments[0]).ErrorCode);
+        Assert.AreSame(System.Reflection.Missing.Value, arguments[1]);
+        Assert.AreEqual(5, arguments[2]);
+    }
+
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     [DataRow(false, DisplayName = "in the process")]
