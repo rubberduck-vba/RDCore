@@ -302,6 +302,55 @@ public sealed class SyntaxTreeAnalyzerTests
 
     #endregion
 
+    #region RDC11033 and RDC11034 names where MS-VBA and MS-VBAL 3.3.5.2 differ
+
+    [TestMethod]
+    public void AnEnumMemberNamedWithAReservedNameMSVBACompiles_IsAWarningAtTheName()
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), """
+            Private Enum E
+                Date
+                DoEvents
+                CDec
+                Other
+                [Date]
+            End Enum
+            """);
+
+        CollectionAssert.AreEqual(new[] { 1, 2, 3 }, Lines(findings));
+        Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.ReservedNameAcceptedByMSVBA, Severity: DiagnosticSeverity.Warning }));
+        Assert.AreEqual(new SourceRange(new SourcePosition(2, 4), new SourcePosition(2, 4 + "DoEvents".Length)), findings[1].Range, "the name");
+        StringAssert.Contains(findings[0].Message, "Date");
+    }
+
+    [TestMethod]
+    public void ANameMSVBARefusesThatTheSpecificationAllows_IsAWarningAtTheName()
+    {
+        var findings = Run(new DeclarationNameDivergenceAnalyzer(), """
+            Private Type T
+                Me As Long
+                Long As Long
+                Len As Long
+            End Type
+            Private Enum E
+                Name
+            End Enum
+            Public Sub Work(ByVal Long As Long)
+                Dim [Long] As Long
+                Dim Name As String
+            End Sub
+            Public Sub Other()
+                Dim Long As Long
+            End Sub
+            """);
+
+        CollectionAssert.AreEqual(new[] { 1, 6, 8, 13 }, Lines(findings));
+        Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.NameRefusedByMSVBA, Severity: DiagnosticSeverity.Warning }));
+        Assert.AreEqual(new SourceRange(new SourcePosition(13, 8), new SourcePosition(13, 8 + "Long".Length)), findings[3].Range, "the name");
+    }
+
+    #endregion
+
     #region RDC00203 multi-line parameter
 
     [TestMethod]

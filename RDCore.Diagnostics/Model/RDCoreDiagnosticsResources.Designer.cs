@@ -88,6 +88,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a reserved name, which MS-VBAL §3.3.5.2 says no Enum member can have. MS-VBA compiles it, and so does RD-VBA. Give the member another name to keep to the specification..
+        /// </summary>
+        public static string ReservedNameAcceptedByMSVBA_Message {
+            get {
+                return ResourceManager.GetString("ReservedNameAcceptedByMSVBA_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to MS-VBA refuses &apos;{0}&apos; as this name, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not compile the module. Give it another name to keep the module compatible with MS-VBA..
+        /// </summary>
+        public static string NameRefusedByMSVBA_Message {
+            get {
+                return ResourceManager.GetString("NameRefusedByMSVBA_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
         /// </summary>
         public static string EmptyCodeBlock_Message {

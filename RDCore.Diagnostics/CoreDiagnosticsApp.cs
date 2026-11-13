@@ -100,6 +100,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedByRefAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObjectVariablePassedLateAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ForEachControlEmptiedAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, DeclarationNameDivergenceAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EarlyBindingOpportunityAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, SetThroughACallAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NewOfAClassNotCreatableAnalyzer>();

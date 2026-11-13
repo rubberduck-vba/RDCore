@@ -1,5 +1,6 @@
 using RDCore.Parsing;
 using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
@@ -37,7 +38,10 @@ public sealed class ReservedDeclarationNameTests
         ("a Declare", ["Private Declare PtrSafe Sub {0} Lib \"x\" ()"]),
     ];
 
-    public static IEnumerable<object[]> Declarations => Kinds.SelectMany(kind => Names.Select(name => new object[] { kind.Kind, name }));
+    // MS-VBA compiles an Enum member named Date, and so does RD-VBA (ANameMSVBAAcceptsThatTheSpecificationReserves_IsValid).
+    public static IEnumerable<object[]> Declarations => Kinds.SelectMany(kind => Names
+        .Where(name => !(kind.Kind == "an Enum member" && name == "Date"))
+        .Select(name => new object[] { kind.Kind, name }));
 
     public static string DeclarationName(System.Reflection.MethodInfo method, object[] row) => $"{row[1]}, {row[0]}";
 
@@ -89,17 +93,29 @@ public sealed class ReservedDeclarationNameTests
     }
 
     // MS-VBA refuses these, where MS-VBAL §3.3.5.2 reads an IDENTIFIER: a reserved-type-identifier is no reserved-identifier, a reserved-member-name can be a
-    // reserved-name, and Name is no reserved-identifier. RD-VBA reads them as the specification does, and these rows are ignored until that is settled.
+    // reserved-name, and Name is no reserved-identifier. RD-VBA reads them as the specification does, and a warning says MS-VBA refuses them (RDC11034).
     [TestMethod]
-    [Ignore("awaiting a ruling: MS-VBA refuses names that MS-VBAL 3.3.5.2 allows (Dim Long As Long, a Type member Me, an Enum member Name)")]
     [DataRow("Public Sub S()\r\n    Dim Long As Long\r\nEnd Sub", DisplayName = "a variable named Long")]
     [DataRow("Private Type T\r\n    Me As Long\r\nEnd Type", DisplayName = "a member of a user-defined type named Me")]
     [DataRow("Private Enum E\r\n    Name\r\nEnd Enum", DisplayName = "an Enum member named Name")]
-    public void ANameMSVBARefusesThatTheSpecificationAllows_IsASyntaxError(string module)
+    public void ANameMSVBARefusesThatTheSpecificationAllows_IsValid(string module)
     {
         var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), module + "\r\n");
 
-        Assert.ContainsSingle(parse.SyntaxErrors);
+        Assert.IsEmpty(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.Location.Range}: {error.Verbose}")));
+    }
+
+    // MS-VBA compiles these, which MS-VBAL §3.3.5.2 reserves: RD-VBA compiles them too, and a warning says the specification reserves the name (RDC11033).
+    [TestMethod]
+    [DataRow("Date")]
+    [DataRow("DoEvents")]
+    [DataRow("CDec")]
+    public void ANameMSVBAAcceptsThatTheSpecificationReserves_IsValid(string name)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Private Enum E\r\n    {name}\r\nEnd Enum\r\n");
+
+        Assert.IsEmpty(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(error => $"{error.Location.Range}: {error.Verbose}")));
+        Assert.ContainsSingle(parse.SyntaxTree!.Descendants().OfType<ConstantDeclarationNode>().Where(member => member.Name == name), "the member is declared");
     }
 
     [TestMethod]

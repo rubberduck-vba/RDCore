@@ -387,4 +387,10 @@
   <data name="NonBreakingSpaceInName_Message" xml:space="preserve">
     <value>&apos;{0}&apos; a une espace insécable dans son nom : elle ressemble à une espace ordinaire, et le nom tapé avec une espace ordinaire est un autre nom.</value>
   </data>
+  <data name="ReservedNameAcceptedByMSVBA_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est un nom réservé, qu&apos;aucun membre d&apos;Enum ne peut porter selon MS-VBAL §3.3.5.2. MS-VBA le compile, et RD-VBA aussi. Donnez un autre nom au membre pour vous en tenir à la spécification.</value>
+  </data>
+  <data name="NameRefusedByMSVBA_Message" xml:space="preserve">
+    <value>MS-VBA refuse &apos;{0}&apos; comme ce nom, que MS-VBAL §3.3.5.2 permet : RD-VBA le compile, et MS-VBA ne compile pas le module. Donnez-lui un autre nom pour garder le module compatible avec MS-VBA.</value>
+  </data>
 </root>

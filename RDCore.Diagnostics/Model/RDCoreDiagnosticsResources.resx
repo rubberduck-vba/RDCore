@@ -387,4 +387,10 @@
   <data name="NonBreakingSpaceInName_Message" xml:space="preserve">
     <value>&apos;{0}&apos; has a non-breaking space in its name: it looks like an ordinary space, and the name typed with an ordinary space is another name.</value>
   </data>
+  <data name="ReservedNameAcceptedByMSVBA_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is a reserved name, which MS-VBAL §3.3.5.2 says no Enum member can have. MS-VBA compiles it, and so does RD-VBA. Give the member another name to keep to the specification.</value>
+  </data>
+  <data name="NameRefusedByMSVBA_Message" xml:space="preserve">
+    <value>MS-VBA refuses &apos;{0}&apos; as this name, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not compile the module. Give it another name to keep the module compatible with MS-VBA.</value>
+  </data>
 </root>

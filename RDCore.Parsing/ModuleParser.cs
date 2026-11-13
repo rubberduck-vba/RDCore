@@ -1217,6 +1217,10 @@ internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
         "VB_VarProcData", "VB_VarUserMemId",
     };
 
+    // the reserved names MS-VBA compiles as the name of an Enum member, where MS-VBAL 3.3.5.2 reserves them: RD-VBA compiles them too, and a warning says the
+    // specification reserves the name.
+    private static readonly HashSet<int> EnumMemberNamesMSVBAAccepts = [VBAParser.DATE, VBAParser.DOEVENTS, VBAParser.CDEC];
+
     public List<IToken> Parameters { get; } = [];
 
     public List<IToken> Names { get; } = [];
@@ -1238,7 +1242,13 @@ internal sealed class ReservedDeclarationNameCollector : VBAParserBaseListener
 
     public override void ExitSubroutineName([NotNull] VBAParser.SubroutineNameContext context) => Add(context.identifier());
 
-    public override void ExitEnumerationStmt_Constant([NotNull] VBAParser.EnumerationStmt_ConstantContext context) => Add(context.identifier());
+    public override void ExitEnumerationStmt_Constant([NotNull] VBAParser.EnumerationStmt_ConstantContext context)
+    {
+        if (ReservedWordOf(context.identifier()) is { } word && !EnumMemberNamesMSVBAAccepts.Contains(word.Type))
+        {
+            Names.Add(word);
+        }
+    }
 
     public override void ExitEnumerationStmt([NotNull] VBAParser.EnumerationStmtContext context) => Add(context.identifier());
 
