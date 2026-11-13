@@ -337,6 +337,40 @@ public sealed class FormHostingTests
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
     }
 
+    // a class that holds the form in a WithEvents variable, assigned once the form is hosted: the close button still asks the form, which ends its Show.
+    [TestMethod]
+    [DataRow(false, DisplayName = "in the process")]
+    [DataRow(true, DisplayName = "through an external host")]
+    public async Task TheCloseButton_OfAFormAClassHoldsWithEvents_AsksTheForm(bool external)
+    {
+        RequireMicrosoftForms();
+        var (world, apartment) = InProcess();
+        using var _ = apartment;
+        using var host = ExternalHosts.New();
+        var caption = $"ExampleView {Guid.NewGuid():N}";
+        string[] code =
+        [
+            "Public Event Closed()",
+            "Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)", "    Debug.Print \"QueryClose\"; CloseMode", "    RaiseEvent Closed", "End Sub",
+        ];
+        (string Name, string Source)[] classes =
+        [
+            ("Owner", ModuleWorkspace.ClassModule(
+                "Owner",
+                "Private WithEvents Held As ExampleView",
+                "Public Sub Run()", "    Set Held = ExampleView", "    Held.Show", "    Debug.Print \"shown\"", "End Sub",
+                "Private Sub Held_Closed()", "    Debug.Print \"Closed\"", "End Sub")),
+        ];
+
+        var running = ModuleWorkspace.RunAsync(
+            classes, Program($"ExampleView.Caption = \"{caption}\"", "Dim o As New Owner", "o.Run"),
+            new ModuleWorkspace.WorkspaceLibraries(["MSForms"], Shipped, Outside: external ? ExternalHosts.WorldOf(host) : world), [ExampleView(code)]);
+
+        var window = await WindowOfAsync(caption);
+        Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
+        CollectionAssert.AreEqual(new[] { "QueryClose 0", "Closed", "shown" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+    }
+
     // a control added at run time, held by a WithEvents variable, and a handler named after it - which MS-VBA does not run (oracle\s41 C02)
     private static readonly string[] Dynamic =
     [

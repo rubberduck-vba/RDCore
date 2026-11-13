@@ -170,7 +170,7 @@ public interface IAutomationServer : SDK.Runtime.Abstract.Execution.IExternalObj
     /// <remarks>
     /// An object that raises none, or that does not say which, is listened to for nothing and is not an error. Every event it raises is handed to
     /// <paramref name="sink"/>, saying whether a call the program waits for raised it, which is what keeps an event that no call is waiting for from being handled in the
-    /// middle of a procedure.
+    /// middle of a procedure. An object that is listened to already is left as it is: its events go on to the sink they went to, until <see cref="Unadvise"/>.
     /// </remarks>
     /// <param name="source">The handle of the object that raises the events.</param>
     /// <param name="sink">Where they go.</param>
