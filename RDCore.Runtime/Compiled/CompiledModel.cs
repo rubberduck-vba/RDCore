@@ -144,7 +144,7 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
 
     /// <summary>
     /// What the interpreter runs of a compiled procedure as a support call, and why: each <c>Set</c> or call statement compiled code does not make itself,
-    /// which the interpreter runs for it, every variable written into the frame before it and read back after it. Empty for a procedure that is not compiled.
+    /// which the interpreter runs for it, with every variable written into the frame before it and read back after it. Empty for a procedure that is not compiled.
     /// </summary>
     public IReadOnlyList<Ineligibility> SupportCalls { get; init; } = [];
 }
@@ -160,7 +160,9 @@ internal sealed record class CompilationResult(CompiledBody? Body, IReadOnlyList
     /// <summary>The instructions of a compiled body the interpreter runs alone, and why (<see cref="ProcedureCompilation.Stepped"/>).</summary>
     public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
 
-    /// <summary>The statements of a compiled body the interpreter runs as support calls, and why (<see cref="ProcedureCompilation.SupportCalls"/>).</summary>
+    /// <summary>
+    /// The statements of a compiled body the interpreter runs as support calls, and why (<see cref="ProcedureCompilation.SupportCalls"/>).
+    /// </summary>
     public IReadOnlyList<Ineligibility> SupportCalls { get; init; } = [];
 }
 

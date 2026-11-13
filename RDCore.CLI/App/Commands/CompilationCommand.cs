@@ -84,7 +84,7 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
         foreach (var (module, compilation) in procedures)
         {
             var name = $"{module}.{compilation.Procedure.Name}".PadRight(width);
-            // a compiled procedure has the interpreter run, one at a time, the instructions compiled code does not do yet, and the statements it does not make
+            // a compiled procedure has the interpreter run, one at a time, the instructions compiled code does not do, and the statements it does not make
             // itself as support calls.
             if (compilation.IsCompiled)
             {
