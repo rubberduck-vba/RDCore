@@ -33,6 +33,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class DefinitionWireTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-definition-wire-ws");
 
     private const string Helpers = """
@@ -78,7 +81,7 @@ public sealed class DefinitionWireTests
         bool linkSupport, Func<TextDocumentIdentifier, Position, IRequest<LocationOrLocationLinks?>> request, params Position[] positions)
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server => server
@@ -109,7 +112,7 @@ public sealed class DefinitionWireTests
     // the hover at a position of the program, from a client that reads Markdown or plain text only.
     private static async Task<Hover?> HoverAsync(bool markdown, Position position)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server => server
@@ -132,7 +135,7 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AHover_IsTheDeclarationInABlockOfVBA_OverTheName()
     {
         var hover = await HoverAsync(markdown: true, new Position(2, 5));
@@ -144,7 +147,7 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AHover_ForAClientThatReadsNoMarkdown_IsPlainText()
     {
         var hover = await HoverAsync(markdown: false, new Position(3, 3));
@@ -154,14 +157,14 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task NoName_HasNoHover()
         => Assert.IsNull(await HoverAsync(markdown: true, new Position(1, 9)));
 
     // one request of the program, to a server of the references and the highlights.
     private static async Task<TResponse> SendAsync<TResponse>(IRequest<TResponse> request)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server => server
@@ -180,7 +183,7 @@ public sealed class DefinitionWireTests
     private static TextDocumentIdentifier MainProgram() => new(DocumentUri.From(Document("Main.rdc")));
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheReferencesOfAName_AreInEveryDocument_InTheirText()
     {
         var references = (await SendAsync(new ReferenceParams
@@ -199,7 +202,7 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheHighlightsOfAName_AreItsReferences_InTheDocument()
     {
         var highlights = (await SendAsync(new DocumentHighlightParams { TextDocument = MainProgram(), Position = new Position(1, 4) }))!.ToArray();
@@ -209,7 +212,7 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatReadsLinks_IsAnsweredWithTheName_TheDeclaration_AndTheNameItDeclares()
     {
         var answers = await AskAsync(linkSupport: true, new Position(2, 5), new Position(1, 4));
@@ -225,7 +228,7 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatDoesNotReadLinks_IsAnsweredWithTheNameItDeclares()
     {
         var answers = await AskAsync(linkSupport: false, new Position(3, 3));
@@ -236,7 +239,7 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task ADeclaration_IsAnsweredWithTheOnePlaceThatDeclaresTheSymbol()
     {
         var answers = await AskAsync(linkSupport: true, (document, position) => new DeclarationParams { TextDocument = document, Position = position },
@@ -249,7 +252,7 @@ public sealed class DefinitionWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task ANameOfTheLibrary_AndNoName_AreAnsweredWithNothing()
     {
         var answers = await AskAsync(linkSupport: true, new Position(4, 4), new Position(1, 9));

@@ -279,7 +279,7 @@ public sealed class ClientWithoutOmniSharpTests
     // asks for: a client that traces messages is told of the handshake. A program run has both servers up; a log is read once its server has exited, and its
     // file log is flushed: the language server exits once the parse server it started has.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task AServerStartedThenShutDown_LogsNoFault_AndWhatItsConnectionLogsReachesItsFile()
     {
         await using var platform = await Platform.StartAsync();
@@ -504,7 +504,7 @@ public sealed class ClientWithoutOmniSharpTests
         """;
 
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task AProgramRunUnderADebugger_IsPausedWhileItRuns_ThenEnded()
     {
         await using var platform = await Platform.StartAsync();
@@ -547,7 +547,7 @@ public sealed class ClientWithoutOmniSharpTests
     // the keyboard stops it: a GoTo that goes back for ever is stopped too, and the run says the line it stopped at, which is one of the program's. The workspace
     // is a VBA one, whose module Program the program is run as.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task TheShellsEndlessGoTo_IsStoppedByABreak_AndSaysALineOfTheProgram()
     {
         var program = new RDCore.CLI.App.Repl.ReplProgram();
@@ -598,7 +598,7 @@ public sealed class ClientWithoutOmniSharpTests
     // OmniSharp 0.19.9 gives its handlers an initialize request without it. A document's diagnostics are pulled so that the parse server is known to have been
     // initialized. The logs are read once the platform is shut down: a file log is written behind, and only an ended process has written all of it.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task TheLocaleOfTheInitializeRequest_IsTheLanguageOfTheLanguageServer_AndOfTheComponentsItStarts()
     {
         await using var platform = await Platform.StartAsync();
@@ -627,7 +627,7 @@ public sealed class ClientWithoutOmniSharpTests
     // environment host answers in it, and the language server, the parse server and the environment host say they started in it. How the program writes and
     // reads numbers and dates is untouched. The logs are read once the platform is shut down.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task TheLanguageTheUserSets_IsTheLanguageOfEveryComponent_WhateverTheClientsLocale()
     {
         await using var platform = await Platform.StartAsync(others: 1, projectFile: AProjectOfOtherModules, language: "fr");

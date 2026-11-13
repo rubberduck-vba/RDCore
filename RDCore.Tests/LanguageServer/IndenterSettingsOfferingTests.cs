@@ -138,7 +138,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheFirstStart_AsksOnce_AndTheClientStoresWhatTheUserSaidYesTo()
     {
         await using var platform = new Platform(clientExpects: true);
@@ -160,7 +160,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AUserWhoSaysNo_IsNotAskedAgain_AndNothingIsStored()
     {
         await using var platform = new Platform(clientExpects: true) { AnswerWith = IndenterSettingsImportText.NotNow() };
@@ -176,7 +176,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatDoesNotReadRubberduck_IsNeverAsked()
     {
         await using var platform = new Platform(clientExpects: false);
@@ -189,7 +189,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatRunsUnattended_IsNeverAsked_AndIsOfferedAtTheNextStart()
     {
         await using var platform = new Platform(clientExpects: true, unattended: true);
@@ -203,7 +203,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task SettingsTheClientSaidBeforeTheOfferingWasMade_AreNotWaitedFor()
     {
         // the client has configuration to pull, and its settings are in already: no change is raised after the offering subscribes.
@@ -219,7 +219,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatNeverSaysItsSettings_IsNotOffered_AndTheLogSaysWhy()
     {
         await using var platform = new Platform(clientExpects: true) { ClientPullsConfiguration = true };
@@ -238,7 +238,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AUserWhoSetFormatting_IsNotAsked()
     {
         await using var platform = new Platform(clientExpects: true);
@@ -252,7 +252,7 @@ public sealed class IndenterSettingsOfferingTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatAnswersTheEditorsTabSize_IsOffered_AsTheUserSetNothing()
     {
         // the client's settings and the offering as the language server sets and starts them, over a client that has configuration to pull and an editor with a

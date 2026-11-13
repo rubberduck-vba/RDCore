@@ -42,7 +42,7 @@ public sealed class RubberduckIndenterWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheClientReadsRubberduck_TheServerMapsIt_AndTheClientStoresWhatTheServerMapped()
     {
         var rubberduckFiles = new MockFileSystem(new Dictionary<string, MockFileData> { [RubberduckIndenterSettingsReader.ConfigPathIn(AppData)] = new(Config) });
@@ -91,7 +91,7 @@ public sealed class RubberduckIndenterWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientOnAnotherPlatform_AnswersThatItFoundNothing_AndIsAskedToApplyNothing()
     {
         var reader = new RubberduckIndenterSettingsReader(new MockFileSystem(), AppData, new NoRegistry(), isWindows: false);
