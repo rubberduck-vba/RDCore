@@ -228,6 +228,21 @@ public sealed class CreateObjectTests
             "s.Nope",
             "Debug.Print Err.Number"));
 
+    // the error of a call the server refused says which call it was, its arguments included: whatever they are, the program is told the error.
+    [TestMethod]
+    [DataRow("Dim a(1 To 2) As Variant", "s.Nope = a", DisplayName = "an array of a fixed size, assigned")]
+    [DataRow("Dim a(1 To 2) As Variant", "s.Nope a", DisplayName = "an array of a fixed size, given")]
+    [DataRow("Dim a() As Variant: ReDim a(1 To 2)", "s.Nope = a", DisplayName = "a dynamic array, assigned")]
+    [DataRow("Dim a As Variant: a = 1", "s.Nope a", DisplayName = "a variable, given by reference")]
+    public async Task ACallTheServerRefuses_IsItsError_WhateverItsArguments(string declaration, string call)
+        => CollectionAssert.AreEqual(new[] { "438" }, await Run(
+            "Dim s As Object",
+            "Set s = CreateObject(\"Lab.Shelf\")",
+            declaration,
+            "On Error Resume Next",
+            call,
+            "Debug.Print Err.Number"));
+
     // a late-bound member's arguments are a param array, whose elements are the variables they are given (MS-VBAL §5.3.1.5): the server is given a variable
     // by reference, and what it writes is the variable's, as MS-VBA passes it.
     [TestMethod]
