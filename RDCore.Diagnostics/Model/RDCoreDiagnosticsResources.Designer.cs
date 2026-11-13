@@ -816,7 +816,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; is not set to Nothing here: the For Each loop that walks it still holds the object, which its own loop does not destroy. MS-VBA lets go of a Collection here, which is destroyed with the members the loop has not reached, and the loop ends. Leave the loop with Exit For, then set &apos;{0}&apos; to Nothing..
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not set to Nothing here: the For Each loop that walks it holds the object until the loop is over. MS-VBA lets go of a Collection here: it is destroyed, with the members the loop has not reached, and the loop ends. Leave the loop with Exit For, then set &apos;{0}&apos; to Nothing..
         /// </summary>
         public static string CollectionSetToNothingInItsOwnLoop_Message {
             get {
