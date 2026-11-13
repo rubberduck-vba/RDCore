@@ -7,7 +7,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// What a <c>For Each</c> holds of what it walks, an array or a <c>Collection</c> of objects (observed in Excel, 64-bit, en-US). When the program leaves the
-/// loop and comes back - a <c>GoSub</c> to a subroutine past it and its <c>Return</c>, or an error handler past it and its <c>Resume Next</c> - the loop goes
+/// loop and comes back (a <c>GoSub</c> to a subroutine past it and its <c>Return</c>, or an error handler past it and its <c>Resume Next</c>), the loop goes
 /// on over the same array. What a function returned is held until the procedure ends, however the loop ends, and is let go of before the procedure's
 /// variables, or when the loop starts again; a collection in a variable is not held past the loop. Both engines do the same.
 /// </summary>

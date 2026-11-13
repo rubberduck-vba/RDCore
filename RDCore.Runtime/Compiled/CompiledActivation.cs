@@ -1570,7 +1570,7 @@ public sealed partial class CompiledActivation : ILightActivation
     public void GoSub(int returnPc) => Frame.PushGoSubReturn(returnPc);
 
     /// <summary>
-    /// A jump from <paramref name="from"/> to <paramref name="to"/> that leaves a <c>For Each</c> block - an <c>Exit For</c> - ends the loop: what it held is
+    /// A jump from <paramref name="from"/> to <paramref name="to"/> that leaves a <c>For Each</c> block (an <c>Exit For</c>) ends the loop: what it held is
     /// let go of, as the interpreter lets go of it. The frame says the jump is the instruction being run, for a <c>Terminate</c> that runs there.
     /// </summary>
     /// <param name="from">The offset of the jump.</param>

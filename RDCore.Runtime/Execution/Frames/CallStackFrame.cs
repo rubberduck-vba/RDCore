@@ -589,7 +589,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
                 .Concat(occasional.SourceHolders?.Keys ?? Enumerable.Empty<int>()).Distinct())
             {
                 // what a With holds is let go of only at its End With, so it moves with the block, or the edit is refused. What a For Each the activation has
-                // left holds is kept until the loop is over or the activation returns: it moves with the block when it can, and is held apart when it can't
+                // left holds is kept until the loop is over or the activation returns: it moves with the block when it can, and is held apart when it cannot
                 // (Rebase).
                 var holds = occasional.BlockHolders?.TryGetValue(opener, out var held) == true && held.End is null;
                 if (!holds && !IsIn(opener))
@@ -786,8 +786,8 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Takes away the holders of the <c>For Each</c> blocks that a jump from <paramref name="from"/> to <paramref name="to"/> leaves - an <c>Exit For</c>, a
-    /// <c>GoTo</c> - for what they hold to be let go of: the loop is over.
+    /// Takes away the holders of the <c>For Each</c> blocks that a jump from <paramref name="from"/> to <paramref name="to"/> leaves (an <c>Exit For</c>, a
+    /// <c>GoTo</c>), for what they hold to be let go of: the loop is over.
     /// </summary>
     /// <param name="from">The offset of the jump.</param>
     /// <param name="to">The offset it goes to.</param>
