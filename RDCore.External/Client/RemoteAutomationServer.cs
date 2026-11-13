@@ -251,7 +251,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
 
     // the external host is started on a thread of its own; a call that comes before it is up waits for it as it would have started it.
     /// <inheritdoc/>
-    public void Prepare() => _ = Task.Run(() => _host.TryConnect(out _));
+    public void Prepare() => _host.Prepare();
 
     /// <inheritdoc/>
     public object GetObject(SDK.Runtime.Abstract.Execution.ExternalObjectRequest request)

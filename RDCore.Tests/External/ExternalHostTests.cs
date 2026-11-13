@@ -56,6 +56,42 @@ public sealed class ExternalHostTests
     }
 
     [TestMethod]
+    public void AnExternalHostGotReadyByManySessionsWhileItStarts_IsStartedOnce_OnAThreadOfItsOwn()
+    {
+        using var started = new ManualResetEventSlim();
+        using var finish = new ManualResetEventSlim();
+        var starts = 0;
+        var startedOnThePool = true;
+        using var host = ExternalHosts.New(canStart: () =>
+        {
+            if (Interlocked.Increment(ref starts) == 1)
+            {
+                startedOnThePool = Thread.CurrentThread.IsThreadPoolThread;
+                started.Set();
+                finish.Wait();
+            }
+
+            return false;
+        });
+        var libraries = new RemoteNativeLibraryHost(host);
+        var servers = new RemoteAutomationServer(host);
+
+        libraries.Prepare();
+        Assert.IsTrue(started.Wait(TimeSpan.FromMinutes(1)), "the external host was not started");
+        for (var session = 0; session < 20; session++)
+        {
+            libraries.Prepare();
+            servers.Prepare();
+        }
+
+        finish.Set();
+        Assert.IsFalse(host.TryConnect(out _), "a call waits for the start that is being made, then makes its own");
+
+        Assert.AreEqual(2, starts, "the sessions that got the host ready while it was being started started it again");
+        Assert.IsFalse(startedOnThePool, "the host was started on a thread of the pool, which the programs of the sessions go on with");
+    }
+
+    [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void AnObjectOfAnExternalHostThatStopped_IsNoLongerAvailable_AndTheNextCallStartsAnother()
     {

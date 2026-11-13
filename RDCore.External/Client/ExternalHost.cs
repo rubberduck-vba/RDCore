@@ -31,6 +31,7 @@ public sealed class ExternalHost : IDisposable
     private Incarnation? _current;
     private int _incarnations;
     private bool _disposed;
+    private int _preparing;
 
     /// <summary>
     /// Creates the external host of an environment host; nothing is started until a call needs it.
@@ -174,6 +175,34 @@ public sealed class ExternalHost : IDisposable
             incarnation = null;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Starts the external host in the background, ahead of the first call that needs it, unless it is running or already being started.
+    /// </summary>
+    /// <remarks>
+    /// Every session of the environment host gets the external host ready when it is composed, and a start waits for a process to come up: one start is made, on a thread
+    /// of its own, and the sessions that ask while it is made wait for nothing. A start that waited on the thread pool, once per session, would hold the threads the
+    /// programs of those sessions go on with until the process is up.
+    /// </remarks>
+    internal void Prepare()
+    {
+        if (Volatile.Read(ref _current) is { IsLost: false } || Interlocked.CompareExchange(ref _preparing, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _ = Task.Factory.StartNew(() =>
+        {
+            try
+            {
+                _ = TryConnect(out _);
+            }
+            finally
+            {
+                Volatile.Write(ref _preparing, 0);
+            }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
     }
 
     /// <summary>
