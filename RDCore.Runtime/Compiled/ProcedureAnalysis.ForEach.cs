@@ -15,7 +15,7 @@ internal sealed partial class ProcedureAnalysis
     private readonly List<(int Opener, int Past)> _forEachBlocks = [];
 
     /// <summary>
-    /// Whether a jump from <paramref name="from"/> to <paramref name="to"/> leaves a <c>For Each</c> block - an <c>Exit For</c> - which ends the loop: what
+    /// Whether a jump from <paramref name="from"/> to <paramref name="to"/> leaves a <c>For Each</c> block (an <c>Exit For</c>), which ends the loop: what
     /// it held is let go of there (<see cref="CompiledActivation.LeaveLoops"/>), as the interpreter lets go of it.
     /// </summary>
     /// <param name="from">The offset of the jump.</param>
