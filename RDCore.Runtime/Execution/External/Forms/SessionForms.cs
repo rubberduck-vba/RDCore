@@ -262,9 +262,9 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// The name of a Visual Basic 6.0 form that is loaded.
+    /// The name of a Visual Basic 6.0 form that is loaded: any one of them, when several are.
     /// </summary>
-    /// <param name="session">The session the forms are of.</param>
+    /// <param name="session">The session whose forms are looked at.</param>
     /// <returns>The form's name, or <see langword="null"/> when no VB6 form is loaded.</returns>
     public string? LoadedVisualBasic6(IRuntimeSession session)
     {
