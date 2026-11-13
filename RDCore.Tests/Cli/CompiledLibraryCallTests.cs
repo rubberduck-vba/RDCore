@@ -221,6 +221,30 @@ public sealed class CompiledLibraryCallTests
             "    Parts = R",
             "End Function"), [("Parts", 0)]);
 
+    // Round, of a Variant it returns, with its optional argument left out and given (an Integer let-coerced to the Long its parameter is); DateSerial and
+    // TimeSerial, of Integer parameters given a Long, an Integer and an operation of Doubles let-coerced as the interpreter coerces them, a month or a minute
+    // past its range rolling over. The error 5 Round raises of a negative number of digits is raised where the interpreter raises it.
+    [TestMethod]
+    public async Task AFunctionOfOptionalOrTypedParameters_IsCalledByCompiledCode()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Debug.Print Made(2.5, 2), Made(3.5, 1), Made(-2.345, 0)",
+            "    Debug.Print Made(1.5, -1)",
+            "End Sub",
+            "Private Function Made(ByVal X As Double, ByVal N As Integer) As Double",
+            "    Dim I As Long, R As Double, M As Long, D As Date",
+            "    M = 13",
+            "    For I = 1 To 2",
+            "        R = Round(X)",
+            "        R = R * 1000 + Round(X * 1.111, N)",
+            "        D = DateSerial(2024, M, N + 1)",
+            "        R = R * 100000 + D",
+            "        D = TimeSerial(M, 61, X * 10)",
+            "        R = R + D",
+            "    Next",
+            "    Made = R",
+            "End Function"), [("Made", 0)], walkBacks: 1);
+
     // with a comma for its decimal separator (fr-FR): a number converted is the same in any locale, and a String a Variant holds ("2,5") is converted
     // by the interpreter, which reads it in the session's locale.
     [TestMethod]
