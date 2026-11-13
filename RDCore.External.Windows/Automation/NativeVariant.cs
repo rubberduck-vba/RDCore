@@ -27,7 +27,7 @@ internal static class NativeVariant
 
     private const int ParameterNotFound = unchecked((int)0x80020004);
 
-    /// <summary>Allocates <paramref name="count"/> VARIANTs, each VT_EMPTY.</summary>
+    // count VARIANTs, each VT_EMPTY.
     public static IntPtr Allocate(int count)
     {
         var block = Marshal.AllocCoTaskMem(Math.Max(1, count) * Size);
@@ -39,10 +39,10 @@ internal static class NativeVariant
         return block;
     }
 
-    /// <summary>Writes <paramref name="value"/> to the VARIANT at <paramref name="location"/>, which holds nothing.</summary>
+    // into a VARIANT that holds nothing.
     public static void Write(object? value, IntPtr location) => Marshal.GetNativeVariantForObject(value, location);
 
-    /// <summary>Reads the VARIANT at <paramref name="location"/>, a reference to one read as the VARIANT it refers to.</summary>
+    // a reference to a VARIANT is read as the VARIANT it refers to.
     public static object? Read(IntPtr location)
     {
         var kind = (ushort)Marshal.ReadInt16(location);
@@ -124,7 +124,7 @@ internal static class NativeVariant
         return result;
     }
 
-    /// <summary>Frees what the VARIANT at <paramref name="location"/> holds, and makes it VT_EMPTY.</summary>
+    // frees what the VARIANT holds (when it owns it), and makes it VT_EMPTY.
     public static void Clear(IntPtr location, bool owned = true)
     {
         if (owned)

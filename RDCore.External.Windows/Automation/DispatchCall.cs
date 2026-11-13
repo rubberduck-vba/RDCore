@@ -45,10 +45,7 @@ internal static class DispatchCall
         public ConcurrentDictionary<string, int[]>? Shared { get; } = shared;
     }
 
-    /// <summary>
-    /// Calls <paramref name="member"/> of <paramref name="target"/>. <paramref name="names"/> names the arguments that are named, which come after the ones
-    /// that are not: as many as there are, the last of <paramref name="arguments"/>, before a value that is assigned.
-    /// </summary>
+    // the named arguments are the last of the arguments, before a value that is assigned: as many as there are names.
     public static object? Invoke(
         object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
     {
