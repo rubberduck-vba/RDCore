@@ -612,6 +612,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Class &apos;{0}&apos; is implemented as an interface, and its member &apos;{1}&apos; has code: a class that implements it does not run that code..
+        /// </summary>
+        public static string ImplementedInterfaceMember_Message {
+            get {
+                return ResourceManager.GetString("ImplementedInterfaceMember_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
         /// </summary>
         public static string LineContinuationBetweenKeywords_Message {

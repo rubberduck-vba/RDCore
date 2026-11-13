@@ -498,6 +498,9 @@
   <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
     <value>&apos;{0}&apos; désigne l&apos;instance par défaut de la classe, et l&apos;objet qui exécute ce code (Me) n&apos;est pas toujours cette instance.</value>
   </data>
+  <data name="ImplementedInterfaceMember_Message" xml:space="preserve">
+    <value>La classe &apos;{0}&apos; est implémentée comme interface, et son membre &apos;{1}&apos; contient du code : une classe qui l&apos;implémente n&apos;exécute pas ce code.</value>
+  </data>
   <data name="IIfSideEffect_Message" xml:space="preserve">
     <value>&apos;{0}&apos; est appelée quelle que soit la condition : IIf évalue son TruePart et son FalsePart avant de choisir l&apos;un des deux.</value>
   </data>
