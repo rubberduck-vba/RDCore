@@ -381,4 +381,25 @@
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
   </data>
+  <data name="VariableNotUsed_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; n&apos;est jamais utilisée.</value>
+  </data>
+  <data name="VariableNotUsed_Assigned_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; est affectée sans jamais être lue : ce qu&apos;on lui affecte ne sert jamais.</value>
+  </data>
+  <data name="VariableNotAssigned_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; est lue sans jamais être affectée : elle a toujours la valeur par défaut de son type.</value>
+  </data>
+  <data name="ParameterNotUsed_Message" xml:space="preserve">
+    <value>Le paramètre &apos;{0}&apos; n&apos;est jamais utilisé.</value>
+  </data>
+  <data name="AssignedByValParameter_Message" xml:space="preserve">
+    <value>Le paramètre &apos;{0}&apos; est passé par valeur et affecté : l&apos;argument de l&apos;appelant ne change pas.</value>
+  </data>
+  <data name="LineLabelNotUsed_Message" xml:space="preserve">
+    <value>Aucun saut ne mène à l&apos;étiquette de ligne &apos;{0}&apos;.</value>
+  </data>
+  <data name="WriteOnlyProperty_Message" xml:space="preserve">
+    <value>La propriété &apos;{0}&apos; n&apos;a aucun Property Get : on peut l&apos;affecter sans jamais la lire.</value>
+  </data>
 </root>

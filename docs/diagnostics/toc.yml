@@ -458,6 +458,18 @@
   href: rdc01006.md
 - name: "RDC01007: Host library not referenced"
   href: rdc01007.md
+- name: "RDC01011: Variable not used"
+  href: rdc01011.md
+- name: "RDC01012: Variable not assigned"
+  href: rdc01012.md
+- name: "RDC01013: Parameter not used"
+  href: rdc01013.md
+- name: "RDC01014: Assigned ByVal parameter"
+  href: rdc01014.md
+- name: "RDC01016: Line label not used"
+  href: rdc01016.md
+- name: "RDC01017: Write-only property"
+  href: rdc01017.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"

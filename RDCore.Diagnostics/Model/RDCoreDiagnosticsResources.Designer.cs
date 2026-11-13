@@ -851,5 +851,68 @@ namespace RDCore.Diagnostics.Model {
             }
         }
 
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is never used..
+        /// </summary>
+        public static string VariableNotUsed_Message {
+            get {
+                return ResourceManager.GetString("VariableNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is assigned and never read: what is assigned to it is never used..
+        /// </summary>
+        public static string VariableNotUsed_Assigned_Message {
+            get {
+                return ResourceManager.GetString("VariableNotUsed_Assigned_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is read and never assigned: it always has the default value of its type..
+        /// </summary>
+        public static string VariableNotAssigned_Message {
+            get {
+                return ResourceManager.GetString("VariableNotAssigned_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is never used..
+        /// </summary>
+        public static string ParameterNotUsed_Message {
+            get {
+                return ResourceManager.GetString("ParameterNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by value and assigned: the argument of the caller does not change..
+        /// </summary>
+        public static string AssignedByValParameter_Message {
+            get {
+                return ResourceManager.GetString("AssignedByValParameter_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing jumps to line label &apos;{0}&apos;..
+        /// </summary>
+        public static string LineLabelNotUsed_Message {
+            get {
+                return ResourceManager.GetString("LineLabelNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Property &apos;{0}&apos; has no Property Get: it can be assigned and never read..
+        /// </summary>
+        public static string WriteOnlyProperty_Message {
+            get {
+                return ResourceManager.GetString("WriteOnlyProperty_Message", resourceCulture);
+            }
+        }
+
     }
 }

@@ -381,4 +381,25 @@
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
   </data>
+  <data name="VariableNotUsed_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is never used.</value>
+  </data>
+  <data name="VariableNotUsed_Assigned_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is assigned and never read: what is assigned to it is never used.</value>
+  </data>
+  <data name="VariableNotAssigned_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is read and never assigned: it always has the default value of its type.</value>
+  </data>
+  <data name="ParameterNotUsed_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is never used.</value>
+  </data>
+  <data name="AssignedByValParameter_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is passed by value and assigned: the argument of the caller does not change.</value>
+  </data>
+  <data name="LineLabelNotUsed_Message" xml:space="preserve">
+    <value>Nothing jumps to line label &apos;{0}&apos;.</value>
+  </data>
+  <data name="WriteOnlyProperty_Message" xml:space="preserve">
+    <value>Property &apos;{0}&apos; has no Property Get: it can be assigned and never read.</value>
+  </data>
 </root>

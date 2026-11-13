@@ -75,6 +75,12 @@ public enum RDCoreDiagnosticId
     HostedDocumentCode = 1005, // a document module (.rdproj Super): the code of a host's document, which RD-VBA does not host; and a name of one in another module
     UnsupportedDocumentModule = 1006, // a document module of a host RD-VBA does not know, or a .doccls the project says nothing of
     HostLibraryNotReferenced = 1007, // a document module of a known host whose library the project does not reference
+    VariableNotUsed = 1011, // a variable whose value nothing reads
+    VariableNotAssigned = 1012, // a variable read and never assigned: it always has the default value of its type
+    ParameterNotUsed = 1013, // a parameter nothing in its procedure refers to
+    AssignedByValParameter = 1014, // a ByVal parameter its procedure assigns: the argument of the caller does not change
+    LineLabelNotUsed = 1016, // a line label nothing jumps to
+    WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,
