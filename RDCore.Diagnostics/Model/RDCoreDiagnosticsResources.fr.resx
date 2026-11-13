@@ -388,6 +388,6 @@
     <value>&apos;{0}&apos; a une espace insécable dans son nom : elle ressemble à une espace ordinaire, et le nom tapé avec une espace ordinaire est un autre nom.</value>
   </data>
   <data name="LSetOfARecordWithAString_Message" xml:space="preserve">
-    <value>LSet copie un enregistrement qui contient une String de longueur variable : MS-VBAL §5.4.3.6 le permet, et MS-VBA le refuse (erreur de compilation : incompatibilité de type).</value>
+    <value>LSet copie un enregistrement qui contient un champ String de longueur variable : MS-VBAL §5.4.3.6 le permet, et MS-VBA le refuse (erreur de compilation : incompatibilité de type).</value>
   </data>
 </root>
