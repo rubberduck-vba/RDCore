@@ -150,6 +150,8 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ImplementsInDocumentModule, 11024),
         (RDCoreDiagnosticId.ArrayGivenASecondEmptyArgumentList, 11025),
         (RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy, 11026),
+        (RDCoreDiagnosticId.NegativeLineNumber, 11036),
+        (RDCoreDiagnosticId.NonBreakingSpaceInName, 11037),
     ];
 
     [TestMethod]

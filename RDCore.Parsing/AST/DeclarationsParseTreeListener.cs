@@ -2096,10 +2096,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         // VBA has no negative-literal token; `Const N = -1` is MINUS over the literal 1 — fold the
-        // sign into a bare literal operand instead of wrapping it in an operator node.
+        // sign into a bare literal operand instead of wrapping it in an operator node. The literal is
+        // then written where the sign and the digits are: `-5`, not `5`.
         if (CurrentBuilder.LastChild is LiteralExpressionNode literal && NumericLiteral.Negate(literal.StaticValue) is { } negated)
         {
-            CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated });
+            CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated, SourceLocation = context.GetSourceLocation(_rootUri) });
             return;
         }
         AddIfBuilt(BuildUnary(Tokens.NegationOp, context, OperatorLocationOf(context)));

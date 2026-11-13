@@ -381,4 +381,10 @@
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
   </data>
+  <data name="NegativeLineNumber_Message" xml:space="preserve">
+    <value>A line number below 0: MS-VBAL has no such line number, and MS-VBA compiles it.</value>
+  </data>
+  <data name="NonBreakingSpaceInName_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; has a non-breaking space in its name: it looks like an ordinary space, and the name typed with an ordinary space is another name.</value>
+  </data>
 </root>
