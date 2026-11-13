@@ -377,8 +377,9 @@ internal sealed record class NameOccurrences(IReadOnlyList<NameOccurrence> Occur
                 continue;
             }
 
-            var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(origin), new StatementBlock([.. declaration.Children]), kind: declaration.MemberKind,
-                context: new StaticEvaluationContext(context.Resolver, scope, Environment: context.Environment));
+            var model = StatementStaticSemanticsEvaluator.Analyze(new SemanticId(origin), new StatementBlock([.. declaration.Children]),
+                new StaticSemanticsOptions(DrawsOnMe: GraphicsStatementStaticSemantics.DrawsOnMe(module.Designer)), declaration.MemberKind,
+                new StaticEvaluationContext(context.Resolver, scope, Environment: context.Environment));
             foreach (var (node, fact) in model.Expressions)
             {
                 facts[node] = fact;
