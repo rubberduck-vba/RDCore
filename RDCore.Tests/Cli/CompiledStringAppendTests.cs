@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A <c>String</c> variable of a compiled activation appended to (<c>S = S &amp; ...</c>): what is appended is held by the activation until the variable is
-/// read, by compiled code, a callee it is passed to by reference, or the interpreter, which read the String joined. A program runs the same either way.
+/// read, by compiled code, a callee it is passed to by reference, or the interpreter, which read the String joined. A program runs as it does in the interpreter.
 /// </summary>
 [TestClass]
 public sealed class CompiledStringAppendTests

@@ -115,7 +115,7 @@ public static class StringOperations
 /// <summary>
 /// The text compiled code appends to a <c>String</c> variable of an activation (<see cref="StringOperations.TryAppend"/>), held in a builder until it is
 /// written into the variable's cell (<see cref="StringOperations.WriteAppended"/>). No String is changed in place: the cell is given a new String made of
-/// the builder. A cell that holds another value than the one the builder was made of was assigned by something else, and the builder is made again of it.
+/// the builder. A cell that holds a value other than the one the builder was made of was assigned by something else, and the builder is made again of it.
 /// </summary>
 public sealed class TextAppender
 {
