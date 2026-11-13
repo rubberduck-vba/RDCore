@@ -203,8 +203,8 @@ internal sealed class CodeActionHandler(
 
     // the action that extracts the statements of a selection, or converts a GoSub routine, offered when nothing refuses it, with the refusals when something
     // does. A client with a dialog of its own runs it as a command, which prepares the refactoring and applies it with its user's answers; any other is sent the
-    // edit, with the defaults, when the refactoring changes nothing the user would have to accept. A refused one is offered disabled, with why, to a client that
-    // shows it so, unless the range holds nothing it refactors.
+    // edit, with the defaults, when the refactoring changes nothing the user would have to accept. A refused one, and one with a change to accept, is offered
+    // disabled, with why, to a client that shows it so, unless the range holds nothing it refactors.
     private async Task<(CodeAction? Action, IReadOnlyList<RefactorNotice> Refused)> RefactoringActionAsync(
         DocumentUri lspUri, string kind, SourceRange range, CancellationToken token)
     {
@@ -233,9 +233,13 @@ internal sealed class CodeActionHandler(
             }, []);
         }
 
-        if (prepared.Notices.Any(notice => notice.Kind is RefactorNoticeKind.Change))
+        // a change of what the code does is applied only when the user accepts it, which a client with no dialog cannot ask: one that shows an action it
+        // cannot take is told why.
+        if (prepared.Notices.FirstOrDefault(notice => notice.Kind is RefactorNoticeKind.Change) is { } change)
         {
-            return (null, []);
+            return (ShowsDisabled
+                ? new CodeAction { Title = title, Kind = actionKind, Disabled = new CodeActionDisabled { Reason = ExtractMethodService.NeedsAccepting(change) } }
+                : null, []);
         }
 
         if (ResolvesEdits)
