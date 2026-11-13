@@ -223,7 +223,7 @@ public sealed class CompiledLibraryCallTests
 
     // Round, of a Variant it returns, with its optional argument left out and given (an Integer let-coerced to the Long its parameter is); DateSerial and
     // TimeSerial, of Integer parameters given a Long, an Integer and an operation of Doubles let-coerced as the interpreter coerces them, a month or a minute
-    // past its range rolling over. The error 5 Round raises of a negative number of digits is raised where the interpreter raises it.
+    // past its range rolling over. The error 5 Round raises for a negative number of digits is raised where the interpreter raises it.
     [TestMethod]
     public async Task AFunctionOfOptionalOrTypedParameters_IsCalledByCompiledCode()
         => await AssertAlikeAsync(Program(
