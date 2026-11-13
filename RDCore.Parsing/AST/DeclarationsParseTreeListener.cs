@@ -2050,34 +2050,24 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         CurrentBuilder.AddChild(BuildUnbuiltExpressionTrivia(context, maxInputs));
     }
 
-    // the expression ends at its last token: the blanks the parse read after it, for what it found missing (`2 +`, then a comment), are no part of it.
+    // the expression is kept as it is written: the blanks the parse read after it, for what it found missing (`2 +`, then a comment), and a token it made up
+    // for one missing, are no part of it.
     private UnbuiltExpressionTriviaNode BuildUnbuiltExpressionTrivia(VBABaseParserRuleContext context, int maxInputs)
     {
         var inputs = CurrentBuilder.PopLastChildren(maxInputs);
-        if (LastTokenNoBlank(context) is { } last && context.Stop is { } stop && last.TokenIndex < stop.TokenIndex)
-        {
-            var text = context.Start.InputStream.GetText(Interval.Of(context.Start.StartIndex, last.StopIndex));
-            return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri, last), text, inputs);
-        }
-
-        return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs);
+        var (location, text) = context.Written(_rootUri);
+        return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), location, text, inputs);
     }
-
-    // the last token the parse read in a rule that is no blank, and no token it made up for one missing.
-    private static IToken? LastTokenNoBlank(IParseTree node) => node switch
-    {
-        ITerminalNode { Symbol: var token } => token.TokenIndex < 0 || token.Type is VBAParser.WS or VBAParser.LINE_CONTINUATION or TokenConstants.Eof ? null : token,
-        _ => Enumerable.Range(0, node.ChildCount).Reverse().Select(i => LastTokenNoBlank(node.GetChild(i))).FirstOrDefault(token => token is not null),
-    };
 
     // statement-position counterpart of BuildUnbuiltExpressionTrivia — same rationale (a required
     // sub-expression/identifier missing under recovery must not silently vanish, since that's still
     // reconstructable source text), for guards that sit at statement level instead of inside an
-    // expression tree (a bare `RaiseEvent`, an `On Error` shape recovery left incomplete).
+    // expression tree (a bare `RaiseEvent`, an `On Error` shape recovery left incomplete). It is kept as it is written too.
     private UnbuiltStatementTriviaNode BuildUnbuiltStatementTrivia(VBABaseParserRuleContext context, int maxInputs = 0)
     {
         var inputs = CurrentBuilder.PopLastChildren(maxInputs);
-        return new UnbuiltStatementTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs);
+        var (location, text) = context.Written(_rootUri);
+        return new UnbuiltStatementTriviaNode(GetCurrentNodeId(), location, text, inputs);
     }
 
     public override void ExitUnaryMinusOp([NotNull] VBAParser.UnaryMinusOpContext context)
