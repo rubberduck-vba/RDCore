@@ -14,8 +14,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// module gives each member of the interface a body of its own, and the code of the class runs only on an object created from the class itself.
 /// </summary>
 /// <remarks>
-/// The class is reported once, at the first member that has a statement. A comment, a line label and a declaration are no statement. Whether another module
-/// implements the class is a fact the host vouches for (<see cref="ClassModuleSemanticFlags.Implemented"/>), so the analyzer that is not given it has nothing to say.
+/// The class is reported once, at the first member that has a statement. Comments, line labels and declarations are not statements. Whether another
+/// module implements the class is a fact the host states (<see cref="ClassModuleSemanticFlags.Implemented"/>); without it, the analyzer reports nothing.
 /// </remarks>
 internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
 {
