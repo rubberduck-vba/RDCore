@@ -81,11 +81,12 @@ internal static class LateBinding
     /// <summary>
     /// Whether <paramref name="member"/> is a member of a late-bound class, which a call reaches by name.
     /// </summary>
+    /// <param name="member">The member a call is bound to.</param>
     public static bool IsLateBoundMember(VBTypeMemberSymbol member) => member.GetProperty(SymbolProperties.Library) == LibraryName;
 
     /// <summary>
-    /// The member <paramref name="member"/> is, called with arguments named <paramref name="names"/>: after the arguments that are not named, a parameter of
-    /// each name, which the server is told the name of (<see cref="ArgumentNamesOf"/>).
+    /// <paramref name="member"/> as a call with arguments named <paramref name="names"/> sees it: after the arguments that are not named, one parameter for
+    /// each name, whose name the server is told (<see cref="ArgumentNamesOf"/>).
     /// </summary>
     /// <param name="member">A member of a late-bound class (<see cref="IsLateBoundMember"/>).</param>
     /// <param name="names">The names the call's arguments are given, in the order they are written.</param>
@@ -108,6 +109,8 @@ internal static class LateBinding
     /// <summary>
     /// The names of the arguments of a call to <paramref name="member"/> that are named: the parameters after its <c>ParamArray</c>, less an assigned value.
     /// </summary>
+    /// <param name="member">A member of a late-bound class (<see cref="IsLateBoundMember"/>); one with no named arguments has none.</param>
+    /// <param name="parameters">The parameters of <paramref name="member"/>.</param>
     public static IReadOnlyList<string> ArgumentNamesOf(VBTypeMemberSymbol member, System.Collections.Immutable.ImmutableArray<VBParameterSymbol> parameters)
     {
         var after = parameters.SkipWhile(parameter => parameter is not ParamArrayParameterSymbol).Skip(1).ToList();
