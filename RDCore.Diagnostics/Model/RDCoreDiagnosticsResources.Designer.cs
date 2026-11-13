@@ -1633,5 +1633,14 @@ namespace RDCore.Diagnostics.Model {
             }
         }
 
+        /// <summary>
+        ///   Looks up a localized string similar to Add a Property Get &apos;{0}&apos; that returns the value the Let keeps in &apos;{1}&apos;.
+        /// </summary>
+        public static string WriteOnlyProperty_Fix {
+            get {
+                return ResourceManager.GetString("WriteOnlyProperty_Fix", resourceCulture);
+            }
+        }
+
     }
 }

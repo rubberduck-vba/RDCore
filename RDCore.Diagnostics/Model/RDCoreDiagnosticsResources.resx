@@ -645,4 +645,7 @@
   <data name="RedundantModuleOption_Fix" xml:space="preserve">
     <value>Remove {0}</value>
   </data>
+  <data name="WriteOnlyProperty_Fix" xml:space="preserve">
+    <value>Add a Property Get &apos;{0}&apos; that returns the value the Let keeps in &apos;{1}&apos;</value>
+  </data>
 </root>

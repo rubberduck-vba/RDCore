@@ -645,4 +645,7 @@
   <data name="RedundantModuleOption_Fix" xml:space="preserve">
     <value>Supprimer {0}</value>
   </data>
+  <data name="WriteOnlyProperty_Fix" xml:space="preserve">
+    <value>Ajouter un Property Get &apos;{0}&apos; qui renvoie la valeur que le Let garde dans &apos;{1}&apos;</value>
+  </data>
 </root>
