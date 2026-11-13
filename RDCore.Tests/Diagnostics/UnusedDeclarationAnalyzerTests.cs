@@ -251,12 +251,12 @@ public sealed class UnusedDeclarationAnalyzerTests
     }
 
     [TestMethod]
-    public async Task AnArray_AnObject_AndAReDim_AreGivenWhatTheyHoldOtherwise()
+    public async Task ADynamicArray_AnObject_AndAReDim_AreGivenWhatTheyHoldOtherwise()
         => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
             "Option Explicit",
             "Public Sub Main()",
-            "    Dim values(2) As Long",
-            "    Debug.Print values(0)",
+            "    Dim values() As Long",
+            "    Debug.Print UBound(values)",
             "    Dim items As Collection",
             "    Debug.Print items Is Nothing",
             "    Dim resized As Variant",
@@ -275,6 +275,49 @@ public sealed class UnusedDeclarationAnalyzerTests
 
         Assert.AreEqual(RDCoreDiagnosticId.VariableNotAssigned, finding.Id);
         StringAssert.Contains(finding.Message, "'o'");
+    }
+
+    [TestMethod]
+    public async Task AFixedArrayNoElementOfWhichIsWritten_IsNotAssigned()
+        => StringAssert.Contains(Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim totals(1 To 12) As Currency",
+            "    Debug.Print totals(1)",
+            "End Sub")).Message, "'totals'");
+
+    [TestMethod]
+    [DataRow("    totals(3) = 5", DisplayName = "an element assigned")]
+    [DataRow("    Fill totals(3)", DisplayName = "an element passed ByRef")]
+    public async Task AFixedArrayAnElementOfWhichIsWritten_IsAssigned(string write)
+        => Assert.IsEmpty(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim totals(1 To 12) As Currency",
+            write,
+            "    Debug.Print totals(3)",
+            "End Sub",
+            "Private Sub Fill(ByRef value As Currency)",
+            "    value = 1",
+            "End Sub"));
+
+    [TestMethod]
+    public async Task AReDimOfAnotherProcedure_DoesNotLeaveOutAVariableOfTheSameName()
+    {
+        var finding = Assert.ContainsSingle(await ProgramAsync(new VariableNotAssignedAnalyzer(),
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Dim n As Long",
+            "    Debug.Print n",
+            "End Sub",
+            "Public Sub Resize()",
+            "    Dim n() As Long",
+            "    ReDim n(3)",
+            "    Debug.Print n(0)",
+            "End Sub"));
+
+        // the n of Resize is an array, and left out whatever its ReDim: the finding is Main's.
+        StringAssert.Contains(finding.Message, "'n'");
     }
 
     [TestMethod]

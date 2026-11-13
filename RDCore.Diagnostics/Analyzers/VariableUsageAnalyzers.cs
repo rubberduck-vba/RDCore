@@ -7,6 +7,7 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Semantics;
+using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -64,9 +65,10 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
 /// its declared type (<strong>MS-VBAL §5.2.3.1.4</strong>).
 /// </summary>
 /// <remarks>
-/// An array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a class or a user-defined type are left out: such a variable is
+/// A dynamic array, a <c>ReDim</c> of the variable, a <c>WithEvents</c> variable, and a variable of a class or a user-defined type are left out: such a variable is
 /// given what it holds otherwise than by an assignment (<c>As New</c>, its members). A variable declared <c>As Object</c> is judged: it is <c>Nothing</c> until
-/// a <c>Set</c> assigns it. The host counts the references of a local and of a <c>Private</c> variable of the module.
+/// a <c>Set</c> assigns it. A fixed-size array is judged: an assignment of one of its elements is a write of the array. The host counts the references of a
+/// local and of a <c>Private</c> variable of the module.
 /// </remarks>
 internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
 {
@@ -79,16 +81,40 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
             yield break;
         }
 
-        var redimensioned = module.Descendants().OfType<RedimDeclarationNode>()
-            .Select(redim => redim.Target is SimpleNameExpressionNode name ? name.IdentifierName : null)
-            .OfType<string>()
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // the variables a ReDim names, by the symbol its target is bound to: a variable of another procedure with the same name is another variable. A target
+        // that is bound to nothing leaves out every variable of its name.
+        var facts = semantics.Procedures.SelectMany(procedure => procedure.Expressions).DistinctBy(fact => fact.Node).ToDictionary(fact => fact.Node);
+        var givenOtherwise = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var redimensionedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var redim in module.Descendants().OfType<RedimDeclarationNode>())
+        {
+            if (facts.TryGetValue(redim.Target.Identity, out var target) && target.Binding is { } binding)
+            {
+                givenOtherwise.Add(binding.ToString());
+            }
+            else if (redim.Target is SimpleNameExpressionNode name)
+            {
+                redimensionedNames.Add(name.IdentifierName);
+            }
+        }
+
+        // an element of an array passed where the procedure may take it by reference: the argument is the element, which no declaration is bound to, and the
+        // procedure may assign it.
+        foreach (var element in module.Descendants().OfType<IndexExpressionNode>())
+        {
+            if (facts.TryGetValue(element.Identity, out var passed) && passed.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument)
+                && facts.TryGetValue(element.Callee.Identity, out var array) && array.Binding is { } binding)
+            {
+                givenOtherwise.Add(binding.ToString());
+            }
+        }
 
         foreach (var (fact, _) in UnusedDeclarations.Counted(semantics, DeclarationKind.Variable)
-            .Where(counted => counted.References is { Writes: 0, PassedAsArguments: 0, Reads: > 0 } && !redimensioned.Contains(counted.Fact.Name)))
+            .Where(counted => counted.References is { Writes: 0, PassedAsArguments: 0, Reads: > 0 }
+                && !givenOtherwise.Contains(counted.Fact.Symbol.ToString()) && !redimensionedNames.Contains(counted.Fact.Name)))
         {
             if (UnusedDeclarations.DeclarationOf<VariableDeclarationNode>(module, fact, node => node.NameRange ?? node.SourceLocation.Range) is not { IsWithEvents: false } declaration
-                || declaration.Children.OfType<ArrayBoundsNode>().Any()
+                || declaration.Children.OfType<ArrayBoundsNode>().Any(bounds => bounds.IsResizable)
                 || !IsOfAnIntrinsicType(declaration))
             {
                 continue;
