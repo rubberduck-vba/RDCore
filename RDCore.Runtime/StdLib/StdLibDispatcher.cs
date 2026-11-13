@@ -402,7 +402,7 @@ public sealed class StdLibDispatcher : IExternalCallProvider
     }
 
     // the reader gives an instance member an implicit Me at parameter 0, exactly as a workspace class's members have.
-    private static bool HasReceiver(VBTypeMemberSymbol member)
+    internal static bool HasReceiver(VBTypeMemberSymbol member)
         => RuntimeProcedureInvoker.GetParameters(member) is [{ Name: "Me", ParameterKind: ParameterKind.ImplicitByRef }, ..];
 
     // typed: the typed value argument is the storage of (TypedValue).

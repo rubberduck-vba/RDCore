@@ -1,4 +1,5 @@
 using RDCore.Runtime.Execution;
+using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -103,7 +104,11 @@ public sealed partial class CompiledActivation
             return false;
         }
 
-        var result = bindings.ForMember(called.Function).Call(_session.Symbols.Resolver, arguments);
+        // straight to the library when nothing needs to see the call (ExternalCallPipeline.TryCallLibraryDirectly), through the pipeline otherwise.
+        var result = bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
+            && pipeline.TryCallLibraryDirectly(called.Function, arguments, _session.Symbols.Resolver, out var direct)
+                ? direct
+                : bindings.ForMember(called.Function).Call(_session.Symbols.Resolver, arguments);
 
         // Abs of the least value of a type overflows, but the interpreter decides it of the call (AbsOfTheLeast): the least Long of a constant expression is
         // itself, and of a Variant the next wider type. Compiled code declines, and the interpreter evaluates the instruction.

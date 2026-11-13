@@ -1,8 +1,12 @@
 using RDCore.SDK.Model.Errors;
+using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.StdLib;
 
 namespace RDCore.Runtime.Execution.External;
 
@@ -80,6 +84,47 @@ public sealed record class ExternalCallPipeline(
         }
 
         return Unreachable(request);
+    }
+
+    // a call of a function of the standard library made without the pipeline, as compiled code makes it: when the only interceptors are the platform's
+    // own policies, which refuse automation and library imports and nothing of the library's functions, and when the library is the provider the
+    // pipeline would give it to. Interception is involved where it is needed: an extension's interceptor, or an analysis's, sees every call. What the
+    // call returns is held as the pipeline holds it.
+    internal bool TryCallLibraryDirectly(
+        VBTypeMemberSymbol member, IRuntimeValue[] arguments, IRuntimeSymbolResolver resolver, out RuntimeSemanticsEvaluationResult result)
+    {
+        result = default;
+        if (LibraryOf(member) is not { } library)
+        {
+            return false;
+        }
+
+        result = library.Dispatch(new ExternalCallRequest(member, arguments, default), resolver);
+        if (result.IsSuccess)
+        {
+            ObjectReferences.HoldTemporarily(Session, result.Result);
+        }
+
+        return true;
+    }
+
+    private readonly ConcurrentDictionary<VBTypeMemberSymbol, StdLibDispatcher?> _libraryCalls = new(ReferenceEqualityComparer.Instance);
+
+    // the library a member's calls go to directly, or none: decided once a member, from the member alone (a request without its arguments).
+    private StdLibDispatcher? LibraryOf(VBTypeMemberSymbol member)
+        => _libraryCalls.TryGetValue(member, out var library) ? library : _libraryCalls.GetOrAdd(member, DirectLibraryOf);
+
+    private StdLibDispatcher? DirectLibraryOf(VBTypeMemberSymbol member)
+    {
+        // a member of a class is called on an object, which a provider may answer for by the object: only a module's function is decided by itself.
+        var request = new ExternalCallRequest(member, [], default);
+        if (StdLibDispatcher.HasReceiver(member) || request.IsAutomation || request.IsLibraryImport
+            || Interceptors.Any(interceptor => interceptor is not (DllImportPolicyInterceptor or AutomationPolicyInterceptor)))
+        {
+            return null;
+        }
+
+        return Providers.FirstOrDefault(provider => provider.CanDispatch(request)) as StdLibDispatcher;
     }
 
     // nothing here can run it. For a library import that is "the library call could not be made", which is
