@@ -245,14 +245,15 @@ public sealed class TemporaryReferenceTests
             "Debug.Print \"after\""));
 
     [TestMethod]
-    public async Task TheMembersOfACollectionAForEachEnumerates_OutliveTheCollection_UntilTheLoopReachesThem()
+    // the collection is let go of in the loop by a Set to another one: a Set to Nothing is left undone while the loop runs.
+    public async Task TheMembersOfACollectionAForEachEnumerates_OutliveTheCollection_UntilTheLoopIsOver()
         => CollectionAssert.AreEqual(new[] { "a", "b", "terminated a", "terminated b", "after" }, await RunWith(Make,
             "Dim c As Collection, x As Variant",
             "Set c = New Collection",
             "c.Add Make(\"a\")",
             "c.Add Make(\"b\")",
             "For Each x In c",
-            "    Set c = Nothing",
+            "    Set c = New Collection",
             "    Debug.Print x.Name",
             "Next",
             "x = Empty",
