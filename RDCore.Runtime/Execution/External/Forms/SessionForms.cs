@@ -269,7 +269,8 @@ internal sealed class SessionForms
     /// </summary>
     /// <remarks>
     /// The wait is over when the last VB6 form is unloaded, when a handler ends or stops the program (<see cref="ISessionHalt.Pending"/>), or when
-    /// <paramref name="end"/> is cancelled: then the program is ended as an <c>End</c> ends it, and its forms are hidden with none of its code run.
+    /// <paramref name="end"/> is cancelled. When <paramref name="end"/> is cancelled, the program is ended as an <c>End</c> ends it, and its forms are hidden
+    /// with none of its code run.
     /// </remarks>
     /// <param name="session">The session the program runs in.</param>
     /// <param name="end">Ends the program, as the debugger's End or a cancelled run does.</param>
@@ -316,7 +317,8 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// Wakes a program that waits for its forms to be unloaded (<see cref="WaitWhileLoaded"/>), to look again: an event was handled, which may have ended it.
+    /// Wakes a program that waits for its forms to be unloaded (<see cref="WaitWhileLoaded"/>), so that it checks again whether its wait is over: an event was handled, which may
+    /// have ended it.
     /// </summary>
     public void Wake()
     {

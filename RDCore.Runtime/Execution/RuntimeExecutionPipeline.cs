@@ -83,13 +83,13 @@ public sealed class RuntimeExecutionPipeline
 
     /// <summary>
     /// Runs a program: invokes its entry point, and then, for a Visual Basic 6.0 program that returned with a form loaded, waits until its last form is unloaded,
-    /// handling the forms' events meanwhile (VB6 measured: the program runs past its <c>Sub Main</c> while a form is loaded).
+    /// handling the forms' events meanwhile (measured in VB6: the program runs past its <c>Sub Main</c> while a form is loaded).
     /// </summary>
     /// <param name="entryPoint">The procedure the program starts with.</param>
     /// <param name="resolver">What the program's names resolve with.</param>
     /// <param name="arguments">What the entry point is given.</param>
     /// <param name="end">Ends a program that waits for its forms, as an <c>End</c> does.</param>
-    /// <returns>What the entry point answered; a program its forms' handlers ended or stopped says so in the session's halt.</returns>
+    /// <returns>What the entry point answered. When a handler of its forms ends or stops the program, the session's halt says so.</returns>
     public RuntimeSemanticsEvaluationResult RunProgram(
         VBTypeMemberSymbol entryPoint, IRuntimeSymbolResolver resolver, IRuntimeValue[] arguments, CancellationToken end = default)
     {
