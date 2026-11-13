@@ -122,8 +122,8 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
             : (GetSourceLocation(documentUri), GetText());
 
     /// <summary>
-    /// The location of a clause of a block statement (<c>ElseIf</c>, <c>Else</c>, <c>Case</c>, <c>Case Else</c>), through its last written token. The end of
-    /// its last statement (the comment after it, the line ends and the indentation before the keyword that closes the clause) is no part of it: a clause
+    /// The location of a clause of a block statement (<c>ElseIf</c>, <c>Else</c>, <c>Case</c>, <c>Case Else</c>), through its last written token. What
+    /// follows its last statement (the comment after it, the line ends and the indentation before the keyword that closes the clause) is no part of it: a clause
     /// ends where its last statement does, or with its own header when it has none.
     /// </summary>
     internal SourceLocation GetClauseLocation(Uri documentUri)
