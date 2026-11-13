@@ -48,6 +48,21 @@ public sealed class ConvertGoSubServiceTests
         "Again:\r\n" +
         "    Debug.Print n\r\n" +
         "    Return\r\n" +
+        "End Sub\r\n" +
+        // Outer, lines 25 to 28, runs Inner, lines 29 to 31.
+        "Public Sub Nested(ByVal n As Long)\r\n" +
+        "    Dim total As Long\r\n" +
+        "    total = n\r\n" +
+        "    GoSub Outer\r\n" +
+        "    Debug.Print total\r\n" +
+        "    Exit Sub\r\n" +
+        "Outer:\r\n" +
+        "    total = total + 1\r\n" +
+        "    GoSub Inner\r\n" +
+        "    Return\r\n" +
+        "Inner:\r\n" +
+        "    total = total * 2\r\n" +
+        "    Return\r\n" +
         "End Sub\r\n";
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
@@ -177,6 +192,58 @@ public sealed class ConvertGoSubServiceTests
         Assert.IsNull(action.Command);
         var edits = action.Edit!.DocumentChanges?.Single().TextDocumentEdit!.Edits ?? action.Edit.Changes![DocumentUri.From(Document)];
         Assert.IsTrue(edits.Any(edit => edit.NewText.Contains("Private Sub TwiceProc(", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ARoutineThatRunsAnother_IsOfferedToConvertEveryRoutine_Ticked_ItsGoSubANote()
+    {
+        var outer = await Sut().PrepareAsync(RefactoringKinds.ConvertGoSub, Document, At(25, 0), CancellationToken.None);
+        var inner = await Sut().PrepareAsync(RefactoringKinds.ConvertGoSub, Document, At(29, 0), CancellationToken.None);
+
+        Assert.AreEqual(string.Empty, string.Join("; ", outer.Notices.Where(notice => notice.Kind is RefactorNoticeKind.Refusal).Select(notice => $"{notice.Code}: {notice.Message}")));
+        Assert.AreEqual(27, outer.Notices.Single(notice => notice.Kind is RefactorNoticeKind.Note).Location?.Range.Start.Line);
+        Assert.AreEqual("true", outer.Choices.Single(choice => choice.Id == ExtractMethodService.ConvertAllChoice).Default);
+        Assert.AreEqual("false", inner.Choices.Single(choice => choice.Id == ExtractMethodService.ConvertAllChoice).Default);
+        Assert.IsFalse(prepared(await Sut().PrepareAsync(RefactoringKinds.ConvertGoSub, Document, At(8, 0), CancellationToken.None)).Contains(ExtractMethodService.ConvertAllChoice),
+            "Run has one routine");
+
+        static string[] prepared(RefactorPrepareResult result) => [.. result.Choices.Select(choice => choice.Id)];
+    }
+
+    [TestMethod]
+    public async Task EveryRoutine_IsConverted_InnermostFirst_ByDefaultFromOneThatRunsAnother()
+    {
+        var answer = await Sut().ApplyAsync(RefactoringKinds.ConvertGoSub, Document, At(25, 0), [], [], CancellationToken.None);
+
+        Assert.AreEqual(null, answer.Refusal);
+        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "    total = n\r\n    OuterProc total\r\n    Debug.Print total\r\n    Exit Sub\r\nEnd Sub", text);
+        StringAssert.Contains(text, "Private Sub OuterProc(ByRef total As Long)\r\n    total = total + 1\r\n    InnerProc total\r\nEnd Sub", text);
+        StringAssert.Contains(text, "Private Sub InnerProc(ByRef total As Long)\r\n    total = total * 2\r\nEnd Sub", text);
+        Assert.IsFalse(text.Contains("GoSub Outer", StringComparison.Ordinal) || text.Contains("GoSub Inner", StringComparison.Ordinal), text);
+    }
+
+    [TestMethod]
+    public async Task TheRoutineAskedFor_TakesTheAnswers_AndTheOthersTheirDefaults()
+    {
+        var answer = await Sut().ApplyAsync(RefactoringKinds.ConvertGoSub, Document, At(29, 0),
+            [new RefactorAnswer { Id = ExtractMethodService.ConvertAllChoice, Value = "true" }, new RefactorAnswer { Id = ExtractMethodService.NameChoice, Value = "Doubled" }],
+            [], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        var text = Applied(Module, answer.Edit!.Documents.Single().Edits);
+        StringAssert.Contains(text, "Private Sub OuterProc(ByRef total As Long)\r\n    total = total + 1\r\n    Doubled total\r\nEnd Sub", text);
+        StringAssert.Contains(text, "Private Sub Doubled(ByRef total As Long)", text);
+    }
+
+    [TestMethod]
+    public async Task ARoutineThatRunsAnother_IsRefused_Alone()
+    {
+        var answer = await Sut().ApplyAsync(RefactoringKinds.ConvertGoSub, Document, At(25, 0),
+            [new RefactorAnswer { Id = ExtractMethodService.ConvertAllChoice, Value = "false" }], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Edit);
+        Assert.IsFalse(string.IsNullOrEmpty(answer.Refusal));
     }
 
     [TestMethod]

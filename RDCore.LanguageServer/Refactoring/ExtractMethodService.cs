@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using OmniSharp.Extensions.LanguageServer.Protocol;
 using RDCore.LanguageServer.Parsing;
 using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
+using RDCore.Runtime.LanguageCore.Instructions;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
@@ -139,6 +140,12 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     public const string RouteExitsChoice = "routeExits";
 
     /// <summary>
+    /// The id of the choice of Convert GoSub to convert every <c>GoSub</c> routine of the procedure, innermost first, each verified: all of them, or none. It is
+    /// offered when the procedure has another routine, and is ticked by default when the routine runs another, which is converted first.
+    /// </summary>
+    public const string ConvertAllChoice = "convertAll";
+
+    /// <summary>
     /// The id of the choice of a parameter's name, among the choices of an item of <see cref="ParametersChoice"/>.
     /// </summary>
     public const string ParameterNameChoice = "name";
@@ -205,6 +212,22 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         // from here the selection snapped: the statements it is of are what the editor shows will move, refused or not.
         var notices = extraction.Notices();
         var moved = plan.Selection.Range;
+
+        // a routine that runs others converts with them, which are converted first: what refuses it alone is a note.
+        if (RunsOtherRoutines(plan))
+        {
+            return new RefactorPrepareResult
+            {
+                Choices = extraction.Choices(),
+                Notices =
+                [
+                    .. plan.Refusals.Select(refusal => extraction.NoteOf(refusal, "ConvertGoSub_RunsAnother")),
+                    .. notices.Where(notice => notice.Kind is not RefactorNoticeKind.Refusal),
+                ],
+                Range = moved,
+            };
+        }
+
         if (!plan.IsExtractable)
         {
             return new RefactorPrepareResult { Notices = notices, Range = moved };
@@ -261,19 +284,56 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new(null, extraction.SelectionRefusal!.Message);
         }
 
+        // a routine converts alone, or with every other of the procedure: by default when it runs another, which is converted first.
+        if (kind == RefactoringKinds.ConvertGoSub
+            && (bool.TryParse(answers.FirstOrDefault(answer => answer.Id == ConvertAllChoice)?.Value, out var all) ? all : RunsOtherRoutines(plan)))
+        {
+            return await ConvertAllAsync(extraction, answers, accepted, token);
+        }
+
         if (!plan.IsExtractable)
         {
             return new(null, extraction.RefusalMessage(plan.Refusals[0]));
         }
 
-        // the answers, each to its choice; one that is not given takes the choice's default.
+        var (choices, refused) = ChoicesOf(extraction, answers, accepted);
+        if (choices is null)
+        {
+            return new(null, refused);
+        }
+
+        var (formatted, failure) = await WrittenAsync(extraction, choices, token);
+        if (formatted is null)
+        {
+            return new(null, failure);
+        }
+
+        var document = extraction.Module.Document;
+        return new(new RefactorWorkspaceEdit
+        {
+            Documents =
+            [
+                new RefactorDocumentEdit
+                {
+                    Uri = document.Id.Uri.ToUri(),
+                    Version = document.Version,
+                    Edits = [.. formatted.Edits.Select(each => new RefactorTextEdit { Range = each.Range, NewText = each.NewText })],
+                },
+            ],
+        }, null);
+    }
+
+    // what the user chose, from the answers, each to its choice; one that is not given takes the choice's default. Null, with why, when an answer is refused.
+    private static (ExtractionChoices? Choices, string? Refusal) ChoicesOf(Extraction extraction, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted)
+    {
+        var plan = extraction.Plan!;
         string? Answer(string id) => answers.FirstOrDefault(answer => answer.Id == id)?.Value;
         var name = Answer(NameChoice) is { Length: > 0 } typed ? typed.Trim() : extraction.SuggestedName();
         var returned = Answer(ReturnValueChoice) ?? NoReturnValue;
         var returnValue = returned.Length == 0 ? null : plan.ReturnCandidates.FirstOrDefault(candidate => candidate.Name.Equals(returned, StringComparison.OrdinalIgnoreCase));
         if (returned.Length > 0 && returnValue is null)
         {
-            return new(null, Format($"ExtractMethodEdit_{ExtractionEditRefusalKind.NotAReturnCandidate}", returned));
+            return (null, Format($"ExtractMethodEdit_{ExtractionEditRefusalKind.NotAReturnCandidate}", returned));
         }
 
         var routeExits = !bool.TryParse(Answer(RouteExitsChoice), out var route) || route;
@@ -281,13 +341,13 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         // a name that cannot be declared there is refused; one that hides another declaration is the user's to choose.
         if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).FirstOrDefault(problem => !problem.IsWarning) is { } problem)
         {
-            return new(null, problem.ToMessage(RenameWorkspace.Locator(extraction.Part)));
+            return (null, problem.ToMessage(RenameWorkspace.Locator(extraction.Part)));
         }
 
         // a change of what the code does is made only when the user accepts it.
         if (plan.BehaviourChanges.Where(change => !change.IsNote).FirstOrDefault(change => !accepted.Contains(Code(change.Kind.ToString()))) is { } declined)
         {
-            return new(null, Format("ExtractMethodEdit_NotAccepted", extraction.ChangeMessage(declined)));
+            return (null, Format("ExtractMethodEdit_NotAccepted", extraction.ChangeMessage(declined)));
         }
 
         // the parameters as the user renamed them, put them in order and passes them; an item that is not answered is kept as it is, where it is.
@@ -297,39 +357,178 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                 item.Answers.FirstOrDefault(each => each.Id == ParameterPassingChoice)?.Value))
             .ToArray() ?? [];
         var (parameters, parameterProblem) = ExtractionParameters.Choose(parameterAnswers, plan, extraction.Source, name, extraction.Part.Context, extraction.Module.Module);
-        if (parameterProblem is not null)
-        {
-            return new(null, parameterProblem.ToMessage());
-        }
+        return parameterProblem is not null
+            ? (null, parameterProblem.ToMessage())
+            : (new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits, Parameters = parameters }, null);
+    }
 
-        var choices = new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits, Parameters = parameters };
-        var edit = ExtractMethodEdit.Of(plan, extraction.Source, choices);
+    // the extraction written with the choices, indented as the user's settings say, and verified; null, with why, when it is refused.
+    private async Task<(ExtractionEdit? Formatted, string? Refusal)> WrittenAsync(Extraction extraction, ExtractionChoices choices, CancellationToken token)
+    {
+        var edit = ExtractMethodEdit.Of(extraction.Plan!, extraction.Source, choices);
         if (edit.Refusal is { } refusal)
         {
-            return new(null, EditRefusal(refusal, extraction));
+            return (null, EditRefusal(refusal, extraction));
         }
 
         var text = extraction.Analysis.Text;
-        var document = extraction.Module.Document;
-        var documentAddress = document.Id.Uri.ToUri();
+        var documentAddress = extraction.Module.Document.Id.Uri.ToUri();
         var formatted = edit.Formatted(text, await ParseAsync(documentAddress, edit.ApplyTo(text), extraction, token), options.Value.Formatting.ToOptions());
-        if (await VerifiedAsync(extraction, formatted, name, documentAddress, token) is { } failure)
+        return await VerifiedAsync(extraction, formatted, choices.Name, documentAddress, token) is { } failure
+            ? (null, Format("ExtractMethodVerification_Failed", Format($"ExtractMethodVerification_{failure.Kind}", failure.Detail)))
+            : (formatted, null);
+    }
+
+    // every GoSub routine of the procedure converted, innermost first, each on the text the one before it left, and verified there: all of them, or none. The
+    // routine asked for takes the user's answers; each other one, its default name and parameters, and the changes the user accepted.
+    private async Task<ExtractMethodAnswer> ConvertAllAsync(Extraction asked, IReadOnlyList<RefactorAnswer> answers, IReadOnlyList<string> accepted, CancellationToken token)
+    {
+        var askedLabel = asked.Plan!.Selection.Routine!.Label;
+        var (member, memberKind) = (asked.Procedure.Declaration.Name, asked.Procedure.Declaration.MemberKind);
+        var remaining = RoutineLabels(asked.Procedure).ToList();
+        var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var current = asked;
+        while (remaining.Count > 0)
         {
-            return new(null, Format("ExtractMethodVerification_Failed", Format($"ExtractMethodVerification_{failure.Kind}", failure.Detail)));
+            // the next routine is the first that converts as the text now is: one that runs another that is still a routine waits for it.
+            Extraction? next = null;
+            string? why = null;
+            foreach (var each in remaining)
+            {
+                var (candidate, refusal) = RoutineOf(current, each);
+                if (candidate is not null)
+                {
+                    next = candidate;
+                    break;
+                }
+
+                why ??= refusal;
+            }
+
+            if (next is null)
+            {
+                return new(null, Format("ConvertGoSub_NotAll", remaining[0], why));
+            }
+
+            var label = next.Plan!.Selection.Routine!.Label;
+            var isAsked = label.Equals(askedLabel, StringComparison.OrdinalIgnoreCase);
+            var (choices, refused) = ChoicesOf(next, isAsked ? answers : [], accepted);
+            if (choices is null)
+            {
+                return new(null, refused);
+            }
+
+            // the names the run gave already are taken: the next suggestion has a number after it.
+            var name = choices.Name;
+            for (var index = 2; !isAsked && named.Contains(name); index++)
+            {
+                name = $"{choices.Name}{index}";
+            }
+
+            if (named.Contains(name))
+            {
+                return new(null, Format("ConvertGoSub_NameTaken", name));
+            }
+
+            var (formatted, failure) = await WrittenAsync(next, choices with { Name = name }, token);
+            if (formatted is null)
+            {
+                return new(null, failure);
+            }
+
+            named.Add(name);
+            remaining.RemoveAll(converted => converted.Equals(label, StringComparison.OrdinalIgnoreCase));
+            if (await ReanalyzedAsync(next, formatted.ApplyTo(next.Analysis.Text), member, memberKind, token) is not { } reanalyzed)
+            {
+                return new(null, Format("ExtractMethodVerification_Failed", Format($"ExtractMethodVerification_{ExtractionVerificationFailureKind.DoesNotParse}", string.Empty)));
+            }
+
+            current = reanalyzed;
         }
 
+        var document = asked.Module.Document;
         return new(new RefactorWorkspaceEdit
         {
             Documents =
             [
                 new RefactorDocumentEdit
                 {
-                    Uri = documentAddress,
+                    Uri = document.Id.Uri.ToUri(),
                     Version = document.Version,
-                    Edits = [.. formatted.Edits.Select(each => new RefactorTextEdit { Range = each.Range, NewText = each.NewText })],
+                    Edits = [Difference(asked.Analysis.Text, current.Analysis.Text)],
                 },
             ],
         }, null);
+    }
+
+    // the routine a label starts, as the text of the extraction is, when it converts as it is; null, with why, when it does not.
+    private static (Extraction? Routine, string? Refusal) RoutineOf(Extraction extraction, string label)
+    {
+        var procedure = extraction.Procedure;
+        if (!GoSubRoutine.TryFind(procedure.Declaration, procedure.Instructions, procedure.Graph, extraction.Analysis.Directives, label, out var routine, out var why))
+        {
+            return (null, Format($"ConvertGoSub_{why}", label));
+        }
+
+        var plan = ExtractionAnalysis.Plan(routine!, procedure.Graph, procedure.Accesses, procedure.Model, extraction.Analysis.Scopes);
+        var found = extraction with { Plan = plan };
+        if (!plan.IsExtractable)
+        {
+            return (null, found.RefusalMessage(plan.Refusals[0]));
+        }
+
+        return ExtractMethodEdit.Of(plan, found.Source, new ExtractionChoices(found.SuggestedName())).Refusal is { } refusal
+            and not ExtractionEditRefusalKind.NotExtractable
+            ? (null, EditRefusal(refusal, found))
+            : (found, null);
+    }
+
+    // the module analyzed again as the text is: the procedure, and its selection to come.
+    private async Task<Extraction?> ReanalyzedAsync(Extraction extraction, string text, string member, MemberKind memberKind, CancellationToken token)
+    {
+        var parse = await ParseAsync(extraction.Module.Document.Id.Uri.ToUri(), text, extraction, token);
+        if (extraction.Part.Recompose is not { } recompose || parse.SyntaxTree is not { } tree)
+        {
+            return null;
+        }
+
+        var composition = recompose(extraction.Module.Module, parse);
+        var analysis = ExtractionModuleAnalysis.Of(extraction.Module.Module, text, parse, composition.Resolver, composition.ScopeTree);
+        if (analysis.Procedure(member, memberKind) is not { } procedure)
+        {
+            return null;
+        }
+
+        return extraction with
+        {
+            Analysis = analysis,
+            Procedure = procedure,
+            Source = new ExtractionSource(tree, procedure.Declaration, procedure.Model.Procedure, text, analysis.Scopes),
+            Plan = null,
+        };
+    }
+
+    // the one edit that makes the text the other: what lies between what they start and end with alike.
+    private static RefactorTextEdit Difference(string before, string after)
+    {
+        var start = 0;
+        while (start < before.Length && start < after.Length && before[start] == after[start])
+        {
+            start++;
+        }
+
+        var end = 0;
+        while (end < before.Length - start && end < after.Length - start && before[^(end + 1)] == after[^(end + 1)])
+        {
+            end++;
+        }
+
+        var text = new ExtractionText(before);
+        return new RefactorTextEdit
+        {
+            Range = new SourceRange(text.PositionOf(start), text.PositionOf(before.Length - end)),
+            NewText = after[start..(after.Length - end)],
+        };
     }
 
     // the extraction verified against the workspace composed again with the module as the edit leaves it.
@@ -421,6 +620,20 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             : null;
     }
 
+    // the labels of the procedure that a GoSub or an On…GoSub goes to, as they are written, in the order they are.
+    private static IReadOnlyList<string> RoutineLabels(ExtractionProcedureAnalysis procedure)
+    {
+        var items = procedure.Instructions.Items;
+        return [.. procedure.Declaration.Descendants().OfType<LineLabelNode>()
+            .Where(label => procedure.Instructions.TryGetLabelOffset(label.Name, out var start)
+                && items.Any(item => item.Kind is InstructionKind.GoSub && item.Target == start || item.Kind is InstructionKind.GoSubTable && item.Targets.Contains(start)))
+            .Select(label => label.Name)];
+    }
+
+    // whether a routine is refused only for the GoSubs in it to other routines, which convert with it, first.
+    private static bool RunsOtherRoutines(ExtractionPlan plan)
+        => plan.Selection.Routine is not null && plan.Refusals.Length > 0 && plan.Refusals.All(refusal => refusal.Kind is ExtractionRefusalKind.GoSubToOutside);
+
     // the label of the GoSub routine a Return at a position returns from: the first label of the procedure whose routine has that Return; null when the
     // position is on no Return, or the Return is of no routine that can be found.
     private static string? ReturningLabelAt(MemberDeclarationNode procedure, SourcePosition position, Func<string, GoSubRoutine?> routineOf)
@@ -463,7 +676,19 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
         public string Where(SourceLocation? location) => location is { } at ? RenameWorkspace.Locator(Part)(Module.Module, at.Range.Start) : string.Empty;
 
-        public string RefusalMessage(ExtractionRefusal refusal) => Format($"ExtractMethodRefusal_{refusal.Kind}", refusal.Name, Where(refusal.Location));
+        public string RefusalMessage(ExtractionRefusal refusal) => RefusalMessage(refusal, $"ExtractMethodRefusal_{refusal.Kind}");
+
+        // a refusal said by another message, which takes the same name and place.
+        public string RefusalMessage(ExtractionRefusal refusal, string key) => Format(key, refusal.Name, Where(refusal.Location));
+
+        // a refusal that another choice lifts, said as a note.
+        public RefactorNotice NoteOf(ExtractionRefusal refusal, string key) => new()
+        {
+            Code = Code(refusal.Kind.ToString()),
+            Kind = RefactorNoticeKind.Note,
+            Message = RefusalMessage(refusal, key),
+            Location = refusal.Location is { } at ? new SourceLocation(DocumentAddress, at.Range) : null,
+        };
 
         // the name a problem of a name points to, in the document of a module of the workspace; null for a declaration of a library, or of no module.
         public SourceLocation? DeclarationOf(ExtractionNameProblem problem)
@@ -560,6 +785,18 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                     Label = Format("ExtractMethodChoice_RouteExits"),
                     Description = Format("ExtractMethodChoice_RouteExitsDescription"),
                     Default = "true",
+                });
+            }
+
+            if (plan.Selection.Routine is not null && RoutineLabels(Procedure).Count > 1)
+            {
+                choices.Add(new()
+                {
+                    Id = ConvertAllChoice,
+                    Kind = RefactorChoiceKind.Flag,
+                    Label = Format("ConvertGoSub_ConvertAll"),
+                    Description = Format("ConvertGoSub_ConvertAllDescription"),
+                    Default = RunsOtherRoutines(plan) ? "true" : "false",
                 });
             }
 

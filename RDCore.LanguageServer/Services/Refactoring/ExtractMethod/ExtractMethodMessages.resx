@@ -77,6 +77,21 @@
   <data name="ConvertGoSub_DocumentChanged" xml:space="preserve">
     <value>The routine was not converted: the document has changed since it was offered. Ask for the conversion again.</value>
   </data>
+  <data name="ConvertGoSub_ConvertAll" xml:space="preserve">
+    <value>Convert every GoSub routine of the procedure</value>
+  </data>
+  <data name="ConvertGoSub_ConvertAllDescription" xml:space="preserve">
+    <value>The routines are converted innermost first, each checked on the code the one before left: all of them, or none. Each one but this is named after its label.</value>
+  </data>
+  <data name="ConvertGoSub_RunsAnother" xml:space="preserve">
+    <value>The GoSub at {1} runs another routine: it is converted first, with every routine of the procedure.</value>
+  </data>
+  <data name="ConvertGoSub_NotAll" xml:space="preserve">
+    <value>The routines were not converted: {0} cannot be. {1}</value>
+  </data>
+  <data name="ConvertGoSub_NameTaken" xml:space="preserve">
+    <value>The routines were not converted: another one is named {0} already.</value>
+  </data>
   <data name="ExtractMethodChoice_Name" xml:space="preserve">
     <value>Name</value>
   </data>

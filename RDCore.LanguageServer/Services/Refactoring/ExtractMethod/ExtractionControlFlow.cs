@@ -106,6 +106,13 @@ internal static class ExtractionControlFlow
                     continue;
                 }
 
+                // a Return comes back after each GoSub of the procedure: back after one of the selection, it ends that GoSub's routine, which moves with the
+                // selection when it is in it, and is refused at the GoSub when not.
+                if (instruction.Kind is InstructionKind.Return && region.Contains(edge.To - 1) && items[edge.To - 1].Kind is InstructionKind.GoSub or InstructionKind.GoSubTable)
+                {
+                    continue;
+                }
+
                 if (!starts.Contains(edge.To) || jumps && entered)
                 {
                     // an error into a handler is told by where the handler is; a jump, by the jump.
