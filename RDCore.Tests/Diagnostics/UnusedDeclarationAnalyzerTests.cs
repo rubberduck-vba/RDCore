@@ -252,9 +252,27 @@ public sealed class UnusedDeclarationAnalyzerTests
             "    Debug.Print value",
             "End Sub");
 
-        CollectionAssert.AreEqual(new[] { 4 }, Lines(findings), "not one read, passed, or read by another constant or a bound; not a constant of the module, which is not counted");
+        CollectionAssert.AreEqual(new[] { 2, 4 }, Lines(findings), "not one read, passed, or read by another constant or a bound, in a procedure or in the module");
         AssertAre(findings, RDCoreDiagnosticId.ConstantNotUsed, DiagnosticSeverity.Information);
-        StringAssert.Contains(findings[0].Message, "'Unused'");
+        StringAssert.Contains(findings[0].Message, "'Hidden'");
+        StringAssert.Contains(findings[1].Message, "'Unused'");
+    }
+
+    [TestMethod]
+    public async Task AConstantOfTheModule_ReadByADeclarationOfTheModule_IsUsed_AndAPublicOneIsNotCounted()
+    {
+        var findings = await ProgramAsync(new ConstantNotUsedAnalyzer(),
+            "Option Explicit",
+            "Private Const Size As Long = 3",
+            "Private Items(Size) As Long",
+            "Private Const Base As Long = 1",
+            "Private Const Twice As Long = Base * 2",
+            "Public Const Limit As Long = 4",
+            "Public Sub Main()",
+            "    Debug.Print Items(0), Twice",
+            "End Sub");
+
+        Assert.IsEmpty(findings, "read by the bounds of an array of the module, by the value of another constant; a Public one may be read by another module");
     }
 
     [TestMethod]

@@ -98,6 +98,8 @@ public static class StatementStaticSemanticsEvaluator
                     goto default;
                 case ParameterDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    // the default of an optional parameter is a constant expression of the procedure's header (MS-VBAL §5.3.1.5), a Declare's too.
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 default:
                     if (child is StatementNode statement)
@@ -125,8 +127,9 @@ public static class StatementStaticSemanticsEvaluator
         }
     }
 
-    private static IEnumerable<ExpressionNode> DeclarationExpressions(SyntaxNode declaration)
-        => declaration.Children.SelectMany(IEnumerable<ExpressionNode> (child) => child switch
+    // the expressions of a declaration: the value of a constant, the bounds of an array, the default of an optional parameter.
+    internal static IEnumerable<ExpressionNode> DeclarationExpressions(SyntaxNode declaration)
+        => (declaration.Children.IsDefault ? [] : declaration.Children).SelectMany(IEnumerable<ExpressionNode> (child) => child switch
         {
             ArrayBoundsNode { Bounds: { IsDefault: false } bounds } => bounds.SelectMany(bound => new[] { bound.LowerExpression, bound.UpperExpression }).OfType<ExpressionNode>(),
             // a type is no value, and a name written in an As clause is a type.
