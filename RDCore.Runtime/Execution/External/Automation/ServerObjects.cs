@@ -115,7 +115,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         }
 
         // the extender MS-VBA wraps a form's control in (MSForms.Control) is what Controls.Add and Controls(i) are declared to return, and no object's class: the
-        // object is the control it wraps - a CheckBox - which is what TypeName says and what a variable of the control's class holds (oracle\s41 C01, C04, C11).
+        // object is the control it wraps - a CheckBox - which is what TypeName says and what a variable of the control's class holds, as observed in Excel.
         return IsControlExtender(declaredClass) && LibraryClassNamed(resolver, ClassNameOf(value)) is { } control ? control : declaredClass;
     }
 

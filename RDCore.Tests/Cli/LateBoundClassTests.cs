@@ -56,7 +56,9 @@ public sealed class LateBoundClassTests
     {
         private int _asked;
 
-        /// <summary>How many times the server was asked what an object's class is.</summary>
+        /// <summary>
+        /// How many times the server was asked what an object's class is.
+        /// </summary>
         public int Asked => Volatile.Read(ref _asked);
 
         public bool IsAvailable => true;
