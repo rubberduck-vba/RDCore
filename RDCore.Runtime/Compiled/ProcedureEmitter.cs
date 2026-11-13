@@ -565,6 +565,10 @@ internal sealed partial class ProcedureEmitter
                 EmitVariantFieldLet(variantFieldLet);
                 break;
 
+            case TextAppendStep textAppend:
+                EmitTextAppend(textAppend);
+                break;
+
             case TextLetStep textLet:
                 EmitTextLet(textLet);
                 break;
@@ -1521,9 +1525,10 @@ internal sealed partial class ProcedureEmitter
 
     // every variable written into its cell, the function result into its variable, each loop that was ever opened into the frame - with the end and the step
     // it last had, as the interpreter keeps them (ExecuteForOpener). A variable held in a cell is in it already, and the frame holds the cell
-    // (CompiledActivation.TakeReference).
+    // (CompiledActivation.TakeReference); a String appended to is given what its appender holds.
     private void EmitSpill()
     {
+        EmitWriteAppended();
         foreach (var (slot, kind) in _analysis.Slots)
         {
             if (_cells.ContainsKey(slot))
@@ -1676,6 +1681,7 @@ internal sealed partial class ProcedureEmitter
             case TextArgumentNode text:
                 return new Operand(EmitTextInto(text.Value, failure), 0, 0);
             case TextReferenceNode reference:
+                EmitWriteAppended(reference.Slot);
                 _il.Emit(OpCodes.Ldloc, _texts[reference.Slot]);
                 _il.Emit(OpCodes.Brfalse, failure);
                 return new Operand(_texts[reference.Slot], 0, 0);
