@@ -85,9 +85,11 @@ public static class StatementStaticSemanticsEvaluator
                 // written with - Dim x$ and Dim x% - is how its type is said, not a different name.
                 case VariableDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.SourceLocation);
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 case ConstantDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 case ParameterDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.Location);
@@ -102,6 +104,31 @@ public static class StatementStaticSemanticsEvaluator
             }
         }
     }
+
+    // the value of a constant and the bounds of an array that a procedure declares are expressions of its code, as its statements are: evaluated for what the
+    // names in them refer to. What is wrong with them is the declaration's to report (DeclaredSizeStaticSemantics, the constant's own evaluation).
+    private static void EvaluateDeclarationExpressions(StaticEvaluationContext context, SyntaxNode declaration, Walk walk)
+    {
+        if (walk.Structural)
+        {
+            return;
+        }
+
+        foreach (var expression in DeclarationExpressions(declaration))
+        {
+            _ = ExpressionStaticSemanticsEvaluator.Evaluate(context, expression);
+        }
+    }
+
+    private static IEnumerable<ExpressionNode> DeclarationExpressions(SyntaxNode declaration)
+        => declaration.Children.SelectMany(IEnumerable<ExpressionNode> (child) => child switch
+        {
+            ArrayBoundsNode { Bounds: { IsDefault: false } bounds } => bounds.SelectMany(bound => new[] { bound.LowerExpression, bound.UpperExpression }).OfType<ExpressionNode>(),
+            // a type is no value, and a name written in an As clause is a type.
+            AsTypeExpressionNode => [],
+            ExpressionNode value => [value],
+            _ => [],
+        });
 
     private static void ReportDuplicateDeclaration(Walk walk, string name, SourceLocation location)
     {

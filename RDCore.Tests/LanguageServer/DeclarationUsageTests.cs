@@ -174,9 +174,36 @@ public sealed class DeclarationUsageTests
     }
 
     [TestMethod]
-    public void AConstant_HasNoCount_ForItIsAlsoReferredToByDeclarations()
+    public void AConstantOfTheModule_HasNoCount_ForItIsAlsoReferredToByTheModulesDeclarations()
         // the bounds of an array, and the value of another constant, are expressions of declarations: not evaluated as those of a procedure are.
         => Assert.IsNull(Fact(Facts("Private Const Size As Long = 3", "Public Sub Run()", "Dim a(1 To Size) As Long", "End Sub"), "Size").References);
+
+    // a constant of a procedure is read by the procedure alone: its statements, the value of another of its constants, the bounds of its arrays.
+    [TestMethod]
+    [DataRow("Unused", 0, DisplayName = "read by nothing")]
+    [DataRow("Read", 1, DisplayName = "read by a statement")]
+    [DataRow("Base", 1, DisplayName = "read by the value of another constant")]
+    [DataRow("Derived", 1, DisplayName = "read by the bounds of an array")]
+    public void AConstantOfAProcedure_HasItsReadsCounted(string name, int reads)
+    {
+        var facts = Facts(
+            "Option Explicit",
+            "Public Sub Run()",
+            "Const Unused As Long = 1",
+            "Const Read As Long = 2",
+            "Debug.Print Read",
+            "Const Base As Long = 3",
+            "Const Derived As Long = Base + 1",
+            "Dim items(Derived) As Long",
+            "Debug.Print items(0)",
+            "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(reads, 0, 0), References(facts, name));
+    }
+
+    [TestMethod]
+    public void AConstantOfAProcedureWithAnError_HasNoCount()
+        => Assert.IsNull(Fact(Facts("Option Explicit", "Public Sub Run()", "Const Size As Long = 3", "Debug.Print Undeclared + Size", "End Sub"), "Size").References);
 
     [TestMethod]
     public void AVariableInTheBoundsOfAnArray_IsNeverStatedAsNeverRead()
