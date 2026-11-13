@@ -430,6 +430,15 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is the default instance of the class, which is not always the object running this code (Me)..
+        /// </summary>
+        public static string SuspiciousPredeclaredInstanceAccess_Message {
+            get {
+                return ResourceManager.GetString("SuspiciousPredeclaredInstanceAccess_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..
         /// </summary>
         public static string ObsoleteCallStatement_Message {

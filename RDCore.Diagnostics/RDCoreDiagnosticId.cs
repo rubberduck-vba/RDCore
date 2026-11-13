@@ -67,6 +67,7 @@ public enum RDCoreDiagnosticId
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
     UnmatchedEventHandler = 407, // a handler of a form's control that does not match the event: MS-VBA compiles it, and nothing calls it
     EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public variable of a class module, which any code can assign
+    SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,

@@ -246,6 +246,9 @@
   <data name="EncapsulatePublicField_Message" xml:space="preserve">
     <value>Le champ &apos;{0}&apos; est Public : tout code qui détient l&apos;objet peut l&apos;affecter. Une propriété peut vérifier la valeur.</value>
   </data>
+  <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est l&apos;instance par défaut de la classe, qui n&apos;est pas toujours l&apos;objet qui exécute ce code (Me).</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>Le mot-clé Rem est obsolète: un commentaire commence par une apostrophe (').</value>
   </data>

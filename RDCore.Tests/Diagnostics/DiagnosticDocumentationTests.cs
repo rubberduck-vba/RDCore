@@ -139,6 +139,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ImplementationsShouldBePrivate, 405),
         (RDCoreDiagnosticId.UnmatchedEventHandler, 407),
         (RDCoreDiagnosticId.EncapsulatePublicField, 409),
+        (RDCoreDiagnosticId.SuspiciousPredeclaredInstanceAccess, 410),
         (RDCoreDiagnosticId.UseMeaningfulIdentifierNames, 1001),
         (RDCoreDiagnosticId.HungarianNotation, 1002),
         (RDCoreDiagnosticId.HostedDocumentCode, 1005),

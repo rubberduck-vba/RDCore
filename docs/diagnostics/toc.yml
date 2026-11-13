@@ -454,6 +454,8 @@
   href: rdc00407.md
 - name: "RDC00409: Public field"
   href: rdc00409.md
+- name: "RDC00410: Default instance in its own class"
+  href: rdc00410.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
