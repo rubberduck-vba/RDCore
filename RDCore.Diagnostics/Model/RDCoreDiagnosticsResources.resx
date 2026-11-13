@@ -247,7 +247,7 @@
     <value>Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value.</value>
   </data>
   <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
-    <value>&apos;{0}&apos; is the default instance of the class, which is not always the object running this code (Me).</value>
+    <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
   </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>

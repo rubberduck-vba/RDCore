@@ -430,7 +430,7 @@ namespace RDCore.Diagnostics.Model {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &apos;{0}&apos; is the default instance of the class, which is not always the object running this code (Me)..
+        ///   Looks up a localized string similar to &apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance..
         /// </summary>
         public static string SuspiciousPredeclaredInstanceAccess_Message {
             get {
