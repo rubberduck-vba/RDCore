@@ -861,7 +861,7 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to On Error GoTo -1 ends the error being handled, and is not documented: a Resume ends the handler and says where the procedure goes on..
+        ///   Looks up a localized string similar to On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on..
         /// </summary>
         public static string OnErrorGoToMinusOne_Message {
             get {

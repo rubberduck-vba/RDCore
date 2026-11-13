@@ -7,7 +7,7 @@ using RDCore.SDK.Model.AST.Declarations;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC00117</c>: a constant declared with no <c>As</c> clause and no type-declaration character (<strong>MS-VBAL §5.2.3.1</strong>): it has a declared type
+/// <c>RDC00117</c>: a constant declared with no <c>As</c> clause and no type-declaration character (<strong>MS-VBAL §5.2.3.2</strong>): it has a declared type
 /// all the same, which the reader works out from its value.
 /// </summary>
 internal sealed class ImplicitConstantTypeAnalyzer : SyntaxTreeAnalyzer

@@ -388,7 +388,7 @@
     <value>&apos;{0}&apos; a une espace insécable dans son nom : elle ressemble à une espace ordinaire, et le nom tapé avec une espace ordinaire est un autre nom.</value>
   </data>
   <data name="OnErrorGoToMinusOne_Message" xml:space="preserve">
-    <value>On Error GoTo -1 met fin à l&apos;erreur en cours de traitement, et n&apos;est pas documenté : un Resume met fin au gestionnaire et dit où la procédure continue.</value>
+    <value>On Error GoTo -1 met fin à l&apos;erreur en cours de traitement, et MS-VBAL ne le documente pas : un Resume met fin au gestionnaire et dit où la procédure continue.</value>
   </data>
   <data name="UnrestoredOnErrorResumeNext_Message" xml:space="preserve">
     <value>Aucun On Error GoTo ne suit cet On Error Resume Next : toute erreur dans le reste de la procédure est ignorée.</value>
