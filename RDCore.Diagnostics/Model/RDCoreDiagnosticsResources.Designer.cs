@@ -594,6 +594,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Function &apos;{0}&apos; is called as a statement: the value it returns is discarded..
+        /// </summary>
+        public static string FunctionReturnValueDiscarded_Message {
+            get {
+                return ResourceManager.GetString("FunctionReturnValueDiscarded_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value..
         /// </summary>
         public static string EncapsulatePublicField_Message {
