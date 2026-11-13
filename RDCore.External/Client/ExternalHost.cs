@@ -256,6 +256,11 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     public bool IsLost => _lost.Task.IsCompleted;
 
     /// <summary>
+    /// Completes when the process is seen to stop: when <see cref="IsLost"/> becomes <see langword="true"/>.
+    /// </summary>
+    public Task Lost => _lost.Task;
+
+    /// <summary>
     /// Whether the process has automation servers to reach.
     /// </summary>
     public bool IsAutomationAvailable { get; set; }

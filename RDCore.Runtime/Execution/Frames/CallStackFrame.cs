@@ -1471,6 +1471,38 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             }
         }
 
+        // a field of the record an element holds is part of the element, a field of a record field of it too: passing one by reference locks the array as
+        // passing the element does (MS-VBA, observed in Excel).
+        if (array.ItemType is VBUserDefinedType)
+        {
+            for (var index = 0; index < array.Length; index++)
+            {
+                if (array.ElementAt(index) is VBUserDefinedTypeValue record && IsFieldOf(record, handle))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsFieldOf(VBUserDefinedTypeValue record, IBindingHandle handle)
+    {
+        if (handle is RecordFieldBinding field && ReferenceEquals(field.Record, record))
+        {
+            return true;
+        }
+
+        for (var index = 0; index < record.FieldCount; index++)
+        {
+            var held = record.StoredFieldAt(index);
+            if (ReferenceEquals(held?.Handle, handle) || held is VBUserDefinedTypeValue inner && IsFieldOf(inner, handle))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 

@@ -72,6 +72,11 @@ public static class StatementStaticSemanticsEvaluator
                 continue;
             }
 
+            if (SplitBlockErrorOf(child, walk.Options) is { } split)
+            {
+                walk.Errors.Add(split);
+            }
+
             switch (child)
             {
                 case LineLabelNode label:
@@ -129,6 +134,43 @@ public static class StatementStaticSemanticsEvaluator
             ExpressionNode value => [value],
             _ => [],
         });
+
+    // MS-VBAL §3.4.2: the parser reads every branch, so a block can be opened on one side of an excluded branch and closed on the other. The tree has the
+    // block, and the code MS-VBA compiles does not: a live opening statement whose end is excluded is not closed, and a live end whose opening statement is
+    // excluded closes no block. Each is reported at its live statement, with MS-VBA's description; a block with both ends excluded and live code between them is
+    // reported where that code begins.
+    private static VBCompileErrorInfo? SplitBlockErrorOf(SyntaxNode node, StaticSemanticsOptions options)
+    {
+        (VBCompileErrorId Opened, VBCompileErrorId Closed)? block = node switch
+        {
+            IfBlockStatementNode => (VBCompileErrorId.BlockIfWithoutEndIf, VBCompileErrorId.EndIfWithoutBlockIf),
+            ForStatementNode or ForEachStatementNode => (VBCompileErrorId.ForWithoutNext, VBCompileErrorId.NextWithoutFor),
+            DoLoopStatementNode or DoLoopUntilStatementNode or DoLoopWhileStatementNode or DoUntilLoopStatementNode or DoWhileLoopStatementNode
+                => (VBCompileErrorId.DoWithoutLoop, VBCompileErrorId.LoopWithoutDo),
+            WithStatementNode => (VBCompileErrorId.ExpectedEndWith, VBCompileErrorId.EndWithWithoutWith),
+            SelectCaseStatementNode => (VBCompileErrorId.SelectCaseWithoutEndSelect, VBCompileErrorId.SyntaxError),
+            WhileWendStatementNode => (VBCompileErrorId.SyntaxError, VBCompileErrorId.SyntaxError),
+            _ => null,
+        };
+
+        if (block is not (var opened, var closed))
+        {
+            return null;
+        }
+
+        var range = node.SourceLocation.Range;
+        (VBCompileErrorId Id, SourcePosition At)? error = (options.DeadRangeAt(range.Start), options.DeadRangeAt(range.End)) switch
+        {
+            (null, null) => null,
+            (null, not null) => (opened, range.Start),
+            (not null, null) => (closed, range.End),
+            ({ } start, not null) => (VBCompileErrorId.SyntaxError, start.End),
+        };
+
+        return error is (var id, var at)
+            ? VBCompileErrorInfo.For(id, node.SourceLocation with { Range = new SourceRange(at, at) }, Exceptions.VBCompileError_BlockEndsInAnotherBranch_Verbose)
+            : null;
+    }
 
     private static void ReportDuplicateDeclaration(Walk walk, string name, SourceLocation location)
     {

@@ -420,4 +420,10 @@
   <data name="WriteOnlyProperty_Message" xml:space="preserve">
     <value>La propriété &apos;{0}&apos; n&apos;a aucun Property Get : on peut l&apos;affecter sans jamais la lire.</value>
   </data>
+  <data name="NegativeLineNumber_Message" xml:space="preserve">
+    <value>Un numéro de ligne inférieur à 0 : MS-VBAL n&apos;a aucun numéro de ligne de ce genre, et MS-VBA le compile.</value>
+  </data>
+  <data name="NonBreakingSpaceInName_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; a une espace insécable dans son nom : elle ressemble à une espace ordinaire, et le nom tapé avec une espace ordinaire est un autre nom.</value>
+  </data>
 </root>

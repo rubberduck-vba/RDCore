@@ -101,19 +101,26 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
 
         builder.DefineEntryPoint(typeof(BuiltProgram).GetMethod(nameof(BuiltProgram.Run))!);
         var image = new BuiltProgramImage(workspace.Project, workspace.RootUri, BuiltEnvironment.Of(built.Environment), entryPoint.Module,
-            entryPoint.Procedure.Name, built.Definitions);
+            entryPoint.Procedure.Name, built.Definitions, [.. workspace.Modules.Select(module => new BuiltModule(module.RelativePath, module.Name, module.Type))]);
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));
 
         using var assembly = new MemoryStream();
         using var pdb = new MemoryStream();
         builder.Save(assembly, pdb, $"{name}.pdb");
         var folder = options.Output ?? fileSystem.Path.Combine(workspace.Root, "bin", options.Configuration.ToString(), runtime);
-        var executable = Output.Write(folder, name, assembly.ToArray(), pdb.ToArray(), (hosts ?? (rid => AppHost.Find(rid)))(runtime), runtime);
+        var (executable, lacking) = Output.Write(folder, name, assembly.ToArray(), pdb.ToArray(), (hosts ?? (rid => AppHost.Find(rid)))(runtime), runtime,
+            built.Libraries);
 
         if (executable is null)
         {
             writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Warning)
                 .WithMessageBody(string.Format(CultureInfo.CurrentCulture, Resources.Build_NoAppHost, runtime, $"{name}.dll")));
+        }
+
+        if (lacking.Count > 0)
+        {
+            writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Warning)
+                .WithMessageBody(string.Format(CultureInfo.CurrentCulture, Resources.Build_NoticesLacking, string.Join(", ", lacking))));
         }
 
         writer.WriteMessage(new ConsoleMessageBuilder().WithKind(MessageKind.Success)

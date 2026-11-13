@@ -906,6 +906,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to A line number below 0: MS-VBAL has no such line number, and MS-VBA compiles it..
+        /// </summary>
+        public static string NegativeLineNumber_Message {
+            get {
+                return ResourceManager.GetString("NegativeLineNumber_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Variable &apos;{0}&apos; is assigned and never read: what is assigned to it is never used..
         /// </summary>
         public static string VariableNotUsed_Assigned_Message {
@@ -965,6 +974,15 @@ namespace RDCore.Diagnostics.Model {
         public static string WriteOnlyProperty_Message {
             get {
                 return ResourceManager.GetString("WriteOnlyProperty_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has a non-breaking space in its name: it looks like an ordinary space, and the name typed with an ordinary space is another name..
+        /// </summary>
+        public static string NonBreakingSpaceInName_Message {
+            get {
+                return ResourceManager.GetString("NonBreakingSpaceInName_Message", resourceCulture);
             }
         }
 

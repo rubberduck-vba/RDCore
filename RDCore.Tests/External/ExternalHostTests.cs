@@ -16,6 +16,8 @@ public sealed class ExternalHostTests
 {
     private const int ServerUnavailable = unchecked((int)0x800706BA);
 
+    private static readonly TimeSpan LostSafetyCap = TimeSpan.FromMinutes(5);
+
     private static ExternalHost NewHost() => ExternalHosts.New();
 
     [TestMethod]
@@ -57,7 +59,7 @@ public sealed class ExternalHostTests
 
     [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public void AnObjectOfAnExternalHostThatStopped_IsNoLongerAvailable_AndTheNextCallStartsAnother()
+    public async Task AnObjectOfAnExternalHostThatStopped_IsNoLongerAvailable_AndTheNextCallStartsAnother()
     {
         using var host = NewHost();
         var server = new RemoteAutomationServer(host);
@@ -70,7 +72,10 @@ public sealed class ExternalHostTests
             process.Kill();
         }
 
-        Assert.IsTrue(SpinWait.SpinUntil(() => first.IsLost, TimeSpan.FromSeconds(10)), "the external host was not seen to stop");
+        // the loss itself is awaited: the channel closes when the process stops, however long a loaded machine takes to say so. The cap only keeps a
+        // host that is never seen to stop from hanging the run.
+        await first.Lost.WaitAsync(LostSafetyCap);
+        Assert.IsTrue(first.IsLost);
 
         var failure = Assert.ThrowsExactly<AutomationException>(()
             => server.Invoke(dictionary, "Count", AutomationInvocation.Get, [], [], CultureInfo.InvariantCulture));
