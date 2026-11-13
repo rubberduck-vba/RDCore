@@ -9,10 +9,12 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Platform;
 using RDCore.SDK.Platform.Components;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Workspace;
 using System.IO.Abstractions;
 using System.Reflection;
@@ -56,6 +58,10 @@ public static class BuiltProgram
     // the switch rdc run takes for the same: nobody answers a dialog, and the first one fails the run.
     private const string UnattendedSwitch = "--unattended";
 
+    // the subfolder of the program's folder that holds the descriptions of the libraries its project references, named as the platform's is: the
+    // program's session reads them there, and nowhere else.
+    internal const string LibrariesFolder = PlatformEnvironment.SymbolsDirectory;
+
     public static int Run(Assembly program, string[] args)
     {
         ArgumentNullException.ThrowIfNull(program);
@@ -92,12 +98,14 @@ public static class BuiltProgram
         return File.Exists(executable) ? executable : null;
     }
 
-    // keys: the console's, unless a test types them; the dialogs are then drawn on output.
-    internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys = null)
+    // keys: the console's, unless a test types them; the dialogs are then drawn on output. libraries: the program's own folder's, unless a test runs the
+    // program from a folder that is not the process's.
+    internal static async Task<int> RunAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys = null,
+        ILibrarySource? libraries = null)
     {
         try
         {
-            return await RunImageAsync(program, args, output, error, token, keys);
+            return await RunImageAsync(program, args, output, error, token, keys, libraries);
         }
         catch (InvalidDataException exception)
         {
@@ -107,13 +115,16 @@ public static class BuiltProgram
     }
 
     // the image replayed, the assembly bound, and the entry point run on the runner rdc run runs a workspace with.
-    private static async Task<int> RunImageAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys)
+    private static async Task<int> RunImageAsync(Assembly program, string[] args, TextWriter output, TextWriter error, CancellationToken token, IConsoleKeys? keys,
+        ILibrarySource? libraries)
     {
         var image = ImageOf(program);
         var errorDetails = new ErrorDetailsRecorder();
 
-        using var provider = new EnvironmentSessionProvider(image.Environment.Profile, new FileSystem(), NullLogger<EnvironmentSessionProvider>.Instance,
-            outside: DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
+        var fileSystem = new FileSystem();
+        using var provider = new EnvironmentSessionProvider(image.Environment.Profile, fileSystem, NullLogger<EnvironmentSessionProvider>.Instance,
+            libraries ?? new DirectoryLibrarySource(fileSystem, Path.Combine(AppContext.BaseDirectory, LibrariesFolder)),
+            DialogsOf(keys, output) is { } dialogs ? MachineExternal.World with { Interaction = dialogs } : null);
         provider.Compose(image.Project, image.Root, image.Modules.ToDictionary(module => module.RelativeUri, module => (module.Name, module.Kind), StringComparer.Ordinal));
         var define = new DefineSymbolsHandler(provider, errorDetails, NullLogger<DefineSymbolsHandler>.Instance);
         foreach (var definition in image.Definitions)

@@ -132,7 +132,10 @@ Un programme construit appelle le monde extérieur (une procédure déclarée pa
 second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
 installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
 
-Le dossier du programme contient les conditions de licence de ce sur quoi il s'exécute :
+Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
+dépendent. Le programme les lit à partir de là, où que soit le dossier.
+
+Le dossier contient aussi les conditions de licence de ce sur quoi le programme s'exécute :
 
 |Fichier|Conditions de|
 |---|---|

@@ -80,9 +80,10 @@ internal sealed record class BenchReport(
 /// <param name="Modules">The names of the modules that loaded.</param>
 /// <param name="Provider">The session the workspace was loaded in, which the caller disposes.</param>
 /// <param name="Environment">The environment the program was built for.</param>
+/// <param name="Libraries">The descriptions of the libraries the project references, and of those they depend on: what the built program's session reads.</param>
 internal sealed record class BuiltWorkspace(
     IReadOnlyList<(string Module, ProcedureCompilation Compilation)> Procedures, IReadOnlyList<string> Problems, IReadOnlyList<DefineSymbolsParams> Definitions,
-    IReadOnlyList<string> Modules, EnvironmentSessionProvider Provider, IRuntimeEnvironmentProfile Environment);
+    IReadOnlyList<string> Modules, EnvironmentSessionProvider Provider, IRuntimeEnvironmentProfile Environment, IReadOnlyList<LibraryDescription> Libraries);
 
 /// <summary>
 /// Runs the benchmarks of a workspace in-process, the way the environment host runs a program: the session composed from the project, each module's symbols and
@@ -269,7 +270,7 @@ internal sealed class BenchRunner(
             throw;
         }
 
-        return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Provider, built);
+        return new BuiltWorkspace(procedures, load.Problems, definitions, [.. load.Loaded.Select(loaded => loaded.Module.Name)], load.Provider, built, load.Libraries);
     }
 
     /// <summary>
@@ -292,7 +293,7 @@ internal sealed class BenchRunner(
 
     private sealed record class LoadedWorkspace(
         EnvironmentSessionProvider Provider, IReadOnlyList<(BenchModule Module, Uri Uri)> Loaded, TimeSpan Parse, TimeSpan Symbols, TimeSpan Load, TimeSpan Sweep,
-        IReadOnlyList<string> Problems);
+        IReadOnlyList<string> Problems, IReadOnlyList<LibraryDescription> Libraries);
 
     // the workspace parsed, its symbols defined, its code loaded and swept, in a session composed for profile and reaching the outside world it is given
     // (outside), or the machine's when outside is null; what was defined in it, in order, kept in definitions when it is given. The caller disposes the
@@ -432,7 +433,7 @@ internal sealed class BenchRunner(
         await provider.Image.Semantics.WhenAllEvaluatedAsync(token);
         var sweepTime = stopwatch.Elapsed;
 
-        return new LoadedWorkspace(provider, loaded, parseTime, symbolsTime, loadTime, sweepTime, problems);
+        return new LoadedWorkspace(provider, loaded, parseTime, symbolsTime, loadTime, sweepTime, problems, referenced.Libraries);
     }
 
     private static bool Selected(string name, string? filter) => filter is not { Length: > 0 } || name.Contains(filter, StringComparison.OrdinalIgnoreCase);
