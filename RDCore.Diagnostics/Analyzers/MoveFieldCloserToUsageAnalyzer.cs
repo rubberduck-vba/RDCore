@@ -13,7 +13,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// The host states where each reference is (<see cref="RDCore.SDK.Platform.Protocol.DeclarationFactDto.ReferencedFrom"/>). A <c>WithEvents</c> variable is
-/// used by the events it handles as well, and is not reported; nor is a variable that the declarations of the module refer to (the bounds of an array).
+/// used by the events it handles as well, and is not reported; nor is a variable that the declarations of the module refer to.
 /// </remarks>
 internal sealed class MoveFieldCloserToUsageAnalyzer : IModuleAnalyzer
 {
