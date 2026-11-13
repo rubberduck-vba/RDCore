@@ -165,6 +165,6 @@ MS-VBA departs from the specification in two directions, observed in Excel:
 |MS-VBA|Names|RD-VBA|
 |---|---|---|
 |Compiles names the specification reserves.|`Date`, `DoEvents` and `CDec` as Enum members.|Compiles them, as MS-VBA does, with a warning ([**RDC11033**](../diagnostics/rdc11033.md)).|
-|Refuses names the specification allows.|`Long` as the name of anything but a member of a user-defined type; `Me` as a member of a user-defined type; `Name` as an Enum member.|Compiles them, as the specification says, with a warning ([**RDC11034**](../diagnostics/rdc11034.md)).|
+|Refuses names the specification allows.|`Local`, and the reserved type identifiers that are not reserved names (`Long`, `Integer`, `Variant` and the others), as the name of anything but a member of a user-defined type; `Me` as a member of a user-defined type; `Name` as an Enum member.|Compiles them, as the specification says, with a warning ([**RDC11034**](../diagnostics/rdc11034.md)).|
 
 Code exported from MS-VBA never has a name that MS-VBA refuses, so allowing one keeps to the specification without breaking any MS-VBA code.
