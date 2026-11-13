@@ -28,27 +28,52 @@ public sealed class DeclarationUsageTests
     private static readonly Uri Main = new UriBuilder(Root) { Fragment = "Main" }.Uri;
 
     // the facts of the declarations of a standard module whose source is `source`.
-    private static ImmutableArray<DeclarationFact> Facts(params string[] source)
+    private static ImmutableArray<DeclarationFact> Facts(params string[] source) => Project(("Main", source)).Single().Declarations;
+
+    // the facts of the declarations of `module`, of a project of standard modules.
+    private static ImmutableArray<DeclarationFact> ProjectFacts(string module, params (string Name, string[] Source)[] modules)
+        => Project(modules).Single(model => model.Module.AbsoluteUri == ModuleUri(module).AbsoluteUri).Declarations;
+
+    private static Uri ModuleUri(string name) => new UriBuilder(Root) { Fragment = name }.Uri;
+
+    // the models of the standard modules of a project, each made as the module loader makes it.
+    private static List<ModuleSemanticModel> Project(params (string Name, string[] Source)[] modules)
     {
-        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Main.bas"), $"Attribute VB_Name = \"Main\"\r\n{string.Join("\r\n", source)}\r\n");
-        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
-
-        var composition = WorkspaceSymbolResolver.ComposeWithScopes(Root, [(Main, ModuleType.StdModule, parse)], new IntrinsicSymbolResolver());
-        var symbols = new SyntaxTreeSymbolProvider(Root, Main, ModuleType.StdModule, parse, composition.Resolver, withImplicitDeclarations: true).ProvideSymbols().ToList();
-        var members = symbols.OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == Main.AbsoluteUri).ToList();
-
-        var models = new List<ProcedureSemanticModel>();
-        foreach (var declaration in parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>())
+        var parses = modules.Select(module =>
         {
-            var procedure = members.First(member => string.Equals(member.Name, declaration.Name, StringComparison.OrdinalIgnoreCase)
-                && member is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
-            models.Add(StatementStaticSemanticsEvaluator.Analyze(
-                procedure.SemanticId, new StatementBlock([.. declaration.Children]), kind: declaration.MemberKind,
-                context: new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(procedure.Uri))));
+            var parse = new ModuleParser().Parse(
+                new Uri($"file:///c:/ws/{module.Name}.bas"), $"Attribute VB_Name = \"{module.Name}\"\r\n{string.Join("\r\n", module.Source)}\r\n");
+            Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+            return (Uri: ModuleUri(module.Name), parse);
+        }).ToList();
+
+        var composition = WorkspaceSymbolResolver.ComposeWithScopes(
+            Root, [.. parses.Select(module => (module.Uri, ModuleType.StdModule, module.parse))], new IntrinsicSymbolResolver());
+        var models = new List<ModuleSemanticModel>();
+        foreach (var (uri, parse) in parses)
+        {
+            var symbols = new SyntaxTreeSymbolProvider(Root, uri, ModuleType.StdModule, parse, composition.Resolver, withImplicitDeclarations: true).ProvideSymbols().ToList();
+            var members = symbols.OfType<VBTypeMemberSymbol>().Where(member => member.ParentUri.AbsoluteUri == uri.AbsoluteUri).ToList();
+
+            var procedures = new List<ProcedureSemanticModel>();
+            foreach (var declaration in parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().Where(declaration => declaration.MemberKind is not (MemberKind.Enum or MemberKind.UserDefinedType)))
+            {
+                var procedure = members.First(member => string.Equals(member.Name, declaration.Name, StringComparison.OrdinalIgnoreCase)
+                    && member is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol);
+                procedures.Add(StatementStaticSemanticsEvaluator.Analyze(
+                    procedure.SemanticId, new StatementBlock([.. declaration.Children]), kind: declaration.MemberKind,
+                    context: new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(procedure.Uri))));
+            }
+
+            var declarations = ModuleDeclarationStaticSemantics.Analyze(parse.SyntaxTree.Children, new StaticEvaluationContext(composition.Resolver, composition.ScopeTree.ScopeFor(uri)));
+            // a provider may state a procedure's locals and parameters as symbols of their own, as well as on the procedure.
+            models.Add(new ModuleSemanticModel(uri, [], [.. procedures])
+            {
+                Declarations = DeclarationUsage.Of(DeclarationUsage.DeclaredBy(members).Concat(symbols), procedures, declarations: declarations),
+            });
         }
 
-        // a provider may state a procedure's locals and parameters as symbols of their own, as well as on the procedure.
-        return DeclarationUsage.Of(DeclarationUsage.DeclaredBy(members).Concat(symbols), models);
+        return models;
     }
 
     private static DeclarationFact Fact(ImmutableArray<DeclarationFact> facts, string name) => facts.Single(fact => fact.Name == name);
@@ -173,10 +198,57 @@ public sealed class DeclarationUsageTests
         Assert.IsNull(Fact(facts, "Total").References);
     }
 
+    // a constant of the module is read by the code of the module and by the expressions of its declarations; another module can not refer to it.
     [TestMethod]
-    public void AConstantOfTheModule_HasNoCount_ForItIsAlsoReferredToByTheModulesDeclarations()
-        // the bounds of an array, and the value of another constant, are expressions of declarations: not evaluated as those of a procedure are.
-        => Assert.IsNull(Fact(Facts("Private Const Size As Long = 3", "Public Sub Run()", "Dim a(1 To Size) As Long", "End Sub"), "Size").References);
+    [DataRow("Private Const Size As Long = 3", "", 0, DisplayName = "read by nothing")]
+    [DataRow("Const Size As Long = 3", "", 0, DisplayName = "read by nothing, with no access modifier")]
+    [DataRow("Private Const Size As Long = 3", "Debug.Print Size", 1, DisplayName = "read by a statement")]
+    [DataRow("Private Const Size As Long = 3", "Dim a(1 To Size) As Long", 1, DisplayName = "read by the bounds of an array of a procedure")]
+    [DataRow("Private Const Size As Long = 3\r\nPrivate Const Twice As Long = Size * 2", "", 1, DisplayName = "read by the value of another constant")]
+    [DataRow("Private Const Size As Long = 3\r\nPrivate Items(Size) As Long", "", 1, DisplayName = "read by the bounds of an array of the module")]
+    [DataRow("Private Const Size As Long = 3\r\nPrivate Enum Sizes\r\nLarge = Size\r\nEnd Enum", "", 1, DisplayName = "read by the value of an enumeration member")]
+    [DataRow("Private Const Size As Long = 3\r\nPrivate Type Row\r\nCells(Size) As Long\r\nEnd Type", "", 1, DisplayName = "read by the bounds of an array field of a record")]
+    [DataRow("Private Const Size As Long = 3\r\nPrivate Declare PtrSafe Sub Work Lib \"lib\" (Optional ByVal n As Long = Size)", "", 1, DisplayName = "read by the default of a parameter of a Declare")]
+    [DataRow("Private Const Size As Long = 3\r\nPrivate Sub Work(Optional ByVal n As Long = Size)\r\nEnd Sub", "", 1, DisplayName = "read by the default of a parameter of a procedure")]
+    [DataRow("Private Const Size As Long = 3", "Debug.Print Size\r\nDebug.Print Size + 1", 2, DisplayName = "read twice")]
+    public void AConstantOfTheModule_HasItsReadsCounted(string declarations, string statements, int reads)
+    {
+        var facts = Facts("Option Explicit", declarations, "Public Sub Run()", statements, "End Sub");
+
+        Assert.AreEqual(new DeclarationReferences(reads, 0, 0), References(facts, "Size"));
+    }
+
+    [TestMethod]
+    public void APrivateConstant_IsNotReadFromAnotherModule()
+    {
+        var facts = ProjectFacts("Main",
+            ("Main", ["Option Explicit", "Private Const Size As Long = 3", "Public Sub Run()", "End Sub"]),
+            ("Other", ["Public Sub Show()", "Debug.Print Size", "End Sub"]));
+
+        Assert.AreEqual(default, References(facts, "Size"));
+    }
+
+    [TestMethod]
+    public void AConstantThatGivesTheLengthOfAStringOfTheModule_IsNeverStatedAsNeverRead()
+    {
+        var references = Fact(Facts("Private Const Size As Long = 3", "Private Buffer As String * Size", "Public Sub Run()", "End Sub"), "Size").References;
+
+        Assert.IsTrue(references is null || references.Value.Reads == 1);
+    }
+
+    [TestMethod]
+    public void AConstantOfTheModuleWithAnErrorInItsDeclarations_HasNoCount()
+        => Assert.IsNull(Fact(Facts("Option Explicit", "Private Const Size As Long = 3", "Private Const Twice As Long = Undeclared + Size", "Public Sub Run()", "End Sub"), "Size").References);
+
+    [TestMethod]
+    public void AConstantOfTheModule_HasNoCount_WhenAProcedureOfTheModuleHasAnError()
+        => Assert.IsNull(Fact(Facts("Option Explicit", "Private Const Size As Long = 3", "Public Sub Run()", "Debug.Print Undeclared", "End Sub"), "Size").References);
+
+    [TestMethod]
+    [DataRow("Public", DisplayName = "Public")]
+    [DataRow("Global", DisplayName = "Global")]
+    public void AConstantOfTheModuleThatOtherModulesCanReferTo_HasNoCount(string access)
+        => Assert.IsNull(Fact(Facts($"{access} Const Size As Long = 3", "Public Sub Run()", "Debug.Print Size", "End Sub"), "Size").References);
 
     // a constant of a procedure is read by the procedure alone: its statements, the value of another of its constants, the bounds of its arrays.
     [TestMethod]

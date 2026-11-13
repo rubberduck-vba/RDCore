@@ -17,22 +17,15 @@ public static class DeclarationUsage
 {
     public static ImmutableArray<DeclarationFact> Of(
         IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
-        Func<Symbol, HiddenDeclaration?>? hides = null)
+        Func<Symbol, HiddenDeclaration?>? hides = null, ModuleDeclarationFacts? declarations = null)
     {
         var models = procedures.ToList();
-        var references = new Dictionary<SemanticId, DeclarationReferences>();
-        foreach (var fact in models.SelectMany(procedure => procedure.Expressions.Values).Where(fact => fact.Binding is not null))
-        {
-            var current = references.GetValueOrDefault(fact.Binding!.Value);
-            references[fact.Binding.Value] = fact.Flags switch
-            {
-                var flags when flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) => current with { Writes = current.Writes + 1 },
-                var flags when flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument) => current with { PassedAsArguments = current.PassedAsArguments + 1 },
-                _ => current with { Reads = current.Reads + 1 },
-            };
-        }
+        var references = Count(models.SelectMany(procedure => procedure.Expressions.Values)
+            .Concat(declarations?.Expressions.Values ?? []));
 
         var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
+        // a constant of the module is also referred to by the expressions of the module's declarations: the facts of those are needed for its count.
+        var moduleConstantsAreFullyAnalyzed = moduleIsFullyAnalyzed && declarations is { IsFullyAnalyzed: true };
 
         // the accessors of a property are one declaration, though each has the identity of its own that an expression can be bound to: it is the first one
         // that stands for it.
@@ -54,7 +47,7 @@ public static class DeclarationUsage
             var role = roles is not null && roles.TryGetValue(symbol.SemanticId, out var found) ? found : DeclarationRole.None;
             DeclarationReferences? counted = null;
             if ((IsAccessibleOnlyFromItsOwnCode(symbol, kind!.Value) || IsCalledOnlyByItsOwnCode(symbol, role))
-                && CodeThatCanReferToIt(symbol, models, moduleIsFullyAnalyzed))
+                && CodeThatCanReferToIt(symbol, models, symbol is VBConstantMemberSymbol ? moduleConstantsAreFullyAnalyzed : moduleIsFullyAnalyzed))
             {
                 counted = references.GetValueOrDefault(symbol.SemanticId);
             }
@@ -71,6 +64,26 @@ public static class DeclarationUsage
         }
 
         return facts.ToImmutable();
+    }
+
+    // what refers to each declaration, by the expressions bound to it.
+    private static Dictionary<SemanticId, DeclarationReferences> Count(IEnumerable<ExpressionFact> facts)
+    {
+        var references = new Dictionary<SemanticId, DeclarationReferences>();
+        // a reference is a place in the code: the tree can hold an expression twice (the bound of an array of the module is also a child of its declaration),
+        // and both are evaluated, as what the tree holds is.
+        foreach (var fact in facts.Where(fact => fact.Binding is not null).DistinctBy(fact => (fact.Location, fact.Binding)))
+        {
+            var current = references.GetValueOrDefault(fact.Binding!.Value);
+            references[fact.Binding.Value] = fact.Flags switch
+            {
+                var flags when flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) => current with { Writes = current.Writes + 1 },
+                var flags when flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument) => current with { PassedAsArguments = current.PassedAsArguments + 1 },
+                _ => current with { Reads = current.Reads + 1 },
+            };
+        }
+
+        return references;
     }
 
     // a variable, or an array whose elements are, declared As New of a class whose objects are never created (Dim e As New ErrObject).
@@ -100,10 +113,9 @@ public static class DeclarationUsage
         // a constant of a procedure is referred to by that procedure's code alone: its statements, and the declarations of its body - the value of another of
         // its constants, the bounds of its arrays - which are analyzed with the statements.
         DeclarationKind.Constant when symbol is VBLocalConstantSymbol => true,
-        // a constant of the module is referred to where its value is substituted, which includes the bounds of an array and the value of another constant, of
-        // an enumeration member and of an optional parameter: expressions of the declarations of the module, which the pass does not evaluate as it does those
-        // of its procedures.
-        // 🚧 TODO count the references of a constant of the module once the expressions of the module's declarations are evaluated.
+        // a constant of the module is referred to where its value is substituted: by the code of the module, and by the expressions of its declarations - the
+        // bounds of an array, the value of another constant, of an enumeration member and of an optional parameter of a Declare.
+        DeclarationKind.Constant => symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private or AccessModifier.Implicit },
         _ => false,
     };
 

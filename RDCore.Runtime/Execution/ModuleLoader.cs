@@ -158,6 +158,14 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             }
         }
 
+        // what the expressions of the module's own declarations refer to: a constant of the module is referred to by those as well as by its procedures.
+        var moduleScope = session.Symbols.ScopeOf(module.Uri);
+        var declarationFacts = moduleScope is null
+            ? null
+            : ModuleDeclarationStaticSemantics.Analyze(syntaxTree.Children, new StaticEvaluationContext(session.Symbols.Resolver, moduleScope,
+                Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }),
+                new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks));
+
         // a module is valid when what it declares is, as well as every procedure of it. The types it declares are asked to be names that resolve: its code is
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
@@ -174,7 +182,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
                 DeclarationUsage.DeclaredBy(members), procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri)),
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri), declarationFacts),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
             Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,
