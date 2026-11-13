@@ -60,6 +60,12 @@ public sealed class CreateObjectTests
 
         public string Describe(object? first, object? second) => $"{first}/{second}";
 
+        // what a server is given for each argument, by the kind of thing it is.
+        public string KindsOf(object? first, object? second) => $"{first?.GetType().Name ?? "null"}/{second?.GetType().Name ?? "null"}";
+
+        // an object a member with arguments returns, as Excel's Cells(1, 1) returns a Range.
+        public Shelf Child(int index) => new() { Label = $"child {index}" };
+
         public void Bump(ref object? amount) => amount = Convert.ToInt32(amount, System.Globalization.CultureInfo.InvariantCulture) + 1;
     }
 
@@ -198,6 +204,20 @@ public sealed class CreateObjectTests
             "Dim v As Variant",
             "v = CreateObject(\"Lab.Shelf\")",
             "Debug.Print v + 1"));
+
+    // an object given to a member of a late-bound object is the object, not its default member's value: Excel's Range(Cells(1, 1), Cells(2, 2)) is given two
+    // Ranges, and is error 1004 when it is given their Values.
+    [TestMethod]
+    [DataRow("s.KindsOf(s.Self, s.Self)", DisplayName = "a property that returns an object")]
+    [DataRow("s.KindsOf(s.Child(1), s.Child(2))", DisplayName = "a member with arguments that returns an object, as Cells(1, 1) is")]
+    [DataRow("s.KindsOf(t, t)", DisplayName = "an object variable")]
+    public async Task AnObjectGivenToALateBoundMember_IsTheObject(string call)
+        => CollectionAssert.AreEqual(new[] { "Shelf/Shelf" }, await Run(
+            "Dim s As Object",
+            "Dim t As Object",
+            "Set s = CreateObject(\"Lab.Shelf\")",
+            "Set t = CreateObject(\"Lab.Shelf\")",
+            $"Debug.Print {call}"));
 
     [TestMethod]
     public async Task ForEach_OverALateBoundObject_IsDrivenByTheEnumeratorItGives()
