@@ -57,9 +57,6 @@ internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod, IMoveMemberService moveMember,
     IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer) : CodeActionHandlerBase
 {
-    private const string MoveMemberUpKind = "refactor.move.member.up";
-    private const string MoveMemberDownKind = "refactor.move.member.down";
-
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
     /// </summary>
@@ -76,14 +73,14 @@ internal sealed class CodeActionHandler(
     public static readonly CodeActionKind RefactorConvertGoSub = new(RefactoringKinds.ConvertGoSub);
 
     /// <summary>
-    /// The kind of the action that moves a procedure above the one before it: a refactoring that moves code (<c>refactor.move.member.up</c>).
+    /// The kind of the action that moves a procedure above the one before it (<see cref="RefactoringKinds.MoveMemberUp"/>).
     /// </summary>
-    public static readonly CodeActionKind RefactorMoveMemberUp = new(MoveMemberUpKind);
+    public static readonly CodeActionKind RefactorMoveMemberUp = new(RefactoringKinds.MoveMemberUp);
 
     /// <summary>
-    /// The kind of the action that moves a procedure below the one after it (<c>refactor.move.member.down</c>).
+    /// The kind of the action that moves a procedure below the one after it (<see cref="RefactoringKinds.MoveMemberDown"/>).
     /// </summary>
-    public static readonly CodeActionKind RefactorMoveMemberDown = new(MoveMemberDownKind);
+    public static readonly CodeActionKind RefactorMoveMemberDown = new(RefactoringKinds.MoveMemberDown);
 
     /// <summary>
     /// The kind of the action that imports a VB6 project: a source action of the whole workspace (<see cref="RefactoringKinds.ImportProject"/>).
@@ -290,7 +287,7 @@ internal sealed class CodeActionHandler(
         var actions = new List<CodeAction>();
         foreach (var offer in await moveMember.OffersAsync(documentUri, range, token))
         {
-            var kind = offer.Direction is MemberMoveDirection.Up ? MoveMemberUpKind : MoveMemberDownKind;
+            var kind = offer.Direction is MemberMoveDirection.Up ? RefactoringKinds.MoveMemberUp : RefactoringKinds.MoveMemberDown;
             if (offer.Refusal is { } refusal)
             {
                 if (ShowsDisabled)
@@ -325,7 +322,7 @@ internal sealed class CodeActionHandler(
             return action;
         }
 
-        var direction = kind == MoveMemberUpKind ? MemberMoveDirection.Up : MemberMoveDirection.Down;
+        var direction = kind == RefactoringKinds.MoveMemberUp ? MemberMoveDirection.Up : MemberMoveDirection.Down;
         var answer = await moveMember.MoveAsync(uri, range, direction, token);
         var refusal = answer.Edits is not null && answer.Version != version ? MoveMemberService.DocumentChanged() : answer.Refusal;
         if (refusal is not null || answer.Edits is null)
@@ -481,7 +478,7 @@ internal sealed class CodeActionHandler(
             ? offered[ExtractionDataKey]?.ToString() switch
             {
                 (RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub) and var kind => await ResolveRefactoringAsync(request, kind, offered, cancellationToken),
-                (MoveMemberUpKind or MoveMemberDownKind) and var kind => await ResolveMoveAsync(request, kind, offered, cancellationToken),
+                (RefactoringKinds.MoveMemberUp or RefactoringKinds.MoveMemberDown) and var kind => await ResolveMoveAsync(request, kind, offered, cancellationToken),
                 _ => request,
             }
             : request;
