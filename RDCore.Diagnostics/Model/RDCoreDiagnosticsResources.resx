@@ -285,6 +285,9 @@
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' hides '{1}': in this procedure, the name means '{0}', and '{1}' everywhere else. Give '{0}' a name of its own.</value>
   </data>
+  <data name="ImplementedInterfaceMember_Fix" xml:space="preserve">
+    <value>Remove the code from the members of &apos;{0}&apos;: an object created from &apos;{0}&apos; itself no longer runs it</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>

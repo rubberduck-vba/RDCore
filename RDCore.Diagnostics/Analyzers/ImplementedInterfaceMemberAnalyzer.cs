@@ -2,10 +2,14 @@
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST;
+using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
+using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -16,6 +20,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// The class is reported once, at the first member that has a statement. Comments, line labels and declarations are not statements. Whether another
 /// module implements the class is a fact the host states (<see cref="ClassModuleSemanticFlags.Implemented"/>); without it, the analyzer reports nothing.
+/// The finding comes with the fix that removes the code of every member that has a statement, its title saying what changes: an object created from the
+/// class itself then runs none of it, and its functions return the default value of their type.
 /// </remarks>
 internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
 {
@@ -28,22 +34,81 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
             return [];
         }
 
-        var withCode = module.Children.OfType<MemberDeclarationNode>()
-            .FirstOrDefault(member => IsProcedure(member)
-                && !member.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode).HasNoStatement());
-        return withCode is null
-            ? []
-            :
-            [
-                new AnalyzerFinding(
-                    RDCoreDiagnosticId.ImplementedInterfaceMember.ToCode(),
-                    withCode.NameRange ?? withCode.SourceLocation.Range,
-                    DiagnosticSeverity.Warning,
-                    AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementedInterfaceMember_Message, SymbolUri.ModuleNameOf(semantics.Module), withCode.Name)),
-            ];
+        var withCode = module.Children.OfType<MemberDeclarationNode>().Where(member => IsProcedure(member) && !BodyOf(member).HasNoStatement()).ToArray();
+        if (withCode.Length == 0)
+        {
+            return [];
+        }
+
+        var name = SymbolUri.ModuleNameOf(semantics.Module);
+        var edits = withCode.Select(member => CodeOf(context.ParseResult, member)).ToArray();
+        return
+        [
+            new AnalyzerFinding(
+                RDCoreDiagnosticId.ImplementedInterfaceMember.ToCode(),
+                withCode[0].NameRange ?? withCode[0].SourceLocation.Range,
+                DiagnosticSeverity.Warning,
+                AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementedInterfaceMember_Message, name, withCode[0].Name))
+            {
+                Fixes = edits.All(member => member is not null)
+                    ? new DiagnosticFixes
+                    {
+                        Edit = new EditFix
+                        {
+                            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementedInterfaceMember_Fix, name),
+                            Edits = [.. edits.SelectMany(member => member!)],
+                        },
+                    }
+                    : null,
+            },
+        ];
     }
 
     private static bool IsProcedure(MemberDeclarationNode member)
         => member is not ExternalMemberDeclarationNode
             && member.MemberKind is MemberKind.Procedure or MemberKind.Function or MemberKind.PropertyGet or MemberKind.PropertyLet or MemberKind.PropertySet;
+
+    private static IEnumerable<SyntaxNode> BodyOf(MemberDeclarationNode member)
+        => member.Children.SkipWhile(child => child is ParameterDeclarationNode or AsTypeExpressionNode);
+
+    // the whole lines from the member's first statement, label or declaration to the line before its End, less its Attribute lines: the comments above the
+    // first statement stay. Null when the analyzer can't tell those lines from the header and the End: code on the line of either, an Attribute line
+    // after the last statement (the member's range then ends after the End), or an #If in the member.
+    private static IEnumerable<TextEdit>? CodeOf(ModuleParseResult parse, MemberDeclarationNode member)
+    {
+        var body = BodyOf(member).ToArray();
+        var code = body.Where(child => child is not AttributeDirectiveNode).ToArray();
+        var attributes = body.OfType<AttributeDirectiveNode>().ToArray();
+        var header = member.Children.Except(body).Select(child => child.SourceLocation.Range.End.Line)
+            .Append((member.NameRange ?? member.SourceLocation.Range).End.Line)
+            .Max();
+        var first = code.Min(child => child.SourceLocation.Range.Start.Line);
+        var last = code.Max(child => child.SourceLocation.Range.End.Line);
+        var end = member.SourceLocation.Range.End.Line;
+        if (first <= header || last >= end
+            || attributes.Any(attribute => attribute.SourceLocation.Range.Start.Line > last)
+            || parse.PrecompilerTrivia.Any(trivia => trivia.SourceLocation.Range.Start.Line <= end && trivia.SourceLocation.Range.End.Line >= header))
+        {
+            return null;
+        }
+
+        var kept = attributes.SelectMany(attribute => Enumerable.Range(attribute.SourceLocation.Range.Start.Line,
+            attribute.SourceLocation.Range.End.Line - attribute.SourceLocation.Range.Start.Line + 1)).ToHashSet();
+        var edits = new List<TextEdit>();
+        int? from = null;
+        for (var line = first; line <= end; line++)
+        {
+            if (line < end && !kept.Contains(line))
+            {
+                from ??= line;
+            }
+            else if (from is { } start)
+            {
+                edits.Add(new TextEdit { Range = new Range(start, 0, line, 0), NewText = string.Empty });
+                from = null;
+            }
+        }
+
+        return edits;
+    }
 }
