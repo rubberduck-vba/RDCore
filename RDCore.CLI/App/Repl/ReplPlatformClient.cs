@@ -113,7 +113,7 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
     }
 
     // the kinds of code actions the shell asks for: those it can show and take, the fixes of diagnostics and renames. An action that moves code, such as an
-    // extraction, would take it out of what LIST shows; a kind the platform offers later is not asked for until the shell can take it.
+    // extraction, would take it out of what LIST shows; a kind the shell cannot take is never asked for.
     internal static readonly CodeActionKind[] CodeActionKinds = [CodeActionKind.QuickFix, new(RefactoringKinds.Rename)];
 
     /// <inheritdoc/>
