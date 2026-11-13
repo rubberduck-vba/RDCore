@@ -18,6 +18,9 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class NextErrorLocationTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     // Main calls Probe, which runs the loop under a handler that prints the error and Erl, which counts document lines.
     private static string[] Probe(string declarations, string[] loop, params string[] handler) =>
     [
@@ -110,7 +113,7 @@ public sealed class NextErrorLocationTests
         {
             provider.Execution.SetErrorBreak(ErrorBreakMode.Unhandled);
             atTheError = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
-                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(SafetyCap);
         }, debug: true, engine: engine);
 
         Assert.AreEqual((ExecutionOutcome.Suspended, 6, LineOf(program, "Next i") - 1), (atTheError!.Outcome, atTheError.ErrorNumber, atTheError.ErrorLine),
