@@ -10,16 +10,25 @@ namespace RDCore.LanguageServer.Services.Refactoring;
 /// </summary>
 internal enum BindingChangeKind
 {
-    /// <summary>A name the edit left as it was refers to something else: <see cref="BindingChange.Was"/> before, <see cref="BindingChange.Is"/> after.</summary>
+    /// <summary>
+    /// A name the edit left as it was refers to something else: <see cref="BindingChange.Was"/> before, <see cref="BindingChange.Is"/> after; to
+    /// nothing, when it does not resolve after the edit.
+    /// </summary>
     Retargeted,
 
-    /// <summary>A name the edit left as it was is no longer a reference: it no longer resolves, or it is gone from the code.</summary>
+    /// <summary>
+    /// A name the edit left as it was is missing from the references found after the edit.
+    /// </summary>
     Lost,
 
-    /// <summary>A name the edit left as it was is a reference to what is only known when the code runs, where it was known before.</summary>
+    /// <summary>
+    /// A name the edit left as it was is a reference to what is only known when the code runs, where what it refers to was known before the edit.
+    /// </summary>
     Unknown,
 
-    /// <summary>A name the edit wrote, or one that was no reference before: what it refers to is the edit's to say.</summary>
+    /// <summary>
+    /// A name the edit wrote, or one that was not a reference before: what it refers to is the edit's to say.
+    /// </summary>
     Written,
 }
 
