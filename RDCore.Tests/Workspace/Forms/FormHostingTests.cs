@@ -25,6 +25,9 @@ namespace RDCore.Tests.Workspace.Forms;
 [SupportedOSPlatform("windows")]
 public sealed class FormHostingTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private const uint WM_CLOSE = 0x0010;
 
     // Microsoft Forms 2.0 as the platform ships it (`rdc export-library` of FM20.DLL): every control a real form has is one of its classes.
@@ -171,7 +174,7 @@ public sealed class FormHostingTests
         Assert.IsFalse(running.IsCompleted, "Show waits for a modal form, as the designer's ShowModal says it is");
 
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        CollectionAssert.AreEqual(new[] { "shown, and closed" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+        CollectionAssert.AreEqual(new[] { "shown, and closed" }, await running.WaitAsync(SafetyCap));
     }
 
     [TestMethod]
@@ -282,7 +285,7 @@ public sealed class FormHostingTests
         Assert.IsTrue(PostMessage(form, 0x0201, (IntPtr)1, at));
         Assert.IsTrue(PostMessage(form, 0x0202, IntPtr.Zero, at));
 
-        CollectionAssert.AreEqual(new[] { "form clicked", "after" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+        CollectionAssert.AreEqual(new[] { "form clicked", "after" }, await running.WaitAsync(SafetyCap));
     }
 
     // oracle\s41 V01-V03: Show activates the form; showing another deactivates the first, then activates the other.
@@ -333,7 +336,7 @@ public sealed class FormHostingTests
         Assert.AreNotEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption));
 
         Assert.IsTrue(PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero));
-        CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(TimeSpan.FromSeconds(30)));
+        CollectionAssert.AreEqual(new[] { "QueryClose 0", "QueryClose 0", "Terminate", "after" }, await running.WaitAsync(SafetyCap));
         Assert.AreEqual(IntPtr.Zero, FindWindow("RDCore.UserForm", caption), "the unloaded form's window is destroyed");
     }
 
@@ -766,7 +769,7 @@ public sealed class FormHostingTests
         var started = DateTime.UtcNow;
         while (FindWindow("RDCore.UserForm", caption) is var window && window == IntPtr.Zero)
         {
-            if (DateTime.UtcNow - started > TimeSpan.FromSeconds(20))
+            if (DateTime.UtcNow - started > SafetyCap)
             {
                 Assert.Fail("The form was not shown in time.");
             }
