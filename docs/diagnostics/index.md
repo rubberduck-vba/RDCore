@@ -137,6 +137,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09380](vbc09380.md)|Out of memory|A module declares more than 10,000 names at module level, or a fixed-size array of more elements than RD-VBA holds|
 |[VBC09381](vbc09381.md)|User-defined type may not be passed ByVal|A parameter of a record is declared `ByVal`|
 |[VBC09382](vbc09382.md)|Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions|A record is given to a `Variant`|
+|[VBC09383](vbc09383.md)|There is no host application to evaluate the expression|A name in brackets, such as `[A1]`, names nothing that is declared|
 
 ### Runtime errors
 
