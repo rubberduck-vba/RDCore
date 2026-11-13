@@ -50,6 +50,21 @@ internal static class ExtractionControlFlow
                     continue;
             }
 
+            // an On…GoTo leaves for each of its labels outside, once however often it names one; a selector out of range falls through, which is no exit.
+            if (instruction.Kind is InstructionKind.JumpTable)
+            {
+                foreach (var target in instruction.Targets.OfType<int>().Where(target => !region.Contains(target)).Distinct())
+                {
+                    if (instruction.Location is { } location)
+                    {
+                        var key = (ExtractionExitKind.Label, target);
+                        (exits.TryGetValue(key, out var from) ? from : exits[key] = []).Add(location);
+                    }
+                }
+
+                continue;
+            }
+
             foreach (var edge in graph.SuccessorsOf(offset).Where(edge => edge.Kind is not ControlFlowEdgeKind.Error && !region.Contains(edge.To)))
             {
                 var kind = instruction.Kind switch
@@ -57,7 +72,7 @@ internal static class ExtractionControlFlow
                     InstructionKind.ExitProcedure => ExtractionExitKind.Procedure,
                     // a block's closer goes on to what follows the block, as a statement does: it is no GoTo.
                     InstructionKind.Jump when instruction.Node is null && edge.To == after => null,
-                    InstructionKind.Jump or InstructionKind.JumpTable or InstructionKind.ResumeLabel => ExtractionExitKind.Label,
+                    InstructionKind.Jump or InstructionKind.ResumeLabel => ExtractionExitKind.Label,
                     _ when edge.To == after => (ExtractionExitKind?)null,
                     InstructionKind.ExitLoop => ExtractionExitKind.Loop,
                     _ => ExtractionExitKind.Label,

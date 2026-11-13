@@ -100,7 +100,7 @@ public sealed class ExtractMethodServiceTests
 
         Assert.IsFalse(prepared.Notices.Any(), string.Join("; ", prepared.Notices.Select(notice => notice.Message)));
         CollectionAssert.AreEqual(
-            new[] { ExtractMethodService.NameChoice, ExtractMethodService.ParametersChoice, ExtractMethodService.ReturnValueChoice },
+            new[] { ExtractMethodService.NameChoice, ExtractMethodService.ParametersChoice, ExtractMethodService.ReturnValueChoice, ExtractMethodService.AccessibilityChoice },
             prepared.Choices.Select(choice => choice.Id).ToArray());
         Assert.IsFalse(string.IsNullOrEmpty(prepared.Choices[0].Default));
         var parameters = prepared.Choices[1].Items;
@@ -111,6 +111,19 @@ public sealed class ExtractMethodServiceTests
         var returned = prepared.Choices[2];
         Assert.AreEqual(string.Empty, returned.Default);
         CollectionAssert.AreEqual(new[] { string.Empty, "b" }, returned.Options.Select(option => option.Value).ToArray());
+        var accessibility = prepared.Choices[3];
+        Assert.AreEqual("Private", accessibility.Default);
+        CollectionAssert.AreEqual(new[] { "Private", "Public" }, accessibility.Options.Select(option => option.Value).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ThePublicAccessibility_WritesAPublicProcedure()
+    {
+        var answer = await Sut().ApplyAsync(Document, Lines(5, 5),
+            [Answer(ExtractMethodService.NameChoice, "Increment"), Answer(ExtractMethodService.AccessibilityChoice, "Public")], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        StringAssert.Contains(Applied(Module, answer.Edit!.Documents.Single().Edits), "\r\nPublic Sub Increment(");
     }
 
     [TestMethod]
@@ -234,6 +247,7 @@ public sealed class ExtractMethodServiceTests
     [DataRow(ExtractMethodService.NameChoice, "If", DisplayName = "a keyword for the name")]
     [DataRow(ExtractMethodService.NameChoice, "Run", DisplayName = "a name the module declares")]
     [DataRow(ExtractMethodService.ReturnValueChoice, "a", DisplayName = "a value the selection does not give back")]
+    [DataRow(ExtractMethodService.AccessibilityChoice, "Friend", DisplayName = "an accessibility the new procedure cannot have")]
     public async Task AnAnswerThatCannotBeWritten_IsRefused_AndSaysWhy(string choice, string value)
     {
         var answer = await Sut().ApplyAsync(Document, Lines(5, 5), [Answer(choice, value)], [], CancellationToken.None);

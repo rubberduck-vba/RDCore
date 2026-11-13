@@ -21,15 +21,23 @@ namespace RDCore.Runtime.Support.Host;
 /// </remarks>
 internal static class MachineExternal
 {
+    /// <summary>
+    /// The executable the external host is started from, run in external mode: <c>rdc</c> beside this process's assemblies, unless this process is a built
+    /// program, whose folder holds no <c>rdc</c> and which is its own external host. Read once, when the world is first reached.
+    /// </summary>
+    public static string Executable { get; set; } = ExternalHost.DefaultExecutable;
+
+    private static ExternalHost? _host;
+
     private static readonly Lazy<ExternalWorld> _world = new(() =>
     {
         var options = Options.Create(new SdkAppOptions());
-        var host = new ExternalHost(
+        var host = _host = new ExternalHost(
             () => new ChildConnection(
                 new RDCoreServerProcess(new FileSystem(), PlatformEnvironment.Default, options, NullLogger<RDCoreServerProcess>.Instance),
                 new RDCorePlatformDefaultTransportLayer(options),
                 NullLogger<ChildConnection>.Instance),
-            ExternalHost.DefaultExecutable,
+            Executable,
             NullLogger<ExternalHost>.Instance);
         var servers = new RemoteAutomationServer(host);
         return new ExternalWorld(servers, new RemoteNativeLibraryHost(host))
@@ -44,4 +52,15 @@ internal static class MachineExternal
     /// The outside world of this machine.
     /// </summary>
     public static ExternalWorld World => _world.Value;
+
+    /// <summary>
+    /// Stops the external host, if one was started, and waits for its process to end: a program that ended leaves nothing running in its folder.
+    /// </summary>
+    public static void Shutdown()
+    {
+        if (_world.IsValueCreated)
+        {
+            _host?.Dispose();
+        }
+    }
 }

@@ -524,6 +524,9 @@
   <data name="Build_NoAppHost" xml:space="preserve">
     <value>Aucun hôte d'application .NET n'est installé pour {0}, et aucun exécutable n'a donc été écrit : exécutez le programme avec dotnet {1}.</value>
   </data>
+  <data name="Build_NoticesLacking" xml:space="preserve">
+    <value>Il manque {0} au dossier du programme : cette copie de RDCore n'en a aucun à y mettre. Un RDCore publié les a tous.</value>
+  </data>
   <data name="Build_Built" xml:space="preserve">
     <value>{0} construit dans {1}.</value>
   </data>

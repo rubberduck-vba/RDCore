@@ -107,13 +107,14 @@ The exit code says how the run went:
 
 |Exit code|Meaning|
 |---|---|
-|`0`|The program ended.|
-|`1`|A run-time error ended it. The error's number and description are written to the standard error.|
+|`0`|The program ended: its entry point returned, it ran an `End`, or it ran a `Stop` in `Release`.|
+|`1`|A run-time error ended it, or a `Stop` in `Debug` interrupted it, with no debugger to stop for. The standard error says which, with the error's number and description.|
 |`2`|It could not start: no entry point, or a module that does not load.|
 
 ### Building a program
 
-`rdc build` compiles the workspace into a program that runs without RDCore's parser. It needs the same entry point as `rdc run`.
+`rdc build` compiles the workspace into a program that runs without RDCore's parser, and without the workspace's sources: the program runs from its own folder,
+wherever it is. It needs the same entry point as `rdc run`.
 
 |Option|What it does|
 |---|---|
@@ -122,7 +123,22 @@ The exit code says how the run went:
 |`-c`, `--configuration`|`Debug` (the default) or `Release`.|
 |`-r`, `--runtime`|The platform the program is built for, such as `win-x64` or `linux-x64`; the one `rdc` runs on by default.|
 
-The program shows its dialogs as `rdc run` does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+The program shows its dialogs as `rdc run` does, and its exit code says how it ran, as `rdc run`'s does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+
+A built program calls the outside world (a `Declare`d procedure, an automation server's object) as `rdc run` does, through a second process: its own
+executable, started again as its external host, which ends with it. Where the .NET host for the program's runtime is not installed, the program is built without an executable;
+run with `dotnet <name>.dll`, it makes no such call.
+
+The program's folder holds the license terms of what it runs on:
+
+|File|Terms of|
+|---|---|
+|`NOTICE.md`, `LICENSE-GPLv3.md`|RDCore.|
+|`LICENSE-MIT.md`|RDCore.SDK.|
+|`THIRD-PARTY-NOTICES.txt`|The other packages in the folder, and the program's executable.|
+
+Pass them on with the program. `NOTICE.md` says what they ask of you, and that your own code stays yours. `rdc` copies them from the platform it runs
+from, and warns when it has none to copy.
 
 ### Installing the platform
 

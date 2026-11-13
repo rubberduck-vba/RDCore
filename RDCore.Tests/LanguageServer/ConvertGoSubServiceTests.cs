@@ -101,7 +101,8 @@ public sealed class ConvertGoSubServiceTests
         var prepared = await Sut().PrepareAsync(RefactoringKinds.ConvertGoSub, Document, At(line, character), CancellationToken.None);
 
         Assert.IsFalse(prepared.Notices.Any(notice => notice.Kind is RefactorNoticeKind.Refusal), string.Join("; ", prepared.Notices.Select(notice => notice.Message)));
-        CollectionAssert.AreEqual(new[] { ExtractMethodService.NameChoice, ExtractMethodService.ParametersChoice }, prepared.Choices.Select(choice => choice.Id).ToArray());
+        CollectionAssert.AreEqual(new[] { ExtractMethodService.NameChoice, ExtractMethodService.ParametersChoice, ExtractMethodService.AccessibilityChoice },
+            prepared.Choices.Select(choice => choice.Id).ToArray());
         Assert.AreEqual("TwiceProc", prepared.Choices[0].Default);
         Assert.AreEqual("ByRef total As Long", prepared.Choices[1].Items.Single().Label);
         Assert.AreEqual(new SourceRange(8, 0, 10, 10), prepared.Range);

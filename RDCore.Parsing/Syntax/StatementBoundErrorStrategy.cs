@@ -1,6 +1,7 @@
 using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;
 using Antlr4.Runtime.Misc;
+using Antlr4.Runtime.Tree;
 
 namespace RDCore.Parsing.Syntax;
 
@@ -19,8 +20,11 @@ namespace RDCore.Parsing.Syntax;
 /// (<c>L1: Mod = 1</c>). A word that ends a block or begins a procedure is still recovered from where it is.
 /// </para>
 /// <para>
-/// The header of a <c>For</c> or a <c>For Each</c> that ends with a binary operator the parse leaves unread (<c>For i = 1 To 2 -</c>) is reported at the
-/// operator, which is a token no rule reads, and the loop goes on to its body and its <c>Next</c>.
+/// The header of a <c>For</c> or a <c>For Each</c> that ends with a binary operator the parse leaves unread (<c>For i = 1 To 2 -</c>), or with more
+/// operators after it (<c>For i = 1 To 2 - -</c>), is reported at the first operator, and the operators are tokens no rule reads: the loop goes on to its
+/// body and its <c>Next</c>. A binary operator right before <c>Then</c>, <c>To</c>, or a <c>Step</c> and its value (<c>If x - Then</c>,
+/// <c>For i = 1 - To 2</c>) is taken off the parser's channel before the parse (<see cref="TakeOffOperatorsBeforeAWordOfAHeader"/>), and reported where
+/// the parse passes it: the block is read as it is written.
 /// </para>
 /// <para>
 /// A parse with no syntax error never enters recovery, so this strategy does not change it.
@@ -196,9 +200,9 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
 
         if (recognizer is VBAParser { Context: VBAParser.ForNextStmtContext or VBAParser.ForEachStmtContext } loop && !InErrorRecoveryMode(loop))
         {
-            if (DanglingOperatorAhead(loop) is { } through)
+            if (DanglingOperatorAhead(loop) is { } operators)
             {
-                ReadADanglingOperatorOfTheHeader(loop, through);
+                ReadADanglingOperatorOfTheHeader(loop, operators);
             }
 
             // a For's statements are no block: the loop decides on the end of a statement and the statement after it together, and decides on neither when
@@ -624,17 +628,18 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         throw new InvalidOperationException($"No state of rule {rule} calls rule {called}.");
     }
 
-    // a For's header that ends with a binary operator the parse leaves unread (For i = 1 To 2 -): the decision after its last expression looks past the
-    // operator to the end of the line, and fails, and the For would end there, with no body and no Next: the procedure's recovery would then skip to the
-    // next procedure. The operator is a token no rule reads, reported where it is, and the For goes on to its body.
-    private void ReadADanglingOperatorOfTheHeader(VBAParser parser, int through)
+    // a For's header that ends with a binary operator the parse leaves unread (For i = 1 To 2 -), or with more operators after it (For i = 1 To 2 - -):
+    // the decision after its last expression looks past the operator to the end of the line, and fails, and the For would end there, with no body and no
+    // Next: the procedure's recovery would then skip to the next procedure. The operators are tokens no rule reads, reported at the first, and the For goes
+    // on to its body.
+    private void ReadADanglingOperatorOfTheHeader(VBAParser parser, (int At, int Through) operators)
     {
         var stream = (ITokenStream)parser.InputStream;
-        var @operator = stream.Lt(through);
+        var @operator = stream.Lt(operators.At);
         BeginErrorCondition(parser);
         parser.NotifyErrorListeners(@operator,
             $"extraneous input {GetTokenErrorDisplay(@operator)} expecting {GetExpectedTokens(parser).ToString(parser.Vocabulary)}", null);
-        for (var i = 0; i < through; i++)
+        for (var i = 0; i < operators.Through; i++)
         {
             parser.Consume();
         }
@@ -642,8 +647,9 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         EndErrorCondition(parser);
     }
 
-    // how far ahead, past the blanks, a binary operator is that the parse does not expect here, when the end of the statement follows it; none otherwise.
-    private static int? DanglingOperatorAhead(Parser parser)
+    // how far ahead, past the blanks, a binary operator is that the parse does not expect here, and the last of the operators after it, when the end of the
+    // statement follows them; none otherwise.
+    private static (int At, int Through)? DanglingOperatorAhead(Parser parser)
     {
         var stream = (ITokenStream)parser.InputStream;
         var at = PastTheBlanks(stream, 1);
@@ -652,7 +658,99 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
             return null;
         }
 
-        return EndsAStatement(stream.La(PastTheBlanks(stream, at + 1))) ? at : null;
+        var through = at;
+        for (var next = PastTheBlanks(stream, at + 1); ModuleParser.BinaryOperators.Contains(stream.La(next)) || stream.La(next) is VBALexer.NOT;
+            next = PastTheBlanks(stream, next + 1))
+        {
+            through = next;
+        }
+
+        return EndsAStatement(stream.La(PastTheBlanks(stream, through + 1))) ? (at, through) : null;
+    }
+
+    /// <summary>
+    /// Takes off the parser's channel each binary operator written right after an operand and right before a word of a block's header that no operand is:
+    /// <c>Then</c> (<c>If x - Then</c>), <c>To</c> (<c>For i = 1 - To 2</c>), and a <c>Step</c> followed by its value (<c>For i = 1 To 2 - Step 1</c>).
+    /// </summary>
+    /// <remarks>
+    /// The decision that reads the block looks past the operator to the end of the line, and fails: the block is no block, its body is read as statements of
+    /// the block around it, and its end is a word that ends no block there. Without the operator, the header is the header it is, and the block is read as
+    /// it is written; the operator is the one error of its statement (<see cref="OperatorsTakenOffReporter"/>). Valid code has no such operator:
+    /// <c>Then</c> and <c>To</c> are reserved words (MS-VBAL §3.3.5.2), and an operation whose right operand is a variable named <c>Step</c> is followed by
+    /// the end of the header, or by the For's own <c>Step</c>.
+    /// </remarks>
+    /// <param name="tokens">The module's tokens, before the parse reads them.</param>
+    /// <returns>The operators taken off, in the order they are written.</returns>
+    internal static IReadOnlyList<IToken> TakeOffOperatorsBeforeAWordOfAHeader(CommonTokenStream tokens)
+    {
+        tokens.Fill();
+        var all = tokens.GetTokens();
+        var taken = new List<IToken>();
+        for (var index = 0; index < all.Count; index++)
+        {
+            if (!ModuleParser.BinaryOperators.Contains(all[index].Type) || !EndsAnOperand(Significant(all, index, -1)))
+            {
+                continue;
+            }
+
+            var word = Significant(all, index, +1);
+            var beforeAHeaderWord = word?.Type switch
+            {
+                VBALexer.THEN or VBALexer.TO => true,
+                VBALexer.STEP => IsTheValueOfAStep(all, word.TokenIndex),
+                _ => false,
+            };
+
+            if (beforeAHeaderWord && all[index] is CommonToken token)
+            {
+                token.Channel = TokenConstants.HiddenChannel;
+                taken.Add(token);
+            }
+        }
+
+        return taken;
+    }
+
+    // the token next to the one at the index, past the blanks, in the direction; none past the start or the end of the module.
+    private static IToken? Significant(IList<IToken> tokens, int index, int direction)
+    {
+        for (var at = index + direction; at >= 0 && at < tokens.Count; at += direction)
+        {
+            if (tokens[at].Type is not (VBALexer.WS or VBALexer.LINE_CONTINUATION))
+            {
+                return tokens[at];
+            }
+        }
+
+        return null;
+    }
+
+    // whether an operand can end with the token: a name, a literal, a closing parenthesis or bracket. A word that begins an expression or a statement, an
+    // operator, an opening parenthesis and a comma end none: the operator after them is unary, or the start of what is written.
+    private static bool EndsAnOperand(IToken? token)
+        => token is not null && !ModuleParser.BinaryOperators.Contains(token.Type) && !EndsAStatement(token.Type) && token.Type is not (VBALexer.LPAREN
+            or VBALexer.COMMA or VBALexer.NOT or VBALexer.ADDRESSOF or VBALexer.NEW or VBALexer.TYPEOF or VBALexer.IF or VBALexer.ELSEIF or VBALexer.FOR
+            or VBALexer.EACH or VBALexer.IN or VBALexer.TO or VBALexer.STEP or VBALexer.THEN or VBALexer.CASE or VBALexer.SELECT or VBALexer.WHILE
+            or VBALexer.UNTIL or VBALexer.DO);
+
+    // whether the Step at the index is a Step and its value: something follows it in its statement, and no other Step does. A Step that another Step
+    // follows is a variable, the right operand of the operation.
+    private static bool IsTheValueOfAStep(IList<IToken> tokens, int step)
+    {
+        if (Significant(tokens, step, +1) is not { } value || EndsAStatement(value.Type))
+        {
+            return false;
+        }
+
+        for (var at = step + 1; at < tokens.Count && !EndsAStatement(tokens[at].Type); at++)
+        {
+            if (tokens[at].Type == VBALexer.STEP)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // nor a procedure's header, which begins the next procedure.
@@ -663,5 +761,53 @@ internal sealed class StatementBoundErrorStrategy : DefaultErrorStrategy
         {
             recognizer.Consume();
         }
+    }
+}
+
+/// <summary>
+/// Reports each operator <see cref="StatementBoundErrorStrategy.TakeOffOperatorsBeforeAWordOfAHeader"/> took off the parser's channel, where the parse
+/// passes it: before the first token it reads after the operator, so the errors are in the order of their positions, and one statement has one error.
+/// </summary>
+/// <param name="parser">The parser whose parse passes the operators, and that reports them.</param>
+/// <param name="operators">The operators taken off, in the order they are written.</param>
+internal sealed class OperatorsTakenOffReporter(Parser parser, IReadOnlyList<IToken> operators) : IParseTreeListener
+{
+    private int _next;
+
+    public void VisitTerminal(ITerminalNode node) => ReportBefore(node.Symbol.TokenIndex);
+
+    public void VisitErrorNode(IErrorNode node) => ReportBefore(node.Symbol.TokenIndex);
+
+    public void EnterEveryRule(ParserRuleContext ctx) { }
+
+    public void ExitEveryRule(ParserRuleContext ctx) { }
+
+    /// <summary>
+    /// Reports the operators the parse did not pass: those after the last token it read.
+    /// </summary>
+    public void ReportTheRest() => ReportBefore(int.MaxValue);
+
+    // a token the parse made up for one missing is at no index, and passes nothing.
+    private void ReportBefore(int index)
+    {
+        while (_next < operators.Count && index > operators[_next].TokenIndex)
+        {
+            var @operator = operators[_next++];
+            var word = ((ITokenStream)parser.InputStream).Get(NextOnTheChannel(@operator.TokenIndex));
+            parser.NotifyErrorListeners(@operator, $"extraneous input '{@operator.Text}' before '{word.Text}'", null);
+        }
+    }
+
+    // the index of the first token after the one at the index that the parser reads.
+    private int NextOnTheChannel(int index)
+    {
+        var stream = (ITokenStream)parser.InputStream;
+        var at = index + 1;
+        while (at < stream.Size - 1 && (stream.Get(at).Channel != TokenConstants.DefaultChannel || stream.Get(at).Type is VBALexer.WS or VBALexer.LINE_CONTINUATION))
+        {
+            at++;
+        }
+
+        return at;
     }
 }

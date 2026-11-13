@@ -12,6 +12,7 @@ using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.Configuration;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Workspace;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Resources;
 
@@ -99,7 +100,23 @@ internal interface IExtractMethodService
 /// </summary>
 /// <param name="Edit">The edit.</param>
 /// <param name="Refusal">Why there is none, in the language of the user interface.</param>
-internal sealed record class ExtractMethodAnswer(RefactorWorkspaceEdit? Edit, string? Refusal);
+internal sealed record class ExtractMethodAnswer(RefactorWorkspaceEdit? Edit, string? Refusal)
+{
+    /// <summary>
+    /// The duplicates of the selection the edit replaces with a call, each with the edits of its document that replace it: a client with nobody to ask
+    /// confirms each.
+    /// </summary>
+    public IReadOnlyList<ExtractMethodReplacement> Replacements { get; init; } = [];
+}
+
+/// <summary>
+/// A duplicate of the selection that an extraction replaces with a call to the new procedure.
+/// </summary>
+/// <param name="Id">The duplicate, as the item of the list of duplicates names it.</param>
+/// <param name="Label">Where it is and what it starts with, in the language of the user interface.</param>
+/// <param name="Document">The document it is in.</param>
+/// <param name="Ranges">The ranges of the edits of <paramref name="Document"/> that replace it.</param>
+internal sealed record class ExtractMethodReplacement(string Id, string Label, Uri Document, IReadOnlyList<SourceRange> Ranges);
 
 /// <summary>
 /// Extract Method over the workspace as a rename composes it (<see cref="IRenameService.ComposeAsync"/>): the plan of the selection (<see cref="ExtractionAnalysis"/>),
@@ -155,6 +172,28 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// parameter whose passing is the user's to choose has it (<see cref="ExtractionParameters.PassingIsAChoice"/>).
     /// </summary>
     public const string ParameterPassingChoice = "passing";
+
+    /// <summary>
+    /// The id of the choice of how far the new procedure is seen: <c>Private</c>, the default, or <c>Public</c>.
+    /// </summary>
+    public const string AccessibilityChoice = "accessibility";
+
+    /// <summary>
+    /// The id of the choice to replace the duplicates of the selection with calls to the new procedure, those of <see cref="DuplicatesChoice"/> that are
+    /// ticked; <c>true</c> by default.
+    /// </summary>
+    public const string ReplaceDuplicatesChoice = "replaceDuplicates";
+
+    /// <summary>
+    /// The id of the list of the duplicates of the selection (<see cref="ExtractionDuplicates"/>), each with its <see cref="DuplicateReplaceChoice"/>.
+    /// </summary>
+    public const string DuplicatesChoice = "duplicates";
+
+    /// <summary>
+    /// The id of the choice to replace a duplicate, among the choices of an item of <see cref="DuplicatesChoice"/>: ticked by default for one in the module,
+    /// which a <c>Private</c> procedure can be called from.
+    /// </summary>
+    public const string DuplicateReplaceChoice = "replace";
 
     // the value of the option that returns nothing: no variable is named so.
     private const string NoReturnValue = "";
@@ -235,8 +274,7 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
 
         // a refusal of the writer that no answer can lift is said before the user answers anything.
         var written = ExtractMethodEdit.Of(plan, extraction.Source, new ExtractionChoices(extraction.SuggestedName()));
-        if (written.Refusal is ExtractionEditRefusalKind.ExitByJumpTable or ExtractionEditRefusalKind.RoutineUsesTheResult or ExtractionEditRefusalKind.RoutineRunsItself
-            or ExtractionEditRefusalKind.RoutineInAWithBlock)
+        if (written.Refusal is ExtractionEditRefusalKind.RoutineUsesTheResult or ExtractionEditRefusalKind.RoutineRunsItself or ExtractionEditRefusalKind.RoutineInAWithBlock)
         {
             return new RefactorPrepareResult
             {
@@ -252,15 +290,17 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         string kind, Uri documentUri, SourceRange range, IReadOnlyList<RefactorAnswer> answers, CancellationToken token)
     {
         // the name as ApplyAsync reads it: trimmed, and one that is not answered takes its default, which raises nothing.
+        // the name is checked as declared with the accessibility answered, and as Private when that is none.
         if (answers.FirstOrDefault(answer => answer.Id == NameChoice)?.Value is not { Length: > 0 } typed
             || await ExtractionOfAsync(kind, documentUri, range, token) is not { Plan: { IsExtractable: true } plan } extraction)
         {
             return new RefactorIdentifierCheckResult();
         }
 
+        var accessibility = AccessibilityOf(answers) ?? ExtractionAccessibility.Private;
         return new RefactorIdentifierCheckResult
         {
-            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).Select(problem => new RefactorNotice
+            Notices = [.. ExtractionName.Validate(typed.Trim(), plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility).Select(problem => new RefactorNotice
             {
                 Code = Code($"Name{problem.Kind}"),
                 Kind = problem.IsWarning ? RefactorNoticeKind.Note : RefactorNoticeKind.Refusal,
@@ -302,25 +342,38 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             return new(null, refused);
         }
 
-        var (formatted, failure) = await WrittenAsync(extraction, choices, token);
-        if (formatted is null)
+        var (replaced, duplicateRefusal) = extraction.ChosenDuplicates(answers, choices);
+        if (duplicateRefusal is not null)
+        {
+            return new(null, duplicateRefusal);
+        }
+
+        var (written, replacements, failure) = await WrittenAsync(extraction, choices, replaced, token);
+        if (written is null)
         {
             return new(null, failure);
         }
 
-        var document = extraction.Module.Document;
         return new(new RefactorWorkspaceEdit
         {
             Documents =
             [
-                new RefactorDocumentEdit
+                .. written.Values.Select(module => new RefactorDocumentEdit
                 {
-                    Uri = document.Id.Uri.ToUri(),
-                    Version = document.Version,
-                    Edits = [.. formatted.Edits.Select(each => new RefactorTextEdit { Range = each.Range, NewText = each.NewText })],
-                },
+                    Uri = module.Module.Document.Id.Uri.ToUri(),
+                    Version = module.Module.Document.Version,
+                    Edits = [.. module.Edit.Edits.Select(each => new RefactorTextEdit { Range = each.Range, NewText = each.NewText })],
+                }),
             ],
-        }, null);
+        }, null)
+        {
+            Replacements =
+            [
+                .. replacements.Select(each => new ExtractMethodReplacement(
+                    each.Duplicate.Id, Format("ExtractMethodDuplicate_Replacement", extraction.Where(each.Duplicate)), DocumentOf(extraction, each.Duplicate.Module),
+                    [.. ReplacementRanges(written[each.Duplicate.Module.AbsoluteUri].Edit, each.Edits)])),
+            ],
+        };
     }
 
     // what the user chose, from the answers, each to its choice; one that is not given takes the choice's default. Null, with why, when an answer is refused.
@@ -328,7 +381,12 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     {
         var plan = extraction.Plan!;
         string? Answer(string id) => answers.FirstOrDefault(answer => answer.Id == id)?.Value;
-        var name = Answer(NameChoice) is { Length: > 0 } typed ? typed.Trim() : extraction.SuggestedName();
+        if (AccessibilityOf(answers) is not { } accessibility)
+        {
+            return new(null, Format("ExtractMethodChoice_AccessibilityUnknown", Answer(AccessibilityChoice)));
+        }
+
+        var name = Answer(NameChoice) is { Length: > 0 } typed ? typed.Trim() : extraction.SuggestedName(accessibility);
         var returned = Answer(ReturnValueChoice) ?? NoReturnValue;
         var returnValue = returned.Length == 0 ? null : plan.ReturnCandidates.FirstOrDefault(candidate => candidate.Name.Equals(returned, StringComparison.OrdinalIgnoreCase));
         if (returned.Length > 0 && returnValue is null)
@@ -339,7 +397,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var routeExits = !bool.TryParse(Answer(RouteExitsChoice), out var route) || route;
 
         // a name that cannot be declared there is refused; one that hides another declaration is the user's to choose.
-        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module).FirstOrDefault(problem => !problem.IsWarning) is { } problem)
+        if (ExtractionName.Validate(name, plan, extraction.Source, extraction.Part.Context, extraction.Module.Module, accessibility)
+            .FirstOrDefault(problem => !problem.IsWarning) is { } problem)
         {
             return (null, problem.ToMessage(RenameWorkspace.Locator(extraction.Part)));
         }
@@ -359,24 +418,53 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         var (parameters, parameterProblem) = ExtractionParameters.Choose(parameterAnswers, plan, extraction.Source, name, extraction.Part.Context, extraction.Module.Module);
         return parameterProblem is not null
             ? (null, parameterProblem.ToMessage())
-            : (new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits, Parameters = parameters }, null);
+            : (new ExtractionChoices(name) { ReturnValue = returnValue?.Variable, RouteExits = routeExits, Parameters = parameters, Accessibility = accessibility }, null);
     }
 
-    // the extraction written with the choices, indented as the user's settings say, and verified; null, with why, when it is refused.
-    private async Task<(ExtractionEdit? Formatted, string? Refusal)> WrittenAsync(Extraction extraction, ExtractionChoices choices, CancellationToken token)
+    // the extraction written with the choices and the duplicates replaced: the edits of each module, the selection's and those that replace each duplicate in it,
+    // indented as the user's settings say, and verified. Null, with why, when they are refused.
+    private async Task<(Dictionary<string, WrittenModule>? Written, List<(ExtractionDuplicate Duplicate, ImmutableArray<ExtractionTextEdit> Edits)> Replacements, string? Refusal)>
+        WrittenAsync(Extraction extraction, ExtractionChoices choices, IReadOnlyList<ExtractionDuplicate> replaced, CancellationToken token)
     {
-        var edit = ExtractMethodEdit.Of(extraction.Plan!, extraction.Source, choices);
+        var plan = extraction.Plan!;
+        var edit = ExtractMethodEdit.Of(plan, extraction.Source, choices);
         if (edit.Refusal is { } refusal)
         {
-            return (null, EditRefusal(refusal, extraction));
+            return (null, [], EditRefusal(refusal, extraction));
         }
 
-        var text = extraction.Analysis.Text;
-        var documentAddress = extraction.Module.Document.Id.Uri.ToUri();
-        var formatted = edit.Formatted(text, await ParseAsync(documentAddress, edit.ApplyTo(text), extraction, token), options.Value.Formatting.ToOptions());
-        return await VerifiedAsync(extraction, formatted, choices.Name, documentAddress, token) is { } failure
-            ? (null, Format("ExtractMethodVerification_Failed", Format($"ExtractMethodVerification_{failure.Kind}", failure.Detail)))
-            : (formatted, null);
+        var main = extraction.Module.Module.AbsoluteUri;
+        var edits = new Dictionary<string, List<ExtractionTextEdit>> { [main] = [.. edit.Edits] };
+        var replacements = new List<(ExtractionDuplicate Duplicate, ImmutableArray<ExtractionTextEdit> Edits)>();
+        foreach (var duplicate in replaced)
+        {
+            var replacement = duplicate.Replacement(plan, choices);
+            var ofModule = edits.TryGetValue(duplicate.Module.AbsoluteUri, out var known) ? known : edits[duplicate.Module.AbsoluteUri] = [];
+            if (replacement.Any(each => ofModule.Any(other => each.Range.Start < other.Range.End && other.Range.Start < each.Range.End)))
+            {
+                return (null, [], Format("ExtractMethodDuplicate_Overlaps", extraction.Where(duplicate)));
+            }
+
+            ofModule.AddRange(replacement);
+            replacements.Add((duplicate, replacement));
+        }
+
+        // the selection's module is edited as the extraction has its text, which a conversion of several routines has changed already.
+        var formatting = options.Value.Formatting.ToOptions();
+        var written = new Dictionary<string, WrittenModule>();
+        foreach (var (address, moduleEdits) in edits)
+        {
+            var module = extraction.Part.Modules.First(candidate => candidate.Module.AbsoluteUri == address);
+            var source = address == main ? extraction.Analysis.Text : module.Source;
+            var unformatted = address == main
+                ? edit with { Edits = [.. moduleEdits.OrderBy(each => each.Range.Start)] }
+                : new ExtractionEdit([.. moduleEdits.OrderBy(each => each.Range.Start)], string.Empty, string.Empty, null, null);
+            var formatted = unformatted.Formatted(source, await ParseAsync(module, unformatted.ApplyTo(source), token), formatting);
+            var text = formatted.ApplyTo(source);
+            written[address] = new WrittenModule(module, formatted, text, await ParseAsync(module, text, token));
+        }
+
+        return Verified(extraction, written, replacements, choices.Name) is { } failure ? (null, [], failure) : (written, replacements, null);
     }
 
     // every GoSub routine of the procedure converted, innermost first, each on the text the one before it left, and verified there: all of them, or none. The
@@ -430,15 +518,16 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                 return new(null, Format("ConvertGoSub_NameTaken", name));
             }
 
-            var (formatted, failure) = await WrittenAsync(next, choices with { Name = name }, token);
-            if (formatted is null)
+            var (written, _, failure) = await WrittenAsync(next, choices with { Name = name }, [], token);
+            if (written is null)
             {
                 return new(null, failure);
             }
 
             named.Add(name);
             remaining.RemoveAll(converted => converted.Equals(label, StringComparison.OrdinalIgnoreCase));
-            if (await ReanalyzedAsync(next, formatted.ApplyTo(next.Analysis.Text), member, memberKind, token) is not { } reanalyzed)
+            var module = written[next.Module.Module.AbsoluteUri];
+            if (Reanalyzed(next, module.Text, module.Parse, member, memberKind) is not { } reanalyzed)
             {
                 return new(null, Format("ExtractMethodVerification_Failed", Format($"ExtractMethodVerification_{ExtractionVerificationFailureKind.DoesNotParse}", string.Empty)));
             }
@@ -483,16 +572,15 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             : (found, null);
     }
 
-    // the module analyzed again as the text is: the procedure, and its selection to come.
-    private async Task<Extraction?> ReanalyzedAsync(Extraction extraction, string text, string member, MemberKind memberKind, CancellationToken token)
+    // the module analyzed again as a text parses: the procedure, and its selection to come.
+    private static Extraction? Reanalyzed(Extraction extraction, string text, SDK.Model.AST.ModuleParseResult parse, string member, MemberKind memberKind)
     {
-        var parse = await ParseAsync(extraction.Module.Document.Id.Uri.ToUri(), text, extraction, token);
         if (extraction.Part.Recompose is not { } recompose || parse.SyntaxTree is not { } tree)
         {
             return null;
         }
 
-        var composition = recompose(extraction.Module.Module, parse);
+        var composition = recompose(new Dictionary<string, SDK.Model.AST.ModuleParseResult> { [extraction.Module.Module.AbsoluteUri] = parse });
         var analysis = ExtractionModuleAnalysis.Of(extraction.Module.Module, text, parse, composition.Resolver, composition.ScopeTree);
         if (analysis.Procedure(member, memberKind) is not { } procedure)
         {
@@ -531,27 +619,63 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
         };
     }
 
-    // the extraction verified against the workspace composed again with the module as the edit leaves it.
-    private async Task<ExtractionVerificationFailure?> VerifiedAsync(Extraction extraction, ExtractionEdit edit, string name, Uri documentAddress, CancellationToken token)
+    // the document of a module of the extraction's project.
+    private static Uri DocumentOf(Extraction extraction, Uri module)
+        => extraction.Part.Modules.First(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri).Document.Id.Uri.ToUri();
+
+    // the ranges of the edits that replace a duplicate, among the edits of its module: indenting them changes their text, not their ranges.
+    private static IEnumerable<SourceRange> ReplacementRanges(ExtractionEdit edit, ImmutableArray<ExtractionTextEdit> replacement)
+        => edit.Edits.Where(each => replacement.Any(own => own.Range == each.Range && own.Kind == each.Kind)).Select(each => each.Range);
+
+    // the extraction and the replacements verified against the workspace composed again with the modules as the edits leave them: why they are not made, or
+    // null.
+    private static string? Verified(
+        Extraction extraction, IReadOnlyDictionary<string, WrittenModule> written,
+        IEnumerable<(ExtractionDuplicate Duplicate, ImmutableArray<ExtractionTextEdit> Edits)> replaced, string name)
     {
-        var edited = edit.ApplyTo(extraction.Analysis.Text);
-        var parse = await ParseAsync(documentAddress, edited, extraction, token);
         if (extraction.Part.Recompose is not { } recompose)
         {
-            return new(ExtractionVerificationFailureKind.DoesNotParse, null);
+            return Failed(new(ExtractionVerificationFailureKind.DoesNotParse, null));
         }
 
-        var composition = recompose(extraction.Module.Module, parse);
-        var after = ExtractionModuleAnalysis.Of(extraction.Module.Module, edited, parse, composition.Resolver, composition.ScopeTree);
+        var composition = recompose(written.ToDictionary(module => module.Key, module => module.Value.Parse));
+        var after = written.ToDictionary(
+            module => module.Key,
+            module => ExtractionModuleAnalysis.Of(module.Value.Module.Module, module.Value.Text, module.Value.Parse, composition.Resolver, composition.ScopeTree));
 
-        // the verification analyzes the text the edit leaves, which is the one parsed here.
+        // the verification analyzes the text the edits leave, which is the one parsed here.
+        var main = extraction.Module.Module.AbsoluteUri;
         var source = extraction.Procedure.Declaration;
-        return ExtractionVerification.Verify(extraction.Plan!, edit, name, source.Name, source.MemberKind, extraction.Analysis, _ => after);
+        if (ExtractionVerification.Verify(extraction.Plan!, written[main].Edit, name, source.Name, source.MemberKind, extraction.Analysis, _ => after[main]) is { } failure)
+        {
+            return Failed(failure);
+        }
+
+        if ((after[main].Procedure(name, MemberKind.Function) ?? after[main].Procedure(name, MemberKind.Procedure)) is not { } extracted)
+        {
+            return Failed(new(ExtractionVerificationFailureKind.DoesNotParse, name));
+        }
+
+        foreach (var (duplicate, edits) in replaced)
+        {
+            var module = duplicate.Module.AbsoluteUri;
+            var call = edits.First(each => each.Kind is ExtractionTextEditKind.Replacement).Range;
+            if (ExtractionVerification.VerifyReplacement(duplicate, written[module].Edit, call, name, extraction.AnalysisOf(duplicate.Module)!, after[module], extracted)
+                is { } replacementFailure)
+            {
+                return Format("ExtractMethodDuplicate_NotVerified", extraction.Where(duplicate), Format($"ExtractMethodVerification_{replacementFailure.Kind}", replacementFailure.Detail));
+            }
+        }
+
+        return null;
+
+        static string Failed(ExtractionVerificationFailure failure)
+            => Format("ExtractMethodVerification_Failed", Format($"ExtractMethodVerification_{failure.Kind}", failure.Detail));
     }
 
-    // a text of the module, parsed as the document is: the designer of a form is its document's, which the text of its code does not hold.
-    private async Task<SDK.Model.AST.ModuleParseResult> ParseAsync(Uri documentAddress, string text, Extraction extraction, CancellationToken token)
-        => await parsing.ParseFragmentAsync(documentAddress, text, token) with { Designer = extraction.Module.Parse.Designer };
+    // a text of a module, parsed as its document is: the designer of a form is its document's, which the text of its code does not hold.
+    private async Task<SDK.Model.AST.ModuleParseResult> ParseAsync(RenameWorkspace.DocumentModule module, string text, CancellationToken token)
+        => await parsing.ParseFragmentAsync(module.Document.Id.Uri.ToUri(), text, token) with { Designer = module.Parse.Designer };
 
     // the module, the procedure and the selection a range is of, or the GoSub routine for Convert GoSub; null when it is of no procedure of a module of the
     // workspace.
@@ -655,6 +779,16 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// <param name="refusal">Why the extraction is refused.</param>
     public static string RefusalCode(ExtractionRefusalKind refusal) => Code(refusal.ToString());
 
+    // the accessibility answered, Private when none is; null for an answer that is no accessibility.
+    private static ExtractionAccessibility? AccessibilityOf(IReadOnlyList<RefactorAnswer> answers)
+        => answers.FirstOrDefault(answer => answer.Id == AccessibilityChoice)?.Value switch
+        {
+            null => ExtractionAccessibility.Private,
+            var value when value.Equals(nameof(ExtractionAccessibility.Private), StringComparison.OrdinalIgnoreCase) => ExtractionAccessibility.Private,
+            var value when value.Equals(nameof(ExtractionAccessibility.Public), StringComparison.OrdinalIgnoreCase) => ExtractionAccessibility.Public,
+            _ => null,
+        };
+
     // the code of a notice: the same in any language, by which the user accepts a change.
     private static string Code(string kind) => $"extractMethod.{char.ToLowerInvariant(kind[0])}{kind[1..]}";
 
@@ -665,6 +799,9 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     private static string Format(string key, params object?[] arguments)
         => string.Format(CultureInfo.CurrentUICulture, Messages.GetString(key, CultureInfo.CurrentUICulture) ?? key, arguments);
 
+    // a module as the edits of an extraction leave it: the edits, indented, the text they leave, and that text parsed.
+    private sealed record class WrittenModule(RenameWorkspace.DocumentModule Module, ExtractionEdit Edit, string Text, SDK.Model.AST.ModuleParseResult Parse);
+
     // a selection of a procedure of a module, and its plan; null with why the selection is refused.
     private sealed record class Extraction(
         RenameWorkspace.ProjectPart Part, RenameWorkspace.DocumentModule Module, ExtractionModuleAnalysis Analysis, ExtractionProcedureAnalysis Procedure,
@@ -672,7 +809,8 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     {
         private Uri DocumentAddress => Module.Document.Id.Uri.ToUri();
 
-        public string SuggestedName() => ExtractionName.Suggest(Plan!, Source, Part.Context, Module.Module);
+        public string SuggestedName(ExtractionAccessibility accessibility = ExtractionAccessibility.Private)
+            => ExtractionName.Suggest(Plan!, Source, Part.Context, Module.Module, accessibility: accessibility);
 
         public string Where(SourceLocation? location) => location is { } at ? RenameWorkspace.Locator(Part)(Module.Module, at.Range.Start) : string.Empty;
 
@@ -689,6 +827,70 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
             Message = RefusalMessage(refusal, key),
             Location = refusal.Location is { } at ? new SourceLocation(DocumentAddress, at.Range) : null,
         };
+
+        private readonly Dictionary<string, ExtractionModuleAnalysis?> _analyses = [];
+
+        // the analysis of a module of the project, as the selection's module is analyzed; the selection's own.
+        public ExtractionModuleAnalysis? AnalysisOf(Uri module)
+        {
+            if (module.AbsoluteUri == Module.Module.AbsoluteUri)
+            {
+                return Analysis;
+            }
+
+            if (!_analyses.TryGetValue(module.AbsoluteUri, out var analysis))
+            {
+                analysis = Part.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri) is { } other
+                    ? ExtractionModuleAnalysis.Of(other.Module, other.Source, other.Parse, Part.Context.Resolver, Part.Context.ScopeTree)
+                    : null;
+                _analyses[module.AbsoluteUri] = analysis;
+            }
+
+            return analysis;
+        }
+
+        // the duplicates a call to the new procedure can replace, by its reach: none for a member of a class module, which is called through an object of the
+        // class; in the project for a procedure of a standard module, which is Public when one is not in its module. None for a GoSub routine, which is converted
+        // where it is.
+        public ImmutableArray<ExtractionDuplicate> Duplicates(ExtractionChoices choices) => Module.Type is ModuleType.StdModule && Plan!.Selection.Routine is null
+            ? ExtractionDuplicates.Find(Plan!, Source, choices, Part.Context, Module.Module, [.. Part.Modules.Select(module => module.Module)], AnalysisOf)
+            : [];
+
+        public bool IsInTheModule(ExtractionDuplicate duplicate) => duplicate.Module.AbsoluteUri == Module.Module.AbsoluteUri;
+
+        // where a duplicate is, and the first line of it.
+        public string Where(ExtractionDuplicate duplicate)
+        {
+            var range = duplicate.Plan.Selection.Range;
+            var first = new ExtractionText(duplicate.Source.Text).Of(range).Split('\n')[0].Trim();
+            return $"{RenameWorkspace.Locator(Part)(duplicate.Module, range.Start)}: {first}";
+        }
+
+        // the duplicates the user replaces: those ticked, or by default those in the module; none when the user replaces none. One that is not a duplicate of the
+        // selection as the user's choices extract it, or that only a Public procedure can be called from, is refused, with why.
+        public (IReadOnlyList<ExtractionDuplicate> Replaced, string? Refusal) ChosenDuplicates(IReadOnlyList<RefactorAnswer> answers, ExtractionChoices choices)
+        {
+            if (answers.FirstOrDefault(answer => answer.Id == ReplaceDuplicatesChoice)?.Value is { } replace && bool.TryParse(replace, out var replaces) && !replaces)
+            {
+                return ([], null);
+            }
+
+            var found = Duplicates(choices);
+            var items = answers.FirstOrDefault(answer => answer.Id == DuplicatesChoice)?.Items ?? [];
+            if (items.FirstOrDefault(item => !found.Any(duplicate => duplicate.Id == item.Id)) is { } unknown)
+            {
+                return ([], Format("ExtractMethodDuplicate_NotADuplicate", unknown.Id));
+            }
+
+            var replaced = found.Where(duplicate =>
+                items.FirstOrDefault(item => item.Id == duplicate.Id)?.Answers.FirstOrDefault(each => each.Id == DuplicateReplaceChoice)?.Value is { } ticked
+                    && bool.TryParse(ticked, out var isTicked)
+                    ? isTicked
+                    : IsInTheModule(duplicate)).ToArray();
+            return choices.Accessibility is ExtractionAccessibility.Private && replaced.FirstOrDefault(duplicate => !IsInTheModule(duplicate)) is { } outside
+                ? ([], Format("ExtractMethodDuplicate_NeedsPublic", Where(outside)))
+                : (replaced, null);
+        }
 
         // the name a problem of a name points to, in the document of a module of the workspace; null for a declaration of a library, or of no module.
         public SourceLocation? DeclarationOf(ExtractionNameProblem problem)
@@ -785,6 +987,56 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
                     Label = Format("ExtractMethodChoice_RouteExits"),
                     Description = Format("ExtractMethodChoice_RouteExitsDescription"),
                     Default = "true",
+                });
+            }
+
+            choices.Add(new()
+            {
+                Id = AccessibilityChoice,
+                Kind = RefactorChoiceKind.Option,
+                Label = Format("ExtractMethodChoice_Accessibility"),
+                Description = Format("ExtractMethodChoice_AccessibilityDescription"),
+                Default = nameof(ExtractionAccessibility.Private),
+                Options =
+                [
+                    new() { Value = nameof(ExtractionAccessibility.Private), Label = "Private", Description = Format("ExtractMethodChoice_AccessibilityPrivate") },
+                    new() { Value = nameof(ExtractionAccessibility.Public), Label = "Public", Description = Format("ExtractMethodChoice_AccessibilityPublic") },
+                ],
+            });
+
+            // the duplicates of the selection extracted with the defaults: one in another module is replaced only from a Public procedure.
+            if (Duplicates(new ExtractionChoices(SuggestedName())) is { IsEmpty: false } duplicates)
+            {
+                choices.Add(new()
+                {
+                    Id = ReplaceDuplicatesChoice,
+                    Kind = RefactorChoiceKind.Flag,
+                    Label = Format("ExtractMethodChoice_ReplaceDuplicates"),
+                    Description = Format("ExtractMethodChoice_ReplaceDuplicatesDescription"),
+                    Default = "true",
+                });
+                choices.Add(new()
+                {
+                    Id = DuplicatesChoice,
+                    Kind = RefactorChoiceKind.List,
+                    Label = Format("ExtractMethodChoice_Duplicates"),
+                    Description = Format("ExtractMethodChoice_DuplicatesDescription"),
+                    Items = [.. duplicates.Select(duplicate => new RefactorItem
+                    {
+                        Id = duplicate.Id,
+                        Label = Where(duplicate),
+                        Reason = IsInTheModule(duplicate) ? null : Format("ExtractMethodReason_DuplicateNeedsPublic"),
+                        Choices =
+                        [
+                            new()
+                            {
+                                Id = DuplicateReplaceChoice,
+                                Kind = RefactorChoiceKind.Flag,
+                                Label = Format("ExtractMethodChoice_DuplicateReplace"),
+                                Default = IsInTheModule(duplicate) ? "true" : "false",
+                            },
+                        ],
+                    })],
                 });
             }
 
