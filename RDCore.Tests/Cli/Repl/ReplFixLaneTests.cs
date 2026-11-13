@@ -18,6 +18,9 @@ namespace RDCore.Tests.Cli.Repl;
 [TestClass]
 public sealed class ReplFixLaneTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private readonly ReplProgram _program = new();
     private readonly IReplConsole _console = Substitute.For<IReplConsole>();
     private readonly IReplPlatformClient _platform = Substitute.For<IReplPlatformClient>();
@@ -155,7 +158,7 @@ public sealed class ReplFixLaneTests
         diagnostics.RefreshWhenIdle(_context);
         diagnostics.RefreshWhenIdle(_context);
         leftAlone.SetResult();
-        await diagnostics.Pending.WaitAsync(TimeSpan.FromSeconds(20));
+        await diagnostics.Pending.WaitAsync(SafetyCap);
 
         await _platform.Received(1).PullDiagnosticReportAsync(Arg.Any<Uri>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
         Assert.HasCount(1, diagnostics.Items);
