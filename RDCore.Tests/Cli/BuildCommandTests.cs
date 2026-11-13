@@ -364,8 +364,9 @@ public sealed class BuildCommandTests
         CollectionAssert.AreEqual(new[] { "5" }, run.Output);
     }
 
-    // the workspace is no folder of the disk the program runs on: the libraries its project references are in the program's folder, each with the ones it
-    // depends on, and a constant of one is the program's as it is rdc run's - no object of the library is created, so no COM library is asked for.
+    // the workspace is not a folder on the disk the program runs on: the libraries its project references are in the program's folder, each with the
+    // libraries it depends on, and a library's constant has the same value in the program as in rdc run - no object of the library is created, so no COM
+    // library is asked for.
     [TestMethod]
     public async Task TheBuiltProgram_RunsWhereItsWorkspaceIsNot_ItsReferencedLibrariesInItsOwnFolder()
     {
