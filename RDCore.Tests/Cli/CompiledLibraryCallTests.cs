@@ -290,8 +290,8 @@ public sealed class CompiledLibraryCallTests
             "    V = W",
             "End Function"), []);
 
-    // a Declare'd function the environment refuses is refused by compiled code as by the interpreter, with error 70: what goes straight to the library is
-    // a function of the standard library, and nothing else.
+    // a function declared with Declare that the environment refuses is refused by compiled code as by the interpreter, with error 70: what goes straight
+    // to the library is a function of the standard library, and nothing else.
     [TestMethod]
     public async Task ADeclaredFunctionThePolicyRefuses_IsRefusedByCompiledCode()
     {

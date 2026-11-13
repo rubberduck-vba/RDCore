@@ -32,8 +32,8 @@ public sealed partial class CompiledActivation
     /// What the Variant variable given as the first argument holds (<see cref="VariantOperations.ValueOf"/>), given in place of <paramref name="first"/>;
     /// <see langword="null"/> when the argument is <paramref name="first"/>.
     /// </param>
-    /// <param name="secondValue">The same of the second argument.</param>
-    /// <param name="thirdValue">The same of the third argument.</param>
+    /// <param name="secondValue">The same, for the second argument.</param>
+    /// <param name="thirdValue">The same, for the third argument.</param>
     /// <param name="kind">The kind of what the function returns.</param>
     /// <param name="integral">What the function returned, when <paramref name="kind"/> is integral.</param>
     /// <param name="floating">What the function returned, when <paramref name="kind"/> is floating-point.</param>
@@ -69,8 +69,8 @@ public sealed partial class CompiledActivation
     /// What the Variant variable given as the first argument holds (<see cref="VariantOperations.ValueOf"/>), given in place of <paramref name="first"/>;
     /// <see langword="null"/> when the argument is <paramref name="first"/>.
     /// </param>
-    /// <param name="secondValue">The same of the second argument.</param>
-    /// <param name="thirdValue">The same of the third argument.</param>
+    /// <param name="secondValue">The same, for the second argument.</param>
+    /// <param name="thirdValue">The same, for the third argument.</param>
     /// <param name="value">What the <c>Variant</c> the function returned holds, when it holds a value of a scalar type.</param>
     /// <returns>
     /// Whether the <c>Variant</c> holds a value of a scalar type. When not, the interpreter is given the call (<see cref="AfterFailedCall"/>), with the error
