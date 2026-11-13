@@ -15,7 +15,7 @@ public sealed record ModuleDeclarationFacts(ImmutableDictionary<SyntaxNodeId, Ex
     public static ModuleDeclarationFacts None { get; } = new(ImmutableDictionary<SyntaxNodeId, ExpressionFact>.Empty, IsFullyAnalyzed: true);
 }
 
-// MS-VBAL §5.2.3.1, §5.2.3.3, §5.2.3.4, §5.2.3.5: the expressions of the declarations of a module are constant expressions of the module, evaluated for their facts
+// MS-VBAL §5.2.3.1 to §5.2.3.5: the expressions of the declarations of a module are constant expressions of the module, evaluated for their facts
 // only. What is wrong with one is the declaration's to report (the constant's own evaluation, DeclaredSizeStaticSemantics). The code of a procedure, and its
 // header, are the procedure's (StatementStaticSemanticsEvaluator.Analyze): a Declare is one, and the defaults of its parameters are its header's.
 public static class ModuleDeclarationStaticSemantics

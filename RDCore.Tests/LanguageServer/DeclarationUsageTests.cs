@@ -198,7 +198,7 @@ public sealed class DeclarationUsageTests
         Assert.IsNull(Fact(facts, "Total").References);
     }
 
-    // a constant of the module is read by the code of the module and by the expressions of its declarations; another module can not refer to it.
+    // a constant of the module is read by the code of the module and by the expressions of its declarations; another module cannot refer to it.
     [TestMethod]
     [DataRow("Private Const Size As Long = 3", "", 0, DisplayName = "read by nothing")]
     [DataRow("Const Size As Long = 3", "", 0, DisplayName = "read by nothing, with no access modifier")]
