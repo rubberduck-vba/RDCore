@@ -48,7 +48,7 @@ RDCore opens a project file whatever version it says:
 - **A newer second number** (`1.2` when RDCore writes `1.1`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
 - **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
 
-Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open. A file in the format `1.0` that has a `build` section reads it as the format `1.1` does.
+Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open. RDCore reads a `build` section in a file of the format `1.0` as the format `1.1` has it.
 
 A project file that cannot be read at all, because it is not JSON or a member is not what the format says it is, does not open. Instead, RDCore offers to regenerate it from the source files of its folder, the same way it builds a project for a folder that has no project file. It always asks first, because what only the project file says, such as the project's references, is lost.
 
@@ -75,7 +75,7 @@ Who is asked:
   "OtherFiles": [RDCoreFile],
   "Folders": [],
   "SourceProject": "MyProj.vbp",
-  "build": { "outputType": "Application", "entryPoint": "Module1.Main" }
+  "build": { "entryPoint": "Module1.Main" }
 }
 ```
 
