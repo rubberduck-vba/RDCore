@@ -65,7 +65,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00207`](../diagnostics/rdc00207.md)|IsMissing that is always False|Warning|`ValueExpressionSemanticFlags.IsMissingAlwaysFalse`|
 |[`RDC00208`](../diagnostics/rdc00208.md)|Shadowed declaration|Information|`DeclarationFact.Hides`, from the resolver: what the name of a local or a parameter means as seen from the module|
 |[`RDC00211`](../diagnostics/rdc00211.md)|On Error GoTo -1|Hint|the syntax tree: an `OnErrorGoToStatementNode` whose label is the literal `-1`|
-|[`RDC00212`](../diagnostics/rdc00212.md)|Unrestored On Error Resume Next|Warning|the syntax tree: an `OnErrorResumeStatementNode` that no `OnErrorGoToStatementNode` follows in its procedure, in the order they are written|
+|[`RDC00212`](../diagnostics/rdc00212.md)|Unrestored On Error Resume Next|Warning|the syntax tree: an `OnErrorResumeStatementNode` that no `OnErrorGoToStatementNode` to a label or `0` follows in its procedure, in the order they are written|
 |[`RDC00214`](../diagnostics/rdc00214.md)|Procedure can be written as a function|Information|the syntax tree: a `Sub` with one `ByRef` parameter that is no `ParamArray`; the host's reference counts of that parameter: written; not a `Declare`, an implementation, a handler, or a `Public` member of a class module|
 |[`RDC00215`](../diagnostics/rdc00215.md)|Self-assigned declaration|Hint|the syntax tree: `AsTypeExpressionNode.AsAutoObject` of a variable declaration|
 |[`RDC00302`](../diagnostics/rdc00302.md)|Obsolete Call statement|Hint|`ValueExpressionSemanticFlags.ExplicitCallKeyword`|

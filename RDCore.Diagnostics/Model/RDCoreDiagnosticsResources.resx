@@ -454,7 +454,7 @@
     <value>On Error GoTo -1 ends the error being handled, and MS-VBAL does not document it: a Resume ends the handler and says where the procedure goes on.</value>
   </data>
   <data name="UnrestoredOnErrorResumeNext_Message" xml:space="preserve">
-    <value>No On Error GoTo follows this On Error Resume Next: every error in the rest of the procedure is ignored.</value>
+    <value>No On Error GoTo 0 and no On Error GoTo to a label follows this On Error Resume Next: every error in the rest of the procedure is ignored.</value>
   </data>
   <data name="ImplicitConstantType_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; states no type: an As clause says which one it has.</value>

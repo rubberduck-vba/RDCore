@@ -8,13 +8,13 @@ using RDCore.SDK.Model.AST.Statements;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC00212</c>: an <c>On Error Resume Next</c> that no <c>On Error GoTo</c> follows in its procedure (<strong>MS-VBAL §5.4.4.1</strong>): every error of the
+/// <c>RDC00212</c>: an <c>On Error Resume Next</c> that no <c>On Error GoTo 0</c> or <c>On Error GoTo</c> to a label follows in its procedure (<strong>MS-VBAL §5.4.4.1</strong>): every error of the
 /// rest of the procedure is gone past, and the caller never sees it.
 /// </summary>
 /// <remarks>
 /// The statements are read in the order they are written: an <c>On Error GoTo</c> to a label or <c>0</c> after the <c>Resume Next</c> sets another policy, and
-/// the <c>Resume Next</c> is not reported. An <c>On Error GoTo -1</c> ends the error being handled and keeps the policy (RD-VBAL §5.4.4.1), and does not
-/// count. Which statements run is not considered.
+/// the <c>Resume Next</c> is not reported. An <c>On Error GoTo -1</c> ends the error being handled and keeps the policy (RD-VBAL §5.4.4.1), so the
+/// <c>Resume Next</c> is still reported. Which statements run is not considered.
 /// </remarks>
 internal sealed class UnrestoredOnErrorResumeNextAnalyzer : SyntaxTreeAnalyzer
 {

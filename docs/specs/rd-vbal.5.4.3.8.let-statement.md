@@ -137,7 +137,7 @@ default member's value. What happens to the object is up to the property:
 |---|---|---|
 |A `Property Let Item(ByVal v As Variant)` of a class|The parameter holds `Nothing`.|The parameter holds the object.|
 |`Scripting.Dictionary.Item`|Run-time error 91.|The default member's value.|
-|`Excel.Range.Value`|Run-time error 1004.|The default member's value (another range's value).|
+|`Excel.Range.Value`|Run-time error 1004.|Another range of one cell: its value. Another range of several cells: the cells are left `Empty`.|
 
 A value parameter of any other type is given the default member's value. An object with no default member raises run-time error 438 early bound and
 run-time error 13 late bound, as the `IDispatch` the call goes through makes it. A Let to a `Variant` variable or a public `Variant` variable of an object assigns the

@@ -1077,7 +1077,7 @@ namespace RDCore.Diagnostics.Model {
             }
         }
         /// <summary>
-        ///   Looks up a localized string similar to No On Error GoTo follows this On Error Resume Next: every error in the rest of the procedure is ignored..
+        ///   Looks up a localized string similar to No On Error GoTo 0 and no On Error GoTo to a label follows this On Error Resume Next: every error in the rest of the procedure is ignored..
         /// </summary>
         public static string UnrestoredOnErrorResumeNext_Message {
             get {
