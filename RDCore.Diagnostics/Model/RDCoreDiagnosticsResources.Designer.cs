@@ -861,11 +861,47 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to On Error GoTo -1 ends the error being handled, and is not documented: a Resume ends the handler and says where the procedure goes on..
+        /// </summary>
+        public static string OnErrorGoToMinusOne_Message {
+            get {
+                return ResourceManager.GetString("OnErrorGoToMinusOne_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; has a non-breaking space in its name: it looks like an ordinary space, and the name typed with an ordinary space is another name..
         /// </summary>
         public static string NonBreakingSpaceInName_Message {
             get {
                 return ResourceManager.GetString("NonBreakingSpaceInName_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to No On Error GoTo follows this On Error Resume Next: every error in the rest of the procedure is ignored..
+        /// </summary>
+        public static string UnrestoredOnErrorResumeNext_Message {
+            get {
+                return ResourceManager.GetString("UnrestoredOnErrorResumeNext_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Constant &apos;{0}&apos; states no type: an As clause says which one it has..
+        /// </summary>
+        public static string ImplicitConstantType_Message {
+            get {
+                return ResourceManager.GetString("ImplicitConstantType_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has an underscore in its name: no class can implement this one..
+        /// </summary>
+        public static string UnderscoreInPublicClassMember_Message {
+            get {
+                return ResourceManager.GetString("UnderscoreInPublicClassMember_Message", resourceCulture);
             }
         }
 

@@ -36,6 +36,7 @@ public enum RDCoreDiagnosticId
     ImplicitWideningConversion = 113,
     ImplicitArrayDeclaration = 114, // a ReDim whose name matches nothing declares the array it re-dimensions: a Dim before it says so
     ImplicitResultLocal = 115, // a function reading its own result variable, as the local it implicitly is: an explicit local says so
+    ImplicitConstantType = 117, // a Const with no As and no type character: its type is the one the reader works out from its value
 
     IntegerDataTypeDeclaration = 201,
     ModuleScopeDimDeclaration = 202,
@@ -45,6 +46,8 @@ public enum RDCoreDiagnosticId
     NotAllPathsReturnValue = 206, // [RD2:NonReturningFunctionInspection], but for any path that does not assign the return value, not only when none does
     IsMissingAlwaysFalse = 207, // [RD2:IsMissingOnInappropriateArgumentInspection] IsMissing of a parameter that is no Variant, or an Optional Variant with a default
     ShadowedDeclaration = 208, // [RD2:ShadowedDeclarationInspection] a local or a parameter named like a member of the module, of another module or of a library
+    OnErrorGoToMinusOne = 211, // On Error GoTo -1: ends the error being handled, which MS-VBAL does not document and MS-VBA compiles
+    UnrestoredOnErrorResumeNext = 212, // On Error Resume Next that no On Error GoTo follows in its procedure
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
@@ -64,6 +67,7 @@ public enum RDCoreDiagnosticId
     ImplementationsShouldBePrivate = 405,
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
     UnmatchedEventHandler = 407, // a handler of a form's control that does not match the event: MS-VBA compiles it, and nothing calls it
+    UnderscoreInPublicClassMember = 408, // a public member of a class named with an underscore: no class can implement the class
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,

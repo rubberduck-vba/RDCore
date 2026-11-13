@@ -408,6 +408,8 @@
   href: rdc00114.md
 - name: "RDC00115: Implicit result local"
   href: rdc00115.md
+- name: "RDC00117: Implicit constant type"
+  href: rdc00117.md
 - name: "RDC00201: Integer data type declaration"
   href: rdc00201.md
 - name: "RDC00202: Module-scope Dim declaration"
@@ -424,6 +426,10 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00211: On Error GoTo -1"
+  href: rdc00211.md
+- name: "RDC00212: Unrestored On Error Resume Next"
+  href: rdc00212.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"
@@ -448,6 +454,8 @@
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"
   href: rdc00407.md
+- name: "RDC00408: Underscore in a public class member"
+  href: rdc00408.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
