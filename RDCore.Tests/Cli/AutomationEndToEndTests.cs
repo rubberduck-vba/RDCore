@@ -199,6 +199,88 @@ public sealed class AutomationEndToEndTests
             "d.Add \"a\", 2",
             "Debug.Print Err.Number"));
 
+    // a Let of an object to the Item of a Dictionary passes the object, and the Dictionary reads its default member itself: Nothing has none (91), and the
+    // value of a class's default member is what the Dictionary holds (MS-VBA, observed in Excel).
+    [TestMethod]
+    [DataRow("d(\"k\") = Nothing", "error 91", DisplayName = "Nothing")]
+    [DataRow("d.Item(\"k\") = New Defaulted ;; Debug.Print TypeName(d(\"k\")) & \" \" & IsObject(d(\"k\"))", "Long False", DisplayName = "an object with a default member")]
+    public async Task AnObjectLetToTheItemOfADictionary_IsReadByTheDictionary(string body, string expected)
+        => CollectionAssert.AreEqual(new[] { expected }, await RunInDictionaryProgram(body));
+
+    // a Collection's default member takes an argument: MS-VBA's Collection answers the Dictionary's read of its value with DISP_E_BADPARAMCOUNT, which
+    // is error 450 (observed in Excel).
+    [TestMethod]
+    [Ignore("A Collection read through IDispatch with no argument answers with the HRESULT of error 449, and the Dictionary reports E_FAIL; MS-VBA's answers DISP_E_BADPARAMCOUNT, which is error 450.")]
+    public async Task ACollectionLetToTheItemOfADictionary_IsError450()
+        => CollectionAssert.AreEqual(new[] { "error 450" }, await RunInDictionaryProgram("d(\"k\") = New Collection"));
+
+    private static Task<string[]> RunInDictionaryProgram(string body)
+        => RunAsync([("Defaulted", ClassModule("Defaulted",
+                "Option Explicit",
+                "Public Property Get Value() As Long",
+                "Attribute Value.VB_UserMemId = 0",
+                "    Value = 42",
+                "End Property"))],
+            StandardModule("Program",
+                "Option Explicit",
+                "Public Sub Main()",
+                "    On Error GoTo Failed",
+                "    Dim d As Object",
+                "    Set d = CreateObject(\"Scripting.Dictionary\")",
+                string.Join("\r\n", body.Split(" ;; ").Select(line => "    " + line)),
+                "    Exit Sub",
+                "Failed:",
+                "    Debug.Print \"error \" & Err.Number",
+                "End Sub"), Scripting);
+
+    /// <summary>
+    /// A Let of an object to the <c>Value</c> of an Excel range passes the object, early bound and late bound, and Excel decides: <c>Nothing</c> is its error
+    /// 1004, and another range gives its value. Skipped on a machine that does not have Excel.
+    /// </summary>
+    [TestMethod]
+    public async Task AnObjectLetToTheValueOfARange_IsReadByExcel()
+    {
+        if (Type.GetTypeFromProgID("Excel.Application") is null)
+        {
+            Assert.Inconclusive("Excel is not installed on this machine.");
+        }
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var libraries = new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
+        var output = await RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n",
+            "Dim app As Object",
+            "Set app = CreateObject(\"Excel.Application\")",
+            "On Error Resume Next",
+            "Dim book As Object",
+            "Set book = app.Workbooks.Add",
+            "Dim sheet As Object",
+            "Set sheet = book.Worksheets(1)",
+            "sheet.Range(\"A1\").Value = 1",
+            "sheet.Range(\"B1\").Value = Nothing",
+            "Debug.Print \"late Nothing \" & Err.Number",
+            "Err.Clear",
+            "sheet.Range(\"C1\").Value = sheet.Range(\"A1\")",
+            "Debug.Print \"late range \" & Err.Number & \" \" & sheet.Range(\"C1\").Value",
+            "Err.Clear",
+            "Dim early As Excel.Worksheet",
+            "Set early = sheet",
+            "early.Range(\"D1\").Value = Nothing",
+            "Debug.Print \"early Nothing \" & Err.Number",
+            "Err.Clear",
+            "early.Range(\"E1\").Value = early.Range(\"A1\")",
+            "Debug.Print \"early range \" & Err.Number & \" \" & early.Range(\"E1\").Value",
+            "Err.Clear",
+            "book.Close False",
+            "app.Quit") + "\r\nEnd Sub\r\n", libraries);
+
+        CollectionAssert.AreEqual(new[] { "late Nothing 1004", "late range 0 1", "early Nothing 1004", "early range 0 1" }, output, string.Join("\n", output));
+    }
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
@@ -258,23 +340,83 @@ public sealed class AutomationEndToEndTests
         }
         finally
         {
-            // the Excel this test started, by its window, if it is still there: never another, which another program may be using.
-            if (output.FirstOrDefault() is { } hwnd && long.TryParse(hwnd.Trim(), out var handle)
-                && GetWindowThreadProcessId(new IntPtr(handle), out var processId) != 0 && processId != 0)
+            StopExcel(output.FirstOrDefault());
+        }
+    }
+
+    /// <summary>
+    /// An Error crosses to Excel and back as MS-VBA's does, each row observed in Excel 16.0: a cell given <c>CVErr(2007)</c> shows
+    /// <c>#DIV/0!</c>, an array holding <c>CVErr(2042)</c> puts <c>#N/A</c> in its cell, and a <c>#DIV/0!</c> cell reads back as an Error. Skipped on a machine
+    /// that does not have Excel.
+    /// </summary>
+    [TestMethod]
+    [DataRow(new[] { "sheet.Range(\"H1\").Value = CVErr(2007)", "Debug.Print sheet.Range(\"H1\").Text" }, "#DIV/0!", DisplayName = "CVErr(2007) into a cell")]
+    [DataRow(new[] { "Dim a(1 To 1, 1 To 2) As Variant", "a(1, 1) = CVErr(2042): a(1, 2) = 1", "sheet.Range(\"H1:I1\").Value = a",
+        "Debug.Print sheet.Range(\"H1\").Text & \" \" & TypeName(sheet.Range(\"I1\").Value) & \" \" & sheet.Range(\"I1\").Value" }, "#N/A Double 1",
+        DisplayName = "a Variant array holding an Error, into a range")]
+    [DataRow(new[] { "sheet.Range(\"D5\").Formula = \"=1/0\"", "Dim v As Variant", "v = sheet.Range(\"D5\").Value", "Debug.Print IsError(v) & \" \" & CLng(v)" },
+        "True 2007",
+        IgnoreMessage = "a #DIV/0! cell read back: RD-VBA reads the Long -2146826281 where MS-VBA reads Error 2007, because the .NET late binder turns a VT_ERROR result into a number and RD-VBA does not call IDispatch itself",
+        DisplayName = "a #DIV/0! cell read back")]
+    public async Task AnError_CrossesToExcelAndBack_AsMSVBAsDoes(string[] lines, string expected)
+    {
+        if (Type.GetTypeFromProgID("Excel.Application") is null)
+        {
+            Assert.Inconclusive("Excel is not installed on this machine.");
+        }
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var libraries = new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
+        string[] output = [];
+        try
+        {
+            output = await RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n", [
+                "Dim app As Excel.Application",
+                "Set app = New Excel.Application",
+                "Debug.Print app.Hwnd",
+                "On Error GoTo Done",
+                "Dim book As Excel.Workbook",
+                "Set book = app.Workbooks.Add",
+                "Dim sheet As Excel.Worksheet",
+                "Set sheet = book.Worksheets(1)",
+                .. lines,
+                "book.Close False",
+                "Done:",
+                "If Err.Number <> 0 Then Debug.Print \"error \" & Err.Number",
+                "app.Quit"]) + "\r\nEnd Sub\r\n", libraries);
+
+            CollectionAssert.AreEqual(new[] { expected }, output.Skip(1).ToArray(), string.Join("\n", output));
+        }
+        finally
+        {
+            StopExcel(output.FirstOrDefault());
+        }
+    }
+
+    // the Excel a test started, by its window, if it is still there once the program quit it: never another, which another program may be using.
+    private static void StopExcel(string? hwnd)
+    {
+        if (hwnd is null || !long.TryParse(hwnd.Trim(), out var handle) || GetWindowThreadProcessId(new IntPtr(handle), out var processId) == 0 || processId == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            using var excel = System.Diagnostics.Process.GetProcessById((int)processId);
+            if (!excel.WaitForExit(10_000) && excel.ProcessName.Equals("EXCEL", StringComparison.OrdinalIgnoreCase))
             {
-                try
-                {
-                    using var excel = System.Diagnostics.Process.GetProcessById((int)processId);
-                    if (!excel.WaitForExit(10_000) && excel.ProcessName.Equals("EXCEL", StringComparison.OrdinalIgnoreCase))
-                    {
-                        excel.Kill();
-                    }
-                }
-                catch (ArgumentException)
-                {
-                    // it has quit.
-                }
+                excel.Kill();
             }
+        }
+        catch (ArgumentException)
+        {
+            // it has quit.
         }
     }
 }

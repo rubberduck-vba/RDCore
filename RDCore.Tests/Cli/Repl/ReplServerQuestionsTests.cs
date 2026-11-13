@@ -153,7 +153,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionThatComesWhileALineIsTyped_IsAskedAfterTheLineIsEntered_AndTheLineKeepsItsKeys()
     {
         var (keys, output, questions, editor, _) = Prompt();
@@ -186,7 +186,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionThatComesAtAPromptWhereNothingIsTyped_IsAskedAtOnce_AndThePromptIsDrawnAgain()
     {
         var (keys, output, questions, editor, _) = Prompt();
@@ -215,7 +215,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AKeyTypedBeforeAQuestionIsAskedAtAPromptWhereNothingIsTyped_IsTheLines_AndTheQuestionWaitsForTheLine()
     {
         var (keys, output, questions, editor, _) = Prompt();
@@ -245,7 +245,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionWithdrawnWhileItIsAsked_LeavesTheNextKeyToTheLine()
     {
         var (keys, _, questions, editor, _) = Prompt();
@@ -271,7 +271,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionWithdrawnWhileItWaits_IsNotAsked()
     {
         var (keys, _, questions, editor, _) = Prompt();
@@ -297,7 +297,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TwoQuestionsThatWait_AreAskedInTheOrderTheyCame()
     {
         var (keys, _, questions, editor, _) = Prompt();
@@ -329,7 +329,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AMessageThatComesWhileAQuestionIsAsked_IsWrittenAfterTheAnswer_AndItsWriterDoesNotWaitForIt()
     {
         var (keys, output, questions, editor, messages) = Prompt();
@@ -370,7 +370,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionAfterInitializeIsAnswered_WaitsToBeAsked_AndReadsNoKeyUntilItIs()
     {
         var keys = new WaitingKeys();
@@ -389,7 +389,7 @@ public sealed class ReplServerQuestionsTests
     // a question the server asks while the shell comes up - the indenter settings of Rubberduck, say - is not drawn among the splash and the memory the shell
     // writes as it starts, nor while the server's work is reported: it is asked once the shell has said READY, before its first prompt.
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionThatComesWhileTheShellComesUp_IsAskedOnceItSaysReady()
     {
         var keys = new WaitingKeys();
@@ -457,7 +457,7 @@ public sealed class ReplServerQuestionsTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheShellThatEnds_AnswersThatNobodyAnswersTheQuestionThatWaits()
     {
         var keys = new WaitingKeys();

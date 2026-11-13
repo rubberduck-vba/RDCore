@@ -707,7 +707,16 @@ namespace RDCore.Runtime.LanguageCore {
                 return ResourceManager.GetString("VBCompileError_BlockIfWithoutEndIf", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to The start and the end of this block are not in the same #If branch..
+        /// </summary>
+        internal static string VBCompileError_BlockEndsInAnotherBranch_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_BlockEndsInAnotherBranch_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Else without If.
         /// </summary>

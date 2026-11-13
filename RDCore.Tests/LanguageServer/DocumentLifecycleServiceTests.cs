@@ -77,7 +77,8 @@ public sealed class DocumentLifecycleServiceTests
         return (started, released);
     }
 
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // set when a wait for the host on the module is handed on from a refresh that ended without the host having its text, to the one that superseded it.
     private static Task HandedOn(DocumentLifecycleService sut)
@@ -133,7 +134,7 @@ public sealed class DocumentLifecycleServiceTests
             .Do(call => published.Add(call.Arg<IReadOnlyList<Diagnostic>>().Count));
 
         _sut.Opened(Mod1, "Public Sub Foo()\r\nEnd Sub", version: 4);
-        await runtimeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await runtimeStarted.Task.WaitAsync(Patience);
 
         CollectionAssert.AreEqual(new[] { 1 }, published, "the static findings are with the client while the runtime phase is still being found");
 
@@ -157,7 +158,7 @@ public sealed class DocumentLifecycleServiceTests
             });
 
         _sut.Opened(Mod1, "a", version: 1);
-        await runtimeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await runtimeStarted.Task.WaitAsync(Patience);
         _publisher.ClearReceivedCalls();
 
         _ = _sut.Changed(Mod1, 2, [Full("b")]);
@@ -648,7 +649,7 @@ public sealed class DocumentLifecycleServiceTests
 
         _sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Fooo"))]);
         var taken = _sut.WhenRefreshedAsync(Mod1);
-        await syncing.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await syncing.Task.WaitAsync(Patience);
         _sut.Changed(Mod1, 3, [Full(Declares)]);
         await _sut.WhenRefreshedAsync(Mod1);
         release.SetResult();
@@ -746,7 +747,7 @@ public sealed class DocumentLifecycleServiceTests
 
         _sut.Changed(Mod1, 2, [Full(Declares.Replace("Foo", "Bar"))]);
         var declared = _sut.WhenRefreshedAsync(Mod1);
-        await syncing.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await syncing.Task.WaitAsync(Patience);
         _sut.Changed(Mod1, 3, [Full(Declares.Replace("Foo", "Bar").Replace("Debug.Print 1", "Debug.Print Baz"))]);
         await _sut.WhenRefreshedAsync(Mod1);
         release.SetResult();

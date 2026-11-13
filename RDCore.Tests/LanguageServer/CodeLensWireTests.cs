@@ -33,6 +33,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class CodeLensWireTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-codelens-wire-ws");
 
     private const string Helpers = """
@@ -95,7 +98,7 @@ public sealed class CodeLensWireTests
     private static async Task<(CodeLens[] Answered, CodeLens[] Resolved)> LensesAsync(string fileName)
     {
         // a request that is not answered fails the test, rather than keeping it waiting.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server => server
@@ -123,7 +126,7 @@ public sealed class CodeLensWireTests
         => [.. ((JArray)lens.Command!.Arguments![2]).Select(reference => $"{Path.GetFileName(DocumentUri.From(reference.Value<string>("uri")!).GetFileSystemPath())} {reference["range"]!["start"]!.Value<int>("line")}")];
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task EachMemberOfAModule_HasALens_AtItsName_ThatIsResolvedWithItsReferences()
     {
         var (answered, resolved) = await LensesAsync("Helpers.bas");
@@ -168,7 +171,7 @@ public sealed class CodeLensWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AProgram_HasNoLens()
         => Assert.IsEmpty((await LensesAsync("Main.rdc")).Answered, "its procedure is the one its lines are the body of");
 

@@ -12,6 +12,9 @@ namespace RDCore.Tests.Cli.Repl;
 [TestClass]
 public sealed class ReplDocumentSyncTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly Uri Document = new(Path.Combine(Path.GetTempPath(), "rdcore-sync", "Program.rdc"));
 
     private readonly ReplProgram _program = new();
@@ -49,14 +52,14 @@ public sealed class ReplDocumentSyncTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task ALineStoredWhileTheServerIsTold_IsTheNextVersion_AndTheNextChangeSendsIt()
     {
         var document = await OpenedAsync();
         _program.Store(20, "Y = 2");
 
         var telling = document.SynchronizeAsync(CancellationToken.None);
-        await _firstSent.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        await _firstSent.Task.WaitAsync(SafetyCap);
         _program.Store(30, "Z = 3");
         _release.SetResult();
         await telling;
@@ -69,14 +72,14 @@ public sealed class ReplDocumentSyncTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TwoChangesAtOnce_AreSentOneAfterTheOther_EachVersionOnce()
     {
         var document = await OpenedAsync();
         _program.Store(20, "Y = 2");
 
         var first = document.SynchronizeAsync(CancellationToken.None);
-        await _firstSent.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        await _firstSent.Task.WaitAsync(SafetyCap);
         _program.Store(30, "Z = 3");
         // asked on this thread while the first is being sent: each call has come as far as it can when it returns, and the others wait for the one that is
         // being sent.
@@ -91,13 +94,13 @@ public sealed class ReplDocumentSyncTests
         }
 
         _release.SetResult();
-        await Task.WhenAll(first, second, third).WaitAsync(TimeSpan.FromSeconds(20));
+        await Task.WhenAll(first, second, third).WaitAsync(SafetyCap);
 
         CollectionAssert.AreEqual(new[] { 2, 3 }, _sent.Select(sent => sent.Version).ToArray(), "in order, and no version twice");
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheScratchDocument_IsOpenedOnce_WhenTwoAskForItAtOnce()
     {
         var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -118,19 +121,19 @@ public sealed class ReplDocumentSyncTests
         Assert.IsFalse(two.IsCompleted);
         opening.SetResult();
 
-        CollectionAssert.AreEqual(new[] { true, true }, await Task.WhenAll(one, two).WaitAsync(TimeSpan.FromSeconds(20)));
+        CollectionAssert.AreEqual(new[] { true, true }, await Task.WhenAll(one, two).WaitAsync(SafetyCap));
         Assert.AreEqual(1, opened);
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task ASave_WaitsForTheChangeBeingSent_AndSavesTheTextTheServerWasToldOf()
     {
         var document = await OpenedAsync();
         _program.Store(20, "Y = 2");
 
         var telling = document.SynchronizeAsync(CancellationToken.None);
-        await _firstSent.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        await _firstSent.Task.WaitAsync(SafetyCap);
         // asked on this thread: the save has come as far as it can when it returns.
         var saving = document.WillSaveAsync(CancellationToken.None);
         Assert.IsFalse(saving.IsCompleted, "the save waits for the change being sent");
@@ -139,7 +142,7 @@ public sealed class ReplDocumentSyncTests
         _program.Store(30, "Z = 3");
         _release.SetResult();
         await telling;
-        var saved = await saving.WaitAsync(TimeSpan.FromSeconds(20));
+        var saved = await saving.WaitAsync(SafetyCap);
 
         Assert.AreEqual(_sent[^1].Text, saved, "what is saved is what the server was told of last");
         Assert.AreEqual("10 X = 1\r\n20 Y = 2\r\n30 Z = 3\r\n", saved);

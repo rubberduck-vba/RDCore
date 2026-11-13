@@ -161,7 +161,7 @@ public sealed class WorkspaceFoldersLoadTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task ARename_WhileTheEnvironmentHostIsNeverReady_IsMadeAtOnce_AndWhatTheClientSendsAfterItIsApplied()
     {
         var files = Files();

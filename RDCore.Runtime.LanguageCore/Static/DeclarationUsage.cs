@@ -17,22 +17,28 @@ public static class DeclarationUsage
 {
     public static ImmutableArray<DeclarationFact> Of(
         IEnumerable<Symbol> declared, IEnumerable<ProcedureSemanticModel> procedures, IReadOnlyDictionary<SemanticId, DeclarationRole>? roles = null,
-        Func<Symbol, HiddenDeclaration?>? hides = null)
+        Func<Symbol, HiddenDeclaration?>? hides = null, ArgumentParameters? arguments = null)
     {
         var models = procedures.ToList();
+        var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
+        var bound = models.SelectMany(procedure => procedure.Expressions.Values).Where(fact => fact.Binding is not null).ToList();
+        var declaredList = declared.ToList();
+        declared = declaredList;
+        var parameters = declaredList.OfType<VBParameterSymbol>().Select(parameter => parameter.SemanticId).ToHashSet();
+        var assigned = moduleIsFullyAnalyzed && arguments is not null ? AssignedParameters(bound, arguments, parameters) : null;
+
         var references = new Dictionary<SemanticId, DeclarationReferences>();
-        foreach (var fact in models.SelectMany(procedure => procedure.Expressions.Values).Where(fact => fact.Binding is not null))
+        foreach (var fact in bound)
         {
             var current = references.GetValueOrDefault(fact.Binding!.Value);
             references[fact.Binding.Value] = fact.Flags switch
             {
                 var flags when flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) => current with { Writes = current.Writes + 1 },
-                var flags when flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument) => current with { PassedAsArguments = current.PassedAsArguments + 1 },
+                var flags when flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument) && !IsNeverAssigned(fact, arguments, parameters, assigned)
+                    => current with { PassedAsArguments = current.PassedAsArguments + 1 },
                 _ => current with { Reads = current.Reads + 1 },
             };
         }
-
-        var moduleIsFullyAnalyzed = models.All(procedure => procedure.IsFullyAnalyzed);
 
         // the accessors of a property are one declaration, though each has the identity of its own that an expression can be bound to: it is the first one
         // that stands for it.
@@ -73,6 +79,50 @@ public static class DeclarationUsage
         return facts.ToImmutable();
     }
 
+    // MS-VBAL §5.3.1.11: an argument passed by reference is assigned when the procedure writes to its parameter, or passes the parameter on by reference to
+    // one that does. The parameters of the module's own procedures are followed to a fixed point, which a procedure that calls itself does not change. A
+    // parameter passed on where no parameter of the module is known to be given it (a procedure of another module or of a library, a Declare, a call bound
+    // late) may be assigned.
+    private static HashSet<SemanticId> AssignedParameters(List<ExpressionFact> bound, ArgumentParameters arguments, HashSet<SemanticId> parameters)
+    {
+        var assigned = new HashSet<SemanticId>();
+        var passedOn = new List<(SemanticId From, SemanticId To)>();
+        foreach (var fact in bound.Where(fact => parameters.Contains(fact.Binding!.Value)))
+        {
+            if (fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget))
+            {
+                assigned.Add(fact.Binding!.Value);
+            }
+            else if (fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument))
+            {
+                if (arguments.TryGet(fact.Node, out var to) && parameters.Contains(to))
+                {
+                    passedOn.Add((fact.Binding!.Value, to));
+                }
+                else
+                {
+                    assigned.Add(fact.Binding!.Value);
+                }
+            }
+        }
+
+        for (var changed = true; changed;)
+        {
+            changed = false;
+            foreach (var (from, to) in passedOn)
+            {
+                changed |= assigned.Contains(to) && assigned.Add(from);
+            }
+        }
+
+        return assigned;
+    }
+
+    // an argument given by reference to a parameter of one of the module's own procedures that nothing assigns is read by the call, and not written.
+    private static bool IsNeverAssigned(ExpressionFact fact, ArgumentParameters? arguments, HashSet<SemanticId> parameters, HashSet<SemanticId>? assigned)
+        => assigned is not null && arguments is not null && arguments.TryGet(fact.Node, out var parameter)
+            && parameters.Contains(parameter) && !assigned.Contains(parameter);
+
     // a variable, or an array whose elements are, declared As New of a class whose objects are never created (Dim e As New ErrObject).
     private static bool AutoInstantiationAlwaysFails(Symbol symbol)
         => symbol.GetProperty(SymbolProperties.AutoInstantiated)
@@ -97,9 +147,13 @@ public static class DeclarationUsage
         DeclarationKind.Variable when symbol is VBLocalVariableSymbol => true,
         // a variable that is declared with Dim or with no modifier at all is Private.
         DeclarationKind.Variable => symbol is AccessibleTypedSymbol { AccessModifier: AccessModifier.Private or AccessModifier.Implicit },
-        // a constant is referred to where its value is substituted, which includes the bounds of an array and the value of another constant, of an enumeration
-        // member and of an optional parameter: expressions of the declarations of a module, which the pass does not evaluate as it does those of its procedures.
-        // 🚧 TODO count the references of a constant once the expressions of declarations are evaluated.
+        // a constant of a procedure is referred to by that procedure's code alone: its statements, and the declarations of its body - the value of another of
+        // its constants, the bounds of its arrays - which are analyzed with the statements.
+        DeclarationKind.Constant when symbol is VBLocalConstantSymbol => true,
+        // a constant of the module is referred to where its value is substituted, which includes the bounds of an array and the value of another constant, of
+        // an enumeration member and of an optional parameter: expressions of the declarations of the module, which the pass does not evaluate as it does those
+        // of its procedures.
+        // 🚧 TODO count the references of a constant of the module once the expressions of the module's declarations are evaluated.
         _ => false,
     };
 

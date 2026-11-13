@@ -89,7 +89,7 @@ travaille sur le dossier courant.
 |`rdc config`|`configure`|Affiche les paramètres de la plateforme et les modifie, comme le `CONFIG` du _shell_, sans démarrer la plateforme.|
 |`rdc export-library <bibliothèque>`|`xl`|Décrit une bibliothèque de types de cette machine (un fichier comme `scrrun.dll`, son identifiant ou son nom) dans un fichier qu'un projet peut référencer par son nom. `--dependencies` décrit aussi les bibliothèques dont elle dépend.|
 |`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, et ce qui la garde dans l'interpréteur.|
-|`rdc bench [<chemin>]`|`b`|Chronomètre l'interpréteur sur un espace de travail : son analyse syntaxique, son chargement, son analyse, puis chaque `Public Sub Bench*()` de ses modules standard.|
+|`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
 

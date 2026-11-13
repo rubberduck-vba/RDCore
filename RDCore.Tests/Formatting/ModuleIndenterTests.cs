@@ -245,7 +245,7 @@ public sealed class ModuleIndenterTests
     // a statement no rule reads is where the body it is in has it, even one whose words would open a block.
     [TestMethod]
     [DataRow("a = 1-")]
-    [DataRow("If x = 1 - Then")]
+    [DataRow("For = 1")]
     public void AStatementNoRuleReads_IsAtTheLevelOfTheBodyItIsIn(string statement)
         => Assert.AreEqual(Lines("Public Sub Test()", "    If a Then", $"        {statement}", "    End If", "End Sub"),
             Indented(Lines("Public Sub Test()", "If a Then", statement, "End If", "End Sub")));

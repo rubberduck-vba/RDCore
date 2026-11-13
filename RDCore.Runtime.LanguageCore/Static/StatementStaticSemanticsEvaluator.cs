@@ -72,6 +72,11 @@ public static class StatementStaticSemanticsEvaluator
                 continue;
             }
 
+            if (SplitBlockErrorOf(child, walk.Options) is { } split)
+            {
+                walk.Errors.Add(split);
+            }
+
             switch (child)
             {
                 case LineLabelNode label:
@@ -85,9 +90,11 @@ public static class StatementStaticSemanticsEvaluator
                 // written with - Dim x$ and Dim x% - is how its type is said, not a different name.
                 case VariableDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.SourceLocation);
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 case ConstantDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 case ParameterDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.Location);
@@ -101,6 +108,68 @@ public static class StatementStaticSemanticsEvaluator
                     break;
             }
         }
+    }
+
+    // the value of a constant and the bounds of an array that a procedure declares are expressions of its code, as its statements are: evaluated for what the
+    // names in them refer to. What is wrong with them is the declaration's to report (DeclaredSizeStaticSemantics, the constant's own evaluation).
+    private static void EvaluateDeclarationExpressions(StaticEvaluationContext context, SyntaxNode declaration, Walk walk)
+    {
+        if (walk.Structural)
+        {
+            return;
+        }
+
+        foreach (var expression in DeclarationExpressions(declaration))
+        {
+            _ = ExpressionStaticSemanticsEvaluator.Evaluate(context, expression);
+        }
+    }
+
+    private static IEnumerable<ExpressionNode> DeclarationExpressions(SyntaxNode declaration)
+        => declaration.Children.SelectMany(IEnumerable<ExpressionNode> (child) => child switch
+        {
+            ArrayBoundsNode { Bounds: { IsDefault: false } bounds } => bounds.SelectMany(bound => new[] { bound.LowerExpression, bound.UpperExpression }).OfType<ExpressionNode>(),
+            // a type is no value, and a name written in an As clause is a type.
+            AsTypeExpressionNode => [],
+            ExpressionNode value => [value],
+            _ => [],
+        });
+
+    // MS-VBAL §3.4.2: the parser reads every branch, so a block can be opened on one side of an excluded branch and closed on the other. The tree has the
+    // block, and the code MS-VBA compiles does not: a live opening statement whose end is excluded is not closed, and a live end whose opening statement is
+    // excluded closes no block. Each is reported at its live statement, with MS-VBA's description; a block with both ends excluded and live code between them is
+    // reported where that code begins.
+    private static VBCompileErrorInfo? SplitBlockErrorOf(SyntaxNode node, StaticSemanticsOptions options)
+    {
+        (VBCompileErrorId Opened, VBCompileErrorId Closed)? block = node switch
+        {
+            IfBlockStatementNode => (VBCompileErrorId.BlockIfWithoutEndIf, VBCompileErrorId.EndIfWithoutBlockIf),
+            ForStatementNode or ForEachStatementNode => (VBCompileErrorId.ForWithoutNext, VBCompileErrorId.NextWithoutFor),
+            DoLoopStatementNode or DoLoopUntilStatementNode or DoLoopWhileStatementNode or DoUntilLoopStatementNode or DoWhileLoopStatementNode
+                => (VBCompileErrorId.DoWithoutLoop, VBCompileErrorId.LoopWithoutDo),
+            WithStatementNode => (VBCompileErrorId.ExpectedEndWith, VBCompileErrorId.EndWithWithoutWith),
+            SelectCaseStatementNode => (VBCompileErrorId.SelectCaseWithoutEndSelect, VBCompileErrorId.SyntaxError),
+            WhileWendStatementNode => (VBCompileErrorId.SyntaxError, VBCompileErrorId.SyntaxError),
+            _ => null,
+        };
+
+        if (block is not (var opened, var closed))
+        {
+            return null;
+        }
+
+        var range = node.SourceLocation.Range;
+        (VBCompileErrorId Id, SourcePosition At)? error = (options.DeadRangeAt(range.Start), options.DeadRangeAt(range.End)) switch
+        {
+            (null, null) => null,
+            (null, not null) => (opened, range.Start),
+            (not null, null) => (closed, range.End),
+            ({ } start, not null) => (VBCompileErrorId.SyntaxError, start.End),
+        };
+
+        return error is (var id, var at)
+            ? VBCompileErrorInfo.For(id, node.SourceLocation with { Range = new SourceRange(at, at) }, Exceptions.VBCompileError_BlockEndsInAnotherBranch_Verbose)
+            : null;
     }
 
     private static void ReportDuplicateDeclaration(Walk walk, string name, SourceLocation location)
@@ -450,7 +519,7 @@ public static class StatementStaticSemanticsEvaluator
                 // the arguments of the statement may be taken by reference like those of a call written as an expression, unless the callee is an array.
                 if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
                 {
-                    ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Arguments);
+                    ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Callee, callStatement.Arguments);
                     ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, callStatement.Callee, callStatement.Arguments);
                 }
 
@@ -704,12 +773,12 @@ public static class StatementStaticSemanticsEvaluator
             argumentTypes[i] = result.IsSuccess ? result.Result : null;
         }
 
-        // a handler of the event may write to what it is given by reference, as a procedure called may: Cancel, say.
-        ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, arguments);
-
         var declared = context.Scope.SelfAndAncestors()
             .FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?
             .DeclaredAs(eventName.IdentifierName).OfType<VBEventMemberSymbol>().FirstOrDefault();
+
+        // a handler of the event may write to what it is given by reference, as a procedure called may: Cancel, say.
+        ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, declared?.Parameters, arguments, recordsParameters: false);
         if (declared is null)
         {
             walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.EventNotDefined, eventName.Location,

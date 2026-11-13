@@ -25,4 +25,18 @@ public readonly record struct StaticSemanticsOptions(
 
         return false;
     }
+
+    // the excluded branch the position is in, its bounds included; none when the position is in live code.
+    public SourceRange? DeadRangeAt(SourcePosition position)
+    {
+        foreach (var dead in Dead)
+        {
+            if (dead.Start <= position && position <= dead.End)
+            {
+                return dead;
+            }
+        }
+
+        return null;
+    }
 }

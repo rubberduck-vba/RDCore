@@ -188,8 +188,12 @@ public sealed class PrintOutputEvaluator(
         return data.IsSuccess ? ToOutputString(session, expression, data.Result!) : data;
     }
 
+    // MS-VBA's leading space is where a positive number's sign would be: a negative number's sign takes it, and -1 is printed "-1 " (RD-VBAL §5.4.5.8,
+    // observed in Excel).
     private static RuntimeSemanticsEvaluationResult Padded(RuntimeSemanticsEvaluationResult number)
-        => number is { IsSuccess: true, Result: VBStringValue text } ? Text($" {text.Value} ") : number;
+        => number is { IsSuccess: true, Result: VBStringValue text }
+            ? Text(text.Value.StartsWith('-') ? $"{text.Value} " : $" {text.Value} ")
+            : number;
 
     private static RuntimeSemanticsEvaluationResult Text(string text) => RuntimeSemanticsEvaluationResult.Success(new VBStringValue(text));
 

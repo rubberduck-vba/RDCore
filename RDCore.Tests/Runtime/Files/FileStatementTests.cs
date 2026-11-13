@@ -224,6 +224,24 @@ public sealed class FileStatementTests
     }
 
     [TestMethod]
+    public void Write_ANumberBetweenMinusOneAndOne_HasNoZeroBeforeItsPoint()
+    {
+        // RD-VBAL §5.4.5.9: MS-VBA writes 0.5 as .5, whatever its numeric type, as its Str does (observed in Excel).
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Dim c As Currency, s As Single",
+            "c = 0.25",
+            "s = -0.5",
+            "Write #1, 0.5, -0.5, c, s, 0.00001, 1.5",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual(".5,-.5,.25,-.5,.00001,1.5\r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
     public void Write_ADate_IsSpelledTheSameWhateverTheThreadCulture()
     {
         // "#yyyy-mm-dd hh:mm:ss#": the specification's spelling, like the '.' of a number. Under a culture with another
@@ -344,6 +362,24 @@ public sealed class FileStatementTests
             "Close #1");
 
         Assert.AreEqual(" 1  2 \r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
+    }
+
+    [TestMethod]
+    public void Print_ANegativeNumber_HasNoLeadingSpace()
+    {
+        // RD-VBAL §5.4.5.8: MS-VBA's leading space is where a positive number's sign would be, and a negative number's sign takes it: -1 is printed "-1 ",
+        // where MS-VBAL inserts a space before the text of any number (observed in Excel). The zero before the point stays: 0.5 is " 0.5 ".
+        var fileSystem = WithFile($"{Root}/out.txt");
+
+        var (_, outcome) = Run(fileSystem,
+            $"Open \"{Root}/out.txt\" For Output As #1",
+            "Dim c As Currency",
+            "c = -0.25",
+            "Print #1, -1; -0.5; 0.5; c",
+            "Close #1");
+
+        Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
+        Assert.AreEqual("-1 -0.5  0.5 -0.25 \r\n", fileSystem.File.ReadAllText($"{Root}/out.txt"));
     }
 
     [TestMethod]

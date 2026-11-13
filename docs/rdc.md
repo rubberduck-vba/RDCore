@@ -84,7 +84,7 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 |`rdc config`|`configure`|Shows the platform's settings and sets them, as the shell's `CONFIG` does, without starting the platform.|
 |`rdc export-library <library>`|`xl`|Describes a type library of this machine (a file such as `scrrun.dll`, its identifier, or its name) as a file a project can reference by name. `--dependencies` describes the libraries it depends on too.|
 |`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, and what keeps it in the interpreter.|
-|`rdc bench [<path>]`|`b`|Times the interpreter on a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules.|
+|`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine.|
 |`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
 |`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
 

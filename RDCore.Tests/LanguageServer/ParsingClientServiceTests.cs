@@ -17,6 +17,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class ParsingClientServiceTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
 
     private static PlatformJsonEnvelope SampleEnvelope
@@ -282,7 +285,8 @@ public sealed class ParsingClientServiceTests
 
     private static async Task WhenAsked(List<(TaskCompletionSource<PlatformJsonEnvelope> Answer, CancellationToken Token)> requests, int count)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
+        // the fake parser is looked at until it has been asked: the deadline only keeps a request that never comes from hanging the run.
+        var deadline = DateTime.UtcNow + SafetyCap;
         while (true)
         {
             lock (requests)

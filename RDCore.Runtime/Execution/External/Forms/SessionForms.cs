@@ -172,14 +172,15 @@ internal sealed class SessionForms
     }
 
     /// <summary>
-    /// Whether an object is a control a form listens to: its events are the form's to handle, whatever <c>WithEvents</c> variable lets it go.
+    /// Whether an object is a hosted form that is listened to, or a control such a form listens to: its events are the form's to handle, whatever
+    /// <c>WithEvents</c> variable holds it or lets it go.
     /// </summary>
-    /// <param name="control">The object.</param>
-    public bool IsListenedControl(VBRuntimeObjectId control)
+    /// <param name="source">The object.</param>
+    public bool IsListened(VBRuntimeObjectId source)
     {
         lock (_gate)
         {
-            return _listening.Values.Any(listened => listened.Controls.Contains(control));
+            return _listening.ContainsKey(source) || _listening.Values.Any(listened => listened.Controls.Contains(source));
         }
     }
 

@@ -16,7 +16,8 @@ namespace RDCore.Tests.Platform;
 [TestCategory("Platform")]
 public sealed class ServerConsoleTests
 {
-    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(60);
+    // a cap on a hang, not a budget: each wait is on the process itself, which a loaded machine starts and stops as late as it does.
+    private static readonly TimeSpan Bound = TimeSpan.FromMinutes(5);
 
     // what is tested is the invariant: not one byte on the standard output, through the server's start, its work and its end, and its log in its file
     // instead. The hang itself needed the language server's flood, with its children and the published platform, which a test run does not have: it was

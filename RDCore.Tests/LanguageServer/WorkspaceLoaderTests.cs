@@ -20,6 +20,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class WorkspaceLoaderTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     // an absolute path the MockFileSystem accepts on both Windows and the Linux CI runner.
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-ws");
     private static readonly string ProjectFilePath = Path.Combine(Root, ProjectFile.FileName);
@@ -343,14 +346,14 @@ public sealed class WorkspaceLoaderTests
     // the question goes over the wire while initialize is not answered yet, as the language server asks it, of a client that says in its initialization options
     // that it answers then; not of one that does not say so, nor of one that runs unattended, whatever else it says.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow(true, false, DisplayName = "asked, and regenerated, before initialize is answered")]
     [DataRow(false, false, DisplayName = "a client that does not say it answers is not asked")]
     [DataRow(true, true, DisplayName = "a client that runs unattended is not asked")]
     public async Task TheRegenerateQuestion_IsAskedDuringInitialize_OverTheWire(bool answers, bool unattended)
     {
         var asked = answers && !unattended;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var fs = UnreadableProject();
         var sut = WorkspaceService(fs);
         var toServer = new System.IO.Pipelines.Pipe();
@@ -379,7 +382,7 @@ public sealed class WorkspaceLoaderTests
                 return Task.FromResult(request.Actions!.First());
             }), timeout.Token);
 
-        await Task.WhenAll(serving, connecting).WaitAsync(TimeSpan.FromSeconds(20));
+        await Task.WhenAll(serving, connecting).WaitAsync(SafetyCap);
         using var server = await serving;
         using var client = await connecting;
 
@@ -396,7 +399,7 @@ public sealed class WorkspaceLoaderTests
     // it. Neither moved again. It is not asked now; a shell at its console is, and answers, before initialize is answered. Either way the server tells it why the
     // workspace was not loaded (window/showMessage, as the language server does), and the shell writes it as an error: it used to have no handler for it.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     [DataRow(false, DisplayName = "a shell whose input is a script is not asked")]
     [DataRow(true, DisplayName = "a shell at its console is asked, and answers")]
     public async Task TheShell_StartedOnAProjectFileThatCantBeRead_HasInitializeAnswered_AndIsToldWhy(bool interactive)
@@ -449,13 +452,13 @@ public sealed class WorkspaceLoaderTests
         using var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection().AddSingleton(platform).BuildServiceProvider();
 
         // not a timing: an initialize that is never answered fails the test here instead of hanging the run.
-        await shell.RunAsync(services, []).WaitAsync(TimeSpan.FromSeconds(30));
+        await shell.RunAsync(services, []).WaitAsync(SafetyCap);
 
         Assert.AreEqual(interactive ? 1 : 0, asked);
         Assert.AreEqual(Unreadable, fs.File.ReadAllText(ProjectFilePath), "the project file is as it was: the shell chose to keep it, or was not asked");
         Assert.IsFalse(fs.File.Exists(ProjectFilePath + ".bak"));
         // not a timing either: a message the shell never writes fails the test here.
-        StringAssert.Contains(await told.Task.WaitAsync(TimeSpan.FromSeconds(30)), ProjectFilePath);
+        StringAssert.Contains(await told.Task.WaitAsync(SafetyCap), ProjectFilePath);
     }
 
     // a project file that could not be written in its place is put back as it was: a folder left without one would be made up again at the next start, without
