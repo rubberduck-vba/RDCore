@@ -17,7 +17,8 @@ public sealed partial class CompiledActivation
     /// <paramref name="count"/> of <paramref name="first"/>, <paramref name="second"/> and <paramref name="third"/>, for what it returns of a scalar type: as
     /// the interpreter calls it, through the function's binding, each argument held in a <c>Variant</c> of its own subtype or, for a parameter of a scalar
     /// type, the value compiled code let-coerced to that type (MS-VBAL §5.3.1.11), and a parameter given none given what an omitted argument is. The
-    /// function runs with the session's locale, as it does when the interpreter calls it. The instruction at <paramref name="pc"/> is the one that makes the call, which the frame says while the function runs.
+    /// function runs with the session's locale, as it does when the interpreter calls it. The instruction at <paramref name="pc"/> is the one that
+    /// makes the call, which the frame says while the function runs.
     /// </summary>
     /// <param name="pc">The offset of the instruction that makes the call.</param>
     /// <param name="library">The number of the call among the body's libraries.</param>
