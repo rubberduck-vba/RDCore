@@ -90,6 +90,6 @@ public record class VBFixedStringLetCoercionRuntimeSemantics(
     // MS-VBAL 5.5.1.2.5: "If the source string has more than length characters, the result is a copy of the source
     // string truncated to the first length characters. Otherwise, the result is a copy of the source string padded on
     // the right with space characters to reach a total of length characters."
-    private static string Fit(string text, int length)
+    internal static string Fit(string text, int length)
         => text.Length > length ? text[..length] : text.PadRight(length);
 }

@@ -1346,13 +1346,17 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         ImmutableArray<ExpressionNode> indexArguments, VBTypedValue value, ExpressionNode source, bool isSet, ExpressionNode? reachedThrough = null)
     {
         var borrowed = new List<MemoryAddress>();
+        var assigned = false;
         try
         {
-            return InvokeAssignment(session, context, accessor, receiver, indexArguments, value, source, isSet, borrowed, DispatchedThrough(accessor, reachedThrough));
+            var result = InvokeAssignment(session, context, accessor, receiver, indexArguments, value, source, isSet, borrowed,
+                DispatchedThrough(accessor, reachedThrough));
+            assigned = result.IsSuccess;
+            return result;
         }
         finally
         {
-            GiveBack(session, borrowed);
+            GiveBack(session, borrowed, returned: assigned);
         }
     }
 
@@ -1922,6 +1926,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // most calls borrow nothing: the list is the one the last call left, a call made while another binds its arguments has one of its own (S1.3).
         var borrowed = Interlocked.Exchange(ref _spareBorrowed, null) ?? [];
+        var called = false;
         try
         {
             var external = procedure is VBExternalFunctionMemberSymbol or VBExternalSubMemberSymbol;
@@ -1941,11 +1946,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             var returned = Bindings is { } bindings
                 ? bindings.ForMember(procedure).Call(session.Symbols.Resolver, callArguments)
                 : ProcedureInvoker.Invoke(procedure, session.Symbols.Resolver, callArguments);
+            called = returned.IsSuccess;
             return argumentsKnown ? returned : NotKnown(returned);
         }
         finally
         {
-            GiveBack(session, borrowed);
+            GiveBack(session, borrowed, returned: called);
             borrowed.Clear();
             Volatile.Write(ref _spareBorrowed, borrowed);
         }
@@ -2048,6 +2054,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             }
         }
 
+        var raisedAll = false;
         try
         {
             foreach (var subscription in session.Objects.EventSubscribers(source))
@@ -2069,14 +2076,12 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 }
             }
 
+            raisedAll = true;
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
         finally
         {
-            foreach (var temporary in temporaries)
-            {
-                session.Storage.TryDeallocate(temporary);
-            }
+            GiveBack(session, temporaries, returned: raisedAll);
         }
     }
 
@@ -2190,6 +2195,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                     anyByAddress))
             {
                 bound[i] = reference;
+                continue;
+            }
+
+            // a fixed-length String given to a String reference parameter is passed as a String of its own, which the variable is let to when the call is
+            // over (FixedStringArgument).
+            if (aliased && evaluatedInstead is null && !external && !anyByAddress && RuntimeProcedureInvoker.IsByRef(parameter.ParameterKind)
+                && parameter.ResolvedType is VBStringType and not VBFixedStringType
+                && TryPassFixedString(session, context, argumentNode, borrowed, out var fixedString, out evaluatedInstead))
+            {
+                bound[i] = fixedString;
                 continue;
             }
 
@@ -3059,14 +3074,141 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     }
 
     // what the elements passed by reference were given to be passed as: the call they were passed to is over.
-    private static void GiveBack(IRuntimeSession session, List<MemoryAddress> borrowed)
+    // A fixed-length String passed as a String of its own is let what the String holds first, when the call returned: one that raised an error leaves the
+    // variable as it was (MS-VBA, observed in Excel).
+    private static void GiveBack(IRuntimeSession session, List<MemoryAddress> borrowed, bool returned = false)
     {
         foreach (var address in borrowed)
         {
+            if (returned && session.Storage.TryRead(address, out var passed) && passed is Execution.FixedStringArgument fixedString)
+            {
+                fixedString.WriteBack(session.Symbols.Resolver);
+            }
+
             session.Storage.TryDeallocate(address);
         }
 
         borrowed.Clear();
+    }
+
+    // a fixed-length String variable - named, a field of a record, an element of an array - given to a String reference parameter: the String of its own the
+    // parameter is bound to, given an address for as long as the call runs, which the caller gives back (borrowed) and the variable is let to then
+    // (FixedStringArgument). evaluated: the error the subscripts of an element raised, which is the call's.
+    private bool TryPassFixedString(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode argument, List<MemoryAddress> borrowed,
+        out VBRuntimeReference reference, out RuntimeSemanticsEvaluationResult? evaluated)
+    {
+        reference = VBRuntimeReference.NullRef;
+        if (!TryFixedStringCell(session, context, argument, out var cell, out var length, out evaluated)
+            || cell.Value is not { BoxedValue: string text })
+        {
+            return false;
+        }
+
+        var passed = new Execution.FixedStringArgument(cell, length, text);
+        if (!session.Storage.TryAllocate(VBStringType.TypeInfo.DefaultValue.Size, passed, out var address))
+        {
+            return false;
+        }
+
+        borrowed.Add(address);
+        reference = new VBRuntimeReference(address, null);
+        return true;
+    }
+
+    // the cell of the fixed-length String variable an argument is, and its length.
+    private bool TryFixedStringCell(IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode argument,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IBindingHandle? cell, out int length, out RuntimeSemanticsEvaluationResult? evaluated)
+    {
+        cell = null;
+        length = 0;
+        evaluated = null;
+        var qualified = argument is MemberAccessExpressionNode qualifiedAccess ? ResolveNamespaceQualified(session, context, qualifiedAccess) : null;
+        switch (argument)
+        {
+            case SimpleNameExpressionNode or MemberAccessExpressionNode when qualified is not null || argument is SimpleNameExpressionNode:
+            {
+                var bound = qualified is null ? BoundVariableOf(session, argument, context) : null;
+                var symbol = bound?.Variable ?? qualified
+                    ?? session.Symbols.Resolver.ResolveValue((SimpleNameExpressionNode)argument, ScopeKind.Local, context.Scope).Symbol;
+                if (symbol is not ITypedSymbol typed || DeclaredTypeOf(session, symbol, typed.ResolvedType) is not VBFixedStringType declared)
+                {
+                    return false;
+                }
+
+                cell = bound is not null ? BindingOf(session, bound).Handle : session.Symbols.Resolver.GetValue(symbol);
+                length = declared.Length;
+                break;
+            }
+
+            case MemberAccessExpressionNode access:
+            {
+                var held = access.Owner is { } owner
+                    ? DenotesAVariable(session, context, owner) ? Evaluate(session, owner, context).Result : null
+                    : context.EnclosingWithTarget;
+                while (held is VBVariantValue { TypedValue: var wrapped })
+                {
+                    held = wrapped;
+                }
+
+                if (held is not VBUserDefinedTypeValue { IsIndeterminate: false } record || record.TypeInfo is not VBUserDefinedType recordType
+                    || recordType.Field(access.Member.IdentifierName) is not { ResolvedType: VBFixedStringType declared })
+                {
+                    return false;
+                }
+
+                cell = record.GetFieldHandle(access.Member.IdentifierName);
+                length = declared.Length;
+                break;
+            }
+
+            case IndexExpressionNode element when !element.Arguments.IsDefaultOrEmpty && DenotesAVariable(session, context, element.Callee):
+            {
+                var held = Evaluate(session, element.Callee, context).Result;
+                while (held is VBVariantValue { TypedValue: var wrapped })
+                {
+                    held = wrapped;
+                }
+
+                if (held is not VBArrayValue { IsIndeterminate: false, ItemType: VBFixedStringType declared } array)
+                {
+                    return false;
+                }
+
+                if (EvaluateSubscripts(session, context, element.Arguments, out var indices, out var indicesKnown) is { } failed)
+                {
+                    evaluated = failed;
+                    return false;
+                }
+
+                if (!indicesKnown)
+                {
+                    evaluated = RuntimeSemanticsEvaluationResult.Success(declared.CreateIndeterminateValue());
+                    return false;
+                }
+
+                if (array.GetElementHandle(indices) is not { } elementCell)
+                {
+                    evaluated = RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.SubscriptOutOfRange, element.Location,
+                        string.Join(", ", indices)));
+                    return false;
+                }
+
+                if (!elementCell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
+                {
+                    array.TrySetElement(BindingKnowledge.NewCell(declared.DefaultValue.RuntimeValue, isKnown: true), indices);
+                    elementCell = array.GetElementHandle(indices)!;
+                }
+
+                cell = elementCell;
+                length = declared.Length;
+                break;
+            }
+
+            default:
+                return false;
+        }
+
+        return cell is not null && cell.BindingCapabilities.HasFlag(BindingCapabilities.SetValue);
     }
 
     // whether a variable of this declared type is one a ByRef parameter can be bound to without a copy: one of the parameter's own declared type, an
