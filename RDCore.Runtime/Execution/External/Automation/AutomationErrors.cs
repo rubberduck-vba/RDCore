@@ -75,4 +75,15 @@ internal static class AutomationErrors
         // an error the server raised itself, in VBA's facility: its number is the program's Err.Number, and its message the program's Err.Description.
         return VBApplicationErrorInfo.Raised((code & FacilityMask) == VbaFacility ? (int)(code & 0xFFFF) : failure.HResult, site, verbose, said);
     }
+
+    // MS-VBAL §2.1: the domain of an Error is "Standard error codes from 0 to 65535, as well as other implementation-defined error values", and its nominal
+    // representation a "32-bit integer (Windows HRESULT)". A standard error code is the HRESULT of VBA's facility that it is the low word of - what a server is given
+    // for CVErr(2007), 0x800A07D7, is #DIV/0! to Excel - and any other error value is its HRESULT already.
+    public static int HResultOfError(int code)
+        => code is >= 0 and <= 0xFFFF ? unchecked((int)(VbaFacility | (uint)code)) : code;
+
+    // the error value a server's HRESULT is: a standard error code when it is in VBA's facility, as MS-VBA reads #DIV/0! as Error 2007, and the HRESULT itself
+    // otherwise.
+    public static int ErrorOfHResult(int hresult)
+        => (unchecked((uint)hresult) & FacilityMask) == VbaFacility ? hresult & 0xFFFF : hresult;
 }

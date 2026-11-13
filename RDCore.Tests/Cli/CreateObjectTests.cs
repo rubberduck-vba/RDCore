@@ -52,6 +52,9 @@ public sealed class CreateObjectTests
         // the member the server calls its default one (DISPID_VALUE).
         public object? Value { get; set; } = 42;
 
+        // an Error, as a COM server returns one: VT_ERROR, with the HRESULT of the error code in VBA's facility (#DIV/0!, 2007).
+        public object Failure => new System.Runtime.InteropServices.ErrorWrapper(unchecked((int)0x800A07D7));
+
         public Shelf? Next { get; set; }
 
         public Shelf Self => this;
@@ -169,6 +172,43 @@ public sealed class CreateObjectTests
             "Debug.Print s.Describe(\"x\", 2)"));
 
     // VarType of an object is that of its default member's value, which is a Long here (MS-VBAL 5.5.1.2.13).
+    // an Error is an HRESULT in a VARIANT, and a standard error code is the one in VBA's facility: 0x800A0000 and the code (MS-VBAL §2.1). Excel takes nothing
+    // else for an error value of a cell: CVErr(2007) is #DIV/0!.
+    [TestMethod]
+    public async Task AnErrorGivenToAServer_IsTheHResultOfItsErrorCode()
+    {
+        var (_, server) = await Run(true, [], "Dim s As Object", "Set s = CreateObject(\"Lab.Shelf\")", "s.Value = CVErr(2007)");
+
+        Assert.AreEqual(unchecked((int)0x800A07D7), Assert.IsInstanceOfType<System.Runtime.InteropServices.ErrorWrapper>(((Shelf)server.Created[0]).Value).ErrorCode);
+    }
+
+    [TestMethod]
+    public async Task AnErrorInAnArrayGivenToAServer_IsTheHResultOfItsErrorCode()
+    {
+        var (_, server) = await Run(true, [], "Dim s As Object", "Set s = CreateObject(\"Lab.Shelf\")", "Dim a(1 To 2) As Variant", "a(1) = CVErr(2042)", "a(2) = 1", "s.Value = a");
+
+        var given = Assert.IsInstanceOfType<Array>(((Shelf)server.Created[0]).Value);
+        Assert.AreEqual(unchecked((int)0x800A07FA), Assert.IsInstanceOfType<System.Runtime.InteropServices.ErrorWrapper>(given.GetValue(1)).ErrorCode);
+    }
+
+    [TestMethod]
+    public async Task AnErrorAServerReturns_IsTheErrorOfItsCode()
+        => CollectionAssert.AreEqual(new[] { "True", "2007", "Error 2007" }, await Run(
+            "Dim s As Object",
+            "Set s = CreateObject(\"Lab.Shelf\")",
+            "Debug.Print IsError(s.Failure)",
+            "Debug.Print CLng(s.Failure)",
+            "Debug.Print CStr(s.Failure)"));
+
+    [TestMethod]
+    public async Task AnErrorGivenToAServer_IsTheSameErrorWhenItComesBack()
+        => CollectionAssert.AreEqual(new[] { "Error 2042", "True" }, await Run(
+            "Dim s As Object",
+            "Set s = CreateObject(\"Lab.Shelf\")",
+            "s.Value = CVErr(2042)",
+            "Debug.Print CStr(s.Value)",
+            "Debug.Print s.Value = CVErr(2042)"));
+
     [TestMethod]
     public async Task ALateBoundObject_IsAnObjectOfTheClassTheServerSaysItIs()
         => CollectionAssert.AreEqual(new[] { "Shelf", "3", "True" }, await Run(

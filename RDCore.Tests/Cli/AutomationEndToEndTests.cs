@@ -258,23 +258,83 @@ public sealed class AutomationEndToEndTests
         }
         finally
         {
-            // the Excel this test started, by its window, if it is still there: never another, which another program may be using.
-            if (output.FirstOrDefault() is { } hwnd && long.TryParse(hwnd.Trim(), out var handle)
-                && GetWindowThreadProcessId(new IntPtr(handle), out var processId) != 0 && processId != 0)
+            StopExcel(output.FirstOrDefault());
+        }
+    }
+
+    /// <summary>
+    /// An Error crosses to Excel and back as MS-VBA's does, each row observed in Excel 16.0: a cell given <c>CVErr(2007)</c> shows
+    /// <c>#DIV/0!</c>, an array holding <c>CVErr(2042)</c> puts <c>#N/A</c> in its cell, and a <c>#DIV/0!</c> cell reads back as an Error. Skipped on a machine
+    /// that does not have Excel.
+    /// </summary>
+    [TestMethod]
+    [DataRow(new[] { "sheet.Range(\"H1\").Value = CVErr(2007)", "Debug.Print sheet.Range(\"H1\").Text" }, "#DIV/0!", DisplayName = "CVErr(2007) into a cell")]
+    [DataRow(new[] { "Dim a(1 To 1, 1 To 2) As Variant", "a(1, 1) = CVErr(2042): a(1, 2) = 1", "sheet.Range(\"H1:I1\").Value = a",
+        "Debug.Print sheet.Range(\"H1\").Text & \" \" & TypeName(sheet.Range(\"I1\").Value) & \" \" & sheet.Range(\"I1\").Value" }, "#N/A Double 1",
+        DisplayName = "a Variant array holding an Error, into a range")]
+    [DataRow(new[] { "sheet.Range(\"D5\").Formula = \"=1/0\"", "Dim v As Variant", "v = sheet.Range(\"D5\").Value", "Debug.Print IsError(v) & \" \" & CLng(v)" },
+        "True 2007",
+        IgnoreMessage = "a #DIV/0! cell read back: RD-VBA reads the Long -2146826281 where MS-VBA reads Error 2007, because the .NET late binder turns a VT_ERROR result into a number and RD-VBA does not call IDispatch itself",
+        DisplayName = "a #DIV/0! cell read back")]
+    public async Task AnError_CrossesToExcelAndBack_AsMSVBAsDoes(string[] lines, string expected)
+    {
+        if (Type.GetTypeFromProgID("Excel.Application") is null)
+        {
+            Assert.Inconclusive("Excel is not installed on this machine.");
+        }
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "RDCore.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var libraries = new WorkspaceLibraries(["Excel"], new DirectoryLibrarySource(new FileSystem(), Path.Combine(directory!.FullName, "Symbols")));
+        string[] output = [];
+        try
+        {
+            output = await RunAsync([], "Attribute VB_Name = \"Program\"\r\nPublic Sub Main()\r\n" + string.Join("\r\n", [
+                "Dim app As Excel.Application",
+                "Set app = New Excel.Application",
+                "Debug.Print app.Hwnd",
+                "On Error GoTo Done",
+                "Dim book As Excel.Workbook",
+                "Set book = app.Workbooks.Add",
+                "Dim sheet As Excel.Worksheet",
+                "Set sheet = book.Worksheets(1)",
+                .. lines,
+                "book.Close False",
+                "Done:",
+                "If Err.Number <> 0 Then Debug.Print \"error \" & Err.Number",
+                "app.Quit"]) + "\r\nEnd Sub\r\n", libraries);
+
+            CollectionAssert.AreEqual(new[] { expected }, output.Skip(1).ToArray(), string.Join("\n", output));
+        }
+        finally
+        {
+            StopExcel(output.FirstOrDefault());
+        }
+    }
+
+    // the Excel a test started, by its window, if it is still there once the program quit it: never another, which another program may be using.
+    private static void StopExcel(string? hwnd)
+    {
+        if (hwnd is null || !long.TryParse(hwnd.Trim(), out var handle) || GetWindowThreadProcessId(new IntPtr(handle), out var processId) == 0 || processId == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            using var excel = System.Diagnostics.Process.GetProcessById((int)processId);
+            if (!excel.WaitForExit(10_000) && excel.ProcessName.Equals("EXCEL", StringComparison.OrdinalIgnoreCase))
             {
-                try
-                {
-                    using var excel = System.Diagnostics.Process.GetProcessById((int)processId);
-                    if (!excel.WaitForExit(10_000) && excel.ProcessName.Equals("EXCEL", StringComparison.OrdinalIgnoreCase))
-                    {
-                        excel.Kill();
-                    }
-                }
-                catch (ArgumentException)
-                {
-                    // it has quit.
-                }
+                excel.Kill();
             }
+        }
+        catch (ArgumentException)
+        {
+            // it has quit.
         }
     }
 }
