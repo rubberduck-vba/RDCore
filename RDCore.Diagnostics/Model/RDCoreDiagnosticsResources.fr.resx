@@ -405,4 +405,10 @@
   <data name="SuspiciousLetAssignment_Message" xml:space="preserve">
     <value>Un objet est assigné à un objet sans Set : la valeur d&apos;un membre par défaut est assignée à celui de l&apos;autre. Écrivez Set pour assigner l&apos;objet lui-même.</value>
   </data>
+  <data name="NegativeLineNumber_Message" xml:space="preserve">
+    <value>Un numéro de ligne inférieur à 0 : MS-VBAL n&apos;a aucun numéro de ligne de ce genre, et MS-VBA le compile.</value>
+  </data>
+  <data name="NonBreakingSpaceInName_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; a une espace insécable dans son nom : elle ressemble à une espace ordinaire, et le nom tapé avec une espace ordinaire est un autre nom.</value>
+  </data>
 </root>
