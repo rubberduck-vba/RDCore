@@ -102,7 +102,7 @@ public sealed class DeclarationUsageTests
     {
         var facts = Facts("Public Sub Run()", "Dim x As Long", "x = 5", $"Debug.Print {function}(x)", "End Sub");
 
-        // MS-VBAL §5.3.1.11: the function takes its argument ByVal, which the call can not assign.
+        // MS-VBAL §5.3.1.11: the function takes its argument ByVal, which the call cannot assign.
         Assert.AreEqual(new DeclarationReferences(1, 1, 0), References(facts, "x"));
     }
 
