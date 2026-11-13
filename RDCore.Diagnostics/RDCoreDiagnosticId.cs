@@ -130,6 +130,8 @@ public enum RDCoreDiagnosticId
     ObjectVariablePassedLateIsACopy = 11029, // o.Twice b.Count, o an Object: MS-VBA passes a copy of b's public variable to a procedure called late
     TrueValueIsNotMinusOne = 11031, // #If Not DEV with #Const DEV = 1: a True that is not -1, read through an operator that works on its bits (Not 1 is -2)
     ForEachControlEmptiedAfterLoop = 11032, // For Each c In r ... Next: Debug.Print c.Address - MS-VBAL keeps the last element in c; MS-VBA empties it (Nothing)
+    ReservedNameAcceptedByMSVBA = 11033, // Enum E: Date: End Enum - MS-VBAL §3.3.5.2 reserves Date; MS-VBA compiles it as an Enum member
+    NameRefusedByMSVBA = 11034, // Dim Long As Long - MS-VBAL §3.3.5.2 allows the name; MS-VBA refuses it (Expected: identifier)
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
     IIfSideEffect = 11039, // [RD2:IIfSideEffectInspection] IIf(c, Compute(1), 2): a Function or Property Get in the TruePart or FalsePart runs whatever the condition

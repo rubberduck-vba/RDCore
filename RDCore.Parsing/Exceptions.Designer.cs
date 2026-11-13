@@ -158,6 +158,13 @@ namespace RDCore.Parsing {
             }
         }
 
+        /// <summary>Looks up a localized string similar to Expected: identifier. &apos;{0}&apos; is a reserved word and cannot name a declaration.</summary>
+        internal static string VBCompileError_ReservedDeclarationName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ReservedDeclarationName_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>Looks up a localized string similar to Expected: identifier. &apos;{0}&apos; is a reserved word and cannot name a parameter.</summary>
         internal static string VBCompileError_ReservedParameterName_Verbose {
             get {
