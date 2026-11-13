@@ -103,7 +103,8 @@ internal static class ProgramRunner
             await output.WriteLineAsync(line);
         }
 
-        if (result.Outcome is ExecutionOutcome.Completed)
+        // an End ends the program, and so does a Stop in a release build (RD-VBAL §5.4.2.11): it ended, and no error ended it.
+        if (result.Outcome is ExecutionOutcome.Completed or ExecutionOutcome.Halted)
         {
             return Completed;
         }

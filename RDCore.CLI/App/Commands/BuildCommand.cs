@@ -101,7 +101,7 @@ internal sealed class BuildCommand(IConsoleMessageWriter writer, IFileSystem fil
 
         builder.DefineEntryPoint(typeof(BuiltProgram).GetMethod(nameof(BuiltProgram.Run))!);
         var image = new BuiltProgramImage(workspace.Project, workspace.RootUri, BuiltEnvironment.Of(built.Environment), entryPoint.Module,
-            entryPoint.Procedure.Name, built.Definitions);
+            entryPoint.Procedure.Name, built.Definitions, [.. workspace.Modules.Select(module => new BuiltModule(module.RelativePath, module.Name, module.Type))]);
         builder.AddResource(BuiltProgramImage.ResourceName, Encoding.UTF8.GetBytes(PlatformJson.Serialize(image)));
 
         using var assembly = new MemoryStream();
