@@ -560,5 +560,19 @@ public sealed class UnusedDeclarationAnalyzerTests
         Assert.IsNull(withoutSemantics.Fixes?.Edit, "whether another module implements the class is not known");
     }
 
+    [TestMethod]
+    public async Task NoGetIsAdded_ToAClassThatAnotherClassImplements()
+    {
+        var shape = ModuleWorkspace.ClassModule("IShape", "Public Property Let Size(ByVal value As Long)", "End Property");
+        var square = ModuleWorkspace.ClassModule("Square",
+            "Implements IShape", "Private Property Let IShape_Size(ByVal value As Long)", "End Property");
+        var payload = await ModuleWorkspace.SemanticsAsync([("IShape", shape), ("Square", square)], ModuleWorkspace.StandardModule("Program", "Public Sub Main()", "End Sub"));
+        var model = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "IShape");
+
+        var finding = Assert.ContainsSingle(Run(new WriteOnlyPropertyAnalyzer(), shape, model, new Uri(Path.Combine(ModuleWorkspace.Root, "IShape.cls"))));
+
+        Assert.IsNull(finding.Fixes?.Edit, "a Get in the interface is a member that Square does not implement");
+    }
+
     #endregion
 }
