@@ -634,7 +634,8 @@ public partial class ModuleParser(
             ErrorHandler = errorStrategy,
         };
 
-        // the parse that recovers reads an If whose line no alternative reads as the If its line is; on the same ATN, whose predictions it shares.
+        // where no alternative reads an If, the recovering parse reads it as the If its line is written as (IfLinePredictionSimulator), on the same ATN,
+        // whose predictions it shares.
         if (errorStrategy is StatementBoundErrorStrategy)
         {
             parser.Interpreter = new IfLinePredictionSimulator(parser, parser.Interpreter.atn);
@@ -680,8 +681,8 @@ public partial class ModuleParser(
         VBAParser.AND, VBAParser.OR, VBAParser.XOR, VBAParser.EQV, VBAParser.IMP,
     ];
 
-    // the marker keywords (MS-VBAL §3.3.5.2) a statement goes on with after an expression, which the grammar also reads as names: no operand, after an
-    // operator, ever is one of them.
+    // the marker keywords (MS-VBAL §3.3.5.2) a statement goes on with after an expression, which the grammar also reads as names: after an operator,
+    // none of them is ever an operand.
     internal static readonly HashSet<int> MarkerKeywordsAfterAnOperand = [VBAParser.TO, VBAParser.THEN];
 
     // what ends a statement: a line, a colon, a comment, the end of the module.

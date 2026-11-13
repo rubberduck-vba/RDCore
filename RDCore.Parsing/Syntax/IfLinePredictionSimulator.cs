@@ -5,11 +5,11 @@ using Antlr4.Runtime.Atn;
 namespace RDCore.Parsing.Syntax;
 
 /// <summary>
-/// The parse's prediction, which reads a statement that begins with <c>If</c> or <c>ElseIf</c> as the If its line is where no alternative is viable: a
-/// block If when <c>Then</c> ends the line, a single-line If otherwise.
+/// The parse's prediction for a statement that begins with <c>If</c> or <c>ElseIf</c> when no alternative is viable: it picks the If the line is written
+/// as, a block If when <c>Then</c> ends the line and a single-line If otherwise.
 /// </summary>
 /// <remarks>
-/// An If whose condition the parse cannot read (<c>If x - Then</c>) is no statement any alternative reads to its end: the prediction fails at the statement,
+/// An If whose condition the parse cannot read (<c>If x - Then</c>) is a statement no alternative reads to its end: the prediction fails at the statement,
 /// and the recovery would read the line as tokens no rule reads, the If's body as statements of the block around it, and its <c>End If</c> as a statement no
 /// rule reads. Read as the If it is, the error is inside its condition, and its body, its other branches and its <c>End If</c> are its own. A prediction
 /// that does not fail is not changed, so valid code is read as it was.

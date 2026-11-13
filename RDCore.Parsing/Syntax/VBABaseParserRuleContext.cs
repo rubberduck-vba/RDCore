@@ -112,8 +112,8 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
     public SourceLocation GetSourceLocation(Uri documentUri) => new(documentUri, SourceRange);
 
     /// <summary>
-    /// The location and the text of the rule as it is written: through its last token that is no blank (a whitespace, a line continuation) and no token
-    /// ANTLR made up to recover from an error. What the parse read after it, for what it found missing (the blanks after <c>a = (1 +</c>, the <c>)</c> of
+    /// The location and the text of the rule as it is written: through its last token that is neither a blank (a whitespace, a line continuation) nor a
+    /// token ANTLR made up to recover from an error. What the parse read after it, for what it found missing (the blanks after <c>a = (1 +</c>, the <c>)</c> of
     /// <c>Foo(-</c>), is no part of it.
     /// </summary>
     internal (SourceLocation Location, string Text) Written(Uri documentUri)

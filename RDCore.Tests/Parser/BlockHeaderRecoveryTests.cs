@@ -7,8 +7,8 @@ using RDCore.SDK.Model.Source;
 namespace RDCore.Tests.Parser;
 
 /// <summary>
-/// A block whose header, or a statement of whose body, ends with an operator (or has one where an expression ends, before the keyword after it) is the block
-/// it is: its body is its own, it ends where its end is written, the statements after it are read as they are, and so is the procedure after it.
+/// A block whose header or one of whose statements ends with an operator, or has one where an expression ends before a keyword (<c>For i = 1 - To 2</c>), is
+/// still read as that block: its body is its own, it ends where its end is written, the statements after it are read as they are, and so is the procedure after it.
 /// </summary>
 [TestClass]
 [TestCategory("RD-VBAL 2.6.1 Syntax Errors")]
