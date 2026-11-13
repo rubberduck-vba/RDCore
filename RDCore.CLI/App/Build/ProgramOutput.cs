@@ -40,7 +40,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         return executable;
     }
 
-    // the libraries the program's project references, described as the platform describes them, one file each by its name: what the program's session
+    // the libraries the program's project references, and those they depend on, described as the platform describes them, one file each by its name: what the program's session
     // reads in place of the platform's. A library an earlier build of the folder wrote, and that the project no longer references, is not left there.
     private void WriteLibraries(string symbols, IReadOnlyList<LibraryDescription> libraries)
     {
