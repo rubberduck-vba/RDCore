@@ -9,7 +9,8 @@ using RDCore.SDK.Model.AST.Statements;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC01016</c>: a line label of a procedure that no <c>GoTo</c>, <c>GoSub</c>, <c>Resume</c> or <c>On Error GoTo</c> of the procedure names
+/// <c>RDC01016</c>: a line label of a procedure that no <c>GoTo</c>, <c>GoSub</c>, <c>On</c> ... <c>GoTo</c>, <c>On</c> ... <c>GoSub</c>, <c>Resume</c> or
+/// <c>On Error GoTo</c> of the procedure names
 /// (<strong>MS-VBAL §5.4.1.1</strong>): a label belongs to its procedure, and nothing else can jump to it.
 /// </summary>
 /// <remarks>
@@ -24,13 +25,15 @@ internal sealed class LineLabelNotUsedAnalyzer : SyntaxTreeAnalyzer
         foreach (var procedure in module.Children.OfType<MemberDeclarationNode>())
         {
             var targets = procedure.Descendants()
-                .Select(node => node switch
+                .SelectMany<SyntaxNode, ExpressionNode?>(node => node switch
                 {
-                    GoToStatementNode jump => jump.LabelExpression,
-                    GoSubStatementNode jump => jump.LabelExpression,
-                    ResumeStatementNode jump => jump.LabelExpression,
-                    OnErrorGoToStatementNode jump => jump.LabelExpression,
-                    _ => null,
+                    GoToStatementNode jump => [jump.LabelExpression],
+                    GoSubStatementNode jump => [jump.LabelExpression],
+                    OnGoToStatementNode jump => (IEnumerable<ExpressionNode?>)jump.Labels,
+                    OnGoSubStatementNode jump => (IEnumerable<ExpressionNode?>)jump.Labels,
+                    ResumeStatementNode jump => [jump.LabelExpression],
+                    OnErrorGoToStatementNode jump => [jump.LabelExpression],
+                    _ => [],
                 })
                 .OfType<SimpleNameExpressionNode>()
                 .Select(name => name.IdentifierName)

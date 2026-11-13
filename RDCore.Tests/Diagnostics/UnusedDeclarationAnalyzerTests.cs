@@ -711,6 +711,21 @@ public sealed class UnusedDeclarationAnalyzerTests
         StringAssert.Contains(findings[0].Message, "'Unused'");
     }
 
+    // Rubberduck's line label not used inspection counts each label an On ... GoTo or On ... GoSub lists as used.
+    [TestMethod]
+    public void ALabelThatAnOnGoToOrAnOnGoSubLists_IsUsed()
+        => CollectionAssert.AreEqual(new[] { 9 }, Lines(WithoutSemantics(new LineLabelNotUsedAnalyzer(),
+            "Public Sub Main(ByVal choice As Long)",
+            "    On choice GoTo First, Second",
+            "    On choice GoSub Third",
+            "    Exit Sub",
+            "First:",
+            "Second:",
+            "Third:",
+            "    Return",
+            "Unused:",
+            "End Sub")));
+
     [TestMethod]
     public void ALabel_BelongsToItsProcedure()
         => CollectionAssert.AreEqual(new[] { 6 }, Lines(WithoutSemantics(new LineLabelNotUsedAnalyzer(),
