@@ -45,6 +45,8 @@ public enum RDCoreDiagnosticId
     NotAllPathsReturnValue = 206, // [RD2:NonReturningFunctionInspection], but for any path that does not assign the return value, not only when none does
     IsMissingAlwaysFalse = 207, // [RD2:IsMissingOnInappropriateArgumentInspection] IsMissing of a parameter that is no Variant, or an Optional Variant with a default
     ShadowedDeclaration = 208, // [RD2:ShadowedDeclarationInspection] a local or a parameter named like a member of the module, of another module or of a library
+    ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
+    SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
 
     ObsoleteCallingConvention = 301,
     ObsoleteCallStatement = 302,
@@ -64,6 +66,8 @@ public enum RDCoreDiagnosticId
     ImplementationsShouldBePrivate = 405,
     PublicDeclarationInWorksheetModule, // [RD2:PublicEnumerationDeclaredInWorksheetInspection]
     UnmatchedEventHandler = 407, // a handler of a form's control that does not match the event: MS-VBA compiles it, and nothing calls it
+    EncapsulatePublicField = 409, // [RD2:EncapsulatePublicFieldInspection] a Public variable of a class module, which any code can assign
+    SuspiciousPredeclaredInstanceAccess = 410, // [RD2:SuspiciousPredeclaredInstanceAccessInspection] a class's own code naming its default instance, where Me is the object running
 
     // symbol traversals [0000]
     UseMeaningfulIdentifierNames = 1001,
@@ -75,6 +79,13 @@ public enum RDCoreDiagnosticId
     HostedDocumentCode = 1005, // a document module (.rdproj Super): the code of a host's document, which RD-VBA does not host; and a name of one in another module
     UnsupportedDocumentModule = 1006, // a document module of a host RD-VBA does not know, or a .doccls the project says nothing of
     HostLibraryNotReferenced = 1007, // a document module of a known host whose library the project does not reference
+    VariableNotUsed = 1011, // a variable whose value nothing reads
+    VariableNotAssigned = 1012, // a variable read and never assigned: it always has the default value of its type
+    ParameterNotUsed = 1013, // a parameter nothing in its procedure refers to
+    AssignedByValParameter = 1014, // a ByVal parameter its procedure assigns: the argument of the caller does not change
+    ConstantNotUsed = 1015, // a constant of a procedure nothing refers to
+    LineLabelNotUsed = 1016, // a line label nothing jumps to
+    WriteOnlyProperty = 1017, // a public Property Let or Set with no Property Get
 
     // execution pass diagnostics [00000]
     UnintendedConstantExpression = 11001,
@@ -110,6 +121,7 @@ public enum RDCoreDiagnosticId
     ForEachControlEmptiedAfterLoop = 11032, // For Each c In r ... Next: Debug.Print c.Address - MS-VBAL keeps the last element in c; MS-VBA empties it (Nothing)
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
+    IIfSideEffect = 11039, // [RD2:IIfSideEffectInspection] IIf(c, Compute(1), 2): a Function or Property Get in the TruePart or FalsePart runs whatever the condition
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits

@@ -401,6 +401,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ShadowedDeclaration_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it..
+        /// </summary>
+        public static string ProcedureCanBeWrittenAsFunction_Message {
+            get {
+                return ResourceManager.GetString("ProcedureCanBeWrittenAsFunction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is declared As New: its object is created when it is first used, and again when it is used after it is set to Nothing..
+        /// </summary>
+        public static string SelfAssignedDeclaration_Message {
+            get {
+                return ResourceManager.GetString("SelfAssignedDeclaration_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value..
+        /// </summary>
+        public static string EncapsulatePublicField_Message {
+            get {
+                return ResourceManager.GetString("EncapsulatePublicField_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance..
+        /// </summary>
+        public static string SuspiciousPredeclaredInstanceAccess_Message {
+            get {
+                return ResourceManager.GetString("SuspiciousPredeclaredInstanceAccess_Message", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..
@@ -816,6 +852,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one..
+        /// </summary>
+        public static string IIfSideEffect_Message {
+            get {
+                return ResourceManager.GetString("IIfSideEffect_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
         /// </summary>
         public static string NewOfAClassNotCreatable_New_Message {
@@ -852,11 +897,83 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is never used..
+        /// </summary>
+        public static string VariableNotUsed_Message {
+            get {
+                return ResourceManager.GetString("VariableNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to A line number below 0: MS-VBAL has no such line number, and MS-VBA compiles it..
         /// </summary>
         public static string NegativeLineNumber_Message {
             get {
                 return ResourceManager.GetString("NegativeLineNumber_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is assigned and never read: what is assigned to it is never used..
+        /// </summary>
+        public static string VariableNotUsed_Assigned_Message {
+            get {
+                return ResourceManager.GetString("VariableNotUsed_Assigned_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Variable &apos;{0}&apos; is read and never assigned: it always has the default value of its type..
+        /// </summary>
+        public static string VariableNotAssigned_Message {
+            get {
+                return ResourceManager.GetString("VariableNotAssigned_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is never used..
+        /// </summary>
+        public static string ParameterNotUsed_Message {
+            get {
+                return ResourceManager.GetString("ParameterNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter &apos;{0}&apos; is passed by value and assigned: the caller's argument does not change..
+        /// </summary>
+        public static string AssignedByValParameter_Message {
+            get {
+                return ResourceManager.GetString("AssignedByValParameter_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Constant &apos;{0}&apos; is never used..
+        /// </summary>
+        public static string ConstantNotUsed_Message {
+            get {
+                return ResourceManager.GetString("ConstantNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Nothing jumps to line label &apos;{0}&apos;..
+        /// </summary>
+        public static string LineLabelNotUsed_Message {
+            get {
+                return ResourceManager.GetString("LineLabelNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Property &apos;{0}&apos; has no Property Get: it can be assigned and never read..
+        /// </summary>
+        public static string WriteOnlyProperty_Message {
+            get {
+                return ResourceManager.GetString("WriteOnlyProperty_Message", resourceCulture);
             }
         }
 

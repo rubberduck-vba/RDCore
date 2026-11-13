@@ -424,6 +424,10 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00214: Procedure can be written as a function"
+  href: rdc00214.md
+- name: "RDC00215: Self-assigned declaration"
+  href: rdc00215.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"
@@ -448,6 +452,10 @@
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"
   href: rdc00407.md
+- name: "RDC00409: Public field"
+  href: rdc00409.md
+- name: "RDC00410: Default instance in its own class"
+  href: rdc00410.md
 - name: "RDC01001: Use meaningful identifier names"
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
@@ -458,6 +466,20 @@
   href: rdc01006.md
 - name: "RDC01007: Host library not referenced"
   href: rdc01007.md
+- name: "RDC01011: Variable not used"
+  href: rdc01011.md
+- name: "RDC01012: Variable not assigned"
+  href: rdc01012.md
+- name: "RDC01013: Parameter not used"
+  href: rdc01013.md
+- name: "RDC01014: Assigned ByVal parameter"
+  href: rdc01014.md
+- name: "RDC01015: Constant not used"
+  href: rdc01015.md
+- name: "RDC01016: Line label not used"
+  href: rdc01016.md
+- name: "RDC01017: Write-only property"
+  href: rdc01017.md
 - name: "RDC11005: Bitwise operator"
   href: rdc11005.md
 - name: "RDC11006: Ambiguous concatenation"
@@ -508,5 +530,7 @@
   href: rdc11036.md
 - name: "RDC11037: Non-breaking space in a name"
   href: rdc11037.md
+- name: "RDC11039: Function called whatever the IIf condition"
+  href: rdc11039.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md

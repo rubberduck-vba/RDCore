@@ -1,4 +1,11 @@
 # 2.6.4 Rubberduck Core Diagnostics
+|[`RDC01011`](../diagnostics/rdc01011.md)|Variable not used|Information|the host's reference counts of a local or `Private` variable: no read, no argument; not a `WithEvents` variable, not a loop's control variable|
+|[`RDC01012`](../diagnostics/rdc01012.md)|Variable not assigned|Warning|the host's reference counts of a local or `Private` variable: read, never written or passed; not an array, a `ReDim`'d name, a `WithEvents` variable, an object or a user-defined type|
+|[`RDC01013`](../diagnostics/rdc01013.md)|Parameter not used|Information|the host's reference counts of a parameter: none; not of a `Declare`, an `Event`, an implementation, a handler, or a `Public` member of a class module|
+|[`RDC01014`](../diagnostics/rdc01014.md)|Assigned ByVal parameter|Information|the host's reference counts of a `ByVal` parameter (or the value parameter of a `Property Let`/`Set`): written|
+|[`RDC01015`](../diagnostics/rdc01015.md)|Constant not used|Information|the host's reference counts of a constant of a procedure: no read, no argument; a constant of the module is not counted|
+|[`RDC01016`](../diagnostics/rdc01016.md)|Line label not used|Information|the syntax tree: a `LineLabelNode` that no `GoTo`, `GoSub`, `Resume` or `On Error GoTo` of its procedure names; line numbers are not reported|
+|[`RDC01017`](../diagnostics/rdc01017.md)|Write-only property|Information|the syntax tree: a `Public`, `Global` or implicitly public `Property Let`/`Set` with no `Property Get` of its name; once per name|
 
 **Rubberduck Core diagnostics** are the analyzer findings issued by the `RDCore.Diagnostics` analyzers. They cover implicit declarations, obsolete syntax, misleading constructs, every inspection that the legacy Rubberduck add-in shipped, and further inspections beyond those.
 
@@ -49,6 +56,8 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00206`](../diagnostics/rdc00206.md)|Not all code paths return a value|Warning|`ProcedureSemanticModel.ReturnValue`, from the `ControlFlowGraph` of the procedure|
 |[`RDC00207`](../diagnostics/rdc00207.md)|IsMissing that is always False|Warning|`ValueExpressionSemanticFlags.IsMissingAlwaysFalse`|
 |[`RDC00208`](../diagnostics/rdc00208.md)|Shadowed declaration|Information|`DeclarationFact.Hides`, from the resolver: what the name of a local or a parameter means as seen from the module|
+|[`RDC00214`](../diagnostics/rdc00214.md)|Procedure can be written as a function|Information|the syntax tree: a `Sub` with one `ByRef` parameter that is no `ParamArray`; the host's reference counts of that parameter: written; not a `Declare`, an implementation, a handler, or a `Public` member of a class module|
+|[`RDC00215`](../diagnostics/rdc00215.md)|Self-assigned declaration|Hint|the syntax tree: `AsTypeExpressionNode.AsAutoObject` of a variable declaration|
 |[`RDC00302`](../diagnostics/rdc00302.md)|Obsolete Call statement|Hint|`ValueExpressionSemanticFlags.ExplicitCallKeyword`|
 |[`RDC00303`](../diagnostics/rdc00303.md)|Obsolete comment syntax|Information|`ModuleSemanticModel.Language` (`SupportedLanguage.UsesClassicBasicSyntax`), and the comments of the syntax tree|
 |[`RDC00304`](../diagnostics/rdc00304.md)|Obsolete error syntax|Information|`ModuleSemanticModel.Language`, and the syntax tree: an `Error` statement|
@@ -61,6 +70,8 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00311`](../diagnostics/rdc00311.md)|Early binding opportunity|Information|`ExpressionFact.Creates` (`ObjectClassSource.ReferencedLibrary`)|
 |[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`|
 |[`RDC00407`](../diagnostics/rdc00407.md)|Unmatched event handler|Hint|`DeclarationFact.Role` (`DeclarationRole.UnmatchedEventHandler`) and `DeclarationFact.References`|
+|[`RDC00409`](../diagnostics/rdc00409.md)|Public field|Information|`ModuleSemanticsDto.Class` (a class module), and the syntax tree: a module-level variable declared `Public`|
+|[`RDC00410`](../diagnostics/rdc00410.md)|Default instance in its own class|Warning|`ModuleSemanticsDto.Class` (`ClassModuleSemanticFlags.DefaultInstance`), and `ExpressionFactDto.Binding`: a name bound to the default instance variable the global scope declares for the class|
 |[`RDC01001`](../diagnostics/rdc01001.md)|Use meaningful identifier names|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.MeaningfulNames`|
 |[`RDC01002`](../diagnostics/rdc01002.md)|Hungarian notation|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.HungarianNotation`|
 |[`RDC01005`](../diagnostics/rdc01005.md)|Hosted document code|Error|the host's `DocumentModuleFact` of a document module whose code presumes its host, with the bindings of its expressions and its procedures named as the host's event handlers; and `ValueExpressionSemanticFlags.HostedDocumentName` of a name in another module, which it reports in place of _Variable not defined_|
@@ -91,6 +102,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11032`](../diagnostics/rdc11032.md)|For Each variable read after the loop ran out|Warning|`ProcedureSemanticModel.EmptiedControlReads`: the `EmptiedControlReadFact`s `ForEachControlAnalysis` finds on the `ControlFlowGraph`|
 |[`RDC11036`](../diagnostics/rdc11036.md)|Negative line number|Warning|the syntax tree: a `LineNumberNode` below 0, or a jump whose label is a negated literal (`On Error GoTo -1` aside)|
 |[`RDC11037`](../diagnostics/rdc11037.md)|Non-breaking space in a name|Warning|the syntax tree: the name of a declaration or a line label with a U+00A0|
+|[`RDC11039`](../diagnostics/rdc11039.md)|Function called whatever the IIf condition|Warning|the syntax tree (the `TruePart` and `FalsePart` arguments of a call bound to `Interaction.IIf`) and `ExpressionFactDto`: a `ProcedureCall` of a `Function` or `Property Get`, bound to anything but a VBA library function that changes nothing and raises no error|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same

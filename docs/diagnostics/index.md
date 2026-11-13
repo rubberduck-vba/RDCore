@@ -1,4 +1,11 @@
 # RDCore Diagnostics
+|[RDC01011](rdc01011.md)|Variable not used|A variable nothing reads|
+|[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
+|[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
+|[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
+|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
+|[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
+|[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
 
 Every problem the RDCore platform reports carries a stable **code** and, through the LSP
 `codeDescription` field, a link to its page here. See
@@ -257,6 +264,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00206](rdc00206.md)|Not all code paths return a value|A function or property getter with a code path that does not assign its return value|
 |[RDC00207](rdc00207.md)|IsMissing that is always False|IsMissing of a parameter that is not a Variant, or an Optional Variant with a default value|
 |[RDC00208](rdc00208.md)|Shadowed declaration|A local or a parameter named like a member of the module, of another module, or of a library|
+|[RDC00214](rdc00214.md)|Procedure can be written as a function|A `Sub` that gives its result back through its only `ByRef` parameter|
+|[RDC00215](rdc00215.md)|Self-assigned declaration|A variable declared `As New`|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
 |[RDC00303](rdc00303.md)|Obsolete comment syntax|A comment written with the Rem keyword|
 |[RDC00304](rdc00304.md)|Obsolete error syntax|An Error statement|
@@ -269,6 +278,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00311](rdc00311.md)|Early binding opportunity|`CreateObject` of a class that a referenced library declares|
 |[RDC00405](rdc00405.md)|Implementations should be private|A Public implementation of an interface member or handler of an event|
 |[RDC00407](rdc00407.md)|Unmatched event handler|A handler of a form control's event that does not match the event, and that nothing calls|
+|[RDC00409](rdc00409.md)|Public field|A `Public` variable of a class module|
+|[RDC00410](rdc00410.md)|Default instance in its own class|The code of a predeclared class naming its own default instance|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation|A name that begins with a prefix that states its type|
 |[RDC01005](rdc01005.md)|Hosted document code|The code of an Excel, Word or Access document, which RD-VBA does not host: move it into a class that automates the application|
@@ -299,6 +310,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11032](rdc11032.md)|For Each variable read after the loop ran out|MS-VBA leaves it Empty or Nothing, where MS-VBAL says it keeps the last element|
 |[RDC11036](rdc11036.md)|Negative line number|A line number below 0, or a jump to one: MS-VBA compiles it, MS-VBAL has no such line number|
 |[RDC11037](rdc11037.md)|Non-breaking space in a name|A declared name with a U+00A0 in it: MS-VBA compiles it, no MS-VBAL identifier has one|
+|[RDC11039](rdc11039.md)|Function called whatever the IIf condition|A `Function` or `Property Get` in the `TruePart` or `FalsePart` of `IIf`, which runs whatever the condition|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 
 ---
