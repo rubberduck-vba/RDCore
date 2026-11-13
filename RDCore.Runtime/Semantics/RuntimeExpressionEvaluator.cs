@@ -2639,10 +2639,9 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 return false;
             }
 
-            // the name of a Function or a Property Get, in its own code, is its result variable (MS-VBAL §5.3.1), which has an address of its own (oracle\s24 F01).
-            if (anyByAddress && anySymbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && anySymbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri
-                && session.CallStack.Current is Execution.Frames.CallStackFrame activation
-                && activation.TryGetResultAddress(Math.Max(1, VBUserDefinedTypeLayout.WidthOf(anyTyped.ResolvedType, PointerWidthOf(session))), out var result))
+            // the result variable of the function whose code this is has an address of its own (MS-VBA, observed in Excel), which VarPtr and a Declare
+            // are given.
+            if ((anyByAddress || external) && TryResultVariableAddress(session, context, anySymbol, anyTyped.ResolvedType, out var result))
             {
                 HoldsPointer(session, result, anyTyped.ResolvedType);
                 reference = new VBRuntimeReference(result, anyTyped.ResolvedType);
@@ -2701,6 +2700,14 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return false;
         }
 
+        // a Declare is given the result variable of the function whose code this is at its address, as it is given any variable: what the library writes
+        // there is what the function returns.
+        if (external && TryResultVariableAddress(session, context, argumentSymbol, typed.ResolvedType, out var resultAddress))
+        {
+            reference = new VBRuntimeReference(resultAddress, ReferencedType(parameter, typed.ResolvedType));
+            return true;
+        }
+
         if (!session.Symbols.Resolver.TryGetAddress(argumentSymbol, out var address)
             || !session.Symbols.Resolver.GetValue(argumentSymbol).BindingCapabilities.HasFlag(BindingCapabilities.SetValue))
         {
@@ -2715,6 +2722,16 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         reference = new VBRuntimeReference(address, takesAny ? declared : ReferencedType(parameter, declared));
         return true;
+    }
+
+    // the name of a Function or a Property Get, in its own code, is its result variable (MS-VBAL §5.3.1): its address, given the first time it is asked for
+    // and the variable's for the rest of the activation (CallStackFrame.TryGetResultAddress).
+    private static bool TryResultVariableAddress(IRuntimeSession session, RuntimeEvaluationContext context, Symbol symbol, VBType type, out MemoryAddress address)
+    {
+        address = default;
+        return symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && symbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri
+            && session.CallStack.Current is Execution.Frames.CallStackFrame activation
+            && activation.TryGetResultAddress(Math.Max(1, VBUserDefinedTypeLayout.WidthOf(type, PointerWidthOf(session))), out address);
     }
 
     // what MS-VBA passes for a value given ByVal to `As Any`: the first bytes it is stored in, read as a whole number (recorded in Excel, oracle\s21 R28,
