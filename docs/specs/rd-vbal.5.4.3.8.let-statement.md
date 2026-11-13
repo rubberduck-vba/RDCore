@@ -131,21 +131,21 @@ member written with arguments invoked, to assign the default member of what it r
 
 **RD-VBA differs from MS-VBAL:** an object given to a `Property Let` (or a property of a library object) whose value parameter is a `Variant`
 is passed as the object, early bound and late bound, as in MS-VBA (recorded in Excel). **MS-VBAL §5.4.3.8** evaluates it as a simple data value, its
-default member's value. What the property does with the object is its own:
+default member's value. What happens to the object is up to the property:
 
 |Property|`Nothing`|An object with a default member|
 |---|---|---|
 |A `Property Let Item(ByVal v As Variant)` of a class|The parameter holds `Nothing`.|The parameter holds the object.|
-|`Scripting.Dictionary.Item`|Error 91.|The default member's value.|
-|`Excel.Range.Value`|Error 1004.|The default member's value (another range's value).|
+|`Scripting.Dictionary.Item`|Run-time error 91.|The default member's value.|
+|`Excel.Range.Value`|Run-time error 1004.|The default member's value (another range's value).|
 
-A value parameter of any other type is given the default member's value. An object with no default member is error 438 early bound and error 13
-late bound, as the `IDispatch` the call goes through makes it. A Let to a `Variant` variable or a public `Variant` variable of an object assigns the
+A value parameter of any other type is given the default member's value. An object with no default member raises run-time error 438 early bound and
+run-time error 13 late bound, as the `IDispatch` the call goes through makes it. A Let to a `Variant` variable or a public `Variant` variable of an object assigns the
 default member's value, as the specification says.
 
 > [!NOTE]
-> **Not implemented.** A `Collection` given to a `Dictionary`'s `Item` is error -2147467259 (`E_FAIL`), where MS-VBA raises 450: a `Collection`
-> read through `IDispatch` with no argument answers with the error of a missing argument (449), and MS-VBA's with `DISP_E_BADPARAMCOUNT`.
+> **Not implemented.** A `Collection` given to a `Dictionary`'s `Item` raises run-time error -2147467259 (`E_FAIL`), where MS-VBA raises 450: RD-VBA's
+> `Collection`, read through `IDispatch` with no argument, answers with the error of a missing argument (449), and MS-VBA's answers with `DISP_E_BADPARAMCOUNT`.
 
 ### Elements of an array
 
