@@ -368,7 +368,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     public void Advise(object source, IAutomationEventSink sink)
     {
         var remote = Live(source);
-        _sinks[(remote.Incarnation.Number, remote.Handle)] = sink;
+        if (!_sinks.TryAdd((remote.Incarnation.Number, remote.Handle), sink))
+        {
+            return;
+        }
+
         _ = Send<AutomationAdviseParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.AutomationAdvise, new AutomationAdviseParams { Source = remote.Handle, HandlingEvent = _handlingEvent });
     }
 
