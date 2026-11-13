@@ -138,7 +138,7 @@ public sealed partial class CompiledActivation
     public bool TryLetMemberFieldOfWith(int number, int opener, long integral, double floating)
         => TryLetFieldOf(number, InstanceOfBlock(opener), integral, floating);
 
-    // the value written in the cell of a scalar public variable of instance, of the kind it was let-coerced to; nothing written when the cell is of another kind.
+    // the value written in the cell of a scalar public variable of an instance, of the kind it was let-coerced to; nothing written when the cell is of another kind.
     private bool TryLetFieldOf(int number, IObjectInstance? instance, long integral, double floating)
     {
         var let = _body.MemberFields[number];

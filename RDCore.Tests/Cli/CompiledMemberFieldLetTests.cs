@@ -192,8 +192,8 @@ public sealed class CompiledMemberFieldLetTests
             "    Bumped = I * 100 + P.X",
             "End Function"), "Bumped", supportCalls: 0, expected: "303");
 
-    // the value is evaluated before the object (MS-VBAL §5.4.3.8): a function that Sets the variable to another object, called for the value, has the value
-    // written to that other object.
+    // the value is evaluated before the object, as the interpreter evaluates it: a function that Sets the variable to another object, called for the
+    // value, has the value written to that other object.
     [TestMethod]
     public async Task TheValueIsEvaluatedBeforeTheObject_WhichAFunctionCalledForIt_MayChange()
         => await AssertAlikeAsync(Program(
