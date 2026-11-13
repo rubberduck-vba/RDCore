@@ -93,6 +93,30 @@ public sealed class CompiledEditAndContinueTests
         }, debug: true, engine: VBExecutionEngine.Compiled);
     }
 
+    // Work's loop appends to t, and prepends to u, its first 50 passes: t is u when the loop ends, however many passes ran before the breakpoint. A String
+    // the stopped activation appended to is the String joined, in the interpreter that goes on in the edited code.
+    private static readonly string CallingAppending = Calling.Replace(
+        "    Dim i As Long, n As Long\r\n", "    Dim i As Long, n As Long, c As Long, t As String, u As String\r\n", StringComparison.Ordinal).Replace(
+        "        n = 1\r\n", Lines(
+            "        n = 1",
+            "        If c < 50 Then",
+            "            c = c + 1",
+            "            t = t & \"ab\"",
+            "            u = \"ab\" & u",
+            "        End If"), StringComparison.Ordinal).Replace(
+        "    Work = n\r\n", "    If t <> u Then n = 7\r\n    Work = n\r\n", StringComparison.Ordinal);
+
+    [TestMethod]
+    public async Task AStringAppendedToInACompiledLoop_StoppedAtABreakpoint_EditedAndContinued_IsTheStringJoined()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectAsync([], CallingAppending, async (provider, first, runAgain) =>
+        {
+            // 70 and 71 when t lost what was appended to it.
+            await BreakEditContinueAsync(provider, first, new() { ["Program"] = CallingAppending }, "Program", 5 + LoopLine, ["10", "11"], atBreak: null);
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
     // Main waits at its Stop, then calls Outer twice, which calls Work - a procedure of another module - from compiled code, directly: the module edited is
     // Work's, and Outer's is not.
     private static readonly string CallingOuter = Lines(
