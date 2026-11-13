@@ -1874,8 +1874,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
     /// <param name="call">The statement.</param>
     /// <returns>What the call returned, or the error it raised.</returns>
     /// <remarks>
-    /// A call statement calls a subroutine or a function, and a property is neither: a Property Get of a class of the workspace that one names on an object
-    /// bound late is run-time error 450, and the Property Get is not called (recorded in Excel). One bound early is a compile error.
+    /// A call statement calls a subroutine or a function, and a property is neither: a <c>Property Get</c> of a class of the workspace that the statement
+    /// names on an object bound late is run-time error 450, and the <c>Property Get</c> is not called (recorded in Excel). One bound early is a compile error.
     /// </remarks>
     internal RuntimeSemanticsEvaluationResult EvaluateCallStatement(IRuntimeSession session, RuntimeEvaluationContext context, CallStatementNode call)
     {
