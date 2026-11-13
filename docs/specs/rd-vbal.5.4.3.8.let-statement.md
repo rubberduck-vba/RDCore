@@ -127,6 +127,22 @@ reached late-bound that has no `Property Let` is assigned as MS-VBA's `IDispatch
 member written with arguments invoked, to assign the default member of what it returns
 ([**RD-VBAL §6.0** Late-Bound Calls](rd-vbal.6.0.standard-library.md#late-bound-calls)).
 
+#### An object as the value of a property
+
+**RD-VBA differs from MS-VBAL:** an object given to a `Property Let` (or a property of a library object) whose value parameter is a `Variant`
+is passed as the object, early bound and late bound, as in MS-VBA (recorded in Excel). **MS-VBAL §5.4.3.8** evaluates it as a simple data value, its
+default member's value. What the property does with the object is its own:
+
+|Property|`Nothing`|An object with a default member|
+|---|---|---|
+|A `Property Let Item(ByVal v As Variant)` of a class|The parameter holds `Nothing`.|The parameter holds the object.|
+|`Scripting.Dictionary.Item`|Error 91.|The default member's value (a `Collection`'s takes an argument: error 450).|
+|`Excel.Range.Value`|Error 1004.|The default member's value (another range's value).|
+
+A value parameter of any other type is given the default member's value. An object with no default member is error 438 early bound and error 13
+late bound, as the `IDispatch` the call goes through makes it. A Let to a `Variant` variable or a public `Variant` variable of an object assigns the
+default member's value, as the specification says.
+
 ### Elements of an array
 
 `a(i, j) = value`, and `obj.Items(i) = value` when the array is what a public variable of an object holds
