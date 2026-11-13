@@ -897,6 +897,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Constant &apos;{0}&apos; is never used..
+        /// </summary>
+        public static string ConstantNotUsed_Message {
+            get {
+                return ResourceManager.GetString("ConstantNotUsed_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Nothing jumps to line label &apos;{0}&apos;..
         /// </summary>
         public static string LineLabelNotUsed_Message {

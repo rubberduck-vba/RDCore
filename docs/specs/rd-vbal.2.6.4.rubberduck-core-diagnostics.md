@@ -3,6 +3,7 @@
 |[`RDC01012`](../diagnostics/rdc01012.md)|Variable not assigned|Warning|the host's reference counts of a local or `Private` variable: read, never written or passed; not an array, a `ReDim`'d name, a `WithEvents` variable, an object or a user-defined type|
 |[`RDC01013`](../diagnostics/rdc01013.md)|Parameter not used|Information|the host's reference counts of a parameter: none; not of a `Declare`, an `Event`, an implementation, a handler, or a `Public` member of a class module|
 |[`RDC01014`](../diagnostics/rdc01014.md)|Assigned ByVal parameter|Information|the host's reference counts of a `ByVal` parameter (or the value parameter of a `Property Let`/`Set`): written|
+|[`RDC01015`](../diagnostics/rdc01015.md)|Constant not used|Information|the host's reference counts of a constant of a procedure: no read, no argument; a constant of the module is not counted|
 |[`RDC01016`](../diagnostics/rdc01016.md)|Line label not used|Information|the syntax tree: a `LineLabelNode` that no `GoTo`, `GoSub`, `Resume` or `On Error GoTo` of its procedure names; line numbers are not reported|
 |[`RDC01017`](../diagnostics/rdc01017.md)|Write-only property|Information|the syntax tree: a `Public`, `Global` or implicitly public `Property Let`/`Set` with no `Property Get` of its name; once per name|
 

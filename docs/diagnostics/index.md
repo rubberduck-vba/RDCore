@@ -3,6 +3,7 @@
 |[RDC01012](rdc01012.md)|Variable not assigned|A variable read and never assigned|
 |[RDC01013](rdc01013.md)|Parameter not used|A parameter nothing in its procedure refers to|
 |[RDC01014](rdc01014.md)|Assigned ByVal parameter|A `ByVal` parameter its procedure assigns|
+|[RDC01015](rdc01015.md)|Constant not used|A constant of a procedure nothing refers to|
 |[RDC01016](rdc01016.md)|Line label not used|A line label no jump names|
 |[RDC01017](rdc01017.md)|Write-only property|A public property with no `Property Get`|
 

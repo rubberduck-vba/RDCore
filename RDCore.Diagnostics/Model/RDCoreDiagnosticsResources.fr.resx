@@ -396,6 +396,9 @@
   <data name="AssignedByValParameter_Message" xml:space="preserve">
     <value>Le paramètre &apos;{0}&apos; est passé par valeur et affecté : l&apos;argument de l&apos;appelant ne change pas.</value>
   </data>
+  <data name="ConstantNotUsed_Message" xml:space="preserve">
+    <value>La constante &apos;{0}&apos; n&apos;est jamais utilisée.</value>
+  </data>
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Aucun saut ne mène à l&apos;étiquette de ligne &apos;{0}&apos;.</value>
   </data>

@@ -11,7 +11,8 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// What a module declares and does not use, as the host counts the references: a variable never read (<c>RDC01011</c>) or never assigned (<c>RDC01012</c>), a
-/// parameter never used (<c>RDC01013</c>) or passed by value and assigned (<c>RDC01014</c>); and, from the syntax tree, a line label nothing jumps to
+/// parameter never used (<c>RDC01013</c>) or passed by value and assigned (<c>RDC01014</c>), a constant never used (<c>RDC01015</c>); and, from the syntax
+/// tree, a line label nothing jumps to
 /// (<c>RDC01016</c>) and a property that cannot be read (<c>RDC01017</c>).
 /// </summary>
 [TestClass]
@@ -183,7 +184,36 @@ public sealed class UnusedDeclarationAnalyzerTests
     #region RDC01015 a constant never used
 
     [TestMethod]
-    [Ignore("RDC01015 is reserved: the host does not count the references of a constant (DeclarationFact.References is null for every constant), since a constant can be read by the expressions of declarations, which the declaration pass does not evaluate.")]
+    public async Task AConstantNothingRefersTo_IsNotUsed()
+    {
+        var findings = await ProgramAsync(new ConstantNotUsedAnalyzer(),
+            "Option Explicit",
+            "Private Const Hidden As Long = 1",
+            "Public Sub Main()",
+            "    Const Unused As Long = 1",
+            "    Const Read As Long = 2",
+            "    Debug.Print Read",
+            "    Const Passed As Long = 3",
+            "    Take Passed",
+            "    Const Base As Long = 4",
+            "    Const Derived As Long = Base + 1",
+            "    Dim items(Derived) As Long",
+            "    Debug.Print items(0)",
+            "End Sub",
+            "Private Sub Take(ByVal value As Long)",
+            "    Debug.Print value",
+            "End Sub");
+
+        CollectionAssert.AreEqual(new[] { 4 }, Lines(findings), "not one read, passed, or read by another constant or a bound; not a constant of the module, which is not counted");
+        AssertAre(findings, RDCoreDiagnosticId.ConstantNotUsed, DiagnosticSeverity.Information);
+        StringAssert.Contains(findings[0].Message, "'Unused'");
+    }
+
+    [TestMethod]
+    public void WithNoSemantics_NoConstantIsCounted()
+        => Assert.IsEmpty(WithoutSemantics(new ConstantNotUsedAnalyzer(), "Public Sub Main()", "    Const Unused As Long = 1", "End Sub"));
+
+    [TestMethod]
     public async Task AProcedureConstant_HasItsReferencesCounted()
     {
         var program = ModuleWorkspace.StandardModule("Program",

@@ -145,6 +145,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.VariableNotAssigned, 1012),
         (RDCoreDiagnosticId.ParameterNotUsed, 1013),
         (RDCoreDiagnosticId.AssignedByValParameter, 1014),
+        (RDCoreDiagnosticId.ConstantNotUsed, 1015),
         (RDCoreDiagnosticId.LineLabelNotUsed, 1016),
         (RDCoreDiagnosticId.WriteOnlyProperty, 1017),
         (RDCoreDiagnosticId.SetThroughACallFails, 11012),

@@ -466,6 +466,8 @@
   href: rdc01013.md
 - name: "RDC01014: Assigned ByVal parameter"
   href: rdc01014.md
+- name: "RDC01015: Constant not used"
+  href: rdc01015.md
 - name: "RDC01016: Line label not used"
   href: rdc01016.md
 - name: "RDC01017: Write-only property"
