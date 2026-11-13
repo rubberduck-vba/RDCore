@@ -202,6 +202,18 @@ public sealed class DeclarationUsageTests
     }
 
     [TestMethod]
+    public void AConstantThatGivesTheLengthOfAString_IsNeverStatedAsNeverRead()
+    {
+        var references = Fact(Facts("Public Sub Run()", "Const Size As Long = 3", "Dim s As String * Size", "s = \"a\"", "End Sub"), "Size").References;
+
+        Assert.IsTrue(references is null || references.Value.Reads == 1);
+    }
+
+    [TestMethod]
+    public void ALengthOfAStringWrittenAsANumber_LeavesTheCountsStated()
+        => Assert.AreEqual(new DeclarationReferences(0, 1, 0), References(Facts("Public Sub Run()", "Dim s As String * 3", "s = \"a\"", "End Sub"), "s"));
+
+    [TestMethod]
     public void AConstantOfAProcedureWithAnError_HasNoCount()
         => Assert.IsNull(Fact(Facts("Option Explicit", "Public Sub Run()", "Const Size As Long = 3", "Debug.Print Undeclared + Size", "End Sub"), "Size").References);
 
