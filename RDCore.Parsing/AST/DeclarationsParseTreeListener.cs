@@ -1183,7 +1183,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             context, Tokens.Scale,
             target, isWithRelative,
             tuples.ElementAtOrDefault(0), context.SCALE().Symbol.TokenIndex, [],
-            tuples.ElementAtOrDefault(1), context.MINUS().Symbol.TokenIndex, [],
+            tuples.ElementAtOrDefault(1), context.MINUS()?.Symbol.TokenIndex ?? 0, [],
             [], [], lineOption: null);
     }
 
@@ -1247,10 +1247,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         var to = CaptureGraphicsPoint(id.Add(1), second, beforeSecond, secondSteps);
 
         // a malformed statement - a coordinate pair that recovery left without a coordinate, or an object that did not come out as an expression - is still the
-        // source text it was.
+        // source text it was. A Line may leave its first point out, and a Scale both its corners.
         if ((target is not null && capturedTarget is null)
             || (first is not null && from is null) || (second is not null && to is null)
-            || (token != Tokens.Line && first is null))
+            || (token != Tokens.Line && first is null && !(token == Tokens.Scale && second is null)))
         {
             CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
             return;
