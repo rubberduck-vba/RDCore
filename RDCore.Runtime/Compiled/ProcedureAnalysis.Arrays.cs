@@ -236,9 +236,16 @@ internal sealed partial class ProcedureAnalysis
                 read = new ObjectCallOperand(returned);
                 return true;
 
+            // the default instance of a class compared with an element is the interpreter's, which makes it when it holds no object yet.
             default:
-                if (!TryObjectOperand(operand, out var slot))
+                if (!TryObjectOperand(operand, out var slot, out var defaultInstance))
                 {
+                    return false;
+                }
+
+                if (defaultInstance)
+                {
+                    Unsupported(operand);
                     return false;
                 }
 
