@@ -110,6 +110,7 @@ public enum RDCoreDiagnosticId
     ForEachControlEmptiedAfterLoop = 11032, // For Each c In r ... Next: Debug.Print c.Address - MS-VBAL keeps the last element in c; MS-VBA empties it (Nothing)
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
+    LSetOfARecordWithAString = 11044, // LSet a = b, a or b a record with a variable-length String: MS-VBAL allows it; MS-VBA: Compile error: Type mismatch
 
     /*
      * [20000-20999]: the debugger and edit-and-continue, issued by the language server while a program waits

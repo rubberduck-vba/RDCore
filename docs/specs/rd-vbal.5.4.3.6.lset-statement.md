@@ -34,6 +34,7 @@ Excel, for fields at the top level of a record). RD-VBA runs the statement, as t
 |`Failed`|The operation raises a run-time error: the target is neither.|
 
 A diagnostic is the job of an analyzer that reads the flags (`RDCore.Diagnostics`, or any other).
+[RDC11044](../diagnostics/rdc11044.md) warns of a variable-length `String` on either side.
 
 ## Runtime Semantics
 
