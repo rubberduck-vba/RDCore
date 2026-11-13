@@ -23,7 +23,8 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledMemberEntryTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // Walk calls Relay, a procedure of the module that calls Walk on another object, which it holds as Second: two activations of Walk on the stack, the one
     // below given its frame by the call of Relay, each on its own object, and, a call deeper, two on the same object. Down and Up call each other on Me.

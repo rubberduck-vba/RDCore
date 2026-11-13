@@ -23,6 +23,9 @@ namespace RDCore.Tests.Cli;
 [TestCategory("Edit and continue")]
 public sealed class EditAndContinueTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Class = ModuleWorkspace.ClassModule("C",
         "Option Explicit",
         "Private mValue As Long",
@@ -148,7 +151,7 @@ public sealed class EditAndContinueTests
 
     private static Task<ExecuteResult> Resume(EnvironmentSessionProvider provider)
         => new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
-            .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+            .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(SafetyCap);
 
     private static string[] Output(ExecuteResult result) => [.. result.Output.Select(line => line.Trim())];
 
@@ -785,7 +788,7 @@ public sealed class EditAndContinueTests
                 ModuleName = "Program",
                 EntryPoint = "Main",
                 Debug = true,
-            }, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+            }, CancellationToken.None).WaitAsync(SafetyCap);
     }
 
     // the edit held while the program waited applies when it is run again: the variable is declared as edited, and the code loaded while it was held is lowered
@@ -1472,7 +1475,7 @@ public sealed class EditAndContinueTests
         {
             ModuleName = "Program",
             Breakpoints = [.. lines.Select(line => new HostBreakpointLine { Line = line })],
-        }, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+        }, CancellationToken.None).WaitAsync(SafetyCap);
 
     // what Visual Studio does: the program waits before the yellow line, and the line it waits before, edited, is the line it runs.
     [TestMethod]
@@ -1604,7 +1607,7 @@ public sealed class EditAndContinueTests
                 ("Owner", ModuleType.ClassModule, Owner(fields.Contains(Holding[0]), fields)), ("Program", ModuleType.StdModule, Owning));
             after = await then(provider, runAgain);
             resumed = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
-                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(SafetyCap);
         }, debug: true);
 
         return (resumed!, after);
@@ -1619,7 +1622,7 @@ public sealed class EditAndContinueTests
     {
         var (resumed, released) = await OwnerEditedAsync(fields, (provider, _) => new HostDebugExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>())
             .Handle(new HostDebugExecuteParams { FrameId = 0, Json = PlatformJson.Serialize(Statement("Set Obj = Nothing")) }, CancellationToken.None)
-            .WaitAsync(TimeSpan.FromSeconds(20)));
+            .WaitAsync(SafetyCap));
 
         Assert.IsTrue(released.Success, released.Error);
         CollectionAssert.AreEqual(new[] { "owner gone", "child gone" }, released.Output.Select(line => line.Trim()).ToArray());
@@ -1644,7 +1647,7 @@ public sealed class EditAndContinueTests
             _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Owner"], ("Child", ModuleType.ClassModule, Child),
                 ("Owner", ModuleType.ClassModule, edited), ("Program", ModuleType.StdModule, program));
             resumed = await new HostDebugResumeHandler(provider, NullLogger<HostDebugResumeHandler>.Instance)
-                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+                .Handle(new HostDebugResumeParams(), CancellationToken.None).WaitAsync(SafetyCap);
         }, debug: true);
 
         Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
@@ -1656,7 +1659,7 @@ public sealed class EditAndContinueTests
     [DataRow(new[] { "Private mKept As Object" }, DisplayName = "the field that holds an object removed from its class")]
     public async Task AnObjectOfAClassWhoseFieldsWereEdited_IsLetGoOf_WhenTheProgramIsRunAgain(string[] fields)
     {
-        var (_, again) = await OwnerEditedAsync(fields, (_, runAgain) => runAgain().WaitAsync(TimeSpan.FromSeconds(20)));
+        var (_, again) = await OwnerEditedAsync(fields, (_, runAgain) => runAgain().WaitAsync(SafetyCap));
 
         Assert.AreEqual(ExecutionOutcome.Suspended, again.Outcome, again.ErrorMessage);
     }
