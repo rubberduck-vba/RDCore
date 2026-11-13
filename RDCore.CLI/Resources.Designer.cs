@@ -124,6 +124,15 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to The program&apos;s folder lacks {0}: this copy of RDCore has none to put there. A released RDCore has them all..
+        /// </summary>
+        public static string Build_NoticesLacking {
+            get {
+                return ResourceManager.GetString("Build_NoticesLacking", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Builds a workspace into a program: its assembly, its executable, and the runtime it runs on..
         /// </summary>
         public static string Build_Summary {

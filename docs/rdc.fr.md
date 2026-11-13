@@ -132,6 +132,17 @@ Un programme construit appelle le monde extérieur (une procédure déclarée pa
 second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
 installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
 
+Le dossier du programme contient les conditions de licence de ce sur quoi il s'exécute :
+
+|Fichier|Conditions de|
+|---|---|
+|`NOTICE.md`, `LICENSE-GPLv3.md`|RDCore.|
+|`LICENSE-MIT.md`|RDCore.SDK.|
+|`THIRD-PARTY-NOTICES.txt`|Les autres paquets du dossier, et l'exécutable du programme.|
+
+Transmettez-les avec le programme. `NOTICE.md` dit ce qu'elles vous demandent, et que votre propre code reste le vôtre. `rdc` les copie depuis la
+plateforme d'où il s'exécute, et avertit quand il n'en a aucune à copier.
+
 ### Installer la plateforme
 
 `rdc install` installe la plateforme d'où il est lancé, comme une archive de version que vous avez décompressée, pour votre compte d'utilisateur.
