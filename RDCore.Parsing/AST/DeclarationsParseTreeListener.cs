@@ -2054,13 +2054,20 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     private UnbuiltExpressionTriviaNode BuildUnbuiltExpressionTrivia(VBABaseParserRuleContext context, int maxInputs)
     {
         var inputs = CurrentBuilder.PopLastChildren(maxInputs);
-        if (LastTokenNoBlank(context) is { } last && context.Stop is { } stop && last.TokenIndex < stop.TokenIndex)
+        var (location, text) = UnbuiltSourceOf(context);
+        return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), location, text, inputs);
+    }
+
+    // where an unbuilt rule is, and its text there, as the module writes it: through its last token, past which the parse read only blanks, or made up a
+    // token for one missing (`Foo(-`, whose `)` the parse made up, is no text of the module, and ends at the `-`, the last token the parse read).
+    private (SourceLocation Location, string Text) UnbuiltSourceOf(VBABaseParserRuleContext context)
+    {
+        if (LastTokenNoBlank(context) is { } last && context.Start is { StartIndex: >= 0 } start && last.StopIndex >= start.StartIndex)
         {
-            var text = context.Start.InputStream.GetText(Interval.Of(context.Start.StartIndex, last.StopIndex));
-            return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri, last), text, inputs);
+            return (context.GetSourceLocation(_rootUri, last), start.InputStream.GetText(Interval.Of(start.StartIndex, last.StopIndex)));
         }
 
-        return new UnbuiltExpressionTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs);
+        return (context.GetSourceLocation(_rootUri), context.GetText());
     }
 
     // the last token the parse read in a rule that is no blank, and no token it made up for one missing.
@@ -2073,11 +2080,12 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // statement-position counterpart of BuildUnbuiltExpressionTrivia — same rationale (a required
     // sub-expression/identifier missing under recovery must not silently vanish, since that's still
     // reconstructable source text), for guards that sit at statement level instead of inside an
-    // expression tree (a bare `RaiseEvent`, an `On Error` shape recovery left incomplete).
+    // expression tree (a bare `RaiseEvent`, an `On Error` shape recovery left incomplete). It ends at its last token, as an unbuilt expression does.
     private UnbuiltStatementTriviaNode BuildUnbuiltStatementTrivia(VBABaseParserRuleContext context, int maxInputs = 0)
     {
         var inputs = CurrentBuilder.PopLastChildren(maxInputs);
-        return new UnbuiltStatementTriviaNode(GetCurrentNodeId(), context.GetSourceLocation(_rootUri), context.GetText(), inputs);
+        var (location, text) = UnbuiltSourceOf(context);
+        return new UnbuiltStatementTriviaNode(GetCurrentNodeId(), location, text, inputs);
     }
 
     public override void ExitUnaryMinusOp([NotNull] VBAParser.UnaryMinusOpContext context)
@@ -2088,10 +2096,11 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
 
         // VBA has no negative-literal token; `Const N = -1` is MINUS over the literal 1 — fold the
-        // sign into a bare literal operand instead of wrapping it in an operator node.
+        // sign into a bare literal operand instead of wrapping it in an operator node. The literal is
+        // then written where the sign and the digits are: `-5`, not `5`.
         if (CurrentBuilder.LastChild is LiteralExpressionNode literal && NumericLiteral.Negate(literal.StaticValue) is { } negated)
         {
-            CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated });
+            CurrentBuilder.UpdateLastChild(literal with { StaticValue = negated, SourceLocation = context.GetSourceLocation(_rootUri) });
             return;
         }
         AddIfBuilt(BuildUnary(Tokens.NegationOp, context, OperatorLocationOf(context)));

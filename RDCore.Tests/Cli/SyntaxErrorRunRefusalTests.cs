@@ -95,6 +95,54 @@ public sealed class SyntaxErrorRunRefusalTests
             string.Join("; ", result.Diagnostics!));
     }
 
+    // the parser reads every branch, so a block can be opened on one side of an excluded branch and closed on the other: the tree has the block, and the code
+    // MS-VBA compiles does not. A live block whose end is in the excluded branch is not closed, and an end in live code closes no block: MS-VBA refuses
+    // both, and so does RD-VBA. Each loop body ends its loop (Exit Do, While False), so a run that was not refused would still finish.
+    [TestMethod]
+    [DataRow(new[] { "If a Then", "#If False Then", "End If", "#End If" }, "Block If without End If", DisplayName = "a block If, its End If excluded")]
+    [DataRow(new[] { "Do", "Exit Do", "#If False Then", "Loop", "#End If" }, "Do without Loop", DisplayName = "a Do, its Loop excluded")]
+    [DataRow(new[] { "For i = 1 To 2", "#If False Then", "Next", "#End If" }, "For without Next", DisplayName = "a For, its Next excluded")]
+    [DataRow(new[] { "With a", "#If False Then", "End With", "#End If" }, "Expected End With", DisplayName = "a With, its End With excluded")]
+    [DataRow(new[] { "Select Case a", "Case Else", "#If False Then", "End Select", "#End If" }, "Select Case without End Select",
+        DisplayName = "a Select Case, its End Select excluded")]
+    [DataRow(new[] { "While False", "#If False Then", "Wend", "#End If" }, "Syntax error", DisplayName = "a While, its Wend excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "Loop" }, "Loop without Do", DisplayName = "a Loop, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "10 Loop" }, "Loop without Do", DisplayName = "a Loop after a line number, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "L1: Loop" }, "Loop without Do", DisplayName = "a Loop after a label, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "Loop Until True" }, "Loop without Do", DisplayName = "a Loop Until, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "If a Then", "#End If", "End If" }, "End If without block If", DisplayName = "an End If, its block If excluded")]
+    [DataRow(new[] { "#If False Then", "For i = 1 To 2", "#End If", "Next" }, "Next without For", DisplayName = "a Next, its For excluded")]
+    [DataRow(new[] { "#If False Then", "With a", "#End If", "End With" }, "End With without With", DisplayName = "an End With, its With excluded")]
+    [DataRow(new[] { "#If False Then", "Select Case a", "Case Else", "#End If", "End Select" }, "Syntax error", DisplayName = "an End Select, its Select Case excluded")]
+    [DataRow(new[] { "#If False Then", "While False", "#End If", "Wend" }, "Syntax error", DisplayName = "a Wend, its While excluded")]
+    [DataRow(new[] { "#If False Then", "If a Then", "#End If", "Debug.Print \"middle\"", "#If False Then", "End If", "#End If" }, "Syntax error",
+        DisplayName = "a block If and its End If, each excluded, around live code")]
+    public async Task ABlockAndItsEndOnEachSideOfAnExcludedBranch_RefusesTheRun(string[] lines, string description)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(["Dim a As Variant, i As Long", "Debug.Print \"before\"", .. lines, "Debug.Print \"after\""]));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.StartsWith(description, StringComparison.Ordinal)
+            && error.Contains(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_BlockEndsInAnotherBranch_Verbose, StringComparison.Ordinal)), string.Join("; ", result.Diagnostics!));
+    }
+
+    // the controls: a block wholly in an excluded branch is not compiled, and a block with an excluded branch in its body runs without it.
+    [TestMethod]
+    [DataRow(new[] { "#If False Then", "If a Then", "End If", "#End If" }, new[] { "before", "after" }, DisplayName = "a block If wholly excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "Loop", "#End If" }, new[] { "before", "after" }, DisplayName = "a Do wholly excluded")]
+    [DataRow(new[] { "If True Then", "#If False Then", "Debug.Print \"dead\"", "#End If", "Debug.Print \"live\"", "End If" }, new[] { "before", "live", "after" },
+        DisplayName = "a block If with an excluded branch in its body")]
+    [DataRow(new[] { "For i = 1 To 2", "#If False Then", "Exit For", "#End If", "Next" }, new[] { "before", "after" },
+        DisplayName = "a For with an excluded branch in its body")]
+    public async Task ABlockWhoseEndsAreOnTheSameSideOfAnExcludedBranch_Runs(string[] lines, string[] printed)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(["Dim a As Variant, i As Long", "Debug.Print \"before\"", .. lines, "Debug.Print \"after\""]));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, string.Join("; ", result.Diagnostics ?? []));
+        CollectionAssert.AreEqual(printed, result.Output.ToArray());
+    }
+
     // a syntax error in live code after such a block is the error it is, said with its own message; the block's is said once, at its end. A name or a number
     // can begin a label, which can be written before the end of a block (L1: End If): the error at one is no block's.
     [TestMethod]

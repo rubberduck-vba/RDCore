@@ -504,5 +504,9 @@
   href: rdc11031.md
 - name: "RDC11032: For Each variable read after the loop ran out"
   href: rdc11032.md
+- name: "RDC11036: Negative line number"
+  href: rdc11036.md
+- name: "RDC11037: Non-breaking space in a name"
+  href: rdc11037.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md
