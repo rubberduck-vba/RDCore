@@ -228,7 +228,7 @@ public sealed class ConvertGoSubTests
         Assert.AreEqual(new ExtractionVerificationFailure(ExtractionVerificationFailureKind.DataFlowDiffers, "total"), failure);
     }
 
-    // a module of its own Err raises error 5 with the library's.
+    // a module that declares its own Err raises run-time error 5 with the library's.
     [TestMethod]
     public async Task AnOnGoSub_WhereTheModuleDeclaresErr_RaisesErrorFiveWithTheLibrarysErr()
     {

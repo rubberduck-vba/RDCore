@@ -84,10 +84,10 @@
     <value>Convert every GoSub routine of the procedure</value>
   </data>
   <data name="ConvertGoSub_ConvertAllDescription" xml:space="preserve">
-    <value>The routines are converted innermost first, each checked on the code the one before left: all of them, or none. Each one but this is named after its label.</value>
+    <value>The routines are converted innermost first, each checked on the code the one before left: all of them, or none. Each one but this one is named after its label.</value>
   </data>
   <data name="ConvertGoSub_RunsAnother" xml:space="preserve">
-    <value>The GoSub at {1} runs another routine: it is converted first, with every routine of the procedure.</value>
+    <value>The GoSub at {1} runs another routine, which is converted first, with every routine of the procedure.</value>
   </data>
   <data name="ConvertGoSub_NotAll" xml:space="preserve">
     <value>The routines were not converted: {0} cannot be. {1}</value>

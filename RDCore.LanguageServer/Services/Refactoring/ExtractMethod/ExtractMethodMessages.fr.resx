@@ -87,7 +87,7 @@
     <value>Les routines sont converties de la plus intérieure à la plus extérieure, chacune vérifiée sur le code que la précédente a laissé : toutes, ou aucune. Chacune, sauf celle-ci, est nommée d'après son étiquette.</value>
   </data>
   <data name="ConvertGoSub_RunsAnother" xml:space="preserve">
-    <value>Le GoSub à {1} exécute une autre routine : elle est convertie d'abord, avec chaque routine de la procédure.</value>
+    <value>Le GoSub à {1} exécute une autre routine, qui est convertie d'abord, avec chaque routine de la procédure.</value>
   </data>
   <data name="ConvertGoSub_NotAll" xml:space="preserve">
     <value>Les routines n'ont pas été converties : {0} ne peut pas l'être. {1}</value>
