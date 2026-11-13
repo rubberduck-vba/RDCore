@@ -780,6 +780,16 @@ internal sealed class ExtractMethodService(IRenameService rename, IParsingClient
     /// <param name="refusal">Why the extraction is refused.</param>
     public static string RefusalCode(ExtractionRefusalKind refusal) => Code(refusal.ToString());
 
+    /// <summary>
+    /// Whether a refusal is of a range that holds nothing to refactor: no statement to extract, or no <c>GoSub</c> routine at the position, which is on no label
+    /// or on one that no <c>GoSub</c> names.
+    /// </summary>
+    /// <param name="refusal">A notice that refuses the refactoring.</param>
+    public static bool FindsNothing(RefactorNotice refusal)
+        => refusal.Code == Code(nameof(ExtractionSelectionRefusal.NoStatement))
+            || refusal.Code == Code(nameof(GoSubRoutineRefusal.NoLabel))
+            || refusal.Code == Code(nameof(GoSubRoutineRefusal.NoGoSub));
+
     // the accessibility answered, Private when none is; null for an answer that is no accessibility.
     private static ExtractionAccessibility? AccessibilityOf(IReadOnlyList<RefactorAnswer> answers)
         => answers.FirstOrDefault(answer => answer.Id == AccessibilityChoice)?.Value switch

@@ -63,6 +63,12 @@ public sealed class ConvertGoSubServiceTests
         "Inner:\r\n" +
         "    total = total * 2\r\n" +
         "    Return\r\n" +
+        "End Sub\r\n" +
+        // Fail, line 35, is a label that no GoSub names.
+        "Public Sub Handled()\r\n" +
+        "    Exit Sub\r\n" +
+        "Fail:\r\n" +
+        "    Debug.Print 1\r\n" +
         "End Sub\r\n";
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
@@ -280,13 +286,39 @@ public sealed class ConvertGoSubServiceTests
         Assert.IsNull(await ConversionActionAsync(new SourceRange(startLine, startCharacter, endLine, endCharacter), dialog: true));
     }
 
-    // the conversion a client is offered for a range, among the code actions of the document.
-    private async Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction?> ConversionActionAsync(SourceRange range, bool dialog)
+    [TestMethod]
+    public async Task ARefusedRoutine_IsOfferedDisabled_WithWhy_ToAClientThatShowsSo()
+    {
+        var refusal = (await Sut().PrepareAsync(RefactoringKinds.ConvertGoSub, Document, At(15, 0), CancellationToken.None)).Notices
+            .First(notice => notice.Kind is RefactorNoticeKind.Refusal);
+
+        var action = await ConversionActionAsync(At(15, 0), dialog: true, showsDisabled: true);
+
+        Assert.IsNotNull(action);
+        Assert.AreEqual(refusal.Message, action.Disabled?.Reason);
+        Assert.IsNull(action.Command);
+        Assert.IsNull(action.Edit);
+    }
+
+    [TestMethod]
+    [DataRow(3, 4, DisplayName = "a position on no label")]
+    [DataRow(35, 0, DisplayName = "a label that no GoSub names")]
+    public async Task APositionOnNoRoutine_IsNotOfferedDisabled(int line, int character)
+        => Assert.IsNull(await ConversionActionAsync(At(line, character), dialog: true, showsDisabled: true));
+
+    // the conversion a client is offered for a range, among the code actions of the document; showsDisabled, when it shows an action it cannot take.
+    private async Task<OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeAction?> ConversionActionAsync(SourceRange range, bool dialog, bool showsDisabled = false)
     {
         var capabilities = Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>();
         capabilities.Expects(Arg.Any<Func<RDCore.SDK.Client.LanguageServerCapabilities, RDCore.SDK.Client.CorePlatformClientCapability>>()).Returns(dialog);
         var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), capabilities,
             new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+        ((OmniSharp.Extensions.LanguageServer.Protocol.IRegistration<OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeActionRegistrationOptions,
+            OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability>)handler)
+            .GetRegistrationOptions(new(), new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+            {
+                TextDocument = new() { CodeAction = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability { DisabledSupport = showsDisabled } },
+            });
         var actions = await handler.Handle(new OmniSharp.Extensions.LanguageServer.Protocol.Models.CodeActionParams
         {
             TextDocument = new OmniSharp.Extensions.LanguageServer.Protocol.Models.TextDocumentIdentifier(DocumentUri.From(Document)),

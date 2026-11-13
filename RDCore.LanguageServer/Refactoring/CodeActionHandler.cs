@@ -80,6 +80,9 @@ internal sealed class CodeActionHandler(
     private bool ResolvesEdits => _client?.TextDocument?.CodeAction.Value is { DataSupport: true, ResolveSupport.Properties: { } properties }
         && properties.Contains("edit");
 
+    // a client that shows an action it cannot take, with why, is offered a refactoring that is refused.
+    private bool ShowsDisabled => _client?.TextDocument?.CodeAction.Value is { DisabledSupport: true };
+
     public override async Task<CommandOrCodeActionContainer?> Handle(CodeActionParams request, CancellationToken cancellationToken)
     {
         var documentUri = request.TextDocument.Uri.ToUri();
@@ -174,22 +177,25 @@ internal sealed class CodeActionHandler(
 
     // the action that extracts the statements of a selection, or converts a GoSub routine, offered when nothing refuses it, with the refusals when something
     // does. A client with a dialog of its own runs it as a command, which prepares the refactoring and applies it with its user's answers; any other is sent the
-    // edit, with the defaults, when the refactoring changes nothing the user would have to accept.
+    // edit, with the defaults, when the refactoring changes nothing the user would have to accept. A refused one is offered disabled, with why, to a client that
+    // shows it so, unless the range holds nothing it refactors.
     private async Task<(CodeAction? Action, IReadOnlyList<RefactorNotice> Refused)> RefactoringActionAsync(
         DocumentUri lspUri, string kind, SourceRange range, CancellationToken token)
     {
         var documentUri = lspUri.ToUri();
         var actionKind = new CodeActionKind(kind);
+        var title = ExtractMethodService.Title(kind);
 
         // the version of the document the range belongs to, read before the refactoring is prepared: once the document changes, resolving it is refused.
         int? version = documents.TryGetDocument(documentUri, out var document) ? document.Version : null;
         var prepared = await extractMethod.PrepareAsync(kind, documentUri, range, token);
         if (prepared.Notices.Where(notice => notice.Kind is RefactorNoticeKind.Refusal).ToArray() is { Length: > 0 } refused)
         {
-            return (null, refused);
+            return (ShowsDisabled && !ExtractMethodService.FindsNothing(refused[0])
+                ? new CodeAction { Title = title, Kind = actionKind, Disabled = new CodeActionDisabled { Reason = refused[0].Message } }
+                : null, refused);
         }
 
-        var title = ExtractMethodService.Title(kind);
         if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
         {
             var prepare = new RefactorPrepareParams { Kind = kind, Uri = documentUri, Range = range };
