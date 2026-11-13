@@ -300,6 +300,9 @@
   <data name="FunctionReturnValueDiscarded_Message" xml:space="preserve">
     <value>La fonction &apos;{0}&apos; est appelée comme une instruction : la valeur qu&apos;elle renvoie est perdue.</value>
   </data>
+  <data name="MoveFieldCloserToUsage_Message" xml:space="preserve">
+    <value>La variable &apos;{0}&apos; du module n&apos;est utilisée que dans &apos;{1}&apos; : elle peut y être déclarée.</value>
+  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>Le mot-clé Rem est obsolète : un commentaire commence par une apostrophe (').</value>
   </data>
