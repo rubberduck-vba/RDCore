@@ -1397,7 +1397,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
         else if (valueParameter.ResolvedType is VBVariantType && HeldObject(value) is { } given && SetCoercion is { } objectCoercion)
         {
             // RD-VBAL §5.4.3.8: MS-VBA gives a Variant value parameter the object a Let assigns as it is, early bound or late bound, where MS-VBAL evaluates
-            // it as a simple data value: what the procedure, or the server, makes of it is its own (observed in Excel: Range.Value = Nothing is Excel's
+            // it as a simple data value: what happens to it is up to the procedure, or the server (observed in Excel: Range.Value = Nothing is Excel's
             // error 1004, a Dictionary's Item reads the object's default member itself).
             var passed = objectCoercion.EvaluateSetCoercion(session, source, given, VBVariantType.TypeInfo);
             if (!passed.IsSuccess)
