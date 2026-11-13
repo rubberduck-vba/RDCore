@@ -106,7 +106,7 @@ public sealed class ReservedDeclarationNameTests
     }
 
     // the reserved type identifiers that are no reserved name, and Local, which is no reserved identifier: MS-VBAL §3.3.5.2 reads each as an IDENTIFIER, which
-    // names any declaration. MS-VBA refuses them but as the name of a member of a user-defined type, and a warning says so (RDC11034).
+    // names any declaration. MS-VBA refuses them except as the name of a member of a user-defined type, and a warning says so (RDC11034).
     private static readonly string[] TypeNames = ["Boolean", "Byte", "Currency", "Double", "Integer", "Long", "LongLong", "LongPtr", "Single", "Variant", "Local"];
 
     public static IEnumerable<object[]> TypeNameDeclarations => Kinds.SelectMany(kind => TypeNames.Select(name => new object[] { kind.Kind, name }));
