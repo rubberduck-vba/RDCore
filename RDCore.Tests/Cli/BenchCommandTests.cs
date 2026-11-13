@@ -390,25 +390,76 @@ public sealed class BenchCommandTests
         StringAssert.StartsWith(lines.Single(line => line.Contains("Cases.BenchFails ", StringComparison.Ordinal)), "compiled");
 
         // a member of an object is called by compiled code, and the Set that gives the variable an object made with New is a support call the interpreter
-        // runs: nothing of the procedure is stepped.
+        // runs: nothing of the procedure is stepped, and the report says the Set is a support call, and where.
         var objectCall = lines.Single(line => line.Contains("Cases.BenchCallsAnObject ", StringComparison.Ordinal));
         StringAssert.StartsWith(objectCall, "compiled");
-        Assert.IsFalse(objectCall.Contains("run by the interpreter", StringComparison.Ordinal), objectCall);
+        Assert.IsFalse(objectCall.Contains("run by the interpreter: ", StringComparison.Ordinal), objectCall);
+        var made = Array.IndexOf(Cases.Split("\r\n"), "    Set T = New Tally") + 1;
+        StringAssert.Contains(objectCall, "run by the interpreter as a support call: ");
+        StringAssert.Contains(objectCall, $"(line {made})");
 
         // a member of a class is compiled as any procedure is, and the field of Me its one statement assigns is read and written where the object holds it.
         StringAssert.StartsWith(lines.Single(line => line.Contains("Tally.Add ", StringComparison.Ordinal)), "compiled");
 
         // a compiled procedure says what of it the interpreter runs, and where: the Debug.Print, which compiled code does not do (rd-vbal.3.5.6), counted
-        // from 1 in the file. The call of a member of an Object, bound late, is a support call: it is not stepped.
+        // from 1 in the file. The call of a member of an Object, bound late, is a support call: it is not stepped, and the report says so after what is.
         var stepping = lines.Single(line => line.Contains("Cases.CallsLateBoundInALoop ", StringComparison.Ordinal));
         StringAssert.StartsWith(stepping, "compiled");
-        StringAssert.Contains(stepping, "run by the interpreter: ");
+        var handed = stepping.Split(" | ");
+        Assert.HasCount(2, handed, stepping);
+        StringAssert.Contains(handed[0], "run by the interpreter: ");
         var printed = Array.IndexOf(Cases.Split("\r\n"), "        Debug.Print T") + 1;
-        StringAssert.Contains(stepping, $"(line {printed})",
+        StringAssert.Contains(handed[0], $"(line {printed})",
             $"the Debug.Print at line {printed} is no longer stepped: the case needs a statement compiled code does not do; give it another.");
         var called = Array.IndexOf(Cases.Split("\r\n"), "        O.Add") + 1;
-        Assert.IsFalse(stepping.Contains($"(line {called})", StringComparison.Ordinal), stepping);
+        Assert.IsFalse(handed[0].Contains($"(line {called})", StringComparison.Ordinal), stepping);
+        StringAssert.StartsWith(handed[1], "run by the interpreter as a support call: ");
+        StringAssert.Contains(handed[1], $"(line {called})");
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
+    }
+
+    // a call that omits an Optional argument, and a Set of what a factory of a default instance returns, are statements the interpreter runs for compiled
+    // code: the report says so of each, and where, and steps nothing.
+    [TestMethod]
+    public async Task TheCompilationReport_SaysWhichStatementsAreSupportCalls_AndWhere()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        string[] calling =
+        [
+            "Public Sub Calls()",
+            "    Dim G As Gadget, I As Long",
+            "    For I = 1 To 3",
+            "        Set G = Gadget.Create(I)",
+            "        G.Grow",
+            "    Next",
+            "End Sub",
+        ];
+        var fileSystem = Files(("Calling.bas", Module("Calling", calling)), ("Gadget.cls", ClassModule("Gadget",
+            "Attribute VB_PredeclaredId = True",
+            "Option Explicit",
+            "Private mSize As Long",
+            "Public Function Create(ByVal Size As Long) As Gadget",
+            "    Dim Result As Gadget",
+            "    Set Result = New Gadget",
+            "    Result.Grow Size",
+            "    Set Create = Result",
+            "End Function",
+            "Public Sub Grow(Optional ByVal By As Long = 1)",
+            "    mSize = mSize + By",
+            "End Sub")));
+        var output = new StringWriter();
+        var command = new CompilationCommand(Substitute.For<IConsoleMessageWriter>(), fileSystem, new ProjectFileLoader(fileSystem), Runner(fileSystem), output);
+        Assert.AreEqual(0, await command.ExecuteAsync([Root], CancellationToken.None), output.ToString());
+
+        var calls = output.ToString().Split(Environment.NewLine).Single(line => line.Contains("Calling.Calls ", StringComparison.Ordinal));
+        StringAssert.StartsWith(calls, "compiled");
+        Assert.IsFalse(calls.Contains("run by the interpreter: ", StringComparison.Ordinal), calls);
+        StringAssert.Contains(calls, "run by the interpreter as a support call: ");
+        var source = Module("Calling", calling).Split("\r\n");
+        foreach (var statement in new[] { "        Set G = Gadget.Create(I)", "        G.Grow" })
+        {
+            StringAssert.Contains(calls, $"(line {Array.IndexOf(source, statement) + 1})", statement);
+        }
     }
 
     // an Enum, a Type, a Const and a field are members of a module that are no procedure: the report says nothing of them - of an Enum a Property Get is

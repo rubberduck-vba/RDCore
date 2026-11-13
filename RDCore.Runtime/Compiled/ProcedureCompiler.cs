@@ -125,6 +125,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
         CompiledBody? body;
         IReadOnlyList<Ineligibility> reasons;
         IReadOnlyList<Ineligibility> stepped = [];
+        IReadOnlyList<Ineligibility> supportCalls = [];
         Exception? failure = null;
         _ = _inProgress.Add(procedure.SemanticId);
         try
@@ -133,6 +134,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
             body = analysis.Reasons.Count == 0 ? Bind(session, evaluator, analysis, procedure, list) ?? Emit(session, evaluator, analysis, procedure, list) : null;
             reasons = analysis.Reasons;
             stepped = body is null ? [] : analysis.Stepped;
+            supportCalls = body is null ? [] : analysis.SupportCalls;
         }
         catch (Exception exception)
         {
@@ -149,7 +151,7 @@ internal sealed class ProcedureCompiler(PersistTarget? persist = null)
 
         stopwatch.Stop();
         _ = Interlocked.Add(ref _elapsedTicks, stopwatch.Elapsed.Ticks);
-        return (new CompilationResult(body, reasons, stopwatch.Elapsed) { Stepped = stepped }, failure);
+        return (new CompilationResult(body, reasons, stopwatch.Elapsed) { Stepped = stepped, SupportCalls = supportCalls }, failure);
     }
 
     // the result made, told to the Compiled handlers: as a failure is told, what is told of a result cannot fail the call.

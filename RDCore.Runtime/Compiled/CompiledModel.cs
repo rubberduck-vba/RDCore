@@ -128,7 +128,7 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
         }
 
         var result = image.Compiler.Compile(session, executor.Expressions, procedure, body);
-        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped };
+        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped, SupportCalls = result.SupportCalls };
     }
 
     // a Sub, a Function or a Property Get: what compiled code runs, which an Enum, a Type or a Const is not.
@@ -141,6 +141,12 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
     /// to the interpreter alone, going on where the interpreter leaves the activation (IR lowering S2.5a). Empty for a procedure that is not compiled.
     /// </summary>
     public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
+
+    /// <summary>
+    /// What the interpreter runs of a compiled procedure as a support call, and why: each <c>Set</c> or call statement compiled code does not make itself,
+    /// which the interpreter runs for it, every variable written into the frame before it and read back after it. Empty for a procedure that is not compiled.
+    /// </summary>
+    public IReadOnlyList<Ineligibility> SupportCalls { get; init; } = [];
 }
 
 /// <summary>
@@ -153,6 +159,9 @@ internal sealed record class CompilationResult(CompiledBody? Body, IReadOnlyList
 {
     /// <summary>The instructions of a compiled body the interpreter runs alone, and why (<see cref="ProcedureCompilation.Stepped"/>).</summary>
     public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
+
+    /// <summary>The statements of a compiled body the interpreter runs as support calls, and why (<see cref="ProcedureCompilation.SupportCalls"/>).</summary>
+    public IReadOnlyList<Ineligibility> SupportCalls { get; init; } = [];
 }
 
 // a payload, the value of an expression of a scalar kind: in a long when it is of an integral kind, in a double when it is of a floating-point one.

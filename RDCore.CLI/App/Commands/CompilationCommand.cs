@@ -84,13 +84,22 @@ internal sealed class CompilationCommand(IConsoleMessageWriter writer, IFileSyst
         foreach (var (module, compilation) in procedures)
         {
             var name = $"{module}.{compilation.Procedure.Name}".PadRight(width);
-            // a compiled procedure has the interpreter run, one at a time, the instructions compiled code does not do yet.
+            // a compiled procedure has the interpreter run, one at a time, the instructions compiled code does not do yet, and the statements it does not make
+            // itself as support calls.
             if (compilation.IsCompiled)
             {
-                Output.WriteLine(compilation.Stepped.Count == 0
-                    ? $"{Resources.Compilation_Compiled.PadRight(label)}{name}"
-                    : $"{Resources.Compilation_Compiled.PadRight(label)}{name}"
-                        + string.Format(CultureInfo.CurrentCulture, Resources.Compilation_Stepped, string.Join("; ", compilation.Stepped.Select(Describe))));
+                string[] handed =
+                [
+                    .. compilation.Stepped.Count == 0 ? [] : new[]
+                    {
+                        string.Format(CultureInfo.CurrentCulture, Resources.Compilation_Stepped, string.Join("; ", compilation.Stepped.Select(Describe))),
+                    },
+                    .. compilation.SupportCalls.Count == 0 ? [] : new[]
+                    {
+                        string.Format(CultureInfo.CurrentCulture, Resources.Compilation_SupportCalls, string.Join("; ", compilation.SupportCalls.Select(Describe))),
+                    },
+                ];
+                Output.WriteLine($"{Resources.Compilation_Compiled.PadRight(label)}{name}{string.Join(" | ", handed)}");
                 continue;
             }
 
