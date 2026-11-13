@@ -4,6 +4,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Semantics;
 using RDCore.Tests.Cli;
 
 namespace RDCore.Tests.Diagnostics;
@@ -175,6 +176,36 @@ public sealed class UnusedDeclarationAnalyzerTests
         CollectionAssert.AreEqual(new[] { 2 }, Lines(findings));
         AssertAre(findings, RDCoreDiagnosticId.AssignedByValParameter, DiagnosticSeverity.Information);
         StringAssert.Contains(findings[0].Message, "'copy'");
+    }
+
+    #endregion
+
+    #region RDC01015 a constant never used
+
+    [TestMethod]
+    [Ignore("RDC01015 is reserved: the host does not count the references of a constant (DeclarationFact.References is null for every constant), since a constant can be read by the expressions of declarations, which the declaration pass does not evaluate.")]
+    public async Task AProcedureConstant_HasItsReferencesCounted()
+    {
+        var program = ModuleWorkspace.StandardModule("Program",
+            "Option Explicit",
+            "Public Sub Main()",
+            "    Const Unused As Long = 1",
+            "    Const Read As Long = 2",
+            "    Debug.Print Read",
+            "    Const Base As Long = 3",
+            "    Const Derived As Long = Base + 1",
+            "    Dim items(Derived) As Long",
+            "    Debug.Print items(0)",
+            "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([], program);
+        var constants = payload.Modules.Single(module => module.Module.Fragment.TrimStart('#') == "Program").Declarations
+            .Where(declaration => declaration.Kind is DeclarationKind.Constant)
+            .ToDictionary(declaration => declaration.Name, declaration => declaration.References?.Reads);
+
+        Assert.AreEqual(0, constants["Unused"], "a constant nothing reads");
+        Assert.AreEqual(1, constants["Read"], "read by a statement");
+        Assert.AreEqual(1, constants["Base"], "read by the value of another constant");
+        Assert.AreEqual(1, constants["Derived"], "read by the bound of an array");
     }
 
     #endregion
