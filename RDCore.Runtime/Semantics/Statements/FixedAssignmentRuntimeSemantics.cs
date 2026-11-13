@@ -7,6 +7,8 @@ using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK;
@@ -171,6 +173,26 @@ public sealed record class FixedAssignmentRuntimeSemantics(
                 {
                     builder.AddFlags(FixedAssignmentSemanticFlags.DestinationHoldsVariableLengthString);
                 }
+
+                if (HoldsMember(from, IsObject))
+                {
+                    builder.AddFlags(FixedAssignmentSemanticFlags.SourceHoldsObject);
+                }
+
+                if (HoldsMember(target, IsObject))
+                {
+                    builder.AddFlags(FixedAssignmentSemanticFlags.DestinationHoldsObject);
+                }
+
+                if (HoldsMember(from, IsVariant))
+                {
+                    builder.AddFlags(FixedAssignmentSemanticFlags.SourceHoldsVariant);
+                }
+
+                if (HoldsMember(target, IsVariant))
+                {
+                    builder.AddFlags(FixedAssignmentSemanticFlags.DestinationHoldsVariant);
+                }
                 break;
 
             case (VBStringValue, _):
@@ -281,6 +303,16 @@ public sealed record class FixedAssignmentRuntimeSemantics(
 
     private static bool HoldsVariableLengthString(VBUserDefinedTypeValue record)
         => record.TypeInfo is VBUserDefinedType type && VBUserDefinedTypeImage.HoldsVariableLengthString(type);
+
+    // a member of the record's type, at its top level, of the kind: MS-VBA's refusal of an LSet over a record that holds an object or a Variant was
+    // observed for such a member, and a nested record's members, or an array's elements, are not looked at.
+    private static bool HoldsMember(VBUserDefinedTypeValue record, Func<VBType, bool> kind)
+        => record.TypeInfo is VBUserDefinedType type && type.Fields().Any(field => field.ResolvedType is { } declared && kind(declared));
+
+    // Object, a class, or an interface, which is a class.
+    private static bool IsObject(VBType type) => type is VBObjectType or VBClassType;
+
+    private static bool IsVariant(VBType type) => type is VBVariantType;
 
     // a Variant target or source is one of the declared types the static rule admits, and what it holds is
     // what the runtime rule is about - so both sides are unwrapped before either is judged.
