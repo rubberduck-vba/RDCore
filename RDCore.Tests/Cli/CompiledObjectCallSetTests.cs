@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Set</c> of what a call returns (<strong>MS-VBAL §5.4.3.9</strong>): a factory of a default instance, a function of a standard module, a
 /// <c>Property Get</c> of an object; and a call that leaves out an <c>Optional</c> argument (<strong>MS-VBAL §5.3.1.11</strong>). Compiled code makes the
-/// call: the interpreter does not run the statement for it. A program runs the same either way: which object each variable holds, when an object
+/// call: the interpreter does not run the statement for it. A program runs as it does in the interpreter: which object each variable holds, when an object
 /// terminates, the error a <c>Set</c> raises and where.
 /// </summary>
 [TestClass]
@@ -63,7 +63,7 @@ public sealed class CompiledObjectCallSetTests
 
     // the program run both ways, printing expected; then the calls the procedure named made itself, through a typed entry or the invoker: none of them a
     // statement the interpreter ran for it. The first call of a member of the default instance is the interpreter's, which makes the object (MS-VBAL
-    // §5.2.3.1.4): it is not counted. Under the random walk-back any activation may be handed to the interpreter, which makes the calls after.
+    // §5.2.4.1.2): it is not counted. Under the random walk-back any activation may be handed to the interpreter, which makes the calls after.
     private static async Task AssertCalledAsync(string program, string caller, long calls, string expected)
     {
         var compiled = await AssertAlikeAsync(program, Classes, expected);
