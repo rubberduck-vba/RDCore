@@ -654,7 +654,17 @@ public partial class ModuleParser(
         var parameterNames = new ReservedParameterNameCollector();
         parser.AddParseListener(parameterNames);
 
+        // the recovery reads a block whose header has an operator right before one of its words as the block it is, without the operator.
+        var takenOff = errorStrategy is StatementBoundErrorStrategy && StatementBoundErrorStrategy.TakeOffOperatorsBeforeAWordOfAHeader(tokens) is { Count: > 0 } operators
+            ? new OperatorsTakenOffReporter(parser, operators)
+            : null;
+        if (takenOff is not null)
+        {
+            parser.AddParseListener(takenOff);
+        }
+
         var tree = parser.startRule();
+        takenOff?.ReportTheRest();
         AnchorTree(tree, anchorOffset);
         ReportOutputItemsNotSeparated(outputLists.Lists, tokens, findings);
         ReportReservedParameterNames(parameterNames.Names, findings);

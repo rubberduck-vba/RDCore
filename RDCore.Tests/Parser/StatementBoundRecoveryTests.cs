@@ -27,6 +27,15 @@ public sealed class StatementBoundRecoveryTests
 
     private static IEnumerable<SyntaxNode> Descendants(SyntaxNode node) => node.Children.SelectMany(Descendants).Prepend(node);
 
+    private static IEnumerable<SyntaxNode> BodyOf(SyntaxNode block) => block switch
+    {
+        ForStatementNode @for => @for.Body.Children,
+        ForEachStatementNode each => each.Body.Children,
+        IfBlockStatementNode @if => @if.Body.Children,
+        ElseIfBlockStatementNode elseIf => elseIf.Body.Children,
+        _ => [],
+    };
+
     [TestMethod]
     [DataRow("a = 1 +", "b = 2", typeof(AssignmentStatementNode), DisplayName = "an addition, then an assignment")]
     [DataRow("a = 1 &", "b = 2", typeof(AssignmentStatementNode), DisplayName = "a concatenation, then an assignment")]
@@ -311,6 +320,95 @@ public sealed class StatementBoundRecoveryTests
         var last = new[] { " To ", " Step ", " In " }.Select(word => header.LastIndexOf(word, StringComparison.Ordinal) + word.Length).Max();
         var operation = Assert.ContainsSingle(Descendants(loop).OfType<UnbuiltExpressionTriviaNode>());
         Assert.AreEqual(header[last..], TextOf(source, operation.SourceLocation.Range), "the header's last expression");
+    }
+
+    // a binary operator right before a word of a block's header (To, Step, Then), or a run of operators at the end of a For's header, is one error at the
+    // operator: the block is the block it is, its body, its end, the statements after it and the end of the procedure read as they are.
+    [TestMethod]
+    [DataRow("For i = 1 - To 2", "Next", typeof(ForStatementNode), 10, DisplayName = "an operator before To")]
+    [DataRow("For i = 1 To 2 - Step 1", "Next", typeof(ForStatementNode), 15, DisplayName = "an operator before Step")]
+    [DataRow("For i = 1 To 2 * Step 1", "Next", typeof(ForStatementNode), 15, DisplayName = "a multiplication before Step")]
+    [DataRow("For i = 1 To 2 - -", "Next", typeof(ForStatementNode), 15, DisplayName = "two operators at the end of a For header")]
+    [DataRow("For i = 1 To 2 - - ' c", "Next", typeof(ForStatementNode), 15, DisplayName = "two operators at the end of a For header, then a comment")]
+    [DataRow("For i = 1 To 9 Step 2 + -", "Next", typeof(ForStatementNode), 22, DisplayName = "two operators at the end of a Step")]
+    [DataRow("For Each x In xs - -", "Next", typeof(ForEachStatementNode), 17, DisplayName = "two operators at the end of a For Each header")]
+    [DataRow("If x - Then", "End If", typeof(IfBlockStatementNode), 5, DisplayName = "an operator before Then")]
+    [DataRow("If x And Then", "End If", typeof(IfBlockStatementNode), 5, DisplayName = "an operator the parse reads as a name, before Then")]
+    [DataRow("If x = Then", "End If", typeof(IfBlockStatementNode), 5, DisplayName = "a comparison before Then")]
+    public void AnOperatorRightBeforeAWordOfABlocksHeader_IsOneErrorAtTheOperator_AndTheBlockIsKept(string header, string closes, Type kind, int column)
+    {
+        var source = $"Public Sub Main()\r\n{header}\r\nb = 2\r\n{closes}\r\nc = 3\r\nEnd Sub\r\nPublic Sub Other()\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var error = Assert.ContainsSingle(parse.SyntaxErrors, string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
+        Assert.AreEqual((int)VBCompileErrorId.SyntaxError, error.ErrorId);
+        Assert.AreEqual(new SourcePosition(1, column), error.Location.Range.Start, "the error is at the operator");
+        var members = parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().ToArray();
+        Assert.HasCount(2, members);
+        Assert.AreEqual(5, members[0].SourceLocation.Range.End.Line, "the procedure ends at its End Sub");
+        var block = Assert.ContainsSingle(members[0].Children.Where(kind.IsInstanceOfType));
+        Assert.AreEqual(new SourcePosition(3, closes.Length), block.SourceLocation.Range.End, $"the block ends at its {closes}");
+        Assert.IsTrue(BodyOf(block).OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"), "the block's body");
+        Assert.IsFalse(Descendants(members[0]).OfType<UnbuiltStatementTriviaNode>().Any(), "no statement is unbuilt");
+        Assert.IsTrue(members[0].Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "c = 3"), "the statement after the block");
+    }
+
+    // the same in an ElseIf: the If keeps its branches.
+    [TestMethod]
+    public void AnOperatorRightBeforeTheThenOfAnElseIf_IsOneErrorAtTheOperator_AndTheIfKeepsItsBranches()
+    {
+        var source = "Public Sub Main()\r\nIf a Then\r\nb = 1\r\nElseIf x - Then\r\nb = 2\r\nElse\r\nb = 3\r\nEnd If\r\nc = 3\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        Assert.AreEqual(new SourcePosition(3, 9), Assert.ContainsSingle(parse.SyntaxErrors).Location.Range.Start);
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var block = Assert.ContainsSingle(member.Children.OfType<IfBlockStatementNode>());
+        Assert.AreEqual(7, block.SourceLocation.Range.End.Line, "the If ends at its End If");
+        Assert.IsTrue(BodyOf(Assert.ContainsSingle(block.ElseIfBlocks)).OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"));
+        Assert.IsNotNull(block.ElseBlock);
+        Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "c = 3"));
+    }
+
+    // valid code where a name the grammar reads as a keyword follows an operator is read as it is written, with recovery too: Step is no reserved word
+    // (MS-VBAL §3.3.5.2).
+    [TestMethod]
+    [DataRow("For i = 1 To n - Step\r\nb = 2\r\nNext", DisplayName = "a variable named Step, at the end of a For header")]
+    [DataRow("For i = 1 To n - Step Step 2\r\nb = 2\r\nNext", DisplayName = "a variable named Step, then a Step")]
+    public void AnOperatorBeforeANameThatIsAWord_InValidCode_IsTheOperationItIs(string body)
+    {
+        // a syntax error in another procedure makes the whole module parse with recovery.
+        var source = $"Public Sub Main()\r\n{body}\r\nEnd Sub\r\nPublic Sub Other()\r\na = 1 -\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var other = source.Split("\r\n").ToList().IndexOf("a = 1 -");
+        Assert.IsTrue(parse.SyntaxErrors.All(error => error.Location.Range.Start.Line == other), string.Join(" | ", parse.SyntaxErrors.Select(e => $"{e.Location.Range}: {e.Verbose}")));
+        var loop = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>().First().Children.OfType<ForStatementNode>());
+        Assert.IsInstanceOfType<VBBinaryOperatorExpressionNode>(loop.EndExpression);
+    }
+
+    // what an unbuilt node keeps of its source is the text at its range: no token the parse made up for one missing, and no blank after its last token.
+    [TestMethod]
+    [DataRow("Call Foo(-", DisplayName = "a call whose closing parenthesis the parse made up")]
+    [DataRow("x = Foo(Bar(-", DisplayName = "two calls whose closing parentheses the parse made up")]
+    [DataRow("a = (1 +  ", DisplayName = "an operation in parentheses, then blanks")]
+    [DataRow("a = (1 + _\r\n  ", DisplayName = "an operation in parentheses, then a line continuation")]
+    [DataRow("a = (1 +  ' c", DisplayName = "an operation in parentheses, then blanks and a comment")]
+    public void AnUnbuiltNode_KeepsTheTextAtItsRange(string broken)
+    {
+        var source = $"Public Sub Main()\r\n{broken}\r\nb = 2\r\nEnd Sub\r\n";
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), source);
+
+        var member = Assert.ContainsSingle(parse.SyntaxTree!.Children.OfType<MemberDeclarationNode>());
+        var unbuilt = Descendants(member).Where(node => node is UnbuiltExpressionTriviaNode or UnbuiltStatementTriviaNode).ToArray();
+        Assert.IsNotEmpty(unbuilt);
+        foreach (var node in unbuilt)
+        {
+            var kept = node is UnbuiltExpressionTriviaNode expression ? expression.Source : ((UnbuiltStatementTriviaNode)node).Source;
+            Assert.AreEqual(TextOf(source, node.SourceLocation.Range), kept, $"{node.GetType().Name} at {node.SourceLocation.Range}");
+            Assert.AreEqual(kept.TrimEnd(), kept, $"{node.GetType().Name} at {node.SourceLocation.Range}: no blank after its last token");
+        }
+
+        Assert.IsTrue(member.Children.OfType<AssignmentStatementNode>().Any(node => TextOf(source, node.SourceLocation.Range) == "b = 2"), "the next statement");
     }
 
     // a statement of a For's body that ends with an operator is a statement of the body: the body goes on after it, and the For ends at its Next.
