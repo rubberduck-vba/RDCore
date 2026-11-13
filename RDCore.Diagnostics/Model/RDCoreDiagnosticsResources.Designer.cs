@@ -1624,5 +1624,32 @@ namespace RDCore.Diagnostics.Model {
             }
         }
 
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; of a number between -1 and 1 writes no zero before the decimal point in MS-VBA (&quot; .5&quot;), where MS-VBAL §6.1.2.3.1.20 writes &quot; 0.5&quot;..
+        /// </summary>
+        public static string StrOfAFraction_Message {
+            get {
+                return ResourceManager.GetString("StrOfAFraction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; of an Error value raises run-time error 13 (Type mismatch) in MS-VBA, where MS-VBAL §6.1.2.3.1.20 returns &quot;Error &quot; followed by its code..
+        /// </summary>
+        public static string StrOfAnErrorValue_Message {
+            get {
+                return ResourceManager.GetString("StrOfAnErrorValue_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0} #&apos; writes a number between -1 and 1 with no zero before the decimal point in MS-VBA (.5), where MS-VBAL §5.4.5.9 writes 0.5..
+        /// </summary>
+        public static string WriteOfAFraction_Message {
+            get {
+                return ResourceManager.GetString("WriteOfAFraction_Message", resourceCulture);
+            }
+        }
     }
 }

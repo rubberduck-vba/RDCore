@@ -643,3 +643,12 @@
     <value>Supprimer {0}</value>
   </data>
 </root>
+  <data name="StrOfAFraction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; d&apos;un nombre entre -1 et 1 n&apos;écrit aucun zéro avant le point décimal dans MS-VBA (&quot; .5&quot;), alors que MS-VBAL §6.1.2.3.1.20 écrit &quot; 0.5&quot;.</value>
+  </data>
+  <data name="StrOfAnErrorValue_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; d&apos;une valeur Error lève l&apos;erreur d&apos;exécution 13 (incompatibilité de type) dans MS-VBA, alors que MS-VBAL §6.1.2.3.1.20 renvoie &quot;Error &quot; suivi de son code.</value>
+  </data>
+  <data name="WriteOfAFraction_Message" xml:space="preserve">
+    <value>&apos;{0} #&apos; écrit un nombre entre -1 et 1 sans zéro avant le point décimal dans MS-VBA (.5), alors que MS-VBAL §5.4.5.9 écrit 0.5.</value>
+  </data>

@@ -341,6 +341,9 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11036](rdc11036.md)|Negative line number|A line number below 0, or a jump to one: MS-VBA compiles it, MS-VBAL has no such line number|
 |[RDC11037](rdc11037.md)|Non-breaking space in a name|A declared name with a U+00A0 in it: MS-VBA compiles it, no MS-VBAL identifier has one|
 |[RDC11039](rdc11039.md)|Function called whatever the IIf condition|A `Function` or `Property Get` in the `TruePart` or `FalsePart` of `IIf`, which runs whatever the condition|
+|[RDC11040](rdc11040.md)|Str of a number between -1 and 1|MS-VBA writes no zero before the decimal point, where MS-VBAL writes one|
+|[RDC11041](rdc11041.md)|Str of an Error value|MS-VBA raises a type mismatch, where MS-VBAL returns the text of the error|
+|[RDC11042](rdc11042.md)|Write # of a number between -1 and 1|MS-VBA writes no zero before the decimal point, where MS-VBAL writes one|
 |[RDC11043](rdc11043.md)|Object assigned with Let to a Variant property|An object given to a property whose value parameter is a `Variant`: MS-VBA passes the object, MS-VBAL its default member's value|
 |[RDC11044](rdc11044.md)|LSet of a record that holds a variable-length String|MS-VBAL allows it, and MS-VBA refuses it with a type mismatch|
 |[RDC11045](rdc11045.md)|Let through a default member with no Property Let|`total = 5` compiles in RD-VBA, where MS-VBA refuses it|
