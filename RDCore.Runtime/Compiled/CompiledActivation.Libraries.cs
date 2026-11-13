@@ -3,9 +3,11 @@ using RDCore.Runtime.Execution.External;
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.LanguageCore.Errors;
 using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Model.Values.Runtime;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Runtime.Shared;
 
 namespace RDCore.Runtime.Compiled;
 
@@ -107,11 +109,7 @@ public sealed partial class CompiledActivation
             return false;
         }
 
-        // straight to the library when nothing needs to see the call (ExternalCallPipeline.TryCallLibraryDirectly), through the pipeline otherwise.
-        var result = bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
-            && pipeline.TryCallLibraryDirectly(called.Function, arguments, _session.Symbols.Resolver, out var direct)
-                ? direct
-                : bindings.ForMember(called.Function).Call(_session.Symbols.Resolver, arguments);
+        var result = LibraryCall(bindings, called, arguments);
 
         // Abs of the least value of a type overflows, but the interpreter decides it of the call (AbsOfTheLeast): the least Long of a constant expression is
         // itself, and of a Variant the next wider type. Compiled code declines, and the interpreter evaluates the instruction.
@@ -130,4 +128,12 @@ public sealed partial class CompiledActivation
         var value = result.Result is VBVariantValue { TypedValue: { } inner } ? inner : result.Result;
         return value is not null && ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out payload);
     }
+
+    // the call of a function of the standard library compiled code makes: straight to the library when nothing needs to see the call
+    // (ExternalCallPipeline.TryCallLibraryDirectly), through the pipeline otherwise.
+    private RuntimeSemanticsEvaluationResult LibraryCall(ICallableBindingFactory bindings, CompiledLibraryCall called, IRuntimeValue[] arguments)
+        => bindings is RuntimeCallableBindingFactory { External: ExternalCallPipeline pipeline }
+            && pipeline.TryCallLibraryDirectly(called.Function, arguments, _session.Symbols.Resolver, out var direct)
+                ? direct
+                : bindings.ForMember(called.Function).Call(_session.Symbols.Resolver, arguments);
 }
