@@ -93,7 +93,7 @@ public sealed class ProgramAssemblyBuilder
         }
 
         var result = _compiler.Compile(session, executor.Expressions, procedure, body);
-        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped };
+        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped, SupportCalls = result.SupportCalls };
     }
 
     public int Count => _target.Procedures.Count;

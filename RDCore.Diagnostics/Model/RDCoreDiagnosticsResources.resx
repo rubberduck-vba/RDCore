@@ -477,4 +477,7 @@
   <data name="NameRefusedByMSVBA_Message" xml:space="preserve">
     <value>MS-VBA refuses &apos;{0}&apos; as the name of this declaration, which MS-VBAL §3.3.5.2 allows: RD-VBA compiles it, and MS-VBA does not compile the module. Give it another name to keep the module compatible with MS-VBA.</value>
   </data>
+  <data name="LSetOfARecordWithAString_Message" xml:space="preserve">
+    <value>LSet copies a record that holds a variable-length String: MS-VBAL §5.4.3.6 allows it, and MS-VBA refuses it (Compile error: Type mismatch).</value>
+  </data>
 </root>

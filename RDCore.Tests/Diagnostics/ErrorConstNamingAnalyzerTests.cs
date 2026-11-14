@@ -3,8 +3,13 @@ using RDCore.Diagnostics;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Libraries;
+using RDCore.SDK.Workspace.Forms;
 using RDCore.Tests.Cli;
+using RDCore.Tests.Runtime.Libraries;
+using MemberKind = RDCore.SDK.Runtime.Libraries.MemberKind;
 
 namespace RDCore.Tests.Diagnostics;
 
@@ -139,6 +144,55 @@ public sealed class ErrorConstNamingAnalyzerTests
             "Private Sub Do_Something()", "    Dim local_value As Long", "End Sub",
             "Public Sub IShape_Draw()", "End Sub",
             "Public Sub Source_Click()", "End Sub"));
+
+    // Microsoft Forms' UserForm, as `rdc export-library` describes FM20.DLL: hidden members whose names start with an underscore.
+    private static readonly ModuleWorkspace.WorkspaceLibraries MSForms = new(["MSForms"], new InMemoryLibrarySource(new LibraryDescription
+    {
+        Name = "MSForms",
+        Classes =
+        [
+            new ClassDescription
+            {
+                Name = "UserForm",
+                Members =
+                [
+                    new MemberDescription { Name = "Caption", Kind = MemberKind.PropertyGet, Type = "String" },
+                    new MemberDescription { Name = "_GetInsideWidth", Kind = MemberKind.Method, Type = "Single" },
+                    new MemberDescription { Name = "_Font_Reserved", Kind = MemberKind.PropertyGet, Type = "Long" },
+                ],
+            },
+        ],
+    }));
+
+    [TestMethod]
+    public async Task AUserFormsCode_IsInItsInterface_AndTheMembersItsDesignerDeclaresAreNotReported()
+    {
+        var form = "VERSION 5.00\r\n" +
+                   "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Form1 \r\n" +
+                   "   Caption         =   \"Form1\"\r\n" +
+                   "   OleObjectBlob   =   \"Form1.frx\":0000\r\n" +
+                   "End\r\n" +
+                   "Attribute VB_Name = \"Form1\"\r\n" +
+                   "Attribute VB_GlobalNameSpace = False\r\n" +
+                   "Attribute VB_Creatable = False\r\n" +
+                   "Attribute VB_PredeclaredId = True\r\n" +
+                   "Attribute VB_Exposed = False\r\n" +
+                   "Option Explicit\r\n" +
+                   "Public Sub Do_Something()\r\n" +
+                   "End Sub\r\n";
+        var designer = new FormDescriptor(
+            "Form1", FormDesignerKind.MSForms, new FormControlClass("MSForms", "UserForm", FormDesigner.MSFormsClassId),
+            new Dictionary<string, string> { ["Caption"] = "Form1" }, []);
+        var payload = await ModuleWorkspace.SemanticsAsync(
+            [], "Attribute VB_Name = \"Program\"\r\nOption Explicit\r\n", libraries: MSForms, forms: [("Form1", form, designer)]);
+        var model = payload.Modules.Single(module => SymbolUri.ModuleNameOf(module.Module) == "Form1");
+        Assert.IsTrue(model.Declarations.Any(declaration => declaration.Name == "_GetInsideWidth"), "the designer declares Microsoft Forms' members on the form's class");
+
+        var findings = Run(new UnderscoreInPublicClassMemberAnalyzer(), form, model, new Uri(Path.Combine(ModuleWorkspace.Root, "Form1.frm")));
+
+        Assert.HasCount(1, findings, string.Join("; ", findings.Select(finding => finding.Message)));
+        StringAssert.Contains(findings[0].Message, "'Do_Something'");
+    }
 
     [TestMethod]
     public void AStandardModule_HasNoInterface()

@@ -7,6 +7,7 @@ using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -251,7 +252,7 @@ public sealed class LetAssignmentEvaluator(
         if (!isSet && elementType is VBClassType or VBObjectType)
         {
             return isElement
-                ? AssignDefaultMemberOfHeld(session, context, statement, ElementOf(arrayExpression, subscripts),
+                ? AssignDefaultMemberOfHeld(session, context, statement, ElementOf(statement, arrayExpression, subscripts),
                     expressions.ReadElement(session, context, array, arrayExpression, indices), source, value)
                 : RuntimeExecutionOutcome.Next;
         }
@@ -465,17 +466,18 @@ public sealed class LetAssignmentEvaluator(
     private RuntimeExecutionOutcome AssignObjectMember(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess,
         System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source,
-        VBTypedValue value, bool isSet)
+        VBTypedValue value, bool isSet, MemberAccessOperationSemanticFlags kind = MemberAccessOperationSemanticFlags.Explicit)
     {
         var assumedBefore = expressions.AssumedSoFar;
         var outcome = AssignMemberOf(session, context, statement, memberAccess, indexArguments, owner, source, value, isSet);
-        return ObservedAccess(session, context, memberAccess, owner, assumedBefore, outcome);
+        return ObservedAccess(session, context, memberAccess, owner, assumedBefore, outcome, kind);
     }
 
-    // the member of an object or of a record that an assignment writes is a member the code accesses, and is stated as one (MemberAccessFact).
+    // the member of an object or of a record that an assignment writes is a member the code accesses, and is stated as one (MemberAccessFact): one the code
+    // names is explicit, and the default member that takes a value assigned to the object itself (`h = 5`) is implicit.
     private RuntimeExecutionOutcome ObservedAccess(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBTypedValue owner, long assumedBefore,
-        RuntimeExecutionOutcome outcome)
+        RuntimeExecutionOutcome outcome, MemberAccessOperationSemanticFlags kind = MemberAccessOperationSemanticFlags.Explicit)
     {
         if (expressions.Observation is not null)
         {
@@ -490,7 +492,7 @@ public sealed class LetAssignmentEvaluator(
             };
 
             expressions.ObserveMemberAccess(session, context, memberAccess, Tokens.MemberAccess, memberAccess.Owner, owner, memberAccess.Member.IdentifierName,
-                MemberAccessOperationSemanticFlags.Explicit, assumedBefore, result);
+                kind, assumedBefore, result);
         }
 
         return outcome;
@@ -521,6 +523,11 @@ public sealed class LetAssignmentEvaluator(
             // of a Variant function of a class).
             if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments, isSet))
             {
+                if (!indexArguments.IsEmpty && ParameterlessReaderOf(session, owner, memberAccess.Member.IdentifierName) is { } reader)
+                {
+                    return AssignThroughWhatItReturns(session, context, statement, memberAccess, reader, indexArguments, owner, source, value, isSet);
+                }
+
                 ExpressionNode called = indexArguments.IsEmpty ? memberAccess : CallOf(memberAccess, indexArguments);
                 return AssignThroughFunction(session, context, statement, called, source, value, isSet);
             }
@@ -727,6 +734,63 @@ public sealed class LetAssignmentEvaluator(
                 _ => false,
             };
 
+    // the Function or Property Get of the name that declares no parameter, which arguments given to it do not call (MS-VBAL §5.6.13).
+    private static VBTypeMemberSymbol? ParameterlessReaderOf(IRuntimeSession session, VBObjectValue owner, string name)
+        => session.Symbols.TryGetInstance(owner.Value, out var instance)
+            && instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)
+                && member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) is { } reader
+            && RuntimeProcedureInvoker.GetParameters(reader) is [] or [{ Name: Tokens.Me }]
+                ? reader
+                : null;
+
+    // MS-VBAL §5.6.13: arguments given to a member that declares no parameter apply to what it returns, called with none. An object it returns has its default
+    // member assigned with them, as `o.Inner.Item("k") = 5` would, and an array has the element they select assigned through its object. Called late, on an
+    // Object or a Variant, a Set is error 450: IDispatch is asked to Set the default member given the arguments, which is not a property that can be Set
+    // (recorded in Excel); a Let is assigned. What returns neither an object nor an array is error 424.
+    private RuntimeExecutionOutcome AssignThroughWhatItReturns(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess, VBTypeMemberSymbol reader,
+        System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source, VBTypedValue value, bool isSet)
+    {
+        var reachedThrough = memberAccess.Owner ?? context.EnclosingWithTargetExpression;
+        if (isSet && reachedThrough is not null && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, memberAccess.Location,
+                string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, memberAccess.Member.IdentifierName)));
+        }
+
+        var returned = expressions.InvokeOn(session, context, owner, reader, [], reachedThrough);
+        if (!returned.IsSuccess)
+        {
+            return returned.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(returned.ErrorInfo!);
+        }
+
+        switch (Held(returned.Result))
+        {
+            case VBObjectValue returnedObject:
+                return AssignThroughDefaultMember(session, context, statement, memberAccess, indexArguments, returnedObject, source, value, isSet);
+            case VBArrayValue array:
+                if (expressions.EvaluateSubscripts(session, context, indexArguments, out var subscripts) is { } failure)
+                {
+                    return failure.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(failure.ErrorInfo!);
+                }
+
+                var element = expressions.ReadElement(session, context, array, memberAccess, subscripts);
+                if (!element.IsSuccess)
+                {
+                    return element.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(element.ErrorInfo!);
+                }
+
+                if (Held(element.Result) is VBObjectValue held)
+                {
+                    return AssignDefaultMemberOf(session, context, statement, memberAccess, held, source, value, observed: false, isSet);
+                }
+
+                break;
+        }
+
+        return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, "The function returned no object to assign through."));
+    }
+
     // the call of a member with the arguments an assignment's target gives it: one for each access, as the bound tree of an expression is the expression's.
     private IndexExpressionNode CallOf(MemberAccessExpressionNode access, System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments)
         => _memberCalls.TryGetValue(access, out var call) && call.Arguments == arguments
@@ -736,10 +800,14 @@ public sealed class LetAssignmentEvaluator(
     private readonly System.Collections.Concurrent.ConcurrentDictionary<MemberAccessExpressionNode, IndexExpressionNode> _memberCalls =
         new(ReferenceEqualityComparer.Instance);
 
-    // the element of an array an assignment's target names, as an expression whose default member an assignment of a value to it writes through. It is kept
-    // for each array expression and its subscripts, so it is the same node each time, as DefaultMemberAccess keeps its access for each expression.
-    private IndexExpressionNode ElementOf(ExpressionNode arrayExpression, System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts)
-        => _elements.TryGetValue(arrayExpression, out var element) && element.Arguments == subscripts
+    // the element of an array an assignment's target names, as an expression whose default member an assignment of a value to it writes through: the target
+    // itself when it indexes the array, so the access is stated where the code writes it, subscripts included. An element the target does not name as it is,
+    // such as one of an array a default member holds (`c(1) = 5`), is kept for each array expression and its subscripts, so it is the same node each time, as
+    // DefaultMemberAccess keeps its access for each expression.
+    private IndexExpressionNode ElementOf(StatementNode statement, ExpressionNode arrayExpression, System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts)
+        => statement is AssignmentStatementNode { Target: IndexExpressionNode target } && ReferenceEquals(target.Callee, arrayExpression) && target.Arguments == subscripts
+            ? target
+            : _elements.TryGetValue(arrayExpression, out var element) && element.Arguments == subscripts
             ? element
             : _elements[arrayExpression] = new IndexExpressionNode(arrayExpression.Identity, arrayExpression.Location, arrayExpression, subscripts);
 
@@ -936,6 +1004,18 @@ public sealed class LetAssignmentEvaluator(
         return owner is not null;
     }
 
+    /// <summary>
+    /// The frame whose function result variable <paramref name="symbol"/> is, when it names the function or the <c>Property Get</c> whose body the statement
+    /// is in (<strong>MS-VBAL §5.3.1</strong>): what the frame holds, not the symbol table. <see langword="null"/> for any other symbol.
+    /// </summary>
+    /// <param name="session">The session whose call stack holds the frame.</param>
+    /// <param name="context">The evaluation context, whose scope is the procedure the statement is in.</param>
+    /// <param name="symbol">The symbol the target names.</param>
+    public static ICallStackFrame? ResultFrameOf(IRuntimeSession session, RuntimeEvaluationContext context, Symbol symbol)
+        => symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && symbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri
+            ? session.CallStack.Current
+            : null;
+
     /// <inheritdoc cref="Assign(IRuntimeSession, RuntimeEvaluationContext, StatementNode, ExpressionNode, ExpressionNode, VBTypedValue)"/>
     /// <param name="session">The session whose call stack a function result variable is assigned on.</param>
     /// <param name="context">The evaluation context, whose scope decides whether the target is the enclosing
@@ -955,8 +1035,7 @@ public sealed class LetAssignmentEvaluator(
         VBTypedValue value)
     {
 
-        if (symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
-            && symbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing)
+        if (ResultFrameOf(session, context, symbol) is { } enclosing)
         {
             // MS-VBAL 5.3.1: "Foo = value" inside Foo's own body Let-assigns its function result
             // variable, not the general symbol table - the read-side mirror of this check is
@@ -1128,7 +1207,7 @@ public sealed class LetAssignmentEvaluator(
 
         var access = DefaultMemberAccess(reachedThrough, defaultMember.Name);
         return observed
-            ? AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet)
+            ? AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet, MemberAccessOperationSemanticFlags.Implicit)
             : AssignMemberOf(session, context, statement, access, [], owner, source, value, isSet);
     }
 

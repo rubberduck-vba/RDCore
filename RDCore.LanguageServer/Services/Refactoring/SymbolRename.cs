@@ -9,6 +9,7 @@ using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics;
 using RDCore.SDK.Semantics.Flags;
 using RDCore.Runtime.LanguageCore.Static;
 using RDCore.Runtime.LanguageCore.Static.Abstract;
@@ -237,7 +238,7 @@ public static class SymbolRename
 
         if (parent is VBClassModuleSymbol owner)
         {
-            if (IsProcedure(symbol) && symbol.Name.Contains('_'))
+            if (IsProcedure(symbol) && symbol.Name.Contains('_') && IsNamedByConvention(context, owner, symbol))
             {
                 return new(RenameRefusalKind.NamedByConvention, symbol.Name);
             }
@@ -250,6 +251,27 @@ public static class SymbolRename
 
         return null;
     }
+
+    // MS-VBAL §5.3.1.8, §5.3.1.9, §5.3.1.10: a procedure of a class named Object_Member is called by that name, and is not renamed away from it. It is the handler of
+    // an event of the class itself (Class_Initialize), of its form (UserForm_Click, Form_Load), of a WithEvents variable or a control, or the implementation
+    // of a member of an interface. Every procedure of a document module is one, since the events of its host are not known. Any other procedure with an
+    // underscore in its name is named as any procedure is.
+    private static bool IsNamedByConvention(RenameContext context, VBClassModuleSymbol owner, Symbol procedure)
+    {
+        if (owner.IsDocument
+            || MemberRoles.Of(owner, context.Resolver, designer: null).TryGetValue(procedure.SemanticId, out var role) && role is not DeclarationRole.None)
+        {
+            return true;
+        }
+
+        var prefix = procedure.Name[..procedure.Name.IndexOf('_')];
+        return ConventionalObjects.Contains(prefix)
+            || owner.WithEventsVariables.Any(variable => string.Equals(variable.Name, prefix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // the objects whose events a class handles by name without declaring them: the class itself, and the forms of Microsoft Forms and Visual Basic 6.0.
+    private static readonly HashSet<string> ConventionalObjects =
+        new(StringComparer.OrdinalIgnoreCase) { ClassLifecycleInterface.InterfaceName, "UserForm", "Form", "MDIForm", "UserControl", "PropertyPage", "UserDocument" };
 
     private static bool IsProcedure(Symbol symbol)
         => symbol is VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol;

@@ -455,6 +455,17 @@ public static class ExpressionStaticSemanticsEvaluator
             {
                 context.Arguments?.Record(passed.Identity, parameter.SemanticId);
             }
+
+            // an element of an array is passed by reference as the variable it is, which belongs to the array: the procedure may assign the array through it.
+            if (passed is IndexExpressionNode { Callee: var array } && facts.TryGet(array.Identity, out var arrayFact)
+                && arrayFact is { Classification: ExpressionClassification.Variable, DeclaredType: VBArrayType })
+            {
+                facts.Record(arrayFact with { Flags = arrayFact.Flags | ValueExpressionSemanticFlags.PassedAsArgument });
+                if (recordsParameters && parameter is not null and not ParamArrayParameterSymbol)
+                {
+                    context.Arguments?.Record(array.Identity, parameter.SemanticId);
+                }
+            }
         }
     }
 
