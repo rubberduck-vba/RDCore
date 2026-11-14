@@ -538,7 +538,7 @@ public sealed class UnusedDeclarationAnalyzerTests
         var shape = ModuleWorkspace.ClassModule("Shape", before);
         var fixedShape = WithGetter(shape, fix);
         Assert.AreEqual(ModuleWorkspace.ClassModule("Shape",
-            "Option Explicit", "Private mWidth As Long", "Private mSize As Long", "Public Property Let Size(ByVal value As Long)", "    mSize = value", "    mWidth = value * 2",
+            "Option Explicit", "Private mWidth As Long", "Private mSize As Long", "", "Public Property Let Size(ByVal value As Long)", "    mSize = value", "    mWidth = value * 2",
             "End Property", "", "Public Property Get Size() As Long", "    Size = mSize", "End Property",
             "Public Property Get Width() As Long", "    Width = mWidth", "End Property"), fixedShape);
 

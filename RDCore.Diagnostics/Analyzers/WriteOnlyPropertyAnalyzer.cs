@@ -2,13 +2,15 @@
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Directives;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Source;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics.Flags;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -27,8 +29,6 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class WriteOnlyPropertyAnalyzer : IModuleAnalyzer
 {
-    private const string NewLine = "\r\n";
-
     public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.WriteOnlyProperty.ToCode()];
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -51,12 +51,12 @@ internal sealed class WriteOnlyPropertyAnalyzer : IModuleAnalyzer
                 DiagnosticSeverity.Information,
                 AnalyzerMessages.Format(RDCoreDiagnosticsResources.WriteOnlyProperty_Message, member.Name))
             {
-                Fixes = GetterOf(module, members, member, context.Semantics) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
+                Fixes = GetterOf(context.ParseResult, module, members, member, context.Semantics) is { } fix ? new DiagnosticFixes { Edit = fix } : null,
             })
             .ToArray();
     }
 
-    private static EditFix? GetterOf(ModuleNode module, List<MemberDeclarationNode> members, MemberDeclarationNode let, ModuleSemanticsDto? semantics)
+    private static EditFix? GetterOf(ModuleParseResult parse, ModuleNode module, List<MemberDeclarationNode> members, MemberDeclarationNode let, ModuleSemanticsDto? semantics)
     {
         if (semantics is null || semantics.Class is { } flags && flags.HasFlag(ClassModuleSemanticFlags.Implemented)
             || let.MemberKind is not MemberKind.PropertyLet
@@ -67,39 +67,32 @@ internal sealed class WriteOnlyPropertyAnalyzer : IModuleAnalyzer
             return null;
         }
 
+        // the End Property, or where the member ends, which is on its line.
+        var endProperty = let.EndRange ?? new SourceRange(let.SourceLocation.Range.End, let.SourceLocation.Range.End);
+
         // the Let stores its value first, at the indentation of its body, or of one level when it has none.
         var start = let.SourceLocation.Range.Start.Line;
-        var end = let.SourceLocation.Range.End.Line;
         var first = let.Children
             .Where(child => child is not (ParameterDeclarationNode or AsTypeExpressionNode or AttributeDirectiveNode))
             .OrderBy(child => child.SourceLocation.Range.Start)
             .FirstOrDefault();
-        if (end <= start || first is not null && first.SourceLocation.Range.Start.Line <= start)
+        if (endProperty.Start.Line <= start || first is not null && first.SourceLocation.Range.Start.Line <= start)
         {
             return null;
         }
 
-        var (storeLine, indent) = first is null ? (end, "    ") : (first.SourceLocation.Range.Start.Line, new string(' ', first.SourceLocation.Range.Start.Character));
-
-        // the variable goes after the last declaration before the first procedure, and before the procedure when there is none.
-        var firstMember = members.MinBy(member => member.SourceLocation.Range.Start)!;
-        var declarations = module.Children
-            .Where(child => child is not MemberDeclarationNode && child.SourceLocation.Range.End < firstMember.SourceLocation.Range.Start)
-            .ToArray();
-        var fieldLine = declarations.Length == 0 ? firstMember.SourceLocation.Range.Start.Line : declarations.Max(child => child.SourceLocation.Range.End.Line) + 1;
-
         var field = FieldName(let.Name, module, semantics);
-        var access = let.AccessModifier is AccessModifier.Public ? "Public " : string.Empty;
-        return new EditFix
+        if (LineEdits.InsertLinesAfterDeclarations(parse, $"Private {field} As {type}") is not { } declare)
         {
-            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.WriteOnlyProperty_Fix, let.Name, field),
-            Edits =
-            [
-                Insert(fieldLine, $"Private {field} As {type}{NewLine}"),
-                Insert(storeLine, $"{indent}{field} = {value.Name}{NewLine}"),
-                Insert(end + 1, $"{NewLine}{access}Property Get {let.Name}() As {type}{NewLine}    {let.Name} = {field}{NewLine}End Property{NewLine}"),
-            ],
-        };
+            return null;
+        }
+
+        var store = first is null
+            ? LineEdits.InsertLinesBefore(parse, endProperty, $"    {field} = {value.Name}")
+            : LineEdits.InsertLinesBefore(parse, first, $"{new string(' ', first.SourceLocation.Range.Start.Character)}{field} = {value.Name}");
+        var access = let.AccessModifier is AccessModifier.Public ? "Public " : string.Empty;
+        var getter = LineEdits.InsertLinesAfter(parse, let, string.Empty, $"{access}Property Get {let.Name}() As {type}", $"    {let.Name} = {field}", "End Property");
+        return SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.WriteOnlyProperty_Fix, let.Name, field), declare, store, getter);
     }
 
     // the type of the value as it is written; a value with neither an As clause nor a type character is a Variant, unless a DefType says otherwise.
@@ -112,15 +105,9 @@ internal sealed class WriteOnlyPropertyAnalyzer : IModuleAnalyzer
 
         return value.TypeHint switch
         {
-            "%" => "Integer",
-            "&" => "Long",
-            "^" => "LongLong",
-            "!" => "Single",
-            "#" => "Double",
-            "@" => "Currency",
-            "$" => "String",
+            { } hint => IntrinsicVBTypes.TryResolveTypeHint(hint, out var hinted) ? hinted.Name : null,
             null when value.IsArray => null,
-            null when !module.Descendants().OfType<TypeDefDirectiveNode>().Any() => "Variant",
+            null when !module.Descendants().OfType<TypeDefDirectiveNode>().Any() => VBTypeNames.VBVariant,
             _ => null,
         };
     }
@@ -140,6 +127,4 @@ internal sealed class WriteOnlyPropertyAnalyzer : IModuleAnalyzer
 
         return candidate;
     }
-
-    private static TextEdit Insert(int line, string text) => new() { Range = new Range(line, 0, line, 0), NewText = text };
 }
