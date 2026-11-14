@@ -519,6 +519,12 @@
   <data name="ConstantNotUsed_Message" xml:space="preserve">
     <value>Constant &apos;{0}&apos; is never used.</value>
   </data>
+  <data name="ConstantNotUsed_Fix" xml:space="preserve">
+    <value>Remove the declaration of &apos;{0}&apos;</value>
+  </data>
+  <data name="VariableNotUsed_Fix" xml:space="preserve">
+    <value>Remove the declaration of &apos;{0}&apos;</value>
+  </data>
   <data name="LineLabelNotUsed_Message" xml:space="preserve">
     <value>Nothing jumps to line label &apos;{0}&apos;.</value>
   </data>

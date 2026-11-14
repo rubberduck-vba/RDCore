@@ -16,7 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// The host counts the references of a local and of a <c>Private</c> variable of the module (<see cref="SDK.Platform.Protocol.DeclarationFactDto.References"/>);
 /// another variable may be read by code the pass does not see, and is not reported. A <c>WithEvents</c> variable is read by the events it handles, and the
-/// control variable of a <c>For</c> loop by the loop.
+/// control variable of a <c>For</c> loop by the loop. A variable nothing refers to comes with the fix that removes its declaration, unless a <c>ReDim</c> names
+/// it: without the declaration, the <c>ReDim</c> would declare an array of its own.
 /// </remarks>
 internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
 {
@@ -26,6 +27,11 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
         {
             yield break;
         }
+
+        var redimensioned = module.Descendants().OfType<RedimDeclarationNode>()
+            .Select(redim => redim.Target is SimpleNameExpressionNode name ? name.IdentifierName : null)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (fact, references) in UnusedDeclarations.Counted(semantics, DeclarationKind.Variable).Where(counted => counted.References is { Reads: 0, PassedAsArguments: 0 }))
         {
@@ -40,7 +46,13 @@ internal sealed class VariableNotUsedAnalyzer : IModuleAnalyzer
                 RDCoreDiagnosticId.VariableNotUsed.ToCode(),
                 fact.Location.Range,
                 DiagnosticSeverity.Information,
-                AnalyzerMessages.Format(references.Writes > 0 ? RDCoreDiagnosticsResources.VariableNotUsed_Assigned_Message : RDCoreDiagnosticsResources.VariableNotUsed_Message, fact.Name));
+                AnalyzerMessages.Format(references.Writes > 0 ? RDCoreDiagnosticsResources.VariableNotUsed_Assigned_Message : RDCoreDiagnosticsResources.VariableNotUsed_Message, fact.Name))
+            {
+                Fixes = references.Writes == 0 && declaration is not null && !redimensioned.Contains(fact.Name)
+                    && UnusedDeclarations.RemovalOf(context.ParseResult, declaration, AnalyzerMessages.Format(RDCoreDiagnosticsResources.VariableNotUsed_Fix, fact.Name)) is { } fix
+                    ? new DiagnosticFixes { Edit = fix }
+                    : null,
+            };
         }
     }
 }

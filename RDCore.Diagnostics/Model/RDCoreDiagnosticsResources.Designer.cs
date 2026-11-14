@@ -1304,6 +1304,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Remove the declaration of &apos;{0}&apos;.
+        /// </summary>
+        public static string ConstantNotUsed_Fix {
+            get {
+                return ResourceManager.GetString("ConstantNotUsed_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the declaration of &apos;{0}&apos;.
+        /// </summary>
+        public static string VariableNotUsed_Fix {
+            get {
+                return ResourceManager.GetString("VariableNotUsed_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Nothing jumps to line label &apos;{0}&apos;..
         /// </summary>
         public static string LineLabelNotUsed_Message {
