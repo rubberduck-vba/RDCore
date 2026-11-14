@@ -235,8 +235,10 @@ public static class VBUserDefinedTypeImage
     /// what the copy wrote (<see cref="VBUserDefinedTypeValue.TryLetFieldAt"/>, <see cref="VBArrayValue.TryLetElementAt"/>).
     /// </para>
     /// <para>
-    /// Only the bytes both types have are copied, as a copy between records of different sizes must be: a place of the destination that does not fit
-    /// entirely inside the source's image is left at its declared type's default, so that no place holds half a value.
+    /// Only the bytes both types have are copied, as MS-VBA copies them (observed in Excel): the source's bytes go over the start of the destination, and the
+    /// rest of the destination keeps what it held. A place the source's image reaches only part of is its own bytes with the source's laid over their start,
+    /// so a <c>Long</c> given the two bytes of an <c>Integer</c> keeps its high two. A place past the end of the source's image is left as it was. An object field the source's image
+    /// reaches only part of is set to <c>Nothing</c> (RD-VBAL §5.4.3.6).
     /// </para>
     /// <para>
     /// The specification leaves how the bytes are copied to the implementation. RD-VBA copies the data a place points at: a <c>String</c>, a resizable
@@ -269,6 +271,7 @@ public static class VBUserDefinedTypeImage
         // its interface (which ObjPtr would make) only where one of them reads it.
         var read = to.Where(IsReadFromBytes).Select(place => (place.Offset, place.Width)).ToList();
         var image = read.Count == 0 ? [] : LaidOut(source, pointerWidth, AddressBytes);
+        byte[]? overlaid = null;
 
         // each place's value first, then the writes: an object the destination cannot be given leaves it as it was.
         var writes = new List<Action>(to.Count);
@@ -292,9 +295,25 @@ public static class VBUserDefinedTypeImage
 
         bool Fits(Place place) => place.Offset + place.Width <= sourceSize;
 
+        // whether the source's image reaches the place at all: a place past its end is not written.
+        bool Reaches(Place place) => place.Offset < sourceSize;
+
         // an object place reads the bytes when the source has no object at its offset; a place that has bytes of its own always does.
         bool IsReadFromBytes(Place place)
-            => Fits(place) && (IsObject(place.Type) ? ObjectAt(place.Offset) is null : HasImage(place.Type));
+            => Reaches(place) && (IsObject(place.Type) ? ObjectAt(place.Offset) is null : HasImage(place.Type));
+
+        // the destination's own image with the source's laid over its start: what a place the source reaches only part of is read from. It is made before
+        // anything is written.
+        byte[] Overlaid()
+        {
+            if (overlaid is null)
+            {
+                overlaid = LaidOut(destination, pointerWidth, null);
+                image.AsSpan(0, Math.Min(image.Length, overlaid.Length)).CopyTo(overlaid);
+            }
+
+            return overlaid;
+        }
 
         byte[]? AddressBytes(int at, VBType type, VBTypedValue value)
             => IsObject(type) && value is VBObjectValue held
@@ -317,6 +336,11 @@ public static class VBUserDefinedTypeImage
         (VBRecordCopyOutcome, Action?) WriteOf(Place place)
         {
             var copied = VBRecordCopyOutcome.Copied;
+            if (!Reaches(place))
+            {
+                return (copied, static () => { });
+            }
+
             if (IsObject(place.Type))
             {
                 if (ObjectAt(place.Offset) is { } held)
@@ -326,6 +350,7 @@ public static class VBUserDefinedTypeImage
                         : (VBRecordCopyOutcome.ObjectOfAnotherClass, null);
                 }
 
+                // part of an address is no object's: the place is Nothing.
                 if (!Fits(place))
                 {
                     return (copied, place.Reset);
@@ -357,12 +382,8 @@ public static class VBUserDefinedTypeImage
                     : (copied, place.Reset);
             }
 
-            if (!Fits(place))
-            {
-                return (copied, place.Reset);
-            }
-
-            var value = Decoded(place.Type, image.AsSpan(place.Offset, place.Width), pointerWidth);
+            var bytes = Fits(place) ? image : Overlaid();
+            var value = Decoded(place.Type, bytes.AsSpan(place.Offset, place.Width), pointerWidth);
             return (copied, () => place.Let(value));
         }
     }
