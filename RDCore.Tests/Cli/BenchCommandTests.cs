@@ -418,8 +418,8 @@ public sealed class BenchCommandTests
         StringAssert.Matches(output.ToString(), new System.Text.RegularExpressions.Regex(@"\d+ of \d+ procedures compiled\."));
     }
 
-    // a call that omits an Optional argument, and a Set of what a factory of a default instance returns, are statements the interpreter runs for compiled
-    // code: the report says so of each, and where, and steps nothing.
+    // a Set of an object made with New, and a call of a member of an Object, bound late, are statements the interpreter runs for compiled code: the
+    // report says so of each, and where, and steps nothing.
     [TestMethod]
     public async Task TheCompilationReport_SaysWhichStatementsAreSupportCalls_AndWhere()
     {
@@ -427,23 +427,17 @@ public sealed class BenchCommandTests
         string[] calling =
         [
             "Public Sub Calls()",
-            "    Dim G As Gadget, I As Long",
+            "    Dim G As Gadget, O As Object, I As Long",
             "    For I = 1 To 3",
-            "        Set G = Gadget.Create(I)",
-            "        G.Grow",
+            "        Set G = New Gadget",
+            "        Set O = G",
+            "        O.Grow I",
             "    Next",
             "End Sub",
         ];
         var fileSystem = Files(("Calling.bas", Module("Calling", calling)), ("Gadget.cls", ClassModule("Gadget",
-            "Attribute VB_PredeclaredId = True",
             "Option Explicit",
             "Private mSize As Long",
-            "Public Function Create(ByVal Size As Long) As Gadget",
-            "    Dim Result As Gadget",
-            "    Set Result = New Gadget",
-            "    Result.Grow Size",
-            "    Set Create = Result",
-            "End Function",
             "Public Sub Grow(Optional ByVal By As Long = 1)",
             "    mSize = mSize + By",
             "End Sub")));
@@ -456,7 +450,7 @@ public sealed class BenchCommandTests
         Assert.IsFalse(calls.Contains("run by the interpreter: ", StringComparison.Ordinal), calls);
         StringAssert.Contains(calls, "run by the interpreter as a support call: ");
         var source = Module("Calling", calling).Split("\r\n");
-        foreach (var statement in new[] { "        Set G = Gadget.Create(I)", "        G.Grow" })
+        foreach (var statement in new[] { "        Set G = New Gadget", "        O.Grow I" })
         {
             StringAssert.Contains(calls, $"(line {Array.IndexOf(source, statement) + 1})", statement);
         }
