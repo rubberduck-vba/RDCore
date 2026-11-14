@@ -221,6 +221,12 @@ public sealed record class AutomationInvokeParams : AutomationRequest
     /// <summary>Whether each argument is passed by reference.</summary>
     public bool[] ByReference { get; init; } = [];
 
+    /// <summary>
+    /// The names of the arguments that are named, which come after the others in <see cref="Arguments"/> and before a value being assigned; none when the
+    /// call names none.
+    /// </summary>
+    public string[] ArgumentNames { get; init; } = [];
+
     /// <summary>The name of the locale the call is made in.</summary>
     public string Culture { get; init; } = string.Empty;
 }
