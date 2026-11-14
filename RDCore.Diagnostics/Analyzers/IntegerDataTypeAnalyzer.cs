@@ -41,9 +41,9 @@ internal sealed class IntegerDataTypeAnalyzer : SyntaxTreeAnalyzer
         => string.Equals(asType.TypeName, VBTypeNames.VBInteger, StringComparison.OrdinalIgnoreCase)
            && (asType.QualifierName is null || string.Equals(asType.QualifierName, "VBA", StringComparison.OrdinalIgnoreCase));
 
-    // the type-declaration character of an Integer, at the end of the name it is written with; the declaration when where the name is written is not known.
+    // the name written with the type-declaration character of an Integer; the whole declaration when the range of its name is not known.
     private static SourceRange? IntegerHintOf(string? hint, SourceRange? name, SourceLocation declaration)
         => hint is not null && IntrinsicVBTypes.TryResolveTypeHint(hint, out var type) && type is VBIntegerType
-            ? name is { } range ? new SourceRange(new SourcePosition(range.End.Line, range.End.Character - hint.Length), range.End) : declaration.Range
+            ? name ?? declaration.Range
             : null;
 }

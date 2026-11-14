@@ -300,11 +300,11 @@ public sealed class SyntaxTreeAnalyzerTests
     }
 
     [TestMethod]
-    public void TheFindingOfATypeCharacter_IsTheCharacter()
+    public void TheFindingOfATypeCharacter_IsTheNameItIsWrittenWith()
     {
         var finding = Run(new IntegerDataTypeAnalyzer(), "Private count%\n").Single();
 
-        Assert.AreEqual(new SourceRange(0, 13, 0, 14), finding.Range);
+        Assert.AreEqual(new SourceRange(0, 8, 0, 14), finding.Range);
     }
 
     #endregion
