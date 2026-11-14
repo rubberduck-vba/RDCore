@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
@@ -59,16 +60,23 @@ internal static class DefaultMemberAccesses
 
         foreach (var statement in module.Descendants().OfType<AssignmentStatementNode>().Where(statement => statement.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet))
         {
+            // an element is written through its array, which is the assignment's target fact: the element's own fact is the one at the target, of the
+            // type the element holds.
             var targetRange = statement.Target.SourceLocation.Range;
-            if (expressions.FirstOrDefault(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) && fact.Location.Range == targetRange) is not { } target)
+            var isElement = statement.Target is IndexExpressionNode;
+            if (expressions.FirstOrDefault(fact => (isElement || fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget)) && fact.Location.Range == targetRange)
+                is not { } target)
             {
                 continue;
             }
 
-            // a class's default member is the member access of the target; an Object has none to state before it runs.
+            // a class's default member is the member access of the target that the code does not name; an Object has none to state before it runs. A target
+            // that names the default member (`label.Caption = text`, `.Value = x` in a With block) assigns that member, and no object: the host states the
+            // access of a member that is the default one as a default member's access, named or not.
             var unbound = IsUnbound(target.DeclaredType);
             var defaultMember = unbound ? null : accesses.FirstOrDefault(access => access.Location.Range == targetRange
-                && access.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.DefaultMember));
+                && access.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.DefaultMember)
+                && !Names(statement.Target, access.Member));
             if (defaultMember is null && !unbound)
             {
                 continue;
@@ -89,13 +97,24 @@ internal static class DefaultMemberAccesses
     /// The member accesses that give an argument list, or a <c>!</c> name, to a default member nothing names.
     /// </summary>
     /// <param name="semantics">The host's model of the module.</param>
+    /// <param name="module">The syntax tree of the module.</param>
     /// <param name="dictionaryAccess">Whether the access is a dictionary access (<c>a!b</c>).</param>
     /// <param name="unbound">Whether the object is an <c>Object</c>, whose default member is known only at run time.</param>
-    public static IEnumerable<OperatorFactDto> ImplicitIndexedAccesses(ModuleSemanticsDto semantics, bool dictionaryAccess, bool unbound)
-        => MemberAccesses(semantics).Where(access => access.MemberAccessOpSemanticFlags!.Value is var flags
+    public static IEnumerable<OperatorFactDto> ImplicitIndexedAccesses(ModuleSemanticsDto semantics, ModuleNode module, bool dictionaryAccess, bool unbound)
+    {
+        // a value assigned to an object (h = 5), or to an element that holds one (a(1) = 5), is an implicit access of its default member too, with no argument
+        // list: the subscripts are the array's. RDC00119 and RDC00120 report it, so it is left out here.
+        var valueAssignedToAnObject = module.Descendants().OfType<AssignmentStatementNode>()
+            .Where(statement => statement.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet
+                && statement.Target is not DictionaryAccessExpressionNode)
+            .Select(statement => statement.Target.SourceLocation.Range)
+            .ToHashSet();
+        return MemberAccesses(semantics).Where(access => access.MemberAccessOpSemanticFlags!.Value is var flags
             && flags.HasFlag(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember)
             && flags.HasFlag(MemberAccessOperationSemanticFlags.DictionaryAccess) == dictionaryAccess
-            && flags.HasFlag(MemberAccessOperationSemanticFlags.LateBound) == unbound);
+            && flags.HasFlag(MemberAccessOperationSemanticFlags.LateBound) == unbound
+            && !valueAssignedToAnObject.Contains(access.Location.Range));
+    }
 
     /// <summary>
     /// Whether a declared type is <c>Object</c>, whose default member is known only at run time.
@@ -113,6 +132,10 @@ internal static class DefaultMemberAccesses
             .ToArray();
         return candidates.FirstOrDefault(fact => !candidates.Any(other => other != fact && Contains(other.Location.Range, fact.Location.Range)));
     }
+
+    // whether the target of an assignment is the access of the member, by its name.
+    private static bool Names(ExpressionNode target, string? member)
+        => target is MemberAccessExpressionNode access && string.Equals(access.Member.IdentifierName, member, StringComparison.OrdinalIgnoreCase);
 
     private static bool HoldsAnObject(string? declaredType)
         => declaredType is { Length: > 0 } type && (IsUnbound(type) || !IntrinsicVBTypes.IsIntrinsic(type) && !string.Equals(type, "Unknown", StringComparison.OrdinalIgnoreCase));
@@ -197,7 +220,8 @@ internal sealed class IndexedDefaultMemberAccessAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: false, unbound: false)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: false, unbound: false)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.IndexedDefaultMemberAccess.ToCode(),
                 access.Location.Range,
@@ -213,7 +237,8 @@ internal sealed class IndexedUnboundDefaultMemberAccessAnalyzer : IModuleAnalyze
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: false, unbound: true)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: false, unbound: true)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.IndexedUnboundDefaultMemberAccess.ToCode(),
                 access.Location.Range,
@@ -230,7 +255,8 @@ internal sealed class BangNotationAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: true, unbound: false)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: true, unbound: false)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.BangNotation.ToCode(),
                 access.Location.Range,
@@ -247,7 +273,8 @@ internal sealed class UnboundBangNotationAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is not { } semantics ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, dictionaryAccess: true, unbound: true)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: true, unbound: true)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.UnboundBangNotation.ToCode(),
                 access.Location.Range,

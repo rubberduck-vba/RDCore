@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyTitle>RDCore Benchmarks</AssemblyTitle>
+    <Description>BenchmarkDotNet benchmarks of the RDCore platform's hot paths. Not part of the platform; never run by the tests or by CI.</Description>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RDCore.CLI\RDCore.CLI.csproj" />
+    <ProjectReference Include="..\RDCore.Diagnostics\RDCore.Diagnostics.csproj" />
+    <ProjectReference Include="..\RDCore.Parsing\RDCore.Parsing.csproj" />
+  </ItemGroup>
+
+</Project>

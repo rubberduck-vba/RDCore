@@ -956,11 +956,36 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
         }
 
-        return TryResolveDefaultMember(session, indexed) is { } defaultMember
-            ? InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver, reachedThrough: indexExpression.Callee,
-                call: indexExpression)
-            : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+        if (TryResolveDefaultMember(session, indexed) is not { } defaultMember)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to index."));
+        }
+
+        // MS-VBAL §5.6.13: a default member that takes no parameters is called with none, and the arguments apply to what it returns, as if it were the
+        // index expression's callee: the default member of the object it returns, again, or an element of the array (recorded in Excel). Called late, on
+        // an Object or a Variant, only an object takes them: IDispatch is asked for the default member given the arguments, which a value that is not an
+        // object cannot take (451, recorded in Excel).
+        if (ReturnsToBeIndexed(defaultMember.Member, defaultMember.Receiver, indexExpression.Arguments))
+        {
+            var returned = InvokeProcedure(session, context, defaultMember.Member, [], defaultMember.Receiver, call: indexExpression);
+            var held = returned.Result;
+            while (held is VBVariantValue { TypedValue: { } wrapped })
+            {
+                held = wrapped;
+            }
+
+            if (returned.IsSuccess && held is not VBObjectValue && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBObjectType or VBVariantType)
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                    expression.Location, "The default member takes no arguments, and what it returned is not an object to give them to."));
+            }
+
+            return IndexValue(session, context, expression, indexExpression, returned);
+        }
+
+        return InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver, reachedThrough: indexExpression.Callee,
+            call: indexExpression);
     }
 
     // a member of an object called with the arguments of the index (IsCall), or read to be indexed by them: a function that declares no parameters returns what is indexed.
@@ -1398,12 +1423,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             coerced = setResult.Result!;
         }
-        else if (valueParameter.ResolvedType is VBVariantType && HeldObject(value) is { } given && SetCoercion is { } objectCoercion)
+        else if (valueParameter.ResolvedType is VBVariantType or VBObjectType or VBClassType && HeldObject(value) is { } given && SetCoercion is { } objectCoercion)
         {
             // RD-VBAL §5.4.3.8: MS-VBA gives a Variant value parameter the object a Let assigns as it is, early bound or late bound, where MS-VBAL evaluates
             // it as a simple data value: what happens to it is up to the procedure, or the server (observed in Excel: Range.Value = Nothing is Excel's
-            // error 1004, a Dictionary's Item reads the object's default member itself).
-            var passed = objectCoercion.EvaluateSetCoercion(session, source, given, VBVariantType.TypeInfo);
+            // error 1004, a Dictionary's Item reads the object's default member itself). A value parameter of a class or Object is given the object, or
+            // Nothing, as a Set would give it, where MS-VBAL Let-coerces its default member's value to the object type (§5.5.1.2.13: 424, 91 for Nothing).
+            var passed = objectCoercion.EvaluateSetCoercion(session, source, given, valueParameter.ResolvedType);
             if (!passed.IsSuccess)
             {
                 return RuntimeSemanticsEvaluationResult.Error(passed.ErrorInfo!);
@@ -1425,8 +1451,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             {
                 // reached late bound, an object with no default member given to a parameter of another type is a type mismatch, as the IDispatch the call
                 // goes through makes it, and not error 438 (observed in Excel).
+                // a value that is no object, given late bound to a value parameter of a class or Object, is a type mismatch too, not error 424 (observed in
+                // Excel).
                 return RuntimeSemanticsEvaluationResult.Error(
-                    lateBound && HeldObject(value) is not null && letResult.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod
+                    lateBound && valueParameter.ResolvedType is VBObjectType or VBClassType && HeldObject(value) is null
+                        && letResult.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectRequired
+                        ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, source.Location, letResult.ErrorInfo.Verbose)
+                    : lateBound && HeldObject(value) is not null && letResult.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod
                         ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, source.Location, letResult.ErrorInfo.Verbose)
                         : AsDispatched(session, context, dispatchedThrough, letResult.ErrorInfo!));
             }
