@@ -61,7 +61,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             alias,
             modifier,
             context.identifier().TypeHint(),
-            context.identifier().SourceRange);
+            context.identifier().SourceRange)
+        {
+            TypeHintRange = context.identifier().TypeHintRange(),
+        };
     }
     public SyntaxNode BuildEventDeclaration(VBAParser.EventStmtContext context)
     {
@@ -152,6 +155,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             OptionalRange = KeywordRange(context, context.OPTIONAL()),
             PassingRange = KeywordRange(context, context.BYVAL() ?? context.BYREF()),
             ParamArrayRange = KeywordRange(context, context.PARAMARRAY()),
+            TypeHintRange = context.unrestrictedIdentifier().TypeHintRange(),
         };
     }
 
@@ -182,6 +186,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         {
             ParameterListRange = ParameterListRange(context.argList()),
             EndRange = KeywordRange(context, context.END_PROPERTY()),
+            TypeHintRange = context.functionName().identifier().TypeHintRange(),
         };
     }
     public SyntaxNode BuildPropertyLetDeclaration(VBAParser.PropertyLetStmtContext context)
@@ -263,6 +268,7 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         {
             ParameterListRange = ParameterListRange(context.argList()),
             EndRange = KeywordRange(context, context.END_FUNCTION()),
+            TypeHintRange = context.functionName().identifier().TypeHintRange(),
         };
     }
 
@@ -299,7 +305,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             typeHint,
             isWithEvents,
             isStatic,
-            context.identifier().SourceRange);
+            context.identifier().SourceRange)
+        {
+            TypeHintRange = context.identifier().TypeHintRange(),
+        };
     }
 
     // MS-VBAL 5.2.3.1.3 Array Dim: `( [ boundsList ] )`. No boundsList -> dynamic array; each
@@ -387,7 +396,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             [.. _children],
             modifier,
             typeHint,
-            context.identifier().SourceRange);
+            context.identifier().SourceRange)
+        {
+            TypeHintRange = context.identifier().TypeHintRange(),
+        };
     }
 
     public SyntaxNode BuildConditionalExpression(VBAParser.ExpressionContext context)

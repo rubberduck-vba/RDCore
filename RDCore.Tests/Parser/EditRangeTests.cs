@@ -131,9 +131,28 @@ public sealed class EditRangeTests
     {
         var parse = new ModuleParser().Parse(Module, source);
         Assert.IsEmpty(parse.SyntaxErrors);
-        var node = parse.SyntaxTree!.Descendants().OfType<SDK.Model.AST.Abstract.LineLabelNode>().Single(node => node.Name.Trim('[', ']') == label);
+        var node = parse.SyntaxTree!.Descendants().OfType<SDK.Model.AST.Abstract.LineLabelNode>().Single(node => node.Name == label);
 
         Assert.AreEqual(expected, TextOf(source, node.NameRange));
+        Assert.AreEqual(expected?.StartsWith('[') ?? false, node.IsBracketed, "a bracketed name says so, and its name is without the brackets");
+    }
+
+    [TestMethod]
+    public void TheTypeCharacterOfADeclaration_IsAtItsOwnRange()
+    {
+        const string source = "Private Declare Function Tick& Lib \"k\" ()\r\nPrivate n%\r\nPrivate Const c$ = \"x\"\r\nPrivate m As Long\r\nPublic Function F#(ByVal p@, q)\r\nEnd Function\r\n";
+
+        var parse = new ModuleParser().Parse(Module, source);
+        Assert.IsEmpty(parse.SyntaxErrors);
+        var nodes = parse.SyntaxTree!.Descendants().ToArray();
+
+        Assert.AreEqual("&", TextOf(source, nodes.OfType<ExternalMemberDeclarationNode>().Single().TypeHintRange));
+        Assert.AreEqual("%", TextOf(source, nodes.OfType<VariableDeclarationNode>().Single(node => node.Name == "n").TypeHintRange));
+        Assert.AreEqual("$", TextOf(source, nodes.OfType<ConstantDeclarationNode>().Single().TypeHintRange));
+        Assert.IsNull(nodes.OfType<VariableDeclarationNode>().Single(node => node.Name == "m").TypeHintRange, "a name written without one has none");
+        Assert.AreEqual("#", TextOf(source, nodes.OfType<MemberDeclarationNode>().Single(node => node.Name == "F").TypeHintRange));
+        Assert.AreEqual("@", TextOf(source, nodes.OfType<ParameterDeclarationNode>().Single(node => node.Name == "p").TypeHintRange));
+        Assert.IsNull(nodes.OfType<ParameterDeclarationNode>().Single(node => node.Name == "q").TypeHintRange);
     }
 
     [TestMethod]

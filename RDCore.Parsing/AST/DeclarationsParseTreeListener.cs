@@ -2452,11 +2452,13 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
 
         var identifierLabel = context.identifierStatementLabel() ?? context.combinedLabels()?.identifierStatementLabel();
         SourceRange? nameRange = null;
+        var isBracketed = false;
         if (identifierLabel?.legalLabelIdentifier()?.identifier() is { } labelIdentifier)
         {
-            // `Label:` - the colon is part of the label as written, and not of its name.
+            // `Label:` - the colon is part of the label as written, and not of its name; the name of `[Try Again]:` is the one `GoTo [Try Again]` names.
             labelLocation = identifierLabel.GetSourceLocation(_rootUri);
-            name = labelIdentifier.GetText();
+            name = labelIdentifier.Name();
+            isBracketed = labelIdentifier.IsBracketed();
             nameRange = labelIdentifier.GetSourceLocation(_rootUri).Range;
         }
 
@@ -2470,7 +2472,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         if (name is not null)
         {
-            CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name) { NameRange = nameRange });
+            CurrentBuilder.AddChild(new LineLabelNode(GetCurrentNodeId(), labelLocation, name) { NameRange = nameRange, IsBracketed = isBracketed });
         }
 
         // lineNumberLabel is `MINUS? numberLiteral`: VBE can prettify &HFFFFFFFF into -1, which is a legal line number, so a sign and the other radixes are read.
