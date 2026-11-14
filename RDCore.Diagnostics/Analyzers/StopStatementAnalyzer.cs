@@ -17,6 +17,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class StopStatementAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.StopStatement.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.ParseResult.SyntaxTree?.Descendants() ?? [])
             .OfType<KeywordStatementNode>()

@@ -23,6 +23,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <param name="options">The settings of the extension.</param>
 internal sealed class RedundantByRefModifierAnalyzer(IOptions<DiagnosticsOptions> options) : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.RedundantByRefModifier.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (options.Value.ByRefModifier is not ByRefConvention.Implicit || context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics })

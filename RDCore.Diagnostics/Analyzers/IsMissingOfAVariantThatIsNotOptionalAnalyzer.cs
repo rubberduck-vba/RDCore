@@ -27,6 +27,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class IsMissingOfAVariantThatIsNotOptionalAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.IsMissingOfAVariantThatIsNotOptional.ToCode()];
+
     private const string IsMissing = "Information.IsMissing";
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

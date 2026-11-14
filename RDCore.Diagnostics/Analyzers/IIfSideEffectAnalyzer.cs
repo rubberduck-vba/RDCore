@@ -21,6 +21,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class IIfSideEffectAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.IIfSideEffect.ToCode()];
+
     private const string IIf = "Interaction.IIf";
 
     // MS-VBAL §6.1.2.4 DateTime, §6.1.2.7 Information, §6.1.2.8 Interaction, §6.1.2.10 Math, §6.1.2.11 Strings: the functions that change nothing and

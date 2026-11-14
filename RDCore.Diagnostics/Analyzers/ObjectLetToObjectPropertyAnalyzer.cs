@@ -19,6 +19,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ObjectLetToObjectPropertyAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ObjectLetToObjectProperty.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => ObjectLetsToProperties.Find(context, kind => kind is DeclaredTypeKind.Class or DeclaredTypeKind.Object)
             .Select(target => new AnalyzerFinding(

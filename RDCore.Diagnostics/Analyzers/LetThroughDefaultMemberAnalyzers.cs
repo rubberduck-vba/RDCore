@@ -24,6 +24,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class LetToADefaultMemberWithNoPropertyLetAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.LetToADefaultMemberWithNoPropertyLet.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => LetThroughDefaultMember.Findings(context, target => target is SimpleNameExpressionNode or MemberAccessExpressionNode or InstanceExpressionNode ? target : null,
             (_, fact) => fact is { Error: null, TypeKind: DeclaredTypeKind.Class, IsArray: false, DefaultMember: { RequiredParameters: 0 } member }
@@ -47,6 +49,8 @@ internal sealed class LetToADefaultMemberWithNoPropertyLetAnalyzer : IModuleAnal
 /// </remarks>
 internal sealed class LetThroughAVariantGetOrFunctionAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.LetThroughAVariantGetOrFunction.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => LetThroughDefaultMember.Findings(context, target => target is IndexExpressionNode { Callee: var callee } ? callee : target,
             (procedure, fact) => fact is { Error: null, TypeKind: DeclaredTypeKind.Variant, IsArray: false, Binding: { } binding }

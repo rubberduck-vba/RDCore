@@ -22,6 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class EmptyStringLiteralAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EmptyStringLiteral.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
     {
         var nodes = module.Descendants().ToArray();

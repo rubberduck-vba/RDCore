@@ -25,6 +25,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class EmptyProcedureAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EmptyProcedure.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics })

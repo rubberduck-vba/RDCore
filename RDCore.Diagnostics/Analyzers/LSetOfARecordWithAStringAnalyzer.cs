@@ -17,6 +17,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class LSetOfARecordWithAStringAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.LSetOfARecordWithAString.ToCode()];
+
     private const FixedAssignmentSemanticFlags EitherSide =
         FixedAssignmentSemanticFlags.SourceHoldsVariableLengthString | FixedAssignmentSemanticFlags.DestinationHoldsVariableLengthString;
 

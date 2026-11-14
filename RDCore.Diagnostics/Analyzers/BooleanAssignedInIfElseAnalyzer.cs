@@ -29,6 +29,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class BooleanAssignedInIfElseAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.BooleanAssignedInIfElse.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.ParseResult.SyntaxTree is not { } module)

@@ -18,6 +18,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class UnrestoredOnErrorResumeNextAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.UnrestoredOnErrorResumeNext.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
     {
         foreach (var member in module.Children.OfType<MemberDeclarationNode>())

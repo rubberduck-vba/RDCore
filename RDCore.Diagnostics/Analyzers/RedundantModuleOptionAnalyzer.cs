@@ -13,6 +13,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 internal sealed class RedundantModuleOptionAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.RedundantModuleOption.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (context.ParseResult.SyntaxTree?.Children ?? [])
             .OfType<ModuleOptionDirectiveNode>()

@@ -20,6 +20,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <param name="options">The settings of the extension.</param>
 internal sealed class ForStepAnalyzer(IOptions<DiagnosticsOptions> options) : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitForStep.ToCode(), RDCoreDiagnosticId.RedundantStepOne.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
     {
         var loops = module.Descendants().OfType<ForStatementNode>();

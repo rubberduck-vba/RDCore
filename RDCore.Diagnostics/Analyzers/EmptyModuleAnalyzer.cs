@@ -22,6 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed partial class EmptyModuleAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EmptyModule.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context is { ParseResult.SyntaxTree: { } module, Semantics: { Document: null } }

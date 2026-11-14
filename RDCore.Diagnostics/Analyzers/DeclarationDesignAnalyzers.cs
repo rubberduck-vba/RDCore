@@ -19,6 +19,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ProcedureCanBeWrittenAsFunctionAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ProcedureCanBeWrittenAsFunction.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics })
@@ -55,6 +57,8 @@ internal sealed class ProcedureCanBeWrittenAsFunctionAnalyzer : IModuleAnalyzer
 /// </summary>
 internal sealed class SelfAssignedDeclarationAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.SelfAssignedDeclaration.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Descendants()
             .OfType<VariableDeclarationNode>()
@@ -75,6 +79,8 @@ internal sealed class SelfAssignedDeclarationAnalyzer : SyntaxTreeAnalyzer
 /// </remarks>
 internal sealed class EncapsulatePublicFieldAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.EncapsulatePublicField.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => context is { ParseResult.SyntaxTree: { } module, Semantics.Class: not null }
             ? module.Children.OfType<VariableDeclarationNode>()

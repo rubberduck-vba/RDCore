@@ -16,6 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class NonBreakingSpaceInNameAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.NonBreakingSpaceInName.ToCode()];
+
     private const char NonBreakingSpace = ' ';
 
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)

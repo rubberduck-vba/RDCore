@@ -146,6 +146,8 @@ internal static class DefaultMemberAccesses
 /// </remarks>
 internal sealed class ImplicitDefaultMemberAccessAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitDefaultMemberAccess.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -182,6 +184,8 @@ internal sealed class ImplicitDefaultMemberAccessAnalyzer : IModuleAnalyzer
 /// </remarks>
 internal sealed class ImplicitUnboundDefaultMemberAccessAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitUnboundDefaultMemberAccess.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -211,6 +215,8 @@ internal sealed class ImplicitUnboundDefaultMemberAccessAnalyzer : IModuleAnalyz
 /// </summary>
 internal sealed class IndexedDefaultMemberAccessAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.IndexedDefaultMemberAccess.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -227,6 +233,8 @@ internal sealed class IndexedDefaultMemberAccessAnalyzer : IModuleAnalyzer
 /// </summary>
 internal sealed class IndexedUnboundDefaultMemberAccessAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.IndexedUnboundDefaultMemberAccess.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -244,6 +252,8 @@ internal sealed class IndexedUnboundDefaultMemberAccessAnalyzer : IModuleAnalyze
 /// </summary>
 internal sealed class BangNotationAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.BangNotation.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -261,6 +271,8 @@ internal sealed class BangNotationAnalyzer : IModuleAnalyzer
 /// </summary>
 internal sealed class UnboundBangNotationAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.UnboundBangNotation.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
@@ -278,6 +290,8 @@ internal sealed class UnboundBangNotationAnalyzer : IModuleAnalyzer
 /// </summary>
 internal sealed class SuspiciousLetAssignmentAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.SuspiciousLetAssignment.ToCode()];
+
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

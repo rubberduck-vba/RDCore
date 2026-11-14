@@ -18,6 +18,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ObjectLetToVariantPropertyAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ObjectLetToVariantProperty.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => ObjectLetsToProperties.Find(context, kind => kind is DeclaredTypeKind.Variant)
             .Select(target => new AnalyzerFinding(
