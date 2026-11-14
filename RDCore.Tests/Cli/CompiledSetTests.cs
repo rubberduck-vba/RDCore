@@ -87,6 +87,31 @@ public sealed class CompiledSetTests
             "    If First Then Set Picked = Left Else Set Picked = Right",
             "End Function"), [("Picked", 0), ("Self", 0)], classes: Noisy);
 
+    // a Set of the object a variable holds already, or of Nothing to a variable that is Nothing, leaves the object held as it was: it lives on after the
+    // variable it came from lets go of it, and is destroyed when the last that holds it does.
+    [TestMethod]
+    public async Task ASetOfWhatTheVariableHoldsAlready_LeavesTheObjectHeldAsItWas()
+        => await AssertAlikeAsync(Program(
+            "Public Sub Main()",
+            "    Kept",
+            "    Debug.Print \"back\"",
+            "End Sub",
+            "Private Sub Kept()",
+            "    Dim A As Noisy, D As Noisy, E As Noisy, I As Long",
+            "    Set A = New Noisy",
+            "    A.Name = \"held\"",
+            "    For I = 1 To 3",
+            "        Set D = A",
+            "    Next",
+            "    Set D = D",
+            "    Set E = Nothing",
+            "    Set E = Nothing",
+            "    Set A = Nothing",
+            "    Debug.Print \"still \"; D.Name; E Is Nothing",
+            "    Set D = Nothing",
+            "    Debug.Print \"end\"",
+            "End Sub"), [("Kept", 3)], classes: Noisy);
+
     // a Set in a loop, of whichever object each pass picks: compiled code's, each pass.
     [TestMethod]
     public async Task ASetInALoop_IsCompiledCodes_EachPass()
