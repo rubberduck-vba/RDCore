@@ -243,8 +243,9 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
 
-// left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing).
-internal sealed record class IsNode(int? Left, int? Right) : PayloadNode(ScalarKind.Boolean);
+// left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing). An
+// operand that is the default instance of a class (LeftMade, RightMade) is compared only once it holds an object (ObjectOperations.HoldsAnObject).
+internal sealed record class IsNode(int? Left, int? Right, bool LeftMade = false, bool RightMade = false) : PayloadNode(ScalarKind.Boolean);
 
 // TypeOf of an object variable of the activation, against the class the body knows by its number (CompiledActivation.TypeOf).
 internal sealed record class TypeOfNode(int Slot, int Class) : PayloadNode(ScalarKind.Boolean);

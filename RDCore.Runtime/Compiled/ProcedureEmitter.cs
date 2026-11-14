@@ -353,6 +353,14 @@ internal sealed partial class ProcedureEmitter
         _il.Emit(OpCodes.Brfalse, orElse);
     }
 
+    // whether the object variable in slot holds an object, whose reference compiled code reads: one that does not goes to failure.
+    private void EmitHoldsAnObject(int slot, Label failure)
+    {
+        _il.Emit(OpCodes.Ldloc, _objects[slot]);
+        _il.Emit(OpCodes.Call, Objects.GetMethod(nameof(ObjectOperations.HoldsAnObject))!);
+        _il.Emit(OpCodes.Brfalse, failure);
+    }
+
     // the cell of a slot that is not a parameter passed by reference, holding what loadValue loads: the activation is the interpreter's from the start when
     // its frame holds no cell for it.
     private void EmitCellOf(int slot, ScalarKind kind, LocalBuilder cell, Action loadValue)
@@ -1908,6 +1916,17 @@ internal sealed partial class ProcedureEmitter
 
             case IsNode compared:
             {
+                // the default instance of a class that holds no object yet is made where it is read, by the interpreter.
+                if (compared.LeftMade)
+                {
+                    EmitHoldsAnObject(compared.Left!.Value, failure);
+                }
+
+                if (compared.RightMade)
+                {
+                    EmitHoldsAnObject(compared.Right!.Value, failure);
+                }
+
                 var same = _il.DeclareLocal(typeof(bool));
                 if (compared is { Left: { } left, Right: { } right })
                 {

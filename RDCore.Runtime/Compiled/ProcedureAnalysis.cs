@@ -1247,19 +1247,27 @@ internal sealed partial class ProcedureAnalysis
     // a type whose values are object references: Object, a class or an interface.
     private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;
 
-    // an operand of Is compiled code reads: an object variable of the activation, by its slot, or Nothing, which is no slot. Any other is the interpreter's.
-    private bool TryObjectOperand(BoundNode operand, out int? slot)
+    // an operand of Is compiled code reads: an object variable of the activation or Me, by its slot, or Nothing, which is no slot. The default instance of a class
+    // of the workspace (MS-VBAL §5.2.4.1.2) is read in the cell the session holds it in, as an object field is (defaultInstance): it is made when it is read
+    // (MS-VBAL §5.2.3.1.4), and one that holds no object yet is the interpreter's to make. Any other is the interpreter's.
+    private bool TryObjectOperand(BoundNode operand, out int? slot, out bool defaultInstance)
     {
-        slot = null;
+        (slot, defaultInstance) = (null, false);
         switch (operand)
         {
             case BoundVariable variable when ObjectSlotOf(variable) is { } held:
                 slot = held;
                 return true;
+            case BoundInstance { Slot: { } me } when MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot:
+                slot = meSlot;
+                return true;
+            case BoundVariable { Variable: VBPredeclaredInstanceSymbol } instance when FieldSlotOf(instance, receiver: true) is { } made && _objectSlots.Contains(made):
+                (slot, defaultInstance) = (made, true);
+                return true;
             case BoundLiteral { Literal.StaticValue: VBObjectValue nothing } when nothing.IsNothing():
                 return true;
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:
-                return TryObjectOperand(enclosed, out slot);
+                return TryObjectOperand(enclosed, out slot, out defaultInstance);
             default:
                 Unsupported(operand);
                 return false;
@@ -1368,8 +1376,8 @@ internal sealed partial class ProcedureAnalysis
 
             // MS-VBAL §5.6.9.7: two object references compared as they are.
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
-                return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
-                    ? new IsNode(leftObject, rightObject)
+                return TryObjectOperand(compared.Left, out var leftObject, out var leftMade) && TryObjectOperand(compared.Right, out var rightObject, out var rightMade)
+                    ? new IsNode(leftObject, rightObject, leftMade, rightMade)
                     : null;
 
             // MS-VBAL §5.6.7: what TypeOf tests is the interpreter's own test (RuntimeExpressionEvaluator.IsInstanceOf).
