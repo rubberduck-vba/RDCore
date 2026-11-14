@@ -12,8 +12,8 @@ namespace RDCore.Tests.Diagnostics;
 
 /// <summary>
 /// The parameters and the type of a procedure that implements an interface member or handles an event are the member's or the event's, and are not the
-/// module's to choose: neither <c>As Integer</c> (<c>RDC00201</c>) nor a parameter that states no mechanism (<c>RDC00104</c>) is reported there. What its
-/// body declares is the module's, and is.
+/// module's to choose: neither <c>As Integer</c> nor the <c>%</c> type-declaration character (<c>RDC00201</c>), nor a parameter that states no mechanism
+/// (<c>RDC00104</c>), is reported there. What its body declares is the module's, and is.
 /// </summary>
 [TestClass]
 public sealed class SignatureOfAnotherMemberTests
