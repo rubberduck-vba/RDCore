@@ -329,9 +329,11 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11036](rdc11036.md)|Negative line number|A line number below 0, or a jump to one: MS-VBA compiles it, MS-VBAL has no such line number|
 |[RDC11037](rdc11037.md)|Non-breaking space in a name|A declared name with a U+00A0 in it: MS-VBA compiles it, no MS-VBAL identifier has one|
 |[RDC11039](rdc11039.md)|Function called whatever the IIf condition|A `Function` or `Property Get` in the `TruePart` or `FalsePart` of `IIf`, which runs whatever the condition|
+|[RDC11043](rdc11043.md)|Object assigned with Let to a Variant property|An object given to a property whose value parameter is a `Variant`: MS-VBA passes the object, MS-VBAL its default member's value|
 |[RDC11044](rdc11044.md)|LSet of a record that holds a variable-length String|MS-VBAL allows it, and MS-VBA refuses it with a type mismatch|
 |[RDC11045](rdc11045.md)|Let through a default member with no Property Let|`total = 5` compiles in RD-VBA, where MS-VBA refuses it|
 |[RDC11046](rdc11046.md)|Let through a Variant property or function|RD-VBA assigns the returned object's default member, as MS-VBA does, where MS-VBAL raises 451 or 450|
+|[RDC11047](rdc11047.md)|Object assigned with Let to an object property|An object given with `Let` to a property whose value parameter is a class or `Object`: MS-VBA passes the object, MS-VBAL makes it a type mismatch|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 
 ---

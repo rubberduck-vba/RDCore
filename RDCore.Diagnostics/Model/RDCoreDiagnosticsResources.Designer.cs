@@ -924,6 +924,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is given the object itself: MS-VBA passes an object Let-assigned to a property whose value is an object as a Set would, where MS-VBAL §5.5.1.1 makes the assignment a type mismatch. Assign it with Set..
+        /// </summary>
+        public static string ObjectLetToObjectProperty_Message {
+            get {
+                return ResourceManager.GetString("ObjectLetToObjectProperty_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a Property Get declared Variant, with no Property Let. MS-VBAL specifies error 451 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name..
         /// </summary>
         public static string LetThroughAVariantGet_Message {
@@ -938,6 +947,15 @@ namespace RDCore.Diagnostics.Model {
         public static string LetThroughAVariantFunction_Message {
             get {
                 return ResourceManager.GetString("LetThroughAVariantFunction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Property &apos;{0}&apos; receives the object itself, as in MS-VBA, where MS-VBAL §5.4.3.8 passes the value of its default member. Name the default member to pass its value..
+        /// </summary>
+        public static string ObjectLetToVariantProperty_Message {
+            get {
+                return ResourceManager.GetString("ObjectLetToVariantProperty_Message", resourceCulture);
             }
         }
 
