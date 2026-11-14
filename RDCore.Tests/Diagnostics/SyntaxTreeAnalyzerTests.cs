@@ -277,6 +277,36 @@ public sealed class SyntaxTreeAnalyzerTests
         Assert.IsTrue(findings.All(finding => finding is { Id: RDCoreDiagnosticId.IntegerDataTypeDeclaration, Severity: DiagnosticSeverity.Information }));
     }
 
+    [TestMethod]
+    [DataRow("%", true)]
+    [DataRow("&", false)]
+    [DataRow("^", false)]
+    [DataRow("!", false)]
+    [DataRow("#", false)]
+    [DataRow("@", false)]
+    [DataRow("$", false)]
+    public void ATypeCharacter_DeclaresAnInteger_OnlyWhenItIsThePercentSign(string hint, bool isInteger)
+    {
+        var findings = Run(new IntegerDataTypeAnalyzer(), $"""
+            Private Declare Function Beep{hint} Lib "kernel32" (ByVal n{hint})
+            Private n{hint}
+            Private Const c{hint} = 1
+            Public Function Calc{hint}(ByVal p{hint})
+                Dim local{hint}
+            End Function
+            """);
+
+        CollectionAssert.AreEqual(isInteger ? new[] { 1, 2, 3, 3, 4 } : Array.Empty<int>(), Lines(findings));
+    }
+
+    [TestMethod]
+    public void TheFindingOfATypeCharacter_IsTheNameItIsWrittenWith()
+    {
+        var finding = Run(new IntegerDataTypeAnalyzer(), "Private count%\n").Single();
+
+        Assert.AreEqual(new SourceRange(0, 8, 0, 14), finding.Range);
+    }
+
     #endregion
 
     #region RDC00202 module-level Dim

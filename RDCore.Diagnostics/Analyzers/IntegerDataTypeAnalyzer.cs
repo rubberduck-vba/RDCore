@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
@@ -10,7 +11,9 @@ using RDCore.SDK.Platform.Protocol;
 namespace RDCore.Diagnostics.Analyzers;
 
 /// <summary>
-/// <c>RDC00201</c>: an <c>As Integer</c> clause, the 16-bit type (<strong>MS-VBAL §2.1</strong> Data Values and Value Types).
+/// <c>RDC00201</c>: a declaration of the 16-bit <c>Integer</c> type (<strong>MS-VBAL §2.1</strong> Data Values and Value Types), by an <c>As Integer</c>
+/// clause or by the <c>%</c> type-declaration character (<strong>MS-VBAL §3.3.5.3</strong> Special Identifier Forms): <c>Dim n%</c>, <c>p%</c>,
+/// <c>Const c% = 1</c>, <c>Function F%()</c>.
 /// </summary>
 /// <remarks>
 /// A <c>Declare</c> statement is not looked into: the types it states are the ones the external procedure takes, which are not the declaring module's to choose.
@@ -24,18 +27,27 @@ internal sealed class IntegerDataTypeAnalyzer : IModuleAnalyzer
             ? module.Children
                 .Where(member => member is not ExternalMemberDeclarationNode)
                 .SelectMany(member => ChosenBy(member, context.Semantics))
-                .OfType<AsTypeExpressionNode>()
-                .Where(IsInteger)
-                .Select(asType => new AnalyzerFinding(
-                    RDCoreDiagnosticId.IntegerDataTypeDeclaration.ToCode(), asType.Location.Range, DiagnosticSeverity.Information, RDCoreDiagnosticsResources.IntegerDataTypeDeclaration_Message))
+                .Select(node => node switch
+                {
+                    AsTypeExpressionNode asType when IsInteger(asType) => asType.Location.Range,
+                    VariableDeclarationNode variable => IntegerHintOf(variable.TypeHint, variable.NameRange, variable.SourceLocation),
+                    ConstantDeclarationNode constant => IntegerHintOf(constant.TypeHint, constant.NameRange, constant.Location),
+                    ParameterDeclarationNode parameter => IntegerHintOf(parameter.TypeHint, parameter.NameRange, parameter.Location),
+                    MemberDeclarationNode member => IntegerHintOf(member.TypeHint, member.NameRange, member.SourceLocation),
+                    _ => null,
+                })
+                .OfType<SourceRange>()
+                .Select(range => new AnalyzerFinding(
+                    RDCoreDiagnosticId.IntegerDataTypeDeclaration.ToCode(), range, DiagnosticSeverity.Information, RDCoreDiagnosticsResources.IntegerDataTypeDeclaration_Message))
             : [];
 
-    // what of a member's declaration the module chooses: all of it, but the header of a procedure whose signature is another's.
+    // what of a member's declaration the module chooses: all of it, the member itself included, but the header of a procedure whose signature is
+    // another's (its parameters and its own type, written with a type-declaration character or not).
     private static IEnumerable<SyntaxNode> ChosenBy(SyntaxNode member, ModuleSemanticsDto? semantics)
     {
         if (member is not MemberDeclarationNode procedure || !UnusedDeclarations.HasAnothersSignature(procedure, semantics))
         {
-            return member.Descendants();
+            return member.Descendants().Prepend(member);
         }
 
         var header = procedure.HeaderChildren.SelectMany(child => child.Descendants().Prepend(child)).ToHashSet(ReferenceEqualityComparer.Instance);
@@ -46,4 +58,10 @@ internal sealed class IntegerDataTypeAnalyzer : IModuleAnalyzer
     private static bool IsInteger(AsTypeExpressionNode asType)
         => string.Equals(asType.TypeName, VBTypeNames.VBInteger, StringComparison.OrdinalIgnoreCase)
            && (asType.QualifierName is null || string.Equals(asType.QualifierName, "VBA", StringComparison.OrdinalIgnoreCase));
+
+    // the name written with the type-declaration character of an Integer; the whole declaration when the range of its name is not known.
+    private static SourceRange? IntegerHintOf(string? hint, SourceRange? name, SourceLocation declaration)
+        => hint is not null && IntrinsicVBTypes.TryResolveTypeHint(hint, out var type) && type is VBIntegerType
+            ? name ?? declaration.Range
+            : null;
 }
