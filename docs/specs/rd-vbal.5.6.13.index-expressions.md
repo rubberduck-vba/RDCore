@@ -122,6 +122,25 @@ An index expression whose `Callee` is an object - or a `Variant` holding one - c
 ([**RD-VBAL §6.1.3.1** Collection Object](rd-vbal.6.1.3.1.collection-object.md)). An object with no such member is runtime error 438, and `Nothing` is runtime error 91.
 The target of an assignment is the same call: `c(1) = 5` assigns `c.Item(1)` ([**RD-VBAL §5.4.3.8** Let Statement](rd-vbal.5.4.3.8.let-statement.md#elements-of-an-array)).
 
+#### A Default Member That Takes No Parameters
+
+A default member that takes no parameters is called with none, and the argument list applies to what it returns, as if that were the callee: the
+default member of the object it returns, again, or an element of the array. MS-VBA does the same (recorded in Excel):
+
+|Code|Of|Is|
+|---|---|---|
+|`v = o("k")`, `v = o(1)`|`Property Get Inner() As Collection`, the default member of `o`'s class|`o.Inner("k")`, early bound and late bound.|
+|`v = ch("k")`|A default member that returns an object whose own default member takes no parameters|`ch.Inner.Inner("k")`, early bound and late bound.|
+|`v = a(1)`|`Property Get Items() As Variant`, which returns an array|The element `1` of the array.|
+|`o2("k") = 5`, `Set o2("k") = c`|A default member that returns an object whose default `Item` has a `Property Let` and a `Property Set`|`o2.Inner("k") = 5`, `Set o2.Inner("k") = c`.|
+|`o("k") = 9`|`Property Get Inner() As Collection`|Run-time error 424: the `Collection`'s `Item` has no `Property Let`, and what it returns is not an object.|
+
+**RD-VBA differs from MS-VBAL:** **MS-VBAL §5.6.13** gives an object declared `Object` or `Variant` the same rule at run time: its default member is
+resolved with the argument list queue, and what it returns is given the arguments. MS-VBA, and RD-VBA with it, does so only where the default member
+returns an object and the assignment is not a `Set`. Called late, a default member that takes no parameters and returns an array is run-time error 451
+when given an argument list, and a `Set` through it is run-time error 450. Nothing in the code says what an `Object` holds before it runs, so no
+diagnostic reports it.
+
 
 ## 5.6.13.1 Argument Lists
 

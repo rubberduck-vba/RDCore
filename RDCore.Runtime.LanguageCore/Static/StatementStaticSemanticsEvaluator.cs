@@ -333,6 +333,17 @@ public static class StatementStaticSemanticsEvaluator
                 return;
             }
 
+            // RD-VBAL §5.4.3.8: a property whose Property Let takes a class or Object is given the object a Let assigns, as a Set would give it (MS-VBA,
+            // recorded in Excel), where MS-VBAL §5.5.1.1 makes the Let-coercion of an object to an object type invalid: an object is checked as a Set
+            // checks it, and any other value as the Let-coercion it is (a number is a type mismatch).
+            if (isLet && targetResult.IsSuccess && valueResult.IsSuccess
+                && LetValueParameterTypeOf(context, assignment) is { } objectParameter && objectParameter is VBClassType or VBObjectType)
+            {
+                var objectCoercion = valueResult.Result is VBClassType or VBObjectType ? SetCoercionStaticSemantics.Instance : LetCoercionStaticSemantics.Instance;
+                CollectError(objectCoercion.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, objectParameter), walk);
+                return;
+            }
+
             if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
                 CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, DeclaredTypeOfTarget(context, assignment, targetResult.Result!)), walk);
@@ -503,7 +514,7 @@ public static class StatementStaticSemanticsEvaluator
             // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
             if (statement is CallStatementNode callStatement)
             {
-                if (NotAProcedureError(context, callStatement) is { } notAProcedure)
+                if ((NotAProcedureError(context, callStatement) ?? PropertyCalledError(context, callStatement)) is { } notAProcedure)
                 {
                     walk.Errors.Add(notAProcedure);
                 }
@@ -686,6 +697,54 @@ public static class StatementStaticSemanticsEvaluator
             ? VBCompileErrorInfo.For(VBCompileErrorId.ExpectedSubFunctionOrProperty, call.Callee.Location, name)
             : VBCompileErrorInfo.For(VBCompileErrorId.ExpectedProcedureNotVariable, call.Callee.Location, name);
     }
+
+    // MS-VBAL §5.4.2.1: a call statement calls a subroutine or a function, and a property is neither. MS-VBA refuses one bound early, with Call or without, with
+    // arguments or without: "Invalid use of property" (recorded in Excel). One bound late is run-time error 450. With Call, an argument list the property cannot
+    // take indexes the object it returns, on its default member (MS-VBAL §5.6.13), which is what the statement calls.
+    private static VBCompileErrorInfo? PropertyCalledError(StaticEvaluationContext context, CallStatementNode call)
+    {
+        var indexed = call.IsExplicitCall ? call.Callee as IndexExpressionNode : null;
+        var callee = indexed?.Callee ?? call.Callee;
+        if (PropertyNamedBy(context, callee) is not { } property
+            || indexed is not null && !IndexExpressionNode.IsEmptyArgumentList(indexed.Arguments) && !OwnParametersOf(property).Any())
+        {
+            return null;
+        }
+
+        return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, callee.Location, property.Name);
+    }
+
+    private static VBTypeMemberSymbol? PropertyNamedBy(StaticEvaluationContext context, ExpressionNode callee)
+    {
+        Symbol? symbol = callee switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access
+                when ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, owner) is { IsSuccess: true, Result: VBClassType ownerClass }
+                => PropertyOf(context, ownerClass, access),
+            // a member of the target of the enclosing With block (MS-VBAL §5.6.15).
+            MemberAccessExpressionNode { Owner: null } access when context.EnclosingWithTargetType is VBClassType withTarget => PropertyOf(context, withTarget, access),
+            _ => null,
+        };
+
+        return symbol is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? (VBTypeMemberSymbol)symbol : null;
+    }
+
+    private static VBTypeMemberSymbol? PropertyOf(StaticEvaluationContext context, VBClassType owner, MemberAccessExpressionNode access)
+        => Expressions.MemberAccessExpressionStaticSemantics.CurrentMembersOf(context, owner).FirstOrDefault(member
+            => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                && member is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
+
+    // the parameters a call gives arguments to: a member of a class has an implicit Me at parameter 0, which is the object the call is on.
+    private static IEnumerable<VBParameterSymbol> OwnParametersOf(VBTypeMemberSymbol member)
+        => (member switch
+        {
+            VBReturningMemberSymbol returning => returning.Parameters,
+            VBProcedureMemberSymbol procedure => procedure.Parameters,
+            _ => [],
+        }).Where(parameter => !(parameter.Name == Tokens.Me && parameter.ParameterKind == ParameterKind.ImplicitByRef));
 
     // the variables a file statement reads into (MS-VBAL §5.4.5): every variable of an Input #, the variable of a Line Input # and of a Get #, which is its last
     // operand, after the file number and the record number, written or not.
@@ -1245,6 +1304,13 @@ public static class StatementStaticSemanticsEvaluator
             ? members.OfType<VBPropertySetMemberSymbol>().FirstOrDefault()
             : members.OfType<VBPropertyLetMemberSymbol>().FirstOrDefault();
         return accessor is { Parameters: [.., var value] } ? value.ResolvedType : evaluated;
+    }
+
+    // the declared type of the value parameter of the Property Let the target of a Let names; null when it names no property with one.
+    private static VBType? LetValueParameterTypeOf(StaticEvaluationContext context, AssignmentStatementNode assignment)
+    {
+        var property = assignment.Target is IndexExpressionNode { Callee: var called } ? called : assignment.Target;
+        return AccessorsOf(context, property)?.OfType<VBPropertyLetMemberSymbol>().FirstOrDefault() is { Parameters: [.., var value] } ? value.ResolvedType : null;
     }
 
     // the accessors of the property the target names, and whatever else the module declares of the name; none when the target names no property, or names
