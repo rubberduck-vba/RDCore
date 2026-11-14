@@ -523,6 +523,11 @@ public sealed class LetAssignmentEvaluator(
             // of a Variant function of a class).
             if (IsCalledToBeAssignedThrough(session, owner, memberAccess.Member.IdentifierName, indexArguments, isSet))
             {
+                if (!indexArguments.IsEmpty && ParameterlessReaderOf(session, owner, memberAccess.Member.IdentifierName) is { } reader)
+                {
+                    return AssignThroughWhatItReturns(session, context, statement, memberAccess, reader, indexArguments, owner, source, value, isSet);
+                }
+
                 ExpressionNode called = indexArguments.IsEmpty ? memberAccess : CallOf(memberAccess, indexArguments);
                 return AssignThroughFunction(session, context, statement, called, source, value, isSet);
             }
@@ -728,6 +733,63 @@ public sealed class LetAssignmentEvaluator(
                     && (!arguments.IsEmpty || !isSet && get.ResolvedType is VBClassType or VBObjectType or VBVariantType),
                 _ => false,
             };
+
+    // the Function or Property Get of the name that declares no parameter, which arguments given to it do not call (MS-VBAL §5.6.13).
+    private static VBTypeMemberSymbol? ParameterlessReaderOf(IRuntimeSession session, VBObjectValue owner, string name)
+        => session.Symbols.TryGetInstance(owner.Value, out var instance)
+            && instance.ClassModule.DefaultInterfaceMembers.FirstOrDefault(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)
+                && member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol) is { } reader
+            && RuntimeProcedureInvoker.GetParameters(reader) is [] or [{ Name: Tokens.Me }]
+                ? reader
+                : null;
+
+    // MS-VBAL §5.6.13: arguments given to a member that declares no parameter apply to what it returns, called with none. An object it returns has its default
+    // member assigned with them, as `o.Inner.Item("k") = 5` would, and an array has the element they select assigned through its object. Called late, on an
+    // Object or a Variant, a Set is error 450: IDispatch is asked to Set the default member given the arguments, which is not a property that can be Set
+    // (recorded in Excel); a Let is assigned. What returns neither an object nor an array is error 424.
+    private RuntimeExecutionOutcome AssignThroughWhatItReturns(
+        IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess, VBTypeMemberSymbol reader,
+        System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source, VBTypedValue value, bool isSet)
+    {
+        var reachedThrough = memberAccess.Owner ?? context.EnclosingWithTargetExpression;
+        if (isSet && reachedThrough is not null && RuntimeExpressionEvaluator.DeclaredTypeOfOwner(session, context, reachedThrough) is VBObjectType or VBVariantType)
+        {
+            return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, memberAccess.Location,
+                string.Format(Exceptions.VBMemberAssignment_ReadOnlyProperty_Verbose, memberAccess.Member.IdentifierName)));
+        }
+
+        var returned = expressions.InvokeOn(session, context, owner, reader, [], reachedThrough);
+        if (!returned.IsSuccess)
+        {
+            return returned.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(returned.ErrorInfo!);
+        }
+
+        switch (Held(returned.Result))
+        {
+            case VBObjectValue returnedObject:
+                return AssignThroughDefaultMember(session, context, statement, memberAccess, indexArguments, returnedObject, source, value, isSet);
+            case VBArrayValue array:
+                if (expressions.EvaluateSubscripts(session, context, indexArguments, out var subscripts) is { } failure)
+                {
+                    return failure.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(failure.ErrorInfo!);
+                }
+
+                var element = expressions.ReadElement(session, context, array, memberAccess, subscripts);
+                if (!element.IsSuccess)
+                {
+                    return element.IsInternalError ? RuntimeExecutionOutcome.InternalError : RuntimeExecutionOutcome.Error(element.ErrorInfo!);
+                }
+
+                if (Held(element.Result) is VBObjectValue held)
+                {
+                    return AssignDefaultMemberOf(session, context, statement, memberAccess, held, source, value, observed: false, isSet);
+                }
+
+                break;
+        }
+
+        return RuntimeExecutionOutcome.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.ObjectRequired, memberAccess.Location, "The function returned no object to assign through."));
+    }
 
     // the call of a member with the arguments an assignment's target gives it: one for each access, as the bound tree of an expression is the expression's.
     private IndexExpressionNode CallOf(MemberAccessExpressionNode access, System.Collections.Immutable.ImmutableArray<ExpressionNode> arguments)

@@ -956,11 +956,36 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
                 VBRuntimeErrorId.ObjectVariableOrWithBlockVariableNotSet, expression.Location, Exceptions.VBMemberAccess_ObjectVariableNotSet_Verbose));
         }
 
-        return TryResolveDefaultMember(session, indexed) is { } defaultMember
-            ? InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver, reachedThrough: indexExpression.Callee,
-                call: indexExpression)
-            : RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
+        if (TryResolveDefaultMember(session, indexed) is not { } defaultMember)
+        {
+            return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(
                 VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod, expression.Location, "The object has no default member to index."));
+        }
+
+        // MS-VBAL §5.6.13: a default member that takes no parameters is called with none, and the arguments apply to what it returns, as if it were the
+        // index expression's callee: the default member of the object it returns, again, or an element of the array (recorded in Excel). Called late, on
+        // an Object or a Variant, only an object takes them: IDispatch is asked for the default member given the arguments, which a value that is not an
+        // object cannot take (451, recorded in Excel).
+        if (ReturnsToBeIndexed(defaultMember.Member, defaultMember.Receiver, indexExpression.Arguments))
+        {
+            var returned = InvokeProcedure(session, context, defaultMember.Member, [], defaultMember.Receiver, call: indexExpression);
+            var held = returned.Result;
+            while (held is VBVariantValue { TypedValue: { } wrapped })
+            {
+                held = wrapped;
+            }
+
+            if (returned.IsSuccess && held is not VBObjectValue && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBObjectType or VBVariantType)
+            {
+                return RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.PropertyLetNotDefinedPropertyGetDidNotReturnObject,
+                    expression.Location, "The default member takes no arguments, and what it returned is not an object to give them to."));
+            }
+
+            return IndexValue(session, context, expression, indexExpression, returned);
+        }
+
+        return InvokeProcedure(session, context, defaultMember.Member, indexExpression.Arguments, defaultMember.Receiver, reachedThrough: indexExpression.Callee,
+            call: indexExpression);
     }
 
     // a member of an object called with the arguments of the index (IsCall), or read to be indexed by them: a function that declares no parameters returns what is indexed.
