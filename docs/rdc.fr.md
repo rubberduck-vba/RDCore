@@ -92,7 +92,7 @@ travaille sur le dossier courant.
 |---|---|---|
 |`rdc new <chemin>`|`n`|Fait d'un dossier un espace de travail : écrit un `.rdproj` qui nomme chaque fichier de module du dossier. `--name` fixe le nom du projet (celui du dossier par défaut), `--empty` écrit un projet sans fichiers, et `--force` remplace un `.rdproj` existant.|
 |`rdc import <chemin>`|`i`|Crée le `.rdproj` d'un projet VB6, à côté de son `.vbp` (voir [Projets VB6](vb6-projects.fr.md)). `--force` remplace un `.rdproj` existant.|
-|`rdc run [<chemin>] [-- <arguments>]`|`r`|Exécute le programme de l'espace de travail (ci-dessous). Ce qui suit `--` est la ligne de commande du programme, que retourne `Command$`.|
+|`rdc run [<options>] [<chemin>] [<arguments>]`|`r`|Exécute le programme de l'espace de travail (ci-dessous). Ce qui suit le chemin est la ligne de commande du programme, que retourne `Command$`.|
 |`rdc build [<chemin>]`|`bd`|Construit un programme à partir de l'espace de travail : son exécutable et le _runtime_ sur lequel il s'exécute (ci-dessous).|
 |`rdc config`|`configure`|Affiche les paramètres de la plateforme et les modifie, comme le `CONFIG` du _shell_, sans démarrer la plateforme.|
 |`rdc export-library <bibliothèque>`|`xl`|Décrit une bibliothèque de types de cette machine (un fichier comme `scrrun.dll`, son identifiant ou son nom) dans un fichier qu'un projet peut référencer par son nom. `--dependencies` décrit aussi les bibliothèques dont elle dépend.|
@@ -114,7 +114,18 @@ ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pa
 |Option|Ce qu'elle fait|
 |---|---|
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
-|`--unattended`|Personne ne répond aux boîtes de dialogue : un `MsgBox` ou un `InputBox` fait échouer l'exécution.|
+|`--unattended`|Personne ne répond aux boîtes de dialogue : un `MsgBox` ou un `InputBox` fait échouer l'exécution. Le programme le sait : l'option vient en premier dans `Command$` et dans les arguments de `Main`, comme pour un programme construit, sauf si la ligne de commande du programme l'a déjà.|
+
+Les options viennent avant le chemin. Tout ce qui suit le chemin est la ligne de commande du programme, options comprises :
+`rdc run --unattended .` s'exécute sans surveillance, et `rdc run . --unattended` ne fait que donner `--unattended` au programme. Un `--` juste après le
+chemin est ignoré. Sans chemin, c'est le dossier courant qui s'exécute, et `--` précède la ligne de commande du programme. Sans chemin ni
+`--`, rien ne va au programme, et une option que `rdc` ne connaît pas est une erreur.
+
+```
+rdc run . --seed 42
+rdc run . -- --seed 42
+rdc run -- --seed 42
+```
 
 Le code de sortie indique comment s'est passée l'exécution :
 
