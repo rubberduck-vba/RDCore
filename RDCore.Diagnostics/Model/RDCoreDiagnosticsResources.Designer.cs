@@ -410,6 +410,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("MultipleDeclarations_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Private in place of Dim.
+        /// </summary>
+        public static string ModuleScopeDimDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("ModuleScopeDimDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare each name on a line of its own.
+        /// </summary>
+        public static string MultipleDeclarations_Fix {
+            get {
+                return ResourceManager.GetString("MultipleDeclarations_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;{0}&apos; on one line.
+        /// </summary>
+        public static string MultilineParameterDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("MultilineParameterDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write ByVal for &apos;{0}&apos;.
+        /// </summary>
+        public static string MisleadingByRefParameter_Fix {
+            get {
+                return ResourceManager.GetString("MisleadingByRefParameter_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to At least one code path of &apos;{0}&apos; does not assign its return value: on that path, the caller gets the default value of the type (0, an empty string, Empty or Nothing)..

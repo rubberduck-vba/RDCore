@@ -231,6 +231,18 @@
   <data name="MultipleDeclarations_Message" xml:space="preserve">
     <value>Une seule instruction fait plusieurs déclarations, et chacune a besoin de son propre type: dans Dim a, b As Long, seule b est un Long. Déclarez chacune sur sa propre ligne.</value>
   </data>
+  <data name="ModuleScopeDimDeclaration_Fix" xml:space="preserve">
+    <value>Écrire Private au lieu de Dim</value>
+  </data>
+  <data name="MultipleDeclarations_Fix" xml:space="preserve">
+    <value>Déclarer chaque nom sur sa propre ligne</value>
+  </data>
+  <data name="MultilineParameterDeclaration_Fix" xml:space="preserve">
+    <value>Écrire '{0}' sur une seule ligne</value>
+  </data>
+  <data name="MisleadingByRefParameter_Fix" xml:space="preserve">
+    <value>Écrire ByVal pour '{0}'</value>
+  </data>
   <data name="NotAllPathsReturnValue_Message" xml:space="preserve">
     <value>Au moins un chemin d'exécution de '{0}' n'assigne pas sa valeur de retour: sur ce chemin, l'appelant reçoit la valeur par défaut du type (0, une chaîne vide, Empty ou Nothing).</value>
   </data>

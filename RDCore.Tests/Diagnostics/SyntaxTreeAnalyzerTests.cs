@@ -479,6 +479,32 @@ public sealed class SyntaxTreeAnalyzerTests
         Assert.AreEqual(new SourcePosition(6, 4), findings[1].Range.Start, "from the keyword that starts it");
     }
 
+    [TestMethod]
+    public void AModuleLevelDimOfSeveralNames_IsTheModuleLevelDimFinding_UntilItIsPrivate()
+    {
+        const string source = """
+            Dim a, b As Long
+            Private c, d As Long
+            Public Sub Work()
+                Dim e, f As Long
+            End Sub
+            """;
+
+        CollectionAssert.AreEqual(new[] { 0 }, Lines(Run(new ModuleScopeDimAnalyzer(), source)), "RDC00202 has the Dim statement");
+        CollectionAssert.AreEqual(new[] { 1, 3 }, Lines(Run(new MultipleDeclarationsAnalyzer(), source)), "RDC00204 steps aside on it");
+        CollectionAssert.AreEqual(new[] { 0, 1, 3 }, Lines(Run(new MultipleDeclarationsAnalyzer(), source.Replace("Dim a", "Private a"))), "and has it once it is Private");
+    }
+
+    [TestMethod]
+    [DataRow("Dim WithEvents app As Application, n As Long", false, DisplayName = "several names, one WithEvents: no fix, it would not split")]
+    [DataRow("Dim WithEvents app As Application", true, DisplayName = "one WithEvents name: written Private")]
+    public void AModuleLevelDimWithAWithEventsVariable_IsFixedOnlyWhenNothingIsLeftToSplit(string declaration, bool isFixed)
+    {
+        var finding = Run(new ModuleScopeDimAnalyzer(), $"{declaration}\r\n").Single();
+
+        Assert.AreEqual(isFixed, finding.Fixes?.Edit is not null);
+    }
+
     #endregion
 
     #region RDC00205 misleading ByRef

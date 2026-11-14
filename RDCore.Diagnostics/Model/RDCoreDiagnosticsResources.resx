@@ -231,6 +231,18 @@
   <data name="MultipleDeclarations_Message" xml:space="preserve">
     <value>Several declarations are made by one statement, and each needs a type of its own: in Dim a, b As Long only b is a Long. Declare each on its own line.</value>
   </data>
+  <data name="ModuleScopeDimDeclaration_Fix" xml:space="preserve">
+    <value>Write Private in place of Dim</value>
+  </data>
+  <data name="MultipleDeclarations_Fix" xml:space="preserve">
+    <value>Declare each name on a line of its own</value>
+  </data>
+  <data name="MultilineParameterDeclaration_Fix" xml:space="preserve">
+    <value>Write '{0}' on one line</value>
+  </data>
+  <data name="MisleadingByRefParameter_Fix" xml:space="preserve">
+    <value>Write ByVal for '{0}'</value>
+  </data>
   <data name="NotAllPathsReturnValue_Message" xml:space="preserve">
     <value>At least one code path of '{0}' does not assign its return value: on that path, the caller gets the default value of the type (0, an empty string, Empty or Nothing).</value>
   </data>
