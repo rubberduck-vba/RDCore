@@ -4,8 +4,8 @@ using static RDCore.Tests.Cli.CompiledErrorHandlingTests;
 namespace RDCore.Tests.Cli;
 
 /// <summary>
-/// <strong>MS-VBAL §5.4.5.12</strong> a <c>Get</c> statement reads into a variable, and the result of the function or the property it is written in is one
-/// (<strong>MS-VBAL §5.3.1.7</strong>): the name of the procedure, inside it, is its result.
+/// A <c>Get</c> statement reads into a variable (<strong>MS-VBAL §5.4.5.12</strong>), and the result of the function or the <c>Property Get</c> it is
+/// written in is one, its function result variable (<strong>MS-VBAL §5.3.1</strong>): the name of the procedure, inside it, is its result.
 /// </summary>
 [TestClass]
 public sealed class GetIntoProcedureResultTests
