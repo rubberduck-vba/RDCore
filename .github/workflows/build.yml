@@ -22,7 +22,7 @@ jobs:
    - name: Setup .NET
      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
      with:
-      dotnet-version: 10.0
+      dotnet-version: 11.0
 
    - name: Build (Debug)
      run: dotnet build RDCore.slnx --configuration Debug
@@ -107,7 +107,7 @@ jobs:
    - name: Setup .NET
      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
      with:
-      dotnet-version: 10.0
+      dotnet-version: 11.0
 
    # ANTLR 4.6.6 (RDCore.Parsing) runs the Java tool at build time: the same Java on every system
    - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
