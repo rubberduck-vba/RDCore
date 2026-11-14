@@ -7,6 +7,7 @@ using RDCore.SDK;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
@@ -251,7 +252,7 @@ public sealed class LetAssignmentEvaluator(
         if (!isSet && elementType is VBClassType or VBObjectType)
         {
             return isElement
-                ? AssignDefaultMemberOfHeld(session, context, statement, ElementOf(arrayExpression, subscripts),
+                ? AssignDefaultMemberOfHeld(session, context, statement, ElementOf(statement, arrayExpression, subscripts),
                     expressions.ReadElement(session, context, array, arrayExpression, indices), source, value)
                 : RuntimeExecutionOutcome.Next;
         }
@@ -737,10 +738,14 @@ public sealed class LetAssignmentEvaluator(
     private readonly System.Collections.Concurrent.ConcurrentDictionary<MemberAccessExpressionNode, IndexExpressionNode> _memberCalls =
         new(ReferenceEqualityComparer.Instance);
 
-    // the element of an array an assignment's target names, as an expression whose default member an assignment of a value to it writes through. It is kept
-    // for each array expression and its subscripts, so it is the same node each time, as DefaultMemberAccess keeps its access for each expression.
-    private IndexExpressionNode ElementOf(ExpressionNode arrayExpression, System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts)
-        => _elements.TryGetValue(arrayExpression, out var element) && element.Arguments == subscripts
+    // the element of an array an assignment's target names, as an expression whose default member an assignment of a value to it writes through: the target
+    // itself when it indexes the array, so the access is stated where the code writes it, subscripts included. An element the target does not name as it is,
+    // such as one of an array a default member holds (`c(1) = 5`), is kept for each array expression and its subscripts, so it is the same node each time, as
+    // DefaultMemberAccess keeps its access for each expression.
+    private IndexExpressionNode ElementOf(StatementNode statement, ExpressionNode arrayExpression, System.Collections.Immutable.ImmutableArray<ExpressionNode> subscripts)
+        => statement is AssignmentStatementNode { Target: IndexExpressionNode target } && ReferenceEquals(target.Callee, arrayExpression) && target.Arguments == subscripts
+            ? target
+            : _elements.TryGetValue(arrayExpression, out var element) && element.Arguments == subscripts
             ? element
             : _elements[arrayExpression] = new IndexExpressionNode(arrayExpression.Identity, arrayExpression.Location, arrayExpression, subscripts);
 

@@ -138,6 +138,16 @@ public sealed class RuntimeFactsExposureTests
         Assert.AreEqual("Value", access.Member);
     }
 
+    // the element is the target the code writes: the access is at the element, subscripts included, and not at the array's name.
+    [TestMethod]
+    public async Task AValueAssignedToAnElementThatHoldsAnObject_IsAnAccessOfItsDefaultMember_AtTheElement()
+    {
+        var access = Access(await FactsOfAsync([Cell], "", "Dim a(1) As Cell", "Set a(1) = New Cell", "a(1) = 5"));
+
+        Assert.AreEqual(MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember, access.Flags);
+        Assert.AreEqual((5, 0, 5, 4), (access.Location.Range.Start.Line, access.Location.Range.Start.Character, access.Location.Range.End.Line, access.Location.Range.End.Character));
+    }
+
     [TestMethod]
     public async Task ADictionaryAccess_IsAnImplicitCallOfTheDefaultMember()
     {

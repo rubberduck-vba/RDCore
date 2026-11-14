@@ -60,8 +60,12 @@ internal static class DefaultMemberAccesses
 
         foreach (var statement in module.Descendants().OfType<AssignmentStatementNode>().Where(statement => statement.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet))
         {
+            // an element is written through its array, which is the assignment's target fact: the element's own fact is the one at the target, of the
+            // type the element holds.
             var targetRange = statement.Target.SourceLocation.Range;
-            if (expressions.FirstOrDefault(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget) && fact.Location.Range == targetRange) is not { } target)
+            var isElement = statement.Target is IndexExpressionNode;
+            if (expressions.FirstOrDefault(fact => (isElement || fact.Flags.HasFlag(ValueExpressionSemanticFlags.AssignmentTarget)) && fact.Location.Range == targetRange)
+                is not { } target)
             {
                 continue;
             }
@@ -95,11 +99,11 @@ internal static class DefaultMemberAccesses
     /// <param name="unbound">Whether the object is an <c>Object</c>, whose default member is known only at run time.</param>
     public static IEnumerable<OperatorFactDto> ImplicitIndexedAccesses(ModuleSemanticsDto semantics, ModuleNode module, bool dictionaryAccess, bool unbound)
     {
-        // a value assigned to an object (h = 5) is an implicit access of its default member too, with no argument list. RDC00119 and RDC00120 report it,
-        // so it is left out here.
+        // a value assigned to an object (h = 5), or to an element that holds one (a(1) = 5), is an implicit access of its default member too, with no argument
+        // list: the subscripts are the array's. RDC00119 and RDC00120 report it, so it is left out here.
         var valueAssignedToAnObject = module.Descendants().OfType<AssignmentStatementNode>()
             .Where(statement => statement.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet
-                && statement.Target is not (IndexExpressionNode or DictionaryAccessExpressionNode))
+                && statement.Target is not DictionaryAccessExpressionNode)
             .Select(statement => statement.Target.SourceLocation.Range)
             .ToHashSet();
         return MemberAccesses(semantics).Where(access => access.MemberAccessOpSemanticFlags!.Value is var flags
