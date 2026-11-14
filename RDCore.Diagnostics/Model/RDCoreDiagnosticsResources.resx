@@ -237,18 +237,6 @@
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' hides '{1}': in this procedure, the name means '{0}', and '{1}' everywhere else. Give '{0}' a name of its own.</value>
   </data>
-  <data name="ProcedureCanBeWrittenAsFunction_Message" xml:space="preserve">
-    <value>Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it.</value>
-  </data>
-  <data name="SelfAssignedDeclaration_Message" xml:space="preserve">
-    <value>Variable &apos;{0}&apos; is declared As New: its object is created when it is first used, and again when it is used after it is set to Nothing.</value>
-  </data>
-  <data name="EncapsulatePublicField_Message" xml:space="preserve">
-    <value>Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value.</value>
-  </data>
-  <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
-    <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
-  </data>
   <data name="ObsoleteCommentSyntax_Message" xml:space="preserve">
     <value>The Rem keyword is obsolete: a comment starts with an apostrophe (').</value>
   </data>
@@ -393,14 +381,29 @@
   <data name="CollectionSetToNothingInItsOwnLoop_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is not set to Nothing here: the For Each loop that walks it holds the object until the loop is over. MS-VBA lets go of a Collection here: it is destroyed, with the members the loop has not reached, and the loop ends. Leave the loop with Exit For, then set &apos;{0}&apos; to Nothing.</value>
   </data>
-  <data name="IIfSideEffect_Message" xml:space="preserve">
-    <value>&apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one.</value>
-  </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
   </data>
   <data name="LineContinuationBetweenKeywords_Message" xml:space="preserve">
     <value>A line continuation splits the keyword '{0}' over several lines. Write its words on one line.</value>
+  </data>
+  <data name="LineContinuationBetweenKeywords_Fix" xml:space="preserve">
+    <value>Write '{0}' on one line</value>
+  </data>
+  <data name="ProcedureCanBeWrittenAsFunction_Message" xml:space="preserve">
+    <value>Procedure &apos;{0}&apos; gives its result back through the ByRef parameter &apos;{1}&apos;: it can be a Function that returns it.</value>
+  </data>
+  <data name="SelfAssignedDeclaration_Message" xml:space="preserve">
+    <value>Variable &apos;{0}&apos; is declared As New: its object is created when it is first used, and again when it is used after it is set to Nothing.</value>
+  </data>
+  <data name="EncapsulatePublicField_Message" xml:space="preserve">
+    <value>Field &apos;{0}&apos; is Public: any code that holds the object can assign it. A property can check the value.</value>
+  </data>
+  <data name="SuspiciousPredeclaredInstanceAccess_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; names the default instance of the class, and the object running this code (Me) is not always that instance.</value>
+  </data>
+  <data name="IIfSideEffect_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one.</value>
   </data>
   <data name="VariableNotUsed_Message" xml:space="preserve">
     <value>Variable &apos;{0}&apos; is never used.</value>

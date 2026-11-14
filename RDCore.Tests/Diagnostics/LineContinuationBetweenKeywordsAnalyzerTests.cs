@@ -45,6 +45,26 @@ public sealed class LineContinuationBetweenKeywordsAnalyzerTests
     }
 
     [TestMethod]
+    [DataRow("    If True Then\r\n    End _\r\n    If", "    If True Then\r\n    End If", "End If", DisplayName = "one continuation")]
+    [DataRow("    If True Then\r\n    End _\r\n _\r\n    If", "    If True Then\r\n    End If", "End If", DisplayName = "two continuations")]
+    [DataRow("    Exit _\r\n      Sub", "    Exit Sub", "Exit Sub", DisplayName = "more blanks")]
+    public void TheFix_WritesTheKeywordOnOneLine(string body, string expected, string keyword)
+    {
+        var source = $"Attribute VB_Name = \"Program\"\r\nPublic Sub Work()\r\n{body}\r\nEnd Sub\r\n";
+        var fix = Assert.ContainsSingle(Run(body)).Fixes?.Edit;
+        Assert.IsNotNull(fix);
+        var edit = Assert.ContainsSingle(fix.Edits);
+
+        var lines = source.Split("\r\n");
+        int OffsetOf(Position position) => lines.Take(position.Line).Sum(line => line.Length + 2) + position.Character;
+        var fixedSource = source[..OffsetOf(edit.Range.Start)] + edit.NewText + source[OffsetOf(edit.Range.End)..];
+
+        Assert.AreEqual($"Write '{keyword}' on one line", fix.Title);
+        Assert.AreEqual($"Attribute VB_Name = \"Program\"\r\nPublic Sub Work()\r\n{expected}\r\nEnd Sub\r\n", fixedSource);
+        Assert.IsEmpty(new ModuleParser().Parse(new Uri("file:///c:/ws/Program.bas"), fixedSource).SyntaxErrors);
+    }
+
+    [TestMethod]
     public void TwoKeywordsSplitTheSameWay_AreTwoFindings()
     {
         var findings = Run("    If True Then\r\n    End _\r\n    If\r\n    If False Then\r\n    End _\r\n    If");

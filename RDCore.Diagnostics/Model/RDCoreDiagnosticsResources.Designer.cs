@@ -464,6 +464,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("LineContinuationBetweenKeywords_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;{0}&apos; on one line.
+        /// </summary>
+        public static string LineContinuationBetweenKeywords_Fix {
+            get {
+                return ResourceManager.GetString("LineContinuationBetweenKeywords_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to The Call keyword is obsolete: the call is the same without it..
