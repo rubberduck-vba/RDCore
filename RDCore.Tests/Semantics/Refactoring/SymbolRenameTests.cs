@@ -800,4 +800,122 @@ public sealed class SymbolRenameTests
         Assert.AreEqual("« Foo » est appelé par son nom dans une chaîne, à Main 5:17. Le renommer là aussi?",
             RefactoringTitles.RenameInStringQuestion("Foo", 1, "Main 5:17", new CultureInfo("fr-CA")));
     }
+
+    // a procedure that names its labels in every statement that transfers execution to a label, and another that has a label of the same name.
+    private static readonly string Labelled = Module("Main",
+        "Public Sub Main()",
+        "    On Error GoTo Failed",
+        "    Dim n As Long",
+        "Retry:",
+        "    n = n + 1",
+        "    If n < 3 Then GoTo Retry",
+        "    On n GoTo Retry, Done",
+        "    On n GoSub Done, Retry",
+        "    GoSub Retry",
+        "Done:",
+        "    Exit Sub",
+        "Failed:",
+        "    Resume Retry",
+        "End Sub",
+        "Public Sub Other()",
+        "Retry:",
+        "    GoTo Retry",
+        "End Sub");
+
+    [TestMethod]
+    [DataRow("Retry:", DisplayName = "at its definition")]
+    [DataRow("If n < 3 Then GoTo Retry", DisplayName = "at a GoTo that names it")]
+    public void ALabel_IsRenamedWhereItsProcedureNamesIt_AndNotInAnotherProcedure(string line)
+    {
+        var context = Compose(("Main", Labelled));
+
+        var plan = Rename(context, "Main", line, "Retry", "Again");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Main()",
+            "    On Error GoTo Failed",
+            "    Dim n As Long",
+            "Again:",
+            "    n = n + 1",
+            "    If n < 3 Then GoTo Again",
+            "    On n GoTo Again, Done",
+            "    On n GoSub Done, Again",
+            "    GoSub Again",
+            "Done:",
+            "    Exit Sub",
+            "Failed:",
+            "    Resume Again",
+            "End Sub",
+            "Public Sub Other()",
+            "Retry:",
+            "    GoTo Retry",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void TheLabelOfAnErrorHandler_IsRenamedInItsOnErrorGoTo()
+    {
+        var context = Compose(("Main", Labelled));
+
+        var plan = Rename(context, "Main", "On Error GoTo Failed", "Failed", "CleanFail");
+
+        Assert.AreEqual(2, plan.Edits.Length, "the definition and the On Error GoTo");
+        StringAssert.Contains(Renamed(context, plan, "Main"), "    On Error GoTo CleanFail\r\n");
+    }
+
+    [TestMethod]
+    public void ALabelWrittenInBrackets_StaysInBrackets()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Main()",
+            "    GoTo [Try Again]",
+            "[Try Again]:",
+            "    Exit Sub",
+            "End Sub")));
+
+        var plan = Rename(context, "Main", "GoTo [Try Again]", "Try", "Again");
+
+        Assert.AreEqual(Module("Main",
+            "Public Sub Main()",
+            "    GoTo [Again]",
+            "[Again]:",
+            "    Exit Sub",
+            "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    public void ALineNumber_IsNotRenamed()
+    {
+        var context = Compose(("Main", Module("Main",
+            "Public Sub Main()",
+            "10  Debug.Print Erl",
+            "    GoTo 10",
+            "End Sub")));
+
+        Assert.AreEqual(RenameRefusalKind.NoName, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "GoTo 10", "10")).Refusal?.Kind);
+        Assert.AreEqual(RenameRefusalKind.NoName, SymbolRename.Prepare(context, ModuleUri("Main"), At(context, "Main", "10  Debug", "10")).Refusal?.Kind);
+    }
+
+    [TestMethod]
+    [DataRow("done", RenameRefusalKind.Conflict, DisplayName = "another label of the procedure")]
+    [DataRow("Randomize", RenameRefusalKind.Reserved, DisplayName = "Randomize")]
+    public void ALabel_IsNotRenamedTo_ANameItCannotHave(string newName, RenameRefusalKind refusal)
+    {
+        var context = Compose(("Main", Labelled));
+
+        var plan = Rename(context, "Main", "Retry:", "Retry", newName);
+
+        Assert.AreEqual(refusal, plan.Refusal?.Kind);
+    }
+
+    [TestMethod]
+    public void TheLabelsARangeDefines_AreRenamable()
+    {
+        var context = Compose(("Main", Labelled));
+        var start = At(context, "Main", "Retry:", "Retry");
+
+        var targets = SymbolRename.TargetsIn(context, ModuleUri("Main"), new SourceRange(start with { Character = 0 }, start with { Line = start.Line + 1 }));
+
+        Assert.AreEqual("Retry", targets.Single(target => target.IsLabel).Name);
+    }
 }
