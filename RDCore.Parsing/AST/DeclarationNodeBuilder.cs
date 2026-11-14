@@ -1,4 +1,5 @@
-﻿using RDCore.Parsing.Syntax;
+﻿using Antlr4.Runtime.Tree;
+using RDCore.Parsing.Syntax;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
@@ -146,8 +147,22 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
                     // `Items() As Long`: the parentheses after the name make it an array.
                     context.LPAREN() is not null,
                     context.unrestrictedIdentifier().TypeHint(),
-                    NameRange: context.unrestrictedIdentifier().SourceRange);
+                    NameRange: context.unrestrictedIdentifier().SourceRange)
+        {
+            OptionalRange = KeywordRange(context, context.OPTIONAL()),
+            PassingRange = KeywordRange(context, context.BYVAL() ?? context.BYREF()),
+            ParamArrayRange = KeywordRange(context, context.PARAMARRAY()),
+        };
     }
+
+    // where a keyword of the rule is written, across the line continuation a keyword of two words can be written with; none when it is not written, or
+    // when the parse made it up to recover from an error.
+    private static SourceRange? KeywordRange(VBABaseParserRuleContext context, ITerminalNode? keyword)
+        => keyword?.Symbol is { TokenIndex: >= 0, Text: { Length: > 0 } text } token ? context.RangeWithin(token, 0, text.Length) : null;
+
+    // a header's parameter list, its ( through its ); none when the header has none, or when its ) is missing.
+    private static SourceRange? ParameterListRange(VBAParser.ArgListContext? list)
+        => list?.RPAREN()?.Symbol is { TokenIndex: >= 0 } ? list.SourceRange : null;
     public SyntaxNode BuildPropertyGetDeclaration(VBAParser.PropertyGetStmtContext context)
     {
         var name = context.functionName().Name();
@@ -163,7 +178,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             modifier,
             IsStatic: context.STATIC() is not null,
             TypeHint: context.functionName().identifier().TypeHint(),
-            NameRange: context.functionName().identifier().SourceRange);
+            NameRange: context.functionName().identifier().SourceRange)
+        {
+            ParameterListRange = ParameterListRange(context.argList()),
+            EndRange = KeywordRange(context, context.END_PROPERTY()),
+        };
     }
     public SyntaxNode BuildPropertyLetDeclaration(VBAParser.PropertyLetStmtContext context)
     {
@@ -179,7 +198,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             MemberKind.PropertyLet,
             modifier,
             IsStatic: context.STATIC() is not null,
-            NameRange: context.subroutineName().identifier().SourceRange);
+            NameRange: context.subroutineName().identifier().SourceRange)
+        {
+            ParameterListRange = ParameterListRange(context.argList()),
+            EndRange = KeywordRange(context, context.END_PROPERTY()),
+        };
     }
     public SyntaxNode BuildPropertySetDeclaration(VBAParser.PropertySetStmtContext context)
     {
@@ -195,7 +218,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             MemberKind.PropertySet,
             modifier,
             IsStatic: context.STATIC() is not null,
-            NameRange: context.subroutineName().identifier().SourceRange);
+            NameRange: context.subroutineName().identifier().SourceRange)
+        {
+            ParameterListRange = ParameterListRange(context.argList()),
+            EndRange = KeywordRange(context, context.END_PROPERTY()),
+        };
     }
     public SyntaxNode BuildProcedureDeclaration(VBAParser.SubStmtContext context)
     {
@@ -211,7 +238,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             MemberKind.Procedure,
             modifier,
             IsStatic: context.STATIC() is not null,
-            NameRange: context.subroutineName().identifier().SourceRange);
+            NameRange: context.subroutineName().identifier().SourceRange)
+        {
+            ParameterListRange = ParameterListRange(context.argList()),
+            EndRange = KeywordRange(context, context.END_SUB()),
+        };
     }
     public SyntaxNode BuildFunctionDeclaration(VBAParser.FunctionStmtContext context)
     {
@@ -228,7 +259,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
             modifier,
             IsStatic: context.STATIC() is not null,
             TypeHint: context.functionName().identifier().TypeHint(),
-            NameRange: context.functionName().identifier().SourceRange);
+            NameRange: context.functionName().identifier().SourceRange)
+        {
+            ParameterListRange = ParameterListRange(context.argList()),
+            EndRange = KeywordRange(context, context.END_FUNCTION()),
+        };
     }
 
     /// <param name="boundExpressions">

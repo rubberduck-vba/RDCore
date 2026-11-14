@@ -302,6 +302,42 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("ImplicitResultLocal_Fix", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write ByRef for &apos;{0}&apos;.
+        /// </summary>
+        public static string ImplicitByRefModifier_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitByRefModifier_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Public for &apos;{0}&apos;.
+        /// </summary>
+        public static string ImplicitPublicMember_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitPublicMember_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare &apos;{0}&apos; As Variant.
+        /// </summary>
+        public static string ImplicitVariantDeclaration_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitVariantDeclaration_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Option Explicit, and a Dim for each implicit variable.
+        /// </summary>
+        public static string ImplicitDeclarationsEnabled_Fix {
+            get {
+                return ResourceManager.GetString("ImplicitDeclarationsEnabled_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended)..

@@ -8,6 +8,10 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <summary>
 /// <c>RDC00107</c>: a function or a property getter that is declared without a return type, and returns a <c>Variant</c> (<strong>MS-VBAL §5.3.1.4</strong>).
 /// </summary>
+/// <remarks>
+/// The fix writes <c>As Variant</c> after the parameter list (<see cref="MemberDeclarationNode.ParameterListRange"/>): the function returns what it did. It
+/// is not offered where the parse has no range for the list, as for a <c>Declare</c> statement.
+/// </remarks>
 internal sealed class ImplicitVariantReturnTypeAnalyzer : SyntaxTreeAnalyzer
 {
     public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitVariantReturnType.ToCode()];
@@ -21,5 +25,13 @@ internal sealed class ImplicitVariantReturnTypeAnalyzer : SyntaxTreeAnalyzer
                 RDCoreDiagnosticId.ImplicitVariantReturnType.ToCode(),
                 member.NameRange ?? member.SourceLocation.Range,
                 DiagnosticSeverity.Information,
-                Say(RDCoreDiagnosticsResources.ImplicitVariantReturnType_Message, member.Name)));
+                Say(RDCoreDiagnosticsResources.ImplicitVariantReturnType_Message, member.Name))
+            {
+                Fixes = member.ParameterListRange is { } parameters
+                    ? new DiagnosticFixes
+                    {
+                        Edit = SyntaxEdits.Fix(Say(RDCoreDiagnosticsResources.ImplicitVariantDeclaration_Fix, member.Name), SyntaxEdits.Insert(parameters.End, " As Variant")),
+                    }
+                    : null,
+            });
 }

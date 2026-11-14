@@ -198,6 +198,18 @@
   <data name="ImplicitResultLocal_Fix" xml:space="preserve">
     <value>Declare a local for the return value of '{0}'</value>
   </data>
+  <data name="ImplicitByRefModifier_Fix" xml:space="preserve">
+    <value>Write ByRef for '{0}'</value>
+  </data>
+  <data name="ImplicitPublicMember_Fix" xml:space="preserve">
+    <value>Write Public for '{0}'</value>
+  </data>
+  <data name="ImplicitVariantDeclaration_Fix" xml:space="preserve">
+    <value>Declare '{0}' As Variant</value>
+  </data>
+  <data name="ImplicitDeclarationsEnabled_Fix" xml:space="preserve">
+    <value>Write Option Explicit, and a Dim for each implicit variable</value>
+  </data>
   <data name="ImplicitVariantReturnType_Message" xml:space="preserve">
     <value>'{0}' implicitly returns a Variant. State its return type with an As clause (As Variant, if that is intended).</value>
   </data>
