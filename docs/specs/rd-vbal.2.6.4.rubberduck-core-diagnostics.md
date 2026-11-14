@@ -1,11 +1,4 @@
 # 2.6.4 Rubberduck Core Diagnostics
-|[`RDC01011`](../diagnostics/rdc01011.md)|Variable not used|Information|the host's reference counts of a local or `Private` variable: no read, no argument; not a `WithEvents` variable, not a loop's control variable|
-|[`RDC01012`](../diagnostics/rdc01012.md)|Variable not assigned|Warning|the host's reference counts of a local or `Private` variable: read, never written, and passed to no call that may assign it (a procedure of the module is followed); not an array, a `ReDim`'d name, a `WithEvents` variable, an object or a user-defined type|
-|[`RDC01013`](../diagnostics/rdc01013.md)|Parameter not used|Information|the host's reference counts of a parameter: none; not of a `Declare`, an `Event`, an implementation, a handler, or a `Public` member of a class module|
-|[`RDC01014`](../diagnostics/rdc01014.md)|Assigned ByVal parameter|Information|the host's reference counts of a `ByVal` parameter (or the value parameter of a `Property Let`/`Set`): written|
-|[`RDC01015`](../diagnostics/rdc01015.md)|Constant not used|Information|the host's reference counts of a constant: no read, no argument; a `Public` constant has no count|
-|[`RDC01016`](../diagnostics/rdc01016.md)|Line label not used|Information|the syntax tree: a `LineLabelNode` that no `GoTo`, `GoSub`, `Resume` or `On Error GoTo` of its procedure names; line numbers are not reported|
-|[`RDC01017`](../diagnostics/rdc01017.md)|Write-only property|Information|the syntax tree: a `Public`, `Global` or implicitly public `Property Let`/`Set` with no `Property Get` of its name; once per name|
 
 **Rubberduck Core diagnostics** are the analyzer findings issued by the `RDCore.Diagnostics` analyzers. They cover implicit declarations, obsolete syntax, misleading constructs, every inspection that the legacy Rubberduck add-in shipped, and further inspections beyond those.
 
@@ -89,6 +82,13 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC01005`](../diagnostics/rdc01005.md)|Hosted document code|Error|the host's `DocumentModuleFact` of a document module whose code presumes its host, with the bindings of its expressions and its procedures named as the host's event handlers; and `ValueExpressionSemanticFlags.HostedDocumentName` of a name in another module, which it reports in place of _Variable not defined_|
 |[`RDC01006`](../diagnostics/rdc01006.md)|Unsupported document module|Error|the host's `DocumentModuleFact`, which names no host class; or a `.doccls` document that has none|
 |[`RDC01007`](../diagnostics/rdc01007.md)|Host library not referenced|Error|the host's `DocumentModuleFact`, whose host class the project's references do not have|
+|[`RDC01011`](../diagnostics/rdc01011.md)|Variable not used|Information|the host's reference counts of a local or `Private` variable: no read, no argument; not a `WithEvents` variable, not a loop's control variable|
+|[`RDC01012`](../diagnostics/rdc01012.md)|Variable not assigned|Warning|the host's reference counts of a local or `Private` variable: read, never written, and passed to no call that may assign it (a procedure of the module is followed); not an array, a `ReDim`'d name, a `WithEvents` variable, an object or a user-defined type|
+|[`RDC01013`](../diagnostics/rdc01013.md)|Parameter not used|Information|the host's reference counts of a parameter: none; not of a `Declare`, an `Event`, an implementation, a handler, or a `Public` member of a class module|
+|[`RDC01014`](../diagnostics/rdc01014.md)|Assigned ByVal parameter|Information|the host's reference counts of a `ByVal` parameter (or the value parameter of a `Property Let`/`Set`): written|
+|[`RDC01015`](../diagnostics/rdc01015.md)|Constant not used|Information|the host's reference counts of a constant: no read, no argument; a `Public` constant has no count|
+|[`RDC01016`](../diagnostics/rdc01016.md)|Line label not used|Information|the syntax tree: a `LineLabelNode` that no `GoTo`, `GoSub`, `Resume` or `On Error GoTo` of its procedure names; line numbers are not reported|
+|[`RDC01017`](../diagnostics/rdc01017.md)|Write-only property|Information|the syntax tree: a `Public`, `Global` or implicitly public `Property Let`/`Set` with no `Property Get` of its name; once per name|
 |[`RDC11005`](../diagnostics/rdc11005.md)|Bitwise operator|Hint|`ProcedureSemanticModel.Runtime`: `LogicalOperatorSemanticFlags.IsBitwiseSemantics` of the `LogicalOperatorFact`s|
 |[`RDC11006`](../diagnostics/rdc11006.md)|Ambiguous concatenation|Information|`ProcedureSemanticModel.Runtime`: `ArithmeticOperatorSemanticFlags.VBStringEffectiveType` of the `ArithmeticOperatorFact`s of `+`|
 |[`RDC11011`](../diagnostics/rdc11011.md)|Variant number compared with a Variant String|Warning|`ProcedureSemanticModel.Runtime`: `ComparisonOperatorSemanticFlags.IsVariantStringNumericException` of the `ComparisonOperatorFact`s|

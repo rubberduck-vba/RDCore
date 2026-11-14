@@ -321,6 +321,8 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11029](rdc11029.md)|Public variable of an object passed late as a copy|What a procedure called late assigns to it is not written back|
 |[RDC11031](rdc11031.md)|True value that is not -1|`#Const DEV = 1`, then `#If Not DEV`: `Not 1` is `-2`, which is `True`|
 |[RDC11032](rdc11032.md)|For Each variable read after the loop ran out|MS-VBA leaves it Empty or Nothing, where MS-VBAL says it keeps the last element|
+|[RDC11033](rdc11033.md)|Reserved name that MS-VBA accepts|An Enum member named `Date`, `DoEvents` or `CDec`: MS-VBA compiles it, MS-VBAL reserves the name|
+|[RDC11034](rdc11034.md)|Name that MS-VBA refuses|A declaration named `Local`, or an Enum member named `Name`: MS-VBAL allows the name, MS-VBA refuses it|
 |[RDC11035](rdc11035.md)|Collection set to Nothing inside its own For Each loop|RD-VBA leaves it as it is while the loop runs; MS-VBA destroys it, and the loop ends|
 |[RDC11036](rdc11036.md)|Negative line number|A line number below 0, or a jump to one: MS-VBA compiles it, MS-VBAL has no such line number|
 |[RDC11037](rdc11037.md)|Non-breaking space in a name|A declared name with a U+00A0 in it: MS-VBA compiles it, no MS-VBAL identifier has one|
