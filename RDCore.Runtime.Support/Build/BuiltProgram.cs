@@ -137,8 +137,8 @@ public static class BuiltProgram
         }
 
         _ = ProgramAssembly.Bind(provider.Image, program);
-        var settings = new ProjectBuildSettings($"{image.EntryModule}.{image.EntryPoint}", IsLibrary: false);
-        if (ProgramRunner.EntryPointOf(provider.Session, [image.EntryModule], settings, out var refusal) is not { } entryPoint)
+        var build = new ProjectBuild { EntryPoint = $"{image.EntryModule}.{image.EntryPoint}" };
+        if (ProgramRunner.EntryPointOf(provider.Session, [image.EntryModule], build, out var refusal) is not { } entryPoint)
         {
             throw new InvalidDataException(refusal);
         }

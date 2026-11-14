@@ -585,6 +585,12 @@
   <data name="VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose" xml:space="preserve">
     <value>A record of the type '{0}' is given to a Variant, which can't hold it: give it to a variable or a parameter of the type '{0}', or copy its fields.</value>
   </data>
+  <data name="VBCompileError_NoHostApplicationToEvaluateExpression" xml:space="preserve">
+    <value>There is no host application to evaluate the expression</value>
+  </data>
+  <data name="VBCompileError_NoHostApplicationToEvaluateExpression_Verbose" xml:space="preserve">
+    <value>'[{0}]' names nothing that is declared, which makes it an expression for a host application to evaluate.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' is a project: it qualifies the names of what it declares, as in '{0}.Len', and is no value of its own.</value>
   </data>

@@ -1117,16 +1117,42 @@ public sealed class BuildCommandTests
         Assert.IsEmpty(run.Output);
     }
 
-    [TestMethod]
-    public void TheEntryPointTheProjectNames_AndALibrary_AreReadFromItsBuildSection()
+    // two modules that each declare a Sub Main, and a project file whose build section says which one the program starts at, or that it is a library.
+    private static MockFileSystem TwoMains(string build)
     {
-        var project = System.Text.Json.JsonSerializer.Deserialize<RDCoreProject>("""{ "Name": "P", "build": { "entryPoint": "Two.Main", "outputType": "Library" } }""")!;
+        var fileSystem = Files(("One.bas", Module("One", "Public Sub Main()", "    Debug.Print \"one\"", "End Sub")),
+            ("Two.bas", Module("Two", "Public Sub Main()", "    Debug.Print \"two\"", "End Sub")));
+        fileSystem.File.WriteAllText(Path.Combine(Root, ProjectFile.FileName),
+            $$"""{ "Version": "1.1", "ProjectInfo": { "Name": "P", "Modules": [ "One.bas", "Two.bas" ], "build": {{build}} } }""");
+        return fileSystem;
+    }
 
-        var settings = ProjectBuildSettings.Of(project);
+    [TestMethod]
+    public async Task Run_StartsAtTheEntryPointTheProjectsBuildSectionNames()
+    {
+        var run = await RunAsync(TwoMains("""{ "entryPoint": "Two.Main" }"""), Root);
 
-        Assert.AreEqual("Two.Main", settings.EntryPoint);
-        Assert.IsTrue(settings.IsLibrary);
-        Assert.AreEqual(new ProjectBuildSettings(null, false), ProjectBuildSettings.Of(new RDCoreProject { Name = "P" }));
+        Assert.AreEqual(ProgramRunner.Completed, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "two" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Build_StartsTheProgramAtTheEntryPointTheProjectsBuildSectionNames()
+    {
+        var run = await BuildAndRunAsync(TwoMains("""{ "entryPoint": "Two.Main" }"""), Path.Combine(Root, "bin", "Debug", AppHost.CurrentRuntime));
+
+        Assert.AreEqual(ProgramRunner.Completed, run.Exit, run.Error);
+        CollectionAssert.AreEqual(new[] { "two" }, run.Output);
+    }
+
+    [TestMethod]
+    public async Task Run_OfALibrary_ExitsWith2_WhateverItsModulesDeclare()
+    {
+        var run = await RunAsync(TwoMains("""{ "outputType": "Library", "entryPoint": "Two.Main" }"""), Root);
+
+        Assert.AreEqual(ProgramRunner.Refused, run.Exit);
+        Assert.IsEmpty(run.Output);
+        Assert.AreNotEqual(string.Empty, run.Error);
     }
 
     [TestMethod]

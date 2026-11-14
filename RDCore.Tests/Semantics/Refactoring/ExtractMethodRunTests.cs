@@ -308,4 +308,31 @@ public sealed class ExtractMethodRunTests
         Assert.AreEqual("11", before.Output);
         StringAssert.Contains(module, "Private Sub Extracted(ByVal n As Long, ByVal a As Long, ByRef b As Long)");
     }
+
+    // A and B are outside the selection, C in it: 1 and 2 leave it, 3 stays in it, 0 and 4 fall through, and -1 raises error 5 as before.
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(2)]
+    [DataRow(3)]
+    [DataRow(4)]
+    [DataRow(-1)]
+    public async Task AnOnGoToThatLeavesTheSelection_RunsAsItDidInline(int selector)
+    {
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync(
+            "On n GoTo A, B, C\nDebug.Print 0\nC:\nDebug.Print 3\nExit Sub\nA:\nDebug.Print 1\nExit Sub\nB:\nDebug.Print 2", 0, 3, driver: $"Run {selector}");
+
+        Assert.AreEqual(before, after, module);
+    }
+
+    // B is the label right after the selection: going there is where the call goes on to anyway.
+    [TestMethod]
+    public async Task AnOnGoToTheLabelAfterTheSelection_RunsAsItDidInline()
+    {
+        var (before, after, module, _) = await ExtractionRuns.BeforeAndAfterAsync(
+            "Debug.Print 0\nOn n GoTo B\nDebug.Print 9\nB:\nDebug.Print 1", 0, 2, driver: "Run 0\nRun 1");
+
+        Assert.AreEqual(before, after, module);
+        Assert.AreEqual("0 | 9 | 1 | 0 | 1", before.Output);
+    }
 }

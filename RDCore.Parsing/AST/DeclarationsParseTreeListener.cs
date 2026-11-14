@@ -18,6 +18,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using RDCore.Runtime.LanguageCore.Errors;
 
 namespace RDCore.Parsing.AST;
@@ -770,7 +771,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var eventName = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         var arguments = context.eventArgumentList()?.eventArgument().Select((argument, index) => CaptureEventArgument(id.Add(0).Add(index), argument)) ?? [];
         var inputs = new ExpressionNode?[] { eventName }.Concat(arguments).Where(input => input is not null).Cast<SyntaxNode>().ToImmutableArray();
         CurrentBuilder.AddChild(new KeywordStatementNode(id, context.GetSourceLocation(_rootUri), Tokens.RaiseEvent, inputs));
@@ -924,6 +925,23 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
     // a statement no alternative reads - `a = 1-`, `If x = 1 - Then` - is tokens no rule read, and is kept as the text it is: the syntax error is reported
     // where the parse stopped, and the statement does not vanish from the tree.
     public override void ExitMainBlockStmt([NotNull] VBAParser.MainBlockStmtContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
+    // so is a statement written outside the procedures (x = 1 before the first one, Loop after an End Sub): it is kept where it is written, in the module.
+    public override void ExitModuleDeclarationsElement([NotNull] VBAParser.ModuleDeclarationsElementContext context)
+    {
+        if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
+        {
+            CurrentBuilder.AddChild(BuildUnbuiltStatementTrivia(context));
+        }
+    }
+
+    public override void ExitModuleBodyElement([NotNull] VBAParser.ModuleBodyElementContext context)
     {
         if (context.ChildCount > 0 && context.children.All(child => child is IErrorNode))
         {
@@ -1533,8 +1551,10 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
 
+        // a name in brackets is the name without them, as a declaration's is (MS-VBAL §3.3.5.3): the node says it was written in them.
+        var isBracketed = identifier.IsBracketed();
         var location = context.GetSourceLocation(_rootUri);
-        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, value, identifier.TypeHint()));
+        OnExpression(new SimpleNameExpressionNode(GetCurrentNodeId(), location, isBracketed ? identifier.Name() : value, identifier.TypeHint(), isBracketed));
     }
 
     // MS-VBAL §3.3.5.3: an intrinsic type written where an expression is - after TypeOf ... Is, or where a value is. It is no value, and the static semantics
@@ -1595,7 +1615,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1612,7 +1632,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new MemberAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -1629,7 +1649,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
         }
         CurrentBuilder.PopLastChildren(1);
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), owner, member));
     }
 
@@ -1646,7 +1666,7 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             return;
         }
         var id = GetCurrentNodeId();
-        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint());
+        var member = new SimpleNameExpressionNode(id.Add(0), identifier.GetSourceLocation(_rootUri), identifier.Name(), identifier.TypeHint(), identifier.IsBracketed());
         CurrentBuilder.AddChild(new DictionaryAccessExpressionNode(id, context.GetSourceLocation(_rootUri), null, member));
     }
 
@@ -2099,6 +2119,44 @@ internal class DeclarationsParseTreeListener(Uri sourceUri, ModuleNode moduleNod
             _trivia.Add(new ErasedPlusTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeOf(plus))));
         }
     }
+
+    // MS-VBAL §3.2.2: a line continuation is no code, and builds no node: it is trivia, kept once however many walks read it. One stands between two tokens,
+    // a token of its own; the lexer reads one inside a keyword of two words (`End _` then `If`) as a part of that keyword's token, which says which keyword.
+    // A comment that ends with one goes on to the next line: what is in it is the comment's, and no continuation of the code.
+    public override void VisitTerminal([NotNull] ITerminalNode node)
+    {
+        if (node.Symbol is not { TokenIndex: >= 0, Text: { Length: > 0 } text } token || node.Parent is not VBABaseParserRuleContext context
+            || context is VBAParser.CommentBodyContext || !text.Contains('\n') || !_lineContinuations.Add(token.TokenIndex))
+        {
+            return;
+        }
+
+        if (token.Type == VBAParser.LINE_CONTINUATION)
+        {
+            _trivia.Add(new LineContinuationTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeWithin(token, 0, text.Length))));
+            return;
+        }
+
+        if (!KeywordAcrossLines.IsMatch(text))
+        {
+            return;
+        }
+
+        var keyword = BlanksOfAKeyword.Replace(text, " ");
+        foreach (Match continuation in ContinuationInAKeyword.Matches(text))
+        {
+            _trivia.Add(new LineContinuationTriviaNode(GetCurrentNodeId(), new SourceLocation(_rootUri, context.RangeWithin(token, continuation.Index, continuation.Length)), keyword));
+        }
+    }
+
+    private readonly HashSet<int> _lineContinuations = [];
+
+    // a line continuation as the lexer reads one (LINE_CONTINUATION), with the blanks that begin the next line, except the blank that starts another continuation
+    // on that line. A keyword across lines is its words, with blanks and line continuations between them.
+    private const string Continuation = @"[ \t]_[ \t]*\r?\n[ \t]*?(?=[ \t]_[ \t]*\r?\n|[^ \t\r\n])";
+    private static readonly Regex ContinuationInAKeyword = new(Continuation, RegexOptions.CultureInvariant);
+    private static readonly Regex BlanksOfAKeyword = new($@"(?:{Continuation}|[ \t])+", RegexOptions.CultureInvariant);
+    private static readonly Regex KeywordAcrossLines = new($@"^[A-Za-z]+(?:(?:{Continuation}|[ \t])+[A-Za-z]+)+$", RegexOptions.CultureInvariant);
 
     // MS-VBAL 5.6.6: a parenthesized expression is a value expression — its parentheses are an operator,
     // not punctuation, and this builds it. Erasing them made `Foo (x)` and `Foo x` the same tree, so an

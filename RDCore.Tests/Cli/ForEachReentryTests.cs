@@ -229,16 +229,36 @@ public sealed class ForEachReentryTests
             "Next",
             "P \"after\"");
 
+    // MS-VBA lets go of the collection there, which is destroyed with the members the loop has not reached, and the loop ends (observed in Excel:
+    // "gone 2|at 1|gone 1|after|end"). RD-VBA leaves the variable as it is while the loop runs, and says so (CollectionSetToNothingInItsOwnLoop).
     [TestMethod]
-    [Ignore("MS-VBA's Collection enumerator does not hold its collection: one set to Nothing in the loop is destroyed there, with the members the loop has "
-        + "not reached, and the loop ends (observed in Excel). RD-VBA's enumerator holds the collection, and the loop reaches every member.")]
-    public async Task ACollectionSetToNothingInTheLoop_IsDestroyed_AndTheLoopEnds()
-        => await AssertPrintsAsync("gone 2|at 1|gone 1|after|end",
-            "Dim C As Collection, V As Variant",
+    [DataRow("Collection", "    Set C = Nothing", DisplayName = "a Collection")]
+    [DataRow("Variant", "    Set C = Nothing", DisplayName = "a Variant")]
+    [DataRow("Object", "    Set C = Nothing", DisplayName = "an Object")]
+    [DataRow("Collection", "    If True Then Set C = Nothing", DisplayName = "in a block of the loop")]
+    public async Task ACollectionSetToNothingInItsOwnLoop_IsLeftAsItIs_UntilTheLoopIsOver(string declared, string set)
+        => await AssertPrintsAsync("at 1|at 2|nothing False|gone 1|gone 2|after|end",
+            $"Dim C As {declared}, V As Variant",
             "Set C = MadeC()",
             "For Each V In C",
-            "    Set C = Nothing",
+            set,
             "    P \"at \" & V.Id",
+            "Next",
+            "P \"nothing \" & (C Is Nothing)",
+            "V = Empty",
+            "Set C = Nothing",
+            "P \"after\"");
+
+    [TestMethod]
+    public async Task AnotherVariableSetToNothingInTheLoop_IsSetToNothing()
+        => await AssertPrintsAsync("at 1|gone 9|at 2|after|gone 1|gone 2|end",
+            "Dim C As Collection, W As Noisy, V As Variant",
+            "Set C = MadeC()",
+            "Set W = New Noisy",
+            "W.Id = 9",
+            "For Each V In C",
+            "    P \"at \" & V.Id",
+            "    Set W = Nothing",
             "Next",
             "V = Empty",
             "P \"after\"");

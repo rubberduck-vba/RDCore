@@ -55,10 +55,60 @@ internal sealed class SessionForms
             }
 
             _holding = true;
+            _host = host;
         }
 
         session.Turn.Running += host.Hold;
         host.Hold(session.Turn.IsRunning);
+    }
+
+    private RDCore.External.Forms.IFormHost? _host;
+
+    /// <summary>
+    /// Hides every loaded form of the session that is shown, as a program that ends does (an <c>End</c> in a handler of one of their events, or a debugger that ended
+    /// the program there): the modal form the program waits for returns from its <c>Show</c>, and the program goes on to its end.
+    /// </summary>
+    /// <remarks>
+    /// Hiding runs none of the program's code: no <c>QueryClose</c>, no <c>Deactivate</c>; the events the forms raise as they go find a program that is ending.
+    /// </remarks>
+    /// <param name="session">The session whose forms they are.</param>
+    public void HideAll(IRuntimeSession session)
+    {
+        RDCore.External.Forms.IFormHost? host;
+        VBRuntimeObjectId[] loaded;
+        lock (_gate)
+        {
+            host = _host;
+            loaded = [.. _loaded];
+        }
+
+        if (host is null)
+        {
+            return;
+        }
+
+        foreach (var form in loaded)
+        {
+            if (!session.ExternalObjects.TryGet(form, out _, out var hosted) || hosted is null)
+            {
+                continue;
+            }
+
+            using (session.Turn.Yield())
+            {
+                try
+                {
+                    if (host.IsShown(hosted))
+                    {
+                        host.Hide(hosted);
+                    }
+                }
+                catch (RDCore.External.Automation.AutomationException)
+                {
+                    // a form whose window is gone already is hidden.
+                }
+            }
+        }
     }
 
     /// <summary>

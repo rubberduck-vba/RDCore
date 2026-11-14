@@ -11,7 +11,8 @@ namespace RDCore.LanguageServer.Refactoring;
 /// of its own asks it: the capability is <see cref="SDK.Client.Refactoring"/>'s.
 /// </summary>
 /// <remarks>
-/// The refactorings it prepares are Extract Method's (<see cref="RefactoringKinds.ExtractMethod"/>); a kind it does not serve is answered an error.
+/// The refactorings it prepares are Extract Method's (<see cref="RefactoringKinds.ExtractMethod"/>) and Convert GoSub's (<see cref="RefactoringKinds.ConvertGoSub"/>);
+/// a kind it does not serve is answered an error.
 /// </remarks>
 internal sealed class RefactorPrepareHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
     : RDCoreRequestHandler<RefactorPrepareRequest, RefactorPrepareResult>
@@ -19,7 +20,7 @@ internal sealed class RefactorPrepareHandler(IExtractMethodService extractMethod
     protected override async Task<RefactorPrepareResult> HandleAsync(RefactorPrepareRequest request, CancellationToken token)
     {
         RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
-        return await extractMethod.PrepareAsync(request.Uri!, request.Range, token);
+        return await extractMethod.PrepareAsync(request.Kind, request.Uri!, request.Range, token);
     }
 }
 
@@ -33,8 +34,22 @@ internal sealed class RefactorApplyHandler(IExtractMethodService extractMethod, 
     protected override async Task<RefactorWorkspaceEdit> HandleAsync(RefactorApplyRequest request, CancellationToken token)
     {
         RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
-        var answer = await extractMethod.ApplyAsync(request.Uri!, request.Range, request.Answers, request.Accepted, token);
+        var answer = await extractMethod.ApplyAsync(request.Kind, request.Uri!, request.Range, request.Answers, request.Accepted, token);
         return answer.Edit ?? throw new RpcErrorException(RefactorRequests.RequestFailedCode, error: null!, answer.Refusal ?? string.Empty);
+    }
+}
+
+/// <summary>
+/// Serves <c>rdcore/refactor/checkIdentifier</c>: whether an identifier the user is typing for a refactoring of a range can be declared where the refactoring
+/// declares it, and what it would hide, before the refactoring is applied. A client's dialog asks it as its user types.
+/// </summary>
+internal sealed class RefactorIdentifierCheckHandler(IExtractMethodService extractMethod, IPlatformClientCapabilitiesService clientCapabilities)
+    : RDCoreRequestHandler<RefactorCheckIdentifierRequest, RefactorIdentifierCheckResult>
+{
+    protected override async Task<RefactorIdentifierCheckResult> HandleAsync(RefactorCheckIdentifierRequest request, CancellationToken token)
+    {
+        RefactorRequests.Check(clientCapabilities, request.Kind, request.Uri);
+        return await extractMethod.CheckIdentifierAsync(request.Kind, request.Uri!, request.Range, request.Answers, token);
     }
 }
 
@@ -57,7 +72,7 @@ file static class RefactorRequests
             throw new RpcErrorException(InvalidRequestCode, error: null!, $"The client did not advertise the '{nameof(SDK.Client.Refactoring)}' platform capability.");
         }
 
-        if (kind != RefactoringKinds.ExtractMethod || document is null)
+        if (kind is not (RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub) || document is null)
         {
             throw new RpcErrorException(InvalidParamsCode, error: null!, document is null ? "The request names no document." : $"No refactoring is of the kind '{kind}'.");
         }

@@ -72,6 +72,34 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
         return new(start.AnchoredAt(_offset), (start with { Character = start.Character + (token.Text?.Length ?? 0) }).AnchoredAt(_offset));
     }
 
+    /// <summary>
+    /// The range of a part of one token of the rule, which may span line terminators, anchored as <see cref="SourceRange"/> is.
+    /// </summary>
+    /// <param name="token">A token of the rule.</param>
+    /// <param name="offset">Where the part starts, in characters from the start of the token's text.</param>
+    /// <param name="length">The number of characters in the part.</param>
+    internal SourceRange RangeWithin(IToken token, int offset, int length)
+    {
+        var text = token.Text ?? string.Empty;
+        SourcePosition At(int index)
+        {
+            var breaks = 0;
+            var lineStart = -1;
+            for (var character = 0; character < index; character++)
+            {
+                if (text[character] == '\n')
+                {
+                    breaks++;
+                    lineStart = character;
+                }
+            }
+
+            return breaks == 0 ? new SourcePosition(token.Line - 1, token.Column + index) : new SourcePosition(token.Line - 1 + breaks, index - lineStart - 1);
+        }
+
+        return new(At(offset).AnchoredAt(_offset), At(offset + length).AnchoredAt(_offset));
+    }
+
     private SourceRange RangeThrough(IToken? stop)
     {
         var start = new SourcePosition(Start?.Line - 1 ?? 0, Start?.Column ?? 0);
@@ -121,9 +149,18 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
             ? (GetSourceLocation(documentUri, last), Start.InputStream.GetText(Interval.Of(Start.StartIndex, last.StopIndex)))
             : (GetSourceLocation(documentUri), GetText());
 
-    private static IToken? LastWrittenToken(IParseTree node) => node switch
+    /// <summary>
+    /// The location of a clause of a block statement (<c>ElseIf</c>, <c>Else</c>, <c>Case</c>, <c>Case Else</c>), through its last written token. What
+    /// follows its last statement (the comment after it, the line ends and the indentation before the keyword that closes the clause) is no part of it: a clause
+    /// ends where its last statement does, or with its own header when it has none.
+    /// </summary>
+    internal SourceLocation GetClauseLocation(Uri documentUri)
+        => LastWrittenToken(this, outsideEndsOfStatement: true) is { } last ? GetSourceLocation(documentUri, last) : GetSourceLocation(documentUri);
+
+    private static IToken? LastWrittenToken(IParseTree node, bool outsideEndsOfStatement = false) => node switch
     {
+        VBAParser.EndOfStatementContext when outsideEndsOfStatement => null,
         ITerminalNode { Symbol: var token } => token.TokenIndex < 0 || token.Type is VBAParser.WS or VBAParser.LINE_CONTINUATION or TokenConstants.Eof ? null : token,
-        _ => Enumerable.Range(0, node.ChildCount).Reverse().Select(i => LastWrittenToken(node.GetChild(i))).FirstOrDefault(token => token is not null),
+        _ => Enumerable.Range(0, node.ChildCount).Reverse().Select(i => LastWrittenToken(node.GetChild(i), outsideEndsOfStatement)).FirstOrDefault(token => token is not null),
     };
 }

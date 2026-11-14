@@ -102,6 +102,12 @@
   <data name="FrameGoSub" xml:space="preserve">
     <value>{0} (GoSub)</value>
   </data>
+  <data name="FrameNonBasicCode" xml:space="preserve">
+    <value>&lt;Non-Basic Code&gt;</value>
+  </data>
+  <data name="FrameIsNotCode" xml:space="preserve">
+    <value>This entry of the call stack is not the program's code: it has no variables, and nothing can be evaluated there.</value>
+  </data>
   <data name="ExpressionHasNoValue" xml:space="preserve">
     <value>the expression has no value</value>
   </data>

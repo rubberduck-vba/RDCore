@@ -45,5 +45,5 @@ internal sealed class StackReplCommand : IReplCommand
     private static string Where(ReplProgram program, string module, int line)
         => line < 0
             ? string.Empty
-            : module == ReplProgram.ModuleName && program.LineNumberAt(line) is { } number ? number.ToString() : $"({module} line {line + 1})";
+            : module == ReplProgram.ModuleName && program.LineNumberAt(line) is { } number ? number.ToString() : string.Format(Resources.Repl_Frame_InModuleLine, module, line + 1);
 }

@@ -19,6 +19,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.Runtime.LanguageCore.Plans;
+using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
@@ -264,7 +265,11 @@ internal sealed partial class ProcedureAnalysis
             }
 
             EnterBlockOf(list, instruction);
-            var step = AnalyzeInstruction(instruction);
+
+            // a Set to Nothing of the variable a For Each walks, inside the loop, is the interpreter's: it leaves the variable as it is while the loop runs.
+            var step = ForEachCollectionStaticSemantics.LoopsWhoseCollectionItSetsToNothing(list, instruction.Offset).Any()
+                ? SupportCallOf(instruction, before)
+                : AnalyzeInstruction(instruction);
 
             // what compiled code does not do of an instruction the interpreter can run alone, the interpreter does (IR lowering S2.5a): the reasons are
             // the instruction's, and not the procedure's.
@@ -333,7 +338,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             or PrintStep
             || (step is SelectStep && compared.Contains(step.Offset));
@@ -748,7 +753,7 @@ internal sealed partial class ProcedureAnalysis
                     return textSlotAssigned;
                 }
 
-                return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
+                return Text(assigned) is { } text ? AppendOf(offset, textSlot, text) ?? (CompiledStep)new TextLetStep(offset, textSlot, text) : null;
 
             // the result of a function of the String type, assigned the text as it is where its frame holds it, or what a call returns, once the call
             // returned, as the interpreter assigns it.
@@ -858,7 +863,7 @@ internal sealed partial class ProcedureAnalysis
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundInstance { Slot: { } me }, IsLateBound: false }
             && MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot)
         {
-            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns);
+            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns, returnsObject);
         }
 
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: null, IsLateBound: false }
@@ -906,8 +911,10 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        // a member called with no parentheses is given no argument; one written with them is given the arguments bound for it.
-        var arguments = call.BoundArguments ?? (call.Arguments is null ? [] : default);
+        // a member called with no parentheses is given no argument, each Optional parameter left out as the interpreter binds it (MS-VBAL §5.3.1.11); one
+        // written with them is given the arguments bound for it.
+        var arguments = call.BoundArguments
+            ?? (call.Arguments is null ? ArgumentMapping.Bind([.. parameters.Skip(1)], [], static _ => null, static _ => null) ?? default : default);
         if (arguments.IsDefault || arguments.Length != parameters.Length - 1)
         {
             return null;
@@ -1240,19 +1247,27 @@ internal sealed partial class ProcedureAnalysis
     // a type whose values are object references: Object, a class or an interface.
     private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;
 
-    // an operand of Is compiled code reads: an object variable of the activation, by its slot, or Nothing, which is no slot. Any other is the interpreter's.
-    private bool TryObjectOperand(BoundNode operand, out int? slot)
+    // an operand of Is compiled code reads: an object variable of the activation or Me, by its slot, or Nothing, which is no slot. The default instance of a class
+    // of the workspace (MS-VBAL §5.2.4.1.2) is read in the cell the session holds it in, as an object field is (defaultInstance): it is made when it is read
+    // (MS-VBAL §5.2.3.1.4), and one that holds no object yet is the interpreter's to make. Any other is the interpreter's.
+    private bool TryObjectOperand(BoundNode operand, out int? slot, out bool defaultInstance)
     {
-        slot = null;
+        (slot, defaultInstance) = (null, false);
         switch (operand)
         {
             case BoundVariable variable when ObjectSlotOf(variable) is { } held:
                 slot = held;
                 return true;
+            case BoundInstance { Slot: { } me } when MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot:
+                slot = meSlot;
+                return true;
+            case BoundVariable { Variable: VBPredeclaredInstanceSymbol } instance when FieldSlotOf(instance, receiver: true) is { } made && _objectSlots.Contains(made):
+                (slot, defaultInstance) = (made, true);
+                return true;
             case BoundLiteral { Literal.StaticValue: VBObjectValue nothing } when nothing.IsNothing():
                 return true;
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:
-                return TryObjectOperand(enclosed, out slot);
+                return TryObjectOperand(enclosed, out slot, out defaultInstance);
             default:
                 Unsupported(operand);
                 return false;
@@ -1361,8 +1376,8 @@ internal sealed partial class ProcedureAnalysis
 
             // MS-VBAL §5.6.9.7: two object references compared as they are.
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
-                return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
-                    ? new IsNode(leftObject, rightObject)
+                return TryObjectOperand(compared.Left, out var leftObject, out var leftMade) && TryObjectOperand(compared.Right, out var rightObject, out var rightMade)
+                    ? new IsNode(leftObject, rightObject, leftMade, rightMade)
                     : null;
 
             // MS-VBAL §5.6.7: what TypeOf tests is the interpreter's own test (RuntimeExpressionEvaluator.IsInstanceOf).

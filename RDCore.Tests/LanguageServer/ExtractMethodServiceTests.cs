@@ -57,7 +57,13 @@ public sealed class ExtractMethodServiceTests
         "    Dim t As Long\r\n" +
         "    t = v * 2\r\n" +
         "    Debug.Print t\r\n" +
-        "End Property\r\n";
+        "End Property\r\n" +
+        "Public Sub Jumps()\r\n" +
+        "    GoTo Done\r\n" +
+        "    Debug.Print 1\r\n" +
+        "Done:\r\n" +
+        "    Debug.Print 2\r\n" +
+        "End Sub\r\n";
 
     private const int Version = 3;
 
@@ -100,7 +106,7 @@ public sealed class ExtractMethodServiceTests
 
         Assert.IsFalse(prepared.Notices.Any(), string.Join("; ", prepared.Notices.Select(notice => notice.Message)));
         CollectionAssert.AreEqual(
-            new[] { ExtractMethodService.NameChoice, ExtractMethodService.ParametersChoice, ExtractMethodService.ReturnValueChoice },
+            new[] { ExtractMethodService.NameChoice, ExtractMethodService.ParametersChoice, ExtractMethodService.ReturnValueChoice, ExtractMethodService.AccessibilityChoice },
             prepared.Choices.Select(choice => choice.Id).ToArray());
         Assert.IsFalse(string.IsNullOrEmpty(prepared.Choices[0].Default));
         var parameters = prepared.Choices[1].Items;
@@ -111,6 +117,19 @@ public sealed class ExtractMethodServiceTests
         var returned = prepared.Choices[2];
         Assert.AreEqual(string.Empty, returned.Default);
         CollectionAssert.AreEqual(new[] { string.Empty, "b" }, returned.Options.Select(option => option.Value).ToArray());
+        var accessibility = prepared.Choices[3];
+        Assert.AreEqual("Private", accessibility.Default);
+        CollectionAssert.AreEqual(new[] { "Private", "Public" }, accessibility.Options.Select(option => option.Value).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ThePublicAccessibility_WritesAPublicProcedure()
+    {
+        var answer = await Sut().ApplyAsync(Document, Lines(5, 5),
+            [Answer(ExtractMethodService.NameChoice, "Increment"), Answer(ExtractMethodService.AccessibilityChoice, "Public")], [], CancellationToken.None);
+
+        Assert.IsNull(answer.Refusal, answer.Refusal);
+        StringAssert.Contains(Applied(Module, answer.Edit!.Documents.Single().Edits), "\r\nPublic Sub Increment(");
     }
 
     [TestMethod]
@@ -120,6 +139,16 @@ public sealed class ExtractMethodServiceTests
 
         Assert.AreEqual(RefactorNoticeKind.Refusal, prepared.Notices.Single().Kind);
         Assert.IsFalse(prepared.Choices.Any());
+        Assert.IsNull(prepared.Range);
+    }
+
+    [TestMethod]
+    public async Task ASelectionThatStartsAndEndsInsideStatements_IsPreparedAsTheWholeStatements_WhoseRangeItAnswers()
+    {
+        var prepared = await Sut().PrepareAsync(Document, new SourceRange(4, 6, 5, 7), CancellationToken.None);
+
+        Assert.IsFalse(prepared.Notices.Any(notice => notice.Kind == RefactorNoticeKind.Refusal), string.Join("; ", prepared.Notices.Select(notice => notice.Message)));
+        Assert.AreEqual(new SourceRange(4, 4, 5, 13), prepared.Range);
     }
 
     [TestMethod]
@@ -224,6 +253,7 @@ public sealed class ExtractMethodServiceTests
     [DataRow(ExtractMethodService.NameChoice, "If", DisplayName = "a keyword for the name")]
     [DataRow(ExtractMethodService.NameChoice, "Run", DisplayName = "a name the module declares")]
     [DataRow(ExtractMethodService.ReturnValueChoice, "a", DisplayName = "a value the selection does not give back")]
+    [DataRow(ExtractMethodService.AccessibilityChoice, "Friend", DisplayName = "an accessibility the new procedure cannot have")]
     public async Task AnAnswerThatCannotBeWritten_IsRefused_AndSaysWhy(string choice, string value)
     {
         var answer = await Sut().ApplyAsync(Document, Lines(5, 5), [Answer(choice, value)], [], CancellationToken.None);
@@ -282,11 +312,39 @@ public sealed class ExtractMethodServiceTests
         Assert.IsNull(await ExtractMethodActionAsync(new Range(startLine, startCharacter, endLine, endCharacter)));
     }
 
-    // the extraction a client is offered for a range, among the code actions of the document.
-    private async Task<CodeAction?> ExtractMethodActionAsync(Range range)
+    // the GoTo of line 23 lands on the label of line 25, inside the lines 24 to 26.
+    [TestMethod]
+    public async Task ARefusedExtraction_IsOfferedDisabled_WithWhy_ToAClientThatShowsSo()
+    {
+        var refusal = (await Sut().PrepareAsync(Document, Lines(24, 26), CancellationToken.None)).Notices.First(notice => notice.Kind is RefactorNoticeKind.Refusal);
+
+        var action = await ExtractMethodActionAsync(new Range(24, 0, 27, 0), showsDisabled: true);
+
+        Assert.IsNotNull(action);
+        Assert.AreEqual(refusal.Message, action.Disabled?.Reason);
+        Assert.IsNull(action.Edit);
+        Assert.IsNull(action.Command);
+        Assert.IsNull(action.Data);
+    }
+
+    [TestMethod]
+    public async Task ARefusedExtraction_IsNotOffered_ToAClientThatDoesNotShowDisabledActions()
+        => Assert.IsNull(await ExtractMethodActionAsync(new Range(24, 0, 27, 0)));
+
+    [TestMethod]
+    public async Task ASelectionOfNoProcedure_IsNotOfferedDisabled()
+        => Assert.IsNull(await ExtractMethodActionAsync(new Range(0, 0, 1, 0), showsDisabled: true));
+
+    // the extraction a client is offered for a range, among the code actions of the document; showsDisabled, when it shows an action it cannot take.
+    private async Task<CodeAction?> ExtractMethodActionAsync(Range range, bool showsDisabled = false)
     {
         var handler = new CodeActionHandler(_rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), Sut(), _capabilities,
             new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+        ((OmniSharp.Extensions.LanguageServer.Protocol.IRegistration<CodeActionRegistrationOptions, OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability>)handler)
+            .GetRegistrationOptions(new(), new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.ClientCapabilities
+            {
+                TextDocument = new() { CodeAction = new OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities.CodeActionCapability { DisabledSupport = showsDisabled } },
+            });
         var actions = await handler.Handle(new CodeActionParams
         {
             TextDocument = new TextDocumentIdentifier(DocumentUri.From(Document)),

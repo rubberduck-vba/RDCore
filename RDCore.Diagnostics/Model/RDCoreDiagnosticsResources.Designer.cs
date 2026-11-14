@@ -106,6 +106,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to LSet copies a record that holds a variable-length String: MS-VBAL §5.4.3.6 allows it, and MS-VBA refuses it (Compile error: Type mismatch)..
+        /// </summary>
+        public static string LSetOfARecordWithAString_Message {
+            get {
+                return ResourceManager.GetString("LSetOfARecordWithAString_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
         /// </summary>
         public static string EmptyCodeBlock_Message {
@@ -453,6 +462,24 @@ namespace RDCore.Diagnostics.Model {
         public static string SuspiciousPredeclaredInstanceAccess_Message {
             get {
                 return ResourceManager.GetString("SuspiciousPredeclaredInstanceAccess_Message", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A line continuation splits the keyword &apos;{0}&apos; over several lines. Write its words on one line..
+        /// </summary>
+        public static string LineContinuationBetweenKeywords_Message {
+            get {
+                return ResourceManager.GetString("LineContinuationBetweenKeywords_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;{0}&apos; on one line.
+        /// </summary>
+        public static string LineContinuationBetweenKeywords_Fix {
+            get {
+                return ResourceManager.GetString("LineContinuationBetweenKeywords_Fix", resourceCulture);
             }
         }
         
@@ -866,6 +893,15 @@ namespace RDCore.Diagnostics.Model {
         public static string ForEachControlEmptiedAfterLoop_Nothing_Message {
             get {
                 return ResourceManager.GetString("ForEachControlEmptiedAfterLoop_Nothing_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is not set to Nothing here: the For Each loop that walks it holds the object until the loop is over. MS-VBA lets go of a Collection here: it is destroyed, with the members the loop has not reached, and the loop ends. Leave the loop with Exit For, then set &apos;{0}&apos; to Nothing..
+        /// </summary>
+        public static string CollectionSetToNothingInItsOwnLoop_Message {
+            get {
+                return ResourceManager.GetString("CollectionSetToNothingInItsOwnLoop_Message", resourceCulture);
             }
         }
 

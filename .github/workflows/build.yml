@@ -83,12 +83,13 @@ jobs:
       retention-days: 7
 
  # the same two runs on Windows and macOS, without coverage: what differs from Linux there is the file system, the processes and
- # the pipes the platform starts and talks through; the language is the same
+ # the pipes the platform starts and talks through; the language is the same. win-x64 and osx-x64 (macos-15-intel, GitHub's Intel
+ # image) run for every pull request; osx-arm64 (macos-latest) runs on main only, where it is too slow to hold a pull request up.
  build-and-test-os:
   strategy:
    fail-fast: false
    matrix:
-    os: [windows-latest, macos-latest]
+    os: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '["windows-latest", "macos-15-intel", "macos-latest"]' || '["windows-latest", "macos-15-intel"]') }}
   name: build-and-test (${{ matrix.os }})
   runs-on: ${{ matrix.os }}
   timeout-minutes: 90

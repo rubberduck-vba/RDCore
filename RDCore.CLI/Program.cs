@@ -39,8 +39,9 @@ using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 using RDCore.SDK.Platform.Components;
 
-// expose internals to RDCore.Tests and the LSP handler container's dynamic proxies:
+// expose internals to RDCore.Tests, RDCore.Benchmarks and the LSP handler container's dynamic proxies:
 [assembly: InternalsVisibleTo("RDCore.Tests")]
+[assembly: InternalsVisibleTo("RDCore.Benchmarks")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 // platform capabilities provided by rdc.exe in environment-host mode:

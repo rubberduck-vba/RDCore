@@ -169,9 +169,10 @@ internal sealed class RenameService(
             workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Parse))], resolver,
             projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
 
-        // the project again, one of its modules parsed from another text: what an edit of it would be composed as, which the cache does not keep.
-        WorkspaceComposition Recompose(Uri edited, SDK.Model.AST.ModuleParseResult parse) => WorkspaceSymbolResolver.ComposeWithScopes(
-            workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, module.Module.AbsoluteUri == edited.AbsoluteUri ? parse : module.Parse))], resolver,
+        // the project again, some of its modules parsed from other texts (by the absolute URI of each): what an edit of them would be composed as, which the
+        // cache does not keep.
+        WorkspaceComposition Recompose(IReadOnlyDictionary<string, SDK.Model.AST.ModuleParseResult> edited) => WorkspaceSymbolResolver.ComposeWithScopes(
+            workspaceRoot, [.. modules.Select(module => (module.Module, module.Type, edited.GetValueOrDefault(module.Module.AbsoluteUri) ?? module.Parse))], resolver,
             projectName: projectName, implicitScope: implicitScope, libraries: libraries, documentHosts: documentHosts);
 
         var context = new RenameContext(composition.Resolver, composition.ScopeTree,
@@ -188,11 +189,11 @@ internal sealed class RenameService(
 internal sealed class RenameWorkspace
 {
     /// <summary>
-    /// A project, composed: what its modules resolve in, the document of each, and the project composed again with one of its modules parsed from another
-    /// text (<see langword="null"/> for a project that is composed of nothing else).
+    /// A project, composed: what its modules resolve in, the document of each, and the project composed again with some of its modules parsed from other
+    /// texts, by the absolute URI of each (<see langword="null"/> for a project that is composed of nothing else).
     /// </summary>
     internal sealed record class ProjectPart(
-        RenameContext Context, IReadOnlyList<DocumentModule> Modules, Func<Uri, SDK.Model.AST.ModuleParseResult, WorkspaceComposition>? Recompose = null);
+        RenameContext Context, IReadOnlyList<DocumentModule> Modules, Func<IReadOnlyDictionary<string, SDK.Model.AST.ModuleParseResult>, WorkspaceComposition>? Recompose = null);
 
     /// <summary>
     /// The project and the module of a document; <see langword="null"/> for a document of no project.

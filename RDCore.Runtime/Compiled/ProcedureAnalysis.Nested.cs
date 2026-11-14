@@ -73,6 +73,9 @@ internal sealed partial class ProcedureAnalysis
         {
             { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet, Target: SimpleNameExpressionNode } assignment }
                 => IsScalarTarget(Bind(assignment.Target)) && CallsInside(Bind(assignment.Value)),
+            // a Set of an object variable, or of the function result variable, to what a call returns.
+            { Kind: InstructionKind.Simple, Node: AssignmentStatementNode { Kind: AssignmentKind.Set, Target: SimpleNameExpressionNode } assignment }
+                => Calls(Bind(assignment.Value)),
             { Kind: InstructionKind.Simple, Node: CallStatementNode call }
                 => CallsInside(Bind(call.Arguments.IsEmpty ? call.Callee : new IndexExpressionNode(call.Callee.Identity, call.Callee.Location, call.Callee, call.Arguments))),
             { Kind: InstructionKind.ConditionalBranch, Matching: null } or { Kind: InstructionKind.LoopBack }
@@ -204,6 +207,7 @@ internal sealed partial class ProcedureAnalysis
         SupportCallStep => true,
         LetStep let => Admits(let.Value),
         CallStep call => call.Arguments.All(Admits) && Admits(call.ReceiverCall),
+        SetStep { SourceCall: { } source } => Admits(source),
         BranchStep branch => Admits(branch.Condition),
         LoopBackStep loop => Admits(loop.Condition),
         ForOpenStep open => Admits(open.Start) && Admits(open.End) && Admits(open.Step),
@@ -284,6 +288,11 @@ internal sealed partial class ProcedureAnalysis
             given.AddRange(ObjectCallsOf(statement.ReceiverCall).Select(call => call.Arguments));
         }
 
+        if (step is SetStep { SourceCall: { } source })
+        {
+            given.AddRange(ObjectCallsOf(source).Select(call => call.Arguments));
+        }
+
         var passed = given.SelectMany(list => list.OfType<ReferenceNode>()).Select(reference => reference.Slot).ToHashSet();
         var arguments = new HashSet<KnownNode>(given.SelectMany(list => list.SelectMany(Within)).OfType<KnownNode>(), ReferenceEqualityComparer.Instance);
         var early = nodes.All(node => IsReadWhereWritten(node.Kind));
@@ -315,6 +324,7 @@ internal sealed partial class ProcedureAnalysis
     {
         LetStep let => [let.Value],
         CallStep call => [.. call.Arguments, .. ObjectCallsOf(call.ReceiverCall).SelectMany(made => made.Arguments)],
+        SetStep { SourceCall: { } source } => ObjectCallsOf(source).SelectMany(made => made.Arguments),
         BranchStep branch => [branch.Condition],
         LoopBackStep loop => [loop.Condition],
         ForOpenStep open => [open.Start, open.End, open.Step],

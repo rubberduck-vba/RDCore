@@ -12,12 +12,12 @@ namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 internal enum ExtractionPassing
 {
     /// <summary>
-    /// Its value is passed: the new procedure reads it, and what it writes to it stays its own.
+    /// Its value is passed: the new procedure reads it, and what it writes to it does not reach the caller.
     /// </summary>
     ByVal,
 
     /// <summary>
-    /// The variable is passed: what the new procedure writes to it is the caller's.
+    /// The variable is passed: what the new procedure writes to it reaches the caller.
     /// </summary>
     ByRef,
 }
@@ -125,6 +125,18 @@ internal enum ExtractionRefusalKind
     /// A <c>Resume</c> in the selection, about an error raised before it: the new procedure has no error of its own to resume.
     /// </summary>
     ResumeOfAnErrorBefore,
+
+    /// <summary>
+    /// The statement before a <c>GoSub</c> routine goes on to it: control that falls into the routine reaches its <c>Return</c> with no <c>GoSub</c>, which
+    /// raises run-time error 3, where a call of the procedure it is converted to would not.
+    /// </summary>
+    FallsIntoTheRoutine,
+
+    /// <summary>
+    /// An <c>On…GoSub</c> in a single-line <c>If</c> runs the <c>GoSub</c> routine: the <c>Select Case</c> it becomes, with a call of the procedure the routine is
+    /// converted to, cannot be written there.
+    /// </summary>
+    OnGoSubInASingleLineIf,
 }
 
 /// <summary>

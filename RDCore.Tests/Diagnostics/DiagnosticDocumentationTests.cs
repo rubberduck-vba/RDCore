@@ -134,6 +134,7 @@ public sealed class DiagnosticDocumentationTests
         (RDCoreDiagnosticId.ShadowedDeclaration, 208),
         (RDCoreDiagnosticId.OnErrorGoToMinusOne, 211),
         (RDCoreDiagnosticId.UnrestoredOnErrorResumeNext, 212),
+        (RDCoreDiagnosticId.LineContinuationBetweenKeywords, 213),
         (RDCoreDiagnosticId.ProcedureCanBeWrittenAsFunction, 214),
         (RDCoreDiagnosticId.SelfAssignedDeclaration, 215),
         (RDCoreDiagnosticId.ObsoleteCallStatement, 302),

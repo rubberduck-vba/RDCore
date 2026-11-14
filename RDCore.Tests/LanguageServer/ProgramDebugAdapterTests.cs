@@ -1104,6 +1104,37 @@ public sealed class ProgramDebugAdapterTests
     }
 
     [TestMethod]
+    public async Task TheHandlerOfAnEvent_IsCalledFromAPlaceThatIsNotCode_ThatHasNoVariables_AndNothingIsEvaluatedIn()
+    {
+        await using var session = new Session();
+        await StartedAndWaitingAsync(session);
+        session.Debugging.StackAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(new DebugStackResult
+        {
+            Frames =
+            [
+                new DebugStackFrame(0, "Go_Click", "Board", 12, 4) { BeginsAnEvent = true },
+                new DebugStackFrame(1, "Main", "Prog", 3, 4),
+            ],
+        }));
+
+        var stack = await session.SendAsync(new StackTraceArguments { ThreadId = 1 });
+
+        var frames = stack.StackFrames!.ToArray();
+        CollectionAssert.AreEqual(new[] { "Go_Click", "<Non-Basic Code>", "Main" }, frames.Select(frame => frame.Name).ToArray());
+        Assert.AreEqual(StackFramePresentationHint.Label, frames[1].PresentationHint);
+        Assert.IsNull(frames[1].Source, "no file is the place's");
+        Assert.AreEqual(3, frames.Select(frame => frame.Id).Distinct().Count());
+
+        var scopes = await session.SendAsync(new ScopesArguments { FrameId = frames[1].Id });
+        Assert.IsEmpty(scopes.Scopes);
+
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "k", FrameId = frames[1].Id }));
+        _ = await Assert.ThrowsAsync<JsonRpcException>(() => session.SendAsync(new EvaluateArguments { Expression = "k = 1", FrameId = frames[1].Id, Context = EvaluateArgumentsContext.Repl }));
+        await session.Debugging.DidNotReceiveWithAnyArgs().EvaluateAsync(default, default!, default);
+        await session.Debugging.DidNotReceiveWithAnyArgs().ExecuteAsync(default, default!, default);
+    }
+
+    [TestMethod]
     public async Task TheStack_CanBeAskedForAPartOfIt()
     {
         await using var session = new Session();
