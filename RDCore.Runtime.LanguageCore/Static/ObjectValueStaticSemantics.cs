@@ -288,6 +288,11 @@ public static class ObjectValueStaticSemantics
         _ => [],
     };
 
+    // MS-VBAL §5.6.13: a Function or Property Get that declares no parameters, which an argument list does not call: it is called with none, and the
+    // arguments apply to what it returns.
+    public static bool ReturnsWhatArgumentsApplyTo(VBTypeMemberSymbol member)
+        => member is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && !OwnParameters(ParametersOf(member)).Any();
+
     // a member of a class has an implicit Me at parameter 0, which is the object the call is on and no argument of it.
     private static IEnumerable<VBParameterSymbol> OwnParameters(ImmutableArray<VBParameterSymbol> parameters)
         => parameters.Where(parameter => !(parameter.Name == "Me" && parameter.ParameterKind == ParameterKind.ImplicitByRef));

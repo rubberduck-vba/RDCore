@@ -38,6 +38,14 @@ public static class ObjectOperations
     }
 
     /// <summary>
+    /// Whether <paramref name="cell"/> holds an object, and not <c>Nothing</c>: the default instance of a class (MS-VBAL §5.2.4.1.2) that holds none yet is made
+    /// when it is read (MS-VBAL §5.2.3.1.4), which the interpreter does, running the class's <c>Initialize</c>.
+    /// </summary>
+    /// <param name="cell">The cell of the object variable.</param>
+    /// <returns>Whether compiled code reads an object from the cell: when not, the interpreter evaluates the expression.</returns>
+    public static bool HoldsAnObject(object? cell) => TryRead(cell, out var instance) && !instance.Equals(default(VBRuntimeObjectId));
+
+    /// <summary>
     /// <c>left Is right</c> of the objects held in two cells (MS-VBAL §5.6.9.7): whether both are the same object, or both <c>Nothing</c>, as
     /// <c>BinaryIsRelationalOperatorRuntimeSemantics</c> compares them.
     /// </summary>

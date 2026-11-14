@@ -43,6 +43,17 @@ dotnet test RDCore.slnx
 
 Une exécution réussie **doit rapporter un nombre de tests non nul**: une exécution qui ne découvre aucun test n'est pas une exécution réussie. L'option `--configuration Release` bâtit et teste de la même manière; l'intégration continue valide les deux configurations.
 
+### Bancs d'essai
+
+`RDCore.Benchmarks` mesure, avec BenchmarkDotNet, l'analyse syntaxique, la sérialisation JSON de l'arbre syntaxique et les analyseurs de diagnostics. C'est un outil de contributeur, comme `RDCore.Tests` : il ne fait pas partie de la plateforme et n'est pas une commande `rdc`. À partir de la racine du référentiel :
+
+```powershell
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*"
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*ParseBenchmarks*"
+```
+
+Le filtre choisit les bancs d'essai par leur nom. Chacun s'exécute dans son propre processus et n'est mesuré qu'après une période de réchauffement : ses résultats sont à chaud. `rdc bench` mesure l'analyse syntaxique à froid.
+
 
 **V I V A T 🤝 C U C U M I S** ™
 
@@ -94,6 +105,17 @@ dotnet test RDCore.slnx
 ```
 
 A successful run **must report a non-zero test count**: a run that discovers no tests is not a passing run. The `--configuration Release` switch builds and tests the same way; continuous integration validates both configurations.
+
+### Benchmarks
+
+`RDCore.Benchmarks` measures the parser, the syntax tree's JSON serialization and the diagnostics analyzers with BenchmarkDotNet. It is a contributor tool, as `RDCore.Tests` is: it is not part of the platform, and it is not an `rdc` command. From the repository root:
+
+```powershell
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*"
+dotnet run -c Release --project RDCore.Benchmarks -- --filter "*ParseBenchmarks*"
+```
+
+The filter selects benchmarks by name. Each one runs in its own process and is measured after a warm-up, so its figures are warm ones. `rdc bench` measures the cold parse.
 
 
 **V I V A T 🤝 C U C U M I S** ™

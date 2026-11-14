@@ -34,7 +34,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00101`](../diagnostics/rdc00101.md)|Implicit declarations enabled|Warning|`ModuleSemanticModel.OptionExplicit`|
 |[`RDC00102`](../diagnostics/rdc00102.md)|Implicit non-default array base|Hint|the syntax tree: an `Option Base 1` directive|
 |[`RDC00103`](../diagnostics/rdc00103.md)|Implicit type declarations enabled|Hint|the syntax tree: a `Def<Type>` directive|
-|[`RDC00104`](../diagnostics/rdc00104.md)|Implicit ByRef modifier|Information|the syntax tree: `ParameterDeclarationNode.ParameterKind`|
+|[`RDC00104`](../diagnostics/rdc00104.md)|Implicit ByRef modifier|Information|the syntax tree: `ParameterDeclarationNode.ParameterKind`, except in a procedure whose `DeclarationFact.Role` is `InterfaceImplementation` or `EventHandler`|
 |[`RDC00105`](../diagnostics/rdc00105.md)|Implicit Public member|Information|the syntax tree: `MemberDeclarationNode.AccessModifier`|
 |[`RDC00106`](../diagnostics/rdc00106.md)|Implicit Variant declaration|Information|the syntax tree: a declaration with no type, and the `Def<Type>` directives|
 |[`RDC00107`](../diagnostics/rdc00107.md)|Implicit Variant return type|Information|the syntax tree: a function with no type, and the `Def<Type>` directives|
@@ -42,14 +42,14 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00114`](../diagnostics/rdc00114.md)|Implicit array declaration|Information|`ModuleSemanticModel.Declarations`: a local whose `DeclarationFact.DeclaredBy` is `ReDim`|
 |[`RDC00115`](../diagnostics/rdc00115.md)|Implicit result local|Information|the syntax tree, and `ProcedureSemanticModel.Expressions`: a name of the procedure, read in its body, bound to it and not a call of it|
 |[`RDC00117`](../diagnostics/rdc00117.md)|Implicit constant type|Information|the syntax tree: a `ConstantDeclarationNode` with no `As` clause and no type hint|
-|[`RDC00119`](../diagnostics/rdc00119.md)|Implicit default member access|Information|`ProcedureSemanticModel.Runtime`: a `ConversionFact` with `ConversionSemanticFlags.ObjectOperand`, at its operand of a class type; and the syntax tree's `Let` assignments whose target has a `MemberAccessOperationSemanticFlags.DefaultMember` access without `ArgumentList`|
+|[`RDC00119`](../diagnostics/rdc00119.md)|Implicit default member access|Information|`ProcedureSemanticModel.Runtime`: a `ConversionFact` with `ConversionSemanticFlags.ObjectOperand`, at its operand of a class type; and the syntax tree's `Let` assignments whose target has a `MemberAccessOperationSemanticFlags.DefaultMember` access without `ArgumentList`, of a member the target does not name|
 |[`RDC00120`](../diagnostics/rdc00120.md)|Implicit unbound default member access|Warning|the same facts as `RDC00119`, at an operand or a `Let` target declared `Object`|
 |[`RDC00121`](../diagnostics/rdc00121.md)|Indexed default member access|Information|`ProcedureSemanticModel.Runtime`: the member accesses with `MemberAccessOperationSemanticFlags.Implicit`, `DefaultMember` and `ArgumentList` (an empty list included), and neither `DictionaryAccess` nor `LateBound`, read or assigned|
 |[`RDC00122`](../diagnostics/rdc00122.md)|Indexed unbound default member access|Warning|the same, with `LateBound`|
 |[`RDC00123`](../diagnostics/rdc00123.md)|Bang notation|Information|the member accesses with `Implicit`, `DefaultMember` and `DictionaryAccess`, and not `LateBound`|
 |[`RDC00124`](../diagnostics/rdc00124.md)|Unbound bang notation|Warning|the same, with `DictionaryAccess` and `LateBound`|
 |[`RDC00125`](../diagnostics/rdc00125.md)|Suspicious Let assignment|Warning|the syntax tree's `Let` assignments whose target is an object (a `DefaultMember` access, or declared `Object`) and whose value is the operand of a `ConversionSemanticFlags.ObjectOperand` conversion|
-|[`RDC00201`](../diagnostics/rdc00201.md)|Integer data type declaration|Information|the syntax tree: `AsTypeExpressionNode`|
+|[`RDC00201`](../diagnostics/rdc00201.md)|Integer data type declaration|Information|the syntax tree: `AsTypeExpressionNode` and the `TypeHint` of a declaration node, except in the header of a procedure whose `DeclarationFact.Role` is `InterfaceImplementation` or `EventHandler`|
 |[`RDC00202`](../diagnostics/rdc00202.md)|Module-scope Dim declaration|Information|the syntax tree: a module-level variable with no access modifier|
 |[`RDC00203`](../diagnostics/rdc00203.md)|Multiline parameter declaration|Information|the syntax tree: the range of a `ParameterDeclarationNode`|
 |[`RDC00204`](../diagnostics/rdc00204.md)|Multiple declarations|Information|the syntax tree: the declarations one statement makes|
@@ -74,7 +74,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00311`](../diagnostics/rdc00311.md)|Early binding opportunity|Information|`ExpressionFact.Creates` (`ObjectClassSource.ReferencedLibrary`)|
 |[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`|
 |[`RDC00407`](../diagnostics/rdc00407.md)|Unmatched event handler|Hint|`DeclarationFact.Role` (`DeclarationRole.UnmatchedEventHandler`) and `DeclarationFact.References`|
-|[`RDC00408`](../diagnostics/rdc00408.md)|Underscore in a public class member|Warning|`ModuleSemanticModel.Declarations` of a class module: a public procedure, property or variable of the module named with `_`, whose `DeclarationFact.Role` is `None`|
+|[`RDC00408`](../diagnostics/rdc00408.md)|Underscore in a public class member|Warning|`ModuleSemanticModel.Declarations` of a class module: a public procedure, property or variable of the module named with `_`, whose `DeclarationFact.Role` is `None`, and that the syntax tree declares|
 |[`RDC00409`](../diagnostics/rdc00409.md)|Public field|Information|`ModuleSemanticsDto.Class` (a class module), and the syntax tree: a module-level variable declared `Public`|
 |[`RDC00410`](../diagnostics/rdc00410.md)|Default instance in its own class|Warning|`ModuleSemanticsDto.Class` (`ClassModuleSemanticFlags.DefaultInstance`), and `ExpressionFactDto.Binding`: a name bound to the default instance variable the global scope declares for the class|
 |[`RDC01001`](../diagnostics/rdc01001.md)|Use meaningful identifier names|Information|the names the syntax tree declares, and the allow-list in `DiagnosticsOptions.MeaningfulNames`|
@@ -118,6 +118,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11036`](../diagnostics/rdc11036.md)|Negative line number|Warning|the syntax tree: a `LineNumberNode` below 0, or a jump whose label is a negated literal (`On Error GoTo -1` aside)|
 |[`RDC11037`](../diagnostics/rdc11037.md)|Non-breaking space in a name|Warning|the syntax tree: the name of a declaration or a line label with a U+00A0|
 |[`RDC11039`](../diagnostics/rdc11039.md)|Function called whatever the IIf condition|Warning|the syntax tree (the `TruePart` and `FalsePart` arguments of a call bound to `Interaction.IIf`) and `ExpressionFactDto`: a `ProcedureCall` of a `Function` or `Property Get`, bound to anything but a VBA library function that changes nothing and raises no error|
+|[`RDC11044`](../diagnostics/rdc11044.md)|LSet of a record that holds a variable-length String|Warning|`ProcedureSemanticModel.Runtime`: `FixedAssignmentSemanticFlags.SourceHoldsVariableLengthString` or `DestinationHoldsVariableLengthString` of a `UserDefinedTypeCopy`|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same

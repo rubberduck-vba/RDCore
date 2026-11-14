@@ -46,7 +46,7 @@ internal sealed partial class ProcedureAnalysis
     /// </summary>
     /// <param name="step">The step.</param>
     internal static bool CallsForAnObject(CompiledStep step)
-        => step is CallStep { ReceiverCall: not null } || PayloadsOf(step).SelectMany(Within).Any(node => ReceiverCallsOf(node).Any());
+        => step is CallStep { ReceiverCall: not null } or SetStep { SourceCall: not null } || PayloadsOf(step).SelectMany(Within).Any(node => ReceiverCallsOf(node).Any());
 
     // the calls that return an object a member is called on, or read of, the outermost first: each one's receiver is the next.
     private static IEnumerable<ObjectCallNode> ObjectCallsOf(ObjectCallNode? call)

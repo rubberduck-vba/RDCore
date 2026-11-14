@@ -67,6 +67,13 @@ internal sealed partial class ProcedureAnalysis
             return new FieldSourceSetStep(offset, target, held);
         }
 
+        // a function, or a function or Property Get member of an object, that returns an object: compiled code makes the call (ObjectCallOf), and what it
+        // returned, held by the statement's temporaries, is what the Set is given.
+        if (_nesting is not null && ObjectCallOf(Bind(assignment.Value)) is { } call)
+        {
+            return new SetStep(offset, target, Source: null) { SourceCall = call };
+        }
+
         return TrySetSource(Bind(assignment.Value), out var source) ? new SetStep(offset, target, source) : null;
     }
 
@@ -95,10 +102,15 @@ internal sealed partial class ProcedureAnalysis
 
 /// <summary>
 /// A <c>Set</c> of <see cref="Target"/> (an object slot, or the function result variable, <see cref="Result"/>) to the object held in the slot
-/// <see cref="Source"/>, or to <c>Nothing</c> when it has none.
+/// <see cref="Source"/>, or to what <see cref="SourceCall"/> returns, or to <c>Nothing</c> when it has neither.
 /// </summary>
 internal sealed record class SetStep(int Offset, int Target, int? Source) : CompiledStep(Offset)
 {
+    /// <summary>
+    /// The call whose object the <c>Set</c> is given: made first, and what it returns held by the statement's temporaries until the statement is over.
+    /// </summary>
+    public ObjectCallNode? SourceCall { get; init; }
+
     /// <summary>
     /// The <see cref="Target"/> of a <c>Set</c> of the function result variable.
     /// </summary>

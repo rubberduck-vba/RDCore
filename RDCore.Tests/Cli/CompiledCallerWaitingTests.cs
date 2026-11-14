@@ -58,7 +58,7 @@ public sealed class CompiledCallerWaitingTests
 
     // the same, and the compiled body of Outer, what its activation did counted there: none when Outer is not compiled.
     private static async Task<(string Observed, CompiledBody? Outer)> WaitedInWithOuterAsync(string program, string? edited, string[] statements,
-        VBExecutionEngine engine)
+        VBExecutionEngine engine, Func<EnvironmentSessionProvider, Task>? whileWaiting = null)
     {
         var observed = "";
         CompiledBody? outer = null;
@@ -83,6 +83,11 @@ public sealed class CompiledCallerWaitingTests
                 foreach (var statement in statements)
                 {
                     await InOuter(provider, statement);
+                }
+
+                if (whileWaiting is not null)
+                {
+                    await whileWaiting(provider);
                 }
 
                 observed = Observed(await Resume(provider));
@@ -294,4 +299,59 @@ public sealed class CompiledCallerWaitingTests
     public async Task ACallee_EditedWhileACompiledCallerWaitsInAStatementTheInterpreterRuns_IsCalledAsItNowIs()
         => StringAssert.Contains(await AssertSteppedAsync(SteppedCalling.Replace("    Inner = Len(x)", "    Inner = Len(x) * 10", StringComparison.Ordinal)),
             "| 66 |");
+
+    // Outer appends to s around its call of Inner, and waits in its second call: s is "<1><" then.
+    private static readonly string Appending = Program(
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Outer(3)",
+        "End Sub",
+        "Private Function Outer(ByVal n As Long) As String",
+        "    Dim i As Long, s As String, u As Long",
+        "    For i = 1 To n",
+        "        s = s & \"<\"",
+        "        u = Inner(i)",
+        "        s = s & u & \">\"",
+        "    Next",
+        "    Outer = s",
+        "End Function",
+        "Private Function Inner(ByVal x As Long) As Long",
+        "    If x = 2 Then Stop",
+        "    Inner = x",
+        "End Function");
+
+    // the locals of Outer's frame, looked at while the program waits in Inner, show the String appended to as it is joined.
+    [TestMethod]
+    public async Task AStringOfACompiledCaller_AppendedToBeforeItWaits_ShowsInItsFrameJoined()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var shown = new Dictionary<VBExecutionEngine, string>();
+        foreach (var engine in new[] { VBExecutionEngine.Interpreter, VBExecutionEngine.Compiled })
+        {
+            var (observed, _) = await WaitedInWithOuterAsync(Appending, null, [], engine, async provider =>
+            {
+                var outer = provider.Execution.Stack().Frames.Single(frame => frame.Procedure == "Outer");
+                var locals = await new HostDebugVariablesHandler(provider)
+                    .Handle(new HostDebugVariablesParams { FrameId = outer.Id, Scope = DebugVariableScope.Locals }, CancellationToken.None).WaitAsync(Patience);
+                shown[engine] = locals.Variables.Single(variable => variable.Name == "s").Value;
+            });
+            StringAssert.Contains(observed, "| <1><2><3> |");
+        }
+
+        Assert.AreEqual(shown[VBExecutionEngine.Interpreter], shown[VBExecutionEngine.Compiled]);
+        StringAssert.Contains(shown[VBExecutionEngine.Compiled], "<1><");
+    }
+
+    // what a debugger assigns the String while the program waits is what Outer goes on appending to: read and appended to, or assigned another String.
+    [TestMethod]
+    [DataRow("s = s & \"!\"", "<1><!2><3>", DisplayName = "appended to by the debugger")]
+    [DataRow("s = \"x\"", "x2><3>", DisplayName = "assigned by the debugger")]
+    public async Task AStringOfACompiledCaller_AppendedTo_SetWhileItWaits_IsWhatItGoesOnAppendingTo(string statement, string expected)
+        => StringAssert.Contains(await AssertAlikeAsync(Appending, null, statement), $"| {expected} |");
+
+    // the module defined again while Outer waits, Inner edited: Outer goes on appending to the String it had.
+    [TestMethod]
+    public async Task AStringOfACompiledCaller_AppendedTo_GoesOnJoined_WhenItsModuleIsEditedWhileItWaits()
+        => StringAssert.Contains(await AssertAlikeAsync(Appending, Appending.Replace("    Inner = x\r\n", "    Inner = x * 10\r\n", StringComparison.Ordinal)),
+            "| <1><20><30> |");
 }
