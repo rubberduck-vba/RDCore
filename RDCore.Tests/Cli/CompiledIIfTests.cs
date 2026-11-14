@@ -68,7 +68,7 @@ public sealed class CompiledIIfTests
             "    Exit Function",
             "Bad:",
             "    Safe = 100 + Err.Number",
-            "End Function"), [], "| 1  2  113  2 |", ("Safe", 2));
+            "End Function"), [], "| 1  2  113  2 |", ("Safe", 1));
 
     private static (string Name, string Source)[] Boards()
         =>
