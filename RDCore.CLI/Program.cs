@@ -92,7 +92,16 @@ public class Program
             if (args is [{ Length: > 0 } verb, ..] && !verb.StartsWith('-'))
             {
                 using var commandHost = new RDCoreConsoleCommandHost();
-                return await commandHost.RunAsync(args);
+                try
+                {
+                    return await commandHost.RunAsync(args);
+                }
+                finally
+                {
+                    // a command that ran a program started the machine's external host when the program first reached the outside world: it stops with the
+                    // command, as a built program's does, rather than outlive rdc until it next looks for it, holding the console rdc gave it.
+                    MachineExternal.Shutdown();
+                }
             }
 
             // rdc.exe with no arguments: the interactive shell. It is an LSP client like any other,
