@@ -129,6 +129,11 @@ public sealed record class ExternalValue
     /// The elements of an <see cref="ExternalValueKind.Array"/>, the first subscript varying fastest: the order a <c>SAFEARRAY</c> is laid out in.
     /// </summary>
     public ExternalValue[]? Elements { get; init; }
+
+    /// <summary>
+    /// What a <see cref="ExternalValueKind.SessionObject"/> pictures, when it is a picture of the session's (<see cref="Automation.SessionObjectReference.Picture"/>).
+    /// </summary>
+    public Automation.SessionPicture? Picture { get; init; }
 }
 
 /// <summary>
@@ -179,6 +184,8 @@ public static class ExternalValues
         DateTime date => Scalar(ExternalValueKind.Date, date.ToOADate().ToString("R", Invariant)),
         string text => Scalar(ExternalValueKind.String, text),
         ErrorWrapper error => Scalar(ExternalValueKind.Error, error.ErrorCode.ToString(Invariant)),
+        Automation.SessionObjectReference { Picture: { } picture } reference
+            => new() { Kind = ExternalValueKind.SessionObject, Text = reference.SessionObject, Picture = picture },
         Automation.ISessionObjectStandIn standIn => Scalar(ExternalValueKind.SessionObject, standIn.SessionObject),
         Array array => ToWire(array, handleOf),
         _ => new() { Kind = ExternalValueKind.Object, Handle = handleOf(value) },
@@ -238,7 +245,13 @@ public static class ExternalValues
         ExternalValueKind.String => value.Text ?? string.Empty,
         ExternalValueKind.Error => new ErrorWrapper(int.Parse(value.Text!, Invariant)),
         ExternalValueKind.Object => objectOf(value.Handle),
-        ExternalValueKind.SessionObject => sessionObjectOf?.Invoke(value.Text!) ?? new Automation.SessionObjectIdentity(value.Text!),
+        ExternalValueKind.SessionObject => (sessionObjectOf?.Invoke(value.Text!), value.Picture) switch
+        {
+            // a picture of the session's is what the server's side draws: what it pictures crosses with it.
+            (Automation.SessionObjectReference reference, { } picture) => reference with { Picture = picture },
+            ({ } found, _) => found,
+            _ => new Automation.SessionObjectIdentity(value.Text!),
+        },
         ExternalValueKind.Array => ArrayFromWire(value, objectOf, sessionObjectOf),
         _ => throw new AutomationException(TypeMismatch, string.Format(CultureInfo.CurrentCulture, ExternalMessages.ValueCannotCross, value.Kind)),
     };

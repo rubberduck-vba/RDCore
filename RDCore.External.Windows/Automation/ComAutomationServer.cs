@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Versioning;
@@ -158,7 +159,7 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
                 arguments[index] = ToServer(arguments[index]);
             }
 
-            return InvokeMember(target, member, invocation, arguments, byReference, names, culture);
+            return FromServer(InvokeMember(target, member, invocation, arguments, byReference, names, culture));
         });
 
     /// <inheritdoc/>
@@ -790,11 +791,31 @@ public sealed class ComAutomationServer : IAutomationServer, IDisposable
     // (`d.Exists(o)`, `d(k) Is o`). Read and written on the apartment.
     private readonly Dictionary<string, WeakReference<SessionObjectStandIn>> _standIns = [];
 
-    // what a server is given for an object of the session: its stand-in, which counts the crossing. Anything else is given as it is.
+    // the OLE pictures made of the session's pictures, by identity, and the other way around: one picture of the session's is one OLE picture, which the server
+    // gives back as the session's picture (`Image1.Picture Is p`). Held for as long as the server is, as the session holds the pictures it handed over.
+    // Read and written on the apartment.
+    private readonly Dictionary<string, object> _pictures = [];
+    private readonly ConditionalWeakTable<object, SessionObjectReference> _picturesOf = [];
+
+    // what a server gave back: the session's own picture, for an OLE picture made of one.
+    private object? FromServer(object? value) => value is not null && _picturesOf.TryGetValue(value, out var reference) ? reference : value;
+
+    // what a server is given for an object of the session: its stand-in, which counts the crossing; for a picture, an OLE picture of it, which the server draws.
+    // Anything else is given as it is.
     private object? ToServer(object? value)
     {
         switch (value)
         {
+            case SessionObjectReference { Picture: { } content } reference:
+                if (!_pictures.TryGetValue(reference.SessionObject, out var picture))
+                {
+                    picture = OlePictures.Of(content, () => CreateOn("StdPicture", serverName: null));
+                    _pictures[reference.SessionObject] = picture;
+                    _picturesOf.AddOrUpdate(picture, reference);
+                }
+
+                return picture;
+
             case SessionObjectReference reference:
                 if (!_standIns.TryGetValue(reference.SessionObject, out var known) || !known.TryGetTarget(out var standIn))
                 {

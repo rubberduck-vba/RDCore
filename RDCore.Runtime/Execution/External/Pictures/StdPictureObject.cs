@@ -60,4 +60,10 @@ internal sealed class StdPictureObject
         PictureFormat.EnhancedMetafile => 4,
         _ => 1,
     };
+
+    /// <summary>
+    /// What a server's side makes a picture of its own from, when the picture is given to a server: a form's control draws it.
+    /// </summary>
+    public RDCore.External.Automation.SessionPicture Content
+        => new(Bytes, Image?.Width ?? 0, Image?.Height ?? 0, IsNew);
 }

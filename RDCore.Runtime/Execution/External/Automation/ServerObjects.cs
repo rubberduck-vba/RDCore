@@ -29,13 +29,14 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         => session.ExternalObjects.TryGet(identity, out var owner, out var handle) && ReferenceEquals(owner, server) ? handle : null;
 
     /// <summary>
-    /// What the server is given for an object: its handle, for one it holds; for an object of the session's own - an object of a class module, a
-    /// <c>Collection</c> - the stand-in its side makes for it, as MS-VBA hands one to a COM server (<see cref="SessionObjectHost"/>). <see langword="null"/>
-    /// for an object of another server's.
+    /// What the server is given for an object: its handle, for one it holds; for an object of the session's own (an object of a class module, a
+    /// <c>Collection</c>), the stand-in its side makes for it, as MS-VBA hands one to a COM server (<see cref="SessionObjectHost"/>); for a picture of the
+    /// session's (<c>LoadPicture</c>), the same, with what it pictures, which its side draws. <see langword="null"/> for an object of another server's.
     /// </summary>
     public object? ToServer(VBRuntimeObjectId identity)
         => session.ExternalObjects.TryGet(identity, out var owner, out var handle)
-            ? ReferenceEquals(owner, server) ? handle : null
+            ? ReferenceEquals(owner, server) ? handle
+                : handle is Pictures.StdPictureObject picture ? SessionObjectHost.Of(session).Export(identity, server) with { Picture = picture.Content } : null
             : session.Symbols.TryGetInstance(identity, out _) ? SessionObjectHost.Of(session).Export(identity, server) : null;
 
     /// <summary>

@@ -94,11 +94,20 @@ internal static class TestPictureFiles
         return bytes;
     }
 
-    // a metafile: a placeable header with a bounding box at the given units per inch, or none; then a header and its end record.
+    // a metafile: a placeable header with a bounding box at the given units per inch, or none; then a header, and records that draw a rectangle in the box:
+    // SetWindowOrg, SetWindowExt, Rectangle and the end record.
     public static byte[] Metafile(bool placeable, short right = 1440, short bottom = 720, ushort inch = 1440)
     {
-        // its type, header size and version, its size in words, its objects, its largest record and its parameters; then the end record.
-        var plain = Convert.FromHexString(string.Concat("0100", "0900", "0003", "0C000000", "0000", "03000000", "0000", "03000000", "0000"));
+        // its type, header size and version, its size in words, its objects, its largest record (in words) and its parameters.
+        var records = new byte[40];
+        Record(records.AsSpan(0), 5, 0x020B, 0, 0);
+        Record(records.AsSpan(10), 5, 0x020C, bottom, right);
+        Record(records.AsSpan(20), 7, 0x041B, (short)(bottom / 2), (short)(right / 2), 0, 0);
+        Record(records.AsSpan(34), 3, 0);
+        var plain = new byte[18 + records.Length];
+        Convert.FromHexString(string.Concat("0100", "0900", "0003", "00000000", "0000", "07000000", "0000")).CopyTo(plain, 0);
+        BinaryPrimitives.WriteInt32LittleEndian(plain.AsSpan(6), plain.Length / 2);
+        records.CopyTo(plain, 18);
         if (!placeable)
         {
             return plain;
@@ -117,15 +126,46 @@ internal static class TestPictureFiles
         return bytes;
     }
 
-    // an enhanced metafile's header record, whose frame is the given size in HIMETRIC units.
+    // a record of a metafile: its size in words, its function, and its parameters.
+    private static void Record(Span<byte> at, int words, ushort function, params short[] parameters)
+    {
+        BinaryPrimitives.WriteInt32LittleEndian(at, words);
+        BinaryPrimitives.WriteUInt16LittleEndian(at[4..], function);
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            BinaryPrimitives.WriteInt16LittleEndian(at[(6 + i * 2)..], parameters[i]);
+        }
+    }
+
+    // an enhanced metafile of nothing but its header record, whose frame is the given size in HIMETRIC units, and its end record.
     public static byte[] EnhancedMetafile(int width, int height)
     {
-        var bytes = new byte[108];
-        bytes[0] = 1;
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(4), 108);
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(32), width);
-        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(36), height);
-        " EMF"u8.CopyTo(bytes.AsSpan(40));
+        var bytes = new byte[128];
+        var header = bytes.AsSpan();
+        BinaryPrimitives.WriteInt32LittleEndian(header, 1);
+        BinaryPrimitives.WriteInt32LittleEndian(header[4..], 108);
+        BinaryPrimitives.WriteInt32LittleEndian(header[16..], width * 96 / 2540);
+        BinaryPrimitives.WriteInt32LittleEndian(header[20..], height * 96 / 2540);
+        BinaryPrimitives.WriteInt32LittleEndian(header[32..], width);
+        BinaryPrimitives.WriteInt32LittleEndian(header[36..], height);
+        " EMF"u8.CopyTo(header[40..]);
+        BinaryPrimitives.WriteInt32LittleEndian(header[44..], 0x10000);
+        BinaryPrimitives.WriteInt32LittleEndian(header[48..], bytes.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(header[52..], 2);
+        BinaryPrimitives.WriteInt16LittleEndian(header[56..], 1);
+        BinaryPrimitives.WriteInt32LittleEndian(header[72..], 1920);
+        BinaryPrimitives.WriteInt32LittleEndian(header[76..], 1080);
+        BinaryPrimitives.WriteInt32LittleEndian(header[80..], 508);
+        BinaryPrimitives.WriteInt32LittleEndian(header[84..], 286);
+        BinaryPrimitives.WriteInt32LittleEndian(header[100..], 508000);
+        BinaryPrimitives.WriteInt32LittleEndian(header[104..], 286000);
+
+        // the end record: no palette, where one would be, and its own size again.
+        var end = bytes.AsSpan(108);
+        BinaryPrimitives.WriteInt32LittleEndian(end, 14);
+        BinaryPrimitives.WriteInt32LittleEndian(end[4..], 20);
+        BinaryPrimitives.WriteInt32LittleEndian(end[12..], 16);
+        BinaryPrimitives.WriteInt32LittleEndian(end[16..], 20);
         return bytes;
     }
 
