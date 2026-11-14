@@ -29,8 +29,13 @@ The record format follows MS-VBA's, so that a file RD-VBA writes is a file MS-VB
 |---|---|
 |`Boolean`|Two bytes. `True` is `FF FF`.|
 |`String`, in `Random` mode|Carries a two-byte length prefix.|
-|`String`, in `Binary` mode|Carries no length prefix.|
+|`String`, in `Binary` mode|Carries no length prefix. A `String` that a `Variant` holds, an array element and a UDT field carry one.|
 |`Variant`|Preceded by its two-byte type descriptor.|
+|A `Variant` that holds a `Byte`|The descriptor `vbByte` (`11 00`), then the one byte.|
+|An array variable, in `Binary` mode|Its elements, the first subscript varying fastest. A `String` element carries a two-byte length prefix; a `Variant` element, its descriptor. An array that was never sized writes nothing.|
+|A resizable array variable, in `Random` mode|Its number of dimensions (two bytes), then the element count and lower bound of each dimension (four bytes each), the last dimension first, then its elements.|
+|A fixed-size array variable, in `Random` mode|Its elements.|
+|A record longer than the `Len` of a `Random` channel|Nothing: error 59, as in MS-VBA (recorded in Excel).|
 |A `Variant` that holds an object, or `Nothing`|No record: error 13, as in MS-VBA (recorded in Excel) - once its descriptor, `vbObject` (`09 00`), is written in `Binary` mode; nothing is written in `Random` mode. A variable declared as an object, or a UDT with one in it, is a compile error.|
 |A variable or a field of an `Enum`|The `Long` it holds, four bytes ([**RD-VBAL §5.2.3.4**](rd-vbal.5.2.3.module-declarations.md#5234-enum-declarations)).|
 |A UDT|Each member of the UDT, in declaration order, recursively through a nested UDT (see [User-Defined Types](#user-defined-types)).|
@@ -55,8 +60,8 @@ UDT field declaration order is the order `Put` writes a record in
 
 |UDT field|In a record|
 |---|---|
-|Variable-length `String`|Its characters.|
-|Fixed-length `String`|ANSI.|
+|Variable-length `String`|A two-byte length prefix, then its characters, in `Random` and `Binary` mode alike.|
+|Fixed-length `String`|Its characters in ANSI, padded with spaces or cut to its length. No length prefix.|
 
 ### Record Positioning
 

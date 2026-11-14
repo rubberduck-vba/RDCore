@@ -104,6 +104,20 @@ internal static class RecordDataFormat
             return TryWriteFields(stream, udt, mode, out written);
         }
 
+        // an array variable is its elements, each as an element of an array field is; a resizable one of a Random channel has its bounds first, as an
+        // array field does, and a fixed-size one, whose bounds are its declaration's, none (MS-VBA, recorded in Excel).
+        if (!isVariantTarget && unwrapped is VBArrayValue elements)
+        {
+            var withBounds = mode is VBFileMode.Random && elements is not VBFixedSizeArrayValue;
+            if (!TryWriteArray(stream, elements, elements.ItemType, withBounds, mode, out written))
+            {
+                return false;
+            }
+
+            stream.Flush();
+            return true;
+        }
+
         if (!isVariantTarget)
         {
             written += WriteValue(stream, unwrapped, mode);
@@ -158,7 +172,7 @@ internal static class RecordDataFormat
     /// <c>String</c> read in <see cref="VBFileMode.Binary"/> takes: "the number of bytes to read is the number
     /// of characters in <c>variable</c>".</param>
     /// <param name="value">The value read.</param>
-    /// <returns><c>false</c> for a declared type this format has no row for, or at end of file.</returns>
+    /// <returns><c>false</c> for a declared type this format has no row for.</returns>
     public static bool TryRead(
         Stream stream, VBType declaredType, VBFileMode mode, int currentLength, out VBTypedValue? value)
     {
@@ -167,11 +181,7 @@ internal static class RecordDataFormat
         {
             // "Two bytes are read from the file. These two bytes are the type descriptor for the data value
             // that follows."
-            if (!TryReadBytes(stream, DescriptorSize, out var descriptorBytes))
-            {
-                return false;
-            }
-
+            var descriptorBytes = ReadBytes(stream, DescriptorSize);
             if (descriptorBytes[1] == ArrayDescriptor)
             {
                 return DescribedType((VariantDescriptor)descriptorBytes[0]) is { } itemType
@@ -181,8 +191,29 @@ internal static class RecordDataFormat
             return TryReadDescribed(stream, (VariantDescriptor)descriptorBytes[0], VBFileMode.Random, currentLength, out value);
         }
 
+        // a resizable array of a Random channel is sized to the bounds its record gives, whatever it was sized to before (MS-VBA, recorded in Excel); any
+        // other array is read into (TryReadInto).
+        if (declaredType is VBArrayType arrayType)
+        {
+            return mode is VBFileMode.Random && declaredType is not VBFixedSizeArrayType && TryReadResizable(stream, arrayType.ItemType, mode, out value);
+        }
+
         return TryReadTyped(stream, declaredType, mode, currentLength, out value);
     }
+
+    /// <summary>
+    /// Reads one record into <paramref name="array"/>'s elements, the first subscript varying fastest, replacing each (<strong>MS-VBAL §5.4.5.12</strong>).
+    /// </summary>
+    /// <remarks>
+    /// The array's own bounds say how many elements the record holds, which is how MS-VBA reads a fixed-size array, and a resizable one of a Binary
+    /// channel. An array with no elements, such as a resizable one that was never sized, reads nothing (recorded in Excel).
+    /// </remarks>
+    /// <param name="stream">The channel's stream, already positioned.</param>
+    /// <param name="array">The array whose elements are replaced.</param>
+    /// <param name="mode">The channel's mode.</param>
+    /// <returns><c>false</c> for an element type the format has no row for.</returns>
+    public static bool TryReadInto(Stream stream, VBArrayValue array, VBFileMode mode)
+        => TryReadElements(stream, array.ItemType, array, mode);
 
     /// <summary>
     /// Reads one record into <paramref name="udt"/>'s fields, in declaration order, replacing each
@@ -197,7 +228,7 @@ internal static class RecordDataFormat
     /// <param name="stream">The channel's stream, already positioned.</param>
     /// <param name="udt">The UDT value whose fields are replaced.</param>
     /// <param name="mode">The channel's mode, which decides how a <c>String</c> field is framed.</param>
-    /// <returns><c>false</c> at end of file, or for a field whose type the format has no row for.</returns>
+    /// <returns><c>false</c> for a field whose type the format has no row for.</returns>
     public static bool TryReadInto(Stream stream, VBUserDefinedTypeValue udt, VBFileMode mode)
     {
         for (var index = 0; index < udt.Fields.Length; index++)
@@ -315,7 +346,8 @@ internal static class RecordDataFormat
                 return TryReadTyped(stream, declared, mode, 0, out value);
 
             case VBStringType:
-                return TryReadString(stream, VBFileMode.Random, 0, out value);
+                value = ReadString(stream, VBFileMode.Random, 0);
+                return true;
 
             case VBFixedSizeArrayType fixedArray when current is VBArrayValue elements:
                 value = elements;
@@ -332,19 +364,16 @@ internal static class RecordDataFormat
     private static bool TryReadResizable(Stream stream, VBType itemType, VBFileMode mode, out VBTypedValue? value)
     {
         value = null;
-        if (!TryReadBytes(stream, sizeof(short), out var rank) || BitConverter.ToInt16(rank) < 0)
+        var rank = BitConverter.ToInt16(ReadBytes(stream, sizeof(short)));
+        if (rank < 0)
         {
             return false;
         }
 
-        var dimensions = new (int, int)[BitConverter.ToInt16(rank)];
+        var dimensions = new (int, int)[rank];
         for (var dimension = dimensions.Length - 1; dimension >= 0; dimension--)
         {
-            if (!TryReadBytes(stream, 2 * sizeof(int), out var bounds))
-            {
-                return false;
-            }
-
+            var bounds = ReadBytes(stream, 2 * sizeof(int));
             var lowerBound = BitConverter.ToInt32(bounds, sizeof(int));
             dimensions[dimension] = (lowerBound, lowerBound + BitConverter.ToInt32(bounds, 0) - 1);
         }
@@ -435,18 +464,20 @@ internal static class RecordDataFormat
                 return false;
 
             case VBFixedStringType fixedString:
-                return TryReadBytes(stream, fixedString.Length, out var fixedBytes)
-                    && Assigned(new VBFixedStringValue(fixedString.Length).WithFixedValue(Ansi.GetString(fixedBytes)), out value);
+                value = new VBFixedStringValue(fixedString.Length).WithFixedValue(Ansi.GetString(ReadBytes(stream, fixedString.Length)));
+                return true;
 
             case VBStringType:
-                return TryReadString(stream, mode, currentLength, out value);
+                value = ReadString(stream, mode, currentLength);
+                return true;
         }
 
-        if (SizeOf(declaredType) is not { } size || !TryReadBytes(stream, size, out var bytes))
+        if (SizeOf(declaredType) is not { } size)
         {
             return false;
         }
 
+        var bytes = ReadBytes(stream, size);
         value = declaredType switch
         {
             VBBooleanType => new VBBooleanValue(BitConverter.ToInt16(bytes) != 0),
@@ -467,33 +498,14 @@ internal static class RecordDataFormat
         return value is not null;
     }
 
-    private static bool TryReadString(Stream stream, VBFileMode mode, int currentLength, out VBTypedValue? value)
+    private static VBStringValue ReadString(Stream stream, VBFileMode mode, int currentLength)
     {
-        value = null;
-        if (mode is VBFileMode.Binary)
-        {
-            // "If the value type of <variable> is String, then the number of bytes to read is the number of
-            // characters in <variable>" - a Binary String has no length in the record, so the variable's own
-            // current length is what says how much of the file belongs to it.
-            if (!TryReadBytes(stream, currentLength, out var raw))
-            {
-                return false;
-            }
-
-            value = new VBStringValue(Ansi.GetString(raw));
-            return true;
-        }
-
-        // "Two bytes are read from the file. The data value of these two bytes is the number of bytes to read
-        // from the file."
-        if (!TryReadBytes(stream, StringLengthPrefixSize, out var prefix)
-            || !TryReadBytes(stream, BitConverter.ToUInt16(prefix), out var bytes))
-        {
-            return false;
-        }
-
-        value = new VBStringValue(Ansi.GetString(bytes));
-        return true;
+        // "If the value type of <variable> is String, then the number of bytes to read is the number of
+        // characters in <variable>" - a Binary String has no length in the record, so the variable's own
+        // current length is what says how much of the file belongs to it.
+        // In Random mode, "Two bytes are read from the file. The data value of these two bytes is the number of bytes to read from the file."
+        var length = mode is VBFileMode.Binary ? currentLength : BitConverter.ToUInt16(ReadBytes(stream, StringLengthPrefixSize));
+        return new VBStringValue(Ansi.GetString(ReadBytes(stream, length)));
     }
 
     /// <summary>
@@ -547,9 +559,8 @@ internal static class RecordDataFormat
         VBBooleanValue => VariantDescriptor.Boolean,
         VBDecimalValue => VariantDescriptor.Decimal,
         VBLongLongValue => VariantDescriptor.LongLong,
-        // a Byte has no row in the descriptor table at all, so a Variant holding one cannot be written as a
-        // Variant - MS-VBA widens it to Integer, and so does this.
-        VBByteValue => VariantDescriptor.Integer,
+        // a Byte has no row in the descriptor table: MS-VBA writes VarType's, vbByte, then the one byte (recorded in Excel).
+        VBByteValue => VariantDescriptor.Byte,
         _ => null,
     };
 
@@ -578,28 +589,25 @@ internal static class RecordDataFormat
         return bytes.Length;
     }
 
-    private static bool TryReadBytes(Stream stream, int count, out byte[] bytes)
+    // a read past the end of the file is no error: each byte the file does not have reads a zero, and the file-pointer-position moves past them all,
+    // which is what EOF then says (MS-VBA, recorded in Excel).
+    private static byte[] ReadBytes(Stream stream, int count)
     {
-        bytes = new byte[count];
+        var bytes = new byte[count];
         var read = 0;
         while (read < count)
         {
             var got = stream.Read(bytes, read, count - read);
             if (got == 0)
             {
-                return false;
+                stream.Seek(count - read, SeekOrigin.Current);
+                break;
             }
 
             read += got;
         }
 
-        return true;
-    }
-
-    private static bool Assigned(VBTypedValue read, out VBTypedValue? value)
-    {
-        value = read;
-        return true;
+        return bytes;
     }
 
     // a Variant's own TypeInfo mirrors whatever it wraps, so what is written is the wrapped value's format -
