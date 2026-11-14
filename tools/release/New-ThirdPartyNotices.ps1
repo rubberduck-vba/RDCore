@@ -27,7 +27,8 @@ param(
     [Parameter(Mandatory)][string]$OutFile,
     [string]$DataFile,
     [string]$PackagesRoot,
-    [string[]]$AllowedLicenses = @("MIT", "Apache-2.0", "BSD-3-Clause")
+    # BSD-2-Clause: Avalonia.Angle.Windows.Natives, the ANGLE build RDForms draws with on Windows, which ships its LICENSE in the package
+    [string[]]$AllowedLicenses = @("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause")
 )
 
 $ErrorActionPreference = "Stop"
