@@ -261,6 +261,13 @@ internal sealed class ProgramEdits
             }
         }
 
+        // a module the project gained while the program waits is not of the program: its code is not loaded, and resuming would call what is not there. It is
+        // defined once the program is over (HeldDefinitions.Release); taken out again, the program goes on without it, as it ran.
+        foreach (var added in HeldDefinitions.AddedWhileTheProgramIsInProgress(session))
+        {
+            edits.Add(new ProgramEdit(added, ProgramEditKind.Restart, Resources.Host_Edit_ModuleAdded));
+        }
+
         // in the order they are in the code, whatever order the declarations were found in.
         return [.. edits.OrderBy(edit => edit.Module?.AbsoluteUri, StringComparer.Ordinal).ThenBy(edit => edit.Range?.Start.Line ?? -1)
             .ThenBy(edit => edit.Name, StringComparer.Ordinal)];

@@ -12,6 +12,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
 using RDCore.SDK.Model.Values.Abstract;
@@ -371,21 +372,16 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 continue;
             }
 
-            // the instruction before this one is over: what its expressions made is let go of, and so is what a block the program is no longer in
-            // held (a With's target, a For Each's enumerator) after its End With or its Next, or a jump out of it. What compiled code evaluated of an
-            // instruction it handed over is let go of with its temporaries, never after them: an object it knew is held by them alone. The instruction it
-            // handed over in the middle of is not over: it goes on, holding what compiled code made of it.
+            // the instruction before this one is over: what its expressions made is let go of. What a block holds is not: a With's target is let go of at
+            // its End With, and a For Each's enumerator when the loop is over (HoldForBlock). What compiled code evaluated of an instruction it handed
+            // over is let go of with its temporaries, never after them: an object it knew is held by them alone. The instruction it handed over in the middle
+            // of is not over: it goes on, holding what compiled code made of it.
             var resumed = inside;
             inside = false;
             if (!resumed)
             {
                 activation.Forget();
                 ObjectReferences.ReleaseTemporaries(session, temporaries);
-            }
-
-            foreach (var holder in activation.TakeBlockHoldersOutside(activation.Pc))
-            {
-                ObjectReferences.Release(session, holder);
             }
 
             // a program waits only before an instruction that is on a line (a statement, a block's closer). The jump that ends a branch is on none: it is
@@ -534,6 +530,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                         // (no VBC id wired yet) that lowering also leaves unresolved rather than guess.
                         return RuntimeExecutionOutcome.InternalError;
                     }
+
+                    LeaveLoops(session, activation, instruction.Offset, target);
                     activation.Pc = target;
                     break;
 
@@ -1042,10 +1040,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
     }
 
     // MS-VBAL §5.4.2.21: the object of a With block is held by the block, "the With block variable", until its End With - whatever the statements in
-    // it do to the variable it was read from, and wherever the program jumps meanwhile: a jump out of the block and back in finds it (MS-VBA, grid
-    // oracle\s16 W05, W08). A For Each holds what it enumerates the same way: its enumerator, or the array whose elements it reads, which may be a value
-    // nothing else holds (For Each w In MakeWidgets()); it is let go of when the program is past the block (RunInstructions). Both are let go of when the
-    // activation is (RuntimeProcedureInvoker).
+    // it do to the variable it was read from, and wherever the program jumps meanwhile: a jump out of the block and back in finds it (MS-VBA, observed in
+    // Excel). A For Each holds what it enumerates the same way while the loop runs: its enumerator, or the array whose elements it reads. The loop goes on
+    // over it after a GoSub out of the loop returns, or a handler past it resumes; it is let go of when the loop is over - its Next finds no element left,
+    // or an Exit For or a jump leaves it (LeaveLoops) - or is started again, which lets go of the one it held before, and the array is locked only while the
+    // loop runs (CallStackFrame.LocksArray). What is still held is let go of when the activation is (RuntimeProcedureInvoker).
     private static void HoldForBlock(IRuntimeSession session, CallStackFrame activation, Instruction opener, VBTypedValue value)
     {
         if (opener.End is not { } end || value is not (VBObjectValue or VBVariantValue or VBArrayValue))
@@ -1053,10 +1052,48 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return;
         }
 
-        var cell = activation.BlockHolder(opener.Offset, opener.Kind is InstructionKind.With ? null : end);
+        Hold(session, activation.BlockHolder(opener.Offset, opener.Kind is InstructionKind.With ? null : end), value);
+    }
+
+    // what the collection expression of a For Each made - a function's result, a property's value - is held as a hidden local of the activation, until it
+    // returns or the loop is started again, after the loop is over (MS-VBA, observed in Excel): the objects of an array a function returned outlive the loop.
+    // A variable is not held: what it holds goes when the variable lets go of it, once the loop no longer holds it.
+    private static void HoldForEachSource(IRuntimeSession session, CallStackFrame activation, Instruction opener, ExpressionNode expression, VBTypedValue value,
+        RuntimeEvaluationContext context)
+    {
+        if (value is not (VBObjectValue or VBVariantValue or VBArrayValue) || expression is SimpleNameExpressionNode name
+            && session.Symbols.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope).Symbol is VBLocalVariableSymbol or VBParameterSymbol
+                or VBModuleFieldVariableMemberSymbol or VBInstanceFieldVariableMemberSymbol)
+        {
+            return;
+        }
+
+        Hold(session, activation.SourceHolder(opener.Offset), value);
+    }
+
+    private static void Hold(IRuntimeSession session, ValueBindingHandle cell, VBTypedValue value)
+    {
         var before = ObjectReferences.HeldIn(session, cell);
         cell.Store(value is VBArrayValue ? SymbolAddressTable.BoxedValue(value) : value.RuntimeValue, !value.IsIndeterminate);
         ObjectReferences.Rebind(session, cell, before);
+    }
+
+    // a jump from inside a For Each to past it - an Exit For, a GoTo - ends the loop: what it held is let go of.
+    internal static void LeaveLoops(IRuntimeSession session, CallStackFrame activation, int from, int to)
+    {
+        foreach (var held in activation.TakeLoopHoldersLeft(from, to))
+        {
+            ObjectReferences.Release(session, held);
+        }
+    }
+
+    // a For Each whose Next finds no element left is over: what it held is let go of.
+    private static void EndLoop(IRuntimeSession session, CallStackFrame activation, int opener)
+    {
+        if (activation.TakeBlockHolder(opener) is { } held)
+        {
+            ObjectReferences.Release(session, held);
+        }
     }
 
     // Returns null when start/end/step were evaluated and stashed successfully and the loop should keep
@@ -1289,6 +1326,8 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
             return ToFailureOutcome(collectionResult);
         }
 
+        HoldForEachSource(session, activation, instruction, forEachStatement.CollectionExpression, collectionResult.Result!, context);
+
         // a Variant holding an array (or an object) reports its own TypeInfo as the wrapped value's,
         // but stays a VBVariantValue instance - unwrap it here (recursively) so "For Each x In v" on a
         // Variant works the same as on a declared array/object collection.
@@ -1419,6 +1458,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return notEmptied;
             }
 
+            EndLoop(session, activation, instruction.Offset);
             activation.Pc = emptyEnd;
             return null;
         }
@@ -1510,6 +1550,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                     return notEmptied;
                 }
 
+                EndLoop(session, activation, openerOffset);
                 activation.Pc = instruction.Offset + 1;
                 return null;
             }
@@ -1532,6 +1573,7 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
                 return notEmptied;
             }
 
+            EndLoop(session, activation, openerOffset);
             activation.Pc = instruction.Offset + 1;
             return null;
         }
@@ -1632,6 +1674,11 @@ public sealed class ProcedureExecutor(IStatementRuntimeSemanticsProvider stateme
         {
             activation.PushGoSubReturn(instruction.Offset + 1);
         }
+        else
+        {
+            LeaveLoops(session, activation, instruction.Offset, target);
+        }
+
         activation.Pc = target;
         return null;
     }

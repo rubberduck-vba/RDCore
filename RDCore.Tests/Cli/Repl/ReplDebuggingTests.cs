@@ -907,6 +907,20 @@ public sealed class ReplDebuggingTests
     }
 
     [TestMethod]
+    public async Task AnEnd_TypedWhileTheProgramWaits_SaysWhatRanPrinted_AndNoError()
+    {
+        ExecuteReturns(SuspendedAt(2));
+        await RunAsync();
+        _console.ClearReceivedCalls();
+        ExecuteInFrameReturns(new DebugEvaluateResult { Error = "ended", EndedTheProgram = true, Output = ["bye"] });
+
+        await ReplExecution.ExecuteAsync(_context, "src", ReplProgram.ImmediateEntryPointName, CancellationToken.None, statement: "END");
+
+        _console.Received(1).WriteLine("bye");
+        _console.DidNotReceiveWithAnyArgs().WriteMessage(default, default!);
+    }
+
+    [TestMethod]
     public async Task AStatement_TypedWhenNoProgramWaits_IsARunLikeAnyOther()
     {
         _platform.ExecuteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())

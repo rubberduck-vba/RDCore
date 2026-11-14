@@ -107,6 +107,8 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             DropsDebugStatements: session.Environment.ReleaseDropsDebugStatements, DrawsOnMe: drawsOnMe);
         var procedures = new List<KeyValuePair<SemanticId, InstructionList>>();
         var procedureModels = ImmutableArray.CreateBuilder<ProcedureSemanticModel>();
+        // the parameter each argument of a call of the module's own procedures is given, which the count of what the argument names follows.
+        var arguments = new ArgumentParameters();
         var sweepable = new List<(VBTypeMemberSymbol Procedure, InstructionList Body)>();
         var swept = new HashSet<SemanticId>();
         var headerErrors = ImmutableArray.CreateBuilder<VBCompileErrorInfo>();
@@ -135,7 +137,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             var model = StatementStaticSemanticsEvaluator.Analyze(
                 procedure.SemanticId, body, new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks, drawsOnMe), declaration.MemberKind,
                 scope is null ? null : new StaticEvaluationContext(session.Symbols.Resolver, scope,
-                    Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }));
+                    Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }) { Arguments = arguments });
 
             // the code paths are those of the lowered body, which only the loader has next to what the static pass found out about it.
             // the For Each control variables followed are the procedure's automatic locals: what nothing but its own code assigns.
@@ -160,6 +162,14 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             }
         }
 
+        // what the expressions of the module's own declarations refer to: a constant of the module is referred to by those as well as by its procedures.
+        var moduleScope = session.Symbols.ScopeOf(module.Uri);
+        var declarationFacts = moduleScope is null
+            ? null
+            : ModuleDeclarationStaticSemantics.Analyze(syntaxTree.Children, new StaticEvaluationContext(session.Symbols.Resolver, moduleScope,
+                Environment: new StaticEnvironment(session.Environment.Is64Bit) { Libraries = session.Libraries }),
+                new StaticSemanticsOptions(deadRanges, session.Environment.Language, blocks));
+
         // a module is valid when what it declares is, as well as every procedure of it. The types it declares are asked to be names that resolve: its code is
         // only sent once everything the workspace and its references declare is defined, which is what a name that is declared after the one that uses it needs.
         var declarationErrors = precompiled.Errors
@@ -176,7 +186,7 @@ public sealed class ModuleLoader(IRuntimeSession session, ProgramImage image, IE
             OptionExplicit = session.Environment.Language is { HasOptionExplicit: false } ? null : module is VBModuleSymbol { Directives.Explicit: true },
             Declarations = DeclarationUsage.Of(
                 DeclarationUsage.DeclaredBy(members), procedureModels, module is VBClassModuleSymbol classModule ? MemberRoles.Of(classModule, session.Symbols.Resolver, parseResult.Designer) : null,
-                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri)),
+                symbol => DeclarationShadowing.Of(symbol, session.Symbols.Resolver, module.Uri), arguments, declarationFacts),
             Language = session.Environment.Language?.Id,
             Class = module is VBClassModuleSymbol declaredClass ? ClassFlagsOf(declaredClass, members) : null,
             Document = module is VBClassModuleSymbol document ? DocumentModuleFact.Of(document, session.Symbols.Resolver) : null,

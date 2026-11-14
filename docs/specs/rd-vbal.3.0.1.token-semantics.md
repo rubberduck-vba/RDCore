@@ -150,3 +150,21 @@ whiteSpace : (WS | LINE_CONTINUATION)+;
 
 Whitespace around the parentheses and the commas is optional. The `LPAREN`, `RPAREN`, `COMMA`, `WS` and
 `LINE_CONTINUATION` tokens are defined in [§3.0.1.1.1](#30111-annotation-list).
+
+## 3.0.1.2 Reserved Identifiers
+
+A declaration is named with an `IDENTIFIER`, which is not a reserved identifier, as specified by
+[**MS-VBAL §3.3.5.2** Reserved Identifiers and IDENTIFIER](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/e1ac8be4-9b8d-4a4c-a1a4-6cc4ecba6b95).
+A reserved identifier as the name of a variable, a constant, a parameter, a procedure, an `Enum`, an Enum member, a `Declare`, an `Event` or a
+user-defined type is a syntax error at the name. A member of a user-defined type can be named with a reserved name
+([**MS-VBAL §5.2.3.3** User Defined Type Declarations](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/a5fe374b-eddf-4808-9e73-477914940dba)),
+and a name in brackets is a foreign name (**MS-VBAL §3.3.5.3**).
+
+MS-VBA departs from the specification in two directions, observed in Excel:
+
+|MS-VBA|Names|RD-VBA|
+|---|---|---|
+|Compiles names the specification reserves.|`Date`, `DoEvents` and `CDec` as Enum members.|Compiles them, as MS-VBA does, with a warning ([**RDC11033**](../diagnostics/rdc11033.md)).|
+|Refuses names the specification allows.|`Local`, and the reserved type identifiers that are not reserved names (`Long`, `Integer`, `Variant` and the others), as the name of anything but a member of a user-defined type; `Me` as a member of a user-defined type; `Name` as an Enum member.|Compiles them, as the specification says, with a warning ([**RDC11034**](../diagnostics/rdc11034.md)).|
+
+Code exported from MS-VBA never has a name that MS-VBA refuses, so allowing one keeps to the specification without breaking any MS-VBA code.

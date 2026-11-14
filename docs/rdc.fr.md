@@ -88,8 +88,8 @@ travaille sur le dossier courant.
 |`rdc build [<chemin>]`|`bd`|Construit un programme à partir de l'espace de travail : son exécutable et le _runtime_ sur lequel il s'exécute (ci-dessous).|
 |`rdc config`|`configure`|Affiche les paramètres de la plateforme et les modifie, comme le `CONFIG` du _shell_, sans démarrer la plateforme.|
 |`rdc export-library <bibliothèque>`|`xl`|Décrit une bibliothèque de types de cette machine (un fichier comme `scrrun.dll`, son identifiant ou son nom) dans un fichier qu'un projet peut référencer par son nom. `--dependencies` décrit aussi les bibliothèques dont elle dépend.|
-|`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, et ce qui la garde dans l'interpréteur.|
-|`rdc bench [<chemin>]`|`b`|Chronomètre l'interpréteur sur un espace de travail : son analyse syntaxique, son chargement, son analyse, puis chaque `Public Sub Bench*()` de ses modules standard.|
+|`rdc compilation [<chemin>]`|`cc`|Indique, pour chaque procédure, si elle s'exécute compilée, ce qui la garde dans l'interpréteur, et ce que l'interpréteur exécute pour elle lorsqu'elle est compilée.|
+|`rdc bench [<chemin>]`|`b`|Chronomètre un espace de travail : son analyse syntaxique, son chargement, son analyse, puis l'exécution de chaque `Public Sub Bench*()` de ses modules standard par le moteur d'exécution configuré.|
 |`rdc describe-ext <extension>`|`x`|Écrit le manifeste d'une extension de la plateforme. Elle s'adresse aux auteurs d'extensions (voir [Bâtir sur RDCore](building-on-rdcore.fr.md)).|
 |`rdc install`||Installe pour votre compte d'utilisateur la plateforme d'où `rdc` est lancé, et met `rdc` dans votre PATH (ci-dessous). Elle ne prend pas d'espace de travail.|
 
@@ -97,11 +97,11 @@ travaille sur le dossier courant.
 
 `rdc run` exécute le point d'entrée du programme :
 
-- la procédure que le `.rdproj` nomme comme point d'entrée, `Module.Procedure` ou `Procedure`;
+- la procédure que le `.rdproj` nomme comme point d'entrée dans sa section `build`, `Module.Procedure` ou `Procedure` : `"build": { "entryPoint": "Module1.Main" }`;
 - sinon, le `Sub Main` du seul module standard qui en déclare un.
 
-Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Un projet dont un module ne se charge pas non
-plus. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il s'affiche dans la console et on y répond, comme dans le _shell_.
+Un projet sans point d'entrée, ou avec un `Sub Main` dans plus d'un module standard, ne s'exécute pas. Une bibliothèque (`"build": { "outputType": "Library" }`)
+ne s'exécute pas non plus, pas plus qu'un projet dont un module ne se charge pas. `Debug.Print` écrit sur la sortie standard. Un `MsgBox` ou un `InputBox` est une boîte de dialogue sous Windows. Sous Linux et macOS, il s'affiche dans la console et on y répond, comme dans le _shell_.
 
 |Option|Ce qu'elle fait|
 |---|---|
@@ -112,14 +112,14 @@ Le code de sortie indique comment s'est passée l'exécution :
 
 |Code de sortie|Signification|
 |---|---|
-|`0`|Le programme s'est terminé.|
-|`1`|Une erreur d'exécution l'a terminé. Le numéro et la description de l'erreur sont écrits sur la sortie d'erreur.|
+|`0`|Le programme s'est terminé : son point d'entrée est revenu, il a exécuté un `End`, ou il a exécuté un `Stop` en `Release`.|
+|`1`|Une erreur d'exécution l'a terminé, ou un `Stop` en `Debug` l'a interrompu, sans débogueur où s'arrêter. La sortie d'erreur indique lequel, avec le numéro et la description de l'erreur.|
 |`2`|Il n'a pas pu démarrer : aucun point d'entrée, ou un module qui ne se charge pas.|
 
 ### Construire un programme
 
-`rdc build` compile l'espace de travail en un programme qui s'exécute sans l'analyseur syntaxique de RDCore. Il lui faut le même point d'entrée qu'à
-`rdc run`.
+`rdc build` compile l'espace de travail en un programme qui s'exécute sans l'analyseur syntaxique de RDCore, et sans les sources de l'espace de travail :
+le programme s'exécute à partir de son propre dossier, où qu'il soit. Il lui faut le même point d'entrée qu'à `rdc run`.
 
 |Option|Ce qu'elle fait|
 |---|---|
@@ -128,7 +128,25 @@ Le code de sortie indique comment s'est passée l'exécution :
 |`-c`, `--configuration`|`Debug` (par défaut) ou `Release`.|
 |`-r`, `--runtime`|La plateforme pour laquelle le programme est construit, comme `win-x64` ou `linux-x64`; celle où s'exécute `rdc` par défaut.|
 
-Le programme affiche ses boîtes de dialogue comme `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
+Le programme affiche ses boîtes de dialogue comme `rdc run`, et son code de sortie indique comment s'est passée son exécution, comme celui de `rdc run`. Exécuté avec `--unattended` parmi ses arguments, il échoue au premier `MsgBox`, `InputBox` ou formulaire qu'il affiche. L'option reste dans `Command$` et dans les arguments de `Main`.
+
+Un programme construit appelle le monde extérieur (une procédure déclarée par `Declare`, un objet d'un serveur d'automation) comme `rdc run`, par un
+second processus : son propre exécutable, relancé comme son hôte externe, qui se termine avec lui. Là où l'hôte .NET de son _runtime_ n'est pas
+installé, le programme est construit sans exécutable; exécuté avec `dotnet <nom>.dll`, il ne fait aucun de ces appels.
+
+Le dossier du programme contient, dans `Symbols`, une description de chaque bibliothèque que son projet référence, et de chaque bibliothèque dont elles
+dépendent. Le programme les lit à partir de là, où que soit le dossier.
+
+Le dossier contient aussi les conditions de licence de ce sur quoi le programme s'exécute :
+
+|Fichier|Conditions de|
+|---|---|
+|`NOTICE.md`, `LICENSE-GPLv3.md`|RDCore.|
+|`LICENSE-MIT.md`|RDCore.SDK.|
+|`THIRD-PARTY-NOTICES.txt`|Les autres paquets du dossier, et l'exécutable du programme.|
+
+Transmettez-les avec le programme. `NOTICE.md` dit ce qu'elles vous demandent, et que votre propre code reste le vôtre. `rdc` les copie depuis la
+plateforme d'où il s'exécute, et avertit quand il n'en a aucune à copier.
 
 ### Installer la plateforme
 

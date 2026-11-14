@@ -25,7 +25,8 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class ProgramDebugAdapterTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
     private static readonly string Path = System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dap-ws", "Prog.bas"));
 
     private sealed class Session : IAsyncDisposable

@@ -27,6 +27,9 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class HostExecuteHandlerTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-execute-ws");
     private const string ModuleName = "Program";
 
@@ -713,7 +716,7 @@ public sealed class HostExecuteHandlerTests
         var running = Task.Run(() => ExecuteAsync(composed, source, token: cancelled.Token));
 
         // only a hang guard: the program is in Main until it is cancelled.
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        var deadline = DateTime.UtcNow + SafetyCap;
         while (composed.Session.Session.CallStack.Depth < 1)
         {
             Assert.IsFalse(running.IsCompleted, "the endless loop ended on its own");
@@ -722,7 +725,7 @@ public sealed class HostExecuteHandlerTests
         }
 
         await cancelled.CancelAsync();
-        var result = await running.WaitAsync(TimeSpan.FromSeconds(30));
+        var result = await running.WaitAsync(SafetyCap);
 
         Assert.AreEqual(ExecutionOutcome.Interrupted, result.Outcome);
     }

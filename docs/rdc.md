@@ -83,8 +83,8 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 |`rdc build [<path>]`|`bd`|Builds the workspace into a program: its executable, and the runtime it runs on (below).|
 |`rdc config`|`configure`|Shows the platform's settings and sets them, as the shell's `CONFIG` does, without starting the platform.|
 |`rdc export-library <library>`|`xl`|Describes a type library of this machine (a file such as `scrrun.dll`, its identifier, or its name) as a file a project can reference by name. `--dependencies` describes the libraries it depends on too.|
-|`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, and what keeps it in the interpreter.|
-|`rdc bench [<path>]`|`b`|Times the interpreter on a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules.|
+|`rdc compilation [<path>]`|`cc`|Says, for each procedure, whether it runs compiled, what keeps it in the interpreter, and what the interpreter runs for it when it is compiled.|
+|`rdc bench [<path>]`|`b`|Times a workspace: its parse, its load, its analysis, then each `Public Sub Bench*()` of its standard modules, run by the configured execution engine.|
 |`rdc describe-ext <extension>`|`x`|Writes the manifest of a platform extension. It is for extension authors (see [Building on RDCore](building-on-rdcore.md)).|
 |`rdc install`||Installs the platform `rdc` runs from for your user account, and puts `rdc` on your PATH (below). It takes no workspace.|
 
@@ -92,11 +92,11 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 
 `rdc run` runs the program's entry point:
 
-- the procedure the `.rdproj` names as its entry point, `Module.Procedure` or `Procedure`;
+- the procedure the `.rdproj` names as its entry point in its `build` section, `Module.Procedure` or `Procedure`: `"build": { "entryPoint": "Module1.Main" }`;
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
-A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does one with a module that does not load. `Debug.Print`
-writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
+A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does a library (`"build": { "outputType": "Library" }`),
+nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
 
 |Option|What it does|
 |---|---|
@@ -107,13 +107,14 @@ The exit code says how the run went:
 
 |Exit code|Meaning|
 |---|---|
-|`0`|The program ended.|
-|`1`|A run-time error ended it. The error's number and description are written to the standard error.|
+|`0`|The program ended: its entry point returned, it ran an `End`, or it ran a `Stop` in `Release`.|
+|`1`|A run-time error ended it, or a `Stop` in `Debug` interrupted it, with no debugger to stop for. The standard error says which, with the error's number and description.|
 |`2`|It could not start: no entry point, or a module that does not load.|
 
 ### Building a program
 
-`rdc build` compiles the workspace into a program that runs without RDCore's parser. It needs the same entry point as `rdc run`.
+`rdc build` compiles the workspace into a program that runs without RDCore's parser, and without the workspace's sources: the program runs from its own folder,
+wherever it is. It needs the same entry point as `rdc run`.
 
 |Option|What it does|
 |---|---|
@@ -122,7 +123,25 @@ The exit code says how the run went:
 |`-c`, `--configuration`|`Debug` (the default) or `Release`.|
 |`-r`, `--runtime`|The platform the program is built for, such as `win-x64` or `linux-x64`; the one `rdc` runs on by default.|
 
-The program shows its dialogs as `rdc run` does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+The program shows its dialogs as `rdc run` does, and its exit code says how it ran, as `rdc run`'s does. Run with `--unattended` among its arguments, it fails at the first `MsgBox`, `InputBox` or form it shows. The switch stays in `Command$` and in the arguments of `Main`.
+
+A built program calls the outside world (a `Declare`d procedure, an automation server's object) as `rdc run` does, through a second process: its own
+executable, started again as its external host, which ends with it. Where the .NET host for the program's runtime is not installed, the program is built without an executable;
+run with `dotnet <name>.dll`, it makes no such call.
+
+The program's folder holds, in `Symbols`, a description of each library its project references, and of each library those depend on. The program
+reads them from there, wherever the folder is.
+
+The folder also holds the license terms of what the program runs on:
+
+|File|Terms of|
+|---|---|
+|`NOTICE.md`, `LICENSE-GPLv3.md`|RDCore.|
+|`LICENSE-MIT.md`|RDCore.SDK.|
+|`THIRD-PARTY-NOTICES.txt`|The other packages in the folder, and the program's executable.|
+
+Pass them on with the program. `NOTICE.md` says what they ask of you, and that your own code stays yours. `rdc` copies them from the platform it runs
+from, and warns when it has none to copy.
 
 ### Installing the platform
 

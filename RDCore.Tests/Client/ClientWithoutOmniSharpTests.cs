@@ -232,7 +232,7 @@ public sealed class ClientWithoutOmniSharpTests
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
-        Assert.IsNull((await diagnostics)["error"]);
+        Assert.IsNull((await diagnostics)["error"], (await diagnostics).ToJsonString());
         await platform.ShutdownAsync(6);
 
         // the log is read once the language server has exited, from every file it wrote: a server that runs past midnight writes the line to the next day's.
@@ -264,12 +264,12 @@ public sealed class ClientWithoutOmniSharpTests
 
         var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        Assert.IsNull((await handshake)["error"]);
+        Assert.IsNull((await handshake)["error"], (await handshake).ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
         platform.AssertTheProgramPrintedTheAnswer(executed);
-        Assert.IsNull((await diagnostics)["error"]);
+        Assert.IsNull((await diagnostics)["error"], (await diagnostics).ToJsonString());
         await platform.ShutdownAsync(6);
     }
 
@@ -279,7 +279,7 @@ public sealed class ClientWithoutOmniSharpTests
     // asks for: a client that traces messages is told of the handshake. A program run has both servers up; a log is read once its server has exited, and its
     // file log is flushed: the language server exits once the parse server it started has.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task AServerStartedThenShutDown_LogsNoFault_AndWhatItsConnectionLogsReachesItsFile()
     {
         await using var platform = await Platform.StartAsync();
@@ -347,7 +347,7 @@ public sealed class ClientWithoutOmniSharpTests
             ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri, ["languageId"] = "vba", ["version"] = 1, ["text"] = ModuleText },
         });
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        Assert.IsNull((await handshake)["error"]);
+        Assert.IsNull((await handshake)["error"], (await handshake).ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
@@ -416,7 +416,7 @@ public sealed class ClientWithoutOmniSharpTests
         });
         var handshake = rpc.RequestAsync(3, RDCorePlatformProtocol.PlatformInitialize, JsonNode.Parse(ClaimsDialogs)!.AsObject());
         var diagnostics = rpc.RequestAsync(4, "textDocument/diagnostic", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = platform.ModuleUri }, ["identifier"] = "rdcore" });
-        Assert.IsNull((await handshake)["error"]);
+        Assert.IsNull((await handshake)["error"], (await handshake).ToJsonString());
 
         var executed = await rpc.RequestAsync(5, RDCorePlatformProtocol.SessionExecute, new JsonObject { ["source"] = ModuleText, ["moduleName"] = "Program", ["entryPoint"] = "Main" });
 
@@ -504,7 +504,7 @@ public sealed class ClientWithoutOmniSharpTests
         """;
 
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task AProgramRunUnderADebugger_IsPausedWhileItRuns_ThenEnded()
     {
         await using var platform = await Platform.StartAsync();
@@ -547,7 +547,7 @@ public sealed class ClientWithoutOmniSharpTests
     // the keyboard stops it: a GoTo that goes back for ever is stopped too, and the run says the line it stopped at, which is one of the program's. The workspace
     // is a VBA one, whose module Program the program is run as.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task TheShellsEndlessGoTo_IsStoppedByABreak_AndSaysALineOfTheProgram()
     {
         var program = new RDCore.CLI.App.Repl.ReplProgram();
@@ -598,7 +598,7 @@ public sealed class ClientWithoutOmniSharpTests
     // OmniSharp 0.19.9 gives its handlers an initialize request without it. A document's diagnostics are pulled so that the parse server is known to have been
     // initialized. The logs are read once the platform is shut down: a file log is written behind, and only an ended process has written all of it.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task TheLocaleOfTheInitializeRequest_IsTheLanguageOfTheLanguageServer_AndOfTheComponentsItStarts()
     {
         await using var platform = await Platform.StartAsync();
@@ -627,7 +627,7 @@ public sealed class ClientWithoutOmniSharpTests
     // environment host answers in it, and the language server, the parse server and the environment host say they started in it. How the program writes and
     // reads numbers and dates is untouched. The logs are read once the platform is shut down.
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(900_000, CooperativeCancellation = true)]
     public async Task TheLanguageTheUserSets_IsTheLanguageOfEveryComponent_WhateverTheClientsLocale()
     {
         await using var platform = await Platform.StartAsync(others: 1, projectFile: AProjectOfOtherModules, language: "fr");

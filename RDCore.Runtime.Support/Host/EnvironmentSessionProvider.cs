@@ -5,6 +5,7 @@ using RDCore.Runtime.Execution;
 using RDCore.External;
 using RDCore.External.Settings;
 using RDCore.SDK.Extensibility.Diagnostics;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
@@ -117,6 +118,14 @@ public interface IEnvironmentSessionProvider
     /// <param name="project">The <c>.rdproj</c> project structure.</param>
     /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
     IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot);
+
+    /// <summary>
+    /// The module symbols a project lists, each a standard module or a class as <see cref="Compose"/> composes it, without composing anything: what a project
+    /// gained while a program is in progress is.
+    /// </summary>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
+    IReadOnlyList<VBModuleSymbol> ModulesOf(RDCoreProject project, Uri workspaceRoot);
 }
 
 /// <inheritdoc cref="IEnvironmentSessionProvider"/>
@@ -223,14 +232,26 @@ public sealed class EnvironmentSessionProvider(
     /// <inheritdoc/>
     public ProgramExecution Execution { get; private set; } = default!;
 
+    public IReadOnlyList<VBModuleSymbol> ModulesOf(RDCoreProject project, Uri workspaceRoot)
+        => [.. new ProjectSymbolProvider(workspaceRoot, project, fileSystem).ProvideSymbols().OfType<VBModuleSymbol>()];
+
     /// <inheritdoc/>
-    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot)
+    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot) => Compose(project, workspaceRoot, known: null);
+
+    /// <summary>
+    /// Composes the session as <see cref="Compose(RDCoreProject, Uri)"/> does, the name and the kind of each module in <paramref name="known"/> given rather
+    /// than read from its source: a built program's, whose sources are not where it runs.
+    /// </summary>
+    /// <param name="project">The <c>.rdproj</c> project structure.</param>
+    /// <param name="workspaceRoot">The workspace root the project's modules are relative to.</param>
+    /// <param name="known">The name and the kind of each module whose source is not read, by its <c>RelativeUri</c> in the project.</param>
+    public IRuntimeSession Compose(RDCoreProject project, Uri workspaceRoot, IReadOnlyDictionary<string, (string Name, ModuleType Kind)>? known)
     {
         // a reload starts where the host did, as at start-up, and not where the session it replaces left the process.
         LeaveSession();
 
         var configuration = new ConfigurationSymbolProvider(environment, project);
-        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem);
+        var modules = new ProjectSymbolProvider(workspaceRoot, project, fileSystem, known);
         // the standard library and the environment's own globals resolve in the session too, so a name
         // the language server bound to one of them binds to the same symbol here.
         var stdLib = new StdLibSymbolProvider(workspaceRoot, environment.Is64Bit);
@@ -323,6 +344,10 @@ public sealed class EnvironmentSessionProvider(
     // once that folder is deleted, every later read of the current directory fails. When the directory the session found is gone, the process stays where it is.
     private void LeaveSession()
     {
+        // the files a program left open are the session's, and close with it: a session replaced or let go of holds none of them open, whichever way its
+        // program ended (an internal error, which closes nothing, included).
+        _ = _session?.Files.CloseAll();
+
         if (_session is null || _directoryBefore is not { } before)
         {
             return;

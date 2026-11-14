@@ -204,10 +204,16 @@ public sealed class WorkspaceRefreshTests
 
     private const string A = "Public Function Twice(ByVal Value As Long) As Long\r\n    Twice = Value * 2\r\nEnd Function\r\n";
 
+    // what a connection waits on is the event itself: the connection made, the server's message written. The cap only keeps one that never comes from
+    // hanging the run; a loaded machine takes as long as it takes.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     // the server, its client, what the server wrote to the client, and a lifecycle of documents that asks the client to refresh.
     private sealed class Connection : IAsyncDisposable
     {
         private readonly StringBuilder _wire = new();
+        // released each time the server writes to the wire: what a wait for a message wakes on.
+        private readonly SemaphoreSlim _written = new(0);
         private readonly MockFileSystem _files = new();
         private OmniSharp.Extensions.LanguageServer.Protocol.Server.ILanguageServer? _server;
         private LanguageClient? _client;
@@ -241,6 +247,8 @@ public sealed class WorkspaceRefreshTests
                         {
                             _wire.Append(Encoding.UTF8.GetString(segment.Span));
                         }
+
+                        _ = _written.Release();
 
                         await toClient.Writer.WriteAsync(segment);
                     }
@@ -293,12 +301,13 @@ public sealed class WorkspaceRefreshTests
         public IReadOnlyList<string> MessagesOf(string method)
             => [.. Regex.Split(Wire, "Content-Length: \\d+\\r\\n\\r\\n").Where(message => message.Contains($"\"method\":\"{method}\"", StringComparison.Ordinal))];
 
-        // what the server wrote comes as the transport delivers it: it is looked for until it has come, as long as a loaded machine takes.
+        // what the server wrote comes as the transport delivers it: the condition is looked at again each time the server writes, until it holds.
         public async Task WaitForAsync(Func<bool> condition)
         {
-            for (var attempt = 0; attempt < 200 && !condition(); attempt++)
+            using var cap = new CancellationTokenSource(SafetyCap);
+            while (!condition())
             {
-                await Task.Delay(100);
+                await _written.WaitAsync(cap.Token);
             }
         }
 
@@ -307,6 +316,7 @@ public sealed class WorkspaceRefreshTests
             _refresh?.Dispose();
             _client?.Dispose();
             _server?.Dispose();
+            _written.Dispose();
             await Task.CompletedTask;
         }
     }
@@ -314,7 +324,7 @@ public sealed class WorkspaceRefreshTests
     [TestMethod]
     public async Task AChangeOfWhatAModuleDeclares_AsksForEachRefresh_AsARequest_OnTheWire()
     {
-        using var connecting = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var connecting = new CancellationTokenSource(SafetyCap);
         await using var connection = await Connection.OpenAsync(connecting.Token);
         connection.Documents.Opened(ModuleA, A, 1);
         await connection.Documents.WhenRefreshedAsync(ModuleA);
@@ -335,7 +345,7 @@ public sealed class WorkspaceRefreshTests
     [TestMethod]
     public async Task AChangeNoOtherModuleCanTell_AsksForNoRefresh()
     {
-        using var connecting = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var connecting = new CancellationTokenSource(SafetyCap);
         await using var connection = await Connection.OpenAsync(connecting.Token);
         var thrice = A.Replace("Twice", "Thrice");
         connection.Documents.Opened(ModuleA, A, 1);

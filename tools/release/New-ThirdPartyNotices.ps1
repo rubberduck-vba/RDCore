@@ -17,10 +17,15 @@
 #                              Testably/Testably.Abstractions core/v10.3.0 (9b967ee, the commit its nuspec names): LICENSE
 #   dotnet-runtime-*.txt       dotnet/dotnet v10.0.11 (e2f47b0), src/runtime: LICENSE.TXT, THIRD-PARTY-NOTICES.TXT
 #                              (the same texts Microsoft.Bcl.AsyncInterfaces 7.0.0 and the 10.0.11 packages ship)
+#
+# -DataFile also writes the same data as JSON: each package with the assemblies it ships, each text with the packages it
+# applies to, and the application host's texts. rdc build writes a built program's THIRD-PARTY-NOTICES.txt from it, for
+# exactly the packages the program's folder holds, so a program's notices are decided here and nowhere else.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$PlatformRoot,
     [Parameter(Mandatory)][string]$OutFile,
+    [string]$DataFile,
     [string]$PackagesRoot,
     [string[]]$AllowedLicenses = @("MIT", "Apache-2.0", "BSD-3-Clause")
 )
@@ -284,9 +289,18 @@ foreach ($depsPath in (ConvertTo-OrdinalOrder $DepsFiles.FullName)) {
             $Packages[$key] = [pscustomobject]@{
                 Id = $id; Version = $version; Path = $library.path
                 Components = [Collections.Generic.List[string]]::new()
+                Assemblies = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             }
         }
         if (-not $Packages[$key].Components.Contains($component)) { $Packages[$key].Components.Add($component) }
+        # the assemblies it ships, by name: what a built program's folder is matched against (-DataFile)
+        foreach ($target in $deps.targets.Values) {
+            $entry = $target[$key]
+            if (-not $entry -or -not $entry.runtime) { continue }
+            foreach ($asset in $entry.runtime.Keys) {
+                if ($asset -like "*.dll") { [void]$Packages[$key].Assemblies.Add([IO.Path]::GetFileNameWithoutExtension($asset)) }
+            }
+        }
     }
 }
 
@@ -623,6 +637,46 @@ foreach ($sortKey in (ConvertTo-OrdinalOrder @($sortKeys))) {
 $outDir = [IO.Path]::GetDirectoryName($OutFile)
 if ($outDir -and -not (Test-Path -LiteralPath $outDir)) { New-Item $outDir -ItemType Directory -Force | Out-Null }
 [IO.File]::WriteAllText($OutFile, $out.ToString(), [Text.UTF8Encoding]::new($false))
+
+if ($DataFile) {
+    $DataFile = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($DataFile)
+    $data = [ordered]@{
+        schema   = 1
+        packages = @(foreach ($row in $Rows) {
+            [ordered]@{
+                package = $row.Package; version = $row.Version; license = $row.License; copyright = $row.Copyright; projectUrl = $row.ProjectUrl
+                # ConvertTo-OrdinalOrder returns its array whole, which @() would nest in another
+                assemblies = (ConvertTo-OrdinalOrder @($Packages["$($row.Package)/$($row.Version)"].Assemblies))
+            }
+        })
+        texts    = @(foreach ($sortKey in (ConvertTo-OrdinalOrder @($sortKeys))) {
+            $section = $Sections[$sortKey.Split("`t")[-1]]
+            [ordered]@{
+                kind = $section.Kind; title = $section.Title
+                packages = (ConvertTo-OrdinalOrder @($section.Packages)); sources = (ConvertTo-OrdinalOrder @($section.Sources)); text = $section.Text
+            }
+        })
+        # the texts of the .NET application host, whichever pack a program's executable is copied from: the vendored ones go with whatever version
+        # matched (above)
+        applicationHost = [ordered]@{
+            license = "MIT"; copyright = $DotnetRuntime.Copyright; projectUrl = $DotnetRuntime.ProjectUrl
+            texts = @(
+                [ordered]@{
+                    kind = "license"; title = "MIT"; source = "tools/release/licenses/$($DotnetRuntime.LicenseFile), from $($DotnetRuntime.Origin)"
+                    text = Read-Text (Join-Path $LicensesDir $DotnetRuntime.LicenseFile)
+                },
+                [ordered]@{
+                    kind = "notice"; title = "THIRD-PARTY-NOTICES.TXT"; source = "tools/release/licenses/$($DotnetRuntime.NoticeFile), from $($DotnetRuntime.Origin)"
+                    text = Read-Text (Join-Path $LicensesDir $DotnetRuntime.NoticeFile)
+                }
+            )
+        }
+    }
+    $dataDir = [IO.Path]::GetDirectoryName($DataFile)
+    if ($dataDir -and -not (Test-Path -LiteralPath $dataDir)) { New-Item $dataDir -ItemType Directory -Force | Out-Null }
+    [IO.File]::WriteAllText($DataFile, (($data | ConvertTo-Json -Depth 8) -replace "`r`n", "`n") + "`n", [Text.UTF8Encoding]::new($false))
+    Write-Host "Wrote $DataFile"
+}
 
 $breakdown = $Rows | Group-Object { $_.License -replace ' \(.*$', '' } | ForEach-Object { "$($_.Name): $($_.Count)" }
 $hostSummary = if ($HostRows.Count) { " and the .NET apphost ($(($HostRows | ForEach-Object { "$($_.Package) $($_.Version)" }) -join ', '))" } else { "" }

@@ -31,6 +31,7 @@ public sealed class ExternalHost : IDisposable
     private Incarnation? _current;
     private int _incarnations;
     private bool _disposed;
+    private int _preparing;
 
     /// <summary>
     /// Creates the external host of an environment host; nothing is started until a call needs it.
@@ -177,6 +178,34 @@ public sealed class ExternalHost : IDisposable
     }
 
     /// <summary>
+    /// Starts the external host in the background, ahead of the first call that needs it, unless it is running or already being started.
+    /// </summary>
+    /// <remarks>
+    /// Every session of the environment host gets the external host ready when it is composed, and a start waits for a process to come up. One start is made, on a
+    /// thread of its own, and a session that asks while it is being made returns at once. The start does not wait on the thread pool: one waiting start per session
+    /// would hold, until the process is up, the pool threads that the programs of those sessions run on.
+    /// </remarks>
+    internal void Prepare()
+    {
+        if (Volatile.Read(ref _current) is { IsLost: false } || Interlocked.CompareExchange(ref _preparing, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _ = Task.Factory.StartNew(() =>
+        {
+            try
+            {
+                _ = TryConnect(out _);
+            }
+            finally
+            {
+                Volatile.Write(ref _preparing, 0);
+            }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+    }
+
+    /// <summary>
     /// Stops the incarnation that is running, if one is.
     /// </summary>
     public void Dispose()
@@ -254,6 +283,11 @@ internal sealed class Incarnation(int number, ChildConnection connection)
     /// Whether the process has stopped.
     /// </summary>
     public bool IsLost => _lost.Task.IsCompleted;
+
+    /// <summary>
+    /// Completes when the process is seen to stop: when <see cref="IsLost"/> becomes <see langword="true"/>.
+    /// </summary>
+    public Task Lost => _lost.Task;
 
     /// <summary>
     /// Whether the process has automation servers to reach.

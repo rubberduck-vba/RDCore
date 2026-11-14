@@ -20,15 +20,7 @@ using RDCore.Runtime.Support.Host;
 using RDCore.CLI.Host.Handlers;
 using RDCore.CLI.Themes;
 using RDCore.External;
-using RDCore.External.Automation;
 using RDCore.External.Client;
-using RDCore.External.Forms;
-using RDCore.External.Forms.RDForms;
-using RDCore.External.Hosting;
-using RDCore.External.Native;
-using RDCore.External.Windows.Automation;
-using RDCore.External.Windows.Forms;
-using RDCore.External.Windows.Native;
 using RDCore.Runtime.Semantics;
 using RDCore.SDK;
 using RDCore.SDK.Client;
@@ -47,8 +39,9 @@ using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
 using RDCore.SDK.Platform.Components;
 
-// expose internals to RDCore.Tests and the LSP handler container's dynamic proxies:
+// expose internals to RDCore.Tests, RDCore.Benchmarks and the LSP handler container's dynamic proxies:
 [assembly: InternalsVisibleTo("RDCore.Tests")]
+[assembly: InternalsVisibleTo("RDCore.Benchmarks")]
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 
 // platform capabilities provided by rdc.exe in environment-host mode:
@@ -82,7 +75,7 @@ public class Program
             // the process that makes the calls a program makes to the outside world.
             if (string.Equals(mode, RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
             {
-                using var externalHost = new RDCoreConsoleExternalHost();
+                using var externalHost = new MachineExternalHost("RDCore.ExternalHost.log");
                 return await externalHost.RunAsync(args);
             }
 
@@ -571,39 +564,6 @@ internal class RDCoreConsoleEnvironmentHost : RDCorePlatformServerHost<RDCoreCon
     }
 
     protected override string? LogFileName => "RDCore.EnvironmentHost.log";
-}
-
-/// <summary>
-/// <c>rdc.exe</c> in external mode: the external host of an environment host, an LSP server owned and launched by it, that makes the calls its program makes to
-/// the outside world with the servers of the platform it runs on.
-/// </summary>
-internal class RDCoreConsoleExternalHost : RDCorePlatformServerHost<ExternalHostApp>
-{
-    protected override void ConfigureAdditionalExternalServices(IServiceCollection services, IConfiguration configuration)
-    {
-        base.ConfigureAdditionalExternalServices(services, configuration);
-        services
-            .AddSingleton(AutomationService(configuration.GetSection("Configuration:Forms").Get<FormsOptions>() ?? new FormsOptions()))
-            .AddSingleton(new NativeCallService(
-                OperatingSystem.IsWindows() ? new WindowsNativePlatform() : UnsupportedNativePlatform.Instance));
-    }
-
-    // on Windows, the servers and the UserForms' host live on one apartment: a UserForm's controls are objects of the servers, called on the thread its window is
-    // pumped on. The RDForms forms are beside them, on a UI thread of their own, and their objects need no apartment.
-    private static ExternalAutomationService AutomationService(FormsOptions options)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            var (anywhere, forms) = RDFormsHosting.Compose(UnavailableAutomationServer.Instance, UnavailableFormHost.Instance, options);
-            return new ExternalAutomationService(anywhere, forms);
-        }
-
-        var apartment = new ComApartment();
-        var (automation, host) = RDFormsHosting.Compose(new ComAutomationServer(apartment), new WindowsFormHost(apartment), options);
-        return new ExternalAutomationService(automation, host);
-    }
-
-    protected override string? LogFileName => "RDCore.ExternalHost.log";
 }
 
 internal class RDCoreConsoleEnvironmentHostApp(

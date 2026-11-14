@@ -397,14 +397,22 @@ public sealed partial class StdConversion(IRuntimeSession session) : IStdConvers
     }
 
     // "If the data value of Number is positive (or zero) the result is S with a single space character appended as
-    // its first character, otherwise the result is S."
+    // its first character, otherwise the result is S." MS-VBA's S has no zero before the decimal point of a number between -1 and 1, of any numeric type:
+    // Str(0.5) is " .5", Str(-0.25) is "-.25" (RD-VBAL §6.1.2.3.1.20, observed in Excel).
     private static RuntimeSemanticsEvaluationResult<VBStringValue> Text(VBTypedValue number, bool nonNegative)
     {
         var text = ValueConversions.ToText(number, CultureInfo.InvariantCulture);
         return text.Value is VBStringValue s
-            ? Succeed(new VBStringValue(nonNegative ? " " + s.Value : s.Value))
+            ? Succeed(new VBStringValue((nonNegative ? " " : string.Empty) + WithoutLeadingZero(s.Value)))
             : Fail<VBStringValue>(text.Error ?? VBRuntimeErrorId.TypeMismatch, "The number has no text.");
     }
+
+    // the text of a number, with "." as its decimal separator, as MS-VBA's Str and Write # write it: without the zero before the decimal point of a number
+    // between -1 and 1 (0.5 is .5, -0.25 is -.25). Anything else is left as it is.
+    internal static string WithoutLeadingZero(string text)
+        => text.StartsWith("0.", StringComparison.Ordinal) ? text[1..]
+            : text.StartsWith("-0.", StringComparison.Ordinal) ? "-" + text[2..]
+            : text;
 
     // MS-VBAL 6.1.2.3.1.12: the String that is the result of the Long error code Let-coerced to String - a whole number,
     // which no regional setting writes differently, so it is written invariantly whatever the session's environment.

@@ -585,6 +585,12 @@
   <data name="VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose" xml:space="preserve">
     <value>Un enregistrement du type '{0}' est donné à un Variant, qui ne peut pas le contenir : donnez-le à une variable ou à un paramètre du type '{0}', ou copiez ses champs.</value>
   </data>
+  <data name="VBCompileError_NoHostApplicationToEvaluateExpression" xml:space="preserve">
+    <value>Aucune application hôte ne peut évaluer l&apos;expression</value>
+  </data>
+  <data name="VBCompileError_NoHostApplicationToEvaluateExpression_Verbose" xml:space="preserve">
+    <value>'[{0}]' ne nomme rien qui soit déclaré, ce qui en fait une expression qu&apos;une application hôte doit évaluer.</value>
+  </data>
   <data name="VBCompileError_NameIsAProject_Verbose" xml:space="preserve">
     <value>'{0}' est un projet : il qualifie les noms de ce qu'il déclare, comme dans '{0}.Len', et n'est pas une valeur en soi.</value>
   </data>
@@ -638,5 +644,8 @@
   </data>
   <data name="VBCompileError_MemberAlreadyExistsInDesigner_Verbose" xml:space="preserve">
     <value>&apos;{0}&apos; est le nom d&apos;un contrôle du formulaire, qui est déjà un membre de la classe du formulaire.</value>
+  </data>
+  <data name="VBCompileError_BlockEndsInAnotherBranch_Verbose" xml:space="preserve">
+    <value>Le début et la fin de ce bloc ne sont pas dans la même branche #If.</value>
   </data>
 </root>

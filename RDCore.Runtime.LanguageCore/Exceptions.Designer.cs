@@ -707,7 +707,16 @@ namespace RDCore.Runtime.LanguageCore {
                 return ResourceManager.GetString("VBCompileError_BlockIfWithoutEndIf", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to The start and the end of this block are not in the same #If branch..
+        /// </summary>
+        internal static string VBCompileError_BlockEndsInAnotherBranch_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_BlockEndsInAnotherBranch_Verbose", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Else without If.
         /// </summary>
@@ -1125,6 +1134,24 @@ namespace RDCore.Runtime.LanguageCore {
         internal static string VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose {
             get {
                 return ResourceManager.GetString("VBCompileError_UserDefinedTypeNotCoercibleToVariant_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to There is no host application to evaluate the expression.
+        /// </summary>
+        internal static string VBCompileError_NoHostApplicationToEvaluateExpression {
+            get {
+                return ResourceManager.GetString("VBCompileError_NoHostApplicationToEvaluateExpression", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;[{0}]&apos; names nothing that is declared, which makes it an expression for a host application to evaluate..
+        /// </summary>
+        internal static string VBCompileError_NoHostApplicationToEvaluateExpression_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_NoHostApplicationToEvaluateExpression_Verbose", resourceCulture);
             }
         }
 

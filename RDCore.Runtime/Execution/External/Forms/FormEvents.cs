@@ -70,6 +70,10 @@ internal static class FormEvents
                 resolver, visualBasic6 ? VisualBasicLibrary : FormDesigner.MSFormsLibrary, visualBasic6 ? "Form" : FormObject.ClassName, StaticSymbol.GlobalUri).Symbol as VBClassModuleSymbol;
             var formObject = FormObject.ClassIn(live.ClassModule.WorkspaceRoot);
             var prefix = FormHandlers.PrefixOf(session, live.ClassModule);
+
+            // the form is listened to here, and only here: a WithEvents variable assigned the form once it is hosted (ExternalEvents) does not listen to it again,
+            // which would leave its close with no route to its QueryClose.
+            _ = session.ExternalObjects.TryBeginListening(identity);
             Advise(server, form, new ServerEventRouter(
                 session,
                 server,
@@ -148,6 +152,7 @@ internal static class FormEvents
                 }
             }
 
+            _ = session.ExternalObjects.TryEndListening(identity);
             foreach (var (_, control, holder) in listened)
             {
                 _ = session.ExternalObjects.TryEndListening(control);

@@ -1,5 +1,6 @@
 using RDCore.Runtime.LanguageCore.Flow;
 using RDCore.Runtime.LanguageCore.Instructions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 
 namespace RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
@@ -35,6 +36,10 @@ internal static class ExtractionControlFlow
                     refusals.Add(new ExtractionRefusal(ExtractionRefusalKind.GoSubToOutside, instruction.Location, null));
                     continue;
 
+                // the Return of a routine converted to a procedure leaves the procedure, back to the call.
+                case InstructionKind.Return when selection.Routine is not null:
+                    continue;
+
                 // a Return goes back to the instruction after any GoSub of the procedure: the selection is the routine's when it holds a GoSub, and part of one when not.
                 case InstructionKind.Return when !region.Any(other => items[other].Kind is InstructionKind.GoSub or InstructionKind.GoSubTable):
                     refusals.Add(new ExtractionRefusal(ExtractionRefusalKind.ReturnOfAGoSubOutside, instruction.Location, null));
@@ -45,6 +50,21 @@ internal static class ExtractionControlFlow
                     continue;
             }
 
+            // an On…GoTo leaves for each of its labels outside, once however often it names one; a selector out of range falls through, which is no exit.
+            if (instruction.Kind is InstructionKind.JumpTable)
+            {
+                foreach (var target in instruction.Targets.OfType<int>().Where(target => !region.Contains(target)).Distinct())
+                {
+                    if (instruction.Location is { } location)
+                    {
+                        var key = (ExtractionExitKind.Label, target);
+                        (exits.TryGetValue(key, out var from) ? from : exits[key] = []).Add(location);
+                    }
+                }
+
+                continue;
+            }
+
             foreach (var edge in graph.SuccessorsOf(offset).Where(edge => edge.Kind is not ControlFlowEdgeKind.Error && !region.Contains(edge.To)))
             {
                 var kind = instruction.Kind switch
@@ -52,7 +72,7 @@ internal static class ExtractionControlFlow
                     InstructionKind.ExitProcedure => ExtractionExitKind.Procedure,
                     // a block's closer goes on to what follows the block, as a statement does: it is no GoTo.
                     InstructionKind.Jump when instruction.Node is null && edge.To == after => null,
-                    InstructionKind.Jump or InstructionKind.JumpTable or InstructionKind.ResumeLabel => ExtractionExitKind.Label,
+                    InstructionKind.Jump or InstructionKind.ResumeLabel => ExtractionExitKind.Label,
                     _ when edge.To == after => (ExtractionExitKind?)null,
                     InstructionKind.ExitLoop => ExtractionExitKind.Loop,
                     _ => ExtractionExitKind.Label,
@@ -70,10 +90,44 @@ internal static class ExtractionControlFlow
             // control that comes to the first instruction comes to the selection at its start: when the selection starts with an #If block, that is the start
             // of any branch of it.
             var starts = graph.Arrivals(instruction.Offset, first).ToHashSet();
+
+            // a GoSub right before a routine returns into it, as the statement before it would fall into it.
+            if (selection.Routine is not null && instruction.Kind is InstructionKind.GoSub or InstructionKind.GoSubTable && region.Contains(instruction.Offset + 1))
+            {
+                refusals.Add(new ExtractionRefusal(ExtractionRefusalKind.FallsIntoTheRoutine, instruction.Location, null));
+            }
+
             foreach (var edge in graph.SuccessorsOf(instruction.Offset).Where(edge => region.Contains(edge.To)))
             {
                 var jumps = edge.Kind is ControlFlowEdgeKind.Error
                     || instruction.Kind is InstructionKind.Jump or InstructionKind.JumpTable or InstructionKind.GoSub or InstructionKind.GoSubTable or InstructionKind.ResumeLabel or InstructionKind.Return;
+
+                // a routine converted to a procedure is entered by its GoSub and On…GoSub statements, which become its calls, and only by them.
+                if (selection.Routine is { } routine && starts.Contains(edge.To) && edge.Kind is not ControlFlowEdgeKind.Error && instruction.Kind is not InstructionKind.Return)
+                {
+                    var entry = instruction.Kind switch
+                    {
+                        InstructionKind.GoSub => (ExtractionRefusalKind?)null,
+                        InstructionKind.GoSubTable when instruction.Node is OnGoSubStatementNode table && routine.Tables.Contains(table) => null,
+                        InstructionKind.GoSubTable => ExtractionRefusalKind.OnGoSubInASingleLineIf,
+                        _ when !jumps => ExtractionRefusalKind.FallsIntoTheRoutine,
+                        _ => ExtractionRefusalKind.JumpIntoTheSelection,
+                    };
+                    if (entry is { } refused && !refusals.Any(refusal => refusal.Kind == refused && refusal.Location == instruction.Location))
+                    {
+                        refusals.Add(new ExtractionRefusal(refused, instruction.Location ?? items[first].Location, null));
+                    }
+
+                    continue;
+                }
+
+                // a Return comes back after each GoSub of the procedure: back after one of the selection, it ends that GoSub's routine, which moves with the
+                // selection when it is in it, and is refused at the GoSub when not.
+                if (instruction.Kind is InstructionKind.Return && region.Contains(edge.To - 1) && items[edge.To - 1].Kind is InstructionKind.GoSub or InstructionKind.GoSubTable)
+                {
+                    continue;
+                }
+
                 if (!starts.Contains(edge.To) || jumps && entered)
                 {
                     // an error into a handler is told by where the handler is; a jump, by the jump.
@@ -98,8 +152,10 @@ internal static class ExtractionControlFlow
     /// <param name="region">The instructions of the selection.</param>
     /// <param name="states">The error-handling states of the source procedure.</param>
     /// <param name="readsErr">Whether the selection reads <c>Err</c> or <c>Erl</c>.</param>
+    /// <param name="isRoutine">Whether the selection is a <c>GoSub</c> routine converted to a procedure, whose <c>Return</c> statements leave it, and cannot raise
+    /// the run-time error 3 a <c>Return</c> with no <c>GoSub</c> raises.</param>
     public static (bool StartsWithResumeNext, List<ExtractionBehaviourChange> Changes, List<ExtractionRefusal> Refusals) ErrorHandlingOf(
-        IReadOnlySet<int> region, ErrorHandlingStates states, bool readsErr)
+        IReadOnlySet<int> region, ErrorHandlingStates states, bool readsErr, bool isRoutine = false)
     {
         var graph = states.Graph;
         var items = graph.Instructions.Items;
@@ -131,7 +187,7 @@ internal static class ExtractionControlFlow
                 .Select(instruction => new ExtractionRefusal(ExtractionRefusalKind.ErrorHandlingChanged, instruction.Location, null)));
         }
 
-        var raises = region.Any(graph.CanRaise);
+        var raises = region.Any(offset => graph.CanRaise(offset) && !(isRoutine && items[offset].Kind is InstructionKind.Return));
         if (!raises)
         {
             return (false, changes, refusals);

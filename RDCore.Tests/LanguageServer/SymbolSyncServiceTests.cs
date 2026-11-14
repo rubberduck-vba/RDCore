@@ -439,7 +439,7 @@ public sealed class SymbolSyncServiceTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task WhatIsDoneUnderAHold_IsNotInterleavedWithTheWorkspaceSync()
     {
         // the workspace sync defines every module, then loads the code of each: the host takes its time over the code of the scaffold. What is recorded is
@@ -641,7 +641,8 @@ public sealed class SymbolSyncServiceTests
 
     // ---- what the client supplies waits for the workspace's modules ----
 
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // a workspace with Module1, parsed, and a host that records what it is sent, in order.
     private static (SymbolSyncService Sut, List<DefineSymbolsParams> Sent) WorkspaceWithModule1()

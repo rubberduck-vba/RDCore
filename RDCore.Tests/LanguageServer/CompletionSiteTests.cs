@@ -17,6 +17,11 @@ public sealed class CompletionSiteTests
     [DataRow("x = Le", "Le", false, "x =")]
     [DataRow("Call Foo(1, Tw", "Tw", false, "Call Foo(1,")]
     [DataRow("10 If a Then b = Le", "Le", false, "b =")]
+    [DataRow("x = [My Fi", "[My Fi", false, "x =", DisplayName = "a name in brackets is typed from its opening bracket")]
+    [DataRow("x = [", "[", false, "x =", DisplayName = "an opening bracket alone")]
+    [DataRow("    [My", "[My", true, "", DisplayName = "a name in brackets, where a statement starts")]
+    [DataRow("x = [My Field] + Le", "Le", false, "x = [My Field] +", DisplayName = "a closed bracket ends the name")]
+    [DataRow("x = \"[\" & Le", "Le", false, "x = \"[\" &", DisplayName = "a bracket in a string literal is none")]
     public void AName_IsWhatIsTyped_InTheStatementItIsIn(string line, string prefix, bool statementStart, string statement)
         => Assert.AreEqual(new CompletionSite(CompletionSiteKind.Name, prefix, IsStatementStart: statementStart, Statement: statement), Trimmed(CompletionSite.Read(line)));
 

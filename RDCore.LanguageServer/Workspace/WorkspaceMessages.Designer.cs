@@ -88,7 +88,7 @@ namespace RDCore.LanguageServer.Workspace {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to The project file changed while a program runs: the files it lists are loaded, and the program keeps the modules it started with. A class module the project gained is a type once the program ends and the project file is saved again..
+        ///   Looks up a localized string similar to The project file changed while a program runs: the files it lists are loaded, and the program keeps the modules it started with. A module the project gained is part of the project once the program ends, and a program that waits is not resumed while the project lists it..
         /// </summary>
         internal static string ProjectReloadedProgramRunning {
             get {

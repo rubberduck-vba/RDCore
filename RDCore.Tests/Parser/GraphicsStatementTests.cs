@@ -107,6 +107,59 @@ public sealed class GraphicsStatementTests
     public void AScaleOfAnObject_HasTheObject()
         => Assert.AreEqual("Printer", Name(Graphics("Printer.Scale (0, 0)-(1, 1)").Target));
 
+    // Scale written with no corners sets the scale back to twips: it is the statement still, and not a call of the method with no arguments.
+    [TestMethod]
+    [DataRow("Scale", null, DisplayName = "with no object")]
+    [DataRow("Form1.Scale", "Form1", DisplayName = "of an object")]
+    [DataRow("Form1.Scale ' twips again", "Form1", DisplayName = "before a comment")]
+    [DataRow("Form1.Scale: x = 1", "Form1", DisplayName = "before another statement on the line")]
+    public void AScaleWithNoCorners_IsTheStatement_WithNoPoints(string body, string? target)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{body}\r\nEnd Sub\r\n");
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var scale = Assert.ContainsSingle(parse.SyntaxTree!.Descendants().OfType<GraphicsMethodStatementNode>());
+        Assert.AreEqual(Tokens.Scale, scale.Token);
+        Assert.AreEqual(target, scale.Target is null ? null : Name(scale.Target));
+        Assert.IsNull(scale.From);
+        Assert.IsNull(scale.To);
+        Assert.IsEmpty(scale.Arguments);
+        Assert.IsEmpty(parse.SyntaxTree!.Descendants().OfType<UnbuiltStatementTriviaNode>());
+    }
+
+    [TestMethod]
+    public void AScaleWithNoCorners_OfAMemberAccess_IsTheScaleOfTheObject()
+    {
+        var scale = Graphics("Me.Picture1.Scale");
+
+        Assert.IsInstanceOfType<MemberAccessExpressionNode>(scale.Target);
+        Assert.IsNull(scale.From);
+    }
+
+    [TestMethod]
+    public void AScaleWithNoCorners_InAWithBlock_IsOfTheObjectOfTheWithBlock()
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), "Public Sub Main()\r\nWith Form1\r\n.Scale\r\nEnd With\r\nEnd Sub\r\n");
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        var scale = Assert.ContainsSingle(parse.SyntaxTree!.Descendants().OfType<GraphicsMethodStatementNode>());
+        Assert.IsTrue(scale.IsWithRelative);
+        Assert.IsNull(scale.From);
+    }
+
+    // a member named Scale that is assigned, or called with arguments of its own, is no Scale statement.
+    [TestMethod]
+    [DataRow("x.Scale = 1", DisplayName = "assigned")]
+    [DataRow("x.Scale 1, 2", DisplayName = "called with arguments")]
+    [DataRow("x.Scale(1)", DisplayName = "called with an argument in parentheses")]
+    public void AMemberNamedScale_ThatIsNotTheStatement_IsNotRead_AsTheStatement(string body)
+    {
+        var parse = new ModuleParser().Parse(new Uri("file:///c:/ws/Mod1.bas"), $"Public Sub Main()\r\n{body}\r\nEnd Sub\r\n");
+        Assert.IsTrue(parse.IsSuccess, string.Join("; ", parse.SyntaxErrors.Select(error => error.Verbose)));
+
+        Assert.IsEmpty(parse.SyntaxTree!.Descendants().OfType<GraphicsMethodStatementNode>());
+    }
+
     // ---- Line ----
 
     [TestMethod]
@@ -187,7 +240,7 @@ public sealed class GraphicsStatementTests
         Assert.AreEqual(Tokens.Line, line.Token);
         Assert.AreEqual(0, Number(line.From!.X));
         Assert.AreEqual(1, Number(line.To!.Y));
-        Assert.IsEmpty(parse.SyntaxTree.Descendants().OfType<UnbuiltStatementTriviaNode>());
+        Assert.IsEmpty(parse.SyntaxTree!.Descendants().OfType<UnbuiltStatementTriviaNode>());
     }
 
     // ---- inside a With block ----

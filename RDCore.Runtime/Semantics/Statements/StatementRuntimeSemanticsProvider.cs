@@ -22,6 +22,7 @@ using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.SDK.Runtime.Shared;
 using RDCore.SDK.Semantics;
 using RDCore.Runtime.LanguageCore.Errors;
+using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Semantics.Statements;
@@ -281,9 +282,7 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     // undone, on the ordinary VBA call form.
     private RuntimeExecutionOutcome ExecuteCall(IRuntimeSession session, RuntimeEvaluationContext context, CallStatementNode call)
     {
-        var result = call.Arguments.IsEmpty
-            ? _expressionEvaluator.Evaluate(session, call.Callee, context)
-            : _expressionEvaluator.Invoke(session, context, call.Callee, call.Arguments);
+        var result = _expressionEvaluator.EvaluateCallStatement(session, context, call);
 
         return result.IsSuccess ? RuntimeExecutionOutcome.Next
             : result.IsInternalError ? RuntimeExecutionOutcome.InternalError
@@ -369,6 +368,14 @@ public sealed class StatementRuntimeSemanticsProvider : IStatementRuntimeSemanti
     // which its Property Set is invoked for.
     private RuntimeExecutionOutcome ExecuteSetAssignment(IRuntimeSession session, RuntimeEvaluationContext context, AssignmentStatementNode assignment)
     {
+        // the variable a running For Each walks, set to Nothing inside the loop, is left as it is (ForEachCollectionStaticSemantics).
+        if (session.CallStack.Current is CallStackFrame { Body: { } body, Pc: var pc } running && pc < body.Items.Length
+            && ReferenceEquals(body.Items[pc].Node, assignment)
+            && ForEachCollectionStaticSemantics.LoopsWhoseCollectionItSetsToNothing(body, pc).Any(opener => running.BlockHolderOf(opener) is not null))
+        {
+            return RuntimeExecutionOutcome.Next;
+        }
+
         // `Set Module1.Kept = x` is a variable of the module, written as its bare name is (MS-VBAL §5.6.12): not a member of an object.
         var qualified = assignment.Target is MemberAccessExpressionNode qualifiedAccess
             ? _expressionEvaluator.ResolveNamespaceQualified(session, context, qualifiedAccess)

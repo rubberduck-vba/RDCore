@@ -94,6 +94,7 @@ internal static class ReplExecution
     // A statement typed while a program waits runs in the activation FRAME selected, as if it were written in that procedure: its names are the procedure's, so a
     // local is read and set as the program has it, and a name the procedure does not see is not defined - the statement is not the program's code, and declares
     // nothing in it. The program waits still, unless the statement was an END, which is the end of it. What the statement printed, or why it could not run, is said.
+    // An End that ended the program is not an error, and nothing more is said of it, as of a run an End stops.
     private static async Task ExecuteInFrameAsync(ReplCommandContext context, string statement, CancellationToken token)
     {
         var waitsBefore = context.Debugger.StoppedAt;
@@ -103,19 +104,18 @@ internal static class ReplExecution
             context.Console.WriteLine(line);
         }
 
+        if (result.EndedTheProgram)
+        {
+            context.Debugger.Idle();
+            return;
+        }
+
         if (result.Error is { } error)
         {
             context.Console.WriteMessage(MessageKind.Error, error);
         }
 
-        if (result.EndedTheProgram)
-        {
-            context.Debugger.Idle();
-        }
-        else
-        {
-            context.Debugger.Suspended(waitsBefore);
-        }
+        context.Debugger.Suspended(waitsBefore);
     }
 
     /// <summary>

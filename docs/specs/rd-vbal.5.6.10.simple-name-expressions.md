@@ -67,6 +67,7 @@ outcome is a
 |Resolver result|Outcome|
 |---|---|
 |Ambiguous: `Duplicate` or `Ambiguous` (see [**RD-VBAL §2.3.1.3** Name Resolution](rd-vbal.2.3.1.3.name-resolution.md#resolution-results))|An `Error` carrying `AmbiguousName` or `DuplicateDeclaration` (`VBCompileErrorId`).|
+|Unresolved, written in brackets (`[A1]`)|An `Error` carrying `NoHostApplicationToEvaluateExpression` (`VBCompileErrorId`), with or without `Option Explicit`. See [Names in Brackets](#names-in-brackets).|
 |Unresolved, under `Option Explicit`|An `Error` carrying `VariableNotDefined` (`VBCompileErrorId`).|
 |Unresolved, without `Option Explicit`|`Success(VBUnknownType)` ([VBUnknownType](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Model.Types.VBUnknownType.html)).|
 
@@ -115,6 +116,19 @@ MS-VBA permits an implicit `Variant` declaration for an unresolved name (without
 RD-VBA defers inferring the type of an unresolved name to a later type-inference pass
 (`IVBInferableType`), rather than deciding it in the
 simple-name-expression rule. See [**RD-VBAL §2.4.4** Deferred Types](rd-vbal.2.4.4.deferred-types.md).
+
+### Names in Brackets
+
+A name written in brackets is a _foreign name_ (**MS-VBAL §3.3.5.3** Special Identifier Forms).
+Its name is the text between the brackets, and `SimpleNameExpressionNode.IsBracketed` says it was written in them.
+
+|The name in brackets|Outcome|
+|---|---|
+|Resolves (`Dim [My Field] As Long` … `[My Field] = 3`)|The entity it names, as the same name without brackets.|
+|Resolves to nothing (`x = [A1]`, `[A1] = 5`, `[A1].Value`)|[VBC09383](../diagnostics/vbc09383.md) _There is no host application to evaluate the expression_, with or without `Option Explicit`.|
+
+A host application evaluates the text of a name in brackets that nothing declares (`[A1]` is a cell in Excel). RD-VBA hosts no application, so the name is
+a compile error, and never declares an implicit variable.
 
 ## Runtime Semantics
 

@@ -95,6 +95,54 @@ public sealed class SyntaxErrorRunRefusalTests
             string.Join("; ", result.Diagnostics!));
     }
 
+    // the parser reads every branch, so a block can be opened on one side of an excluded branch and closed on the other: the tree has the block, and the code
+    // MS-VBA compiles does not. A live block whose end is in the excluded branch is not closed, and an end in live code closes no block: MS-VBA refuses
+    // both, and so does RD-VBA. Each loop body ends its loop (Exit Do, While False), so a run that was not refused would still finish.
+    [TestMethod]
+    [DataRow(new[] { "If a Then", "#If False Then", "End If", "#End If" }, "Block If without End If", DisplayName = "a block If, its End If excluded")]
+    [DataRow(new[] { "Do", "Exit Do", "#If False Then", "Loop", "#End If" }, "Do without Loop", DisplayName = "a Do, its Loop excluded")]
+    [DataRow(new[] { "For i = 1 To 2", "#If False Then", "Next", "#End If" }, "For without Next", DisplayName = "a For, its Next excluded")]
+    [DataRow(new[] { "With a", "#If False Then", "End With", "#End If" }, "Expected End With", DisplayName = "a With, its End With excluded")]
+    [DataRow(new[] { "Select Case a", "Case Else", "#If False Then", "End Select", "#End If" }, "Select Case without End Select",
+        DisplayName = "a Select Case, its End Select excluded")]
+    [DataRow(new[] { "While False", "#If False Then", "Wend", "#End If" }, "Syntax error", DisplayName = "a While, its Wend excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "Loop" }, "Loop without Do", DisplayName = "a Loop, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "10 Loop" }, "Loop without Do", DisplayName = "a Loop after a line number, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "L1: Loop" }, "Loop without Do", DisplayName = "a Loop after a label, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "#End If", "Exit Do", "Loop Until True" }, "Loop without Do", DisplayName = "a Loop Until, its Do excluded")]
+    [DataRow(new[] { "#If False Then", "If a Then", "#End If", "End If" }, "End If without block If", DisplayName = "an End If, its block If excluded")]
+    [DataRow(new[] { "#If False Then", "For i = 1 To 2", "#End If", "Next" }, "Next without For", DisplayName = "a Next, its For excluded")]
+    [DataRow(new[] { "#If False Then", "With a", "#End If", "End With" }, "End With without With", DisplayName = "an End With, its With excluded")]
+    [DataRow(new[] { "#If False Then", "Select Case a", "Case Else", "#End If", "End Select" }, "Syntax error", DisplayName = "an End Select, its Select Case excluded")]
+    [DataRow(new[] { "#If False Then", "While False", "#End If", "Wend" }, "Syntax error", DisplayName = "a Wend, its While excluded")]
+    [DataRow(new[] { "#If False Then", "If a Then", "#End If", "Debug.Print \"middle\"", "#If False Then", "End If", "#End If" }, "Syntax error",
+        DisplayName = "a block If and its End If, each excluded, around live code")]
+    public async Task ABlockAndItsEndOnEachSideOfAnExcludedBranch_RefusesTheRun(string[] lines, string description)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(["Dim a As Variant, i As Long", "Debug.Print \"before\"", .. lines, "Debug.Print \"after\""]));
+
+        Assert.AreEqual(ExecutionOutcome.SyntaxError, result.Outcome, result.ErrorMessage);
+        Assert.IsEmpty(result.Output);
+        Assert.IsTrue(result.Diagnostics!.Any(error => error.StartsWith(description, StringComparison.Ordinal)
+            && error.Contains(RDCore.Runtime.LanguageCore.Exceptions.VBCompileError_BlockEndsInAnotherBranch_Verbose, StringComparison.Ordinal)), string.Join("; ", result.Diagnostics!));
+    }
+
+    // the controls: a block wholly in an excluded branch is not compiled, and a block with an excluded branch in its body runs without it.
+    [TestMethod]
+    [DataRow(new[] { "#If False Then", "If a Then", "End If", "#End If" }, new[] { "before", "after" }, DisplayName = "a block If wholly excluded")]
+    [DataRow(new[] { "#If False Then", "Do", "Loop", "#End If" }, new[] { "before", "after" }, DisplayName = "a Do wholly excluded")]
+    [DataRow(new[] { "If True Then", "#If False Then", "Debug.Print \"dead\"", "#End If", "Debug.Print \"live\"", "End If" }, new[] { "before", "live", "after" },
+        DisplayName = "a block If with an excluded branch in its body")]
+    [DataRow(new[] { "For i = 1 To 2", "#If False Then", "Exit For", "#End If", "Next" }, new[] { "before", "after" },
+        DisplayName = "a For with an excluded branch in its body")]
+    public async Task ABlockWhoseEndsAreOnTheSameSideOfAnExcludedBranch_Runs(string[] lines, string[] printed)
+    {
+        var result = await ModuleWorkspace.RunWithSyntaxErrorsAsync(Program(["Dim a As Variant, i As Long", "Debug.Print \"before\"", .. lines, "Debug.Print \"after\""]));
+
+        Assert.AreEqual(ExecutionOutcome.Completed, result.Outcome, string.Join("; ", result.Diagnostics ?? []));
+        CollectionAssert.AreEqual(printed, result.Output.ToArray());
+    }
+
     // a syntax error in live code after such a block is the error it is, said with its own message; the block's is said once, at its end. A name or a number
     // can begin a label, which can be written before the end of a block (L1: End If): the error at one is no block's.
     [TestMethod]
@@ -271,7 +319,8 @@ public sealed class SyntaxErrorRunRefusalTests
             string.Join("; ", result.Diagnostics!));
     }
 
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private static readonly (string Name, ModuleType Type, string Source) GoodOther = ("Other", ModuleType.StdModule, ProgramAndOther("", "").Other);
     private static readonly (string Name, ModuleType Type, string Source) BadOther = ("Other", ModuleType.StdModule, ProgramAndOther("B", "").Other);
@@ -308,6 +357,116 @@ public sealed class SyntaxErrorRunRefusalTests
         StringAssert.Contains(resumed.ErrorMessage, "Other");
         StringAssert.Contains(resumed.ErrorMessage, "does not compile");
         Assert.IsEmpty(resumed.Output, "nothing after the Stop runs");
+    }
+
+    private static string AddedSource(bool compiles)
+        => Module("Added", "Public Sub Hello()", compiles ? "    Debug.Print \"hello\"" : "    Debug.Print 1 +", "End Sub");
+
+    // a module the project gains while the program waits at its Stop is not of the program, which the session has no code of: whether it compiles or not,
+    // the program is not resumed without it, and the refusal names it.
+    [TestMethod]
+    [DataRow(false, ModuleType.StdModule, DisplayName = "a standard module that does not compile")]
+    [DataRow(true, ModuleType.StdModule, DisplayName = "a standard module that compiles")]
+    [DataRow(true, ModuleType.ClassModule, DisplayName = "a class module")]
+    public async Task AModuleAddedAtAStop_IsNotResumedOn(bool compiles, ModuleType type)
+    {
+        var added = ("Added", type, type == ModuleType.ClassModule ? ModuleWorkspace.ClassModule("Added", "Public Sub Hello()", "End Sub") : AddedSource(compiles));
+        ExecuteResult? resumed = null;
+        IReadOnlyList<DebugEdit>? status = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], syntaxErrors: !compiles, ("Program", ModuleType.StdModule, StoppedProgram()), GoodOther, added);
+            status = provider.Execution.EditStatus().Edits;
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        var edit = Assert.ContainsSingle(status!, string.Join("; ", status!.Select(edit => $"{edit.Name} ({edit.Reason})")));
+        Assert.AreEqual("Added", edit.Name);
+        Assert.AreEqual(DebugEditKind.Restart, edit.Kind);
+        Assert.AreEqual(ExecutionOutcome.Refused, resumed!.Outcome, resumed.ErrorMessage);
+        StringAssert.Contains(resumed.ErrorMessage, "Added (" + RDCore.Runtime.Support.Resources.Host_Edit_ModuleAdded);
+        Assert.IsEmpty(resumed.Output, "nothing after the Stop runs");
+    }
+
+    // the module taken out again, the program goes on without it, as it ran.
+    [TestMethod]
+    public async Task AModuleAddedAtAStop_TakenOutAgain_IsResumedOn()
+    {
+        ExecuteResult? resumed = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            Assert.IsTrue((await ProjectReloaded(provider, "Other", "Program", "Added")).IsProgramRunning);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], ("Program", ModuleType.StdModule, StoppedProgram()), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+            Assert.IsTrue((await ProjectReloaded(provider, "Other", "Program")).IsProgramRunning);
+            resumed = await Resume(provider);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, resumed!.Outcome, resumed.ErrorMessage);
+        CollectionAssert.AreEqual(new[] { "good", "after" }, resumed.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // the project file lists these modules now, as the language server tells the host of a change of the project.
+    private static async Task<HostProjectReloadResult> ProjectReloaded(EnvironmentSessionProvider provider, params string[] modules)
+    {
+        var files = new System.IO.Abstractions.TestingHelpers.MockFileSystem();
+        files.AddFile(Path.Combine(ModuleWorkspace.Root, ProjectFile.FileName), new(System.Text.Json.JsonSerializer.Serialize(new ProjectFile(ModuleWorkspace.Root,
+            new RDCoreProject { Name = "Project1", Modules = [.. modules.Select(module => new RDCoreModule { RelativeUri = module + ".bas" })] }))));
+        return await new HostProjectReloadHandler(provider, new ProjectFileLoader(files),
+                Microsoft.Extensions.Options.Options.Create(new RDCore.SDK.Server.Configuration.SdkAppOptions()), NullLogger<HostProjectReloadHandler>.Instance)
+            .Handle(new HostProjectReloadParams { WorkspaceRoot = Wire.FileUri(ModuleWorkspace.Root) }, CancellationToken.None).WaitAsync(Patience);
+    }
+
+    // once the program is over, the module the project gained is part of the project, without the project file being saved again: the next run calls it.
+    [TestMethod]
+    public async Task AModuleAddedAtAStop_IsPartOfTheProject_OnceTheProgramIsOver()
+    {
+        var calls = Module("Program", "Public Sub Main()", "    Added.Hello", "End Sub");
+        ExecuteResult? after = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+
+            // the project file lists it now, and its document is defined, as the language server does with a change of the project.
+            Assert.IsTrue((await ProjectReloaded(provider, "Other", "Program", "Added")).IsProgramRunning);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], ("Program", ModuleType.StdModule, calls), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+
+            _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Program"], ("Program", ModuleType.StdModule, calls), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+            after = await new HostExecuteHandler(provider, Substitute.For<IErrorDetailsRecorder>(), NullLogger<HostExecuteHandler>.Instance)
+                .Handle(new HostExecuteParams
+                {
+                    Json = PlatformJson.Serialize(new HostExecutePayload(new UriBuilder(Wire.FileUri(ModuleWorkspace.Root)) { Fragment = "Program" }.Uri,
+                        new ModuleParser().Parse(Wire.FileUri(Path.Combine(ModuleWorkspace.Root, "Program.bas")), calls))),
+                    ModuleName = "Program",
+                    EntryPoint = "Main",
+                }, CancellationToken.None).WaitAsync(Patience);
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Completed, after!.Outcome, $"{after.ErrorMessage} {string.Join("; ", after.Diagnostics ?? [])}");
+        CollectionAssert.AreEqual(new[] { "hello" }, after.Output.Select(line => line.Trim()).ToArray());
+    }
+
+    // a module the session was not told of by the project is still no module of it once the program is over, as a definition of one is when no program runs.
+    [TestMethod]
+    public async Task AModuleAddedAtAStop_ThatTheProjectDoesNotList_IsNoModule_OnceTheProgramIsOver()
+    {
+        ExecuteResult? after = null;
+        await ModuleWorkspace.InspectWithModulesAsync([("Other", GoodOther.Source)], StoppedProgram(), async (provider, stopped, runAgain) =>
+        {
+            Assert.AreEqual(ExecutionOutcome.Suspended, stopped.Outcome, stopped.ErrorMessage);
+            _ = await ModuleWorkspace.ReloadOnlyAsync(provider, ["Added"], ("Program", ModuleType.StdModule, StoppedProgram()), GoodOther,
+                ("Added", ModuleType.StdModule, AddedSource(compiles: true)));
+            _ = await new HostDebugTerminateHandler(provider).Handle(new HostDebugTerminateParams(), CancellationToken.None).WaitAsync(Patience);
+            Assert.IsFalse(provider.Session.Symbols.TryGetModule("Added", out _));
+            after = await runAgain();
+        }, debug: true);
+
+        Assert.AreEqual(ExecutionOutcome.Suspended, after!.Outcome, $"{after.ErrorMessage} {string.Join("; ", after.Diagnostics ?? [])}");
     }
 
     // what a debugger evaluates or runs at the stop is code of the project too, which can call into the module that does not load.

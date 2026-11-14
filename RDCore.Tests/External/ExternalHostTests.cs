@@ -16,6 +16,8 @@ public sealed class ExternalHostTests
 {
     private const int ServerUnavailable = unchecked((int)0x800706BA);
 
+    private static readonly TimeSpan LostSafetyCap = TimeSpan.FromMinutes(5);
+
     private static ExternalHost NewHost() => ExternalHosts.New();
 
     [TestMethod]
@@ -56,8 +58,44 @@ public sealed class ExternalHostTests
     }
 
     [TestMethod]
+    public void AnExternalHostGotReadyByManySessionsWhileItStarts_IsStartedOnce_OnAThreadOfItsOwn()
+    {
+        using var started = new ManualResetEventSlim();
+        using var finish = new ManualResetEventSlim();
+        var starts = 0;
+        var startedOnThePool = true;
+        using var host = ExternalHosts.New(canStart: () =>
+        {
+            if (Interlocked.Increment(ref starts) == 1)
+            {
+                startedOnThePool = Thread.CurrentThread.IsThreadPoolThread;
+                started.Set();
+                finish.Wait();
+            }
+
+            return false;
+        });
+        var libraries = new RemoteNativeLibraryHost(host);
+        var servers = new RemoteAutomationServer(host);
+
+        libraries.Prepare();
+        Assert.IsTrue(started.Wait(TimeSpan.FromMinutes(1)), "the external host was not started");
+        for (var session = 0; session < 20; session++)
+        {
+            libraries.Prepare();
+            servers.Prepare();
+        }
+
+        finish.Set();
+        Assert.IsFalse(host.TryConnect(out _), "a call waits for the start that is being made, then makes its own");
+
+        Assert.AreEqual(2, starts, "the sessions that got the host ready while it was being started started it again");
+        Assert.IsFalse(startedOnThePool, "the host was started on a thread of the pool, which the programs of the sessions go on with");
+    }
+
+    [TestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public void AnObjectOfAnExternalHostThatStopped_IsNoLongerAvailable_AndTheNextCallStartsAnother()
+    public async Task AnObjectOfAnExternalHostThatStopped_IsNoLongerAvailable_AndTheNextCallStartsAnother()
     {
         using var host = NewHost();
         var server = new RemoteAutomationServer(host);
@@ -70,7 +108,10 @@ public sealed class ExternalHostTests
             process.Kill();
         }
 
-        Assert.IsTrue(SpinWait.SpinUntil(() => first.IsLost, TimeSpan.FromSeconds(10)), "the external host was not seen to stop");
+        // the loss itself is awaited: the channel closes when the process stops, however long a loaded machine takes to say so. The cap only keeps a
+        // host that is never seen to stop from hanging the run.
+        await first.Lost.WaitAsync(LostSafetyCap);
+        Assert.IsTrue(first.IsLost);
 
         var failure = Assert.ThrowsExactly<AutomationException>(()
             => server.Invoke(dictionary, "Count", AutomationInvocation.Get, [], [], CultureInfo.InvariantCulture));

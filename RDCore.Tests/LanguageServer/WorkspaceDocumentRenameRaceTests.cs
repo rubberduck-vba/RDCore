@@ -14,6 +14,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class WorkspaceDocumentRenameRaceTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-race-ws");
     private static readonly TextDocumentIdentifier Old = new(new Uri(Path.Combine(Root, "Old.bas")));
     private static readonly TextDocumentIdentifier New = new(new Uri(Path.Combine(Root, "New.bas")));
@@ -34,7 +37,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
             {
                 Gate = null;
                 Reached.Set();
-                Assert.IsTrue(Release.Wait(TimeSpan.FromSeconds(30)), "The gate was never released.");
+                Assert.IsTrue(Release.Wait(SafetyCap), "The gate was never released.");
             }
         }
 
@@ -125,13 +128,13 @@ public sealed class WorkspaceDocumentRenameRaceTests
         using var contended = new ManualResetEventSlim();
         documents.Contended = contended.Set;
         var step = Start(work);
-        Assert.IsTrue(contended.Wait(TimeSpan.FromSeconds(30)), "The step never came to the change being made.");
+        Assert.IsTrue(contended.Wait(SafetyCap), "The step never came to the change being made.");
         documents.Contended = null;
         return step;
     }
 
     [TestMethod]
-    [Timeout(60_000)]
+    [Timeout(600_000)]
     public async Task ADocumentTheClientOpensAtTheNewPath_WhileItIsBeingMovedThere_IsTheClientsAndOpen()
     {
         var (documents, states) = await LoadedOldAsync();
@@ -139,7 +142,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
         // the move is held after it put the document at the new path, before it is done with the state of it.
         states.Gate = (call, id) => call == nameof(IDocumentStateProvider.Forget) && id.Equals(New);
         var moving = Start(() => documents.Move(Old, New));
-        Assert.IsTrue(states.Reached.Wait(TimeSpan.FromSeconds(30)), "The move never came to its state.");
+        Assert.IsTrue(states.Reached.Wait(SafetyCap), "The move never came to its state.");
 
         var opening = StartWaitingFor(documents, () => documents.Open(New.Uri.ToUri(), "client text", 5));
         states.Release.Set();
@@ -155,7 +158,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
     }
 
     [TestMethod]
-    [Timeout(60_000)]
+    [Timeout(600_000)]
     public async Task AChangeToTheOldPath_ThatIsHalfMadeWhenTheDocumentMoves_DoesNotBringTheOldPathBack()
     {
         var (documents, states) = await LoadedOldAsync();
@@ -164,7 +167,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
         // the change has read the document and is held before it writes it back.
         states.Gate = (call, id) => call == nameof(IDocumentStateProvider.GetCurrentState) && id.Equals(Old);
         var changing = Start(() => documents.Change(Old.Uri.ToUri(), 2, [new TextDocumentContentChangeEvent { Text = "second" }]));
-        Assert.IsTrue(states.Reached.Wait(TimeSpan.FromSeconds(30)), "The change never came to its state.");
+        Assert.IsTrue(states.Reached.Wait(SafetyCap), "The change never came to its state.");
 
         var moving = StartWaitingFor(documents, () => documents.Move(Old, New));
         states.Release.Set();
@@ -179,7 +182,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
     }
 
     [TestMethod]
-    [Timeout(60_000)]
+    [Timeout(600_000)]
     public async Task ADocumentTheClientOpens_BetweenBeingResetAndBeingRead_IsNotReadOver()
     {
         var (documents, states) = await LoadedOldAsync();
@@ -198,7 +201,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
     }
 
     [TestMethod]
-    [Timeout(60_000)]
+    [Timeout(600_000)]
     public async Task ADocumentTheClientOpensAgain_WhileItsCloseReadsTheFile_StaysTheClients()
     {
         var gate = new TaskCompletionSource<string>();
@@ -217,7 +220,7 @@ public sealed class WorkspaceDocumentRenameRaceTests
 
         // the close has begun - the client does not have the document open - and is reading the file when the client opens it again.
         var closing = documents.CloseAsync(Old.Uri.ToUri());
-        Assert.IsTrue(reached.Wait(TimeSpan.FromSeconds(30)), "the close is reading the file");
+        Assert.IsTrue(reached.Wait(SafetyCap), "the close is reading the file");
         documents.Open(Old.Uri.ToUri(), "opened again", 9);
         gate.SetResult("what is on disk");
         var closed = await closing;

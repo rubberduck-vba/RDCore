@@ -49,7 +49,8 @@ public sealed class DocumentSymbolIntegrationTests
         var clientToServer = new Pipe();
         var serverToClient = new Pipe();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
         var serverTask = OmniSharpLanguageServer.From(options => options
             .WithInput(clientToServer.Reader)

@@ -16,6 +16,10 @@ public readonly record struct StaticEvaluationContext(
     // the context is: two contexts that differ only by it are equal.
     internal ExpressionEvaluations? Evaluations { get; init; }
 
+    // where the static pass of a module records the parameter each argument it marks is given (ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments).
+    // Like the evaluations, it is no part of what the context is.
+    public ArgumentParameters? Arguments { get; init; }
+
     public bool Equals(StaticEvaluationContext other)
         => EqualityComparer<ISymbolResolver>.Default.Equals(Resolver, other.Resolver)
             && EqualityComparer<LexicalScope>.Default.Equals(Scope, other.Scope)

@@ -18,7 +18,8 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledModuleFieldTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // the program run with engine, then once again after each of between, in the same session: what each run did, in order.
     private static async Task<(string Observed, IReadOnlyDictionary<string, CompilationResult> Compiled)> RunAsync(string program, VBExecutionEngine engine,

@@ -19,7 +19,8 @@ namespace RDCore.Tests.LanguageServer;
 public sealed class EditStatusPublicationTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-edit-status-publication");
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private readonly IEditStatusMonitor _monitor = Substitute.For<IEditStatusMonitor>();
     private readonly IDocumentDiagnosticsService _diagnostics = Substitute.For<IDocumentDiagnosticsService>();

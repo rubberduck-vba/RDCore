@@ -22,7 +22,8 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class CompiledByRefCallTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // the program run to its end with engine: what it did, and what measure reads of the bodies compiled for it.
     private static async Task<(string Observed, long Measured)> RunAsync(string program, VBExecutionEngine engine, IReadOnlyList<(string Name, string Source)> classes,

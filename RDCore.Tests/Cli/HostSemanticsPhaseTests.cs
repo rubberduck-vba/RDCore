@@ -18,7 +18,7 @@ public sealed class HostSemanticsPhaseTests
 {
     // only a hang guard: each wait is for an answer the test has made due. The evaluation holds a pool thread until it is released, so the answers' own
     // continuations may wait for the pool to add one.
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     [TestMethod]
     public async Task TheStaticPhase_IsNotKeptWaitingForTheEvaluationOfTheCode_ButTheRuntimePhaseWaitsForIt()

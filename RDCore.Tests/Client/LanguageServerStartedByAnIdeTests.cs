@@ -16,10 +16,11 @@ namespace RDCore.Tests.Client;
 [TestCategory("Platform")]
 public sealed class LanguageServerStartedByAnIdeTests
 {
-    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(90);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Bound = TimeSpan.FromMinutes(5);
 
     [TestMethod]
-    [Timeout(180_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheLanguageServer_StartedWithAPipeAndAWorkspace_AnswersInitialize_AndThePlatformHandshake()
     {
         // the test's own workspace, user settings and logs, beside a platform root as a deployment has it.

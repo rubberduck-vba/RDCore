@@ -438,7 +438,8 @@ public sealed partial class RuntimeExpressionEvaluator
 
     // the member an object of `actual` invokes for a member of the class the expression is declared as (MS-VBAL §5.3.1.9): the member itself, of an object of
     // that class; the one implementing it, of a class that implements it as an interface; or the class's own member by that name, as it is found
-    // late-bound.
+    // late-bound. A late-bound object held by a variable of a library's class is reached through that class, as MS-VBA binds it early: the Set that put it
+    // there found it is one.
     private VBTypeMemberSymbol? ImplementationOf(BoundMember bound, VBClassModuleSymbol actual)
     {
         if (_memberSites.TryGetValue(bound, out var site) && ReferenceEquals(site.Class, actual))
@@ -449,7 +450,7 @@ public sealed partial class RuntimeExpressionEvaluator
         // only a member of an object declared as a class is resolved here (EvaluateBoundMember asks of no other).
         var name = bound.Access.Member.IdentifierName;
         var declared = bound.DeclaredClass!.Uri.AbsoluteUri;
-        var member = ReferenceEquals(actual, bound.DeclaredClass)
+        var member = ReferenceEquals(actual, bound.DeclaredClass) || IsLateBoundAsLibraryClass(actual, bound.DeclaredClass)
             ? bound.Member
             : (actual.ImplementedInterfaces.FirstOrDefault(implemented => implemented.Uri.AbsoluteUri == declared) is { } implementedInterface
                 ? ImplementationIn(actual, implementedInterface, name)
@@ -458,6 +459,10 @@ public sealed partial class RuntimeExpressionEvaluator
         _memberSites[bound] = (actual, member);
         return member;
     }
+
+    private static bool IsLateBoundAsLibraryClass(VBClassModuleSymbol actual, VBClassModuleSymbol declared)
+        => Execution.External.Automation.LateBinding.IsLateBound(actual) && !Execution.External.Automation.LateBinding.IsLateBound(declared)
+            && declared.GetProperty(SymbolProperties.Library) is { Length: > 0 };
 
     private RuntimeSemanticsEvaluationResult EvaluateBoundBinary(IRuntimeSession session, BoundBinary binary, RuntimeEvaluationContext context)
     {
@@ -494,7 +499,7 @@ public sealed partial class RuntimeExpressionEvaluator
 
         if (binary is { Left: BoundVariable or BoundMember or BoundIndex or BoundUnary, Right: not (BoundVariable or BoundLiteral) })
         {
-            leftResult = ReadWhereWritten(leftResult);
+            leftResult = ReadWhereWritten(leftResult, binary.Left);
         }
 
         var rightResult = EvaluateBoundNode(session, binary.Right, context);
@@ -524,10 +529,31 @@ public sealed partial class RuntimeExpressionEvaluator
         _ => false,
     };
 
+    // the declared type of a variable, of an element of an array variable, or of a field of a record variable, also in parentheses; null for anything else.
+    private static VBType? DeclaredTypeOf(BoundNode node) => node switch
+    {
+        BoundVariable { Variable: ITypedSymbol { ResolvedType: var type } } => type,
+        BoundIndex { Callee: var callee } => DeclaredTypeOf(callee) is VBArrayType { ItemType: var item } ? item : null,
+        BoundMember { Member: { ResolvedType: var type } } => type,
+        BoundMember { Owner: { } owner, Access: var access }
+            => DeclaredTypeOf(owner) is VBUserDefinedType record ? record.Field(access.Member.IdentifierName)?.ResolvedType : null,
+        BoundUnary { Plan: null, Operation.Token: SDK.Model.Symbols.Operators.OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }
+            => DeclaredTypeOf(enclosed),
+        _ => null,
+    };
+
     private static bool IsOfLateType(VBType type) => type is VBSingleType or VBDoubleType or VBDateType or VBVariantType or (VBStringType and not VBFixedStringType);
 
-    private static RuntimeSemanticsEvaluationResult ReadWhereWritten(RuntimeSemanticsEvaluationResult read)
+    // a fixed-length String is read where it is written too: s & Pre(s) is the characters s held before the call (MS-VBA, observed in Excel). Its value
+    // reads the characters from the variable itself, which the call then changes, so the operand is given a String copy of them.
+    private static RuntimeSemanticsEvaluationResult ReadWhereWritten(RuntimeSemanticsEvaluationResult read, BoundNode operand)
     {
+        if (read.Result is VBStringValue { Value: var text } held && DeclaredTypeOf(operand) is VBFixedStringType)
+        {
+            VBTypedValue characters = new VBStringValue(text);
+            return RuntimeSemanticsEvaluationResult.Success(held.IsIndeterminate ? characters.AsIndeterminate() : characters);
+        }
+
         if (read.Result is not { TypeInfo: VBByteType or VBBooleanType or VBIntegerType or VBLongType or VBLongLongType or VBCurrencyType } value
             || !ScalarPayload.TryOf(value.TypeInfo, value.RuntimeValue, out var payload))
         {

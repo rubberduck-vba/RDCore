@@ -25,7 +25,8 @@ namespace RDCore.Tests.External;
 public sealed class WindowsFormHostTests
 {
     private const uint WM_CLOSE = 0x0010;
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private sealed class Hosting : IDisposable
     {

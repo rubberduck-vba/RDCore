@@ -48,6 +48,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         public Dictionary<int, ForEachState>? ForEachState;
         public Stack<int>? GoSubReturns;
         public Dictionary<int, (int? End, ValueBindingHandle Cell)>? BlockHolders;
+        public Dictionary<int, ValueBindingHandle>? SourceHolders;
         public List<Symbol>? DeclaredAtAStop;
         public List<Symbol>? EditedLocals;
         public List<Symbol>? RetiredLocals;
@@ -268,9 +269,31 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             occasional.SelectorPayloads = Rekeyed(occasional.SelectorPayloads, rebased.Offsets);
             occasional.ForLoopState = Rekeyed(occasional.ForLoopState, rebased.Offsets);
             occasional.ForEachState = Rekeyed(occasional.ForEachState, rebased.Offsets);
-            // a With's target is held until its End With, and has no end; any other block's is held until the program is past it.
-            occasional.BlockHolders = occasional.BlockHolders?.ToDictionary(holder => rebased.Offsets[holder.Key],
-                holder => (holder.Value.End is null ? null : body.Items[rebased.Offsets[holder.Key]].End, holder.Value.Cell));
+            // a With's target is held until its End With, and has no end; a For Each's until the loop is over, and the end of its block says whether it still
+            // runs (LocksArray). What a For Each made of its collection expression is held until the activation returns. One whose block the edit did not keep
+            // is held apart, and let go of when the activation returns, as a retired local is.
+            if (occasional.BlockHolders is { } holders)
+            {
+                foreach (var (_, (_, cell)) in holders.Where(holder => !rebased.Offsets.ContainsKey(holder.Key)))
+                {
+                    (occasional.RetiredCells ??= []).Add(cell);
+                }
+
+                occasional.BlockHolders = holders.Where(holder => rebased.Offsets.ContainsKey(holder.Key)).ToDictionary(holder => rebased.Offsets[holder.Key],
+                    holder => (holder.Value.End is null ? null : body.Items[rebased.Offsets[holder.Key]].End, holder.Value.Cell));
+            }
+
+            if (occasional.SourceHolders is { } sources)
+            {
+                foreach (var (_, cell) in sources.Where(source => !rebased.Offsets.ContainsKey(source.Key)))
+                {
+                    (occasional.RetiredCells ??= []).Add(cell);
+                }
+
+                occasional.SourceHolders = sources.Where(source => rebased.Offsets.ContainsKey(source.Key))
+                    .ToDictionary(source => rebased.Offsets[source.Key], source => source.Value);
+            }
+
             if (occasional.GoSubReturns is { } returns)
             {
                 // a stack enumerates from its top, and is pushed from its bottom.
@@ -562,10 +585,13 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             bool IsIn(int opener) => before.Items[opener].End is not { } end || positions.Any(position => position >= opener && position < end);
             IEnumerable<int> openers = [.. occasional.BlockState?.Keys ?? Enumerable.Empty<int>(), .. occasional.SelectorPayloads?.Keys ?? Enumerable.Empty<int>(),
                 .. occasional.ForLoopState?.Keys ?? Enumerable.Empty<int>(), .. occasional.ForEachState?.Keys ?? Enumerable.Empty<int>()];
-            foreach (var opener in openers.Concat(occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>()).Distinct())
+            foreach (var opener in openers.Concat(occasional.BlockHolders?.Keys ?? Enumerable.Empty<int>())
+                .Concat(occasional.SourceHolders?.Keys ?? Enumerable.Empty<int>()).Distinct())
             {
-                // what a block holds is let go of only once the activation is past the block, so it moves with the block, or the edit is refused.
-                var holds = occasional.BlockHolders?.ContainsKey(opener) ?? false;
+                // what a With holds is let go of only at its End With, so it moves with the block, or the edit is refused. What a For Each the activation has
+                // left holds is kept until the loop is over or the activation returns: it moves with the block when it can, and is held apart when it cannot
+                // (Rebase).
+                var holds = occasional.BlockHolders?.TryGetValue(opener, out var held) == true && held.End is null;
                 if (!holds && !IsIn(opener))
                 {
                     if (alignment[opener] is { } left)
@@ -721,10 +747,14 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     public bool HasResultCell => _resultCell is not null;
 
     /// <summary>
-    /// The cell that holds what the block opened at <paramref name="openerOffset"/> holds for as long as it runs - a <c>For Each</c>'s enumerator,
-    /// which ends at <paramref name="end"/>, the offset right past the block; a <c>With</c>'s target, which is held until its <c>End With</c> lets go of it
-    /// (<see cref="TakeBlockHolder"/>), wherever the program jumps meanwhile: <paramref name="end"/> is <see langword="null"/>.
+    /// The cell that holds what the block opened at <paramref name="openerOffset"/> holds: a <c>For Each</c>'s enumerator, or the array it reads, which is
+    /// held until the loop is over (<see cref="TakeLoopHoldersLeft"/>), started again, or the activation returns, wherever a <c>GoSub</c> or an error
+    /// handler takes the program meanwhile, and which the loop runs on while the activation is in its block, or will go back into it
+    /// (<see cref="LocksArray"/>); a <c>With</c>'s target, which is held until its <c>End With</c> lets go of it (<see cref="TakeBlockHolder"/>), wherever
+    /// the program jumps meanwhile.
     /// </summary>
+    /// <param name="openerOffset">The offset of the statement that opens the block.</param>
+    /// <param name="end">The offset right past a <c>For Each</c>'s block; <see langword="null"/> for a <c>With</c>'s.</param>
     public ValueBindingHandle BlockHolder(int openerOffset, int? end)
     {
         var holders = Occasionally.BlockHolders ??= [];
@@ -738,10 +768,30 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Takes away the holders of the blocks <paramref name="pc"/> is not in, for what they hold to be let go of: every block, when
-    /// <paramref name="pc"/> is <see langword="null"/> - the activation is over.
+    /// The cell that holds what the collection expression of the <c>For Each</c> at <paramref name="openerOffset"/> made, as a hidden local of the
+    /// activation: held until the activation returns, or the loop is started again, as MS-VBA holds a function's result there (observed in Excel). A
+    /// collection expression that is a variable makes nothing to hold.
     /// </summary>
-    public IReadOnlyList<ValueBindingHandle> TakeBlockHoldersOutside(int? pc)
+    /// <param name="openerOffset">The offset of the <c>For Each</c> statement.</param>
+    public ValueBindingHandle SourceHolder(int openerOffset)
+    {
+        var sources = Occasionally.SourceHolders ??= [];
+        if (!sources.TryGetValue(openerOffset, out var cell))
+        {
+            cell = BindingKnowledge.NewCell(VBEmptyValue.Empty.RuntimeValue, isKnown: true);
+            sources[openerOffset] = cell;
+        }
+
+        return cell;
+    }
+
+    /// <summary>
+    /// Takes away the holders of the <c>For Each</c> blocks that a jump from <paramref name="from"/> to <paramref name="to"/> leaves (an <c>Exit For</c>, a
+    /// <c>GoTo</c>), for what they hold to be let go of: the loop is over.
+    /// </summary>
+    /// <param name="from">The offset of the jump.</param>
+    /// <param name="to">The offset it goes to.</param>
+    public IReadOnlyList<ValueBindingHandle> TakeLoopHoldersLeft(int from, int to)
     {
         if (_occasional?.BlockHolders is not { Count: > 0 } holders)
         {
@@ -751,7 +801,7 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         List<ValueBindingHandle>? left = null;
         foreach (var (opener, (end, cell)) in holders)
         {
-            if (pc is not { } at || (end is { } blockEnd && (at < opener || at >= blockEnd)))
+            if (end is { } blockEnd && from >= opener && from < blockEnd && (to < opener || to >= blockEnd))
             {
                 (left ??= []).Add(cell);
                 holders.Remove(opener);
@@ -762,9 +812,41 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
     }
 
     /// <summary>
-    /// Takes away the holder of the block opened at <paramref name="openerOffset"/>, for what it holds to be let go of: a <c>With</c>'s, at its
-    /// <c>End With</c>.
+    /// Takes away the holders of every block and of what every <c>For Each</c> made of its collection expression, for what they hold to be let go of: the
+    /// activation is over.
     /// </summary>
+    public IReadOnlyList<ValueBindingHandle> TakeBlockHolders()
+    {
+        List<ValueBindingHandle> left = [];
+        if (_occasional?.SourceHolders is { Count: > 0 } sources)
+        {
+            left.AddRange(sources.Values);
+            sources.Clear();
+        }
+
+        if (_occasional?.BlockHolders is { Count: > 0 } holders)
+        {
+            left.AddRange(holders.Values.Select(holder => holder.Cell));
+            holders.Clear();
+        }
+
+        return left;
+    }
+
+    // whether the block that opens at opener and ends at end runs: the activation is in it, or goes back into it - a GoSub it is in returns into it, or a
+    // Resume of the error a handler of it handles goes back to a statement of it.
+    private bool Runs(int opener, int end)
+    {
+        bool InTheBlock(int offset) => offset >= opener && offset < end;
+        return InTheBlock(Pc) || GoSubReturns.Any(InTheBlock)
+            || (ErrorHandler is { ActiveError: not null, FaultStatementOffset: { } faulted } && InTheBlock(faulted));
+    }
+
+    /// <summary>
+    /// Takes away the holder of the block opened at <paramref name="openerOffset"/>, for what it holds to be let go of: a <c>With</c>'s, at its
+    /// <c>End With</c>; a <c>For Each</c>'s, when its <c>Next</c> finds no element left.
+    /// </summary>
+    /// <param name="openerOffset">The offset of the statement that opened the block.</param>
     /// <returns>The holder; <see langword="null"/> when the block holds nothing.</returns>
     public ValueBindingHandle? TakeBlockHolder(int openerOffset)
         => _occasional?.BlockHolders is { } holders && holders.Remove(openerOffset, out var holder) ? holder.Cell : null;
@@ -1448,10 +1530,12 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
             }
         }
 
-        // a For Each that is running holds what it enumerates (ProcedureExecutor.HoldForBlock): an array that shares its cells is the one.
-        foreach (var (_, (_, holder)) in _occasional?.BlockHolders ?? [])
+        // a For Each that is running holds what it enumerates (ProcedureExecutor.HoldForBlock): an array that shares its cells is the one. One the program has
+        // left, by its end, Exit For or a jump, still holds it, and locks it no longer.
+        foreach (var (opener, (end, holder)) in _occasional?.BlockHolders ?? [])
         {
-            if (holder.Value is VBRuntimeValue<VBRuntimeArrayValue> { StoredValue.Array: { Length: > 0 } enumerated }
+            if (end is { } blockEnd && Runs(opener, blockEnd)
+                && holder.Value is VBRuntimeValue<VBRuntimeArrayValue> { StoredValue.Array: { Length: > 0 } enumerated }
                 && ReferenceEquals(enumerated.CellAt(0), array.CellAt(0)))
             {
                 return true;
@@ -1466,6 +1550,38 @@ public sealed record class CallStackFrame(SyntaxNodeId NodeId, StaticSymbol Stat
         for (var index = 0; index < array.Length; index++)
         {
             if (ReferenceEquals(array.CellAt(index), handle))
+            {
+                return true;
+            }
+        }
+
+        // a field of the record an element holds is part of the element, a field of a record field of it too: passing one by reference locks the array as
+        // passing the element does (MS-VBA, observed in Excel).
+        if (array.ItemType is VBUserDefinedType)
+        {
+            for (var index = 0; index < array.Length; index++)
+            {
+                if (array.ElementAt(index) is VBUserDefinedTypeValue record && IsFieldOf(record, handle))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsFieldOf(VBUserDefinedTypeValue record, IBindingHandle handle)
+    {
+        if (handle is RecordFieldBinding field && ReferenceEquals(field.Record, record))
+        {
+            return true;
+        }
+
+        for (var index = 0; index < record.FieldCount; index++)
+        {
+            var held = record.StoredFieldAt(index);
+            if (ReferenceEquals(held?.Handle, handle) || held is VBUserDefinedTypeValue inner && IsFieldOf(inner, handle))
             {
                 return true;
             }

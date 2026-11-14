@@ -159,6 +159,9 @@
   <data name="VBCompileError_ConstDirectiveExpression_Verbose" xml:space="preserve">
     <value>Attendu : expression. La valeur d&apos;une directive #Const est une expression constante de littéraux, de constantes de compilation conditionnelle et d&apos;opérateurs.</value>
   </data>
+  <data name="VBCompileError_ReservedDeclarationName_Verbose" xml:space="preserve">
+    <value>Attendu : identificateur. &apos;{0}&apos; est un mot réservé et ne peut pas nommer une déclaration.</value>
+  </data>
   <data name="VBCompileError_ReservedParameterName_Verbose" xml:space="preserve">
     <value>Attendu : identificateur. &apos;{0}&apos; est un mot réservé et ne peut pas nommer un paramètre.</value>
   </data>
@@ -173,5 +176,35 @@
   </data>
   <data name="VBCompileError_CallArgumentsNeedCall_Verbose" xml:space="preserve">
     <value>Un appel écrit sans le mot clé Call n'a pas de liste d'arguments entre parenthèses, pas même vide. Supprimez les parenthèses (Foo 1, 2 ou Foo), ou écrivez le mot clé Call (Call Foo(1, 2) ou Call Foo()). Les parenthèses d'un seul argument ne sont pas une liste d'arguments mais le regroupement de cet argument, qui est passé par valeur (MS-VBAL §5.4.2.1).</value>
+  </data>
+  <data name="VBCompileError_SyntaxError_Verbose" xml:space="preserve">
+    <value>Erreur de syntaxe</value>
+  </data>
+  <data name="VBCompileError_ExpectedIdentifier_Verbose" xml:space="preserve">
+    <value>Attendu : identificateur</value>
+  </data>
+  <data name="VBCompileError_ExpectedTypeName_Verbose" xml:space="preserve">
+    <value>Attendu : nom de type</value>
+  </data>
+  <data name="VBCompileError_ExpectedNewOrTypeName_Verbose" xml:space="preserve">
+    <value>Attendu : New ou nom de type</value>
+  </data>
+  <data name="VBCompileError_ExpectedListSeparatorOrParenthesis_Verbose" xml:space="preserve">
+    <value>Attendu : séparateur de liste ou )</value>
+  </data>
+  <data name="VBCompileError_ExpectedExpression_Verbose" xml:space="preserve">
+    <value>Attendu : expression</value>
+  </data>
+  <data name="VBCompileError_ExpectedEndOfStatement_Verbose" xml:space="preserve">
+    <value>Attendu : fin d&apos;instruction</value>
+  </data>
+  <data name="VBCompileError_ExpectedGetOrLetOrSet_Verbose" xml:space="preserve">
+    <value>Attendu : Get ou Let ou Set</value>
+  </data>
+  <data name="VBCompileError_ExpectedLib_Verbose" xml:space="preserve">
+    <value>Attendu : Lib</value>
+  </data>
+  <data name="VBCompileError_ExpectedTextOrBinary_Verbose" xml:space="preserve">
+    <value>Attendu : Text ou Binary</value>
   </data>
 </root>

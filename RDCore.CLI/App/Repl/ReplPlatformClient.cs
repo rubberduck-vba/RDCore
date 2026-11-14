@@ -3,6 +3,7 @@ using RDCore.SDK.Client;
 using RDCore.SDK.Platform.Commands;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime.Abstract.Execution;
+using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Workspace;
 using SemanticTokens = OmniSharp.Extensions.LanguageServer.Protocol.Models.SemanticTokens;
 
@@ -111,6 +112,10 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
         return report is null ? null : new ReplDiagnosticReport(report.ResultId, string.Equals(report.Kind, "unchanged", StringComparison.Ordinal), report.Items);
     }
 
+    // the kinds of code actions the shell asks for: those it can show and take, the fixes of diagnostics and renames. An action that moves code, such as an
+    // extraction, would take it out of what LIST shows; a kind the shell cannot take is never asked for.
+    internal static readonly CodeActionKind[] CodeActionKinds = [CodeActionKind.QuickFix, new(RefactoringKinds.Rename)];
+
     /// <inheritdoc/>
     public async Task<IReadOnlyList<CodeAction>> GetCodeActionsAsync(Uri document, OmniSharp.Extensions.LanguageServer.Protocol.Models.Range range,
         IReadOnlyList<Diagnostic> diagnostics, CancellationToken token)
@@ -120,7 +125,7 @@ internal sealed class ReplPlatformClient(IRDCoreClientApp client) : IReplPlatfor
             {
                 TextDocument = new TextDocumentIdentifier(document),
                 Range = range,
-                Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(diagnostics) },
+                Context = new CodeActionContext { Diagnostics = new Container<Diagnostic>(diagnostics), Only = new Container<CodeActionKind>(CodeActionKinds) },
             }, token));
         return actions is null ? [] : [.. actions.Where(item => item.IsCodeAction).Select(item => item.CodeAction!)];
     }

@@ -33,6 +33,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class ExtractMethodResolveWireTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-extractmethod-resolve-ws");
 
     // line 5 computes b from a, which line 6 prints.
@@ -65,10 +68,10 @@ public sealed class ExtractMethodResolveWireTests
     private static TextDocumentIdentifier Document => new(DocumentUri.From(Path.Combine(Root, "Main.bas")));
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatResolvesEdits_IsOfferedTheExtractionWithoutItsEdit_AndResolvingItMakesTheEdit()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var (server, client) = await ConnectAsync(resolvesEdits: true, timeout.Token);
         using var _ = server;
         using var __ = client;
@@ -86,10 +89,10 @@ public sealed class ExtractMethodResolveWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AClientThatDoesNotResolveEdits_IsSentTheEditWithTheExtraction()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var (server, client) = await ConnectAsync(resolvesEdits: false, timeout.Token);
         using var _ = server;
         using var __ = client;
@@ -99,10 +102,10 @@ public sealed class ExtractMethodResolveWireTests
 
     // the range of an offered extraction is of the text the document had then: a change after it makes the range another selection.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AnExtractionResolvedAfterItsDocumentChanged_IsRefused_WithWhy()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var (server, client) = await ConnectAsync(resolvesEdits: true, timeout.Token);
         using var _ = server;
         using var __ = client;

@@ -23,7 +23,7 @@ public sealed class ProgramControlOverTheConnectionTests
     private static readonly (string Name, string Source)[] NoClasses = [];
 
     // what keeps a test from hanging: no answer it waits for takes nearly as long, on any machine.
-    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     // run again, it loops from the start: the module's variables are the session's, and stay from one run to the next.
     private static readonly string StopsTheFirstTimeThenLoops = string.Join("\r\n",

@@ -1,3 +1,4 @@
+using RDCore.Diagnostics;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Workspace;
 using RDCore.SDK.Workspace.Forms;
@@ -149,7 +150,8 @@ public sealed class VisualBasicFormRunTimeControlsTests
     }
 
     // a control Controls.Add returns is an Object, which Set-assigns to a WithEvents variable of the control's class: no compile error, and nothing an
-    // analyzer reports, on the variable or on the assignment.
+    // analyzer reports, on the variable or on the assignment. The variable is Public for the other tests, which read it from outside the form, and that it
+    // could be a property is reported of any Public field.
     [TestMethod]
     public async Task SetOfAWithEventsVariable_ToWhatControlsAddReturns_IsValid()
     {
@@ -172,6 +174,7 @@ public sealed class VisualBasicFormRunTimeControlsTests
                     Type.EmptyTypes) is not null)
             .Select(type => (RDCore.SDK.Extensibility.Diagnostics.IModuleAnalyzer)Activator.CreateInstance(type, nonPublic: true)!)
             .SelectMany(analyzer => analyzer.Analyze(context))
+            .Where(finding => finding.Code != RDCoreDiagnosticId.EncapsulatePublicField.ToCode())
             // a line counted from 0 or from 1: either is the line of the variable or of the assignment.
             .Where(finding => finding.Range.Start.Line is var line && (line - declared is 0 or 1 || line - assigned is 0 or 1))
             .Select(finding => $"{finding.Range.Start.Line}: {finding.Message}").ToArray();

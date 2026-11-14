@@ -10,6 +10,7 @@ using RDCore.Runtime.LanguageCore.Static.Abstract;
 using RDCore.SDK.Semantics;
 using RDCore.SDK;
 using RDCore.Runtime.LanguageCore.Errors;
+using System.Collections.Immutable;
 
 namespace RDCore.Runtime.LanguageCore.Static.Expressions;
 
@@ -33,7 +34,13 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
             throw new ArgumentException($"Expected an {nameof(IndexExpressionNode)}.", nameof(expression));
         }
 
-        var callee = operandDeclaredTypes[(int)InputIndex.IndexExpressionCallee];
+        return DetermineDeclaredType(context, index, operandDeclaredTypes[(int)InputIndex.IndexExpressionCallee], []);
+    }
+
+    // restarted is each class whose default member the analysis already restarted on, so a default member that returns its own class ends it.
+    private static StaticSemanticsEvaluationResult DetermineDeclaredType(StaticEvaluationContext context, IndexExpressionNode index, VBType callee, ImmutableHashSet<VBClassType> restarted)
+    {
+        var expression = index;
 
         // what a call or an element evaluated to - `F()(1)` of a Function F() As Long - is a value, and a value of an intrinsic type other than Variant is
         // neither an array nor an object: MS-VBA rejects indexing it at compile time with a type mismatch (Excel-verified).
@@ -68,9 +75,19 @@ public sealed record class IndexExpressionStaticSemantics : IStaticSemantics
         {
             // a specific class needs a public default member to be callable this way: the class as the composition has it now (CurrentTypes).
             var classType = CurrentTypes.Of(context.Resolver, declaredClass);
-            return classType.DefaultMember is { } defaultMember
-                ? StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType)
-                : StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));
+            if (classType.DefaultMember is not { } defaultMember)
+            {
+                return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.MethodOrDataMemberNotFound, expression.Location, classType.Name));
+            }
+
+            // a default member that takes no parameters is called with none: the analysis restarts on what it returns, given the same argument list.
+            if (!IndexExpressionNode.IsEmptyArgumentList(index.Arguments) && ObjectValueStaticSemantics.ReturnsWhatArgumentsApplyTo(defaultMember)
+                && defaultMember.ResolvedType is VBClassType or VBObjectType or VBVariantType or VBArrayType && !restarted.Contains(classType))
+            {
+                return DetermineDeclaredType(context, index, defaultMember.ResolvedType, restarted.Add(classType));
+            }
+
+            return StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType);
         }
 
         // a name that nothing compiled declares, written with an argument list, is no implicit variable: the language server declares one for each name a

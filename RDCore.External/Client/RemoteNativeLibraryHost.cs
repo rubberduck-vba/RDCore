@@ -35,5 +35,5 @@ public sealed class RemoteNativeLibraryHost(ExternalHost host) : INativeLibraryH
     }
 
     /// <inheritdoc/>
-    public void Prepare() => _ = Task.Run(() => host.TryConnect(out _));
+    public void Prepare() => host.Prepare();
 }

@@ -135,7 +135,7 @@ public sealed class ReplQuestionWireTests
     // as the server reports the work it does while the shell comes up. The question was taken off the console as the user was reading it, and the server was
     // answered nothing. The progress is sent before the answer to a request the shell made, which the shell has read once it has its answer.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AQuestionTheShellIsAsking_IsAnswered_WhenTheServersProgressArrivesMeanwhile()
     {
         var progressSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

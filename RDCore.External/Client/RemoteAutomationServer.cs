@@ -254,7 +254,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
 
     // the external host is started on a thread of its own; a call that comes before it is up waits for it as it would have started it.
     /// <inheritdoc/>
-    public void Prepare() => _ = Task.Run(() => _host.TryConnect(out _));
+    public void Prepare() => _host.Prepare();
 
     /// <inheritdoc/>
     public object GetObject(SDK.Runtime.Abstract.Execution.ExternalObjectRequest request)
@@ -281,6 +281,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
 
     /// <inheritdoc/>
     public object? Invoke(object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, CultureInfo culture)
+        => Invoke(target, member, invocation, arguments, byReference, [], culture);
+
+    /// <inheritdoc/>
+    public object? Invoke(
+        object target, string member, AutomationInvocation invocation, object?[] arguments, bool[] byReference, IReadOnlyList<string> names, CultureInfo culture)
     {
         var remote = Live(target);
         var incarnation = remote.Incarnation;
@@ -296,6 +301,7 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
             Invocation = invocation,
             Arguments = [.. arguments.Select(argument => ExternalValues.ToWire(argument, value => HandleIn(incarnation, value)))],
             ByReference = byReference,
+            ArgumentNames = [.. names],
             Culture = culture.Name,
             HandlingEvent = _handlingEvent,
         });
@@ -371,7 +377,11 @@ public sealed class RemoteAutomationServer : IAutomationServer, Forms.IFormHost
     public void Advise(object source, IAutomationEventSink sink)
     {
         var remote = Live(source);
-        _sinks[(remote.Incarnation.Number, remote.Handle)] = sink;
+        if (!_sinks.TryAdd((remote.Incarnation.Number, remote.Handle), sink))
+        {
+            return;
+        }
+
         _ = Send<AutomationAdviseParams, ExternalDoneResult>(remote.Incarnation, ExternalProtocol.AutomationAdvise, new AutomationAdviseParams { Source = remote.Handle, HandlingEvent = _handlingEvent });
     }
 

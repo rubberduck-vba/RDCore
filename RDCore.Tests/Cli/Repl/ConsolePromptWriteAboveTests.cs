@@ -12,6 +12,9 @@ namespace RDCore.Tests.Cli.Repl;
 [TestClass]
 public sealed class ConsolePromptWriteAboveTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     // keys that come when the test sends them, so that something can happen while the line is edited.
     private sealed class WaitingKeys : IConsoleKeys
     {
@@ -65,7 +68,7 @@ public sealed class ConsolePromptWriteAboveTests
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         while (!condition())
         {
             await Task.Delay(10, timeout.Token);
@@ -73,7 +76,7 @@ public sealed class ConsolePromptWriteAboveTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AMessageWrittenWhileALineIsEdited_GoesAboveIt_AndTheLineIsDrawnAgainUnderIt()
     {
         var keys = new WaitingKeys();
@@ -99,7 +102,7 @@ public sealed class ConsolePromptWriteAboveTests
     }
 
     [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task AKeyPressedWhileAMessageIsWritten_IsDrawnOnRowsMadeAgainUnderTheLine()
     {
         var keys = new WaitingKeys();

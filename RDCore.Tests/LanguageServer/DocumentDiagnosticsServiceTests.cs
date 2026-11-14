@@ -179,7 +179,8 @@ public sealed class DocumentDiagnosticsServiceTests
         server.DidNotReceive().SendRequest("workspace/diagnostic/refresh");
 
         parsed.SetResult();
-        await loading.WaitAsync(TimeSpan.FromSeconds(20));
+        // a cap on a hang, not a budget: the wait is on the load itself, which a loaded machine finishes as late as it does.
+        await loading.WaitAsync(TimeSpan.FromMinutes(5));
         var loaded = await sut.GetAsync(uri, first.ResultId, CancellationToken.None);
 
         server.Received(1).SendRequest("workspace/diagnostic/refresh");

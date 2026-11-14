@@ -34,7 +34,8 @@ public sealed class CompiledSetFromCallTests
         ("Other", ModuleWorkspace.ClassModule("Other", "Option Explicit", "Public Name As String")),
     ];
 
-    // each pass Sets the variable to an object a function of the workspace returns, and lets go of the one before, last: its Terminate runs there.
+    // each pass Sets the variable to an object a function of the workspace returns, and lets go of the one before, last: its Terminate runs there. Compiled
+    // code makes the call; the Set that destroys an object is the interpreter's, with what the call returned known: the recoveries are passes 2 and 3.
     [TestMethod]
     public async Task ASetOfWhatAFunctionReturns_IsCompiled_AndTerminatesTheObjectItLetsGoOf()
         => await AssertAlikeAsync(Program(
@@ -51,9 +52,10 @@ public sealed class CompiledSetFromCallTests
             "        Set Item = Make(I)",
             "        Count = Count + I",
             "    Next",
-            "End Function"), [("Count", 0)], classes: Classes);
+            "End Function"), [("Count", 2)], classes: Classes);
 
-    // the factory of a class's default instance, and a member of an object variable that returns an object.
+    // the factory of a class's default instance, and a member of an object variable that returns an object. The factory is given a String, which a member
+    // call of compiled code is not: its Set is a support call. The recovery is the Set of Copy in pass 2, which destroys the twin of pass 1.
     [TestMethod]
     public async Task ASetOfWhatAMemberReturns_OfADefaultInstance_OrOfAnObjectVariable_IsCompiled()
         => await AssertAlikeAsync(Program(
@@ -67,7 +69,7 @@ public sealed class CompiledSetFromCallTests
             "        Set Copy = Item.Twin",
             "        Names = Names + I",
             "    Next",
-            "End Function"), [("Names", 0)], classes: Classes);
+            "End Function"), [("Names", 1)], classes: Classes);
 
     // the function result variable Set to what a call returns, and to a new object.
     [TestMethod]

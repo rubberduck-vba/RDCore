@@ -18,6 +18,9 @@ namespace RDCore.Tests.Cli;
 [TestClass]
 public sealed class InstallCommandTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private string _folder = null!;
     private string _root = null!;
     private string _home = null!;
@@ -290,11 +293,11 @@ public sealed class InstallCommandTests
         using (new FileStream(Path.Combine(_root, "install.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
         {
             installing = Command(tree, writer).ExecuteAsync([], CancellationToken.None);
-            await waiting.Task.WaitAsync(TimeSpan.FromMinutes(1));
+            await waiting.Task.WaitAsync(SafetyCap);
             Assert.IsFalse(Directory.Exists(Path.Combine(_root, "versions")), "nothing is deployed while another installation holds the root");
         }
 
-        Assert.AreEqual(0, await installing.WaitAsync(TimeSpan.FromMinutes(1)));
+        Assert.AreEqual(0, await installing.WaitAsync(SafetyCap));
         Assert.IsTrue(File.Exists(RdcOf("0.2.0")));
     }
 
@@ -434,7 +437,7 @@ public sealed class InstallCommandTests
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromMinutes(2));
+        await process.WaitForExitAsync().WaitAsync(SafetyCap);
 
         // 2 is rdc's own answer to a command it does not have: the apphost found rdc.dll and the runtime ran it.
         Assert.AreEqual(2, process.ExitCode, $"{await output}\n{await error}");

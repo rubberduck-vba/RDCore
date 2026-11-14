@@ -172,5 +172,6 @@ public static class CompileErrors
         [VBCompileErrorId.OutOfMemory] = Exceptions.VBCompileError_OutOfMemory,
         [VBCompileErrorId.UserDefinedTypeMayNotBePassedByVal] = Exceptions.VBCompileError_UserDefinedTypeMayNotBePassedByVal,
         [VBCompileErrorId.UserDefinedTypeNotCoercibleToVariant] = Exceptions.VBCompileError_UserDefinedTypeNotCoercibleToVariant,
+        [VBCompileErrorId.NoHostApplicationToEvaluateExpression] = Exceptions.VBCompileError_NoHostApplicationToEvaluateExpression,
     };
 }

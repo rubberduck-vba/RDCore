@@ -8,6 +8,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class DebugAdapterTransportTests
 {
+    // a cap on a hang, not a budget: each wait is on the event itself, which a loaded machine brings as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     [TestMethod]
     public async Task TheInput_PassesOnWhatTheClientSays_AndEndsWhenTheClientIsGone()
     {
@@ -20,6 +23,6 @@ public sealed class DebugAdapterTransportTests
 
         read = await transport.Input.ReadAsync(buffer);
         Assert.AreEqual(0, read);
-        await transport.InputEnded.WaitAsync(TimeSpan.FromSeconds(30));
+        await transport.InputEnded.WaitAsync(SafetyCap);
     }
 }

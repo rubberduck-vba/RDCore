@@ -87,6 +87,12 @@ them, and so is an enumerator written in VBA: a class whose `_NewEnum` (`VB_User
 object that has the two. Each loop has an enumerator of its own, so loops over the same object, nested or in turn, do
 not disturb one another; a member added to a `Collection` while a loop runs is not the loop's.
 
+**RD-VBA differs from MS-VBA:** a loop holds the object it walks until it is over. A `Set` to `Nothing` of the variable
+named after `In`, inside the loop (`Set c = Nothing` in `For Each v In c`), leaves the variable as it is while the loop
+runs: the loop reaches every member, and the variable still refers to the object after it. MS-VBA lets go of a
+`Collection` there, which is destroyed with the members the loop has not reached, and the loop ends.
+[RDC11035](../diagnostics/rdc11035.md) warns at such a `Set`.
+
 A member is Set-assigned to the control variable when it is an object and the control variable can hold one, and
 Let-assigned otherwise: a `Long` control is Let-coerced from a member that is a number.
 

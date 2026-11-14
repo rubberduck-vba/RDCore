@@ -16,6 +16,18 @@ internal static class AppHost
 
     public static string ExecutableName(string program, string runtime) => IsWindows(runtime) ? $"{program}.exe" : program;
 
+    // the pack a host is out of, and its version, by the pack's layout; the platform's pack, of no known version, for a host found elsewhere.
+    public static (string Pack, string Version) PackOf(string host, string runtime)
+    {
+        var version = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(host))));
+        var pack = Path.GetFileName(Path.GetDirectoryName(version));
+        return version is not null && pack is not null && pack.StartsWith(PackPrefix, StringComparison.Ordinal)
+            ? (pack, Path.GetFileName(version))
+            : ($"{PackPrefix}{runtime}", "-");
+    }
+
+    private const string PackPrefix = "Microsoft.NETCore.App.Host.";
+
     public static string? Find(string runtime, string? dotnetRoot = null)
     {
         var root = dotnetRoot ?? DotnetRoot();
@@ -24,7 +36,7 @@ internal static class AppHost
             return null;
         }
 
-        var pack = Path.Combine(root, "packs", $"Microsoft.NETCore.App.Host.{runtime}");
+        var pack = Path.Combine(root, "packs", $"{PackPrefix}{runtime}");
         if (!Directory.Exists(pack))
         {
             return null;

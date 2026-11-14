@@ -19,6 +19,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.Runtime.LanguageCore.Plans;
+using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
@@ -55,7 +56,7 @@ namespace RDCore.Runtime.Compiled;
 /// <para>
 /// The interpreter steps a block whose state the frame holds too (IR lowering S2.5b): a <c>With</c> and its <c>End With</c>, and each statement in it
 /// that uses its object; a <c>For Each</c> and its <c>Next</c>; a <c>Select Case</c> of a selector that is no scalar, or that compiled code does not
-/// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> held is let go of where compiled code goes on outside it (<see cref="BlockExits"/>).
+/// evaluate, and its <c>Case</c>s; and a <c>Case</c> compiled code does not compare. What a <c>For Each</c> holds is let go of where an <c>Exit For</c> leaves it (<see cref="LeavesForEach"/>).
 /// </para>
 /// <para>
 /// A <c>Variant</c> parameter or variable is held in the cell its frame holds it in, which compiled code reads and writes
@@ -258,8 +259,17 @@ internal sealed partial class ProcedureAnalysis
         foreach (var instruction in list.Items)
         {
             var before = _reasons.Count;
+            if (instruction is { Kind: InstructionKind.ForEachOpener, End: { } past })
+            {
+                _forEachBlocks.Add((instruction.Offset, past));
+            }
+
             EnterBlockOf(list, instruction);
-            var step = AnalyzeInstruction(instruction);
+
+            // a Set to Nothing of the variable a For Each walks, inside the loop, is the interpreter's: it leaves the variable as it is while the loop runs.
+            var step = ForEachCollectionStaticSemantics.LoopsWhoseCollectionItSetsToNothing(list, instruction.Offset).Any()
+                ? SupportCallOf(instruction, before)
+                : AnalyzeInstruction(instruction);
 
             // what compiled code does not do of an instruction the interpreter can run alone, the interpreter does (IR lowering S2.5a): the reasons are
             // the instruction's, and not the procedure's.
@@ -303,10 +313,7 @@ internal sealed partial class ProcedureAnalysis
         {
             _reasons.AddRange(_stepped);
             _stepped.Clear();
-            return;
         }
-
-        FindBlockExits(list);
     }
 
     // what compiled code does of a body that steps instructions. For each instruction it steps in a loop, the innermost loop around that instruction must
@@ -331,7 +338,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             or PrintStep
             || (step is SelectStep && compared.Contains(step.Offset));
@@ -377,41 +384,6 @@ internal sealed partial class ProcedureAnalysis
         or InstructionKind.Halt or InstructionKind.Break or InstructionKind.With or InstructionKind.EndWith or InstructionKind.ForEachOpener
         or InstructionKind.ForEachNext or InstructionKind.Select;
 
-    private readonly HashSet<int> _blockExits = [];
-
-    /// <summary>
-    /// Where compiled code lands outside a <c>For Each</c> it jumps out of - a jump, a branch or a <c>GoSub</c> inside the block to an instruction past
-    /// it - where what the block held is let go of, as the interpreter lets go of it before the instruction (<c>CompiledActivation.LeaveBlocks</c>).
-    /// </summary>
-    public IReadOnlySet<int> BlockExits => _blockExits;
-
-    /// <summary>Whether the body has a <c>For Each</c>, whose enumerator a <c>Return</c> out of it lets go of too.</summary>
-    public bool HasForEach { get; private set; }
-
-    private void FindBlockExits(InstructionList list)
-    {
-        foreach (var opener in list.Items)
-        {
-            if (opener is not { Kind: InstructionKind.ForEachOpener, End: { } end })
-            {
-                continue;
-            }
-
-            HasForEach = true;
-            for (var offset = opener.Offset + 1; offset < end; offset++)
-            {
-                var instruction = list.Items[offset];
-                IEnumerable<int?> targets = instruction.Targets.IsDefault ? [] : instruction.Targets;
-                foreach (var target in targets.Append(instruction.Target).Append(instruction.Else))
-                {
-                    if (target is { } at && (at < opener.Offset || at >= end))
-                    {
-                        _blockExits.Add(at);
-                    }
-                }
-            }
-        }
-    }
 
     private readonly List<Ineligibility> _stepped = [];
 
@@ -781,7 +753,7 @@ internal sealed partial class ProcedureAnalysis
                     return textSlotAssigned;
                 }
 
-                return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
+                return Text(assigned) is { } text ? AppendOf(offset, textSlot, text) ?? (CompiledStep)new TextLetStep(offset, textSlot, text) : null;
 
             // the result of a function of the String type, assigned the text as it is where its frame holds it, or what a call returns, once the call
             // returned, as the interpreter assigns it.
@@ -891,7 +863,7 @@ internal sealed partial class ProcedureAnalysis
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: BoundInstance { Slot: { } me }, IsLateBound: false }
             && MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot)
         {
-            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns);
+            return MemberCallWith(call, result, offset, resultKind, meSlot, assigns, returnsObject);
         }
 
         if (call is { DeclaredClass: not null, Member: VBProcedureMemberSymbol or VBFunctionMemberSymbol or VBPropertyGetMemberSymbol, Owner: null, IsLateBound: false }
@@ -939,8 +911,10 @@ internal sealed partial class ProcedureAnalysis
             return null;
         }
 
-        // a member called with no parentheses is given no argument; one written with them is given the arguments bound for it.
-        var arguments = call.BoundArguments ?? (call.Arguments is null ? [] : default);
+        // a member called with no parentheses is given no argument, each Optional parameter left out as the interpreter binds it (MS-VBAL §5.3.1.11); one
+        // written with them is given the arguments bound for it.
+        var arguments = call.BoundArguments
+            ?? (call.Arguments is null ? ArgumentMapping.Bind([.. parameters.Skip(1)], [], static _ => null, static _ => null) ?? default : default);
         if (arguments.IsDefault || arguments.Length != parameters.Length - 1)
         {
             return null;
@@ -1273,19 +1247,27 @@ internal sealed partial class ProcedureAnalysis
     // a type whose values are object references: Object, a class or an interface.
     private static bool IsObjectType(VBType? type) => type is VBObjectType or VBClassType;
 
-    // an operand of Is compiled code reads: an object variable of the activation, by its slot, or Nothing, which is no slot. Any other is the interpreter's.
-    private bool TryObjectOperand(BoundNode operand, out int? slot)
+    // an operand of Is compiled code reads: an object variable of the activation or Me, by its slot, or Nothing, which is no slot. The default instance of a class
+    // of the workspace (MS-VBAL §5.2.4.1.2) is read in the cell the session holds it in, as an object field is (defaultInstance): it is made when it is read
+    // (MS-VBAL §5.2.3.1.4), and one that holds no object yet is the interpreter's to make. Any other is the interpreter's.
+    private bool TryObjectOperand(BoundNode operand, out int? slot, out bool defaultInstance)
     {
-        slot = null;
+        (slot, defaultInstance) = (null, false);
         switch (operand)
         {
             case BoundVariable variable when ObjectSlotOf(variable) is { } held:
                 slot = held;
                 return true;
+            case BoundInstance { Slot: { } me } when MeSlot is { } meSlot && ReferenceEquals(me.Layout, _layout) && me.Index == meSlot:
+                slot = meSlot;
+                return true;
+            case BoundVariable { Variable: VBPredeclaredInstanceSymbol } instance when FieldSlotOf(instance, receiver: true) is { } made && _objectSlots.Contains(made):
+                (slot, defaultInstance) = (made, true);
+                return true;
             case BoundLiteral { Literal.StaticValue: VBObjectValue nothing } when nothing.IsNothing():
                 return true;
             case BoundUnary { Operation.Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp, Operand: var enclosed }:
-                return TryObjectOperand(enclosed, out slot);
+                return TryObjectOperand(enclosed, out slot, out defaultInstance);
             default:
                 Unsupported(operand);
                 return false;
@@ -1394,8 +1376,8 @@ internal sealed partial class ProcedureAnalysis
 
             // MS-VBAL §5.6.9.7: two object references compared as they are.
             case BoundBinary { Operation.Token: Tokens.CompareIsOp } compared:
-                return TryObjectOperand(compared.Left, out var leftObject) && TryObjectOperand(compared.Right, out var rightObject)
-                    ? new IsNode(leftObject, rightObject)
+                return TryObjectOperand(compared.Left, out var leftObject, out var leftMade) && TryObjectOperand(compared.Right, out var rightObject, out var rightMade)
+                    ? new IsNode(leftObject, rightObject, leftMade, rightMade)
                     : null;
 
             // MS-VBAL §5.6.7: what TypeOf tests is the interpreter's own test (RuntimeExpressionEvaluator.IsInstanceOf).

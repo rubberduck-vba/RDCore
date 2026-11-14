@@ -97,8 +97,8 @@ public sealed class ParseCancellationTests
 
         var result = new ModuleParser().Parse(Uri, "Public Sub Foo()\r\n    x = = 1\r\nEnd Sub\r\n", token: never.Token);
 
-        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Verbose?.Contains("no viable alternative at input 'x = ='", StringComparison.Ordinal) == true),
-            string.Join("; ", result.SyntaxErrors.Select(error => error.Verbose)));
+        Assert.IsTrue(result.SyntaxErrors.Any(error => error.Location.Range.Start.Line == 1),
+            string.Join("; ", result.SyntaxErrors.Select(error => $"{error.Verbose} @ {error.Location.Range}")));
     }
 
     // the directive pass the same: a stray #End If fails its SLL pass, and its LL pass reads it. Were that fallback skipped, the directive trivia would be

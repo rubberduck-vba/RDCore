@@ -127,6 +127,39 @@ reached late-bound that has no `Property Let` is assigned as MS-VBA's `IDispatch
 member written with arguments invoked, to assign the default member of what it returns
 ([**RD-VBAL §6.0** Late-Bound Calls](rd-vbal.6.0.standard-library.md#late-bound-calls)).
 
+#### An object as the value of a property
+
+**RD-VBA differs from MS-VBAL:** an object given to a `Property Let` (or a property of a library object) whose value parameter is a `Variant`, a
+class or `Object` is passed as the object, early bound and late bound, as in MS-VBA (recorded in Excel). **MS-VBAL §5.4.3.8** evaluates it as a
+simple data value, its default member's value, which for a class or `Object` parameter is a type mismatch (**MS-VBAL §5.5.1.1**) or run-time
+error 424 (**MS-VBAL §5.5.1.2.13**; 91 for `Nothing`).
+
+|Value parameter|What it is given|
+|---|---|
+|`Object`|The object, or `Nothing`, with or without a default member.|
+|A class|The object, as a `Set` would give it. An object of another class is run-time error 13.|
+|`Variant`|The object, or `Nothing`.|
+
+A value that is not an object, given to a class or `Object` parameter, is a type mismatch: a compile error when its declared type is not `Variant`,
+run-time error 424 when a `Variant` holds it, and run-time error 13 late bound. A property that has both a `Property Let` and a `Property Set` runs
+its `Property Let` for a `Let`.
+
+What happens to an object given to a `Variant` parameter is up to the property:
+
+|Property|`Nothing`|An object with a default member|
+|---|---|---|
+|A `Property Let Item(ByVal v As Variant)` of a class|The parameter holds `Nothing`.|The parameter holds the object.|
+|`Scripting.Dictionary.Item`|Run-time error 91.|The default member's value.|
+|`Excel.Range.Value`|Run-time error 1004.|Another range of one cell: its value. Another range of several cells: the cells are left `Empty`.|
+
+A value parameter of any other type is given the default member's value. An object with no default member raises run-time error 438 early bound and
+run-time error 13 late bound, as the `IDispatch` the call goes through makes it. A Let to a `Variant` variable or a public `Variant` variable of an object assigns the
+default member's value, as the specification says.
+
+> [!NOTE]
+> **Not implemented.** A `Collection` given to a `Dictionary`'s `Item` raises run-time error -2147467259 (`E_FAIL`), where MS-VBA raises 450: RD-VBA's
+> `Collection`, read through `IDispatch` with no argument, answers with the error of a missing argument (449), and MS-VBA's answers with `DISP_E_BADPARAMCOUNT`.
+
 ### Elements of an array
 
 `a(i, j) = value`, and `obj.Items(i) = value` when the array is what a public variable of an object holds

@@ -202,7 +202,7 @@ internal static class ExtractionParameters
             return ([.. chosen.Select(each => new ExtractionParameterChoice(each.Parameter.Variable, each.Name, each.Passing, []))], null);
         }
 
-        var syntax = context.Modules.FirstOrDefault(candidate => candidate.Module == module);
+        var syntax = context.Modules.FirstOrDefault(candidate => candidate.Module.AbsoluteUri == module.AbsoluteUri);
         var declared = ExtractMethodEdit.NewProcedureNamesOf(plan, source, name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var selection = plan.Selection.Range;
         bool InTheSelection(SourceRange range) => range.Start >= selection.Start && range.End <= selection.End;

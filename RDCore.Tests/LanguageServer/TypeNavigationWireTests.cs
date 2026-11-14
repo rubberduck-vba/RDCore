@@ -30,6 +30,9 @@ namespace RDCore.Tests.LanguageServer;
 [TestClass]
 public sealed class TypeNavigationWireTests
 {
+    // a cap on a hang, not a budget: each wait is on the answer itself, which a loaded machine gives as late as it does.
+    private static readonly TimeSpan SafetyCap = TimeSpan.FromMinutes(5);
+
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "rdcore-type-navigation-wire-ws");
 
     private const string IShape = "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"IShape\"\r\n"
@@ -65,10 +68,10 @@ public sealed class TypeNavigationWireTests
     }
 
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task ATypeDefinition_AndAnImplementation_AreAnsweredOverTheWire()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server => server
@@ -100,10 +103,10 @@ public sealed class TypeNavigationWireTests
 
     // an item goes to the client and comes back: what the client sends back is enough to find it again.
     [TestMethod]
-    [Timeout(60_000, CooperativeCancellation = true)]
+    [Timeout(600_000, CooperativeCancellation = true)]
     public async Task TheCallHierarchy_AndTheTypeHierarchy_AreAnsweredOverTheWire()
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(SafetyCap);
         var toServer = new Pipe();
         var toClient = new Pipe();
         var serving = OmniSharpLanguageServer.From(server => server

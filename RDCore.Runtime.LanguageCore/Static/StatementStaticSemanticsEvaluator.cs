@@ -72,6 +72,11 @@ public static class StatementStaticSemanticsEvaluator
                 continue;
             }
 
+            if (SplitBlockErrorOf(child, walk.Options) is { } split)
+            {
+                walk.Errors.Add(split);
+            }
+
             switch (child)
             {
                 case LineLabelNode label:
@@ -85,12 +90,16 @@ public static class StatementStaticSemanticsEvaluator
                 // written with - Dim x$ and Dim x% - is how its type is said, not a different name.
                 case VariableDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.SourceLocation);
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 case ConstantDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 case ParameterDeclarationNode { Name: var name } declaration:
                     ReportDuplicateDeclaration(walk, name, declaration.Location);
+                    // the default of an optional parameter is a constant expression of the procedure's header (MS-VBAL §5.3.1.5), a Declare's too.
+                    EvaluateDeclarationExpressions(context, declaration, walk);
                     goto default;
                 default:
                     if (child is StatementNode statement)
@@ -101,6 +110,69 @@ public static class StatementStaticSemanticsEvaluator
                     break;
             }
         }
+    }
+
+    // the value of a constant and the bounds of an array that a procedure declares are expressions of its code, as its statements are: evaluated for what the
+    // names in them refer to. What is wrong with them is the declaration's to report (DeclaredSizeStaticSemantics, the constant's own evaluation).
+    private static void EvaluateDeclarationExpressions(StaticEvaluationContext context, SyntaxNode declaration, Walk walk)
+    {
+        if (walk.Structural)
+        {
+            return;
+        }
+
+        foreach (var expression in DeclarationExpressions(declaration))
+        {
+            _ = ExpressionStaticSemanticsEvaluator.Evaluate(context, expression);
+        }
+    }
+
+    // the expressions of a declaration: the value of a constant, the bounds of an array, the default of an optional parameter.
+    internal static IEnumerable<ExpressionNode> DeclarationExpressions(SyntaxNode declaration)
+        => (declaration.Children.IsDefault ? [] : declaration.Children).SelectMany(IEnumerable<ExpressionNode> (child) => child switch
+        {
+            ArrayBoundsNode { Bounds: { IsDefault: false } bounds } => bounds.SelectMany(bound => new[] { bound.LowerExpression, bound.UpperExpression }).OfType<ExpressionNode>(),
+            // a type is no value, and a name written in an As clause is a type.
+            AsTypeExpressionNode => [],
+            ExpressionNode value => [value],
+            _ => [],
+        });
+
+    // MS-VBAL §3.4.2: the parser reads every branch, so a block can be opened on one side of an excluded branch and closed on the other. The tree has the
+    // block, and the code MS-VBA compiles does not: a live opening statement whose end is excluded is not closed, and a live end whose opening statement is
+    // excluded closes no block. Each is reported at its live statement, with MS-VBA's description; a block with both ends excluded and live code between them is
+    // reported where that code begins.
+    private static VBCompileErrorInfo? SplitBlockErrorOf(SyntaxNode node, StaticSemanticsOptions options)
+    {
+        (VBCompileErrorId Opened, VBCompileErrorId Closed)? block = node switch
+        {
+            IfBlockStatementNode => (VBCompileErrorId.BlockIfWithoutEndIf, VBCompileErrorId.EndIfWithoutBlockIf),
+            ForStatementNode or ForEachStatementNode => (VBCompileErrorId.ForWithoutNext, VBCompileErrorId.NextWithoutFor),
+            DoLoopStatementNode or DoLoopUntilStatementNode or DoLoopWhileStatementNode or DoUntilLoopStatementNode or DoWhileLoopStatementNode
+                => (VBCompileErrorId.DoWithoutLoop, VBCompileErrorId.LoopWithoutDo),
+            WithStatementNode => (VBCompileErrorId.ExpectedEndWith, VBCompileErrorId.EndWithWithoutWith),
+            SelectCaseStatementNode => (VBCompileErrorId.SelectCaseWithoutEndSelect, VBCompileErrorId.SyntaxError),
+            WhileWendStatementNode => (VBCompileErrorId.SyntaxError, VBCompileErrorId.SyntaxError),
+            _ => null,
+        };
+
+        if (block is not (var opened, var closed))
+        {
+            return null;
+        }
+
+        var range = node.SourceLocation.Range;
+        (VBCompileErrorId Id, SourcePosition At)? error = (options.DeadRangeAt(range.Start), options.DeadRangeAt(range.End)) switch
+        {
+            (null, null) => null,
+            (null, not null) => (opened, range.Start),
+            (not null, null) => (closed, range.End),
+            ({ } start, not null) => (VBCompileErrorId.SyntaxError, start.End),
+        };
+
+        return error is (var id, var at)
+            ? VBCompileErrorInfo.For(id, node.SourceLocation with { Range = new SourceRange(at, at) }, Exceptions.VBCompileError_BlockEndsInAnotherBranch_Verbose)
+            : null;
     }
 
     private static void ReportDuplicateDeclaration(Walk walk, string name, SourceLocation location)
@@ -258,6 +330,17 @@ public static class StatementStaticSemanticsEvaluator
                 && !(valueResult.Result is VBStringType && itemType is VBByteType))
             {
                 walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.CantAssignToArray, assignment.Target.Location, arrayName.IdentifierName));
+                return;
+            }
+
+            // RD-VBAL §5.4.3.8: a property whose Property Let takes a class or Object is given the object a Let assigns, as a Set would give it (MS-VBA,
+            // recorded in Excel), where MS-VBAL §5.5.1.1 makes the Let-coercion of an object to an object type invalid: an object is checked as a Set
+            // checks it, and any other value as the Let-coercion it is (a number is a type mismatch).
+            if (isLet && targetResult.IsSuccess && valueResult.IsSuccess
+                && LetValueParameterTypeOf(context, assignment) is { } objectParameter && objectParameter is VBClassType or VBObjectType)
+            {
+                var objectCoercion = valueResult.Result is VBClassType or VBObjectType ? SetCoercionStaticSemantics.Instance : LetCoercionStaticSemantics.Instance;
+                CollectError(objectCoercion.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, objectParameter), walk);
                 return;
             }
 
@@ -431,7 +514,7 @@ public static class StatementStaticSemanticsEvaluator
             // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
             if (statement is CallStatementNode callStatement)
             {
-                if (NotAProcedureError(context, callStatement) is { } notAProcedure)
+                if ((NotAProcedureError(context, callStatement) ?? PropertyCalledError(context, callStatement)) is { } notAProcedure)
                 {
                     walk.Errors.Add(notAProcedure);
                 }
@@ -450,7 +533,7 @@ public static class StatementStaticSemanticsEvaluator
                 // the arguments of the statement may be taken by reference like those of a call written as an expression, unless the callee is an array.
                 if (context.Facts is { } facts && facts.TryGet(callStatement.Callee.Identity, out var callee) && callee.DeclaredType is not VBArrayType)
                 {
-                    ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Arguments);
+                    ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, callStatement.Callee, callStatement.Arguments);
                     ObjectVariableArgumentStaticSemantics.MarkPassedAsCopies(context, callStatement.Callee, callStatement.Arguments);
                 }
 
@@ -522,6 +605,7 @@ public static class StatementStaticSemanticsEvaluator
                 break;
             case ForEachStatementNode forEachStatement:
                 EvaluateLoopBody(context, forEachStatement.Body, walk, isForLoop: true, forEachStatement.ControlExpression);
+                MarkCollectionSetToNothing(context, forEachStatement);
                 break;
             case SelectCaseStatementNode selectCase:
                 foreach (var caseExpressionBlock in selectCase.CaseExpressionBlocks)
@@ -614,6 +698,54 @@ public static class StatementStaticSemanticsEvaluator
             : VBCompileErrorInfo.For(VBCompileErrorId.ExpectedProcedureNotVariable, call.Callee.Location, name);
     }
 
+    // MS-VBAL §5.4.2.1: a call statement calls a subroutine or a function, and a property is neither. MS-VBA refuses one bound early, with Call or without, with
+    // arguments or without: "Invalid use of property" (recorded in Excel). One bound late is run-time error 450. With Call, an argument list the property cannot
+    // take indexes the object it returns, on its default member (MS-VBAL §5.6.13), which is what the statement calls.
+    private static VBCompileErrorInfo? PropertyCalledError(StaticEvaluationContext context, CallStatementNode call)
+    {
+        var indexed = call.IsExplicitCall ? call.Callee as IndexExpressionNode : null;
+        var callee = indexed?.Callee ?? call.Callee;
+        if (PropertyNamedBy(context, callee) is not { } property
+            || indexed is not null && !IndexExpressionNode.IsEmptyArgumentList(indexed.Arguments) && !OwnParametersOf(property).Any())
+        {
+            return null;
+        }
+
+        return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, callee.Location, property.Name);
+    }
+
+    private static VBTypeMemberSymbol? PropertyNamedBy(StaticEvaluationContext context, ExpressionNode callee)
+    {
+        Symbol? symbol = callee switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access
+                when ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, owner) is { IsSuccess: true, Result: VBClassType ownerClass }
+                => PropertyOf(context, ownerClass, access),
+            // a member of the target of the enclosing With block (MS-VBAL §5.6.15).
+            MemberAccessExpressionNode { Owner: null } access when context.EnclosingWithTargetType is VBClassType withTarget => PropertyOf(context, withTarget, access),
+            _ => null,
+        };
+
+        return symbol is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? (VBTypeMemberSymbol)symbol : null;
+    }
+
+    private static VBTypeMemberSymbol? PropertyOf(StaticEvaluationContext context, VBClassType owner, MemberAccessExpressionNode access)
+        => Expressions.MemberAccessExpressionStaticSemantics.CurrentMembersOf(context, owner).FirstOrDefault(member
+            => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                && member is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
+
+    // the parameters a call gives arguments to: a member of a class has an implicit Me at parameter 0, which is the object the call is on.
+    private static IEnumerable<VBParameterSymbol> OwnParametersOf(VBTypeMemberSymbol member)
+        => (member switch
+        {
+            VBReturningMemberSymbol returning => returning.Parameters,
+            VBProcedureMemberSymbol procedure => procedure.Parameters,
+            _ => [],
+        }).Where(parameter => !(parameter.Name == Tokens.Me && parameter.ParameterKind == ParameterKind.ImplicitByRef));
+
     // the variables a file statement reads into (MS-VBAL §5.4.5): every variable of an Input #, the variable of a Line Input # and of a Get #, which is its last
     // operand, after the file number and the record number, written or not.
     private static IEnumerable<ExpressionNode> ReadIntoBy(StatementNode statement) => statement switch
@@ -703,12 +835,12 @@ public static class StatementStaticSemanticsEvaluator
             argumentTypes[i] = result.IsSuccess ? result.Result : null;
         }
 
-        // a handler of the event may write to what it is given by reference, as a procedure called may: Cancel, say.
-        ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, arguments);
-
         var declared = context.Scope.SelfAndAncestors()
             .FirstOrDefault(scope => scope.Kind == LexicalScopeKind.Module)?
             .DeclaredAs(eventName.IdentifierName).OfType<VBEventMemberSymbol>().FirstOrDefault();
+
+        // a handler of the event may write to what it is given by reference, as a procedure called may: Cancel, say.
+        ExpressionStaticSemanticsEvaluator.MarkPassedAsArguments(context, declared?.Parameters, arguments, recordsParameters: false);
         if (declared is null)
         {
             walk.Errors.Add(VBCompileErrorInfo.For(VBCompileErrorId.EventNotDefined, eventName.Location,
@@ -1174,6 +1306,13 @@ public static class StatementStaticSemanticsEvaluator
         return accessor is { Parameters: [.., var value] } ? value.ResolvedType : evaluated;
     }
 
+    // the declared type of the value parameter of the Property Let the target of a Let names; null when it names no property with one.
+    private static VBType? LetValueParameterTypeOf(StaticEvaluationContext context, AssignmentStatementNode assignment)
+    {
+        var property = assignment.Target is IndexExpressionNode { Callee: var called } ? called : assignment.Target;
+        return AccessorsOf(context, property)?.OfType<VBPropertyLetMemberSymbol>().FirstOrDefault() is { Parameters: [.., var value] } ? value.ResolvedType : null;
+    }
+
     // the accessors of the property the target names, and whatever else the module declares of the name; none when the target names no property, or names
     // the procedure it is assigned in.
     private static VBTypeMemberSymbol[]? AccessorsOf(StaticEvaluationContext context, ExpressionNode target)
@@ -1238,6 +1377,24 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         return members;
+    }
+
+    // a Set to Nothing of the variable the loop walks, inside the loop, which RD-VBA leaves as it is while the loop runs (ForEachCollectionStaticSemantics):
+    // the fact is the Set's target, marked once the body has recorded it.
+    private static void MarkCollectionSetToNothing(StaticEvaluationContext context, ForEachStatementNode loop)
+    {
+        if (context.Facts is not { } facts)
+        {
+            return;
+        }
+
+        foreach (var set in ForEachCollectionStaticSemantics.SetsToNothingOfItsCollection(loop))
+        {
+            if (facts.TryGet(set.Target.Identity, out var fact))
+            {
+                facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.CollectionSetToNothingInItsOwnLoop });
+            }
+        }
     }
 
     // MS-VBAL §5.4.3.9: a function, or a property that has no Property Set, named as the target of a Set outside its own body is called, and what it returns
