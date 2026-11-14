@@ -234,6 +234,30 @@
   <data name="IsMissingAlwaysFalse_HasADefault" xml:space="preserve">
     <value>doté d'une valeur par défaut</value>
   </data>
+  <data name="IsMissingAlwaysFalse_NotAParameter_Message" xml:space="preserve">
+    <value>IsMissing({0}) est toujours False : '{0}' est {1}, qui ne contient jamais la valeur Missing. IsMissing indique si un paramètre Variant n'a reçu aucun argument.</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_AVariableNotAVariant" xml:space="preserve">
+    <value>une variable autre qu'un Variant</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_AConstant" xml:space="preserve">
+    <value>une constante</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_Message" xml:space="preserve">
+    <value>IsMissing({0}) n'indique pas si un argument a été omis : '{0}' est {1}, qui ne contient la valeur Missing que si on la lui donne depuis un paramètre Optional dont l'argument a été omis. Pour vérifier si un argument a été omis, déclarez le paramètre Optional.</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_RequiredParameter" xml:space="preserve">
+    <value>un paramètre Variant obligatoire</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_Variable" xml:space="preserve">
+    <value>une variable Variant</value>
+  </data>
+  <data name="IsMissingOfAVariantThatIsNotOptional_Fix" xml:space="preserve">
+    <value>Déclarer le paramètre '{0}' Optional, ce qui permet à un appel de l'omettre</value>
+  </data>
+  <data name="IsMissingAlwaysFalse_Fix" xml:space="preserve">
+    <value>Remplacer 'IsMissing({0})' par False</value>
+  </data>
   <data name="ShadowedDeclaration_Message" xml:space="preserve">
     <value>'{0}' masque '{1}': dans cette procédure, le nom désigne '{0}', et '{1}' partout ailleurs. Donnez à '{0}' un nom bien à lui.</value>
   </data>

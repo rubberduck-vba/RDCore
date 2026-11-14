@@ -280,6 +280,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00213](rdc00213.md)|Line continuation between keywords|A keyword of two words, such as `End If`, split over several lines|
 |[RDC00214](rdc00214.md)|Procedure can be written as a function|A `Sub` that gives its result back through its only `ByRef` parameter|
 |[RDC00215](rdc00215.md)|Self-assigned declaration|A variable declared `As New`|
+|[RDC00218](rdc00218.md)|IsMissing of a Variant that is not Optional|IsMissing of a required Variant parameter, or of a Variant variable|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
 |[RDC00303](rdc00303.md)|Obsolete comment syntax|A comment written with the Rem keyword|
 |[RDC00304](rdc00304.md)|Obsolete error syntax|An Error statement|

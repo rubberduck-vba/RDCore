@@ -452,6 +452,8 @@
   href: rdc00214.md
 - name: "RDC00215: Self-assigned declaration"
   href: rdc00215.md
+- name: "RDC00218: IsMissing of a Variant that is not Optional"
+  href: rdc00218.md
 - name: "RDC00302: Obsolete Call statement"
   href: rdc00302.md
 - name: "RDC00303: Obsolete comment syntax"

@@ -59,6 +59,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObsoleteCallStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, NotAllPathsReturnValueAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, IsMissingAlwaysFalseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, IsMissingOfAVariantThatIsNotOptionalAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ShadowedDeclarationAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, LineContinuationBetweenKeywordsAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ProcedureCanBeWrittenAsFunctionAnalyzer>();
