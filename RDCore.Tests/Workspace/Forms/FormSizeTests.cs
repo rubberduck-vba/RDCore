@@ -59,6 +59,29 @@ public sealed class FormSizeTests
         return ("SizeForm", source, FormDesigner.Read(source, FormHostingTests.Fixture("ExampleView.frx"))!);
     }
 
+    // a form whose designer block is all there is of its designer: no .frx.
+    private static (string Name, string Source, FormDescriptor Designer) StatelessForm(int clientWidth, int clientHeight)
+    {
+        var source = string.Join("\r\n",
+            "VERSION 5.00",
+            "Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} SizeForm ",
+            "   Caption         =   \"SizeForm\"",
+            $"   ClientHeight    =   {clientHeight}",
+            "   ClientLeft      =   120",
+            "   ClientTop       =   465",
+            $"   ClientWidth     =   {clientWidth}",
+            "   StartUpPosition =   1  'CenterOwner",
+            "End",
+            "Attribute VB_Name = \"SizeForm\"",
+            "Attribute VB_GlobalNameSpace = False",
+            "Attribute VB_Creatable = False",
+            "Attribute VB_PredeclaredId = True",
+            "Attribute VB_Exposed = False",
+            "Option Explicit",
+            string.Empty);
+        return ("SizeForm", source, FormDesigner.Read(source)!);
+    }
+
     // what the program prints of each value: a number with Str (no locale), as the measuring probe did.
     private static string Program(params string[] body)
         => "Attribute VB_Name = \"Program\"\r\nPrivate Sub P(ByVal x As Variant)\r\n"
@@ -97,6 +120,22 @@ public sealed class FormSizeTests
 
         CollectionAssert.AreEqual(
             new[] { "212.25", "179.25", "328.2", "235.8", "-3.75", "-4.5", "212.25", "179.25", "328.2", "235.8" }, printed, string.Join(" | ", printed));
+    }
+
+    // a form with no designer state is as big as its designer block's client area, from Initialize on: Excel reads the same of a form whose .frx agrees
+    // with its designer block (6660 x 5700 twips is 333 x 285 points). The frame is the window's, and a Width written from it sizes the form.
+    [TestMethod]
+    public async Task AFormWithNoDesignerState_IsItsDesignerBlocksClientArea()
+    {
+        RequireMeasuredDpi();
+
+        var printed = await RunAsync(StatelessForm(clientWidth: 6660, clientHeight: 5700),
+            "P SizeForm.Width", "P SizeForm.InsideWidth", "P SizeForm.Height", "P SizeForm.InsideHeight",
+            "SizeForm.Width = 444 + (SizeForm.Width - SizeForm.InsideWidth)", "P SizeForm.Width", "P SizeForm.InsideWidth",
+            "SizeForm.Height = 392 + (SizeForm.Height - SizeForm.InsideHeight)", "P SizeForm.Height", "P SizeForm.InsideHeight");
+
+        CollectionAssert.AreEqual(
+            new[] { "345", "333", "314.25", "285", "456", "444", "421.25", "392.25" }, printed, string.Join(" | ", printed));
     }
 
     [TestMethod]

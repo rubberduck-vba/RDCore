@@ -193,6 +193,14 @@ internal sealed class HostedForm
             _ = Marshal.Release(storage);
         }
 
+        // a form with no designer state is as big as its designer block's client area, which is then all that says how big it is: what InsideWidth and
+        // InsideHeight read from Initialize on. A form that has one keeps the size it has there (Excel-measured).
+        if (_definition.State.IsEmpty && _client is { } designed)
+        {
+            var extent = new Size { Width = (int)Math.Round(designed.Width * HimetricPerInch / 72), Height = (int)Math.Round(designed.Height * HimetricPerInch / 72) };
+            _ = ole.SetExtent(Ole.ContentAspect, ref extent);
+        }
+
         var dpi = Desktop.GetDpiForWindow(Window);
         Size(dpi);
 
