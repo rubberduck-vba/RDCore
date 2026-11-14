@@ -10,7 +10,6 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Semantics.Flags;
-using Range = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -55,11 +54,7 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
                 Fixes = edits.All(member => member is not null)
                     ? new DiagnosticFixes
                     {
-                        Edit = new EditFix
-                        {
-                            Title = AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementedInterfaceMember_Fix, name),
-                            Edits = [.. edits.SelectMany(member => member!)],
-                        },
+                        Edit = SyntaxEdits.Fix(AnalyzerMessages.Format(RDCoreDiagnosticsResources.ImplementedInterfaceMember_Fix, name), [.. edits.SelectMany(member => member!)]),
                     }
                     : null,
             },
@@ -115,7 +110,7 @@ internal sealed class ImplementedInterfaceMemberAnalyzer : IModuleAnalyzer
             }
             else if (from is { } start)
             {
-                edits.Add(new TextEdit { Range = new Range(start, 0, line, 0), NewText = string.Empty });
+                edits.Add(SyntaxEdits.Remove(SyntaxEdits.LinesThrough(start, line - 1)));
                 from = null;
             }
         }
