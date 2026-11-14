@@ -218,10 +218,15 @@ public sealed class LetAssignmentEvaluator(
             held = wrapped;
         }
 
-        // an object that is indexed is a call of its default member, and so is one that is assigned: `c(1) = 5` is `c.Item(1) = 5`.
+        // an object that is indexed is a call of its default member, and so is one that is assigned: `c(1) = 5` is `c.Item(1) = 5`. The access is the
+        // code's, an implicit one given the argument list, stated where the code writes it, as a read of `c(1)` is.
         if (held is VBObjectValue indexed)
         {
-            return AssignThroughDefaultMember(session, context, statement, arrayExpression, subscripts, indexed, source, value, isSet);
+            var assumedBefore = expressions.AssumedSoFar;
+            var outcome = AssignThroughDefaultMember(session, context, statement, arrayExpression, subscripts, indexed, source, value, isSet);
+            return ObservedAccess(session, context, ElementOf(statement, arrayExpression, subscripts), arrayExpression, indexed, memberName: null,
+                assumedBefore, outcome, MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember
+                    | MemberAccessOperationSemanticFlags.ArgumentList);
         }
 
         if (held is not VBArrayValue array)
@@ -470,14 +475,43 @@ public sealed class LetAssignmentEvaluator(
     {
         var assumedBefore = expressions.AssumedSoFar;
         var outcome = AssignMemberOf(session, context, statement, memberAccess, indexArguments, owner, source, value, isSet);
-        return ObservedAccess(session, context, memberAccess, owner, assumedBefore, outcome, kind);
+        var given = !indexArguments.IsDefaultOrEmpty && TakesArguments(session, owner, memberAccess.Member.IdentifierName)
+            ? MemberAccessOperationSemanticFlags.ArgumentList
+            : 0;
+        return ObservedAccess(session, context, memberAccess, owner, assumedBefore, outcome, kind | given);
     }
+
+    // whether the member of that name takes the arguments an assignment's target writes for it: the member that reads it (a Property Get, a Function)
+    // declares parameters, or, where none reads it, the one that assigns it declares some besides the value. A public variable is indexed by them instead,
+    // and a Property Get that declares none returns what they apply to.
+    private static bool TakesArguments(IRuntimeSession session, VBObjectValue owner, string name)
+    {
+        if (!session.Symbols.TryGetInstance(owner.Value, out var instance))
+        {
+            return false;
+        }
+
+        var named = instance.ClassModule.DefaultInterfaceMembers.Where(member => string.Equals(member.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var reader = named.FirstOrDefault(member => member is VBPropertyGetMemberSymbol or VBFunctionMemberSymbol);
+        var writer = named.FirstOrDefault(member => member is VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
+        return reader is not null ? OwnParameterCount(reader) > 0
+            : writer is not null && OwnParameterCount(writer) > 1;
+    }
+
+    private static int OwnParameterCount(VBTypeMemberSymbol member) => RuntimeProcedureInvoker.GetParameters(member).Count(parameter => parameter.Name != Tokens.Me);
 
     // the member of an object or of a record that an assignment writes is a member the code accesses, and is stated as one (MemberAccessFact): one the code
     // names is explicit, and the default member that takes a value assigned to the object itself (`h = 5`) is implicit.
     private RuntimeExecutionOutcome ObservedAccess(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBTypedValue owner, long assumedBefore,
         RuntimeExecutionOutcome outcome, MemberAccessOperationSemanticFlags kind = MemberAccessOperationSemanticFlags.Explicit)
+        => ObservedAccess(session, context, memberAccess, memberAccess.Owner, owner, memberAccess.Member.IdentifierName, assumedBefore, outcome, kind);
+
+    // the access stated at the expression the code writes for it, of the object ownerExpression evaluated to: a member the code does not name is the default
+    // member of the object.
+    private RuntimeExecutionOutcome ObservedAccess(
+        IRuntimeSession session, RuntimeEvaluationContext context, ExpressionNode access, ExpressionNode? ownerExpression, VBTypedValue owner, string? memberName,
+        long assumedBefore, RuntimeExecutionOutcome outcome, MemberAccessOperationSemanticFlags kind)
     {
         if (expressions.Observation is not null)
         {
@@ -491,8 +525,7 @@ public sealed class LetAssignmentEvaluator(
                 _ => RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void),
             };
 
-            expressions.ObserveMemberAccess(session, context, memberAccess, Tokens.MemberAccess, memberAccess.Owner, owner, memberAccess.Member.IdentifierName,
-                kind, assumedBefore, result);
+            expressions.ObserveMemberAccess(session, context, access, Tokens.MemberAccess, ownerExpression, owner, memberName, kind, assumedBefore, result);
         }
 
         return outcome;

@@ -1595,7 +1595,7 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             var assumedBefore = AssumedSoFar;
             var (accessed, isCall) = CallMember(session, context, indexExpression, qualified, ownerResult.Result!);
             ObserveMemberAccess(session, context, qualified, Tokens.MemberAccess, qualified.Owner, ownerResult.Result!, qualified.Member.IdentifierName,
-                MemberAccessOperationSemanticFlags.Explicit, assumedBefore, accessed);
+                MemberAccessOperationSemanticFlags.Explicit | (isCall ? MemberAccessOperationSemanticFlags.ArgumentList : 0), assumedBefore, accessed);
             if (isCall)
             {
                 return accessed;
@@ -1649,7 +1649,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             if (Observation is not null && DeclaredTypeOfOwner(session, context, indexExpression.Callee) is VBClassType or VBObjectType)
             {
                 ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember, assumedBefore, unknown);
+                    MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                    assumedBefore, unknown);
             }
 
             return unknown;
@@ -1661,7 +1662,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             var assumedBefore = AssumedSoFar;
             var called = CallDefaultMember(session, context, expression, indexExpression, indexed);
             ObserveMemberAccess(session, context, expression, Tokens.MemberAccess, indexExpression.Callee, calleeResult.Result, null,
-                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember, assumedBefore, called);
+                MemberAccessOperationSemanticFlags.Implicit | MemberAccessOperationSemanticFlags.DefaultMember | MemberAccessOperationSemanticFlags.ArgumentList,
+                assumedBefore, called);
             return called;
         }
 
