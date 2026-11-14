@@ -465,17 +465,18 @@ public sealed class LetAssignmentEvaluator(
     private RuntimeExecutionOutcome AssignObjectMember(
         IRuntimeSession session, RuntimeEvaluationContext context, StatementNode statement, MemberAccessExpressionNode memberAccess,
         System.Collections.Immutable.ImmutableArray<ExpressionNode> indexArguments, VBObjectValue owner, ExpressionNode source,
-        VBTypedValue value, bool isSet)
+        VBTypedValue value, bool isSet, MemberAccessOperationSemanticFlags kind = MemberAccessOperationSemanticFlags.Explicit)
     {
         var assumedBefore = expressions.AssumedSoFar;
         var outcome = AssignMemberOf(session, context, statement, memberAccess, indexArguments, owner, source, value, isSet);
-        return ObservedAccess(session, context, memberAccess, owner, assumedBefore, outcome);
+        return ObservedAccess(session, context, memberAccess, owner, assumedBefore, outcome, kind);
     }
 
-    // the member of an object or of a record that an assignment writes is a member the code accesses, and is stated as one (MemberAccessFact).
+    // the member of an object or of a record that an assignment writes is a member the code accesses, and is stated as one (MemberAccessFact): one the code
+    // names is explicit, and the default member a value assigned to the object itself is given (`h = 5`) is implicit.
     private RuntimeExecutionOutcome ObservedAccess(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBTypedValue owner, long assumedBefore,
-        RuntimeExecutionOutcome outcome)
+        RuntimeExecutionOutcome outcome, MemberAccessOperationSemanticFlags kind = MemberAccessOperationSemanticFlags.Explicit)
     {
         if (expressions.Observation is not null)
         {
@@ -490,7 +491,7 @@ public sealed class LetAssignmentEvaluator(
             };
 
             expressions.ObserveMemberAccess(session, context, memberAccess, Tokens.MemberAccess, memberAccess.Owner, owner, memberAccess.Member.IdentifierName,
-                MemberAccessOperationSemanticFlags.Explicit, assumedBefore, result);
+                kind, assumedBefore, result);
         }
 
         return outcome;
@@ -1128,7 +1129,7 @@ public sealed class LetAssignmentEvaluator(
 
         var access = DefaultMemberAccess(reachedThrough, defaultMember.Name);
         return observed
-            ? AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet)
+            ? AssignObjectMember(session, context, statement, access, [], owner, source, value, isSet, MemberAccessOperationSemanticFlags.Implicit)
             : AssignMemberOf(session, context, statement, access, [], owner, source, value, isSet);
     }
 
