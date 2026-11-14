@@ -196,6 +196,15 @@ namespace RDCore.CLI {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to run by the interpreter as a support call: {0}.
+        /// </summary>
+        public static string Compilation_SupportCalls {
+            get {
+                return ResourceManager.GetString("Compilation_SupportCalls", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Times the interpreter on a workspace, or on the built-in corpus: parse, load, sweep, then each Bench* case..
         /// </summary>
         public static string Bench_Summary {

@@ -1,5 +1,8 @@
 using RDCore.Runtime.Execution.Frames;
 using RDCore.Runtime.Semantics;
+using RDCore.SDK.Model.Types;
+using RDCore.SDK.Model.Types.Complex;
+using RDCore.SDK.Model.Values.Runtime;
 using System.Runtime.CompilerServices;
 
 namespace RDCore.Runtime.Compiled;
@@ -60,6 +63,30 @@ public static class VariantOperations
         var read = Unsafe.As<VariantCell>(cell).TryRead(out var payload);
         value = new VariantPayload(payload);
         return read;
+    }
+
+    /// <summary>
+    /// What the Variant held in <paramref name="cell"/> holds, given by value to a <c>Variant</c> parameter of a function of the standard library as the
+    /// interpreter gives it (MS-VBAL §5.3.1.11): a value of a scalar type, <c>Empty</c>, <c>Null</c>, a <c>String</c>, an error (<c>Missing</c> among
+    /// them) or an object. It is what the Variant holds when it is read: an assignment to the Variant after it gives the Variant another value and leaves
+    /// this one as it is.
+    /// </summary>
+    /// <param name="cell">The cell of the Variant; <see langword="null"/> when its frame holds it in no Variant's cell.</param>
+    /// <returns>
+    /// The value; <see langword="null"/> when the Variant holds an array or a record, which a later assignment to an element or a field would change in
+    /// place, when its value is not known, or when its frame holds it in no Variant's cell. The interpreter is given the call.
+    /// </returns>
+    public static IRuntimeValue? ValueOf(object? cell)
+    {
+        if (cell is null)
+        {
+            return null;
+        }
+
+        var variant = Unsafe.As<VariantCell>(cell);
+        return variant.IsKnown && (variant.HoldsNoObject || variant.Value is VBRuntimeVariantValue { WrappedValue.TypeInfo: not (VBArrayType or VBUserDefinedType) })
+            ? variant.Value
+            : null;
     }
 
     /// <summary>

@@ -388,6 +388,33 @@ public sealed class SymbolRenameTests
     }
 
     [TestMethod]
+    public void AClassProcedureWithAnUnderscore_ThatNothingCallsByThatName_IsRenamed()
+    {
+        var context = Compose(
+            ("Widget", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Widget\"", "Public Sub Do_It()", "End Sub")),
+            ("Main", Module("Main", "Public Sub One()", "    Dim w As New Widget", "    w.Do_It", "End Sub")));
+
+        var plan = Rename(context, "Widget", "Public Sub Do_It", "Do_It", "DoIt");
+
+        Assert.AreEqual(Module("Main", "Public Sub One()", "    Dim w As New Widget", "    w.DoIt", "End Sub"), Renamed(context, plan, "Main"));
+    }
+
+    [TestMethod]
+    [DataRow("Private Sub Class_Initialize()", "Class_Initialize", DisplayName = "the class's own event")]
+    [DataRow("Private Sub UserForm_Click()", "UserForm_Click", DisplayName = "a form's own event")]
+    [DataRow("Private Sub source_Spun()", "source_Spun", DisplayName = "an event of a WithEvents variable")]
+    [DataRow("Private Sub source_Other()", "source_Other", DisplayName = "named for a WithEvents variable, an event it does not raise")]
+    public void AClassProcedureCalledByItsName_AsAHandler_IsNotRenamed(string declaration, string name)
+    {
+        var context = Compose(
+            ("Spinner", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Spinner\"", "Public Event Spun()")),
+            ("Watcher", Lines("VERSION 1.0 CLASS", "BEGIN", "  MultiUse = -1  'True", "END", "Attribute VB_Name = \"Watcher\"", "Private WithEvents source As Spinner",
+                declaration, "End Sub")));
+
+        Assert.AreEqual(RenameRefusalKind.NamedByConvention, SymbolRename.Prepare(context, ModuleUri("Watcher"), At(context, "Watcher", declaration, name)).Refusal?.Kind);
+    }
+
+    [TestMethod]
     public void ANameWrittenWithATypeCharacter_KeepsIt()
     {
         var context = Compose(("Main", Module("Main", "Public Sub One()", "    Dim s$", "    s$ = \"a\"", "    Debug.Print s", "End Sub")));

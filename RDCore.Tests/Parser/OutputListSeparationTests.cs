@@ -250,15 +250,15 @@ public class OutputListSeparationTests
         Assert.ContainsSingle(result.Trivia.OfType<ErasedPlusTriviaNode>());
     }
 
-    // a Spc clause that is not complete is the parser's error as any other is, said with what it could not read: not the code of the grammar's predicate
-    // that tells a Spc clause from a call of a name Spc.
+    // a Spc clause that is not complete is the parser's error as any other is, said as MS-VBA says it: not the code of the grammar's predicate that tells a
+    // Spc clause from a call of a name Spc.
     [TestMethod]
     public void ASpcClauseThatIsNotComplete_IsASyntaxError_OfWhatIsNotRead()
     {
         var error = ParseInProcedure("Debug.Print Spc(1").SyntaxErrors.Single();
 
         Assert.AreEqual(VBCompileErrorId.SyntaxError, error.VBCompileErrorId);
-        Assert.AreEqual("no viable alternative at input 'Spc'", error.Verbose);
+        Assert.AreEqual("Syntax error", error.Verbose);
     }
 
     private static IEnumerable<PrintOutputItemNode> ItemsOf(ModuleParseResult result)

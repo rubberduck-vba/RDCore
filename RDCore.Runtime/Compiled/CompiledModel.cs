@@ -128,7 +128,7 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
         }
 
         var result = image.Compiler.Compile(session, executor.Expressions, procedure, body);
-        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped };
+        return new ProcedureCompilation(procedure, result.Body is not null, result.Reasons) { Stepped = result.Stepped, SupportCalls = result.SupportCalls };
     }
 
     // a Sub, a Function or a Property Get: what compiled code runs, which an Enum, a Type or a Const is not.
@@ -141,6 +141,12 @@ public sealed record class ProcedureCompilation(SDK.Model.Symbols.Abstract.VBTyp
     /// to the interpreter alone, going on where the interpreter leaves the activation (IR lowering S2.5a). Empty for a procedure that is not compiled.
     /// </summary>
     public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
+
+    /// <summary>
+    /// What the interpreter runs of a compiled procedure as a support call, and why: each <c>Set</c> or call statement compiled code does not make itself,
+    /// which the interpreter runs for it, with every variable written into the frame before it and read back after it. Empty for a procedure that is not compiled.
+    /// </summary>
+    public IReadOnlyList<Ineligibility> SupportCalls { get; init; } = [];
 }
 
 /// <summary>
@@ -153,6 +159,11 @@ internal sealed record class CompilationResult(CompiledBody? Body, IReadOnlyList
 {
     /// <summary>The instructions of a compiled body the interpreter runs alone, and why (<see cref="ProcedureCompilation.Stepped"/>).</summary>
     public IReadOnlyList<Ineligibility> Stepped { get; init; } = [];
+
+    /// <summary>
+    /// The statements of a compiled body the interpreter runs as support calls, and why (<see cref="ProcedureCompilation.SupportCalls"/>).
+    /// </summary>
+    public IReadOnlyList<Ineligibility> SupportCalls { get; init; } = [];
 }
 
 // a payload, the value of an expression of a scalar kind: in a long when it is of an integral kind, in a double when it is of a floating-point one.
@@ -213,6 +224,10 @@ internal abstract record class VariantNode;
 // a Variant parameter or variable of the activation, read in the cell its frame holds it in, by the number of its slot.
 internal sealed record class VariantSlotNode(int Slot) : VariantNode;
 
+// a Variant parameter or variable of the activation given by value to a Variant parameter of a function of the standard library: what it holds when the
+// argument is evaluated, as the interpreter gives it (VariantOperations.ValueOf), Empty, Null, a String, an error or an object included.
+internal sealed record class VariantValueNode(int Slot) : VariantNode;
+
 // a payload of a kind known before, as a Variant holds it: of its own subtype (MS-VBAL §5.5.1.2.12).
 internal sealed record class VariantOfNode(PayloadNode Value) : VariantNode;
 
@@ -232,8 +247,9 @@ internal sealed record class UnvariantNode(VariantNode Value, ScalarKind Kind) :
 // whether a Variant's payload is not zero (VariantOperations.IsTrue): a Boolean, what a condition of it is.
 internal sealed record class TruthNode(VariantNode Value) : PayloadNode(ScalarKind.Boolean);
 
-// left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing).
-internal sealed record class IsNode(int? Left, int? Right) : PayloadNode(ScalarKind.Boolean);
+// left Is right, of two object variables of the activation, by the slot each is held in; a slot of none is Nothing (ObjectOperations.Is, IsNothing). An
+// operand that is the default instance of a class (LeftMade, RightMade) is compared only once it holds an object (ObjectOperations.HoldsAnObject).
+internal sealed record class IsNode(int? Left, int? Right, bool LeftMade = false, bool RightMade = false) : PayloadNode(ScalarKind.Boolean);
 
 // TypeOf of an object variable of the activation, against the class the body knows by its number (CompiledActivation.TypeOf).
 internal sealed record class TypeOfNode(int Slot, int Class) : PayloadNode(ScalarKind.Boolean);
@@ -315,6 +331,10 @@ internal sealed record class VariantForNextStep(int Offset, int Opener, int Body
 
 // a Let of a String variable of the activation - not a fixed-length one: the text written into its cell as it is (MS-VBAL §5.4.3.8).
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
+
+// a Let of a String variable of the activation that appends to it (S = S & ...): the texts appended, evaluated before anything is appended, then appended
+// together (StringOperations.TryAppend).
+internal sealed record class TextAppendStep(int Offset, int Slot, IReadOnlyList<TextNode> Appended) : CompiledStep(Offset);
 
 // a Let of the function result variable of a function of the String type: the text assigned where its frame holds it, as the interpreter assigns it
 // (CompiledActivation.TryAssignResultText).

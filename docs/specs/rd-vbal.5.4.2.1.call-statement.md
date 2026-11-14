@@ -18,14 +18,16 @@ assignment to `F(1)` ([**RD-VBAL §5.6.13** Index Expressions](rd-vbal.5.6.13.in
 
 ## Static Semantics
 
-What a call statement calls is a procedure: a `Sub`, a `Function` or a `Property`, of the workspace, of a library or a `Declare`. A variable or a
-constant is none, and a call statement written on one is a compile error, with `Call` or without, as it is in **MS-VBA** (recorded in Excel):
+What a call statement calls is a `Sub` or a `Function`, of the workspace, of a library or a `Declare`. A variable, a constant or a property is none,
+and a call statement written on one is a compile error, with `Call` or without, as it is in **MS-VBA** (recorded in Excel):
 
 |What the statement names|Example|Outcome|
 |---|---|---|
 |A variable or a constant of the procedure, a parameter included|`Dim x As Long` … `x (1)`, `x`, `Call x`|[`VBC09364`](../diagnostics/vbc09364.md) _Expected Sub, Function, or Property_|
 |A variable or a constant of a module, bare or qualified|`Count (1)`, `Globals.Count (1)`, `Call Count`|[`VBC09370`](../diagnostics/vbc09370.md) _Expected procedure, not variable_|
+|A property of an object of a known class, of the target of a `With` block, or of a module|`t.Value`, `Call t.Value()`, `t.Item 1`, `Call t.Item(1)`, `.Value`, `Here`|[`VBC09345`](../diagnostics/vbc09345.md) _Invalid use of property_|
 |A variable of an object, without `Call`|`Dim c As New Collection` … `c (1)`|Valid: the statement calls the object's default member.|
+|With `Call`, an argument list that a `Property Get` with no parameters cannot take|`Call t.Bags(1)`, where `Bags` returns an object|Valid: the arguments index the object it returns, and the statement calls that object's default member ([**RD-VBAL §5.6.13**](rd-vbal.5.6.13.index-expressions.md)).|
 
 A `Variant` is no object: a call statement on one is the error, whatever it holds. A variable hides a procedure of the same name in the procedure that
 declares it, so `P (1)` in a procedure that declares `Dim p As Long` is `VBC09364`, though the module has a `Sub P`.
@@ -45,7 +47,10 @@ The unparenthesized argument form of a bare-call statement (`Foo 1, 2`, `p.Grow 
 same way: a member of an object, of a module (`Strings.LenB`) or of a project (`VBA.LenB`) is a callee like any other
 ([**RD-VBAL §5.6.12**](rd-vbal.5.6.12.member-access-expressions.md)).
 
-A bare reference to a `Sub`, `Function` or `Property Get` invokes a procedure the same way
+A property named on an object bound late (`Dim o As Object` … `o.Value`, `Call o.Value`, `o.Item 1`) is run-time error
+[`VBR00450`](../diagnostics/vbr00450.md) _Wrong number of arguments or invalid property assignment_, and its `Property Get` is not called, as in **MS-VBA**.
+
+A bare reference to a `Sub` or a `Function` invokes a procedure the same way
 ([**RD-VBAL §5.3.1.11** Procedure Invocation Argument Processing](rd-vbal.5.3.1.11.procedure-invocation-argument-processing.md),
 [**RD-VBAL §5.6.10** Simple Name Expressions](rd-vbal.5.6.10.simple-name-expressions.md)).
 

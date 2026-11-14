@@ -64,7 +64,7 @@ Semantic compilation errors are emitted by the resolver and the static semantic 
 |[`VBC09342`](../diagnostics/vbc09342.md)|Wrong number of arguments or invalid property assignment|an argument no parameter takes|
 |[`VBC09343`](../diagnostics/vbc09343.md)|LSet allowed only on strings and user-defined types|the target of an `LSet` statement|
 |[`VBC09344`](../diagnostics/vbc09344.md)|RSet allowed only on strings|the target of an `RSet` statement|
-|[`VBC09345`](../diagnostics/vbc09345.md)|Invalid use of property|a `Set` of a property that has a `Property Get` and no `Property Set`, and of the default instance of an extensible class (a document module)|
+|[`VBC09345`](../diagnostics/vbc09345.md)|Invalid use of property|a `Set` of a property that has a `Property Get` and no `Property Set`, and of the default instance of an extensible class (a document module); a property named by a call statement|
 |[`VBC09346`](../diagnostics/vbc09346.md)|Assignment to constant not permitted|a `Let` or a `Set` of a constant|
 |[`VBC09347`](../diagnostics/vbc09347.md)|Object required|a `Set` of a variable that holds no object|
 |[`VBC09348`](../diagnostics/vbc09348.md)|Named argument already specified|a parameter given two arguments|

@@ -94,6 +94,30 @@ public sealed class CompiledEditAndContinueTests
         }, debug: true, engine: VBExecutionEngine.Compiled);
     }
 
+    // Work's loop appends to t, and prepends to u, its first 50 passes: t is u when the loop ends, however many passes ran before the breakpoint. A String
+    // the stopped activation appended to is the String joined, in the interpreter that goes on in the edited code.
+    private static readonly string CallingAppending = Calling.Replace(
+        "    Dim i As Long, n As Long\r\n", "    Dim i As Long, n As Long, c As Long, t As String, u As String\r\n", StringComparison.Ordinal).Replace(
+        "        n = 1\r\n", Lines(
+            "        n = 1",
+            "        If c < 50 Then",
+            "            c = c + 1",
+            "            t = t & \"ab\"",
+            "            u = \"ab\" & u",
+            "        End If"), StringComparison.Ordinal).Replace(
+        "    Work = n\r\n", "    If t <> u Then n = 7\r\n    Work = n\r\n", StringComparison.Ordinal);
+
+    [TestMethod]
+    public async Task AStringAppendedToInACompiledLoop_StoppedAtABreakpoint_EditedAndContinued_IsTheStringJoined()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectAsync([], CallingAppending, async (provider, first, runAgain) =>
+        {
+            // 70 and 71 when t lost what was appended to it.
+            await BreakEditContinueAsync(provider, first, new() { ["Program"] = CallingAppending }, "Program", 5 + LoopLine, ["10", "11"], atBreak: null);
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
     // Main waits at its Stop, then calls Outer twice, which calls Work - a procedure of another module - from compiled code, directly: the module edited is
     // Work's, and Outer's is not.
     private static readonly string CallingOuter = Lines(
@@ -154,11 +178,87 @@ public sealed class CompiledEditAndContinueTests
         }, debug: true, engine: VBExecutionEngine.Compiled);
     }
 
+    // Work over Strings: a String parameter, a String made from it before the loop and a String assigned in the loop, all compiled. Its Step of 0 in the first
+    // call keeps it in its loop until it is stopped, as Work's does.
+    private static readonly string[] StringWork =
+    [
+        "Function Work(ByVal s As Long, ByVal tag As String) As String",
+        "    Dim i As Long, u As String, t As String",
+        "    u = tag & \"-\"",
+        "    For i = 1 To 1000 Step s",
+        "        t = u & \"x\"",
+        "    Next",
+        "    Work = t",
+        "End Function",
+    ];
+
+    // the line of StringWork's loop the breakpoint is set on, from the line Work begins on, from 1.
+    private const int StringLoopLine = 5;
+
+    // what is saved at the breakpoint: the loop is left after the statement the program waits at in the first call, and the function returns what only the
+    // edited code returns.
+    private static string EditedStrings(string source) => source
+        .Replace("        t = u & \"x\"\r\n", "        t = u & \"x\"\r\n        If s = 0 Then Exit For\r\n", StringComparison.Ordinal)
+        .Replace("    Work = t\r\n", "    Work = t & \"!\"\r\n", StringComparison.Ordinal);
+
+    // Main waits at its Stop, then calls Work twice.
+    private static readonly string CallingStrings = Lines(
+    [
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Work(0, \"a\")",
+        "    Debug.Print Work(1, \"b\")",
+        "End Sub",
+        .. StringWork.Select((line, i) => i == 0 ? "Private " + line : line),
+    ]);
+
+    [TestMethod]
+    public async Task AProcedureRunningCompiledOverStrings_StoppedEditedAndContinued_GoesOnWithItsStrings_AndItsNextCallCompilesTheEditedBody()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectAsync([], CallingStrings, async (provider, first, runAgain) =>
+        {
+            // the activation that was stopped went on in the edited code with the Strings its compiled code had made: u is "a-", and t is made from it. The next
+            // call ran the edited code, where the body compiled before the edit returns "b-x".
+            await BreakEditContinueAsync(provider, first, new() { ["Program"] = CallingStrings }, "Program", 5 + StringLoopLine, ["a-x!", "b-x!"], atBreak: null,
+                edit: EditedStrings);
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
+    // Main waits at its Stop, then calls Outer twice, which calls Work - a procedure of another module - and goes on with the String it returns.
+    private static readonly string CallingStringsOuter = Lines(
+        "Public Sub Main()",
+        "    Stop",
+        "    Debug.Print Outer(0, \"a\")",
+        "    Debug.Print Outer(1, \"b\")",
+        "End Sub",
+        "Private Function Outer(ByVal s As Long, ByVal tag As String) As String",
+        "    Outer = Work(s, tag) & \"+\"",
+        "End Function");
+
+    private static readonly string StringWorker = Lines([.. StringWork.Select((line, i) => i == 0 ? "Public " + line : line)]);
+
+    [TestMethod]
+    public async Task AProcedureRunningCompiledOverStrings_CalledFromAnotherModule_StoppedEditedAndContinued_ItsCallerGoesOnWithTheEditedString()
+    {
+        CompiledExecutionTests.RequirePayloads();
+        await ModuleWorkspace.InspectWithModulesAsync([("Worker", StringWorker)], CallingStringsOuter, async (provider, first, runAgain) =>
+        {
+            // Outer went on from its call with the String the edited Work returned, and its next call called the edited Work.
+            await BreakEditContinueAsync(provider, first, new() { ["Worker"] = StringWorker, ["Program"] = CallingStringsOuter }, "Worker", StringLoopLine,
+                ["a-x!+", "b-x!+"], atBreak: async session =>
+                {
+                    var frames = (await session.SendAsync(new StackTraceArguments { ThreadId = ProgramDebugAdapter.ThreadId })).StackFrames!.ToArray();
+                    CollectionAssert.AreEqual(new[] { "Work", "Outer", "Main" }, frames.Select(frame => frame.Name).ToArray());
+                }, edit: EditedStrings);
+        }, debug: true, engine: VBExecutionEngine.Compiled);
+    }
+
     // the program, started by the test and waiting at Main's Stop, debugged through the adapter: continued until Work runs compiled; stopped at a breakpoint
-    // set in Work's loop then, at line of workModule; edited there, Work's module saved as Edited; and continued to its end, having printed expected. Work,
-    // compiled at its first call, is compiled again - the edited body - at its first call after the edit, and runs compiled.
+    // set in Work's loop then, at line of workModule; edited there, Work's module saved as edit makes it (Edited when there is none); and continued to its end,
+    // having printed expected. Work, compiled at its first call, is compiled again - the edited body - at its first call after the edit, and runs compiled.
     private static async Task BreakEditContinueAsync(EnvironmentSessionProvider provider, ExecuteResult first, Dictionary<string, string> modules,
-        string workModule, int line, string[] expected, Func<Session, Task>? atBreak)
+        string workModule, int line, string[] expected, Func<Session, Task>? atBreak, Func<string, string>? edit = null)
     {
         // the program was started as the platform starts it, under a debugger, and waits at Main's Stop: Work is not called yet.
         Assert.AreEqual((ExecutionOutcome.Suspended, 1), (first.Outcome, first.ErrorLine), first.ErrorMessage);
@@ -208,7 +308,7 @@ public sealed class CompiledEditAndContinueTests
 
             // the breakpoint is cleared - a breakpoint set anywhere keeps new activations in the interpreter - and the edit saved; the program goes on.
             _ = await session.SetBreakpointsAsync(workModule);
-            session.Workspace.Save(workModule, Edited(modules[workModule]));
+            session.Workspace.Save(workModule, (edit ?? Edited)(modules[workModule]));
             _ = await session.SendAsync(new ContinueArguments { ThreadId = ProgramDebugAdapter.ThreadId });
 
             _ = await session.NextAsync<TerminatedEvent>();

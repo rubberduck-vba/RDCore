@@ -28,6 +28,7 @@ public sealed partial class CompiledActivation
     /// </returns>
     public bool LetMember(int pc, VariantPayload value)
     {
+        _body.CountSupportCall();
         var frame = Frame;
         frame.Pc = pc;
         _failed = null;

@@ -187,6 +187,22 @@ public sealed class ServerEventTests
         CollectionAssert.AreEqual(new[] { "event 5", "5 cancelled=True" }, output);
     }
 
+    // a late-bound object, which CreateObject gives: the WithEvents variable handles the events its class declares, which its server is asked for.
+    [TestMethod]
+    public async Task AnEventOfALateBoundObject_IsHandledByTheWithEventsVariableThatHoldsIt()
+    {
+        var server = new FakeServer();
+
+        var output = await RunAsync(Classes, Program(
+            "Dim valve As Object",
+            "Set valve = CreateObject(\"Rig.Valve\")",
+            "Dim watcher As New Watcher",
+            "watcher.Watch valve",
+            "Debug.Print valve.Tap(5)"), Libraries(server));
+
+        CollectionAssert.AreEqual(new[] { "event 5", "5 cancelled=True" }, output);
+    }
+
     [TestMethod]
     public async Task AVariableThatNoLongerHoldsTheObject_HandlesNoEventOfIt_AndTheServerIsToldToStopListening()
     {

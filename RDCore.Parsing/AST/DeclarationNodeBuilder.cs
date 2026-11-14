@@ -386,11 +386,11 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
         }
 
         var body = _children.Skip(1).ToImmutableArray();
-        return new ElseIfBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), condition, new StatementBlock(body));
+        return new ElseIfBlockStatementNode(NodeId, context.GetClauseLocation(_rootUri), condition, new StatementBlock(body));
     }
 
     public SyntaxNode BuildElseBlock(VBAParser.ElseBlockContext context)
-        => new ElseBlockStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
+        => new ElseBlockStatementNode(NodeId, context.GetClauseLocation(_rootUri), new StatementBlock([.. _children]));
 
     // single-line If's Else branch (MS-VBAL §5.4.2.9) reuses ElseBlockStatementNode — same shape
     // (just a StatementBlock, no condition of its own) as the block If's Else. `labelGoTo` (a bare
@@ -515,10 +515,10 @@ internal class DeclarationNodeBuilder(Uri rootUri, SyntaxNodeId nodeId) : NodeBu
     }
 
     public SyntaxNode BuildCaseExpression(VBAParser.CaseClauseContext context, ImmutableArray<CaseRangeClauseNode> rangeClauses)
-        => new CaseExpressionStatementNode(NodeId, context.GetSourceLocation(_rootUri), rangeClauses, new StatementBlock([.. _children]));
+        => new CaseExpressionStatementNode(NodeId, context.GetClauseLocation(_rootUri), rangeClauses, new StatementBlock([.. _children]));
 
     public SyntaxNode BuildCaseElseClause(VBAParser.CaseElseClauseContext context)
-        => new CaseElseClauseStatementNode(NodeId, context.GetSourceLocation(_rootUri), new StatementBlock([.. _children]));
+        => new CaseElseClauseStatementNode(NodeId, context.GetClauseLocation(_rootUri), new StatementBlock([.. _children]));
 
     public AnnotationTriviaNode BuildAnnotationTriviaNode(VBAParser.AnnotationContext context, SourceLocation location)
         => new(NodeId, location, context.annotationName()?.GetText() ?? string.Empty, [.. _children]);

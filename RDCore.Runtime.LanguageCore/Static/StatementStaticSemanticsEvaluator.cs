@@ -514,7 +514,7 @@ public static class StatementStaticSemanticsEvaluator
             // the keyword is how the statement is written, which the expression it calls is not: a fact of the callee, for whoever finds it obsolete.
             if (statement is CallStatementNode callStatement)
             {
-                if (NotAProcedureError(context, callStatement) is { } notAProcedure)
+                if ((NotAProcedureError(context, callStatement) ?? PropertyCalledError(context, callStatement)) is { } notAProcedure)
                 {
                     walk.Errors.Add(notAProcedure);
                 }
@@ -697,6 +697,54 @@ public static class StatementStaticSemanticsEvaluator
             ? VBCompileErrorInfo.For(VBCompileErrorId.ExpectedSubFunctionOrProperty, call.Callee.Location, name)
             : VBCompileErrorInfo.For(VBCompileErrorId.ExpectedProcedureNotVariable, call.Callee.Location, name);
     }
+
+    // MS-VBAL §5.4.2.1: a call statement calls a subroutine or a function, and a property is neither. MS-VBA refuses one bound early, with Call or without, with
+    // arguments or without: "Invalid use of property" (recorded in Excel). One bound late is run-time error 450. With Call, an argument list the property cannot
+    // take indexes the object it returns, on its default member (MS-VBAL §5.6.13), which is what the statement calls.
+    private static VBCompileErrorInfo? PropertyCalledError(StaticEvaluationContext context, CallStatementNode call)
+    {
+        var indexed = call.IsExplicitCall ? call.Callee as IndexExpressionNode : null;
+        var callee = indexed?.Callee ?? call.Callee;
+        if (PropertyNamedBy(context, callee) is not { } property
+            || indexed is not null && !IndexExpressionNode.IsEmptyArgumentList(indexed.Arguments) && !OwnParametersOf(property).Any())
+        {
+            return null;
+        }
+
+        return VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfProperty, callee.Location, property.Name);
+    }
+
+    private static VBTypeMemberSymbol? PropertyNamedBy(StaticEvaluationContext context, ExpressionNode callee)
+    {
+        Symbol? symbol = callee switch
+        {
+            SimpleNameExpressionNode name => context.Resolver.ResolveValue(name, ScopeKind.Local, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access when context.Resolver.NamespaceOf(owner, context.Scope.Uri) is { } qualifier
+                => context.Resolver.ResolveMember(qualifier, access.Member, context.Scope.Uri).Symbol,
+            MemberAccessExpressionNode { Owner: { } owner } access
+                when ExpressionStaticSemanticsEvaluator.Evaluate(context with { Facts = null, Bindings = null }, owner) is { IsSuccess: true, Result: VBClassType ownerClass }
+                => PropertyOf(context, ownerClass, access),
+            // a member of the target of the enclosing With block (MS-VBAL §5.6.15).
+            MemberAccessExpressionNode { Owner: null } access when context.EnclosingWithTargetType is VBClassType withTarget => PropertyOf(context, withTarget, access),
+            _ => null,
+        };
+
+        return symbol is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol ? (VBTypeMemberSymbol)symbol : null;
+    }
+
+    private static VBTypeMemberSymbol? PropertyOf(StaticEvaluationContext context, VBClassType owner, MemberAccessExpressionNode access)
+        => Expressions.MemberAccessExpressionStaticSemantics.CurrentMembersOf(context, owner).FirstOrDefault(member
+            => string.Equals(member.Name, access.Member.IdentifierName, StringComparison.OrdinalIgnoreCase)
+                && member is VBPropertyGetMemberSymbol or VBPropertyLetMemberSymbol or VBPropertySetMemberSymbol);
+
+    // the parameters a call gives arguments to: a member of a class has an implicit Me at parameter 0, which is the object the call is on.
+    private static IEnumerable<VBParameterSymbol> OwnParametersOf(VBTypeMemberSymbol member)
+        => (member switch
+        {
+            VBReturningMemberSymbol returning => returning.Parameters,
+            VBProcedureMemberSymbol procedure => procedure.Parameters,
+            _ => [],
+        }).Where(parameter => !(parameter.Name == Tokens.Me && parameter.ParameterKind == ParameterKind.ImplicitByRef));
 
     // the variables a file statement reads into (MS-VBAL §5.4.5): every variable of an Input #, the variable of a Line Input # and of a Get #, which is its last
     // operand, after the file number and the record number, written or not.
