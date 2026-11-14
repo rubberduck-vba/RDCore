@@ -121,10 +121,11 @@ internal sealed class CodeActionHandler(
 
             foreach (var suggestion in fix.Suggestions)
             {
-                // a rename whose edits of strings the user confirms is not offered, as an edit, to a client that can't ask them: the rename command, which the
-                // server asks them for, still is. Its late-bound edits, which the user confirms too, are left out of the edit such a client is sent.
+                // a rename with edits the user confirms, of strings or of members accessed late-bound, is not offered as an edit to a client that can't ask
+                // them: the edit it would be sent leaves them out, and the code that calls the symbol by its old name fails as it runs. The rename command,
+                // which the server asks them for, still is.
                 if (workspace.Rename(documentUri, diagnostic.Range.Start, suggestion) is { Value: { } edit } answer
-                    && (!answer.Asks(RenameWorkspace.InString) || _client.TakesChangeAnnotations())
+                    && (answer.Questions is not { Count: > 0 } || _client.TakesChangeAnnotations())
                     && ForTheClient(edit) is { } applicable)
                 {
                     actions.Add(new CodeAction

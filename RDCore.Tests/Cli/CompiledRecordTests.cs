@@ -597,10 +597,10 @@ public sealed class CompiledRecordTests
             "    Debug.Print B.O.Name; B.C.Name; B.V",
             "End Sub"), null, 0, 0, "oc 5", "gone o", "gone c", "ended");
 
-    // a field LSet leaves at its default keeps its bounds when it is a fixed-size array, and its own fields when it is a record: each element and field is
-    // reset where it is.
+    // a field LSet does not reach keeps its bounds when it is a fixed-size array, and its own fields when it is a record: each element and field is what
+    // it was, where it is (MS-VBA, observed in Excel).
     [TestMethod]
-    public async Task AFixedSizeArrayFieldLSetLeavesAtItsDefault_KeepsItsBounds()
+    public async Task AFixedSizeArrayFieldLSetDoesNotReach_KeepsItsBoundsAndElements()
         => await AssertPrintsAsync(Module(
             "Private Type TSmall",
             "    N As Long",
@@ -619,7 +619,7 @@ public sealed class CompiledRecordTests
             "    Debug.Print LBound(B.A); UBound(B.A); B.A(2); B.Inner.Inner.X",
             "    B.A(2) = 6",
             "    Debug.Print B.A(2)",
-            "End Sub"), null, 0, 0, "1  2  0  0", "6");
+            "End Sub"), null, 0, 0, "1  2  4  3", "6");
 
     // a Variant or an object element of a fixed-size array field given by reference is the element when the record is let (MS-VBAL §5.3.1.11): it is
     // written where it is, as an element of a scalar type is. The object the element held is let go of as the Let is made.

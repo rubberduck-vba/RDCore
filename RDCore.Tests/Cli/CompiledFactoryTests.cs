@@ -82,8 +82,8 @@ public sealed class CompiledFactoryTests
 
     // the shape of a factory: a With block of an object made with New, its Property Lets called by compiled code, the object given back through a member of
     // it, and the End With done by compiled code, the function's result holding the object. The recoveries are the With of each of the 3 calls, and the
-    // calls the 2 Property Lets of each; the Set of the result is a support call. Each object is destroyed when the next one is Set to the variable that held
-    // it.
+    // calls the 2 Property Lets of each and the Property Get the result is Set to. Each object is destroyed when the next one is Set to the variable that
+    // held it.
     [TestMethod]
     public async Task AFactory_CallsItsPropertyLets_AndEndsItsWithBlock_InCompiledCode()
         => await AssertFactoryAsync(Program(
@@ -104,10 +104,10 @@ public sealed class CompiledFactoryTests
             "        .Y = B",
             "        Set Made = .Self",
             "    End With",
-            "End Function"), "1/10,2/20,3/30,x1;x2;gone 1;x3;gone 2;", "Made", recoveries: 3, calls: 6);
+            "End Function"), "1/10,2/20,3/30,x1;x2;gone 1;x3;gone 2;", "Made", recoveries: 3, calls: 9);
 
     // a Property Set of the object of a With block, called by compiled code with an object it holds. The recovery is the With, and the calls the Property
-    // Let and the Property Set.
+    // Let, the Property Set and the Property Get the result is Set to.
     [TestMethod]
     public async Task APropertySetOfTheObjectOfAWithBlock_IsCalledInCompiledCode()
         => await AssertFactoryAsync(Program(
@@ -124,7 +124,7 @@ public sealed class CompiledFactoryTests
             "        Set .Partner = Q",
             "        Set Linked = .Self",
             "    End With",
-            "End Function"), "7 x7;x1;", "Linked", recoveries: 1, calls: 2);
+            "End Function"), "7 x7;x1;", "Linked", recoveries: 1, calls: 3);
 
     // an End With that lets go of the only reference to its object: the interpreter runs it, and the object's Terminate runs there, before the next pass.
     // The recoveries are the With and its End With of each of the 3 passes, and the calls the Property Let of each.

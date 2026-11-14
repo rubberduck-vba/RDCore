@@ -327,6 +327,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11036](rdc11036.md)|Negative line number|A line number below 0, or a jump to one: MS-VBA compiles it, MS-VBAL has no such line number|
 |[RDC11037](rdc11037.md)|Non-breaking space in a name|A declared name with a U+00A0 in it: MS-VBA compiles it, no MS-VBAL identifier has one|
 |[RDC11039](rdc11039.md)|Function called whatever the IIf condition|A `Function` or `Property Get` in the `TruePart` or `FalsePart` of `IIf`, which runs whatever the condition|
+|[RDC11044](rdc11044.md)|LSet of a record that holds a variable-length String|MS-VBAL allows it, and MS-VBA refuses it with a type mismatch|
 |[RDC20001](rdc20001.md)|Edit not applied to the waiting program|Made while it waits in the debugger, which can't go on with it|
 
 ---

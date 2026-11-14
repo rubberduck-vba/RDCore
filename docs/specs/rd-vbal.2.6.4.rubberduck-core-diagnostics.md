@@ -118,6 +118,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11036`](../diagnostics/rdc11036.md)|Negative line number|Warning|the syntax tree: a `LineNumberNode` below 0, or a jump whose label is a negated literal (`On Error GoTo -1` aside)|
 |[`RDC11037`](../diagnostics/rdc11037.md)|Non-breaking space in a name|Warning|the syntax tree: the name of a declaration or a line label with a U+00A0|
 |[`RDC11039`](../diagnostics/rdc11039.md)|Function called whatever the IIf condition|Warning|the syntax tree (the `TruePart` and `FalsePart` arguments of a call bound to `Interaction.IIf`) and `ExpressionFactDto`: a `ProcedureCall` of a `Function` or `Property Get`, bound to anything but a VBA library function that changes nothing and raises no error|
+|[`RDC11044`](../diagnostics/rdc11044.md)|LSet of a record that holds a variable-length String|Warning|`ProcedureSemanticModel.Runtime`: `FixedAssignmentSemanticFlags.SourceHoldsVariableLengthString` or `DestinationHoldsVariableLengthString` of a `UserDefinedTypeCopy`|
 |[`RDC20001`](../diagnostics/rdc20001.md)|Edit not applied to the waiting program|Information|the language server, while a program waits: the host's `rdcore/host/debug/editStatus`|
 
 What the host's static pass found wrong with the code is not an opinion: it is reported as the `VBC` compile error it is, by the same

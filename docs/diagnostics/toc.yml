@@ -564,5 +564,7 @@
   href: rdc11037.md
 - name: "RDC11039: Function called whatever the IIf condition"
   href: rdc11039.md
+- name: "RDC11044: LSet of a record that holds a variable-length String"
+  href: rdc11044.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md
