@@ -1,7 +1,10 @@
 using RDCore.Runtime.Execution;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Model.Symbols.Abstract;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Bindings;
 using RDCore.SDK.Model.Values.Intrinsic;
@@ -71,7 +74,7 @@ public sealed partial class CompiledActivation
     private bool Rebind(ValueBindingHandle holder, VBRuntimeObjectId held, VBRuntimeObjectId instance, VBTypedValue coerced)
     {
         var heldHere = !held.Equals(VBObjectValue.Nothing.Value) && _session.Objects.IsHeldBy(held, holder);
-        if (heldHere && _session.Objects.RefCount(held) <= 1)
+        if (heldHere && _session.Objects.RefCount(held) <= 1 && !DestroysWithoutCode(held))
         {
             return false;
         }
@@ -122,12 +125,12 @@ public sealed partial class CompiledActivation
                 ? coerced.Result
                 : null;
 
-    // whether letting go of what a cell held destroys an object: the cell is the last that holds it.
+    // whether letting go of what a cell held destroys an object that runs code as it goes: the cell is the last that holds it.
     private bool Destroys(ObjectReferences.Held held)
     {
         foreach (var (cell, instance) in held)
         {
-            if (_session.Objects.IsHeldBy(instance, cell) && _session.Objects.RefCount(instance) <= 1)
+            if (_session.Objects.IsHeldBy(instance, cell) && _session.Objects.RefCount(instance) <= 1 && !DestroysWithoutCode(instance))
             {
                 return true;
             }
@@ -135,4 +138,26 @@ public sealed partial class CompiledActivation
 
         return false;
     }
+
+    // whether an object that loses its last reference goes without running any code, so that compiled code lets go of it, and the session counts and
+    // destroys it as it does for the interpreter (RuntimeSession.ReleaseReference). Its class is one of the workspace's (a library's, such as a Collection,
+    // lets go of what it holds), and is no form, with no Terminate handler. None of its variables or Static locals can hold an object, which would be let go
+    // of with it. Nothing outside the workspace holds it.
+    private bool DestroysWithoutCode(VBRuntimeObjectId instance)
+        => _session.Symbols.TryGetInstance(instance, out var live) && live is ObjectInstance created
+            && created.ClassModule.GetProperty(SymbolProperties.Library) is null && created.ClassModule.GetProperty(SymbolProperties.ExternalTarget) is null
+            && (_session.Lifecycle is null or ClassLifecycle) && !ClassLifecycle.HandlesTerminate(created)
+            && !_session.ExternalObjects.TryGet(instance, out _, out _)
+            && created.Fields.All(HoldsNoObject) && created.StaticLocals.All(HoldsNoObject);
+
+    private static bool HoldsNoObject(Symbol variable) => variable is ITypedSymbol { ResolvedType: { } type } && HoldsNoObject(type);
+
+    // a number, a String, a Boolean or a Date, or an array or a record made of them only: a Variant, an object and anything else may hold an object.
+    private static bool HoldsNoObject(VBType type) => type switch
+    {
+        VBNumericType or VBStringType or VBBooleanType or VBDateType => true,
+        VBArrayType { ItemType: var item } => HoldsNoObject(item),
+        VBUserDefinedType record => record.Fields().All(HoldsNoObject),
+        _ => false,
+    };
 }
