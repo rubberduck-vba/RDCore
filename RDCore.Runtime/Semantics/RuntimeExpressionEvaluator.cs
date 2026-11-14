@@ -1398,12 +1398,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
             coerced = setResult.Result!;
         }
-        else if (valueParameter.ResolvedType is VBVariantType && HeldObject(value) is { } given && SetCoercion is { } objectCoercion)
+        else if (valueParameter.ResolvedType is VBVariantType or VBObjectType or VBClassType && HeldObject(value) is { } given && SetCoercion is { } objectCoercion)
         {
             // RD-VBAL §5.4.3.8: MS-VBA gives a Variant value parameter the object a Let assigns as it is, early bound or late bound, where MS-VBAL evaluates
             // it as a simple data value: what happens to it is up to the procedure, or the server (observed in Excel: Range.Value = Nothing is Excel's
-            // error 1004, a Dictionary's Item reads the object's default member itself).
-            var passed = objectCoercion.EvaluateSetCoercion(session, source, given, VBVariantType.TypeInfo);
+            // error 1004, a Dictionary's Item reads the object's default member itself). A value parameter of a class or Object is given the object, or
+            // Nothing, as a Set would give it, where MS-VBAL Let-coerces its default member's value to the object type (§5.5.1.2.13: 424, 91 for Nothing).
+            var passed = objectCoercion.EvaluateSetCoercion(session, source, given, valueParameter.ResolvedType);
             if (!passed.IsSuccess)
             {
                 return RuntimeSemanticsEvaluationResult.Error(passed.ErrorInfo!);
@@ -1425,8 +1426,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             {
                 // reached late bound, an object with no default member given to a parameter of another type is a type mismatch, as the IDispatch the call
                 // goes through makes it, and not error 438 (observed in Excel).
+                // a value that is no object, given late bound to a value parameter of a class or Object, is a type mismatch too, not error 424 (observed in
+                // Excel).
                 return RuntimeSemanticsEvaluationResult.Error(
-                    lateBound && HeldObject(value) is not null && letResult.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod
+                    lateBound && valueParameter.ResolvedType is VBObjectType or VBClassType && HeldObject(value) is null
+                        && letResult.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectRequired
+                        ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, source.Location, letResult.ErrorInfo.Verbose)
+                    : lateBound && HeldObject(value) is not null && letResult.ErrorInfo!.ErrorId == (int)VBRuntimeErrorId.ObjectDoesntSupportThisPropertyOrMethod
                         ? VBRuntimeErrorInfo.For(VBRuntimeErrorId.TypeMismatch, source.Location, letResult.ErrorInfo.Verbose)
                         : AsDispatched(session, context, dispatchedThrough, letResult.ErrorInfo!));
             }
