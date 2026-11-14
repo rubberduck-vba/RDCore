@@ -278,8 +278,8 @@ public sealed class DefinitionsAndUses
                 Collect(instruction, child, names, node);
             }
 
-            // once the names it is written with are collected: the variable it passes is read as well. The array of an element that is passed is written
-            // where the element is, in part: the callee may assign the element, and cannot replace the array through it.
+            // once the names it is written with are collected: the variable it passes is read as well. The array of an element that is passed is not
+            // written here: the element's own write is a partial write of it, since the callee may assign the element and cannot replace the array through it.
             if (node is ExpressionNode expression && model.Expressions.TryGetValue(node.Identity, out var fact) && fact.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument)
                 && !IsArrayOfAPassedElement(expression, parent))
             {
