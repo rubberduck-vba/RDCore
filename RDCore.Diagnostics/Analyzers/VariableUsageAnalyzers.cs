@@ -7,7 +7,6 @@ using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Flags;
 
 namespace RDCore.Diagnostics.Analyzers;
 
@@ -95,17 +94,6 @@ internal sealed class VariableNotAssignedAnalyzer : IModuleAnalyzer
             else if (redim.Target is SimpleNameExpressionNode name)
             {
                 redimensionedNames.Add(name.IdentifierName);
-            }
-        }
-
-        // an element of an array passed where the procedure may take it by reference: the argument is the element, which no declaration is bound to, and the
-        // procedure may assign it.
-        foreach (var element in module.Descendants().OfType<IndexExpressionNode>())
-        {
-            if (facts.TryGetValue(element.Identity, out var passed) && passed.Flags.HasFlag(ValueExpressionSemanticFlags.PassedAsArgument)
-                && facts.TryGetValue(element.Callee.Identity, out var array) && array.Binding is { } binding)
-            {
-                givenOtherwise.Add(binding.ToString());
             }
         }
 
