@@ -106,6 +106,15 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to LSet copies a record that holds a variable-length String: MS-VBAL §5.4.3.6 allows it, and MS-VBA refuses it (Compile error: Type mismatch)..
+        /// </summary>
+        public static string LSetOfARecordWithAString_Message {
+            get {
+                return ResourceManager.GetString("LSetOfARecordWithAString_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
         /// </summary>
         public static string EmptyCodeBlock_Message {

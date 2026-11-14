@@ -564,6 +564,8 @@
   href: rdc11037.md
 - name: "RDC11039: Function called whatever the IIf condition"
   href: rdc11039.md
+- name: "RDC11044: LSet of a record that holds a variable-length String"
+  href: rdc11044.md
 - name: "RDC11045: Let through a default member with no Property Let"
   href: rdc11045.md
 - name: "RDC11046: Let through a Variant property or function"

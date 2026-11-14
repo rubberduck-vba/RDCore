@@ -332,6 +332,48 @@ public sealed class CreateObjectTests
         Assert.AreSame(server.Created[0], server.Released[0]);
     }
 
+    // an object something outside the workspace holds is let go of by the interpreter, in compiled code too: the Set that lets go of its last reference is
+    // declined, and the server lets go of it there.
+    [TestMethod]
+    [DataRow(VBExecutionEngine.Interpreter, DisplayName = "interpreted")]
+    [DataRow(VBExecutionEngine.Compiled, DisplayName = "compiled")]
+    public async Task WhenCompiledCodeLetsGoOfTheLastReferenceToALateBoundObject_TheInterpreterDoes(VBExecutionEngine engine)
+    {
+        CompiledExecutionTests.RequirePayloads();
+        var server = new FakeServer();
+        string[] output = [];
+        long? recoveries = null;
+        using (RDCore.Runtime.Compiled.CompiledExecution.Running(engine))
+        {
+            await InspectAsync([], string.Join("\r\n",
+                "Attribute VB_Name = \"Program\"",
+                "Public Sub Main()",
+                "    Work",
+                "    Debug.Print \"back\"",
+                "End Sub",
+                "Private Sub Work()",
+                "    Dim s As Object",
+                "    Set s = CreateObject(\"Lab.Shelf\")",
+                "    Set s = Nothing",
+                "    Debug.Print \"gone\"",
+                "End Sub",
+                ""), (provider, run, _) =>
+                {
+                    output = [.. run.Output.Select(line => line.Trim())];
+                    recoveries = CompiledExecutionTests.ByName(provider).TryGetValue("Work", out var work) ? work.Body?.Recoveries : null;
+                    return Task.CompletedTask;
+                }, libraries: new WorkspaceLibraries([], new InMemoryLibrarySource(Lab), server, true), engine: engine);
+        }
+
+        CollectionAssert.AreEqual(new[] { "gone", "back" }, output);
+        Assert.HasCount(1, server.Released);
+        Assert.AreSame(server.Created[0], server.Released[0]);
+        if (engine == VBExecutionEngine.Compiled && !RDCore.Runtime.Compiled.CompiledExecution.HandsOverAtRandom)
+        {
+            Assert.AreEqual(1L, recoveries);
+        }
+    }
+
     // what a member declared As String returns where the server said nothing is "" - not the text of the number 0 - and a Date's is day 0.
     [TestMethod]
     public async Task NothingReturnedForAStringOrADate_IsTheirDefault()
