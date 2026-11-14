@@ -32,7 +32,7 @@ La complétion automatique de type _Copilot_ et l'usage d'un assistant pour expl
 
 ## Bâtir et tester
 
-RDCore cible **.NET 10**; le [SDK .NET 10](https://dotnet.microsoft.com/download) constitue le seul prérequis.
+RDCore cible **.NET 11**; le [SDK .NET 11](https://dotnet.microsoft.com/download) constitue le seul prérequis.
 
 À partir de la racine du référentiel:
 
@@ -95,7 +95,7 @@ _Copilot_-style autocompletion, and using an assistant to explore or validate im
 
 ## Building and testing
 
-RDCore targets **.NET 10**; the [.NET 10 SDK](https://dotnet.microsoft.com/download) is the only prerequisite.
+RDCore targets **.NET 11**; the [.NET 11 SDK](https://dotnet.microsoft.com/download) is the only prerequisite.
 
 From the repository root:
 

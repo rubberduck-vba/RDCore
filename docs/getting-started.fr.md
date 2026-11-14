@@ -7,7 +7,7 @@
 ---
 ## Obtenir la plateforme
 
-Téléchargez l'archive de votre système parmi les [versions publiées](https://github.com/rubberduck-vba/RDCore/releases) de RDCore : `rdcore-<version>-win-x64.zip` pour Windows, ou un `.tar.gz` pour Linux et macOS. La plateforme a besoin du [_runtime_ .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0) de l'architecture de votre système.
+Téléchargez l'archive de votre système parmi les [versions publiées](https://github.com/rubberduck-vba/RDCore/releases) de RDCore : `rdcore-<version>-win-x64.zip` pour Windows, ou un `.tar.gz` pour Linux et macOS. La plateforme a besoin du [_runtime_ .NET 11](https://dotnet.microsoft.com/download/dotnet/11.0) de l'architecture de votre système.
 
 1. Extrayez l'archive dans un dossier qui lui est propre. Sous Linux et macOS, extrayez-la avec `tar -xzf`, qui conserve le bit d'exécution des programmes. Sous macOS, levez ensuite la quarantaine du dossier : `xattr -dr com.apple.quarantine <dossier>`.
 1. Ouvrez un terminal dans le dossier `RDCore.CLI` du dossier extrait et lancez `.\rdc install` (Windows) ou `./rdc install` (Linux et macOS). La commande installe la plateforme pour votre compte d'utilisateur et met `rdc` dans votre PATH (voir [Installer la plateforme](rdc.fr.md#installer-la-plateforme)).
@@ -15,7 +15,7 @@ Téléchargez l'archive de votre système parmi les [versions publiées](https:/
 
 Les programmes ne sont pas signés; sous Windows, SmartScreen peut donc vous en avertir.
 
-Pour plutôt construire la plateforme à partir de son code source, avec le [SDK .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0), voir [Compiler la plateforme à partir des sources](building-on-rdcore.fr.md#compiler-la-plateforme-à-partir-des-sources). `rdc install` installe de la même façon une plateforme que vous avez construite, à partir de son dossier `RDCore.CLI`.
+Pour plutôt construire la plateforme à partir de son code source, avec le [SDK .NET 11](https://dotnet.microsoft.com/download/dotnet/11.0), voir [Compiler la plateforme à partir des sources](building-on-rdcore.fr.md#compiler-la-plateforme-à-partir-des-sources). `rdc install` installe de la même façon une plateforme que vous avez construite, à partir de son dossier `RDCore.CLI`.
 
 ---
 ## Le _shell_ RD-VBA
