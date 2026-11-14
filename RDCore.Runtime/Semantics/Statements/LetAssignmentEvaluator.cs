@@ -936,6 +936,18 @@ public sealed class LetAssignmentEvaluator(
         return owner is not null;
     }
 
+    /// <summary>
+    /// The frame whose function result variable <paramref name="symbol"/> is, when it names the function or the <c>Property Get</c> whose body the statement
+    /// is in (<strong>MS-VBAL §5.3.1</strong>): what the frame holds, not the symbol table. <see langword="null"/> for any other symbol.
+    /// </summary>
+    /// <param name="session">The session whose call stack holds the frame.</param>
+    /// <param name="context">The evaluation context, whose scope is the procedure the statement is in.</param>
+    /// <param name="symbol">The symbol the target names.</param>
+    public static ICallStackFrame? ResultFrameOf(IRuntimeSession session, RuntimeEvaluationContext context, Symbol symbol)
+        => symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol && symbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri
+            ? session.CallStack.Current
+            : null;
+
     /// <inheritdoc cref="Assign(IRuntimeSession, RuntimeEvaluationContext, StatementNode, ExpressionNode, ExpressionNode, VBTypedValue)"/>
     /// <param name="session">The session whose call stack a function result variable is assigned on.</param>
     /// <param name="context">The evaluation context, whose scope decides whether the target is the enclosing
@@ -955,8 +967,7 @@ public sealed class LetAssignmentEvaluator(
         VBTypedValue value)
     {
 
-        if (symbol is VBFunctionMemberSymbol or VBPropertyGetMemberSymbol
-            && symbol.Uri.AbsoluteUri == context.Scope.AbsoluteUri && session.CallStack.Current is { } enclosing)
+        if (ResultFrameOf(session, context, symbol) is { } enclosing)
         {
             // MS-VBAL 5.3.1: "Foo = value" inside Foo's own body Let-assigns its function result
             // variable, not the general symbol table - the read-side mirror of this check is
