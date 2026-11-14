@@ -14,6 +14,7 @@ using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Errors;
 using RDCore.SDK.Model.Errors.Abstract;
 using RDCore.SDK.Model.Source;
@@ -977,7 +978,13 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             return (EvaluateInstanceField(session, qualified, owner, qualified.Member.IdentifierName), false);
         }
 
-        return ReturnsToBeIndexed(found.Member, found.Receiver, indexExpression.Arguments)
+        var returnsToBeIndexed = ReturnsToBeIndexed(found.Member, found.Receiver, indexExpression.Arguments);
+        if (PropertyCalledByAStatement(session, qualified, owner, found.Member, returnsToBeIndexed) is { } refused)
+        {
+            return (refused, true);
+        }
+
+        return returnsToBeIndexed
             ? (InvokeProcedure(session, context, found.Member, [], found.Receiver, call: qualified), false)
             : (InvokeProcedure(session, context, found.Member, indexExpression.Arguments, found.Receiver, reachedThrough: ReachedThrough(qualified, context),
                 call: indexExpression), true);
@@ -993,7 +1000,8 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
 
         // a Property Get, Function or Sub of the object is an invocation with no arguments of its own; a field is a read.
         return TryResolveInvocableMember(session, context, memberAccess.Owner, owner, memberName) is { } found
-            ? InvokeProcedure(session, context, found.Member, [], found.Receiver, call: memberAccess)
+            ? PropertyCalledByAStatement(session, memberAccess, owner, found.Member, argumentsIndexWhatItReturns: false)
+                ?? InvokeProcedure(session, context, found.Member, [], found.Receiver, call: memberAccess)
             : EvaluateInstanceField(session, memberAccess, owner, memberName);
     }
 
@@ -1880,6 +1888,51 @@ public sealed partial class RuntimeExpressionEvaluator(IOperatorRuntimeSemantics
             ? Evaluate(session, StatementCall(callee, argumentNodes), context)
             : RuntimeSemanticsEvaluationResult.InternalError();
     }
+
+    /// <summary>
+    /// Evaluates what a call statement calls, and discards what it returns (<strong>MS-VBAL §5.4.2.1</strong>).
+    /// </summary>
+    /// <param name="session">The session the statement runs in.</param>
+    /// <param name="context">The context the statement is evaluated in.</param>
+    /// <param name="call">The statement.</param>
+    /// <returns>What the call returned, or the error it raised.</returns>
+    /// <remarks>
+    /// A call statement calls a subroutine or a function, and a property is neither: a <c>Property Get</c> of a class of the workspace that the statement
+    /// names on an object bound late is run-time error 450, and the <c>Property Get</c> is not called (recorded in Excel). One bound early is a compile error.
+    /// </remarks>
+    internal RuntimeSemanticsEvaluationResult EvaluateCallStatement(IRuntimeSession session, RuntimeEvaluationContext context, CallStatementNode call)
+    {
+        switch (call.Callee)
+        {
+            case MemberAccessExpressionNode named:
+                _calledByStatements.TryAdd(named, !call.Arguments.IsEmpty);
+                break;
+            case IndexExpressionNode { Callee: MemberAccessExpressionNode indexed } when call.IsExplicitCall:
+                _calledByStatements.TryAdd(indexed, false);
+                break;
+        }
+
+        return call.Arguments.IsEmpty ? Evaluate(session, call.Callee, context) : Invoke(session, context, call.Callee, call.Arguments);
+    }
+
+    // the member a call statement names on an object, and whether the arguments are the statement's own (`o.Item 1`) rather than those of an index expression
+    // (`Call o.Item(1)`): by the callee's node, one statement each.
+    private readonly ConcurrentDictionary<MemberAccessExpressionNode, bool> _calledByStatements = new(ReferenceEqualityComparer.Instance);
+
+    // argumentsIndexWhatItReturns: with Call, an argument list a parameterless Property Get cannot take indexes the object it returns (MS-VBAL §5.6.13), and
+    // what the statement calls is that object's default member.
+    private RuntimeSemanticsEvaluationResult? PropertyCalledByAStatement(
+        IRuntimeSession session, MemberAccessExpressionNode access, VBTypedValue owner, VBTypeMemberSymbol member, bool argumentsIndexWhatItReturns)
+        => member is VBPropertyGetMemberSymbol
+            && _calledByStatements.TryGetValue(access, out var argumentsAreTheStatements)
+            && (argumentsAreTheStatements || !argumentsIndexWhatItReturns)
+            && UnwrappedOwner(owner) is VBObjectValue objectValue
+            && session.Symbols.TryGetInstance(objectValue.Value, out var instance)
+            && !Execution.External.Automation.LateBinding.IsLateBound(instance.ClassModule)
+            && instance.ClassModule.GetProperty(SymbolProperties.Library) is null
+                ? RuntimeSemanticsEvaluationResult.Error(VBRuntimeErrorInfo.For(VBRuntimeErrorId.WrongNumberOfArgumentsOrInvalidPropertyAssignment, access.Location,
+                    $"'{member.Name}' is a property, which a call statement does not call."))
+                : null;
 
     private IndexExpressionNode StatementCall(ExpressionNode callee, ImmutableArray<ExpressionNode> argumentNodes)
         => _statementCalls.GetOrAdd(callee, static (node, arguments) => new IndexExpressionNode(node.Identity, node.Location, node, arguments), argumentNodes);
