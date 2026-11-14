@@ -14,8 +14,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// A <c>Declare</c> statement is not looked into: the types it states are the ones the external procedure takes, which are not the declaring module's to choose.
-/// Neither are the parameters and the type of an implementation of an interface member or of a handler of an event, which are the member's or the event's
-/// (<see cref="UnusedDeclarations.HasAnothersSignature"/>): their locals are reported like any other.
+/// Nor are the parameters and the type of an implementation of an interface member or of a handler of an event, which are the member's or the event's
+/// (<see cref="UnusedDeclarations.HasAnothersSignature"/>). What the body of such a procedure declares is reported.
 /// </remarks>
 internal sealed class IntegerDataTypeAnalyzer : IModuleAnalyzer
 {
