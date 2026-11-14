@@ -16,6 +16,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ObjectVariablePassedLateAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ObjectVariablePassedLateIsACopy.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (ObjectVariableArguments.Of(context)?.CopiesGivenLate() ?? [])
             .Select(range => new AnalyzerFinding(

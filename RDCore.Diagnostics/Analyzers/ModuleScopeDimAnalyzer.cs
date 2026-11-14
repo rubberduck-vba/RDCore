@@ -14,6 +14,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ModuleScopeDimAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ModuleScopeDimDeclaration.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => DeclarationStatements.In(module.Children)
             .Where(statement => statement[0] is VariableDeclarationNode { AccessModifier: AccessModifier.Implicit })

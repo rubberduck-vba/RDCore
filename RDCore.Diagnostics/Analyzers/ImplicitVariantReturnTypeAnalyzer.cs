@@ -10,6 +10,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 internal sealed class ImplicitVariantReturnTypeAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitVariantReturnType.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Children
             .OfType<MemberDeclarationNode>()

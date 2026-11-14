@@ -11,6 +11,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 internal sealed class MisleadingByRefParameterAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.MisleadingByRefParameter.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Descendants()
             .OfType<ParameterDeclarationNode>()

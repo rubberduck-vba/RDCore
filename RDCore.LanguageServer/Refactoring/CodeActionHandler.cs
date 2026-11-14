@@ -15,6 +15,7 @@ using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.Services;
+using RDCore.SDK.Server.Configuration;
 
 namespace RDCore.LanguageServer.Refactoring;
 
@@ -36,6 +37,11 @@ namespace RDCore.LanguageServer.Refactoring;
 /// <para>
 /// A <c>GoSub</c> routine is offered, the same way, as a refactoring that converts it to a procedure: at a position on its label, on a <c>GoSub</c> that names
 /// it or on one of its <c>Return</c>s, and for a selection whose extraction is refused for a <c>GoSub</c> to it or one of its <c>Return</c>s.
+/// </para>
+/// <para>
+/// The diagnostics of a code that can be disabled are offered, once for the code and after their fixes, a quick fix that disables it in every workspace of the
+/// user (<c>Analysis.DisabledDiagnostics</c>): a command (<see cref="Workspace.ListSettingValueCommand"/>) that asks the client to add it to the user's list. Only a
+/// client that expects <see cref="SDK.Client.ListSettingValue"/> is offered it.
 /// </para>
 /// <para>
 /// A workspace whose folder has a VB6 project and no project file of its own is offered, in every document, a source action that imports each VB6 project
@@ -148,6 +154,7 @@ internal sealed class CodeActionHandler(
             actions.Add(RenameCommand(documentUri, name, position, RefactorRename, diagnostic: null));
         }
 
+        actions.AddRange(DisableActions(request.Context.Diagnostics, documentUri));
         actions.AddRange(ImportProjectActions());
 
         // a client that asks for some kinds of actions only is answered those: a kind is asked for with the kinds under it.
@@ -178,6 +185,39 @@ internal sealed class CodeActionHandler(
         }
 
         return new CommandOrCodeActionContainer(actions.Where(action => IsAsked(action.Kind)).Select(action => new CommandOrCodeAction(action)));
+    }
+
+    // the key of the setting that lists the codes whose diagnostics are not reported.
+    private static readonly string DisabledDiagnosticsKey = $"{nameof(SdkAppOptions.Analysis)}.{nameof(SdkAnalysisOptions.DisabledDiagnostics)}";
+
+    // for each code of the diagnostics of the range that can be disabled, once, after their fixes: the action that disables it in every workspace of the user,
+    // which asks the client to add it to the user's list (rdcore.listSettingValue). Only a client that takes such a change is offered it. A code of the
+    // language's own errors cannot be disabled.
+    private IEnumerable<CodeAction> DisableActions(IEnumerable<Diagnostic> diagnostics, Uri documentUri)
+    {
+        if (!clientCapabilities.Expects(group => group.ListSettingValue))
+        {
+            yield break;
+        }
+
+        var offered = new HashSet<RDCoreDiagnosticCode>();
+        foreach (var diagnostic in diagnostics)
+        {
+            if (!RDCoreDiagnosticCode.TryParse(diagnostic.Code?.String, out var code) || !code.CanBeDisabled || !offered.Add(code))
+            {
+                continue;
+            }
+
+            var change = new ListSettingValueParams { Key = DisabledDiagnosticsKey, Value = code.ToString(), Scope = SettingScope.Platform, Document = documentUri };
+            var title = RefactoringTitles.DisableDiagnostic(code, SettingScope.Platform);
+            yield return new CodeAction
+            {
+                Title = title,
+                Kind = CodeActionKind.QuickFix,
+                Diagnostics = new Container<Diagnostic>(diagnostics.Where(other => other.Code?.String == diagnostic.Code?.String)),
+                Command = new Command { Name = Workspace.ListSettingValueCommand.CommandName, Title = title, Arguments = Workspace.ListSettingValueCommand.ArgumentsOf(change) },
+            };
+        }
     }
 
     // the action that extracts the statements of a selection, or converts a GoSub routine, offered when nothing refuses it, with the refusals when something

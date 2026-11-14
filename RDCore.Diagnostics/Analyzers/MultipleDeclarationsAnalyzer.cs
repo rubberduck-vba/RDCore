@@ -14,6 +14,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class MultipleDeclarationsAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.MultipleDeclarations.ToCode()];
+
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)
         => module.Descendants()
             .Prepend(module)

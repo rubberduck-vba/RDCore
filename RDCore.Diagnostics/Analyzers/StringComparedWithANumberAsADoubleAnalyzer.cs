@@ -22,6 +22,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class StringComparedWithANumberAsADoubleAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.StringComparedWithANumberAsADouble.ToCode()];
+
     private const string Double = "Double";
 
     public AnalysisPhase Phase => AnalysisPhase.Runtime;

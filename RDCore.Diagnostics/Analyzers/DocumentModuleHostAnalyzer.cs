@@ -17,6 +17,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class DocumentModuleHostAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.HostLibraryNotReferenced.ToCode(), RDCoreDiagnosticId.UnsupportedDocumentModule.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.Semantics is not { } semantics || context.ParseResult.SyntaxTree is not { } module)

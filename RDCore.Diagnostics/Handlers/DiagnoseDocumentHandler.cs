@@ -55,20 +55,8 @@ internal sealed class DiagnoseDocumentHandler(
                 .Select(error => diagnostics.FromVBRuntimeError((VBRuntimeErrorInfo)error.ToInfo())));
         }
 
-        // and what the analyzers find worth saying, from the same facts.
-        var context = new ModuleAnalysisContext(payload.DocumentUri, payload.ParseResult, payload.Semantics);
-        foreach (var analyzer in analyzers.Where(analyzer => payload.Phase.HasFlag(analyzer.Phase)))
-        {
-            try
-            {
-                diagnosticList.AddRange(analyzer.Analyze(context).Select(diagnostics.FromAnalyzerFinding));
-            }
-            catch (Exception exception)
-            {
-                // one analyzer failing must not sink the others' diagnostics.
-                logger.LogWarning(exception, "❌ {analyzer} failed for {uri}.", analyzer.GetType().Name, payload.DocumentUri);
-            }
-        }
+        // and what the analyzers find worth saying, from the same facts: those of the phase, whose codes are not all disabled for the document.
+        diagnosticList.AddRange(ModuleAnalyzerHost.Run(analyzers, payload, logger).Select(diagnostics.FromAnalyzerFinding));
 
         logger.LogInformation("📥 {method}: {uri} → {count} diagnostic(s)",
             RDCoreExtensionProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Count);

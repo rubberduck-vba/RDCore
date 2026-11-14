@@ -25,6 +25,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <param name="options">The settings of the extension.</param>
 internal sealed class HungarianNotationAnalyzer(IOptions<DiagnosticsOptions> options) : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.HungarianNotation.ToCode()];
+
     /// <summary>
     /// The lowercase prefixes that state the type of what they begin the name of.
     /// </summary>

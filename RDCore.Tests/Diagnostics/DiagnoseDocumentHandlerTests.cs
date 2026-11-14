@@ -161,6 +161,8 @@ public sealed class DiagnoseDocumentHandlerTests
 
     private sealed class FailingAnalyzer : IModuleAnalyzer
     {
+        public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode()];
+
         public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context) => throw new InvalidOperationException("boom");
     }
 
@@ -171,6 +173,21 @@ public sealed class DiagnoseDocumentHandlerTests
             RequestFor(CleanModule, out _, semantics: Semantics(optionExplicit: false)), new FailingAnalyzer(), new OptionExplicitAnalyzer());
 
         Assert.AreEqual("RDC00101", result.Diagnostics.Single().Code!.Value.String);
+    }
+
+    // the language server sends the codes disabled for the workspace with the document: an analyzer whose every code is disabled is not run.
+    [TestMethod]
+    public async Task AnAnalyzerWhoseCodeIsDisabled_IsNotRun_AndTheOthersAre()
+    {
+        var uri = TestUri.TestModuleUri();
+        var payload = new DiagnoseDocumentPayload(uri, 1, new ModuleParser().Parse(uri, CleanModule), Semantics(optionExplicit: false))
+        {
+            DisabledCodes = [RDCoreDiagnosticId.ImplicitDeclarationsEnabled.ToCode()],
+        };
+
+        var result = await HandleAsync(new DiagnoseDocumentParams { Json = PlatformJson.Serialize(payload) }, new OptionExplicitAnalyzer(), new SaysSomething(AnalysisPhase.Static, 1));
+
+        Assert.AreEqual(RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode().ToString(), result.Diagnostics.Single().Code!.Value.String);
     }
 
     [TestMethod]
@@ -187,6 +204,8 @@ public sealed class DiagnoseDocumentHandlerTests
 
     private sealed class SaysSomething(AnalysisPhase phase, int line) : IModuleAnalyzer
     {
+        public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitNarrowingConversion.ToCode()];
+
         public AnalysisPhase Phase => phase;
 
         public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

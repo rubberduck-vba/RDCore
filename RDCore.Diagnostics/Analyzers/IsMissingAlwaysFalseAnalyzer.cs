@@ -24,6 +24,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class IsMissingAlwaysFalseAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.IsMissingAlwaysFalse.ToCode()];
+
     private const string IsMissing = "Information.IsMissing";
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

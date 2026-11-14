@@ -212,6 +212,7 @@ internal sealed class CoreLanguageServerApp(
         // the commands a client asks the server to run (workspace/executeCommand).
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportIndenterSettingsCommand>();
+        services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ListSettingValueCommand>();
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)

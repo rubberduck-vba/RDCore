@@ -34,6 +34,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ImplicitResultLocalAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ImplicitResultLocal.ToCode()];
+
     private const string NewLine = "\r\n";
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)

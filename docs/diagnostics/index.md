@@ -20,6 +20,8 @@ for the pull pipeline.
 |[Runtime errors](../specs/rd-vbal.2.6.3.runtime-errors.md)|`VBR` / `VBA`|the runtime semantics layer (`VBR`) / a workspace `Err.Raise` (`VBA`)|
 |[Rubberduck Core diagnostics](../specs/rd-vbal.2.6.4.rubberduck-core-diagnostics.md)|`RDC`|the `RDCore.Diagnostics` analyzers|
 
+A diagnostic of the analyzers can be turned off by its code: see [Disabling a Diagnostic](../disabling-diagnostics.md).
+
 ## Stability
 
 A code has a page here **as soon as the platform can emit it**.

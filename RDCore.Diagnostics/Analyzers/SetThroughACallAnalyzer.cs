@@ -31,6 +31,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class SetThroughACallAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.SetThroughACallFails.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.ParseResult.SyntaxTree is not { } module || context.Semantics is not { } semantics)

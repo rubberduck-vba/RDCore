@@ -18,6 +18,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ObjectVariablePassedByRefAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
         => (ObjectVariableArguments.Of(context)?.CopiesGivenByRef() ?? [])
             .Select(range => new AnalyzerFinding(

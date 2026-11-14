@@ -33,6 +33,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.HostedDocumentCode.ToCode()];
+
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
     {
         if (context.Semantics is not { } semantics)

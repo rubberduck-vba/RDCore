@@ -370,6 +370,8 @@ internal class RDCoreConsoleClientApp(
             Unattended = new Unattended(appOptions.Value.Unattended),
             // the shell reads the indenter settings its user had in Rubberduck (on Windows), and takes the ones the language server maps as its own.
             RubberduckIndenterSettings = new RubberduckIndenterSettings(true),
+            // the shell adds an item to a list of its user's settings, or removes one, when the language server asks: a diagnostic disabled with a code action.
+            ListSettingValue = new ListSettingValue(true),
         },
     };
 
@@ -398,7 +400,8 @@ internal class RDCoreConsoleClientApp(
             .WithHandler<ReplShowMessageHandler>()
             .WithHandler<ReplInputBoxHandler>()
             .WithHandler<RubberduckIndenterSettingsHandler>()
-            .WithHandler<RubberduckIndenterSettingsApplyHandler>();
+            .WithHandler<RubberduckIndenterSettingsApplyHandler>()
+            .WithHandler<ListSettingValueHandler>();
 
     // initialize is answered: what the language server asks from now on waits until the shell is up, and has said READY, to be asked at its console.
     protected override async Task OnLanguageClientInitializedAsync(ILanguageClient client, InitializeParams request, InitializeResult response, CancellationToken cancellationToken)

@@ -23,6 +23,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ArgumentTypedArithmeticAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ArgumentTypedArithmeticOverflow.ToCode()];
+
     private static readonly HashSet<string> ArgumentTyped = new(StringComparer.OrdinalIgnoreCase) { "Math.Abs", "Conversion.Int", "Conversion.Fix" };
 
     private static readonly HashSet<string> Integral = new(StringComparer.OrdinalIgnoreCase) { VBTypeNames.VBByte, VBTypeNames.VBInteger, VBTypeNames.VBLong };

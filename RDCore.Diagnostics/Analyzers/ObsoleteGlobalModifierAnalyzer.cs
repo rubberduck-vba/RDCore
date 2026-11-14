@@ -14,6 +14,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class ObsoleteGlobalModifierAnalyzer : SyntaxTreeAnalyzer
 {
+    public override IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.ObsoleteGlobalModifier.ToCode()];
+
     private const string Keyword = "Global";
 
     protected override IEnumerable<AnalyzerFinding> Analyze(ModuleNode module)

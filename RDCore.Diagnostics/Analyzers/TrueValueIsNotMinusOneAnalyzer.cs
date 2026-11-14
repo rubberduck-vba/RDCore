@@ -33,6 +33,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </remarks>
 internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
 {
+    public IReadOnlyList<RDCoreDiagnosticCode> Codes => [RDCoreDiagnosticId.TrueValueIsNotMinusOne.ToCode()];
+
     // how many constants a #Const's value may name in turn before its value is no longer looked for.
     private const int ConstantDepth = 8;
 

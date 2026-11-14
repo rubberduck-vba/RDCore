@@ -39,6 +39,7 @@ public sealed class CodeActionHandlerTests
 
     private readonly IWorkspaceDocumentService _documents = Substitute.For<IWorkspaceDocumentService>();
     private readonly IParsingClientService _parsing = Substitute.For<IParsingClientService>();
+    private RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService _capabilities = Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>();
 
     // what the client said it can do, as it initialized; none, a client that takes neither documentChanges nor change annotations.
     private ClientCapabilities? _client;
@@ -83,7 +84,7 @@ public sealed class CodeActionHandlerTests
         var options = Options.Create(new SdkAppOptions { Workspace = new SdkWorkspaceOptions { WorkspaceUri = Root, Language = "vba" } });
         var rename = new RenameService(_documents, _parsing, new IntrinsicSymbolResolver(), libraries, options, NullLogger<RenameService>.Instance, OneProject.Registry());
         return new CodeActionHandler(rename, _documents, new System.IO.Abstractions.TestingHelpers.MockFileSystem(), new ExtractMethodService(rename, _parsing, options),
-            Substitute.For<RDCore.SDK.Server.Services.IPlatformClientCapabilitiesService>(), new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
+            _capabilities, new OmniSharp.Extensions.LanguageServer.Protocol.Serialization.LspSerializer());
     }
 
     private static DocumentUri Document => DocumentUri.From(Path.Combine(Root, "Main.rdc"));
@@ -123,6 +124,57 @@ public sealed class CodeActionHandlerTests
             CultureInfo.CurrentUICulture = culture;
         }
     }
+
+    // a client that said it takes a change of a list of its settings (rdcore/settings/listValue), as the shell does.
+    private void ClientTakesListChanges()
+    {
+        var capabilities = new RDCore.SDK.Server.Services.PlatformClientCapabilitiesService();
+        capabilities.Record(new RDCore.SDK.Platform.Protocol.PlatformInitializeParams
+        {
+            Expected = new RDCore.SDK.Client.CorePlatformClientCapabilities
+            {
+                LanguageServer = new RDCore.SDK.Client.LanguageServerCapabilities { ListSettingValue = new RDCore.SDK.Client.ListSettingValue(true) },
+            },
+        });
+        _capabilities = capabilities;
+    }
+
+    private static Diagnostic Coded(string code, Range range) => new() { Range = range, Code = code, Source = "RDCore", Message = code };
+
+    [TestMethod]
+    public async Task ACodeOfTheDiagnosticsOfTheRange_IsOfferedTheActionThatDisablesIt_InEveryWorkspace_Once()
+    {
+        ClientTakesListChanges();
+        var first = Coded("RDC01002", new Range(0, 7, 0, 14));
+        var second = Coded("RDC01002", new Range(3, 15, 3, 22));
+
+        var action = Assert.ContainsSingle(await ActionsAsync(new Range(0, 0, 3, 22), [CodeActionKind.QuickFix], first, second));
+
+        Assert.AreEqual("Disable RDC01002 in every workspace", action.Title);
+        Assert.AreEqual(CodeActionKind.QuickFix, action.Kind);
+        CollectionAssert.AreEqual(new[] { first, second }, action.Diagnostics!.ToArray());
+        Assert.AreEqual(ListSettingValueCommand.CommandName, action.Command!.Name);
+        var change = (Newtonsoft.Json.Linq.JObject)action.Command.Arguments!.Single();
+        Assert.AreEqual("Analysis.DisabledDiagnostics", (string?)change["key"]);
+        Assert.AreEqual("RDC01002", (string?)change["value"]);
+        Assert.AreEqual((int)RDCore.SDK.Platform.Protocol.SettingScope.Platform, (int?)change["scope"]);
+        Assert.IsFalse((bool?)change["remove"]);
+    }
+
+    [TestMethod]
+    [DataRow("VBC00013", DisplayName = "a compile error")]
+    [DataRow("VBR00013", DisplayName = "a run-time error")]
+    [DataRow("VBA01004", DisplayName = "an error the program raises")]
+    public async Task ACodeOfTheLanguagesOwnErrors_IsNotOfferedTheActionThatDisablesIt(string code)
+    {
+        ClientTakesListChanges();
+
+        Assert.IsEmpty(await ActionsAsync(new Range(0, 7, 0, 14), [CodeActionKind.QuickFix], Coded(code, new Range(0, 7, 0, 14))));
+    }
+
+    [TestMethod]
+    public async Task AClientThatDoesNotTakeAChangeOfItsSettings_IsNotOfferedTheActionThatDisablesACode()
+        => Assert.IsEmpty(await ActionsAsync(new Range(0, 7, 0, 14), [CodeActionKind.QuickFix], Coded("RDC01002", new Range(0, 7, 0, 14))));
 
     [TestMethod]
     public async Task ADiagnosticFixedByARename_IsOfferedTheRenameToEachSuggestion_AndToANameTheUserChooses()
