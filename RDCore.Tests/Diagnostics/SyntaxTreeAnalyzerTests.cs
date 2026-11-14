@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Analyzers;
 using RDCore.Parsing;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Extensibility.Diagnostics;
+using Microsoft.Extensions.Options;
 using RDCore.Diagnostics;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -124,7 +125,7 @@ public sealed class SyntaxTreeAnalyzerTests
     [TestMethod]
     public void AParameterThatStatesNoMechanism_IsPassedByReference_AndSuggestsSayingSo()
     {
-        var findings = Run(new ImplicitByRefModifierAnalyzer(), """
+        var findings = Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), """
             Public Sub Work(a, ByVal b As Long, ByRef c As Long, Optional d, e As Integer, ParamArray rest())
             End Sub
             """);
@@ -135,13 +136,13 @@ public sealed class SyntaxTreeAnalyzerTests
 
     [TestMethod]
     public void TheValueParameterOfAPropertyLetOrSet_IsPassedByValue_AndIsNotReported()
-        => Assert.IsEmpty(Run(new ImplicitByRefModifierAnalyzer(), "Property Let Item(ByVal i As Long, v As Long)\nEnd Property\nProperty Set Obj(v As Object)\nEnd Property\n")
+        => Assert.IsEmpty(Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), "Property Let Item(ByVal i As Long, v As Long)\nEnd Property\nProperty Set Obj(v As Object)\nEnd Property\n")
             .Where(finding => !finding.Message.Contains("'i'")));
 
     [TestMethod]
     public void TheParametersOfAnEventAndOfADeclare_AreReportedLikeAnyOther()
     {
-        var findings = Run(new ImplicitByRefModifierAnalyzer(), "Event Fired(a)\nDeclare Function Beep Lib \"kernel32\" (dwMs As Long) As Long\n");
+        var findings = Run(new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())), "Event Fired(a)\nDeclare Function Beep Lib \"kernel32\" (dwMs As Long) As Long\n");
 
         CollectionAssert.AreEqual(new[] { 0, 1 }, Lines(findings));
     }

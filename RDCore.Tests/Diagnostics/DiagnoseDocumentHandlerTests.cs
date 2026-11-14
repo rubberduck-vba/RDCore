@@ -16,6 +16,7 @@ using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Server.ProtocolExtensions;
 using RDCore.SDK.Extensibility.Diagnostics;
+using Microsoft.Extensions.Options;
 using RDCore.Diagnostics;
 using RDCore.Runtime.LanguageCore.Errors;
 
@@ -194,7 +195,7 @@ public sealed class DiagnoseDocumentHandlerTests
     [TestMethod]
     public async Task WhatTheSyntaxTreeSays_NeedsNoFactsFromTheHost_AndLinksToItsPage()
     {
-        var result = await HandleAsync(RequestFor("Public Sub Work(total As Long)\r\nEnd Sub\r\n", out _), new ImplicitByRefModifierAnalyzer());
+        var result = await HandleAsync(RequestFor("Public Sub Work(total As Long)\r\nEnd Sub\r\n", out _), new ImplicitByRefModifierAnalyzer(Options.Create(new DiagnosticsOptions())));
 
         var diagnostic = result.Diagnostics.Single();
         Assert.AreEqual("RDC00104", diagnostic.Code!.Value.String);

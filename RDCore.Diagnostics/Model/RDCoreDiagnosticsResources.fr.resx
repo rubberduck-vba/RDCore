@@ -594,4 +594,43 @@
   <data name="EmptyStringLiteral_Fix" xml:space="preserve">
     <value>Remplacer &quot;&quot; par vbNullString</value>
   </data>
+  <data name="ImplicitForStep_Message" xml:space="preserve">
+    <value>Cette boucle For n&apos;indique aucun Step : Step 1 dit que le compteur augmente de 1.</value>
+  </data>
+  <data name="ImplicitForStep_Fix" xml:space="preserve">
+    <value>Écrire Step 1</value>
+  </data>
+  <data name="RedundantStepOne_Message" xml:space="preserve">
+    <value>Step 1 est ce que fait une boucle For sans Step.</value>
+  </data>
+  <data name="RedundantStepOne_Fix" xml:space="preserve">
+    <value>Supprimer Step 1</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_Message" xml:space="preserve">
+    <value>Chaque branche affecte un littéral Boolean à &apos;{0}&apos; : lui affecter la condition, ou Not la condition, dit la même chose.</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
+    <value>Affecter la condition à &apos;{0}&apos;</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_NegatedFix" xml:space="preserve">
+    <value>Affecter Not la condition à &apos;{0}&apos;</value>
+  </data>
+  <data name="StopStatement_Message" xml:space="preserve">
+    <value>Stop suspend le programme ici, comme le fait un point d&apos;arrêt.</value>
+  </data>
+  <data name="StopStatement_Fix" xml:space="preserve">
+    <value>Supprimer le Stop : le programme ne s&apos;arrête plus ici</value>
+  </data>
+  <data name="RedundantByRefModifier_Message" xml:space="preserve">
+    <value>Le paramètre &apos;{0}&apos; est passé par référence avec ou sans ByRef.</value>
+  </data>
+  <data name="RedundantByRefModifier_Fix" xml:space="preserve">
+    <value>Retirer ByRef de &apos;{0}&apos;</value>
+  </data>
+  <data name="RedundantModuleOption_Message" xml:space="preserve">
+    <value>{0} est ce qu&apos;a un module qui n&apos;indique aucune option de ce genre.</value>
+  </data>
+  <data name="RedundantModuleOption_Fix" xml:space="preserve">
+    <value>Supprimer {0}</value>
+  </data>
 </root>

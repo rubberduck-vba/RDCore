@@ -410,6 +410,8 @@
   href: rdc00114.md
 - name: "RDC00115: Implicit result local"
   href: rdc00115.md
+- name: "RDC00116: Implicit For step"
+  href: rdc00116.md
 - name: "RDC00117: Implicit constant type"
   href: rdc00117.md
 - name: "RDC00119: Implicit default member access"
@@ -442,6 +444,10 @@
   href: rdc00207.md
 - name: "RDC00208: Shadowed declaration"
   href: rdc00208.md
+- name: "RDC00209: Boolean assigned in If…Else"
+  href: rdc00209.md
+- name: "RDC00210: Stop statement"
+  href: rdc00210.md
 - name: "RDC00211: On Error GoTo -1"
   href: rdc00211.md
 - name: "RDC00212: Unrestored On Error Resume Next"
@@ -476,6 +482,12 @@
   href: rdc00311.md
 - name: "RDC00312: Empty string literal"
   href: rdc00312.md
+- name: "RDC00313: Redundant Step 1"
+  href: rdc00313.md
+- name: "RDC00314: Redundant ByRef modifier"
+  href: rdc00314.md
+- name: "RDC00315: Redundant module option"
+  href: rdc00315.md
 - name: "RDC00405: Implementations should be private"
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"

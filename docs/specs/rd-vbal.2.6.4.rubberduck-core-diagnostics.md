@@ -34,13 +34,14 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00101`](../diagnostics/rdc00101.md)|Implicit declarations enabled|Warning|`ModuleSemanticModel.OptionExplicit`|
 |[`RDC00102`](../diagnostics/rdc00102.md)|Implicit non-default array base|Hint|the syntax tree: an `Option Base 1` directive|
 |[`RDC00103`](../diagnostics/rdc00103.md)|Implicit type declarations enabled|Hint|the syntax tree: a `Def<Type>` directive|
-|[`RDC00104`](../diagnostics/rdc00104.md)|Implicit ByRef modifier|Information|the syntax tree: `ParameterDeclarationNode.ParameterKind`, except in a procedure whose `DeclarationFact.Role` is `InterfaceImplementation` or `EventHandler`|
+|[`RDC00104`](../diagnostics/rdc00104.md)|Implicit ByRef modifier|Information|the syntax tree: `ParameterDeclarationNode.ParameterKind`, when `DiagnosticsOptions.ByRefModifier` is `Explicit`, except in a procedure whose `DeclarationFact.Role` is `InterfaceImplementation` or `EventHandler`|
 |[`RDC00105`](../diagnostics/rdc00105.md)|Implicit Public member|Information|the syntax tree: `MemberDeclarationNode.AccessModifier`|
 |[`RDC00106`](../diagnostics/rdc00106.md)|Implicit Variant declaration|Information|the syntax tree: a declaration with no type, and the `Def<Type>` directives|
 |[`RDC00107`](../diagnostics/rdc00107.md)|Implicit Variant return type|Information|the syntax tree: a function with no type, and the `Def<Type>` directives|
 |[`RDC00112`](../diagnostics/rdc00112.md)|Implicit narrowing conversion|Warning|`ProcedureSemanticModel.Runtime`: the `ConversionFact`s the language core states about the code of the procedure|
 |[`RDC00114`](../diagnostics/rdc00114.md)|Implicit array declaration|Information|`ModuleSemanticModel.Declarations`: a local whose `DeclarationFact.DeclaredBy` is `ReDim`|
 |[`RDC00115`](../diagnostics/rdc00115.md)|Implicit result local|Information|the syntax tree, and `ProcedureSemanticModel.Expressions`: a name of the procedure, read in its body, bound to it and not a call of it|
+|[`RDC00116`](../diagnostics/rdc00116.md)|Implicit For step|Information|the syntax tree: a `ForStatementNode` with no `StepExpression`, when `DiagnosticsOptions.ForStep` is `Explicit`|
 |[`RDC00117`](../diagnostics/rdc00117.md)|Implicit constant type|Information|the syntax tree: a `ConstantDeclarationNode` with no `As` clause and no type hint|
 |[`RDC00119`](../diagnostics/rdc00119.md)|Implicit default member access|Information|`ProcedureSemanticModel.Runtime`: a `ConversionFact` with `ConversionSemanticFlags.ObjectOperand`, at its operand of a class type; and the syntax tree's `Let` assignments whose target has a `MemberAccessOperationSemanticFlags.DefaultMember` access without `ArgumentList`, of a member the target does not name|
 |[`RDC00120`](../diagnostics/rdc00120.md)|Implicit unbound default member access|Warning|the same facts as `RDC00119`, at an operand or a `Let` target declared `Object`|
@@ -57,6 +58,8 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00206`](../diagnostics/rdc00206.md)|Not all code paths return a value|Warning|`ProcedureSemanticModel.ReturnValue`, from the `ControlFlowGraph` of the procedure|
 |[`RDC00207`](../diagnostics/rdc00207.md)|IsMissing that is always False|Warning|the syntax tree: an `IsMissing` call of one name, bound to the library's `IsMissing` (`ExpressionFact.Binding`, `ValueExpressionSemanticFlags.BoundToLibrary`); the `ParameterDeclarationNode` of the parameter the name is bound to (`DeclarationFact.Location`): no `ParamArray`, and either not a `Variant` (`ExpressionFact.DeclaredType`) or given a default value; any other name whose `ExpressionFact.Classification` is `Constant`, or `Variable` with a `DeclaredType` that is not `Variant`|
 |[`RDC00208`](../diagnostics/rdc00208.md)|Shadowed declaration|Information|`DeclarationFact.Hides`, from the resolver: what the name of a local or a parameter means as seen from the module|
+|[`RDC00209`](../diagnostics/rdc00209.md)|Boolean assigned in If…Else|Information|the syntax tree: an `IfBlockStatementNode` whose `Body` and `ElseBlock`, or an `InlineIfStatementNode` whose `ThenBody` and `ElseBody`, each hold one Let-assignment of a Boolean literal to the same name|
+|[`RDC00210`](../diagnostics/rdc00210.md)|Stop statement|Information|the syntax tree: a `KeywordStatementNode` of `Stop`|
 |[`RDC00211`](../diagnostics/rdc00211.md)|On Error GoTo -1|Hint|the syntax tree: an `OnErrorGoToStatementNode` whose label is the literal `-1`|
 |[`RDC00212`](../diagnostics/rdc00212.md)|Unrestored On Error Resume Next|Warning|the syntax tree: an `OnErrorResumeStatementNode` that no `OnErrorGoToStatementNode` to a label or `0` follows in its procedure, in the order they are written|
 |[`RDC00213`](../diagnostics/rdc00213.md)|Line continuation between keywords|Information|the trivia of the parse: `LineContinuationTriviaNode.Keyword`|
@@ -74,6 +77,9 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00310`](../diagnostics/rdc00310.md)|Redundant ByVal argument|Hint|the syntax tree: a `ByVal` argument with no compile error; its `ArgumentFact`: `Mechanism` `ExplicitByVal`, not a `ParamArray`, and a `ParameterType` other than the unknown type (`As Any`)|
 |[`RDC00311`](../diagnostics/rdc00311.md)|Early binding opportunity|Information|`ExpressionFact.Creates` (`ObjectClassSource.ReferencedLibrary`)|
 |[`RDC00312`](../diagnostics/rdc00312.md)|Empty string literal|Information|the syntax tree: a `LiteralExpressionNode` of a `String`, two characters long|
+|[`RDC00313`](../diagnostics/rdc00313.md)|Redundant Step 1|Information|the syntax tree: a `StepExpression` that is the Integer literal `1`, when `DiagnosticsOptions.ForStep` is `Implicit`|
+|[`RDC00314`](../diagnostics/rdc00314.md)|Redundant ByRef modifier|Information|the syntax tree: `ParameterKind.ExplicitByRef`, when `DiagnosticsOptions.ByRefModifier` is `Implicit`; `DeclarationFact.Role` leaves out implementations and event handlers|
+|[`RDC00315`](../diagnostics/rdc00315.md)|Redundant module option|Information|the syntax tree: a `ModuleOptionDirectiveNode` of `Option Base 0` or `Option Compare Binary`|
 |[`RDC00405`](../diagnostics/rdc00405.md)|Implementations should be private|Information|`DeclarationFact.Role` and `DeclarationFact.Access`|
 |[`RDC00407`](../diagnostics/rdc00407.md)|Unmatched event handler|Hint|`DeclarationFact.Role` (`DeclarationRole.UnmatchedEventHandler`) and `DeclarationFact.References`|
 |[`RDC00408`](../diagnostics/rdc00408.md)|Underscore in a public class member|Warning|`ModuleSemanticModel.Declarations` of a class module: a public procedure, property or variable of the module named with `_`, whose `DeclarationFact.Role` is `None`, and that the syntax tree declares|

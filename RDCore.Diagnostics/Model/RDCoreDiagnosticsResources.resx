@@ -594,4 +594,43 @@
   <data name="EmptyStringLiteral_Fix" xml:space="preserve">
     <value>Replace &quot;&quot; with vbNullString</value>
   </data>
+  <data name="ImplicitForStep_Message" xml:space="preserve">
+    <value>This For loop states no Step: Step 1 says that the counter goes up by 1.</value>
+  </data>
+  <data name="ImplicitForStep_Fix" xml:space="preserve">
+    <value>Write Step 1</value>
+  </data>
+  <data name="RedundantStepOne_Message" xml:space="preserve">
+    <value>Step 1 is what a For loop with no Step does.</value>
+  </data>
+  <data name="RedundantStepOne_Fix" xml:space="preserve">
+    <value>Remove Step 1</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_Message" xml:space="preserve">
+    <value>Each branch assigns a Boolean literal to &apos;{0}&apos;: assigning it the condition, or Not the condition, says the same.</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_Fix" xml:space="preserve">
+    <value>Assign the condition to &apos;{0}&apos;</value>
+  </data>
+  <data name="BooleanAssignedInIfElse_NegatedFix" xml:space="preserve">
+    <value>Assign Not the condition to &apos;{0}&apos;</value>
+  </data>
+  <data name="StopStatement_Message" xml:space="preserve">
+    <value>Stop suspends the program here, as a breakpoint does.</value>
+  </data>
+  <data name="StopStatement_Fix" xml:space="preserve">
+    <value>Remove the Stop: the program no longer breaks here</value>
+  </data>
+  <data name="RedundantByRefModifier_Message" xml:space="preserve">
+    <value>Parameter &apos;{0}&apos; is passed by reference with or without ByRef.</value>
+  </data>
+  <data name="RedundantByRefModifier_Fix" xml:space="preserve">
+    <value>Remove ByRef from &apos;{0}&apos;</value>
+  </data>
+  <data name="RedundantModuleOption_Message" xml:space="preserve">
+    <value>{0} is what a module that states no such option has.</value>
+  </data>
+  <data name="RedundantModuleOption_Fix" xml:space="preserve">
+    <value>Remove {0}</value>
+  </data>
 </root>

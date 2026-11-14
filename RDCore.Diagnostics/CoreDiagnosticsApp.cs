@@ -100,6 +100,11 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObsoleteWhileWendAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteOnLocalErrorStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, EmptyStringLiteralAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, ForStepAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, RedundantByRefModifierAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, RedundantModuleOptionAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, BooleanAssignedInIfElseAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, StopStatementAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotAssignedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ParameterNotUsedAnalyzer>();
