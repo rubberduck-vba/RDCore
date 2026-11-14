@@ -129,9 +129,22 @@ member written with arguments invoked, to assign the default member of what it r
 
 #### An object as the value of a property
 
-**RD-VBA differs from MS-VBAL:** an object given to a `Property Let` (or a property of a library object) whose value parameter is a `Variant`
-is passed as the object, early bound and late bound, as in MS-VBA (recorded in Excel). **MS-VBAL §5.4.3.8** evaluates it as a simple data value, its
-default member's value. What happens to the object is up to the property:
+**RD-VBA differs from MS-VBAL:** an object given to a `Property Let` (or a property of a library object) whose value parameter is a `Variant`, a
+class or `Object` is passed as the object, early bound and late bound, as in MS-VBA (recorded in Excel). **MS-VBAL §5.4.3.8** evaluates it as a
+simple data value, its default member's value, which for a class or `Object` parameter is a type mismatch (**MS-VBAL §5.5.1.1**) or run-time
+error 424 (**MS-VBAL §5.5.1.2.13**; 91 for `Nothing`).
+
+|Value parameter|What it is given|
+|---|---|
+|`Object`|The object, or `Nothing`, with or without a default member.|
+|A class|The object, as a `Set` would give it. An object of another class is run-time error 13.|
+|`Variant`|The object, or `Nothing`.|
+
+A value that is no object, given to a class or `Object` parameter, is a type mismatch: a compile error when its declared type is not `Variant`,
+run-time error 424 when a `Variant` holds it, and run-time error 13 late bound. A property that has both a `Property Let` and a `Property Set` runs
+its `Property Let` for a `Let`.
+
+What happens to an object given to a `Variant` parameter is up to the property:
 
 |Property|`Nothing`|An object with a default member|
 |---|---|---|
