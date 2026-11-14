@@ -177,4 +177,34 @@
   <data name="VBCompileError_CallArgumentsNeedCall_Verbose" xml:space="preserve">
     <value>A call that is not written with the Call keyword does not have an argument list in parentheses, not even an empty one. Drop the parentheses (Foo 1, 2 or Foo), or write the Call keyword (Call Foo(1, 2) or Call Foo()). The parentheses of a single argument are not an argument list but the grouping of that argument, which is passed by value (MS-VBAL §5.4.2.1).</value>
   </data>
+  <data name="VBCompileError_SyntaxError_Verbose" xml:space="preserve">
+    <value>Syntax error</value>
+  </data>
+  <data name="VBCompileError_ExpectedIdentifier_Verbose" xml:space="preserve">
+    <value>Expected: identifier</value>
+  </data>
+  <data name="VBCompileError_ExpectedTypeName_Verbose" xml:space="preserve">
+    <value>Expected: type name</value>
+  </data>
+  <data name="VBCompileError_ExpectedNewOrTypeName_Verbose" xml:space="preserve">
+    <value>Expected: New or type name</value>
+  </data>
+  <data name="VBCompileError_ExpectedListSeparatorOrParenthesis_Verbose" xml:space="preserve">
+    <value>Expected: list separator or )</value>
+  </data>
+  <data name="VBCompileError_ExpectedExpression_Verbose" xml:space="preserve">
+    <value>Expected: expression</value>
+  </data>
+  <data name="VBCompileError_ExpectedEndOfStatement_Verbose" xml:space="preserve">
+    <value>Expected: end of statement</value>
+  </data>
+  <data name="VBCompileError_ExpectedGetOrLetOrSet_Verbose" xml:space="preserve">
+    <value>Expected: Get or Let or Set</value>
+  </data>
+  <data name="VBCompileError_ExpectedLib_Verbose" xml:space="preserve">
+    <value>Expected: Lib</value>
+  </data>
+  <data name="VBCompileError_ExpectedTextOrBinary_Verbose" xml:space="preserve">
+    <value>Expected: Text or Binary</value>
+  </data>
 </root>
