@@ -291,6 +291,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00309](rdc00309.md)|Obsolete On Local Error statement|An error handler set with On Local Error|
 |[RDC00310](rdc00310.md)|Redundant ByVal argument|An argument written `ByVal` for a parameter that is `ByVal` already|
 |[RDC00311](rdc00311.md)|Early binding opportunity|`CreateObject` of a class that a referenced library declares|
+|[RDC00312](rdc00312.md)|Empty string literal|The literal `""`, where `vbNullString` says the same by name|
 |[RDC00405](rdc00405.md)|Implementations should be private|A Public implementation of an interface member or handler of an event|
 |[RDC00407](rdc00407.md)|Unmatched event handler|A handler of a form control's event that does not match the event, and that nothing calls|
 |[RDC00408](rdc00408.md)|Underscore in a public class member|A public member of a class module with an underscore in its name|
@@ -298,9 +299,13 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00410](rdc00410.md)|Default instance in its own class|The code of a predeclared class naming its own default instance|
 |[RDC01001](rdc01001.md)|Use meaningful identifier names|A name too short, ending with a digit, or without a vowel|
 |[RDC01002](rdc01002.md)|Hungarian notation|A name that begins with a prefix that states its type|
+|[RDC01003](rdc01003.md)|Empty If block|An `If` or `ElseIf` branch with no statement|
+|[RDC01004](rdc01004.md)|Empty code block|An `Else`, `Case`, `Do`, `For`, `For Each` or `While` block with no statement|
 |[RDC01005](rdc01005.md)|Hosted document code|The code of an Excel, Word or Access document, which RD-VBA does not host: move it into a class that automates the application|
 |[RDC01006](rdc01006.md)|Unsupported document module|A document of a host RD-VBA does not know, or a `.doccls` the project says nothing of|
 |[RDC01007](rdc01007.md)|Host library not referenced|A document module whose host's library the project does not reference|
+|[RDC01009](rdc01009.md)|Empty procedure|A procedure with no statement|
+|[RDC01010](rdc01010.md)|Empty module|A module that declares nothing|
 |[RDC11005](rdc11005.md)|Bitwise operator|A logical operator given numbers, which works on their bits|
 |[RDC11006](rdc11006.md)|Ambiguous concatenation|Two String values joined with +|
 |[RDC11011](rdc11011.md)|Variant number compared with a Variant String|The number is less, whatever the values|

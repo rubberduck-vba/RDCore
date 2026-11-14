@@ -474,6 +474,8 @@
   href: rdc00310.md
 - name: "RDC00311: Early binding opportunity"
   href: rdc00311.md
+- name: "RDC00312: Empty string literal"
+  href: rdc00312.md
 - name: "RDC00405: Implementations should be private"
   href: rdc00405.md
 - name: "RDC00407: Unmatched event handler"
@@ -488,12 +490,20 @@
   href: rdc01001.md
 - name: "RDC01002: Hungarian notation"
   href: rdc01002.md
+- name: "RDC01003: Empty If block"
+  href: rdc01003.md
+- name: "RDC01004: Empty code block"
+  href: rdc01004.md
 - name: "RDC01005: Hosted document code"
   href: rdc01005.md
 - name: "RDC01006: Unsupported document module"
   href: rdc01006.md
 - name: "RDC01007: Host library not referenced"
   href: rdc01007.md
+- name: "RDC01009: Empty procedure"
+  href: rdc01009.md
+- name: "RDC01010: Empty module"
+  href: rdc01010.md
 - name: "RDC01011: Variable not used"
   href: rdc01011.md
 - name: "RDC01012: Variable not assigned"

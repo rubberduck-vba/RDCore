@@ -99,6 +99,7 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ObsoleteTypeHintAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteWhileWendAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ObsoleteOnLocalErrorStatementAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyStringLiteralAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotUsedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, VariableNotAssignedAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, ParameterNotUsedAnalyzer>();
@@ -154,6 +155,12 @@ internal class CoreDiagnosticsApp(
         services.AddSingleton<IModuleAnalyzer, ImplementsInDocumentModuleAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, UseMeaningfulIdentifierNamesAnalyzer>();
         services.AddSingleton<IModuleAnalyzer, HungarianNotationAnalyzer>();
+
+        // what has nothing in it: a block, a procedure, a module.
+        services.AddSingleton<IModuleAnalyzer, EmptyIfBlockAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyCodeBlockAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyProcedureAnalyzer>();
+        services.AddSingleton<IModuleAnalyzer, EmptyModuleAnalyzer>();
     }
 
     protected override void Dispose(bool disposing)

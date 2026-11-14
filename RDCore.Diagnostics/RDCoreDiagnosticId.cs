@@ -71,6 +71,7 @@ public enum RDCoreDiagnosticId
     ObsoleteOnLocalErrorStatement = 309,
     RedundantByValArgument = 310, // ByVal written before an argument of a ByVal parameter: MS-VBA compiles it, MS-VBAL refuses it, it changes nothing
     EarlyBindingOpportunity = 311, // CreateObject of a class a referenced library declares: it could be New, and early-bound
+    EmptyStringLiteral = 312, // "", which vbNullString says
 
     ObsoleteMemberUsage = 401, // members with an @Obsolete annotation
     InvalidAnnotation = 404, // @NotAnAnnotationButParsedLikeOne
@@ -86,12 +87,14 @@ public enum RDCoreDiagnosticId
     UseMeaningfulIdentifierNames = 1001,
     HungarianNotation = 1002,
 
-    EmptyIfBlock,
-    EmptyCodeBlock,
+    EmptyIfBlock = 1003, // an If or ElseIf branch with no statement
+    EmptyCodeBlock = 1004, // an Else, Case, Do, For, For Each or While block with no statement
 
     HostedDocumentCode = 1005, // a document module (.rdproj Super): the code of a host's document, which RD-VBA does not host; and a name of one in another module
     UnsupportedDocumentModule = 1006, // a document module of a host RD-VBA does not know, or a .doccls the project says nothing of
     HostLibraryNotReferenced = 1007, // a document module of a known host whose library the project does not reference
+    EmptyProcedure = 1009, // a procedure with no statement
+    EmptyModule = 1010, // a module that declares nothing
     VariableNotUsed = 1011, // a variable whose value nothing reads
     VariableNotAssigned = 1012, // a variable read and never assigned: it always has the default value of its type
     ParameterNotUsed = 1013, // a parameter nothing in its procedure refers to

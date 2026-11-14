@@ -115,22 +115,24 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Empty code block; implement a body or consider removing it..
+        ///   Looks up a localized string similar to This {0} block has no statement..
         /// </summary>
         public static string EmptyCodeBlock_Message {
             get {
                 return ResourceManager.GetString("EmptyCodeBlock_Message", resourceCulture);
             }
         }
+
         
         /// <summary>
-        ///   Looks up a localized string similar to Empty If block; consider reversing the conditional expression..
+        ///   Looks up a localized string similar to This {0} branch has no statement: it does nothing when its condition is True..
         /// </summary>
         public static string EmptyIfBlock_Message {
             get {
                 return ResourceManager.GetString("EmptyIfBlock_Message", resourceCulture);
             }
         }
+
         
         /// <summary>
         ///   Looks up a localized string similar to Array enumeration is inefficient and would perform better with a `For...Next` construct instead, with indexed (subscript) item access..
@@ -1424,5 +1426,59 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("UnderscoreInPublicClassMember_Message", resourceCulture);
             }
         }
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the empty Else.
+        /// </summary>
+        public static string EmptyElseBlock_Fix {
+            get {
+                return ResourceManager.GetString("EmptyElseBlock_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove the empty If.
+        /// </summary>
+        public static string EmptyIfBlock_Fix {
+            get {
+                return ResourceManager.GetString("EmptyIfBlock_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; has no statement: calling it does nothing..
+        /// </summary>
+        public static string EmptyProcedure_Message {
+            get {
+                return ResourceManager.GetString("EmptyProcedure_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Module &apos;{0}&apos; declares nothing..
+        /// </summary>
+        public static string EmptyModule_Message {
+            get {
+                return ResourceManager.GetString("EmptyModule_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &quot;&quot; is a String of no characters: vbNullString says the same by name..
+        /// </summary>
+        public static string EmptyStringLiteral_Message {
+            get {
+                return ResourceManager.GetString("EmptyStringLiteral_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Replace &quot;&quot; with vbNullString.
+        /// </summary>
+        public static string EmptyStringLiteral_Fix {
+            get {
+                return ResourceManager.GetString("EmptyStringLiteral_Fix", resourceCulture);
+            }
+        }
+
     }
 }
