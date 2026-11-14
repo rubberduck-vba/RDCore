@@ -135,11 +135,11 @@ default member of the object it returns, again, or an element of the array. MS-V
 |`o2("k") = 5`, `Set o2("k") = c`|A default member that returns an object whose default `Item` has a `Property Let` and a `Property Set`|`o2.Inner("k") = 5`, `Set o2.Inner("k") = c`.|
 |`o("k") = 9`|`Property Get Inner() As Collection`|Run-time error 424: the `Collection`'s `Item` has no `Property Let`, and what it returns is not an object.|
 
-> [!IMPORTANT]
-> **MS-VBAL §5.6.13** gives an object declared `Object` or `Variant` the same rule at run time: its default member is resolved with the argument list
-> queue, and what it returns is given the arguments. **MS-VBA** does so only where it returns an object and the assignment is not a `Set`. Called late,
-> a default member that takes no parameters and returns an array, given an argument list, is run-time error 451; a `Set` through it is run-time error
-> 450. **RD-VBA** follows MS-VBA. Nothing in the code says what an `Object` holds before it runs, so no diagnostic reports it.
+**RD-VBA differs from MS-VBAL:** **MS-VBAL §5.6.13** gives an object declared `Object` or `Variant` the same rule at run time: its default member is
+resolved with the argument list queue, and what it returns is given the arguments. MS-VBA, and RD-VBA with it, does so only where the default member
+returns an object and the assignment is not a `Set`. Called late, a default member that takes no parameters and returns an array is run-time error 451
+when given an argument list, and a `Set` through it is run-time error 450. Nothing in the code says what an `Object` holds before it runs, so no
+diagnostic reports it.
 
 
 ## 5.6.13.1 Argument Lists
