@@ -333,6 +333,17 @@ public static class StatementStaticSemanticsEvaluator
                 return;
             }
 
+            // RD-VBAL §5.4.3.8: a property whose Property Let takes a class or Object is given the object a Let assigns, as a Set would give it (MS-VBA,
+            // recorded in Excel), where MS-VBAL §5.5.1.1 makes the Let-coercion of an object to an object type invalid: an object is checked as a Set
+            // checks it, and any other value as the Let-coercion it is (a number is a type mismatch).
+            if (isLet && targetResult.IsSuccess && valueResult.IsSuccess
+                && LetValueParameterTypeOf(context, assignment) is { } objectParameter && objectParameter is VBClassType or VBObjectType)
+            {
+                var objectCoercion = valueResult.Result is VBClassType or VBObjectType ? SetCoercionStaticSemantics.Instance : LetCoercionStaticSemantics.Instance;
+                CollectError(objectCoercion.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, objectParameter), walk);
+                return;
+            }
+
             if (!assignsADefaultMember && targetResult.IsSuccess && valueResult.IsSuccess && ResolveCoercionRule(assignment.Kind) is { } coercionRule)
             {
                 CollectError(coercionRule.DetermineDeclaredType(context, assignment.Value, valueResult.Result!, DeclaredTypeOfTarget(context, assignment, targetResult.Result!)), walk);
@@ -1293,6 +1304,13 @@ public static class StatementStaticSemanticsEvaluator
             ? members.OfType<VBPropertySetMemberSymbol>().FirstOrDefault()
             : members.OfType<VBPropertyLetMemberSymbol>().FirstOrDefault();
         return accessor is { Parameters: [.., var value] } ? value.ResolvedType : evaluated;
+    }
+
+    // the declared type of the value parameter of the Property Let the target of a Let names; null when it names no property with one.
+    private static VBType? LetValueParameterTypeOf(StaticEvaluationContext context, AssignmentStatementNode assignment)
+    {
+        var property = assignment.Target is IndexExpressionNode { Callee: var called } ? called : assignment.Target;
+        return AccessorsOf(context, property)?.OfType<VBPropertyLetMemberSymbol>().FirstOrDefault() is { Parameters: [.., var value] } ? value.ResolvedType : null;
     }
 
     // the accessors of the property the target names, and whatever else the module declares of the name; none when the target names no property, or names
