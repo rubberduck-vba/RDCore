@@ -53,8 +53,18 @@ internal static class UnusedDeclarations
         => procedure is not ExternalMemberDeclarationNode
             && procedure.MemberKind is not MemberKind.Event
             && !(semantics.Class is not null && procedure.AccessModifier is AccessModifier.Public or AccessModifier.Implicit)
-            && !semantics.Declarations.Any(declaration => declaration is { Role: DeclarationRole.InterfaceImplementation or DeclarationRole.EventHandler }
-                && string.Equals(declaration.Name, procedure.Name, StringComparison.OrdinalIgnoreCase));
+            && !HasAnothersSignature(procedure, semantics);
+
+    /// <summary>
+    /// Whether a procedure's parameters and type are those of another member: it implements a member of an interface, or handles an event that it matches
+    /// (<strong>MS-VBAL §5.3.1.8</strong>, <strong>§5.3.1.9</strong>), as the host states it (<see cref="DeclarationFact.Role"/>). A handler of a form's
+    /// control that does not match its event is a procedure like any other.
+    /// </summary>
+    /// <param name="procedure">The procedure.</param>
+    /// <param name="semantics">The host's model of its module, or <see langword="null"/> where there is none.</param>
+    public static bool HasAnothersSignature(MemberDeclarationNode procedure, ModuleSemanticsDto? semantics)
+        => semantics is not null && semantics.Declarations.Any(declaration => declaration is { Role: DeclarationRole.InterfaceImplementation or DeclarationRole.EventHandler }
+            && string.Equals(declaration.Name, procedure.Name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// The procedure of the module whose body a position is in.

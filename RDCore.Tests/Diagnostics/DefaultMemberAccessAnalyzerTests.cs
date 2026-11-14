@@ -37,6 +37,9 @@ public sealed class DefaultMemberAccessAnalyzerTests
         "LetAnUnboundObjectToAnObject|Dim v As Object|Set v = New Holder|Dim h As New Holder|h = v",
         "LetAnObjectToAnElement|Dim a(1) As Holder|Set a(1) = New Holder|Dim h As New Holder|a(1) = h",
         "SetAnObject|Dim h As Holder|Dim h2 As New Holder|Set h = h2",
+        "AssignTheDefaultMemberByName|Dim h As New Holder|h.Value = 5",
+        "AssignTheDefaultMemberByNameInAWith|Dim h As New Holder|With h|.Value = 5|End With",
+        "LetAnObjectToTheDefaultMemberByName|Dim h As New Holder|Dim h2 As New Holder|h.Value = h2",
     ];
 
     private static string _source = string.Empty;
@@ -91,9 +94,9 @@ public sealed class DefaultMemberAccessAnalyzerTests
     [TestMethod]
     public void AnObjectUsedAsAValue_OrAssignedOne_CallsItsDefaultMember()
         => CollectionAssert.AreEqual(
-            new[] { "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)" },
+            new[] { "ReadAnObject: h", "ReadAMemberThatReturnsAnObject: o.Inner", "PassAnObject: h", "AssignAnObject: h", "AssignAnElementThatHoldsAnObject: a(1)", "LetAnObjectToTheDefaultMemberByName: h2" },
             Findings(new ImplicitDefaultMemberAccessAnalyzer(), RDCoreDiagnosticId.ImplicitDefaultMemberAccess, DiagnosticSeverity.Information),
-            "not an Object, a Variant, a member named, nor an object assigned to an object");
+            "not an Object, a Variant, a member named (the default member included), nor an object assigned to an object");
 
     [TestMethod]
     public void AnObjectUsedAsAValue_HasADefaultMemberKnownOnlyAtRunTime()
