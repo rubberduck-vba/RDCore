@@ -252,7 +252,8 @@ internal sealed class CoreLanguageServerApp(
 
         try
         {
-            await workspace.LoadAsync(root, folders, RegenerateQuestionOf(server, request), cancellationToken);
+            await workspace.LoadAsync(root, folders, RegenerateQuestionOf(server, request), cancellationToken,
+                LanguageTakerOf(request, ExternalServices.GetRequiredService<IOptions<SdkAppOptions>>().Value.Workspace));
             LogIfEnabled(LogLevel.Information, "✅ Workspace loaded");
         }
         catch (Exception exception)
@@ -278,6 +279,11 @@ internal sealed class CoreLanguageServerApp(
             });
         }
     }
+
+    // the language a client names in its initializationOptions is already the server's, and wins; one that names none leaves it to the project file. The
+    // children are started with the setting once initialize is answered, so they are told the language taken here too.
+    internal static Action<SupportedLanguage>? LanguageTakerOf(InitializeParams request, SdkWorkspaceOptions workspace)
+        => ClientLanguage(request) is null ? language => workspace.Language = language.Id : null;
 
     // a project file that can't be read is offered to be regenerated: asked with window/showMessageRequest, which LSP allows before initialize is answered, and
     // only of a client that says it answers then. One that can't, or has no handler for the request, would leave initialize unanswered for good; one that runs

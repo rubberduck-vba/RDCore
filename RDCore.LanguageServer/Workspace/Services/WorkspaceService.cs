@@ -40,7 +40,12 @@ internal interface IWorkspaceService
     /// (<see cref="RDCore.SDK.Platform.Protocol.RDCoreInitializationOptions.Unattended"/>), and a project file that can't be read is not loaded.
     /// </param>
     /// <param name="token">A token that cancels the question.</param>
-    Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default);
+    /// <param name="takeLanguage">
+    /// Takes the language the primary project's file says the workspace is written in (<see cref="SupportedLanguages.OfProject"/>), once the file is read and
+    /// before anything is loaded in that language; <see langword="null"/> when the client named the language, which wins.
+    /// </param>
+    Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default,
+        Action<SupportedLanguage>? takeLanguage = null);
     /// <summary>
     /// Asynchronously serializes the project file to disk.
     /// </summary>
@@ -271,7 +276,8 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
 
     public Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders) => LoadAsync(workspaceRoot, folders, ask: null);
 
-    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default)
+    public async Task LoadAsync(string workspaceRoot, IReadOnlyList<string> folders, Func<string, IReadOnlyList<string>, CancellationToken, Task<string?>>? ask, CancellationToken token = default,
+        Action<SupportedLanguage>? takeLanguage = null)
     {
         if (serverStateProvider.State.Value != ServerStateValue.Initializing)
         {
@@ -284,6 +290,13 @@ internal class WorkspaceService(IServerStateProvider serverStateProvider,
         documentService.Initialize(workspaceRoot);
         await LoadProjectFileAsync(workspaceRoot, ask, token);
         LogSchemaOf(projectFileService.Project);
+
+        // the source files and the libraries are the language's: what the project file says of it is taken before either is loaded.
+        if (takeLanguage is not null && SupportedLanguages.OfProject(ProjectInfo) is { } language)
+        {
+            takeLanguage(language);
+            logger.LogInformation("The workspace is written in {language} ('{id}'), as its project file says.", language.Name, language.Id);
+        }
 
         // the root is a folder of the workspace whether or not the client lists it among its folders.
         string[] all = [workspaceRoot, .. folders];

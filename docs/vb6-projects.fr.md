@@ -13,7 +13,7 @@ rdc import <chemin>
 ```
 
 `<chemin>` est le `.vbp`, ou un dossier qui en contient un. Le `.rdproj` est écrit à côté du `.vbp`, qui reste tel quel. Le `.rdproj` garde la trace du
-`.vbp` dont il est issu (`SourceProject`).
+`.vbp` dont il est issu (`SourceProject`), ce qui fait de l'espace de travail un espace VB6 pour un éditeur qui ne précise pas le langage lui-même.
 
 |Du `.vbp`|Dans le `.rdproj`|
 |---|---|
