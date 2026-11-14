@@ -191,10 +191,10 @@ public sealed class FixedAssignmentTests
     }
 
     [TestMethod]
-    public void LSet_IntoAWiderRecord_LeavesWhatTheSourceDoesNotReachAtItsDefault()
+    public void LSet_IntoAWiderRecord_LeavesWhatTheSourceDoesNotReachAsItWas()
     {
-        // "only the bytes both types have": a destination field past the end of the source's image was never
-        // copied, so it says so rather than holding half a value.
+        // "only the bytes both types have": a destination field past the end of the source's image is not written, and keeps what it held (MS-VBA,
+        // observed in Excel).
         var source = Udt("TOne", ("A", VBLongType.TypeInfo));
         var target = Udt("TTwo", ("A", VBLongType.TypeInfo), ("B", VBLongType.TypeInfo));
 
@@ -204,7 +204,7 @@ public sealed class FixedAssignmentTests
         Assert.AreEqual(RuntimeExecutionOutcomeKind.ExitProcedure, outcome.Kind, outcome.ErrorInfo?.Verbose);
         var record = session.Record("D");
         Assert.AreEqual(7, FieldOf(record, "A"));
-        Assert.AreEqual(0, FieldOf(record, "B"), "nothing was copied here, so nothing is claimed here");
+        Assert.AreEqual(99, FieldOf(record, "B"), "nothing was copied here, so it holds what it held");
     }
 
     [TestMethod]

@@ -28,9 +28,10 @@ internal static class ExternalEvents
 
         try
         {
+            var router = new ServerEventRouter(session, server, source);
             using (session.Turn.Yield())
             {
-                server.Advise(handle, new ServerEventRouter(session, server, source));
+                server.Advise(handle, router);
             }
         }
         catch (AutomationException)

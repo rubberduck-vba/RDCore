@@ -60,7 +60,37 @@ internal sealed partial class ProcedureAnalysis
             return accessor;
         }
 
+        if (MemberFieldLetOf(offset, assignment, assigned) is { } field)
+        {
+            return field;
+        }
+
         return Dynamic(assigned) is { } value ? new MemberLetStep(offset, value) : null;
+    }
+
+    // MS-VBAL §5.4.3.8 with a <member-access-expression> target that is a scalar public variable of an object declared as a class, of an object variable of
+    // the activation, of the default instance of a class, of an object field of one of its records, or of the object of the enclosing With block: the value
+    // let-coerced to the variable's kind by compiled code, then written in the cell the object's class has for it, found each time the statement runs
+    // (CompiledActivation.TryLetMemberField) as the interpreter finds it. The value is evaluated before the object, as the interpreter evaluates it. A value
+    // compiled code does not evaluate on payloads, and a variable of Me's own class named through Me, is the interpreter's.
+    private MemberFieldLetStep? MemberFieldLetOf(int offset, AssignmentStatementNode assignment, BoundNode assigned)
+    {
+        if (Bind(assignment.Target) is not BoundMember { DeclaredClass: not null, Member: VBModuleFieldVariableMemberSymbol field, Arguments: null, IsLateBound: false } member
+            || ScalarKinds.Of(field.ResolvedType) is not { } kind || !TryReceiverOf(member, out var receiver, out var with, out var held))
+        {
+            return null;
+        }
+
+        var mark = _reasons.Count;
+        if (PayloadAs(assigned, kind) is not { } value)
+        {
+            _reasons.RemoveRange(mark, _reasons.Count - mark);
+            return null;
+        }
+
+        var number = _memberFields.Count;
+        _memberFields.Add(new CompiledMemberField(member, kind));
+        return new MemberFieldLetStep(offset, number, receiver, value) { WithAt = with, ReceiverField = held };
     }
 
     // MS-VBAL §5.4.3.8, §5.4.3.9 with a <member-access-expression> target that is a property of an object variable of the activation, or of the object of the
@@ -68,10 +98,12 @@ internal sealed partial class ProcedureAnalysis
     // as its last argument, given as a value whatever the parameter's passing, and the activation located at its statement while it runs. It is the member
     // of the class the object is declared as, and of an object of a class that implements it as an interface, the implementing one (CompiledActivation.MemberOf). A
     // property indexed by arguments, and one whose value parameter compiled code passes nothing to, is the interpreter's to assign; the reasons this found
-    // are not the statement's.
+    // are not the statement's. A property with no Property Get is bound with no class, as a member read is (ExpressionBinder.InvocableMember): its class is
+    // the one the object is declared as.
     private CallStep? AccessorCallOf(int offset, AssignmentStatementNode assignment, bool isSet)
     {
-        if (Bind(assignment.Target) is not BoundMember { DeclaredClass: { } declared, IsLateBound: false, Arguments: null } target
+        if (Bind(assignment.Target) is not BoundMember { IsLateBound: false, Arguments: null } target
+            || (target.DeclaredClass ?? DeclaredClassOf(target)) is not { } declared
             || (target.Owner is null ? _enclosingWith is null : target.Owner is not BoundVariable)
             || AccessorOf(declared, target.Access.Member.IdentifierName, isSet) is not { } accessor
             || RuntimeProcedureInvoker.GetParameters(accessor) is not [{ Name: SDK.Model.Tokens.Me }, var valueParameter]
@@ -94,7 +126,7 @@ internal sealed partial class ProcedureAnalysis
 
         var mark = _reasons.Count;
         var value = new BoundArgument(valueParameter, ArgumentPassing.Value, assignment.Value, Bind(assignment.Value), Plan: null, Elements: []);
-        var call = CallWith(accessor, [valueParameter], [value], CallStep.NoResult, offset, resultKind: null, target with { Member = accessor }, receiver,
+        var call = CallWith(accessor, [valueParameter], [value], CallStep.NoResult, offset, resultKind: null, target with { Member = accessor, DeclaredClass = declared }, receiver,
             assigns: false, at: null);
         if (call is null)
         {
@@ -128,6 +160,14 @@ internal sealed partial class ProcedureAnalysis
             || from is ScalarKind.Single or ScalarKind.Double && to is ScalarKind.Single or ScalarKind.Double or ScalarKind.Boolean;
     }
 
+    // the class the object a member is assigned of is declared as: of the object variable, or of the target of the enclosing With block, as the binder
+    // finds it for a member read (ExpressionBinder.OwnerOf).
+    private VBClassModuleSymbol? DeclaredClassOf(BoundMember target)
+        => (target.Access.Owner ?? _withExpression) is { } owner
+            && _evaluator.DeclaredTypeOf(_session, owner, new RuntimeEvaluationContext(_procedure.Uri)) is VBClassType { Symbol: var snapshot }
+            ? VBProjectSymbol.ResolveClass(_session.Symbols.Resolver, snapshot) ?? snapshot
+            : null;
+
     // the Property Let, or the Property Set, of the name, of the class.
     private static VBTypeMemberSymbol? AccessorOf(VBClassModuleSymbol declared, string name, bool isSet)
         => declared.DefaultInterfaceMembers.FirstOrDefault(candidate => (isSet ? candidate is VBPropertySetMemberSymbol : candidate is VBPropertyLetMemberSymbol)
@@ -139,3 +179,21 @@ internal sealed partial class ProcedureAnalysis
 /// assignment as a support call (<c>CompiledActivation.LetMember</c>).
 /// </summary>
 internal sealed record class MemberLetStep(int Offset, VariantNode Value) : CompiledStep(Offset);
+
+/// <summary>
+/// A <c>Let</c> of the scalar public variable numbered <see cref="Field"/> among the body's (MS-VBAL §5.4.3.8): <see cref="Value"/>, of the variable's kind,
+/// evaluated by compiled code, then written in the variable's cell, of the object the slot <see cref="Receiver"/> holds, of the object of the <c>With</c>
+/// block opened at <see cref="WithAt"/>, or of the object an object field of a record holds (<see cref="ReceiverField"/>).
+/// </summary>
+internal sealed record class MemberFieldLetStep(int Offset, int Field, int? Receiver, PayloadNode Value) : CompiledStep(Offset)
+{
+    /// <summary>
+    /// The offset of the <c>With</c> statement whose object the variable is of; none for the object of a slot or of a record's field.
+    /// </summary>
+    public int? WithAt { get; init; }
+
+    /// <summary>
+    /// The object field of a record whose object the variable is of; none for the object of a slot or of a <c>With</c> block.
+    /// </summary>
+    public FieldPath? ReceiverField { get; init; }
+}
