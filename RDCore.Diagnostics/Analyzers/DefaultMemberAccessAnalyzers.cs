@@ -209,7 +209,8 @@ internal sealed class IndexedDefaultMemberAccessAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module,dictionaryAccess: false, unbound: false)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: false, unbound: false)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.IndexedDefaultMemberAccess.ToCode(),
                 access.Location.Range,
@@ -225,7 +226,8 @@ internal sealed class IndexedUnboundDefaultMemberAccessAnalyzer : IModuleAnalyze
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module,dictionaryAccess: false, unbound: true)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: false, unbound: true)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.IndexedUnboundDefaultMemberAccess.ToCode(),
                 access.Location.Range,
@@ -242,7 +244,8 @@ internal sealed class BangNotationAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module,dictionaryAccess: true, unbound: false)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: true, unbound: false)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.BangNotation.ToCode(),
                 access.Location.Range,
@@ -259,7 +262,8 @@ internal sealed class UnboundBangNotationAnalyzer : IModuleAnalyzer
     public AnalysisPhase Phase => AnalysisPhase.Runtime;
 
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? [] : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module,dictionaryAccess: true, unbound: true)
+        => context is not { ParseResult.SyntaxTree: { } module, Semantics: { } semantics } ? []
+            : DefaultMemberAccesses.ImplicitIndexedAccesses(semantics, module, dictionaryAccess: true, unbound: true)
             .Select(access => new AnalyzerFinding(
                 RDCoreDiagnosticId.UnboundBangNotation.ToCode(),
                 access.Location.Range,
