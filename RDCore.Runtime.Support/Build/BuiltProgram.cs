@@ -62,6 +62,10 @@ public static class BuiltProgram
     // program's session reads them there, and nowhere else.
     internal const string LibrariesFolder = PlatformEnvironment.SymbolsDirectory;
 
+    // the assembly that hosts Visual Basic 6.0 forms in RDForms, and what only it references: the program's folder holds them when its project has such a form.
+    // Named, and not read from its type, which would load it.
+    internal const string FormsAssembly = "RDCore.External.Forms";
+
     public static int Run(Assembly program, string[] args)
     {
         ArgumentNullException.ThrowIfNull(program);
@@ -71,7 +75,7 @@ public static class BuiltProgram
         // started by the program as its external host: it makes the calls the program makes to the outside world, and runs no program of its own.
         if (string.Equals(Environment.GetEnvironmentVariable(RDCoreServerProcess.ModeEnvironmentVariable), RDCoreServerProcess.ExternalMode, StringComparison.OrdinalIgnoreCase))
         {
-            using var host = new MachineExternalHost(logFileName: null);
+            using var host = new MachineExternalHost(logFileName: null, hostsRDForms: File.Exists(Path.Combine(AppContext.BaseDirectory, $"{FormsAssembly}.dll")));
             return host.RunAsync(args).GetAwaiter().GetResult();
         }
 

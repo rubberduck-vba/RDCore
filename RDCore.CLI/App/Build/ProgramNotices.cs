@@ -22,9 +22,10 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
 
-    // writes them into the folder of the program, whose runtime is the named assemblies and whose executable, if it has one, is a copy of the host; the
-    // names of those it has nothing to write from.
-    public IReadOnlyList<string> Write(string folder, string program, IReadOnlyCollection<string> assemblies, string? host, string? executable, string runtime)
+    // writes them into the folder of the program, whose runtime is the named assemblies and native libraries (by file name) and whose executable, if it has
+    // one, is a copy of the host; the names of those it has nothing to write from.
+    public IReadOnlyList<string> Write(string folder, string program, IReadOnlyCollection<string> assemblies, IReadOnlyCollection<string> natives, string? host,
+        string? executable, string runtime)
     {
         var lacking = new List<string>();
         foreach (var document in new[] { Notice, License })
@@ -47,7 +48,8 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
         }
 
         var held = new HashSet<string>(assemblies, StringComparer.OrdinalIgnoreCase);
-        var packages = data.Packages.Where(package => package.Assemblies.Any(held.Contains)).ToList();
+        var heldNatives = new HashSet<string>(natives, StringComparer.OrdinalIgnoreCase);
+        var packages = data.Packages.Where(package => package.Assemblies.Any(held.Contains) || (package.Natives ?? []).Any(heldNatives.Contains)).ToList();
         var names = packages.Select(NameOf).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var texts = data.Texts
             .Where(text => text.Packages.Any(names.Contains))
@@ -187,7 +189,9 @@ internal sealed class ProgramNotices(IFileSystem fileSystem, string platformRoot
 
     private sealed record Data(int Schema, IReadOnlyList<PackageData> Packages, IReadOnlyList<TextData> Texts, HostData? ApplicationHost);
 
-    private sealed record PackageData(string Package, string Version, string License, string Copyright, string ProjectUrl, IReadOnlyList<string> Assemblies);
+    // Natives: the file names of the native libraries it ships, for every runtime identifier; none in the data of a release that lists none.
+    private sealed record PackageData(string Package, string Version, string License, string Copyright, string ProjectUrl, IReadOnlyList<string> Assemblies,
+        IReadOnlyList<string>? Natives = null);
 
     private sealed record TextData(string Kind, string Title, IReadOnlyList<string> Packages, IReadOnlyList<string> Sources, string Text);
 

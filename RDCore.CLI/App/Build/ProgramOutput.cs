@@ -16,17 +16,27 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
     public bool IsTaken(string program)
         => fileSystem.File.Exists(fileSystem.Path.Combine(runtimeFolder, $"{program}.dll")) || string.Equals(program, RdcName, StringComparison.OrdinalIgnoreCase);
 
-    // the program's executable, or null when no host was given; and the license documents the folder lacks, having none to copy.
+    // the program's executable, or null when no host was given; and the license documents the folder lacks, having none to copy. A program whose project has
+    // no Visual Basic 6.0 form (hostsForms) runs on nothing of RDForms: its folder holds none of it, nor what an earlier build of the folder copied of it.
     public (string? Executable, IReadOnlyList<string> Lacking) Write(string folder, string program, byte[] assembly, byte[] pdb, string? host, string runtime,
-        IReadOnlyList<LibraryDescription> libraries)
+        IReadOnlyList<LibraryDescription> libraries, bool hostsForms)
     {
         _ = fileSystem.Directory.CreateDirectory(folder);
         var dll = $"{program}.dll";
         fileSystem.File.WriteAllBytes(fileSystem.Path.Combine(folder, dll), assembly);
         fileSystem.File.WriteAllBytes(fileSystem.Path.Combine(folder, $"{program}.pdb"), pdb);
         fileSystem.File.WriteAllText(fileSystem.Path.Combine(folder, $"{program}.runtimeconfig.json"), RuntimeConfiguration());
-        var closure = RuntimeClosure([SupportName, .. ReferencesOf(assembly)]);
-        CopyRuntime(folder, closure);
+        string[] roots = [SupportName, .. ReferencesOf(assembly)];
+        var closure = RuntimeClosure(roots, hostsForms ? [] : [BuiltProgram.FormsAssembly]);
+        var natives = new RuntimeNatives(fileSystem, runtimeFolder).Of(closure, runtime);
+        if (!hostsForms)
+        {
+            var forms = RuntimeClosure(roots).Except(closure, StringComparer.OrdinalIgnoreCase).ToArray();
+            RemoveRuntime(folder, forms, [.. new RuntimeNatives(fileSystem, runtimeFolder).Of(forms, runtime)
+                .ExceptBy(natives.Select(native => native.Name), native => native.Name, StringComparer.OrdinalIgnoreCase)]);
+        }
+
+        CopyRuntime(folder, closure, natives);
         WriteLibraries(fileSystem.Path.Combine(folder, BuiltProgram.LibrariesFolder), libraries);
 
         string? executable = null;
@@ -40,7 +50,7 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
             }
         }
 
-        var lacking = new ProgramNotices(fileSystem, PlatformRoot).Write(folder, program, closure, host,
+        var lacking = new ProgramNotices(fileSystem, PlatformRoot).Write(folder, program, closure, [.. natives.Select(native => native.Name)], host,
             executable is null ? null : fileSystem.Path.GetFileName(executable), runtime);
         return (executable, lacking);
     }
@@ -101,11 +111,11 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
 
     // the named assemblies of the runtime folder and every one of it they reference, followed transitively without loading them: what the program loads
     // from beside itself. A reference to the shared framework is not in the folder, and is not followed; rdc itself, its parser and its console are not
-    // referenced, and are not copied.
-    public IReadOnlyList<string> RuntimeClosure(IEnumerable<string> roots)
+    // referenced, and are not copied. An excluded assembly is neither in it nor followed.
+    public IReadOnlyList<string> RuntimeClosure(IEnumerable<string> roots, IReadOnlyCollection<string>? excluded = null)
     {
         var found = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(excluded ?? [], StringComparer.OrdinalIgnoreCase);
         var pending = new Queue<string>(roots);
         while (pending.TryDequeue(out var name))
         {
@@ -132,28 +142,42 @@ internal sealed class ProgramOutput(IFileSystem fileSystem, string runtimeFolder
         return [.. metadata.AssemblyReferences.Select(handle => metadata.GetString(metadata.GetAssemblyReference(handle).Name))];
     }
 
-    // the assemblies, and their resources in each language that has them.
-    private void CopyRuntime(string folder, IReadOnlyList<string> closure)
+    // the assemblies, their resources in each language that has them, and the native libraries they call, beside them.
+    private void CopyRuntime(string folder, IReadOnlyList<string> closure, IReadOnlyList<(string Source, string Name)> natives)
     {
         foreach (var name in closure)
         {
             fileSystem.File.Copy(fileSystem.Path.Combine(runtimeFolder, $"{name}.dll"), fileSystem.Path.Combine(folder, $"{name}.dll"), overwrite: true);
         }
 
-        foreach (var culture in fileSystem.Directory.GetDirectories(runtimeFolder))
+        foreach (var (culture, name) in CultureResources(closure))
         {
-            foreach (var name in closure)
-            {
-                var resources = fileSystem.Path.Combine(culture, $"{name}.resources.dll");
-                if (!fileSystem.File.Exists(resources))
-                {
-                    continue;
-                }
+            var target = fileSystem.Path.Combine(folder, fileSystem.Path.GetFileName(culture));
+            _ = fileSystem.Directory.CreateDirectory(target);
+            fileSystem.File.Copy(fileSystem.Path.Combine(culture, $"{name}.resources.dll"), fileSystem.Path.Combine(target, $"{name}.resources.dll"), overwrite: true);
+        }
 
-                var target = fileSystem.Path.Combine(folder, fileSystem.Path.GetFileName(culture));
-                _ = fileSystem.Directory.CreateDirectory(target);
-                fileSystem.File.Copy(resources, fileSystem.Path.Combine(target, $"{name}.resources.dll"), overwrite: true);
-            }
+        foreach (var (source, name) in natives.Where(native => fileSystem.File.Exists(native.Source)))
+        {
+            fileSystem.File.Copy(source, fileSystem.Path.Combine(folder, name), overwrite: true);
         }
     }
+
+    // what an earlier build of the folder copied and this one does not: the assemblies, their resources and the native libraries.
+    private void RemoveRuntime(string folder, IReadOnlyList<string> assemblies, IReadOnlyList<(string Source, string Name)> natives)
+    {
+        var files = assemblies.Select(name => fileSystem.Path.Combine(folder, $"{name}.dll"))
+            .Concat(CultureResources(assemblies).Select(resources => fileSystem.Path.Combine(folder, fileSystem.Path.GetFileName(resources.Culture), $"{resources.Name}.resources.dll")))
+            .Concat(natives.Select(native => fileSystem.Path.Combine(folder, native.Name)));
+        foreach (var file in files.Where(fileSystem.File.Exists))
+        {
+            fileSystem.File.Delete(file);
+        }
+    }
+
+    // the culture folders of the runtime folder that hold resources of the assemblies, with the name of each assembly they hold them of.
+    private IEnumerable<(string Culture, string Name)> CultureResources(IReadOnlyList<string> assemblies)
+        => fileSystem.Directory.GetDirectories(runtimeFolder).SelectMany(culture => assemblies
+            .Where(name => fileSystem.File.Exists(fileSystem.Path.Combine(culture, $"{name}.resources.dll")))
+            .Select(name => (culture, name)));
 }
