@@ -52,3 +52,33 @@ internal sealed class DocumentRangeFormattingHandler(ICodeFormattingService form
     protected override DocumentRangeFormattingRegistrationOptions CreateRegistrationOptions(DocumentRangeFormattingCapability capability, ClientCapabilities clientCapabilities)
         => new() { DocumentSelector = selector };
 }
+
+/// <summary>
+/// <c>textDocument/onTypeFormatting</c> (<strong>LSP 3.17</strong> §Document on Type Formatting Request) for a line break: the new line indented, and the
+/// closer of the block the line before it opens (<c>If x Then</c> gets its <c>End If</c>) when the document has none.
+/// </summary>
+/// <remarks>
+/// The server claims the line break, and no other character: a client gives Enter to the server that claims it, and does no indenting of its own then. The
+/// position of the request is on the new line, after the break. A change to the document that arrives meanwhile ends the request, answered
+/// <c>ContentModified</c>.
+/// </remarks>
+internal sealed class DocumentOnTypeFormattingHandler(ICodeFormattingService formatting, TextDocumentSelector selector, IncomingDocumentChanges incoming)
+    : DocumentOnTypeFormattingHandlerBase
+{
+    private const string LineBreak = "\n";
+
+    public override async Task<TextEditContainer?> Handle(DocumentOnTypeFormattingParams request, CancellationToken cancellationToken)
+    {
+        if (request.Character != LineBreak)
+        {
+            return new TextEditContainer();
+        }
+
+        var document = request.TextDocument.Uri.ToUri();
+        var edits = await incoming.WhileCurrentAsync(document, cancellationToken, token => formatting.OnLineBreakAsync(document, request.Position.Line, token));
+        return new TextEditContainer(edits);
+    }
+
+    protected override DocumentOnTypeFormattingRegistrationOptions CreateRegistrationOptions(DocumentOnTypeFormattingCapability capability, ClientCapabilities clientCapabilities)
+        => new() { DocumentSelector = selector, FirstTriggerCharacter = LineBreak };
+}

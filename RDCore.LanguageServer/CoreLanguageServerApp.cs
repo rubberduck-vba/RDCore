@@ -113,6 +113,7 @@ internal sealed class CoreLanguageServerApp(
         builder.WithHandler<SemanticTokensHandler>();
         builder.WithHandler<Formatting.DocumentFormattingHandler>();
         builder.WithHandler<Formatting.DocumentRangeFormattingHandler>();
+        builder.WithHandler<Formatting.DocumentOnTypeFormattingHandler>();
         builder.WithHandler<CompletionHandler>();
         builder.WithHandler<SignatureHelpHandler>();
         builder.WithHandler<RenameHandler>();
