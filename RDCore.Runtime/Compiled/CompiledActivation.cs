@@ -1656,6 +1656,17 @@ internal sealed record class CompiledBody(Func<CompiledActivation, RuntimeExecut
 
     internal void CountIndirectCall() => Interlocked.Increment(ref _indirectCalls);
 
+    private long _supportCallsMade;
+
+    /// <summary>
+    /// How many statements of the body the interpreter ran for compiled code as support calls: a statement compiled code does not make itself, with every
+    /// variable written into the frame before it (<c>CompiledActivation.RunStatement</c>, <c>CompiledActivation.LetMember</c>). A recovered instruction is
+    /// not one.
+    /// </summary>
+    public long SupportCallsMade => Interlocked.Read(ref _supportCallsMade);
+
+    internal void CountSupportCall() => Interlocked.Increment(ref _supportCallsMade);
+
     /// <summary>The typed entry of the body: its compiled activation, then each parameter. Set once the body's type is created.</summary>
     public System.Reflection.MethodInfo? Entry { get; init; }
 

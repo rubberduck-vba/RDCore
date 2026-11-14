@@ -544,6 +544,10 @@ internal sealed partial class ProcedureEmitter
                 break;
             }
 
+            case MemberFieldLetStep fieldLet:
+                EmitMemberFieldLet(fieldLet);
+                break;
+
             case MemberLetStep memberLet:
                 EmitMemberLet(memberLet);
                 break;
