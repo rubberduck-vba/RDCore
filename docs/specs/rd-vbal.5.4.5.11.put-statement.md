@@ -83,8 +83,9 @@ why record number 1 is byte 0 of the file
 
 **The next record.** On a `Random` channel, a `Put` or a `Get` leaves the file-pointer-position at the start of the
 next record, however much of its own record it wrote or read, as in MS-VBA (recorded in Excel). The next `Put` or
-`Get` without a record number is of the next record, and `Loc` is the record just written or read. After a `Get`,
-`EOF` is `True` when the file ends inside the record read, even when the variable read was all there.
+`Get` without a record number reads or writes the next record, and `Loc` is the number of the record just written or
+read. After a `Get`, `EOF` is `True` when the file ends inside the record read, even when the file holds all of the
+variable read.
 
 ## Implementation
 
