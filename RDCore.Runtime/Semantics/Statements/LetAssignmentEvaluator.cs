@@ -473,7 +473,7 @@ public sealed class LetAssignmentEvaluator(
     }
 
     // the member of an object or of a record that an assignment writes is a member the code accesses, and is stated as one (MemberAccessFact): one the code
-    // names is explicit, and the default member a value assigned to the object itself is given (`h = 5`) is implicit.
+    // names is explicit, and the default member that takes a value assigned to the object itself (`h = 5`) is implicit.
     private RuntimeExecutionOutcome ObservedAccess(
         IRuntimeSession session, RuntimeEvaluationContext context, MemberAccessExpressionNode memberAccess, VBTypedValue owner, long assumedBefore,
         RuntimeExecutionOutcome outcome, MemberAccessOperationSemanticFlags kind = MemberAccessOperationSemanticFlags.Explicit)

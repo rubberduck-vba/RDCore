@@ -95,7 +95,8 @@ internal static class DefaultMemberAccesses
     /// <param name="unbound">Whether the object is an <c>Object</c>, whose default member is known only at run time.</param>
     public static IEnumerable<OperatorFactDto> ImplicitIndexedAccesses(ModuleSemanticsDto semantics, ModuleNode module, bool dictionaryAccess, bool unbound)
     {
-        // a value assigned to an object (h = 5) is an implicit access of its default member too, with no argument list: RDC00119's and RDC00120's.
+        // a value assigned to an object (h = 5) is an implicit access of its default member too, with no argument list. RDC00119 and RDC00120 report it,
+        // so it is left out here.
         var valueAssignedToAnObject = module.Descendants().OfType<AssignmentStatementNode>()
             .Where(statement => statement.Kind is AssignmentKind.ImplicitLet or AssignmentKind.ExplicitLet
                 && statement.Target is not (IndexExpressionNode or DictionaryAccessExpressionNode))
