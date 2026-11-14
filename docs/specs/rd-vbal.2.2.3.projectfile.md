@@ -23,7 +23,7 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ```javascript
 {
-  "Version": "1.0",
+  "Version": "1.1",
   "Configuration": [],
   "ProjectInfo": RDCoreProject
 }
@@ -40,15 +40,15 @@ The synthesized project is written to `.rdproj` on its first change, a file the 
 
 ## 2.2.3.0 The format's version
 
-A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.1`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
+A `.rdproj` says which version of its own format it is written in, and that version changes only when the format does. The format is at version `1.1`, which adds the project's `build` section ([§2.2.3.1](#2231-rdcoreproject)) to the format `1.0`. A change that an older RDCore can still read, such as a new member, raises the second number: `1.2`. A change it cannot read raises the first: `2.0`. So a project written by a later RDCore opens in an earlier one, unless the format changed in a way the earlier one cannot read.
 
 RDCore opens a project file whatever version it says:
 
 - **The same format, or an older one.** The project opens. An older file is written in the current format the next time RDCore saves it.
-- **A newer second number** (`1.1` when RDCore writes `1.0`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
+- **A newer second number** (`1.2` when RDCore writes `1.1`). The project opens, and RDCore notes it in its log. The members it does not know are kept as they are, and written back when it saves the file, along with the file's version: the RDCore that wrote them still finds them there.
 - **A newer first number, or a version that is not one** (`2.0`, or `v1`). RDCore notes it in its log and reads the file as best it can. If it can read it, the project opens. When it saves the file, it keeps the file's version and the members it does not know, but it writes the members it knows the way its own format has them. If the newer format changed what one of those means, saving in the older RDCore loses that change.
 
-Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open.
+Only the first two numbers count: `1.0.0` is the format `1.0`. Before the format had a version of its own, RDCore stamped a project file with its own version, `1.0.0` or a `0.1.x` version: those files are in the format `1.0`, and open. RDCore reads a `build` section in a file of the format `1.0` as the format `1.1` has it.
 
 A project file that cannot be read at all, because it is not JSON or a member is not what the format says it is, does not open. Instead, RDCore offers to regenerate it from the source files of its folder, the same way it builds a project for a folder that has no project file. It always asks first, because what only the project file says, such as the project's references, is lost.
 
@@ -74,7 +74,8 @@ Who is asked:
   "Modules": [RDCoreModule],
   "OtherFiles": [RDCoreFile],
   "Folders": [],
-  "SourceProject": "MyProj.vbp"
+  "SourceProject": "MyProj.vbp",
+  "build": { "entryPoint": "Module1.Main" }
 }
 ```
 
@@ -86,6 +87,7 @@ Who is asked:
 |`OtherFiles`|array of [`RDCoreFile`](#2234-rdcorefile)|Any non-source files included in the project.|
 |`Folders`|array of `string`|The names of all the folders in the project, whether they contain source code files or not.|
 |`SourceProject`|`string`, optional|The Visual Basic 6 project (`.vbp`) the project was imported from, by its path relative to the folder of the `.rdproj`. The import writes it, a second import of the project keeps it, and nothing else changes it. It is what makes a project an _imported_ one: a `.vbp` next to a `.rdproj` that does not record it is not an import. Absent for a project that was not imported.|
+|`build`|object, optional|What the project builds into, and where its program starts ([`ProjectBuild`](https://rubberduck-vba.github.io/RDCore.SDK/api/RDCore.SDK.Workspace.ProjectBuild.html)). Its `outputType` is `Application`, a program, or `Library`, which is not run. Any other value, or none, is `Application`. Its `entryPoint` is the procedure `rdc run` and `rdc build` start the program at, as `Module.Procedure` or `Procedure`. With none, the program starts at the `Sub Main` of the one standard module that declares one. A `build` that is not an object is no section. Absent for a program that starts at its `Sub Main`. Added in the format `1.1`.|
 
 > [!IMPORTANT]
 > The `Name` of a project **must** be a valid _identifier name_. It **should not** be `VBA`, or any other _reserved identifier_ name.

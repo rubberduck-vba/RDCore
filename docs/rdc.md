@@ -92,11 +92,11 @@ Each command takes a workspace as a folder, with or without a `.rdproj`, or as a
 
 `rdc run` runs the program's entry point:
 
-- the procedure the `.rdproj` names as its entry point, `Module.Procedure` or `Procedure`;
+- the procedure the `.rdproj` names as its entry point in its `build` section, `Module.Procedure` or `Procedure`: `"build": { "entryPoint": "Module1.Main" }`;
 - otherwise, the `Sub Main` of the one standard module that declares one.
 
-A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does one with a module that does not load. `Debug.Print`
-writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
+A project with no entry point, or with a `Sub Main` in more than one standard module, does not run. Neither does a library (`"build": { "outputType": "Library" }`),
+nor a project with a module that does not load. `Debug.Print` writes to the standard output. A `MsgBox` or an `InputBox` is a dialog box on Windows. On Linux and macOS it is drawn in the console and answered there, as in the shell.
 
 |Option|What it does|
 |---|---|
