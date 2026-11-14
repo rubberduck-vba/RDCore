@@ -6,8 +6,7 @@ namespace RDCore.Tests.Cli;
 
 /// <summary>
 /// A command that runs a program, such as <c>rdc run</c>, starts an external host of <c>rdc</c> when the program first reaches the outside world. The command
-/// stops it as it ends: the host does not outlive the <c>rdc</c> that started it until it next looks for it, holding the console that <c>rdc</c> gave it all the
-/// while.
+/// stops it as it ends, so that the host does not hold the console that <c>rdc</c> gave it until its next check finds that <c>rdc</c> is gone.
 /// </summary>
 [TestClass]
 [TestCategory("External host")]

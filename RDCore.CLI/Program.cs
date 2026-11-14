@@ -99,7 +99,7 @@ public class Program
                 finally
                 {
                     // a command that ran a program started the machine's external host when the program first reached the outside world: it stops with the
-                    // command, as a built program's does, rather than outlive rdc until it next looks for it, holding the console rdc gave it.
+                    // command, as a built program's does, so that it does not hold the console rdc gave it until its next check finds rdc gone.
                     MachineExternal.Shutdown();
                 }
             }
