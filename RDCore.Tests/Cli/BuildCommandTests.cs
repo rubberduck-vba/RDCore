@@ -75,7 +75,7 @@ public sealed class BuildCommandTests
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "fr", "rdc.resources.dll"), "les ressources de rdc");
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.dll"), "rdc");
         fileSystem.File.WriteAllText(Path.Combine(Runtime, "RDCore.Parsing.dll"), "the parser");
-        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net10.0\" } }");
+        fileSystem.File.WriteAllText(Path.Combine(Runtime, "rdc.runtimeconfig.json"), "{ \"runtimeOptions\": { \"tfm\": \"net11.0\" } }");
         fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(Host)!);
         fileSystem.File.WriteAllBytes(Host, FakeHost);
 
