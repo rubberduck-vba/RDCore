@@ -55,6 +55,7 @@ public enum RDCoreDiagnosticId
     ShadowedDeclaration = 208, // [RD2:ShadowedDeclarationInspection] a local or a parameter named like a member of the module, of another module or of a library
     OnErrorGoToMinusOne = 211, // On Error GoTo -1: ends the error being handled, which MS-VBAL does not document and MS-VBA compiles
     UnrestoredOnErrorResumeNext = 212, // On Error Resume Next that no On Error GoTo follows in its procedure
+    LineContinuationBetweenKeywords = 213, // [RD2:LineContinuationBetweenKeywordsInspection] End _ / If: a line continuation between the words of a keyword
     ProcedureCanBeWrittenAsFunction = 214, // [RD2:ProcedureCanBeWrittenAsFunctionInspection] a Sub whose only ByRef parameter is assigned: its result
     SelfAssignedDeclaration = 215, // [RD2:SelfAssignedDeclarationInspection] a variable declared As New, created when first used
 
@@ -132,6 +133,7 @@ public enum RDCoreDiagnosticId
     ForEachControlEmptiedAfterLoop = 11032, // For Each c In r ... Next: Debug.Print c.Address - MS-VBAL keeps the last element in c; MS-VBA empties it (Nothing)
     ReservedNameAcceptedByMSVBA = 11033, // Enum E: Date: End Enum - MS-VBAL §3.3.5.2 reserves Date; MS-VBA compiles it as an Enum member
     NameRefusedByMSVBA = 11034, // Dim Long As Long - MS-VBAL §3.3.5.2 allows the name; MS-VBA refuses it (Expected: identifier)
+    CollectionSetToNothingInItsOwnLoop = 11035, // Set c = Nothing in For Each v In c: RD-VBA leaves c as it is while the loop runs; MS-VBA destroys the Collection, the loop ends
     NegativeLineNumber = 11036, // -5:, GoTo -5: a line number with a minus, which MS-VBAL's grammar has no form for and MS-VBA compiles
     NonBreakingSpaceInName = 11037, // a declared name with a U+00A0, which no MS-VBAL identifier has and MS-VBA compiles
     IIfSideEffect = 11039, // [RD2:IIfSideEffectInspection] IIf(c, Compute(1), 2): a Function or Property Get in the TruePart or FalsePart runs whatever the condition

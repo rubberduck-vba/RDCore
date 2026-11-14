@@ -58,15 +58,17 @@ une instruction.
 
 `Ctrl+C` arrête un programme en cours d'exécution. Lors d'un arrêt (une instruction `Stop`, un `Debug.Assert` qui échoue, un point d'arrêt ou `Ctrl+C`),
 le _shell_ liste les deux lignes au-dessus de la ligne de l'arrêt et les deux au-dessous, la ligne de l'arrêt étant mise en évidence, puis affiche
-`INTERRUPTION À LA LIGNE` et le numéro de ligne. Lors d'une erreur d'exécution dans le programme, le _shell_ liste de la même façon les
-lignes autour de l'instruction qui l'a déclenchée, puis affiche l'erreur. Un pas ne liste rien : il affiche seulement `INTERRUPTION À LA LIGNE` et le
-numéro de ligne, et affiche une erreur d'exécution qu'il déclenche sans les lignes qui l'entourent. `CONFIG CLI.BreakListingLines` fixe combien de lignes
+`INTERRUPTION À LA LIGNE` et le numéro de ligne. Une erreur d'exécution que rien ne gère arrête le programme à l'instruction qui l'a déclenchée,
+comme dans le VBIDE : le _shell_ liste de la même façon les lignes autour de cette instruction, puis affiche l'erreur. `CONT` exécute de nouveau
+l'instruction, et `END` termine le programme. Une erreur qu'une instruction `On Error` gère ne l'arrête pas. Un pas ne liste rien : il affiche
+seulement `INTERRUPTION À LA LIGNE` et le numéro de ligne, ou l'erreur à laquelle il s'est arrêté. `CONFIG CLI.BreakListingLines` fixe combien de lignes
 sont listées de chaque côté, à partir du prochain démarrage du _shell_; `0` n'en liste aucune. Lors d'un arrêt, vous pouvez taper des instructions comme
 dans le volet _exécution_ du VBIDE, et modifier le programme avant de reprendre.
 
-Une ligne tapée à l'invite s'exécute sous le débogueur comme avec `RUN` : un `Stop` ou un point d'arrêt dans le code qu'elle appelle l'arrête là, et
-`STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail liste les lignes du module
-autour de cet arrêt comme `LIST` liste le programme, puis affiche `INTERRUPTION DANS`, le module et sa ligne.
+Une ligne tapée à l'invite s'exécute sous le débogueur comme avec `RUN` : un `Stop`, un point d'arrêt ou une erreur dans le code qu'elle appelle
+l'arrête là, et `STACK` montre la procédure propre à la ligne sous celle qui s'est arrêtée. Un arrêt dans un module d'un espace de travail liste les
+lignes du module autour de cet arrêt comme `LIST` liste le programme, puis affiche `INTERRUPTION DANS`, le module et sa ligne. Un arrêt à une erreur
+dans un module d'un espace de travail liste de la même façon les lignes du module, puis affiche l'erreur avec le module et sa ligne.
 
 > [!NOTE]
 > Le _shell_ est une façon d'essayer la plateforme. Son programme courant est une seule procédure : un projet qui en a plus s'exécute dans le _shell_

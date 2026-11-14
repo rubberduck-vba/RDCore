@@ -5,6 +5,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.LanguageServer.Services.Refactoring;
+using RDCore.LanguageServer.Services.Refactoring.ExtractMethod;
 using RDCore.LanguageServer.Workspace.Services;
 using RDCore.SDK.Semantics.Refactoring;
 using RDCore.SDK.Server.ProtocolExtensions;
@@ -33,13 +34,17 @@ namespace RDCore.LanguageServer.Refactoring;
 /// applies it; any other is sent its edit, made with the defaults, when it changes nothing of what the code does that the user would have to accept.
 /// </para>
 /// <para>
+/// A <c>GoSub</c> routine is offered, the same way, as a refactoring that converts it to a procedure: at a position on its label, on a <c>GoSub</c> that names
+/// it or on one of its <c>Return</c>s, and for a selection whose extraction is refused for a <c>GoSub</c> to it or one of its <c>Return</c>s.
+/// </para>
+/// <para>
 /// A workspace whose folder has a VB6 project and no project file of its own is offered, in every document, a source action that imports each VB6 project
 /// (<c>rdcore.importProject</c>, <see cref="Workspace.ImportProjectCommand"/>).
 /// </para>
 /// <para>
-/// An extraction is the one action that is resolved (<c>resolveProvider = true</c>): a client that resolves an action's edit (<strong>LSP 3.17</strong> §Code
-/// Action Resolve Request) is answered the extraction without its edit, which is made and verified when it resolves the action, and refused when the document
-/// has changed since. Any other client is answered every action complete.
+/// An extraction and a conversion are the actions that are resolved (<c>resolveProvider = true</c>): a client that resolves an action's edit
+/// (<strong>LSP 3.17</strong> §Code Action Resolve Request) is answered them without their edit, which is made and verified when it resolves the action, and
+/// refused when the document has changed since. Any other client is answered every action complete.
 /// </para>
 /// </remarks>
 internal sealed class CodeActionHandler(
@@ -53,6 +58,11 @@ internal sealed class CodeActionHandler(
     /// The kind of the action that extracts the statements of a selection as a procedure (<see cref="RefactoringKinds.ExtractMethod"/>).
     /// </summary>
     public static readonly CodeActionKind RefactorExtractMethod = new(RefactoringKinds.ExtractMethod);
+
+    /// <summary>
+    /// The kind of the action that converts a <c>GoSub</c> routine to a procedure (<see cref="RefactoringKinds.ConvertGoSub"/>).
+    /// </summary>
+    public static readonly CodeActionKind RefactorConvertGoSub = new(RefactoringKinds.ConvertGoSub);
 
     /// <summary>The kind of the action that imports a VB6 project: a source action of the whole workspace (<c>source.rdcore.importProject</c>).</summary>
     public static readonly CodeActionKind SourceImportProject = new("source.rdcore.importProject");
@@ -69,6 +79,9 @@ internal sealed class CodeActionHandler(
     // a client that sends an action's data back and resolves its edit is sent an extraction without its edit.
     private bool ResolvesEdits => _client?.TextDocument?.CodeAction.Value is { DataSupport: true, ResolveSupport.Properties: { } properties }
         && properties.Contains("edit");
+
+    // a client that shows an action it cannot take, with why, is offered a refactoring that is refused.
+    private bool ShowsDisabled => _client?.TextDocument?.CodeAction.Value is { DisabledSupport: true };
 
     public override async Task<CommandOrCodeActionContainer?> Handle(CodeActionParams request, CancellationToken cancellationToken)
     {
@@ -136,80 +149,99 @@ internal sealed class CodeActionHandler(
         var only = request.Context.Only?.Select(kind => kind.ToString()).ToList();
         bool IsAsked(CodeActionKind kind) => only is not { Count: > 0 }
             || only.Any(asked => kind.ToString() == asked || kind.ToString().StartsWith(asked + ".", StringComparison.Ordinal));
-        if (IsAsked(RefactorExtractMethod) && await ExtractMethodActionAsync(request, cancellationToken) is { } extraction)
+        var range = new SourceRange(request.Range.Start.Line, request.Range.Start.Character, request.Range.End.Line, request.Range.End.Character);
+        // the routine to convert: the one at the position of an empty range, or the first one a selection is refused for, for a GoSub to it or its Return.
+        SourceRange? routine = range.IsEmpty ? range : null;
+        if (!range.IsEmpty && (IsAsked(RefactorExtractMethod) || IsAsked(RefactorConvertGoSub)))
         {
-            actions.Add(extraction);
+            var (extraction, refused) = await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ExtractMethod, range, cancellationToken);
+            if (extraction is not null)
+            {
+                actions.Add(extraction);
+            }
+
+            string[] ofARoutine = [ExtractMethodService.RefusalCode(ExtractionRefusalKind.GoSubToOutside), ExtractMethodService.RefusalCode(ExtractionRefusalKind.ReturnOfAGoSubOutside)];
+            routine = refused.FirstOrDefault(notice => ofARoutine.Contains(notice.Code))?.Location is { } location
+                ? new SourceRange(location.Range.Start.Line, location.Range.Start.Character, location.Range.Start.Line, location.Range.Start.Character)
+                : null;
+        }
+
+        if (routine is { } at && IsAsked(RefactorConvertGoSub)
+            && (await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ConvertGoSub, at, cancellationToken)).Action is { } conversion)
+        {
+            actions.Add(conversion);
         }
 
         return new CommandOrCodeActionContainer(actions.Where(action => IsAsked(action.Kind)).Select(action => new CommandOrCodeAction(action)));
     }
 
-    // the action that extracts the statements of a selection, offered when nothing refuses it. A client with a dialog of its own runs it as a command, which
-    // prepares the refactoring and applies it with its user's answers; any other is sent the edit, with the defaults, when the extraction changes nothing the
-    // user would have to accept.
-    private async Task<CodeAction?> ExtractMethodActionAsync(CodeActionParams request, CancellationToken token)
+    // the action that extracts the statements of a selection, or converts a GoSub routine, offered when nothing refuses it, with the refusals when something
+    // does. A client with a dialog of its own runs it as a command, which prepares the refactoring and applies it with its user's answers; any other is sent the
+    // edit, with the defaults, when the refactoring changes nothing the user would have to accept. A refused one is offered disabled, with why, to a client that
+    // shows it so, unless the range holds nothing it refactors.
+    private async Task<(CodeAction? Action, IReadOnlyList<RefactorNotice> Refused)> RefactoringActionAsync(
+        DocumentUri lspUri, string kind, SourceRange range, CancellationToken token)
     {
-        var range = new SourceRange(request.Range.Start.Line, request.Range.Start.Character, request.Range.End.Line, request.Range.End.Character);
-        if (range.IsEmpty)
-        {
-            return null;
-        }
+        var documentUri = lspUri.ToUri();
+        var actionKind = new CodeActionKind(kind);
+        var title = ExtractMethodService.Title(kind);
 
-        var documentUri = request.TextDocument.Uri.ToUri();
-
-        // the version of the document the range belongs to, read before the extraction is prepared: once the document changes, resolving the extraction is refused.
+        // the version of the document the range belongs to, read before the refactoring is prepared: once the document changes, resolving it is refused.
         int? version = documents.TryGetDocument(documentUri, out var document) ? document.Version : null;
-        var prepared = await extractMethod.PrepareAsync(documentUri, range, token);
-        if (prepared.Notices.Any(notice => notice.Kind is RefactorNoticeKind.Refusal))
+        var prepared = await extractMethod.PrepareAsync(kind, documentUri, range, token);
+        if (prepared.Notices.Where(notice => notice.Kind is RefactorNoticeKind.Refusal).ToArray() is { Length: > 0 } refused)
         {
-            return null;
+            return (ShowsDisabled && !ExtractMethodService.FindsNothing(refused[0])
+                ? new CodeAction { Title = title, Kind = actionKind, Disabled = new CodeActionDisabled { Reason = refused[0].Message } }
+                : null, refused);
         }
 
-        var title = ExtractMethodService.Title();
         if (clientCapabilities.Expects(capabilities => capabilities.Refactoring))
         {
-            var prepare = new RefactorPrepareParams { Kind = RefactoringKinds.ExtractMethod, Uri = documentUri, Range = range };
-            return new CodeAction
+            var prepare = new RefactorPrepareParams { Kind = kind, Uri = documentUri, Range = range };
+            return (new CodeAction
             {
                 Title = title,
-                Kind = RefactorExtractMethod,
+                Kind = actionKind,
                 Command = new Command { Name = RefactoringCommands.Refactor, Title = title, Arguments = new JArray(JToken.Parse(serializer.SerializeObject(prepare))) },
-            };
+            }, []);
         }
 
         if (prepared.Notices.Any(notice => notice.Kind is RefactorNoticeKind.Change))
         {
-            return null;
+            return (null, []);
         }
 
         if (ResolvesEdits)
         {
-            return new CodeAction
+            return (new CodeAction
             {
                 Title = title,
-                Kind = RefactorExtractMethod,
+                Kind = actionKind,
                 // a resolved action is recognized by its data: a client sends the action back as it holds it, and may drop a kind it does not know.
                 Data = new JObject
                 {
-                    [ExtractionDataKey] = RefactoringKinds.ExtractMethod,
-                    ["uri"] = request.TextDocument.Uri.ToString(),
-                    ["range"] = JToken.Parse(serializer.SerializeObject(request.Range)),
+                    [ExtractionDataKey] = kind,
+                    ["uri"] = lspUri.ToString(),
+                    ["range"] = JToken.Parse(serializer.SerializeObject(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(
+                        range.Start.Line, range.Start.Character, range.End.Line, range.End.Character))),
                     ["version"] = version is { } number ? new JValue(number) : JValue.CreateNull(),
                 },
-            };
+            }, []);
         }
 
-        if ((await extractMethod.ApplyAsync(documentUri, range, [], [], token)).Edit is not { } edit || ForTheClient(LspEditOf(edit)) is not { } applicable)
+        var answer = await extractMethod.ApplyAsync(kind, documentUri, range, DefaultAnswers(), [], token);
+        if (answer.Edit is null || ForTheClient(LspEditOf(answer)) is not { } applicable)
         {
-            return null;
+            return (null, []);
         }
 
-        return new CodeAction { Title = title, Kind = RefactorExtractMethod, Edit = applicable };
+        return (new CodeAction { Title = title, Kind = actionKind, Edit = applicable }, []);
     }
 
-    // the extraction a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for. One that is refused,
+    // the refactoring a client resolves: its edit, made with the defaults and verified, of the version of the document it was offered for. One that is refused,
     // or whose document has changed since, is answered an error that says why.
-    private async Task<CodeAction> ResolveExtractionAsync(CodeAction action, JObject offered, CancellationToken token)
+    private async Task<CodeAction> ResolveRefactoringAsync(CodeAction action, string kind, JObject offered, CancellationToken token)
     {
         if (offered["uri"]?.ToString() is not { Length: > 0 } uri || offered["range"] is not JObject offeredRange)
         {
@@ -220,8 +252,8 @@ internal sealed class CodeActionHandler(
         var range = new SourceRange(lspRange.Start.Line, lspRange.Start.Character, lspRange.End.Line, lspRange.End.Character);
         int? version = offered["version"] is { Type: JTokenType.Integer } number ? number.Value<int>() : null;
 
-        var answer = await extractMethod.ApplyAsync(DocumentUri.From(uri).ToUri(), range, [], [], token);
-        var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? ExtractMethodService.DocumentChanged() : answer.Refusal;
+        var answer = await extractMethod.ApplyAsync(kind, DocumentUri.From(uri).ToUri(), range, DefaultAnswers(), [], token);
+        var refusal = answer.Edit is { } edit && edit.Documents.Any(document => document.Version != version) ? ExtractMethodService.DocumentChanged(kind) : answer.Refusal;
         if (refusal is not null || answer.Edit is null)
         {
             throw new RpcErrorException(RequestFailedCode, error: null!, refusal ?? string.Empty);
@@ -229,7 +261,7 @@ internal sealed class CodeActionHandler(
 
         try
         {
-            return new CodeAction { Title = action.Title, Kind = RefactorExtractMethod, Data = action.Data, Edit = LspEditOf(answer.Edit).For(_client) };
+            return new CodeAction { Title = action.Title, Kind = new CodeActionKind(kind), Data = action.Data, Edit = LspEditOf(answer).For(_client) };
         }
         catch (WorkspaceEditNotSupportedException unsupported)
         {
@@ -237,19 +269,40 @@ internal sealed class CodeActionHandler(
         }
     }
 
-    // a refactoring's edit as LSP writes it: the edits of each document, of the version the client said it last.
-    private static WorkspaceEdit LspEditOf(RefactorWorkspaceEdit edit) => new()
+    // what a client with no dialog extracts with: the defaults, but for the duplicates, which the user confirms each of where the client asks for change
+    // annotations, and which are not replaced where it cannot.
+    private IReadOnlyList<RefactorAnswer> DefaultAnswers()
+        => _client.TakesChangeAnnotations() ? [] : [new RefactorAnswer { Id = ExtractMethodService.ReplaceDuplicatesChoice, Value = "false" }];
+
+    // an extraction's edit as LSP writes it: the edits of each document, of the version the client said it last; those that replace a duplicate of the
+    // selection are annotated as changes the user confirms, one annotation for each duplicate.
+    private static WorkspaceEdit LspEditOf(ExtractMethodAnswer answer)
     {
-        DocumentChanges = new Container<WorkspaceEditDocumentChange>(edit.Documents.Select(document => new WorkspaceEditDocumentChange(new TextDocumentEdit
+        ChangeAnnotationIdentifier? AnnotationOf(Uri document, SourceRange range)
+            => answer.Replacements.FirstOrDefault(replacement => replacement.Document.AbsoluteUri == document.AbsoluteUri && replacement.Ranges.Contains(range)) is { } replaced
+                ? (ChangeAnnotationIdentifier)replaced.Id
+                : null;
+
+        return new WorkspaceEdit
         {
-            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(document.Uri!), Version = document.Version },
-            Edits = new TextEditContainer(document.Edits.Select(each => new TextEdit
+            DocumentChanges = new Container<WorkspaceEditDocumentChange>(answer.Edit!.Documents.Select(document => new WorkspaceEditDocumentChange(new TextDocumentEdit
             {
-                Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(each.Range.Start.Line, each.Range.Start.Character, each.Range.End.Line, each.Range.End.Character),
-                NewText = each.NewText,
-            })),
-        }))),
-    };
+                TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = DocumentUri.From(document.Uri!), Version = document.Version },
+                Edits = new TextEditContainer(document.Edits.Select(each =>
+                {
+                    var range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(each.Range.Start.Line, each.Range.Start.Character, each.Range.End.Line, each.Range.End.Character);
+                    return AnnotationOf(document.Uri!, each.Range) is { } annotation
+                        ? new AnnotatedTextEdit { Range = range, NewText = each.NewText, AnnotationId = annotation }
+                        : new TextEdit { Range = range, NewText = each.NewText };
+                })),
+            }))),
+            ChangeAnnotations = answer.Replacements.Count == 0
+                ? null
+                : answer.Replacements.ToDictionary(
+                    replacement => (ChangeAnnotationIdentifier)replacement.Id,
+                    replacement => new ChangeAnnotation { Label = replacement.Label, NeedsConfirmation = true }),
+        };
+    }
 
     // the edit as the client applies it; an action whose edit the client can't apply is not offered - the rename command, which says why, still is.
     private WorkspaceEdit? ForTheClient(WorkspaceEdit edit)
@@ -309,8 +362,9 @@ internal sealed class CodeActionHandler(
     }
 
     public override async Task<CodeAction> Handle(CodeAction request, CancellationToken cancellationToken)
-        => request.Edit is null && request.Data is JObject offered && offered[ExtractionDataKey]?.ToString() == RefactoringKinds.ExtractMethod
-            ? await ResolveExtractionAsync(request, offered, cancellationToken)
+        => request.Edit is null && request.Data is JObject offered
+            && offered[ExtractionDataKey]?.ToString() is RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub
+            ? await ResolveRefactoringAsync(request, offered[ExtractionDataKey]!.ToString(), offered, cancellationToken)
             : request;
 
     protected override CodeActionRegistrationOptions CreateRegistrationOptions(CodeActionCapability capability, ClientCapabilities clientCapabilities)
@@ -318,7 +372,7 @@ internal sealed class CodeActionHandler(
         _client = clientCapabilities;
         return new()
         {
-            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, SourceImportProject),
+            CodeActionKinds = new Container<CodeActionKind>(CodeActionKind.QuickFix, RefactorRename, RefactorExtractMethod, RefactorConvertGoSub, SourceImportProject),
             ResolveProvider = true,
         };
     }

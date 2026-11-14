@@ -390,11 +390,17 @@
   <data name="ForEachControlEmptiedAfterLoop_Nothing_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is Nothing here: MS-VBA sets the control variable of a For Each loop that runs out to Nothing, where MS-VBAL §5.4.2.4 says it keeps the last element.</value>
   </data>
+  <data name="CollectionSetToNothingInItsOwnLoop_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is not set to Nothing here: the For Each loop that walks it holds the object until the loop is over. MS-VBA lets go of a Collection here: it is destroyed, with the members the loop has not reached, and the loop ends. Leave the loop with Exit For, then set &apos;{0}&apos; to Nothing.</value>
+  </data>
   <data name="IIfSideEffect_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is called whatever the condition: IIf evaluates both its TruePart and its FalsePart before it chooses one.</value>
   </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
+  </data>
+  <data name="LineContinuationBetweenKeywords_Message" xml:space="preserve">
+    <value>A line continuation splits the keyword '{0}' over several lines. Write its words on one line.</value>
   </data>
   <data name="VariableNotUsed_Message" xml:space="preserve">
     <value>Variable &apos;{0}&apos; is never used.</value>

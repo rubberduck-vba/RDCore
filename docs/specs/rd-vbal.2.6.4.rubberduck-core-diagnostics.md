@@ -66,6 +66,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC00208`](../diagnostics/rdc00208.md)|Shadowed declaration|Information|`DeclarationFact.Hides`, from the resolver: what the name of a local or a parameter means as seen from the module|
 |[`RDC00211`](../diagnostics/rdc00211.md)|On Error GoTo -1|Hint|the syntax tree: an `OnErrorGoToStatementNode` whose label is the literal `-1`|
 |[`RDC00212`](../diagnostics/rdc00212.md)|Unrestored On Error Resume Next|Warning|the syntax tree: an `OnErrorResumeStatementNode` that no `OnErrorGoToStatementNode` to a label or `0` follows in its procedure, in the order they are written|
+|[`RDC00213`](../diagnostics/rdc00213.md)|Line continuation between keywords|Information|the trivia of the parse: `LineContinuationTriviaNode.Keyword`|
 |[`RDC00214`](../diagnostics/rdc00214.md)|Procedure can be written as a function|Information|the syntax tree: a `Sub` with one `ByRef` parameter that is no `ParamArray`; the host's reference counts of that parameter: written; not a `Declare`, an implementation, a handler, or a `Public` member of a class module|
 |[`RDC00215`](../diagnostics/rdc00215.md)|Self-assigned declaration|Hint|the syntax tree: `AsTypeExpressionNode.AsAutoObject` of a variable declaration|
 |[`RDC00302`](../diagnostics/rdc00302.md)|Obsolete Call statement|Hint|`ValueExpressionSemanticFlags.ExplicitCallKeyword`|
@@ -113,6 +114,7 @@ The severity of a finding is a choice of the analyzer ([**RD-VBAL §2.6** Diagno
 |[`RDC11032`](../diagnostics/rdc11032.md)|For Each variable read after the loop ran out|Warning|`ProcedureSemanticModel.EmptiedControlReads`: the `EmptiedControlReadFact`s `ForEachControlAnalysis` finds on the `ControlFlowGraph`|
 |[`RDC11033`](../diagnostics/rdc11033.md)|Reserved name that MS-VBA accepts|Warning|the names the syntax tree declares: an Enum member named `Date`, `DoEvents` or `CDec`, not in brackets|
 |[`RDC11034`](../diagnostics/rdc11034.md)|Name that MS-VBA refuses|Warning|the names the syntax tree declares outside brackets: `Local`, or a reserved type identifier other than `Date` and `String`, except as a member of a user-defined type; `Me` as a member of one; `Name` as an Enum member|
+|[`RDC11035`](../diagnostics/rdc11035.md)|Collection set to Nothing inside its own For Each loop|Warning|`ProcedureSemanticModel.Expressions`: `ValueExpressionSemanticFlags.CollectionSetToNothingInItsOwnLoop` of the `ExpressionFact`s|
 |[`RDC11036`](../diagnostics/rdc11036.md)|Negative line number|Warning|the syntax tree: a `LineNumberNode` below 0, or a jump whose label is a negated literal (`On Error GoTo -1` aside)|
 |[`RDC11037`](../diagnostics/rdc11037.md)|Non-breaking space in a name|Warning|the syntax tree: the name of a declaration or a line label with a U+00A0|
 |[`RDC11039`](../diagnostics/rdc11039.md)|Function called whatever the IIf condition|Warning|the syntax tree (the `TruePart` and `FalsePart` arguments of a call bound to `Interaction.IIf`) and `ExpressionFactDto`: a `ProcedureCall` of a `Function` or `Property Get`, bound to anything but a VBA library function that changes nothing and raises no error|

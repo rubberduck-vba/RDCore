@@ -144,6 +144,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[VBC09380](vbc09380.md)|Out of memory|A module declares more than 10,000 names at module level, or a fixed-size array of more elements than RD-VBA holds|
 |[VBC09381](vbc09381.md)|User-defined type may not be passed ByVal|A parameter of a record is declared `ByVal`|
 |[VBC09382](vbc09382.md)|Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions|A record is given to a `Variant`|
+|[VBC09383](vbc09383.md)|There is no host application to evaluate the expression|A name in brackets, such as `[A1]`, names nothing that is declared|
 
 ### Runtime errors
 
@@ -274,6 +275,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC00208](rdc00208.md)|Shadowed declaration|A local or a parameter named like a member of the module, of another module, or of a library|
 |[RDC00211](rdc00211.md)|On Error GoTo -1|An On Error GoTo -1 statement|
 |[RDC00212](rdc00212.md)|Unrestored On Error Resume Next|An On Error Resume Next that no On Error GoTo follows in its procedure|
+|[RDC00213](rdc00213.md)|Line continuation between keywords|A keyword of two words, such as `End If`, split over several lines|
 |[RDC00214](rdc00214.md)|Procedure can be written as a function|A `Sub` that gives its result back through its only `ByRef` parameter|
 |[RDC00215](rdc00215.md)|Self-assigned declaration|A variable declared `As New`|
 |[RDC00302](rdc00302.md)|Obsolete Call statement|A call statement written with the Call keyword|
@@ -319,6 +321,7 @@ token, which literal, which type) are carried in the diagnostic's verbose detail
 |[RDC11029](rdc11029.md)|Public variable of an object passed late as a copy|What a procedure called late assigns to it is not written back|
 |[RDC11031](rdc11031.md)|True value that is not -1|`#Const DEV = 1`, then `#If Not DEV`: `Not 1` is `-2`, which is `True`|
 |[RDC11032](rdc11032.md)|For Each variable read after the loop ran out|MS-VBA leaves it Empty or Nothing, where MS-VBAL says it keeps the last element|
+|[RDC11035](rdc11035.md)|Collection set to Nothing inside its own For Each loop|RD-VBA leaves it as it is while the loop runs; MS-VBA destroys it, and the loop ends|
 |[RDC11036](rdc11036.md)|Negative line number|A line number below 0, or a jump to one: MS-VBA compiles it, MS-VBAL has no such line number|
 |[RDC11037](rdc11037.md)|Non-breaking space in a name|A declared name with a U+00A0 in it: MS-VBA compiles it, no MS-VBAL identifier has one|
 |[RDC11039](rdc11039.md)|Function called whatever the IIf condition|A `Function` or `Property Get` in the `TruePart` or `FalsePart` of `IIf`, which runs whatever the condition|

@@ -93,6 +93,11 @@ internal sealed class ProgramDebugAdapter(
 
     // the platform numbers its activations from 0; the frames that stand for GoSubs are numbered above any it could have.
     private const int FirstGoSubFrameId = 1_000_000;
+
+    // the places between the frames of an event's handlers and the frame in the call the event was raised by, which are no code of the program's: numbered above any
+    // GoSub, and never an activation.
+    private const int FirstNonBasicFrameId = 2_000_000;
+    private readonly HashSet<int> _nonBasicFrames = [];
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     // the library says the adapter is ready to be configured as soon as it is initialized, which is before the workspace is brought up: a client that sets breakpoints
@@ -665,6 +670,7 @@ internal sealed class ProgramDebugAdapter(
         lock (_sync)
         {
             _gosubFrames.Clear();
+            _nonBasicFrames.Clear();
             foreach (var frame in stack.Frames)
             {
                 all.Add(new StackFrame
@@ -690,6 +696,19 @@ internal sealed class ProgramDebugAdapter(
                         Column = ToClientColumn(0),
                     });
                 }
+
+                // the handler of an event a server's object raised is called by no code of the program's: MS-VBA's Call Stack shows the place below it as <Non-Basic Code>.
+                if (frame.BeginsAnEvent)
+                {
+                    var id = FirstNonBasicFrameId + _nonBasicFrames.Count;
+                    _ = _nonBasicFrames.Add(id);
+                    all.Add(new StackFrame
+                    {
+                        Id = id,
+                        Name = DebuggerMessages.FrameNonBasicCode,
+                        PresentationHint = StackFramePresentationHint.Label,
+                    });
+                }
             }
         }
 
@@ -700,6 +719,14 @@ internal sealed class ProgramDebugAdapter(
         }
 
         return new StackTraceResponse { StackFrames = new Container<StackFrame>(frames), TotalFrames = all.Count };
+    }
+
+    private bool IsNonBasic(long frameId)
+    {
+        lock (_sync)
+        {
+            return _nonBasicFrames.Contains((int)frameId);
+        }
     }
 
     // a frame of the client is an activation of the platform, or a GoSub of one: the variables are those of the activation.
@@ -713,6 +740,12 @@ internal sealed class ProgramDebugAdapter(
 
     public Task<ScopesResponse> Handle(ScopesArguments request, CancellationToken cancellationToken)
     {
+        // the place of code that is not the program's has no variables.
+        if (IsNonBasic(request.FrameId))
+        {
+            return Task.FromResult(new ScopesResponse { Scopes = new Container<Scope>() });
+        }
+
         var frame = ActivationOf(request.FrameId);
         lock (_sync)
         {
@@ -774,6 +807,11 @@ internal sealed class ProgramDebugAdapter(
 
     public async Task<EvaluateResponse> Handle(EvaluateArguments request, CancellationToken cancellationToken)
     {
+        if (request.FrameId is { } asked && IsNonBasic(asked))
+        {
+            throw Refusal(DebuggerMessages.FrameIsNotCode);
+        }
+
         var frame = ActivationOf(request.FrameId ?? 0);
 
         // the debug console is the immediate window: what is typed there is a statement, run in the frame, and nothing is shown that it does not print (?x, for Debug.Print x).

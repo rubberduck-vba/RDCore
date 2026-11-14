@@ -34,6 +34,9 @@
   <data name="ExtractMethodName_Shadows" xml:space="preserve">
     <value>« {0} » est aussi {1}, que la nouvelle procédure masque dans ce module.</value>
   </data>
+  <data name="ExtractMethodName_Implemented" xml:space="preserve">
+    <value>{1} implémente cette classe : il lui faudrait aussi implémenter un « {0} » Public. Rendez la nouvelle procédure Private.</value>
+  </data>
   <!-- What is wrong with the user's answers for a parameter of the new procedure (ExtractionParameterProblem): {0} is the parameter, {1} the name or the passing the user gave it (for OptionalBeforeRequired, the parameter that is not Optional), {2} the longest a name can be. -->
   <data name="ExtractMethodParameter_NotAParameter" xml:space="preserve">
     <value>« {0} » n'est pas un paramètre de la nouvelle procédure, ou il a deux réponses.</value>
@@ -74,6 +77,24 @@
   <data name="ExtractMethod_DocumentChanged" xml:space="preserve">
     <value>L'extraction n'a pas été effectuée : le document a changé depuis qu'elle a été proposée. Sélectionnez de nouveau les instructions.</value>
   </data>
+  <data name="ConvertGoSub_DocumentChanged" xml:space="preserve">
+    <value>La routine n'a pas été convertie : le document a changé depuis qu'elle a été proposée. Demandez la conversion de nouveau.</value>
+  </data>
+  <data name="ConvertGoSub_ConvertAll" xml:space="preserve">
+    <value>Convertir chaque routine GoSub de la procédure</value>
+  </data>
+  <data name="ConvertGoSub_ConvertAllDescription" xml:space="preserve">
+    <value>Les routines sont converties de la plus intérieure à la plus extérieure, chacune vérifiée sur le code que la précédente a laissé : toutes, ou aucune. Chacune, sauf celle-ci, est nommée d'après son étiquette.</value>
+  </data>
+  <data name="ConvertGoSub_RunsAnother" xml:space="preserve">
+    <value>Le GoSub à {1} exécute une autre routine, qui est convertie d'abord, avec chaque routine de la procédure.</value>
+  </data>
+  <data name="ConvertGoSub_NotAll" xml:space="preserve">
+    <value>Les routines n'ont pas été converties : {0} ne peut pas l'être. {1}</value>
+  </data>
+  <data name="ConvertGoSub_NameTaken" xml:space="preserve">
+    <value>Les routines n'ont pas été converties : une autre s'appelle déjà {0}.</value>
+  </data>
   <data name="ExtractMethodChoice_Name" xml:space="preserve">
     <value>Nom</value>
   </data>
@@ -112,6 +133,61 @@
   </data>
   <data name="ExtractMethodChoice_RouteExitsDescription" xml:space="preserve">
     <value>La nouvelle procédure renvoie l'endroit où la sélection sort, et l'appel s'y rend.</value>
+  </data>
+  <data name="ExtractMethodChoice_Accessibility" xml:space="preserve">
+    <value>Accessibilité</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityDescription" xml:space="preserve">
+    <value>D'où la nouvelle procédure peut être appelée.</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityPrivate" xml:space="preserve">
+    <value>De ce module seulement.</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityPublic" xml:space="preserve">
+    <value>De partout dans le projet; pour un module de classe, par chacun de ses objets.</value>
+  </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicates" xml:space="preserve">
+    <value>Remplacer les doublons</value>
+  </data>
+  <data name="ExtractMethodChoice_ReplaceDuplicatesDescription" xml:space="preserve">
+    <value>Chaque doublon coché est remplacé par un appel à la nouvelle procédure.</value>
+  </data>
+  <data name="ExtractMethodChoice_Duplicates" xml:space="preserve">
+    <value>Doublons</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicatesDescription" xml:space="preserve">
+    <value>Du code écrit comme la sélection, qu'un appel à la nouvelle procédure peut remplacer.</value>
+  </data>
+  <data name="ExtractMethodChoice_DuplicateReplace" xml:space="preserve">
+    <value>Remplacer</value>
+  </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublic" xml:space="preserve">
+    <value>Dans un autre module : remplacé seulement si la nouvelle procédure est Public.</value>
+  </data>
+  <data name="ExtractMethodReason_DuplicateNeedsPublicMember" xml:space="preserve">
+    <value>Dans la classe : remplacé seulement quand le nouveau membre est Public.</value>
+  </data>
+  <!-- Why the duplicates the user chose are not replaced: {0} is the duplicate, where it is and its first line (for NotADuplicate, its id); {1} why its replacement is not verified. -->
+  <data name="ExtractMethodDuplicate_NotADuplicate" xml:space="preserve">
+    <value>« {0} » n'est pas un doublon de la sélection telle qu'elle est extraite.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublic" xml:space="preserve">
+    <value>Le doublon à {0} est dans un autre module : seule une procédure Public peut le remplacer.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NeedsPublicMember" xml:space="preserve">
+    <value>Le doublon à {0} est dans la classe : seul un membre Public peut le remplacer.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Overlaps" xml:space="preserve">
+    <value>Le doublon à {0} chevauche ce que l'extraction change déjà : il ne peut pas être remplacé aussi.</value>
+  </data>
+  <data name="ExtractMethodDuplicate_NotVerified" xml:space="preserve">
+    <value>Le doublon à {0} ne peut pas être remplacé : il briserait le code. {1}</value>
+  </data>
+  <data name="ExtractMethodDuplicate_Replacement" xml:space="preserve">
+    <value>Remplacer le doublon à {0} par un appel</value>
+  </data>
+  <data name="ExtractMethodChoice_AccessibilityUnknown" xml:space="preserve">
+    <value>« {0} » n'est pas une accessibilité que la nouvelle procédure peut avoir : choisissez Private ou Public.</value>
   </data>
   <data name="ExtractMethodReason_ReadOnly" xml:space="preserve">
     <value>Lu par la sélection, sans être écrit.</value>
@@ -194,9 +270,6 @@
   <data name="ExtractMethodEdit_NotAReturnCandidate" xml:space="preserve">
     <value>« {0} » n'est pas une valeur que la sélection rend.</value>
   </data>
-  <data name="ExtractMethodEdit_ExitByJumpTable" xml:space="preserve">
-    <value>Un On…GoTo quitte la sélection : aucun code de sortie d'une seule instruction ne peut représenter ses différentes cibles.</value>
-  </data>
   <data name="ExtractMethodEdit_ExitRoutingDeclined" xml:space="preserve">
     <value>La sélection quitte la procédure, ou une boucle ou un bloc qui l'entoure, et les sorties ne sont pas acheminées.</value>
   </data>
@@ -220,5 +293,32 @@
   </data>
   <data name="ExtractMethodVerification_ExitNotReached" xml:space="preserve">
     <value>L'appel ne quitterait pas la procédure vers chacun des endroits vers lesquels la sélection la quittait.</value>
+  </data>
+  <data name="ConvertGoSub_Title" xml:space="preserve">
+    <value>Convertir la routine GoSub en procédure…</value>
+  </data>
+  <data name="ConvertGoSub_NoLabel" xml:space="preserve">
+    <value>Il n'y a pas de routine GoSub ici : convertissez une routine depuis son étiquette, ou depuis un GoSub qui la nomme.</value>
+  </data>
+  <data name="ConvertGoSub_NoGoSub" xml:space="preserve">
+    <value>Aucun GoSub n'exécute « {0} » : elle ne commence aucune routine à convertir.</value>
+  </data>
+  <data name="ConvertGoSub_NotContiguous" xml:space="preserve">
+    <value>La routine « {0} » n'est pas une seule suite d'instructions depuis son étiquette : un saut y retourne avant l'étiquette, ou elle contient du code qu'elle n'exécute jamais.</value>
+  </data>
+  <data name="ExtractMethodRefusal_FallsIntoTheRoutine" xml:space="preserve">
+    <value>Le code à {1} continue dans la routine, qui atteint alors son Return sans GoSub (erreur d'exécution 3), ce qu'un appel ne ferait pas.</value>
+  </data>
+  <data name="ExtractMethodRefusal_OnGoSubInASingleLineIf" xml:space="preserve">
+    <value>Le On…GoSub à {1} exécute la routine depuis un If d'une seule ligne, où le Select Case qu'il deviendrait ne peut pas être écrit.</value>
+  </data>
+  <data name="ExtractMethodEdit_RoutineUsesTheResult" xml:space="preserve">
+    <value>La routine lit ou écrit le résultat de la procédure, que chaque appel devrait copier.</value>
+  </data>
+  <data name="ExtractMethodEdit_RoutineRunsItself" xml:space="preserve">
+    <value>La routine s'exécute elle-même : un GoSub qu'elle contient la nomme.</value>
+  </data>
+  <data name="ExtractMethodEdit_RoutineInAWithBlock" xml:space="preserve">
+    <value>La routine utilise l'objet d'un bloc With dans lequel elle est écrite.</value>
   </data>
 </root>

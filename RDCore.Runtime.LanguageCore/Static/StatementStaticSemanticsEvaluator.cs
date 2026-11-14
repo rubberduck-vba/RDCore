@@ -591,6 +591,7 @@ public static class StatementStaticSemanticsEvaluator
                 break;
             case ForEachStatementNode forEachStatement:
                 EvaluateLoopBody(context, forEachStatement.Body, walk, isForLoop: true, forEachStatement.ControlExpression);
+                MarkCollectionSetToNothing(context, forEachStatement);
                 break;
             case SelectCaseStatementNode selectCase:
                 foreach (var caseExpressionBlock in selectCase.CaseExpressionBlocks)
@@ -1307,6 +1308,24 @@ public static class StatementStaticSemanticsEvaluator
         }
 
         return members;
+    }
+
+    // a Set to Nothing of the variable the loop walks, inside the loop, which RD-VBA leaves as it is while the loop runs (ForEachCollectionStaticSemantics):
+    // the fact is the Set's target, marked once the body has recorded it.
+    private static void MarkCollectionSetToNothing(StaticEvaluationContext context, ForEachStatementNode loop)
+    {
+        if (context.Facts is not { } facts)
+        {
+            return;
+        }
+
+        foreach (var set in ForEachCollectionStaticSemantics.SetsToNothingOfItsCollection(loop))
+        {
+            if (facts.TryGet(set.Target.Identity, out var fact))
+            {
+                facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.CollectionSetToNothingInItsOwnLoop });
+            }
+        }
     }
 
     // MS-VBAL §5.4.3.9: a function, or a property that has no Property Set, named as the target of a Set outside its own body is called, and what it returns

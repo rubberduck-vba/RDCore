@@ -535,9 +535,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
     /// <returns>None when no program waits.</returns>
     public DebugVariablesResult Variables(int frameId, DebugVariableScope scope, int reference)
     {
+        // reading a variable that holds a server's object is a call to it, beside the program that waits.
         lock (_sync)
         {
-            return _state is ProgramState.Suspended ? _inspector.Variables(frameId, scope, reference) : new DebugVariablesResult();
+            if (_state is not ProgramState.Suspended)
+            {
+                return new DebugVariablesResult();
+            }
+
+            using (provider.Session.Turn.Alongside())
+            {
+                return _inspector.Variables(frameId, scope, reference);
+            }
         }
     }
 
@@ -710,7 +719,12 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
         {
             // what the code as edited declares, the statement names: the locals an edit added, the fields a class was given.
             ProgramEdits.Prepare(session);
-            return run(session, stack, selected, procedure);
+
+            // the code runs beside the program that waits: the events its calls raise are its own, and none of the program's runs meanwhile.
+            using (session.Turn.Alongside())
+            {
+                return run(session, stack, selected, procedure);
+            }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -1040,6 +1054,7 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             Output = output.Lines,
             ErrorLine = stop.Location?.Range.Start.Line ?? -1,
             ErrorCharacter = stop.Location?.Range.Start.Character ?? -1,
+            ErrorModule = session.CallStack.Current is CallStackFrame waitsIn ? ProgramInspector.ModuleNameOf(waitsIn) : string.Empty,
             ErrorNumber = error?.ErrorId ?? 0,
             ErrorMessage = error?.Description ?? string.Empty,
             ErrorCode = error?.ToDiagnosticCode() ?? string.Empty,
@@ -1189,13 +1204,18 @@ public sealed class ProgramExecution(IEnvironmentSessionProvider provider, ILogg
             ErrorSource = session.Errors.Source is { Length: > 0 } source ? source : provider.ProjectName,
             ErrorLine = error.Location.Range.Start.Line,
             ErrorCharacter = error.Location.Range.Start.Character,
+            // the error was raised in the innermost activation of the trace, which was captured where it was raised.
+            ErrorModule = session.Errors.StackTrace.Frames is [var raisedIn, ..] ? raisedIn.Module : string.Empty,
             StackTrace =
             [
                 .. session.Errors.StackTrace.Frames.Select(frame => new ExecuteStackFrame(
                     frame.ProcedureName,
                     frame.Location?.Range.Start.Line ?? -1,
                     frame.Location?.Range.Start.Character ?? -1,
-                    frame.GoSubs.IsDefaultOrEmpty ? null : [.. frame.GoSubs.Select(gosub => gosub.Range.Start.Line)])),
+                    frame.GoSubs.IsDefaultOrEmpty ? null : [.. frame.GoSubs.Select(gosub => gosub.Range.Start.Line)])
+                {
+                    Module = frame.Module,
+                }),
             ],
             ErrorDetails = error.AsErrorInfo.Details,
         };

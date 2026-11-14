@@ -19,6 +19,7 @@ using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
 using RDCore.Runtime.LanguageCore.Binding;
 using RDCore.Runtime.LanguageCore.Plans;
+using RDCore.Runtime.LanguageCore.Static;
 using System.Collections.Immutable;
 
 namespace RDCore.Runtime.Compiled;
@@ -264,7 +265,11 @@ internal sealed partial class ProcedureAnalysis
             }
 
             EnterBlockOf(list, instruction);
-            var step = AnalyzeInstruction(instruction);
+
+            // a Set to Nothing of the variable a For Each walks, inside the loop, is the interpreter's: it leaves the variable as it is while the loop runs.
+            var step = ForEachCollectionStaticSemantics.LoopsWhoseCollectionItSetsToNothing(list, instruction.Offset).Any()
+                ? SupportCallOf(instruction, before)
+                : AnalyzeInstruction(instruction);
 
             // what compiled code does not do of an instruction the interpreter can run alone, the interpreter does (IR lowering S2.5a): the reasons are
             // the instruction's, and not the procedure's.

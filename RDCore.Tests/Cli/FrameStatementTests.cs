@@ -194,6 +194,18 @@ public sealed class FrameStatementTests
             Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
         }, debug: true);
 
+    // MS-VBAL §3.3.5.3: a name in brackets that nothing declares is an expression for a host application, which RD-VBA does not have, and declares nothing.
+    [TestMethod]
+    public async Task AStatement_WithANameInBracketsTheProcedureDoesNotSee_IsRefused()
+        => await DebugAsync(async provider =>
+        {
+            var done = await Execute(provider, 0, "Debug.Print [A1]");
+
+            Assert.IsFalse(done.Success);
+            Assert.StartsWith("There is no host application to evaluate the expression", done.Error);
+            Assert.AreEqual(ProgramState.Suspended, provider.Execution.State);
+        });
+
     // MS-VBAL 5.4.3.3: a ReDim of a name the procedure does not see declares a dynamic array local to it, typed at a stop as in the procedure's code - one the
     // next statement reads, and the program goes on with.
     [TestMethod]
