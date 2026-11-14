@@ -150,8 +150,8 @@ public sealed class VisualBasicFormRunTimeControlsTests
     }
 
     // a control Controls.Add returns is an Object, which Set-assigns to a WithEvents variable of the control's class: no compile error, and nothing an
-    // analyzer reports, on the variable or on the assignment. The variable is Public for the other tests, which read it from outside the form, and that it
-    // could be a property is reported of any Public field.
+    // analyzer reports, on the variable or on the assignment. The variable is Public, as the other tests read it from outside the form, so the finding
+    // that a Public field could be a property, which any Public field has, is left out.
     [TestMethod]
     public async Task SetOfAWithEventsVariable_ToWhatControlsAddReturns_IsValid()
     {
