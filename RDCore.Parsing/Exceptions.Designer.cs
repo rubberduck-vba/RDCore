@@ -207,5 +207,95 @@ namespace RDCore.Parsing {
                 return ResourceManager.GetString("VBCompileError_CallArgumentsNeedCall_Verbose", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Syntax error.
+        /// </summary>
+        internal static string VBCompileError_SyntaxError_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_SyntaxError_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: identifier.
+        /// </summary>
+        internal static string VBCompileError_ExpectedIdentifier_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedIdentifier_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: type name.
+        /// </summary>
+        internal static string VBCompileError_ExpectedTypeName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedTypeName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: New or type name.
+        /// </summary>
+        internal static string VBCompileError_ExpectedNewOrTypeName_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedNewOrTypeName_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: list separator or ).
+        /// </summary>
+        internal static string VBCompileError_ExpectedListSeparatorOrParenthesis_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedListSeparatorOrParenthesis_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: expression.
+        /// </summary>
+        internal static string VBCompileError_ExpectedExpression_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedExpression_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: end of statement.
+        /// </summary>
+        internal static string VBCompileError_ExpectedEndOfStatement_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedEndOfStatement_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: Get or Let or Set.
+        /// </summary>
+        internal static string VBCompileError_ExpectedGetOrLetOrSet_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedGetOrLetOrSet_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: Lib.
+        /// </summary>
+        internal static string VBCompileError_ExpectedLib_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedLib_Verbose", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Expected: Text or Binary.
+        /// </summary>
+        internal static string VBCompileError_ExpectedTextOrBinary_Verbose {
+            get {
+                return ResourceManager.GetString("VBCompileError_ExpectedTextOrBinary_Verbose", resourceCulture);
+            }
+        }
     }
 }

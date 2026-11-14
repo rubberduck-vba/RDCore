@@ -154,7 +154,7 @@ public partial class ModuleParser(
             else if (Segmented && Segments(sanitized, statistics) is { } segments && ParseSegments(uri, node, sanitized, segments, anchorOffset, errorListener, statistics, token) is { } stitched)
             {
                 (ast, trivia) = (stitched.Module, stitched.Trivia);
-                errorListener.AddRange(stitched.Errors);
+                errorListener.AddFrom(stitched.Errors);
                 statistics?.Count(SegmentationStatistics.Path.Stitched);
             }
             else
@@ -307,7 +307,7 @@ public partial class ModuleParser(
     // whose parse fails is, its partial tree salvaged. A segment nested deeper than the parse reads is not: the module is not read again whole, as a segment's
     // parse has read it to that depth slowly already, and it stops where a parse of the whole module would. What that parse found wrong before it stopped is
     // the module's (errorListener), as a slow parse of the whole module would have found it.
-    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ErrorListener Errors)? ParseSegments(Uri uri, ModuleNode node, string sanitized,
         IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
         CancellationToken token)
     {
@@ -323,14 +323,14 @@ public partial class ModuleParser(
         }
     }
 
-    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ImmutableArray<VBSyntaxErrorInfo> Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
+    private (ModuleNode Module, ImmutableArray<SyntaxNode> Trivia, ErrorListener Errors)? ParseEachSegment(Uri uri, ModuleNode node, string sanitized,
         IReadOnlyList<ModuleSegmentScanner.Segment> segments, SourcePosition anchorOffset, ErrorListener errorListener, SegmentationStatistics? statistics,
         CancellationToken token)
     {
         var lines = sanitized.Split('\n');
         var children = ImmutableArray.CreateBuilder<SyntaxNode>();
         var trivia = ImmutableArray.CreateBuilder<SyntaxNode>();
-        var errors = ImmutableArray.CreateBuilder<VBSyntaxErrorInfo>();
+        var errors = errorListener.Fresh();
         var next = 0;
         foreach (var segment in segments)
         {
@@ -347,7 +347,7 @@ public partial class ModuleParser(
             }
             catch (Exception exception) when (IsOutOfStack(exception))
             {
-                errorListener.AddRange(segmentErrors.Errors);
+                errorListener.AddFrom(segmentErrors);
                 throw;
             }
 
@@ -361,10 +361,10 @@ public partial class ModuleParser(
             next = listener.NextModuleChildId;
             children.AddRange(read.Children);
             trivia.AddRange(listener.Trivia);
-            errors.AddRange(segmentErrors.Errors);
+            errors.AddFrom(segmentErrors);
         }
 
-        return (node with { Children = children.ToImmutable() }, trivia.ToImmutable(), errors.ToImmutable());
+        return (node with { Children = children.ToImmutable() }, trivia.ToImmutable(), errors);
     }
 
     // whether a segment's syntax errors are what a parse of the whole module reports there, and the segment what it reads: each error is in a member, from
@@ -608,7 +608,7 @@ public partial class ModuleParser(
         {
             var reported = errorListener.Fresh();
             var listener = ParseOnce(content, PredictionMode.Sll, new BailErrorStrategy(), errorListener: null, reported, listenerFactory(reported), anchorOffset, token);
-            errorListener.AddRange(reported.Errors);
+            errorListener.AddFrom(reported);
             return listener;
         }
         catch (Exception exception) when (!token.IsCancellationRequested)
@@ -1305,7 +1305,9 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 {
     private readonly Uri _uri = uri;
     private readonly List<VBSyntaxErrorInfo> _errors = [];
-    public ImmutableArray<VBSyntaxErrorInfo> Errors => [.. _errors];
+    public ImmutableArray<VBSyntaxErrorInfo> Errors => [.. _errors.Select(error => _inTheVBEsWords.TryGetValue(error, out var told)
+        ? error with { Location = new SourceLocation(_uri, told.Range), Verbose = told.Message }
+        : error)];
 
     // a listener of the same module and anchor, with no error yet.
     public ErrorListener Fresh() => new(_uri, anchorOffset);
@@ -1320,15 +1322,6 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         // anchor's own column.
         var position = new SourcePosition(line - 1, charPositionInLine).AnchoredAt(anchorOffset);
         var location = new SourceLocation(_uri, new(position, position));
-
-        // a semantic predicate is the grammar's, and no part of the language: where one fails (`Debug.Print Spc(1`, a Spc clause that is not complete), what
-        // the parser could not read is said as ANTLR says it where no alternative is viable (DefaultErrorStrategy.ReportNoViableAlternative): the input from
-        // where the rule's decision began to the token it failed at, and not the predicate's code.
-        if (e is FailedPredicateException { Context: ParserRuleContext { Start: { } start } } && offendingSymbol is not null
-            && recognizer is Parser { InputStream: ITokenStream tokens })
-        {
-            msg = $"no viable alternative at input {EscapeWSAndQuote(tokens.GetText(start, offendingSymbol))}";
-        }
 
         // one error where the parse stopped: a rule that fails at a token, and the rule it is in that fails at the same token, are one syntax error, said as the
         // parse first said it.
@@ -1358,7 +1351,16 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _reported.Add(error);
         _reportedAt.Add(location);
         _errors.Add(error);
+        if (recognizer is Parser parser && offendingSymbol is not null)
+        {
+            var (from, to, message) = VBEWording.Of(parser, offendingSymbol, e);
+            _inTheVBEsWords[error] = (new SourceRange(from.AnchoredAt(anchorOffset), to.AnchoredAt(anchorOffset)), message);
+        }
     }
+
+    // what MS-VBA says of each error the grammar reported, and where (VBEWording): the errors are told as MS-VBA tells them, and kept where the parse found
+    // them, which is what the listener compares their positions by.
+    private readonly Dictionary<VBSyntaxErrorInfo, (SourceRange Range, string Message)> _inTheVBEsWords = new(ReferenceEqualityComparer.Instance);
 
     // the words legalLabelIdentifier's predicate names no label with; before EndsABlock, which is made of them.
     private static readonly IntervalSet NoLabelName = new(VBALexer.DOEVENTS, VBALexer.END, VBALexer.CLOSE, VBALexer.ELSE, VBALexer.LOOP, VBALexer.NEXT,
@@ -1518,10 +1520,6 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
         _errors.RemoveAt(_errors.FindLastIndex(existing => ReferenceEquals(existing, error)));
     }
 
-    // a token's text as ANTLR quotes it in an error (DefaultErrorStrategy.EscapeWSAndQuote, which is not public): its line breaks and tabs escaped.
-    private static string EscapeWSAndQuote(string text)
-        => $"'{text.Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")}'";
-
     /// <summary>
     /// Replaces what the grammar says of a module whose blocks do not match with what MS-VBA says of them (<see cref="BlockStructureScanner"/>): the
     /// grammar's errors from the first block error on are its consequences, and the ones before it are kept.
@@ -1557,6 +1555,17 @@ internal class ErrorListener(Uri uri, SourcePosition anchorOffset) : IAntlrError
 
     // the errors of a part of the module parsed on its own, already located in the module (a header alternative).
     public void AddRange(IEnumerable<VBSyntaxErrorInfo> errors) => _errors.AddRange(errors);
+
+    // the errors of another listener of the module, already located in it, with what MS-VBA says of each: they are told in its words once the parse's errors
+    // are settled, which is by where the parse found them.
+    public void AddFrom(ErrorListener other)
+    {
+        _errors.AddRange(other._errors);
+        foreach (var (error, told) in other._inTheVBEsWords)
+        {
+            _inTheVBEsWords[error] = told;
+        }
+    }
 
     // records a token-semantic syntax error; idempotent per (location, id) so the two-stage parse
     // does not double-report a literal both passes reach.

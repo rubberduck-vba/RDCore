@@ -2,6 +2,8 @@
 using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model;
+using RDCore.SDK.Model.AST.Abstract;
+using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.Symbols;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Semantics;
@@ -15,14 +17,16 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <remarks>
 /// The members of the interface are its <c>Public</c> or implicitly public procedures and properties, and its <c>Public</c> variables, as the host's
 /// <c>Implements</c> rule reads them. An implementation of an interface member and a handler of an event are left to <c>RDC00405</c>, which reports them public.
-/// The analyzer reads the host's declarations, and has nothing to say without them.
+/// Only what the module's code declares is reported: a form's designer declares members on the form's class that no code of the module writes. The analyzer
+/// reads the host's declarations and the module's syntax tree, and has nothing to say without both.
 /// </remarks>
 internal sealed class UnderscoreInPublicClassMemberAnalyzer : IModuleAnalyzer
 {
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => context.Semantics is { Class: not null } semantics
+        => context is { Semantics: { Class: not null } semantics, ParseResult.SyntaxTree: { } module }
             ? semantics.Declarations
-                .Where(declaration => declaration.Name.Contains('_') && declaration.Role is DeclarationRole.None && IsInTheInterface(declaration) && IsOfTheModule(declaration))
+                .Where(declaration => declaration.Name.Contains('_') && declaration.Role is DeclarationRole.None && IsInTheInterface(declaration) && IsOfTheModule(declaration)
+                    && IsWrittenInTheModule(module, declaration))
                 .Select(declaration => new AnalyzerFinding(
                     RDCoreDiagnosticId.UnderscoreInPublicClassMember.ToCode(),
                     declaration.Location.Range,
@@ -37,6 +41,12 @@ internal sealed class UnderscoreInPublicClassMemberAnalyzer : IModuleAnalyzer
         var module = SymbolUri.ModuleNameOf(declaration.Symbol);
         return path.Length > module.Length + 1 && !path.AsSpan(module.Length + 1).Contains('.');
     }
+
+    // a member the module's code declares. A form's designer declares members on the form's class too, which no code of the module writes and its author
+    // cannot rename: its controls, and the members of the form object and of the class the designer hosts, Microsoft Forms' hidden ones among them.
+    private static bool IsWrittenInTheModule(ModuleNode module, DeclarationFactDto declaration)
+        => UnusedDeclarations.DeclarationOf<MemberDeclarationNode>(module, declaration, node => node.SourceLocation.Range) is not null
+            || UnusedDeclarations.DeclarationOf<VariableDeclarationNode>(module, declaration, node => node.NameRange ?? node.SourceLocation.Range) is not null;
 
     private static bool IsInTheInterface(DeclarationFactDto declaration) => declaration.Kind switch
     {

@@ -35,6 +35,38 @@ internal sealed partial class ProcedureAnalysis
         _slotSymbols[slot] = symbol;
     }
 
+    /// <summary>
+    /// The slots of the <c>String</c> variables a Let appends to (<see cref="TextAppendStep"/>), each held in an appender of the activation while it is
+    /// appended to.
+    /// </summary>
+    public IReadOnlySet<int> AppendedTextSlots => Steps.OfType<TextAppendStep>().Select(step => step.Slot).ToHashSet();
+
+    // S = S & a & b: the texts appended to S, in order, when what is assigned is S joined on its left. A parameter by reference is the caller's variable, which
+    // the caller reads once the call returned: it is assigned the String joined.
+    private TextAppendStep? AppendOf(int offset, int slot, TextNode text)
+    {
+        if (IsPassedByReference(slot))
+        {
+            return null;
+        }
+
+        var appended = new List<TextNode>();
+        var node = text;
+        while (node is ConcatNode concat)
+        {
+            appended.Add(concat.Right);
+            node = concat.Left;
+        }
+
+        if (node is not TextSlotNode { Slot: var joined } || joined != slot || appended.Count == 0)
+        {
+            return null;
+        }
+
+        appended.Reverse();
+        return new TextAppendStep(offset, slot, appended);
+    }
+
     private int? TextSlotOf(BoundVariable variable)
         => variable is { IsAutoInstantiated: false, Slot: { } slot } && ReferenceEquals(slot.Layout, _layout) && _textSlots.Contains(slot.Index) ? slot.Index : null;
 

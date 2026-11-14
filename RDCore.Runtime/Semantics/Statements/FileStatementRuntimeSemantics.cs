@@ -427,9 +427,11 @@ public sealed record class FileStatementRuntimeSemantics(
 
         // "If the number of bytes written is more than the specified <rec-length>, an error is generated (#59,
         // 'Bad record length')" - and if it is less, "the remaining bytes are written to the file are
-        // undefined", so nothing pads them.
-        return record.Channel.Mode is VBFileMode.Random && record.Channel.RecordLength > 0 && written > record.Channel.RecordLength
-            ? Failed(VBRuntimeErrorId.BadRecordLength, statement, $"{written} bytes into a {record.Channel.RecordLength}-byte record")
+        // undefined", so nothing pads them. A channel opened with no Len has records of 128 bytes, and no record longer than that (MS-VBA, recorded in
+        // Excel).
+        var recordLength = record.Channel.RecordLength is > 0 and var length ? length : Execution.Files.SessionFileChannels.DefaultRandomRecordLength;
+        return record.Channel.Mode is VBFileMode.Random && written > recordLength
+            ? Failed(VBRuntimeErrorId.BadRecordLength, statement, $"{written} bytes into a {recordLength}-byte record")
             : RuntimeExecutionOutcome.Next;
     }
 
@@ -460,21 +462,24 @@ public sealed record class FileStatementRuntimeSemantics(
         }
 
         var declaredType = symbol is ITypedSymbol { ResolvedType: var resolved } ? resolved : VBVariantType.TypeInfo;
-        var bound = session.Symbols.Resolver.GetValue(symbol!);
+
+        // the name of the function the statement is in is its function result variable, which its frame holds (MS-VBAL §5.3.1): no symbol is bound to it.
+        var result = LetAssignmentEvaluator.ResultFrameOf(session, context, symbol!) is { } enclosing ? enclosing.ReturnValue : null;
+        var bound = result is null ? session.Symbols.Resolver.GetValue(symbol!) : null;
 
         // a UDT variable has location identity, so the statement fills the variable the program already has
         // instead of replacing it - which is also what lets this sidestep assigning a UDT, an assignment whose
         // own coercion rules are a separate piece of work.
         if (declaredType is VBUserDefinedType udtType)
         {
-            return udtType.CreateValue(bound) is VBUserDefinedTypeValue udt && record.Channel.TryReadRecordInto(udt)
+            return (result ?? udtType.CreateValue(bound!)) is VBUserDefinedTypeValue udt && record.Channel.TryReadRecordInto(udt)
                 ? RuntimeExecutionOutcome.Next
                 : Failed(VBRuntimeErrorId.InputPastEndOfFile, statement, $"reading into {symbol!.Name}");
         }
 
         // a Binary-mode String is as long as the variable already is, so what it currently holds is part of
         // deciding how much of the file to read.
-        var currentLength = bound.Value.BoxedValue is string text ? text.Length : 0;
+        var currentLength = (result?.RuntimeValue.BoxedValue ?? bound!.Value.BoxedValue) is string text ? text.Length : 0;
 
         if (!record.Channel.TryReadRecord(declaredType, currentLength, out var value))
         {
