@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
+using RDCore.SDK.Model.AST.Expressions;
 using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
@@ -65,10 +66,13 @@ internal static class DefaultMemberAccesses
                 continue;
             }
 
-            // a class's default member is the member access of the target; an Object has none to state before it runs.
+            // a class's default member is the member access of the target that the code does not name; an Object has none to state before it runs. A target
+            // that names the default member (`label.Caption = text`, `.Value = x` in a With block) assigns that member, and no object: the host states the
+            // access of a member that is the default one as a default member's access, named or not.
             var unbound = IsUnbound(target.DeclaredType);
             var defaultMember = unbound ? null : accesses.FirstOrDefault(access => access.Location.Range == targetRange
-                && access.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.DefaultMember));
+                && access.MemberAccessOpSemanticFlags!.Value.HasFlag(MemberAccessOperationSemanticFlags.DefaultMember)
+                && !Names(statement.Target, access.Member));
             if (defaultMember is null && !unbound)
             {
                 continue;
@@ -113,6 +117,10 @@ internal static class DefaultMemberAccesses
             .ToArray();
         return candidates.FirstOrDefault(fact => !candidates.Any(other => other != fact && Contains(other.Location.Range, fact.Location.Range)));
     }
+
+    // whether the target of an assignment is the access of the member, by its name.
+    private static bool Names(ExpressionNode target, string? member)
+        => target is MemberAccessExpressionNode access && string.Equals(access.Member.IdentifierName, member, StringComparison.OrdinalIgnoreCase);
 
     private static bool HoldsAnObject(string? declaredType)
         => declaredType is { Length: > 0 } type && (IsUnbound(type) || !IntrinsicVBTypes.IsIntrinsic(type) && !string.Equals(type, "Unknown", StringComparison.OrdinalIgnoreCase));
