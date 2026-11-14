@@ -149,9 +149,18 @@ public abstract class VBABaseParserRuleContext : ParserRuleContext
             ? (GetSourceLocation(documentUri, last), Start.InputStream.GetText(Interval.Of(Start.StartIndex, last.StopIndex)))
             : (GetSourceLocation(documentUri), GetText());
 
-    private static IToken? LastWrittenToken(IParseTree node) => node switch
+    /// <summary>
+    /// The location of a clause of a block statement (<c>ElseIf</c>, <c>Else</c>, <c>Case</c>, <c>Case Else</c>), through its last written token. What
+    /// follows its last statement (the comment after it, the line ends and the indentation before the keyword that closes the clause) is no part of it: a clause
+    /// ends where its last statement does, or with its own header when it has none.
+    /// </summary>
+    internal SourceLocation GetClauseLocation(Uri documentUri)
+        => LastWrittenToken(this, outsideEndsOfStatement: true) is { } last ? GetSourceLocation(documentUri, last) : GetSourceLocation(documentUri);
+
+    private static IToken? LastWrittenToken(IParseTree node, bool outsideEndsOfStatement = false) => node switch
     {
+        VBAParser.EndOfStatementContext when outsideEndsOfStatement => null,
         ITerminalNode { Symbol: var token } => token.TokenIndex < 0 || token.Type is VBAParser.WS or VBAParser.LINE_CONTINUATION or TokenConstants.Eof ? null : token,
-        _ => Enumerable.Range(0, node.ChildCount).Reverse().Select(i => LastWrittenToken(node.GetChild(i))).FirstOrDefault(token => token is not null),
+        _ => Enumerable.Range(0, node.ChildCount).Reverse().Select(i => LastWrittenToken(node.GetChild(i), outsideEndsOfStatement)).FirstOrDefault(token => token is not null),
     };
 }
