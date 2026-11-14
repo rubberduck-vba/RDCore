@@ -123,7 +123,8 @@ public sealed class FormSizeTests
     }
 
     // a form with no designer state is as big as its designer block's client area, from Initialize on: Excel reads the same of a form whose .frx agrees
-    // with its designer block (6660 x 5700 twips is 333 x 285 points). The frame is the window's, and a Width written from it sizes the form.
+    // with its designer block (6660 x 5700 twips is 333 x 285 points). Width and Height take in the window's frame: one written as an inside size plus
+    // the frame gives the form that inside size, to the nearest pixel.
     [TestMethod]
     public async Task AFormWithNoDesignerState_IsItsDesignerBlocksClientArea()
     {
