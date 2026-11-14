@@ -24,6 +24,7 @@
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
   </Folder>
+  <Project Path="RDCore.Benchmarks/RDCore.Benchmarks.csproj" />
   <Project Path="RDCore.CLI/RDCore.CLI.csproj" Id="631bd5d3-e87f-4c19-a6f0-812faffac478" />
   <Project Path="RDCore.LanguageServer/RDCore.LanguageServer.csproj" />
   <Project Path="RDCore.Diagnostics/RDCore.Diagnostics.csproj" Id="a259e578-edf1-420a-8af8-bdeb2b68f7e6" />
