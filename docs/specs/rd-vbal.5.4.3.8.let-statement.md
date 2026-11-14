@@ -88,7 +88,7 @@ The Set statement does not use the operator pipeline; see
 ### Targets of a class
 
 A Let of a value to a target declared as a class or `Object` assigns the default property of the object the target holds, as naming that
-property after the target would. This holds for a variable, a public variable of an object, a field of a record and an element of an array.
+property after the target would. This holds for a variable, `Me`, a public variable of an object, a field of a record and an element of an array.
 
 | The target holds | Result |
 |---|---|
@@ -96,6 +96,19 @@ property after the target would. This holds for a variable, a public variable of
 | `Nothing`, declared `As New` | The target is given its object first, and that object's property is assigned. |
 | `Nothing` | Error 91. |
 | An object whose class has no default property | Error 438. |
+| An object whose default member is a function that can be called with no argument | Error 438 when the target is declared as a class; error 450 when it is reached late-bound. |
+
+A default `Property Get` with no `Property Let` is assigned as [Members of an object](#members-of-an-object) describes: when it returns an object, that
+object's default member is assigned.
+
+**RD-VBA differs from MS-VBA:** MS-VBA refuses at compile time a Let to a target of a specific class whose default member has no `Property Let`:
+"Invalid use of property" when it is a `Property Get` (`os = 5`, `Me = 5`), "Type mismatch" when it is a function (observed in Excel). **MS-VBAL
+§5.4.3.8** makes the statement valid, and RD-VBA compiles it: it assigns through a `Property Get`, and raises error 438 for a function, which is not a
+default property. Naming the member (`os.S = 5`) or giving it an empty argument list (`os() = 5`) compiles in both.
+[RDC11045](../diagnostics/rdc11045.md) reports the statement.
+
+**RD-VBA differs from MS-VBAL:** a function default member reached late-bound, through an `Object` or a `Variant`, is error 450, as MS-VBA raises it
+(observed in Excel). **MS-VBAL §5.4.3.8** raises error 438.
 
 ### Function result variable
 
@@ -172,10 +185,15 @@ What is indexed can be an object - or a `Variant` holding one - rather than an a
 arguments, as `c.Item(1) = value` does, and `Set c(1) = obj` its `Property Set` ([**RD-VBAL §5.6.13** Object
 Callee](rd-vbal.5.6.13.index-expressions.md#object-callee)).
 
-Some members of an object have no `Property Let` to assign through: a function, and a `Property Get` that takes no argument when it is given
-arguments that index what it returns, or when it is declared a class, `Object` or `Variant`. Such a member is called, with the arguments written
-after it, and what it returns is assigned through its default member, as a function of a module is. `c(1) = 5` and `c.Item(1) = 5`, with `Dim c As Collection` holding a number, are error 424; an item that is an object is
-assigned its own default member, and one that takes an argument is error 438.
+Some members of an object have no `Property Let` to assign through: a function; a `Property Get` declared a class, `Object` or `Variant`, given the
+arguments it takes (`c.Item(1) = 5` of a `Property Get Item(ByVal i As Long) As Slot`); and a `Property Get` that takes no argument, given arguments
+that index what it returns. Such a member is called, with the arguments written after it, and what it returns is assigned through its default member, as
+a function of a module is. A `Property Get` declared another type is error 451. `c(1) = 5` and `c.Item(1) = 5`, with `Dim c As Collection`
+holding a number, are error 424; an item that is an object is assigned its own default member, and one that takes an argument is error 438.
+
+**RD-VBA differs from MS-VBAL:** **MS-VBAL §5.4.3.8** raises error 451 for a `Property Get` declared `Variant`, and error 450 for a function
+declared `Variant`, whatever they return. RD-VBA calls the member and assigns through what it returns, as MS-VBA does (observed in Excel): a `Variant`
+that holds a number is error 424. [RDC11046](../diagnostics/rdc11046.md) reports the statement.
 
 A `ReDim` of an array gives it the element type of the variable's declaration (`Dim a() As Long`), including a variable of an object.
 

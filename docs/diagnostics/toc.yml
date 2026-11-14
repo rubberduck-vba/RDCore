@@ -566,5 +566,9 @@
   href: rdc11039.md
 - name: "RDC11044: LSet of a record that holds a variable-length String"
   href: rdc11044.md
+- name: "RDC11045: Let through a default member with no Property Let"
+  href: rdc11045.md
+- name: "RDC11046: Let through a Variant property or function"
+  href: rdc11046.md
 - name: "RDC20001: Edit not applied to the waiting program"
   href: rdc20001.md

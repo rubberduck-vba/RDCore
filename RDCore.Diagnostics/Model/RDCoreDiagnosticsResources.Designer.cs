@@ -915,6 +915,33 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is assigned through its default member, which has no Property Let. MS-VBA does not compile this assignment. Name the member the value is assigned to..
+        /// </summary>
+        public static string LetToADefaultMemberWithNoPropertyLet_Message {
+            get {
+                return ResourceManager.GetString("LetToADefaultMemberWithNoPropertyLet_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a Property Get declared Variant, with no Property Let. MS-VBAL specifies error 451 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name..
+        /// </summary>
+        public static string LetThroughAVariantGet_Message {
+            get {
+                return ResourceManager.GetString("LetThroughAVariantGet_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;{0}&apos; is a function declared Variant. MS-VBAL specifies error 450 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name..
+        /// </summary>
+        public static string LetThroughAVariantFunction_Message {
+            get {
+                return ResourceManager.GetString("LetThroughAVariantFunction_Message", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to New {0} compiles, and fails whenever it runs: no object of the class {0} is ever created, and MS-VBA raises run-time error -2147221164 (Class not registered)..
         /// </summary>
         public static string NewOfAClassNotCreatable_New_Message {

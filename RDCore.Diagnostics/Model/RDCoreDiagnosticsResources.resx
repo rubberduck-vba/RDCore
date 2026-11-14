@@ -381,6 +381,15 @@
   <data name="CollectionSetToNothingInItsOwnLoop_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is not set to Nothing here: the For Each loop that walks it holds the object until the loop is over. MS-VBA lets go of a Collection here: it is destroyed, with the members the loop has not reached, and the loop ends. Leave the loop with Exit For, then set &apos;{0}&apos; to Nothing.</value>
   </data>
+  <data name="LetToADefaultMemberWithNoPropertyLet_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is assigned through its default member, which has no Property Let. MS-VBA does not compile this assignment. Name the member the value is assigned to.</value>
+  </data>
+  <data name="LetThroughAVariantGet_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is a Property Get declared Variant, with no Property Let. MS-VBAL specifies error 451 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name.</value>
+  </data>
+  <data name="LetThroughAVariantFunction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; is a function declared Variant. MS-VBAL specifies error 450 here. RD-VBA, like MS-VBA, assigns the value to the default member of the object &apos;{0}&apos; returns, and raises error 424 when it returns no object. Assign that object&apos;s member by name.</value>
+  </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; works on the bits of a constant that is True with a value other than -1, so this condition does not give the truth value it seems to give (Not 1 is -2, which is True). Test the constant by itself, or compare it with 0; or give a constant of your own the value True.</value>
   </data>

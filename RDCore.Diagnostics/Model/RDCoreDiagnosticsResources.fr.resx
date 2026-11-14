@@ -381,6 +381,15 @@
   <data name="CollectionSetToNothingInItsOwnLoop_Message" xml:space="preserve">
     <value>&apos;{0}&apos; n&apos;est pas mis à Nothing ici : la boucle For Each qui le parcourt tient l&apos;objet jusqu&apos;à ce qu&apos;elle prenne fin. MS-VBA libère ici une Collection : elle est détruite, avec les membres que la boucle n&apos;a pas atteints, et la boucle prend fin. Quittez la boucle avec Exit For, puis mettez &apos;{0}&apos; à Nothing.</value>
   </data>
+  <data name="LetToADefaultMemberWithNoPropertyLet_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est assigné par son membre par défaut, qui n&apos;a pas de Property Let. MS-VBA ne compile pas cette assignation. Nommez le membre auquel la valeur est assignée.</value>
+  </data>
+  <data name="LetThroughAVariantGet_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est une Property Get déclarée Variant, sans Property Let. MS-VBAL prévoit ici l&apos;erreur 451. RD-VBA, comme MS-VBA, assigne la valeur au membre par défaut de l&apos;objet que &apos;{0}&apos; retourne, et lève l&apos;erreur 424 si elle ne retourne aucun objet. Assignez ce membre de l&apos;objet par son nom.</value>
+  </data>
+  <data name="LetThroughAVariantFunction_Message" xml:space="preserve">
+    <value>&apos;{0}&apos; est une fonction déclarée Variant. MS-VBAL prévoit ici l&apos;erreur 450. RD-VBA, comme MS-VBA, assigne la valeur au membre par défaut de l&apos;objet que &apos;{0}&apos; retourne, et lève l&apos;erreur 424 si elle ne retourne aucun objet. Assignez ce membre de l&apos;objet par son nom.</value>
+  </data>
   <data name="TrueValueIsNotMinusOne_Message" xml:space="preserve">
     <value>&apos;{0}&apos; travaille sur les bits d&apos;une constante qui vaut True sans valoir -1 : cette condition ne donne donc pas la valeur de vérité qu&apos;elle semble donner (Not 1 vaut -2, qui est True). Testez la constante seule, ou comparez-la à 0; ou donnez la valeur True à une constante à vous.</value>
   </data>
