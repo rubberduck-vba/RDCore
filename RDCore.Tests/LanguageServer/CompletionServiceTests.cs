@@ -1178,6 +1178,22 @@ public sealed class CompletionServiceTests
         Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), item.TextEdit?.TextEdit?.Range, Show(list.Items));
     }
 
+    // 110 Send "a", Co|pies:=2, of a client that takes two ranges: the rest of the word is in the replaced one, in the program's own lines.
+    [TestMethod]
+    public async Task AClientThatTakesTwoRanges_IsGivenAnInsertAndAReplaceRange()
+    {
+        var program = new WorkspaceDocument("hello.rdc", Root, "100 Send \"a\", Co\r\n110 Send \"a\", Copies:=2\r\n");
+        WorkspaceHas(new WorkspaceDocument("Printer.bas", Root, Printer), program);
+
+        var list = await Sut("basic").CompleteDocumentAsync(program.Id.Uri.ToUri(), new Position(1, 16), CancellationToken.None, insertReplace: true);
+        var edit = list.Items.Single(item => item.Label == "Copies:=").TextEdit?.InsertReplaceEdit;
+
+        Assert.IsNotNull(edit, Show(list.Items));
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), edit.Insert);
+        Assert.AreEqual(new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(1, 14, 1, 20), edit.Replace);
+        Assert.IsTrue(list.Items.All(item => item.TextEdit?.IsInsertReplaceEdit == true), "every item carries both ranges");
+    }
+
     [TestMethod]
     public async Task AnItem_SaysWhatItIs()
     {

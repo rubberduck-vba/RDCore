@@ -47,8 +47,12 @@ internal interface ICompletionService
     /// The character that had the client ask, when one did (<strong>LSP 3.17</strong> <c>CompletionContext.triggerCharacter</c>): a <c>,</c>, a <c>(</c> or a
     /// space asks for the list of an argument whose parameter is an <c>Enum</c>, and is answered nothing elsewhere (<see cref="ArgumentTriggerCharacters"/>).
     /// </param>
+    /// <param name="insertReplace">
+    /// Whether the client takes an item's edit as an insert range and a replace range (<strong>LSP 3.17</strong> <c>insertReplaceSupport</c>): each item is then
+    /// given both, the replaced one to the end of the word the cursor is in (<see cref="CompletionCandidates.ListOf"/>).
+    /// </param>
     /// <returns>The list; empty for a document the server does not hold, and where nothing is written - in a comment, in a string literal.</returns>
-    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null);
+    Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null, bool insertReplace = false);
 
     /// <summary>
     /// The completion list at a position of a module a client supplies, which stands for the module of the workspace by its name.
@@ -137,7 +141,8 @@ internal sealed class CompletionService(
 
     private static readonly CompletionList Empty = new(isIncomplete: false);
 
-    public async Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null)
+    public async Task<CompletionList> CompleteDocumentAsync(Uri documentUri, Position position, CancellationToken token, string? triggerCharacter = null,
+        bool insertReplace = false)
     {
         if (!documents.TryGetDocument(documentUri, out var document))
         {
@@ -151,7 +156,7 @@ internal sealed class CompletionService(
 
         var moduleName = (parsing.TryGetCached(documentUri, out var cached) ? cached.SyntaxTree?.GetDeclaredName() : null) ?? document.Name;
         return await CompleteAsync(documentUri, moduleName, ParsingClientService.ModuleTypeOf(document), source, line, position, token,
-            IsArgumentTrigger(triggerCharacter));
+            IsArgumentTrigger(triggerCharacter), insertReplace);
     }
 
     public Task<CompletionList> CompleteFragmentAsync(string moduleName, string source, Position position, CancellationToken token, string? triggerCharacter = null)
@@ -273,7 +278,8 @@ internal sealed class CompletionService(
     // line is the line of the module's source; requested is the position as the client asked, in its own document, which the edits of the items are written
     // in (a program's lines are further down in its module).
     private async Task<CompletionList> CompleteAsync(
-        Uri address, string moduleName, ModuleType kind, string source, int line, Position requested, CancellationToken token, bool argumentTrigger = false)
+        Uri address, string moduleName, ModuleType kind, string source, int line, Position requested, CancellationToken token, bool argumentTrigger = false,
+        bool insertReplace = false)
     {
         var character = requested.Character;
         var lines = source.Split('\n');
@@ -364,7 +370,7 @@ internal sealed class CompletionService(
         // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
         IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
         var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
-            arrays is null ? others : [], requested);
+            arrays is null ? others : [], requested, insertReplace ? logical.After : null);
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",
