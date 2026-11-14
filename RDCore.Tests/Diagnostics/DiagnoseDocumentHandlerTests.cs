@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Analyzers;
 using RDCore.Diagnostics.Handlers;
@@ -313,4 +314,22 @@ public sealed class DiagnoseDocumentHandlerTests
     [TestMethod]
     public async Task AnErrorTheCodeRaisesForItself_IsNotReported()
         => Assert.IsFalse((await LanguageDiagnosticsAsync(AnalysisPhase.Runtime)).Any(diagnostic => diagnostic.Range.Start.Line == 5), "Error 5 is what the code is there to do");
+
+    [TestMethod]
+    public async Task TheFixesOfAFinding_AreOfTheVersionOfTheDocumentItWasMadeOf()
+    {
+        var analyzer = Substitute.For<IModuleAnalyzer>();
+        analyzer.Phase.Returns(AnalysisPhase.Static);
+        analyzer.Analyze(Arg.Any<ModuleAnalysisContext>()).Returns(
+        [
+            new AnalyzerFinding(RDCoreDiagnosticId.ImplicitResultLocal.ToCode(), new SourceRange(new SourcePosition(2, 4), new SourcePosition(2, 9)), DiagnosticSeverity.Warning, "finding")
+            {
+                Fixes = new DiagnosticFixes { Edits = [new EditFix { Title = "Fix", Edits = [new TextEdit { Range = new OmniSharp.Extensions.LanguageServer.Protocol.Models.Range(2, 4, 2, 9), NewText = "result" }] }] },
+            },
+        ]);
+
+        var result = await HandleAsync(RequestFor(CleanModule, out _, version: 7, phase: AnalysisPhase.Static), analyzer);
+
+        Assert.AreEqual(7, DiagnosticFixes.Of(result.Diagnostics.Single())?.Edits.Single().Version, "an analyzer is not told the version: its fixes are stamped with it");
+    }
 }

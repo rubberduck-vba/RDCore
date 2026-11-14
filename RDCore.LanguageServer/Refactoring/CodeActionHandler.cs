@@ -14,6 +14,7 @@ using System.IO.Abstractions;
 using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model.Source;
 using RDCore.SDK.Platform.Protocol;
+using RDCore.SDK.Runtime.Libraries;
 using RDCore.SDK.Server.Services;
 using RDCore.SDK.Server.Configuration;
 
@@ -28,6 +29,16 @@ namespace RDCore.LanguageServer.Refactoring;
 /// A diagnostic whose fix is a rename (<see cref="DiagnosticFixes"/>) is offered as quick fixes: a rename to each name its analyzer suggests that can be made -
 /// its edits are the action's - and a rename to a name the user chooses, which is a command the client runs (<see cref="RefactoringCommands.Rename"/>). A name
 /// the range declares, or the name at the position of an empty range, is offered as a refactoring that renames it, the same command.
+/// </para>
+/// <para>
+/// A diagnostic fixed by edits its analyzer made is offered each fix as a quick fix, in the analyzer's order, with its edits as they are, for the version of
+/// the document they were made of: a fix of another version is not offered. Only the first is preferred, and not when it changes what the code does. A
+/// diagnostic fixed by a refactoring this server makes is offered the refactoring for its range, as a selection of that range is.
+/// </para>
+/// <para>
+/// A diagnostic fixed by a change of the project (<see cref="ProjectFix"/>) is offered a quick fix that is a command this server runs
+/// (<see cref="ServerCommands.ChangeProject"/>, <see cref="Workspace.ChangeProjectCommand"/>), when every change can be made of the project as it is, and it is
+/// not what the fix says already. It is preferred unless it changes what the code does.
 /// </para>
 /// <para>
 /// The statements of a selection that nothing refuses to extract are offered as a refactoring that extracts them as a procedure (<see cref="IExtractMethodService"/>).
@@ -55,7 +66,8 @@ namespace RDCore.LanguageServer.Refactoring;
 /// </remarks>
 internal sealed class CodeActionHandler(
     IRenameService rename, IWorkspaceDocumentService documents, IFileSystem fileSystem, IExtractMethodService extractMethod,
-    IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer) : CodeActionHandlerBase
+    IPlatformClientCapabilitiesService clientCapabilities, OmniSharp.Extensions.JsonRpc.ISerializer serializer, IProjectFileService? projectFiles = null,
+    ILibrarySource? libraries = null) : CodeActionHandlerBase
 {
     /// <summary>
     /// The kind of the action that renames a symbol (<see cref="RefactoringKinds.Rename"/>).
@@ -101,22 +113,68 @@ internal sealed class CodeActionHandler(
             return new CommandOrCodeActionContainer();
         }
 
+        // a client that asks for some kinds of actions only is answered those: a kind is asked for with the kinds under it.
+        var only = request.Context.Only?.Select(kind => kind.ToString()).ToList();
+        bool IsAsked(CodeActionKind kind) => only is not { Count: > 0 }
+            || only.Any(asked => kind.ToString() == asked || kind.ToString().StartsWith(asked + ".", StringComparison.Ordinal));
+
+        int? version = documents.TryGetDocument(documentUri, out var held) ? held.Version : null;
         var actions = new List<CodeAction>();
         var offered = new HashSet<Position>();
+        var refactored = new HashSet<(string Kind, SourceRange Range)>();
         foreach (var diagnostic in request.Context.Diagnostics)
         {
             var fixes = DiagnosticFixes.Of(diagnostic);
 
-            // edits the analyzer made are the action's, as they are: they change only the document the diagnostic is in.
-            if (fixes?.Edit is { Edits.Count: > 0 } editFix)
+            // the edits the analyzer made are each an action of their own, as they are: they change only the document the diagnostic is in, and are offered
+            // for the version of it they were made of only. The first is the preferred one, unless it changes what the code does.
+            for (var index = 0; index < (fixes?.Edits.Count ?? 0); index++)
             {
+                var editFix = fixes!.Edits[index];
+                if (editFix.Edits.Count == 0 || editFix.Version is not { } madeOf || madeOf != version
+                    || ForTheClient(EditOf(request.TextDocument.Uri, madeOf, editFix.Edits)) is not { } applicable)
+                {
+                    continue;
+                }
+
                 actions.Add(new CodeAction
                 {
                     Title = editFix.Title,
                     Kind = CodeActionKind.QuickFix,
                     Diagnostics = new Container<Diagnostic>(diagnostic),
-                    Edit = new WorkspaceEdit { Changes = new Dictionary<DocumentUri, IEnumerable<TextEdit>> { [request.TextDocument.Uri] = editFix.Edits } },
-                    IsPreferred = true,
+                    Edit = applicable,
+                    IsPreferred = index == 0 && !editFix.ChangesBehavior,
+                });
+            }
+
+            // a refactoring that fixes the finding is offered for the range of the diagnostic, as it is for a selection: of the kinds this server makes.
+            if (fixes?.Refactoring?.Kind is RefactoringKinds.ExtractMethod or RefactoringKinds.ConvertGoSub
+                && IsAsked(new CodeActionKind(fixes.Refactoring.Kind)))
+            {
+                var diagnosed = new SourceRange(diagnostic.Range.Start.Line, diagnostic.Range.Start.Character, diagnostic.Range.End.Line, diagnostic.Range.End.Character);
+                if (refactored.Add((fixes.Refactoring.Kind, diagnosed))
+                    && (await RefactoringActionAsync(request.TextDocument.Uri, fixes.Refactoring.Kind, diagnosed, cancellationToken)).Action is { } refactoring)
+                {
+                    actions.Add(refactoring with { Diagnostics = new Container<Diagnostic>(diagnostic) });
+                }
+            }
+
+            // a change of the project that fixes the finding is a command this server runs, offered when it changes the project as it is now.
+            if (fixes?.Project is { Changes.Count: > 0 } projectFix && projectFiles?.Project is { } project && libraries is not null
+                && projectFix.ApplyTo(project, documentUri, libraries, out _) is { } changed && !ReferenceEquals(changed, project))
+            {
+                actions.Add(new CodeAction
+                {
+                    Title = projectFix.Title,
+                    Kind = CodeActionKind.QuickFix,
+                    Diagnostics = new Container<Diagnostic>(diagnostic),
+                    Command = new Command
+                    {
+                        Name = ServerCommands.ChangeProject,
+                        Title = projectFix.Title,
+                        Arguments = new JArray(request.TextDocument.Uri.ToString(), JObject.FromObject(projectFix)),
+                    },
+                    IsPreferred = !projectFix.ChangesBehavior,
                 });
             }
 
@@ -157,17 +215,13 @@ internal sealed class CodeActionHandler(
         actions.AddRange(DisableActions(request.Context.Diagnostics, documentUri));
         actions.AddRange(ImportProjectActions());
 
-        // a client that asks for some kinds of actions only is answered those: a kind is asked for with the kinds under it.
-        var only = request.Context.Only?.Select(kind => kind.ToString()).ToList();
-        bool IsAsked(CodeActionKind kind) => only is not { Count: > 0 }
-            || only.Any(asked => kind.ToString() == asked || kind.ToString().StartsWith(asked + ".", StringComparison.Ordinal));
         var range = new SourceRange(request.Range.Start.Line, request.Range.Start.Character, request.Range.End.Line, request.Range.End.Character);
         // the routine to convert: the one at the position of an empty range, or the first one a selection is refused for, for a GoSub to it or its Return.
         SourceRange? routine = range.IsEmpty ? range : null;
         if (!range.IsEmpty && (IsAsked(RefactorExtractMethod) || IsAsked(RefactorConvertGoSub)))
         {
             var (extraction, refused) = await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ExtractMethod, range, cancellationToken);
-            if (extraction is not null)
+            if (extraction is not null && !refactored.Contains((RefactoringKinds.ExtractMethod, range)))
             {
                 actions.Add(extraction);
             }
@@ -178,7 +232,7 @@ internal sealed class CodeActionHandler(
                 : null;
         }
 
-        if (routine is { } at && IsAsked(RefactorConvertGoSub)
+        if (routine is { } at && IsAsked(RefactorConvertGoSub) && !refactored.Contains((RefactoringKinds.ConvertGoSub, at))
             && (await RefactoringActionAsync(request.TextDocument.Uri, RefactoringKinds.ConvertGoSub, at, cancellationToken)).Action is { } conversion)
         {
             actions.Add(conversion);
@@ -362,6 +416,16 @@ internal sealed class CodeActionHandler(
         }
     }
 
+    // the edits of a fix an analyzer made, as the edits of the version of the document they are of: a client applies them to that version only.
+    private static WorkspaceEdit EditOf(DocumentUri document, int version, IEnumerable<TextEdit> edits) => new()
+    {
+        DocumentChanges = new Container<WorkspaceEditDocumentChange>(new WorkspaceEditDocumentChange(new TextDocumentEdit
+        {
+            TextDocument = new OptionalVersionedTextDocumentIdentifier { Uri = document, Version = version },
+            Edits = new TextEditContainer(edits),
+        })),
+    };
+
     // the action that renames a symbol to a name the client asks its user for.
     private static CodeAction RenameCommand(DocumentUri document, string name, Position position, CodeActionKind kind, Diagnostic? diagnostic)
     {
@@ -398,7 +462,7 @@ internal sealed class CodeActionHandler(
                 Kind = SourceImportProject,
                 Command = new Command
                 {
-                    Name = Workspace.ImportProjectCommand.CommandName,
+                    Name = ServerCommands.ImportProject,
                     Title = title,
                     Arguments = new JArray(DocumentUri.FromFileSystemPath(vbp).ToString()),
                 },

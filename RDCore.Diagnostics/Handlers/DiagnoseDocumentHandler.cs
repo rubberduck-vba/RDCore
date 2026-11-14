@@ -55,8 +55,10 @@ internal sealed class DiagnoseDocumentHandler(
                 .Select(error => diagnostics.FromVBRuntimeError((VBRuntimeErrorInfo)error.ToInfo())));
         }
 
-        // and what the analyzers find worth saying, from the same facts: those of the phase, whose codes are not all disabled for the document.
-        diagnosticList.AddRange(ModuleAnalyzerHost.Run(analyzers, payload, logger).Select(diagnostics.FromAnalyzerFinding));
+        // and what the analyzers find worth saying, from the same facts: those of the phase, whose codes are not all disabled for the document. A fix is of
+        // the version of the document the findings are of.
+        diagnosticList.AddRange(ModuleAnalyzerHost.Run(analyzers, payload, logger)
+            .Select(finding => diagnostics.FromAnalyzerFinding(finding with { Fixes = finding.Fixes?.AtVersion(payload.SourceVersion) })));
 
         logger.LogInformation("📥 {method}: {uri} → {count} diagnostic(s)",
             RDCoreExtensionProtocol.DiagnoseDocument, payload.DocumentUri, diagnosticList.Count);

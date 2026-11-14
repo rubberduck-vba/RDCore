@@ -42,7 +42,7 @@ public sealed class ImplicitResultLocalAnalyzerTests
     private static async Task AssertFixedAsync(string[] before, string[] after)
     {
         var program = Module(before);
-        var fix = (await FindingsOfAsync(program)).Select(finding => finding.Fixes?.Edit).Distinct().Single();
+        var fix = (await FindingsOfAsync(program)).Select(finding => finding.Fixes?.Edits.SingleOrDefault()).Distinct().Single();
         Assert.IsNotNull(fix, "the findings carry the fix");
 
         var fixedProgram = Fixed(program, fix);

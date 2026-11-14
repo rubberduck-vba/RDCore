@@ -931,6 +931,15 @@ namespace RDCore.Diagnostics.Model {
                 return ResourceManager.GetString("HostLibraryNotReferenced_Message", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Reference the {0} library.
+        /// </summary>
+        public static string HostLibraryNotReferenced_Fix {
+            get {
+                return ResourceManager.GetString("HostLibraryNotReferenced_Fix", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA..

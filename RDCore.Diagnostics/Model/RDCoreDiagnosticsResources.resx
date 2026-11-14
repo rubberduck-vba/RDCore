@@ -378,6 +378,9 @@
   <data name="HostLibraryNotReferenced_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is the code of a document of {1}, and the project does not reference the {2} library: the members of {1} are no names of its code. Add a reference to {2}.</value>
   </data>
+  <data name="HostLibraryNotReferenced_Fix" xml:space="preserve">
+    <value>Reference the {0} library</value>
+  </data>
   <data name="ImplementsInDocumentModule_Message" xml:space="preserve">
     <value>&apos;{0}&apos; is a document module, where MS-VBAL says an Implements directive cannot occur: MS-VBA compiles &apos;Implements {1}&apos; all the same, and so does RD-VBA.</value>
   </data>

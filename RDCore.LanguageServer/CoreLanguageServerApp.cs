@@ -213,6 +213,7 @@ internal sealed class CoreLanguageServerApp(
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportProjectCommand>();
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ImportIndenterSettingsCommand>();
         services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ListSettingValueCommand>();
+        services.AddSingleton<RDCore.SDK.Server.Commands.IServerCommand, Workspace.ChangeProjectCommand>();
     }
 
     protected override void RegisterServerCapabilities(ILanguageServer server, ClientCapabilities clientCapabilities)
