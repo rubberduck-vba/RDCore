@@ -6,6 +6,9 @@ internal sealed partial class ProcedureEmitter
 {
     // the String slots, each by the local the cell its frame holds it in is held in.
     private readonly Dictionary<int, LocalBuilder> _texts = [];
+
+    // the Strings a Let appends to, each by the local its appender is held in: null until its first append.
+    private readonly Dictionary<int, LocalBuilder> _appenders = [];
     private static readonly Type Strings = typeof(StringOperations);
 
     private void DeclareTextCells()
@@ -14,6 +17,55 @@ internal sealed partial class ProcedureEmitter
         {
             _texts[slot] = _il.DeclareLocal(typeof(object));
         }
+
+        foreach (var slot in _analysis.AppendedTextSlots)
+        {
+            _appenders[slot] = _il.DeclareLocal(typeof(TextAppender));
+        }
+    }
+
+    // what the appender of a String holds, written into its cell before anything else reads it: compiled code, a callee given it by reference, the
+    // interpreter, a debugger (StringOperations.WriteAppended).
+    private void EmitWriteAppended(int slot)
+    {
+        if (_appenders.TryGetValue(slot, out var appender))
+        {
+            _il.Emit(OpCodes.Ldloc, appender);
+            _il.Emit(OpCodes.Ldloc, _texts[slot]);
+            _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.WriteAppended))!);
+        }
+    }
+
+    private void EmitWriteAppended()
+    {
+        foreach (var slot in _appenders.Keys)
+        {
+            EmitWriteAppended(slot);
+        }
+    }
+
+    // the texts appended, each evaluated before any is appended, so that the interpreter, given the statement when one fails, finds the String as it was;
+    // then joined, and appended at once (StringOperations.TryAppend).
+    private void EmitTextAppend(TextAppendStep append)
+    {
+        var failure = RecoverAt(append.Offset);
+        var texts = append.Appended.Select(appended => EmitTextInto(appended, failure)).ToList();
+        var text = texts[0];
+        foreach (var next in texts.Skip(1))
+        {
+            var joined = _il.DeclareLocal(typeof(string));
+            _il.Emit(OpCodes.Ldloc, text);
+            _il.Emit(OpCodes.Ldloc, next);
+            _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.Concat))!);
+            _il.Emit(OpCodes.Stloc, joined);
+            text = joined;
+        }
+
+        _il.Emit(OpCodes.Ldloca, _appenders[append.Slot]);
+        _il.Emit(OpCodes.Ldloc, _texts[append.Slot]);
+        _il.Emit(OpCodes.Ldloc, text);
+        _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.TryAppend))!);
+        _il.Emit(OpCodes.Brfalse, failure);
     }
 
     // each String's cell, as the frame holds it: none, for one held otherwise, which compiled code then reads and writes nothing of - each statement that
@@ -94,6 +146,7 @@ internal sealed partial class ProcedureEmitter
                 break;
 
             case TextSlotNode slot:
+                EmitWriteAppended(slot.Slot);
                 _il.Emit(OpCodes.Ldloc, _texts[slot.Slot]);
                 _il.Emit(OpCodes.Ldloca, text);
                 _il.Emit(OpCodes.Call, Strings.GetMethod(nameof(StringOperations.TryRead))!);

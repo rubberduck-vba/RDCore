@@ -332,6 +332,10 @@ internal sealed record class VariantForNextStep(int Offset, int Opener, int Body
 // a Let of a String variable of the activation - not a fixed-length one: the text written into its cell as it is (MS-VBAL §5.4.3.8).
 internal sealed record class TextLetStep(int Offset, int Slot, TextNode Value) : CompiledStep(Offset);
 
+// a Let of a String variable of the activation that appends to it (S = S & ...): the texts appended, evaluated before anything is appended, then appended
+// together (StringOperations.TryAppend).
+internal sealed record class TextAppendStep(int Offset, int Slot, IReadOnlyList<TextNode> Appended) : CompiledStep(Offset);
+
 // a Let of the function result variable of a function of the String type: the text assigned where its frame holds it, as the interpreter assigns it
 // (CompiledActivation.TryAssignResultText).
 internal sealed record class TextResultLetStep(int Offset, TextNode Value) : CompiledStep(Offset);

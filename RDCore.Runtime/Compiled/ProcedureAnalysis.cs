@@ -338,7 +338,7 @@ internal sealed partial class ProcedureAnalysis
 
         // a Select gains only when compiled code compares one of its Cases: a selector evaluated compiled, then each Case stepped, saves nothing.
         var compared = Steps.OfType<CaseStep>().Select(step => list.Items[step.Offset].Matching).ToHashSet();
-        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
+        bool Gains(CompiledStep step) => step is LetStep or VariantLetStep or TextLetStep or TextAppendStep or TextResultLetStep or FieldLetStep or VariantFieldLetStep or ElementLetStep or VariantElementLetStep
             or SetStep or FieldSetStep or FieldSourceSetStep or CallStep or BranchStep or CaseStep or LoopBackStep or ForNextStep or VariantForNextStep or EndWithStep
             or PrintStep
             || (step is SelectStep && compared.Contains(step.Offset));
@@ -753,7 +753,7 @@ internal sealed partial class ProcedureAnalysis
                     return textSlotAssigned;
                 }
 
-                return Text(assigned) is { } text ? new TextLetStep(offset, textSlot, text) : null;
+                return Text(assigned) is { } text ? AppendOf(offset, textSlot, text) ?? (CompiledStep)new TextLetStep(offset, textSlot, text) : null;
 
             // the result of a function of the String type, assigned the text as it is where its frame holds it, or what a call returns, once the call
             // returned, as the interpreter assigns it.
