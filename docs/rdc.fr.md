@@ -21,6 +21,14 @@ Le _shell_ exécute ce que vous tapez. Une ligne sans numéro de ligne s'exécut
 de ligne est écrite dans le _programme courant_ : `10 Debug.Print "Bonjour"`. Le programme courant est le corps d'une procédure implicite nommée `Main`,
 dans un module implicite nommé `Program`. Il reste en mémoire jusqu'à `NEW`, `LOAD` ou `EXIT`.
 
+Une ligne numérotée dans un bloc qui n'a pas de fermeture dans le programme (un `If`, un `Select Case`, une boucle, un `With`) lance la
+_complétion de bloc_. La ligne suivante s'ouvre sur
+le numéro plus 10, sélectionné, et les fermetures dont le bloc a besoin s'affichent en grisé sous elle, avec leurs numéros : après `120 If x > 0 Then`,
+la ligne est `130` et `140 End If` est en dessous. Tab prend le numéro, et un numéro que vous tapez le remplace. Une fois que le bloc a une
+instruction, la fermeture est proposée après le numéro, et Tab la prend et valide la ligne. Chaque ligne est écrite dans le programme dès que vous la
+validez. La complétion de bloc se termine à la dernière fermeture, à une ligne vide, à une commande ou à une ligne sans numéro. Elle ne renumérote
+jamais une ligne : quand la ligne suivante du programme ne laisse aucun numéro pour une fermeture, le _shell_ le dit.
+
 Sur un espace de travail (`rdc --workspace <chemin>`), le _shell_ exécute chaque ligne dans le projet de l'espace de travail : `Main`, `Program.Main` et
 les autres procédures publiques du projet peuvent être appelées depuis l'invite. Il n'y a pas de programme courant. Une ligne numérotée, et les commandes qui se
 servent du programme (`LIST`, `FOLD`, `NEW`, `SAVE`, `LOAD`, `RUN`, `ANALYZE`, `DUCKY`, et `CONT` vers une ligne), répondent

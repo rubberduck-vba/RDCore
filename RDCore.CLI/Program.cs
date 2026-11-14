@@ -222,8 +222,11 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
         {
             services
                 .AddSingleton<ReplCompletion>()
+                .AddSingleton(provider => new ReplBlocks(provider.GetRequiredService<ReplProgram>()))
                 .AddSingleton(provider =>
                 {
+                    var blocks = provider.GetRequiredService<ReplBlocks>();
+                    var ghostText = new ReplGhostText(provider.GetRequiredService<ReplProgram>());
                     var editor = new ConsolePromptEditor(
                         provider.GetRequiredService<IConsoleKeys>(),
                         System.Console.Out,
@@ -231,8 +234,12 @@ internal class RDCoreConsoleClientHost(ReplWorkspace? scratchWorkspace = null) :
                         provider.GetRequiredService<ReplCompletion>().CompleteAsync,
                         ConsoleBorder.For(System.Console.Out) == ConsoleBorder.Ascii ? ConsoleBorder.Ascii : ConsoleBorder.Single)
                     {
-                        // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text.
-                        Ghost = new ReplGhostText(provider.GetRequiredService<ReplProgram>()).For,
+                        // a numbered line typed at the prompt is offered the line of the program it numbers, in ghost text; a new one in a block that has a
+                        // body, the block's closer, which Tab takes and enters.
+                        Ghost = typed => ghostText.For(typed) ?? blocks.GhostFor(typed),
+                        EntersWithGhost = blocks.Closes,
+                        // the closers the open blocks need, numbered on from the line, under it.
+                        GhostRows = blocks.RowsFor,
                         // what the call being typed takes is shown under the line, as it is typed.
                         Signature = provider.GetRequiredService<ReplCompletion>().SignatureHelpAsync,
                         // the options of a command's argument are listed as the space after the command is typed, before the first letter of one is.
