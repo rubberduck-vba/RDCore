@@ -57,32 +57,34 @@ public sealed class ClassLifecycle(IRuntimeSession session, ICallableBindingFact
     private bool IsForm(VBRuntimeObjectId instance)
         => session.Symbols.TryGetInstance(instance, out var live) && SDK.Workspace.Forms.FormObject.IsFormClass(live.ClassModule);
 
+    // whether letting go of the object runs code of its class: a form's Terminate is the UserForm's, whatever its class has.
+    internal static bool HandlesTerminate(IObjectInstance live)
+        => SDK.Workspace.Forms.FormObject.IsFormClass(live.ClassModule) || HandlerOf(live, ClassLifecycleInterface.Terminate) is not null;
+
     private RuntimeSemanticsEvaluationResult Raise(VBRuntimeObjectId instance, VBTypeMemberSymbol interfaceMember)
     {
-        if (!session.Symbols.TryGetInstance(instance, out var live))
+        if (!session.Symbols.TryGetInstance(instance, out var live) || HandlerOf(live, interfaceMember) is not { } handler)
         {
             return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
         }
 
+        var target = new VBObjectValue(instance).RuntimeValue;
+        return bindings.ForMember(handler).Call(session.Symbols.Resolver, [target]);
+    }
+
+    // the procedure of the object's class that implements the member; none when the class has none, and the member is implemented by its own default,
+    // which is empty (SymbolProperties.DefaultImplementation): dispatching to it runs nothing.
+    private static VBTypeMemberSymbol? HandlerOf(IObjectInstance live, VBTypeMemberSymbol interfaceMember)
+    {
         foreach (var implemented in live.ClassModule.ImplementedInterfaces)
         {
             // the member is the interface's own: a Uri's fragment is where a symbol's identity lives.
-            if (implemented.Uri.AbsoluteUri != interfaceMember.ParentUri.AbsoluteUri)
+            if (implemented.Uri.AbsoluteUri == interfaceMember.ParentUri.AbsoluteUri)
             {
-                continue;
+                return live.ClassModule.FindImplementation(implemented, interfaceMember);
             }
-
-            if (live.ClassModule.FindImplementation(implemented, interfaceMember) is not { } handler)
-            {
-                // the class has no procedure for the member, so it is implemented by the member's own default, which is
-                // empty (SymbolProperties.DefaultImplementation): dispatching to it runs nothing.
-                break;
-            }
-
-            var target = new VBObjectValue(instance).RuntimeValue;
-            return bindings.ForMember(handler).Call(session.Symbols.Resolver, [target]);
         }
 
-        return RuntimeSemanticsEvaluationResult.Success(VBVoidValue.Void);
+        return null;
     }
 }
