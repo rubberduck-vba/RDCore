@@ -332,9 +332,9 @@ internal sealed class CompletionService(
 
         // after a named argument, every argument is named (MS-VBAL 5.6.13.1): nothing but the names of the parameters left is written where one starts.
         var namesOnly = argument is { NamesBefore.Count: > 0 } && argument.ArgumentName is null && argument.IsWhereAnArgumentStarts(context.Prefix);
-        IReadOnlyList<CompletionCandidate> names = signature is not null && argument is not null
-            ? CompletionCandidates.NamedArguments(signature, argument, context.Prefix, logical.After)
-            : [];
+        var names = signature is not null && argument is not null
+            ? CompletionCandidates.NamedArgumentGroup(signature, argument, context.Prefix, logical.After)
+            : new CompletionGroup([], IsSelectedWhenNothingIsTyped: false);
 
         // an argument an array is given to (of LBound, of UBound, of a parameter declared as an array) is offered the names it can be given, and no other.
         var written = context.Kind == CompletionSiteKind.Member
@@ -351,7 +351,9 @@ internal sealed class CompletionService(
             && signature.Parameters[active].Type is VBEnumType constantsOf
                 ? CompletionCandidates.ConstantsOf(tree, constantsOf)
                 : [];
-        if (argumentTrigger && constants.Count == 0 && names.Count == 0)
+        // a ( , or space asks for a list where what is most likely written there is in a tier of its own: not a whole list at each comma, where the names rank
+        // after the rest.
+        if (argumentTrigger && constants.Count == 0 && (names.Candidates.Count == 0 || names.RanksAfterTheOthers))
         {
             return Empty;
         }
@@ -363,12 +365,13 @@ internal sealed class CompletionService(
 
         // what an array argument is offered ranks in tiers of its own, local arrays first; nothing else is offered there.
         IReadOnlyList<CompletionGroup> arrayTiers = arrays?.GroupsOf(others, composition.Resolver) ?? [];
-        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), new(names, IsSelectedWhenNothingIsTyped: false), .. arrayTiers],
+        var list = CompletionCandidates.ListOf(context.Prefix, [new(constants), names, .. arrayTiers],
             arrays is null ? others : [], requested);
         if (logger.IsEnabled(LogLevel.Debug))
         {
-            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) first, {count} item(s) of {all} candidate(s).",
-                moduleName, line, character, context.Kind, context.Prefix, constants.Count, names.Count, list.Items.Count(), candidates.Count);
+            logger.LogDebug("💡 {module} {line}:{character} ({kind} '{prefix}'): {constants} constant(s) and {names} name(s) {where}, {count} item(s) of {all} candidate(s).",
+                moduleName, line, character, context.Kind, context.Prefix, constants.Count, names.Candidates.Count, names.RanksAfterTheOthers ? "last" : "first",
+                list.Items.Count(), candidates.Count);
         }
 
         return list;
