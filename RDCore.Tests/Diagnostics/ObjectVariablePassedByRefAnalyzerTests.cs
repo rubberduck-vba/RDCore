@@ -66,6 +66,7 @@ public sealed class ObjectVariablePassedByRefAnalyzerTests
     [DataRow("    Bump Program.Counter", DisplayName = "a module's variable, named through its module")]
     [DataRow("    Bump (b.Count)", DisplayName = "in parentheses, a value")]
     [DataRow("    Show b.Count", DisplayName = "a ByVal parameter")]
+    [DataRow("    Debug.Print Replace(b.Count, \"1\", \"2\")", DisplayName = "a library's procedure, whose type library declares the parameter ByRef")]
     [DataRow("    Set o = b\n    Bump o.Count", DisplayName = "bound late: what it is, is not known")]
     public async Task AnythingElse_IsNoWarning(string body)
         => Assert.IsEmpty(await RunAsync("Program", body));

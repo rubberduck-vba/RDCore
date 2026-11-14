@@ -8,8 +8,8 @@ using RDCore.SDK.Model.AST.Statements;
 using RDCore.SDK.Model.Symbols.Operators;
 using RDCore.SDK.Platform.Protocol;
 using RDCore.SDK.Runtime;
+using RDCore.SDK.Model.Types;
 using RDCore.SDK.Semantics;
-using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -20,9 +20,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Which operations are wrong is <see cref="TruthValueOperations"/>'s to say: in code it is a fact the host states of the operation
-/// (<see cref="ValueExpressionSemanticFlags.TrueValueIsNotMinusOne"/>), from the constants it resolves; in a directive, it is read off the module's own
-/// <c>#Const</c>s and the predefined constants, which are <c>1</c> where they are true (<see cref="PredefinedConditionalConstants"/>): <c>#If Not Win64</c> is
+/// Which operations are wrong is <see cref="TruthValueOperations"/>'s to say. In code, an operand is read off the syntax tree and the expression facts: a
+/// literal, or the binding of the constant a name names (<see cref="ExpressionFactDto.ConstantValue"/>); otherwise its declared type. In a directive, it
+/// is read off the module's own <c>#Const</c>s and the predefined constants, which are <c>1</c> where they are true (<see cref="PredefinedConditionalConstants"/>): <c>#If Not Win64</c> is
 /// live on 64-bit Windows. Another constant the module does not define, which the project does, is <c>True</c> or <c>False</c> as far as anyone can tell.
 /// </para>
 /// <para>
@@ -48,10 +48,6 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
 
         var facts = semantics.Procedures.SelectMany(procedure => procedure.Expressions)
             .GroupBy(fact => fact.Node).ToDictionary(group => group.Key, group => group.First());
-        if (!facts.Values.Any(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.TrueValueIsNotMinusOne)))
-        {
-            return [];
-        }
 
         // by the whole address: Uri equality ignores the fragment, which is what names the symbol.
         var constants = semantics.Declarations.Where(declaration => declaration.Kind is DeclarationKind.Constant)
@@ -63,8 +59,47 @@ internal sealed class TrueValueIsNotMinusOneAnalyzer : IModuleAnalyzer
 
         return module.Descendants().Select(ConditionOf).OfType<ExpressionNode>()
             .SelectMany(condition => TruthReads(condition, IsAMask))
-            .Where(read => facts.TryGetValue(read.Identity, out var fact) && fact.Flags.HasFlag(ValueExpressionSemanticFlags.TrueValueIsNotMinusOne))
+            .Where(read => facts.ContainsKey(read.Identity) && MisleadsInCode(read, facts))
             .Select(read => Finding(read, facts[read.Identity].Location.Range));
+    }
+
+    // an operation of code that a constant True and not -1 makes wrong: Not, and the logical operators and comparisons that work on its bits.
+    private static bool MisleadsInCode(ExpressionNode operation, Dictionary<SyntaxNodeId, ExpressionFactDto> facts) => operation switch
+    {
+        VBUnaryOperatorExpressionNode { Token: Tokens.LogicalNotOp } not => TruthValueOperations.NotMisleads(OperandInCode(not.Operand, facts)),
+        VBBinaryOperatorExpressionNode
+        {
+            Token: Tokens.LogicalAndOp or Tokens.LogicalXOrOp or Tokens.LogicalEqvOp or Tokens.LogicalImpOp or Tokens.CompareEqualOp or Tokens.CompareNotEqualOp
+        } binary => TruthValueOperations.Misleads(binary.Token, OperandInCode(binary.Left, facts), OperandInCode(binary.Right, facts)),
+        _ => false,
+    };
+
+    // what an operand of code is as a truth value: a literal; a constant, by its binding (a Boolean constant is True or False, whatever number it is given);
+    // otherwise what its declared type says it can hold.
+    private static TruthOperand OperandInCode(ExpressionNode operand, Dictionary<SyntaxNodeId, ExpressionFactDto> facts)
+    {
+        switch (operand)
+        {
+            case VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryArithmeticPrecedenceOp or OperatorSymbolNames.UnaryLetCoerceOp } parentheses:
+                return OperandInCode(parentheses.Operand, facts);
+            case VBUnaryOperatorExpressionNode { Token: Tokens.NegationOp } negation:
+                return OperandInCode(negation.Operand, facts).Negated;
+            case LiteralExpressionNode literal:
+                return TruthOperand.Of(literal.StaticValue);
+        }
+
+        facts.TryGetValue(operand.Identity, out var fact);
+        if (operand is SimpleNameExpressionNode && fact?.ConstantValue is { } value)
+        {
+            return TruthOperand.Of(value);
+        }
+
+        return fact?.DeclaredType switch
+        {
+            VBTypeNames.VBBoolean => TruthOperand.AnyBoolean,
+            VBTypeNames.VBVariant or VBTypeNames.VBUnknown => TruthOperand.Unknown,
+            _ => TruthOperand.Opaque,
+        };
     }
 
     private static IEnumerable<AnalyzerFinding> InDirectives(System.Collections.Immutable.ImmutableArray<SyntaxNode> trivia)

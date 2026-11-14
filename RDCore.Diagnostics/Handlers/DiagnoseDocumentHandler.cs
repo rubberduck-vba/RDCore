@@ -37,7 +37,7 @@ internal sealed class DiagnoseDocumentHandler(
             // but at a name of a host's document, which RD-VBA does not host: what is said there is why it names nothing (RDC01005), and not only that it does not.
             if (payload.Semantics is { } semantics)
             {
-                var documentNames = Analyzers.HostedDocumentCodeAnalyzer.References(semantics).Select(fact => fact.Location.Range).ToHashSet();
+                var documentNames = Analyzers.HostedDocumentCodeAnalyzer.References(payload.ParseResult.SyntaxTree, semantics).Select(fact => fact.Location.Range).ToHashSet();
                 diagnosticList.AddRange(semantics.DeclarationErrors
                     .Concat(semantics.Procedures.SelectMany(procedure => procedure.CompileErrors))
                     .Where(error => !(error.Code == VBCompileErrorId.VariableNotDefined.ToCode() && documentNames.Contains(error.Location.Range)))

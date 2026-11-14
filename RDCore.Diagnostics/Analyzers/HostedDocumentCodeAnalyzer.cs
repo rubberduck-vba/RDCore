@@ -27,8 +27,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// </para>
 /// <para>
 /// A name of a document module in another module (<c>GameSheet.Reset</c>) is reported where it is written: MS-VBA's host makes it the document, and here it
-/// stands for nothing (<see cref="ValueExpressionSemanticFlags.HostedDocumentName"/>). It is what the platform says in place of <em>Variable not defined</em>
-/// at that name.
+/// stands for nothing. It is what the platform says in place of <em>Variable not defined</em> at that name. The analyzer reads which names those are off the
+/// module's document-module names (<see cref="ModuleSemanticsDto.DocumentModules"/>), and each use of one off the syntax tree, with what it is bound to.
 /// </para>
 /// </remarks>
 internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
@@ -59,7 +59,7 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
             }
         }
 
-        foreach (var fact in References(semantics))
+        foreach (var fact in References(context.ParseResult.SyntaxTree, semantics))
         {
             yield return new AnalyzerFinding(
                 RDCoreDiagnosticId.HostedDocumentCode.ToCode(),
@@ -72,9 +72,28 @@ internal sealed class HostedDocumentCodeAnalyzer : IModuleAnalyzer
     /// <summary>
     /// The names of document modules written in a module, which the platform reports as <c>RDC01005</c> in place of the compile error of the name.
     /// </summary>
+    /// <param name="module">The module's syntax tree.</param>
     /// <param name="semantics">What the host found out about the module.</param>
-    internal static IEnumerable<ExpressionFactDto> References(ModuleSemanticsDto semantics)
-        => semantics.Procedures.SelectMany(procedure => procedure.Expressions).Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.HostedDocumentName));
+    internal static IEnumerable<ExpressionFactDto> References(ModuleNode? module, ModuleSemanticsDto semantics)
+    {
+        if (module is null || semantics.DocumentModules is not { IsDefaultOrEmpty: false } documents)
+        {
+            return [];
+        }
+
+        // a name that refers to nothing, or to the variable it declares by being written, and is not the member of an access. A name of a document module that
+        // the code declares as its own refers to what it declares.
+        var named = documents.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var undeclared = semantics.Declarations.Where(declaration => declaration.IsImplicit).Select(declaration => declaration.Symbol.AbsoluteUri).ToHashSet();
+        var members = module.Descendants().OfType<MemberAccessExpressionNode>().Select(access => access.Member.Identity).ToHashSet();
+        var names = module.Descendants().OfType<SimpleNameExpressionNode>()
+            .Where(name => !members.Contains(name.Identity) && named.Contains(name.IdentifierName))
+            .Select(name => name.Identity)
+            .ToHashSet();
+
+        return semantics.Procedures.SelectMany(procedure => procedure.Expressions)
+            .Where(fact => names.Contains(fact.Node) && (fact.Binding is null || undeclared.Contains(fact.Binding.AbsoluteUri)));
+    }
 
     // a member of the host's class the module's code reaches as its host's: by its name alone, or as a member of Me. A member of an object of the host's class
     // that the code holds (ws.Range, of a worksheet an application the program automates gave it) is no presuming of the host, and is not one. A member of the

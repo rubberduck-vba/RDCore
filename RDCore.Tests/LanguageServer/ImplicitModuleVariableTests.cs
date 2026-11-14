@@ -147,4 +147,15 @@ public sealed class ImplicitModuleVariableTests
         CollectionAssert.AreEqual(
             new[] { "Widget" }, symbols.OfType<VBModuleFieldVariableMemberSymbol>().Select(symbol => symbol.Name).ToArray());
     }
+
+    [TestMethod]
+    public void AtModuleScope_TheVariableAnUndeclaredNameDeclares_IsAnImplicitDeclaration()
+    {
+        var symbols = Provide("Public B As Long\r\nSub Foo()\r\nA = 42\r\nEnd Sub\r\n", ImplicitDeclarationScope.Module, new IntrinsicSymbolResolver());
+
+        var facts = RDCore.Runtime.LanguageCore.Static.DeclarationUsage.Of(symbols.OfType<VBModuleFieldVariableMemberSymbol>(), []);
+
+        Assert.IsTrue(facts.Single(fact => fact.Name == "A").IsImplicit, "no statement declares it");
+        Assert.IsFalse(facts.Single(fact => fact.Name == "B").IsImplicit, "the source declares it");
+    }
 }

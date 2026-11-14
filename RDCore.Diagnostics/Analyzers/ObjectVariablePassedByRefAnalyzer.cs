@@ -1,6 +1,5 @@
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using RDCore.Diagnostics.Model;
-using RDCore.SDK.Semantics.Flags;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -11,17 +10,17 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <strong>§5.3.1.11</strong> pass by reference and MS-VBA passes as a copy.
 /// </summary>
 /// <remarks>
-/// That the argument is one is a fact the language core states about it (<see cref="ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy"/>). RD-VBA
-/// passes the copy, as MS-VBA does (RD-VBAL §5.3.1.11): what the procedure assigns to its parameter is lost, where the specification has it written to the
-/// object's variable. A warning, for code that relies on what the specification says. The same copy given to a procedure called late is RDC11029's.
+/// The analyzer reads the argument off the argument facts and the syntax tree. It is given to a parameter that takes it by reference, of a procedure that is
+/// not a library's; and it is a member access whose owner (or the target of the enclosing <c>With</c> block) is of a class and which is classified as a variable,
+/// or an element of such a variable declared <c>Variant</c>. RD-VBA passes the copy, as MS-VBA does (RD-VBAL §5.3.1.11): what the procedure assigns to its
+/// parameter is lost, where the specification has it written to the object's variable. A warning, for code that relies on what the specification says. The
+/// same copy given to a procedure called late is RDC11029's.
 /// </remarks>
 internal sealed class ObjectVariablePassedByRefAnalyzer : IModuleAnalyzer
 {
     public IEnumerable<AnalyzerFinding> Analyze(ModuleAnalysisContext context)
-        => (context.Semantics?.Procedures ?? [])
-            .SelectMany(procedure => procedure.Expressions)
-            .Where(fact => fact.Flags.HasFlag(ValueExpressionSemanticFlags.ObjectVariablePassedAsACopy))
-            .Select(fact => new AnalyzerFinding(
-                RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy.ToCode(), fact.Location.Range, DiagnosticSeverity.Warning,
+        => (ObjectVariableArguments.Of(context)?.CopiesGivenByRef() ?? [])
+            .Select(range => new AnalyzerFinding(
+                RDCoreDiagnosticId.ObjectVariablePassedByRefIsACopy.ToCode(), range, DiagnosticSeverity.Warning,
                 RDCoreDiagnosticsResources.ObjectVariablePassedByRefIsACopy_Message));
 }

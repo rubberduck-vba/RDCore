@@ -26,6 +26,11 @@ public static class ObjectValueStaticSemantics
 {
     public static StaticSemanticsEvaluationResult ValueOf(StaticEvaluationContext context, ExpressionNode expression, VBType declaredType, ValueDestination destination)
     {
+        if (destination is ValueDestination.TypedValue)
+        {
+            MarkLetCoerced(context.Facts, expression);
+        }
+
         if (IsNothingLiteral(expression))
         {
             return StaticSemanticsEvaluationResult.Error(VBCompileErrorInfo.For(VBCompileErrorId.InvalidUseOfObject, expression.Location,
@@ -48,11 +53,6 @@ public static class ObjectValueStaticSemantics
         {
             // MS-VBAL 5.5.1.1 makes it statically invalid; MS-VBA compiles it, and raises 438 when it runs - 91 when the object is Nothing (RD-VBAL 5.5.1.1).
             // The object is read for a value when it runs, as a late-bound one is.
-            if (destination is ValueDestination.TypedValue)
-            {
-                MarkNoDefaultMember(context.Facts, expression);
-            }
-
             return StaticSemanticsEvaluationResult.Success(VBObjectType.TypeInfo);
         }
 
@@ -77,13 +77,12 @@ public static class ObjectValueStaticSemantics
         return StaticSemanticsEvaluationResult.Success(defaultMember.ResolvedType);
     }
 
-    // MS-VBAL §5.5.1.1
-    // MS-VBA compiles it and raises error 438 when it runs (91 for Nothing): RD-VBA does too, and the fact is for an analyzer to report.
-    public static void MarkNoDefaultMember(IExpressionFactSink? facts, ExpressionNode expression)
+    // MS-VBAL §5.5.1.1: the expression's value is taken and Let-coerced to a declared type.
+    public static void MarkLetCoerced(IExpressionFactSink? facts, ExpressionNode expression)
     {
-        if (facts is not null && facts.TryGet(expression.Identity, out var fact))
+        if (facts is not null && facts.TryGet(expression.Identity, out var fact) && !fact.IsLetCoerced)
         {
-            facts.Record(fact with { Flags = fact.Flags | ValueExpressionSemanticFlags.ValueOfObjectWithNoDefaultMember });
+            facts.Record(fact with { IsLetCoerced = true });
         }
     }
 
@@ -153,7 +152,11 @@ public static class ObjectValueStaticSemantics
                 continue;
             }
 
-            if (ValueOf(context, passed, type, destination) is { IsError: true } refused)
+            // MS-VBAL §5.3.1.11: a variable of the parameter's own type, given to a ByRef parameter, is passed by reference; its value is not taken.
+            var byReference = value is not ByValArgumentExpressionNode && parameter.ParameterKind is ParameterKind.ImplicitByRef or ParameterKind.ExplicitByRef
+                && passed is not VBUnaryOperatorExpressionNode { Token: OperatorSymbolNames.UnaryLetCoerceOp } && DenotesAVariable(context, passed)
+                && string.Equals(type.Name, parameter.ResolvedType.Name, StringComparison.OrdinalIgnoreCase);
+            if (ValueOf(byReference ? context with { Facts = null } : context, passed, type, destination) is { IsError: true } refused)
             {
                 return refused.ErrorInfo as VBCompileErrorInfo;
             }

@@ -20,10 +20,10 @@ namespace RDCore.Runtime.LanguageCore.StdLib.Abstract;
 /// of a promoted standard module produces exactly that, and leaves <c>ErrObject</c> nameable in an
 /// <c>As</c> clause the way MS-VBA has it. The library says the class can be created, so
 /// <c>New ErrObject</c> compiles, and creating one fails when the program runs
-/// (<see cref="StdLibClassAttribute.CreationAlwaysFails"/>).
+/// (<see cref="StdLibClassAttribute.Unregistered"/>).
 /// </para>
 /// </remarks>
-[StdLibClass("ErrObject", CreationAlwaysFails = true)]
+[StdLibClass("ErrObject", Unregistered = true)]
 public interface IStdErrClass
 {
     #region 6.1.3.2.1 Public Procedures
