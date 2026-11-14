@@ -309,6 +309,36 @@
   <data name="RedundantByValArgument_Message" xml:space="preserve">
     <value>The parameter is ByVal: ByVal written before its argument changes nothing.</value>
   </data>
+  <data name="ObsoleteCallStatement_Fix" xml:space="preserve">
+    <value>Remove Call, and the parentheses around the arguments</value>
+  </data>
+  <data name="ObsoleteCommentSyntax_Fix" xml:space="preserve">
+    <value>Write ' in place of Rem</value>
+  </data>
+  <data name="ObsoleteErrorSyntax_Fix" xml:space="preserve">
+    <value>Raise the error with Err.Raise</value>
+  </data>
+  <data name="ObsoleteGlobalModifier_Fix" xml:space="preserve">
+    <value>Write Public in place of Global</value>
+  </data>
+  <data name="ObsoleteLetStatement_Fix" xml:space="preserve">
+    <value>Remove Let</value>
+  </data>
+  <data name="ObsoleteTypeHint_DeclarationFix" xml:space="preserve">
+    <value>Declare '{0}' As {1}</value>
+  </data>
+  <data name="ObsoleteTypeHint_ReferenceFix" xml:space="preserve">
+    <value>Write '{0}' without its type-declaration character</value>
+  </data>
+  <data name="ObsoleteWhileWend_Fix" xml:space="preserve">
+    <value>Write Do While...Loop</value>
+  </data>
+  <data name="ObsoleteOnLocalErrorStatement_Fix" xml:space="preserve">
+    <value>Remove Local</value>
+  </data>
+  <data name="RedundantByValArgument_Fix" xml:space="preserve">
+    <value>Remove ByVal</value>
+  </data>
   <data name="EarlyBindingOpportunity_Message" xml:space="preserve">
     <value>'{0}' is the class {1}.{2}, of a referenced library: declare the object As {1}.{2} and create it with New, and its members are bound when the code is compiled.</value>
   </data>

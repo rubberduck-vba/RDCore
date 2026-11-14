@@ -691,6 +691,96 @@ namespace RDCore.Diagnostics.Model {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Remove Call, and the parentheses around the arguments.
+        /// </summary>
+        public static string ObsoleteCallStatement_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteCallStatement_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos; in place of Rem.
+        /// </summary>
+        public static string ObsoleteCommentSyntax_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteCommentSyntax_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Raise the error with Err.Raise.
+        /// </summary>
+        public static string ObsoleteErrorSyntax_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteErrorSyntax_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Public in place of Global.
+        /// </summary>
+        public static string ObsoleteGlobalModifier_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteGlobalModifier_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove Let.
+        /// </summary>
+        public static string ObsoleteLetStatement_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteLetStatement_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Declare &apos;{0}&apos; As {1}.
+        /// </summary>
+        public static string ObsoleteTypeHint_DeclarationFix {
+            get {
+                return ResourceManager.GetString("ObsoleteTypeHint_DeclarationFix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write &apos;{0}&apos; without its type-declaration character.
+        /// </summary>
+        public static string ObsoleteTypeHint_ReferenceFix {
+            get {
+                return ResourceManager.GetString("ObsoleteTypeHint_ReferenceFix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Write Do While...Loop.
+        /// </summary>
+        public static string ObsoleteWhileWend_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteWhileWend_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove Local.
+        /// </summary>
+        public static string ObsoleteOnLocalErrorStatement_Fix {
+            get {
+                return ResourceManager.GetString("ObsoleteOnLocalErrorStatement_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Remove ByVal.
+        /// </summary>
+        public static string RedundantByValArgument_Fix {
+            get {
+                return ResourceManager.GetString("RedundantByValArgument_Fix", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to &apos;{0}&apos; is the class {1}.{2}, of a referenced library: declare the object As {1}.{2} and create it with New, and its members are bound when the code is compiled..
         /// </summary>
         public static string EarlyBindingOpportunity_Message {

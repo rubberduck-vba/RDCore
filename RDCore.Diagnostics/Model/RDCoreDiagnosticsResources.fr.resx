@@ -309,6 +309,36 @@
   <data name="RedundantByValArgument_Message" xml:space="preserve">
     <value>Le paramètre est ByVal: ByVal écrit devant son argument ne change rien.</value>
   </data>
+  <data name="ObsoleteCallStatement_Fix" xml:space="preserve">
+    <value>Retirer Call, et les parenthèses autour des arguments</value>
+  </data>
+  <data name="ObsoleteCommentSyntax_Fix" xml:space="preserve">
+    <value>Écrire ' au lieu de Rem</value>
+  </data>
+  <data name="ObsoleteErrorSyntax_Fix" xml:space="preserve">
+    <value>Lever l'erreur avec Err.Raise</value>
+  </data>
+  <data name="ObsoleteGlobalModifier_Fix" xml:space="preserve">
+    <value>Écrire Public au lieu de Global</value>
+  </data>
+  <data name="ObsoleteLetStatement_Fix" xml:space="preserve">
+    <value>Retirer Let</value>
+  </data>
+  <data name="ObsoleteTypeHint_DeclarationFix" xml:space="preserve">
+    <value>Déclarer '{0}' As {1}</value>
+  </data>
+  <data name="ObsoleteTypeHint_ReferenceFix" xml:space="preserve">
+    <value>Écrire '{0}' sans son caractère de déclaration de type</value>
+  </data>
+  <data name="ObsoleteWhileWend_Fix" xml:space="preserve">
+    <value>Écrire Do While...Loop</value>
+  </data>
+  <data name="ObsoleteOnLocalErrorStatement_Fix" xml:space="preserve">
+    <value>Retirer Local</value>
+  </data>
+  <data name="RedundantByValArgument_Fix" xml:space="preserve">
+    <value>Retirer ByVal</value>
+  </data>
   <data name="EarlyBindingOpportunity_Message" xml:space="preserve">
     <value>'{0}' est la classe {1}.{2}, d'une bibliothèque référencée: déclarez l'objet As {1}.{2} et créez-le avec New, et ses membres seront liés à la compilation.</value>
   </data>

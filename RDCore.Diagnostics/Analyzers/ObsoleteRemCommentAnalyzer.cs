@@ -9,8 +9,9 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>RDC00303</c>: a comment written with the <c>Rem</c> keyword, in a language where it is a relic of classic BASIC (<strong>MS-VBAL §3.3.1</strong>).
 /// </summary>
 /// <remarks>
-/// A <c>'</c> starts the same comment. Whether the language keeps <c>Rem</c> as the way to write one (<see cref="SDK.Workspace.SupportedLanguage.UsesClassicBasicSyntax"/>) is a
-/// fact the host that loaded the module vouches for: an analyzer that is not given it has nothing to say.
+/// A <c>'</c> starts the same comment, and the fix writes one in place of the keyword. Whether the language keeps <c>Rem</c> as the way to write one
+/// (<see cref="SDK.Workspace.SupportedLanguage.UsesClassicBasicSyntax"/>) is a fact the host that loaded the module vouches for: an analyzer that is not
+/// given it has nothing to say.
 /// </remarks>
 internal sealed class ObsoleteRemCommentAnalyzer : IModuleAnalyzer
 {
@@ -21,11 +22,15 @@ internal sealed class ObsoleteRemCommentAnalyzer : IModuleAnalyzer
             ? context.ParseResult.Trivia
                 .OfType<CommentTriviaNode>()
                 .Where(comment => IsRem(comment.Value))
-                .Select(comment => new AnalyzerFinding(
+                .Select(comment => ModuleLanguage.KeywordAt(comment.SourceLocation.Range, "Rem".Length))
+                .Select(keyword => new AnalyzerFinding(
                     RDCoreDiagnosticId.ObsoleteCommentSyntax.ToCode(),
-                    ModuleLanguage.KeywordAt(comment.SourceLocation.Range, "Rem".Length),
+                    keyword,
                     DiagnosticSeverity.Information,
-                    RDCoreDiagnosticsResources.ObsoleteCommentSyntax_Message))
+                    RDCoreDiagnosticsResources.ObsoleteCommentSyntax_Message)
+                {
+                    Fixes = new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteCommentSyntax_Fix, SyntaxEdits.Replace(keyword, "'")) },
+                })
             : [];
 
     // `Rem` is a keyword only as a word of its own: a comment that begins with `Remember` is not one.

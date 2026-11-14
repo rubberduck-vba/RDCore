@@ -10,7 +10,8 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>RDC00305</c>: the <c>Global</c> access modifier, which is <c>Public</c> (<strong>MS-VBAL §5.2.3</strong>).
 /// </summary>
 /// <remarks>
-/// One finding is made for each statement, however many variables or constants it declares. The finding is the keyword, which a declaration begins with.
+/// One finding is made for each statement, however many variables or constants it declares. The finding is the keyword, which a declaration begins with,
+/// and the fix writes <c>Public</c> in its place.
 /// </remarks>
 internal sealed class ObsoleteGlobalModifierAnalyzer : SyntaxTreeAnalyzer
 {
@@ -29,10 +30,14 @@ internal sealed class ObsoleteGlobalModifierAnalyzer : SyntaxTreeAnalyzer
             .Where(member => member.AccessModifier is AccessModifier.Global);
 
         return statements.Concat(members)
-            .Select(declaration => new AnalyzerFinding(
+            .Select(declaration => ModuleLanguage.KeywordAt(declaration.SourceLocation.Range, Keyword.Length))
+            .Select(keyword => new AnalyzerFinding(
                 RDCoreDiagnosticId.ObsoleteGlobalModifier.ToCode(),
-                ModuleLanguage.KeywordAt(declaration.SourceLocation.Range, Keyword.Length),
+                keyword,
                 DiagnosticSeverity.Information,
-                RDCoreDiagnosticsResources.ObsoleteGlobalModifier_Message));
+                RDCoreDiagnosticsResources.ObsoleteGlobalModifier_Message)
+            {
+                Fixes = new DiagnosticFixes { Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteGlobalModifier_Fix, SyntaxEdits.Replace(keyword, "Public")) },
+            });
     }
 }

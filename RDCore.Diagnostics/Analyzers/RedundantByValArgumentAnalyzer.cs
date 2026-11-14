@@ -4,6 +4,7 @@ using RDCore.SDK.Extensibility.Diagnostics;
 using RDCore.SDK.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Expressions;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Model.Types;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -15,7 +16,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// MS-VBA compiles it and MS-VBAL §5.6.13.1 refuses it. The analyzer reads the <c>ByVal</c> arguments off the syntax tree, and what the procedure called
 /// declares of each one's parameter off the argument facts: a parameter declared <c>ByVal</c> (or a library's parameter taken by value), which is not
 /// a <c>ParamArray</c>, and not declared <c>As Any</c> (where <c>ByVal</c> passes a value for an address). A <c>ByVal</c> that is a compile error is
-/// not reported.
+/// not reported. The fix takes the keyword out, up to the argument it is written for.
 /// </remarks>
 internal sealed class RedundantByValArgumentAnalyzer : IModuleAnalyzer
 {
@@ -44,7 +45,14 @@ internal sealed class RedundantByValArgumentAnalyzer : IModuleAnalyzer
                 }
 
                 yield return new AnalyzerFinding(RDCoreDiagnosticId.RedundantByValArgument.ToCode(), byVal.Location.Range, DiagnosticSeverity.Hint,
-                    RDCoreDiagnosticsResources.RedundantByValArgument_Message);
+                    RDCoreDiagnosticsResources.RedundantByValArgument_Message)
+                {
+                    Fixes = new DiagnosticFixes
+                    {
+                        Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.RedundantByValArgument_Fix,
+                            SyntaxEdits.Remove(new SourceRange(byVal.SourceLocation.Range.Start, byVal.Operand.SourceLocation.Range.Start))),
+                    },
+                };
             }
         }
     }

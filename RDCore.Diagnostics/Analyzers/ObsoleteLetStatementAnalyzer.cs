@@ -3,6 +3,7 @@ using RDCore.Diagnostics.Model;
 using RDCore.SDK.Model.AST.Abstract;
 using RDCore.SDK.Model.AST.Declarations;
 using RDCore.SDK.Model.AST.Statements;
+using RDCore.SDK.Model.Source;
 using RDCore.SDK.Extensibility.Diagnostics;
 
 namespace RDCore.Diagnostics.Analyzers;
@@ -11,7 +12,7 @@ namespace RDCore.Diagnostics.Analyzers;
 /// <c>RDC00306</c>: a <c>Let</c> statement written with the <c>Let</c> keyword (<strong>MS-VBAL §5.4.3.8</strong>).
 /// </summary>
 /// <remarks>
-/// The assignment is the same without the keyword. The finding is the keyword.
+/// The assignment is the same without the keyword. The finding is the keyword, and the fix takes it out, with what is between it and the target.
 /// </remarks>
 internal sealed class ObsoleteLetStatementAnalyzer : SyntaxTreeAnalyzer
 {
@@ -25,5 +26,12 @@ internal sealed class ObsoleteLetStatementAnalyzer : SyntaxTreeAnalyzer
                 RDCoreDiagnosticId.ObsoleteLetStatement.ToCode(),
                 ModuleLanguage.KeywordAt(assignment.SourceLocation.Range, "Let".Length),
                 DiagnosticSeverity.Information,
-                RDCoreDiagnosticsResources.ObsoleteLetStatement_Message));
+                RDCoreDiagnosticsResources.ObsoleteLetStatement_Message)
+            {
+                Fixes = new DiagnosticFixes
+                {
+                    Edit = SyntaxEdits.Fix(RDCoreDiagnosticsResources.ObsoleteLetStatement_Fix,
+                        SyntaxEdits.Remove(new SourceRange(assignment.SourceLocation.Range.Start, assignment.Target.SourceLocation.Range.Start))),
+                },
+            });
 }
