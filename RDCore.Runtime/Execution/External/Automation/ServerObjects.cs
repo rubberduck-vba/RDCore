@@ -45,8 +45,9 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
     /// <param name="declared">The type it was declared to be.</param>
     /// <param name="resolver">Finds the classes of the referenced libraries.</param>
     /// <remarks>
-    /// An object whose class no referenced library declares is a late-bound one, whose members are reached by name (<see cref="LateBinding"/>): what
-    /// <c>CreateObject</c> gives for a class the project does not reference, and what a member of one returns.
+    /// An object that a member declared <c>Object</c> or <c>Variant</c> returns is late-bound, as in MS-VBA: its members are reached by name
+    /// (<see cref="LateBinding"/>). <c>CreateObject</c> gives one, and so does a member of a late-bound object. Its server is asked what its class is only when
+    /// something needs it (<see cref="ClassOf(IRuntimeSession, VBRuntimeObjectId, VBClassModuleSymbol)"/>).
     /// </remarks>
     public VBTypedValue Wrap(object value, VBType declared, IRuntimeSymbolResolver resolver)
     {
@@ -61,7 +62,7 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
             return new VBObjectValue(existing);
         }
 
-        var classModule = ClassOf(value, declared, resolver) ?? LateBinding.ClassNamed(ClassNameOf(value));
+        var classModule = declared is VBClassType declaredClass ? ClassOf(value, declaredClass, resolver) : LateBinding.ClassNamed(null);
 
         var identity = session.Objects.CreateObject();
         session.Symbols.CreateInstance(identity, classModule);
@@ -99,28 +100,47 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         _ = session.Objects.TryRemoveObject(identity);
     }
 
-    // The class an object is an instance of: the one its member declares to return, as the project has it now, or - for a member that is declared to return an
-    // Object, as `ActiveSheet` is - the one the server says it is, which is how late binding finds the members.
-    private VBClassModuleSymbol? ClassOf(object value, VBType declared, IRuntimeSymbolResolver resolver)
+    // The class an object is an instance of: the one its member declares to return, as the project has it now.
+    private VBClassModuleSymbol ClassOf(object value, VBClassType declared, IRuntimeSymbolResolver resolver)
     {
-        if (declared is VBClassType { Symbol: { } named })
+        var named = declared.Symbol;
+        var declaredClass = Current(resolver, named.GetProperty(SymbolProperties.Library), named.Name) ?? named;
+
+        // a class's default interface is no class an object is of: the object is of the class (an MSForms.IReturnBoolean is a ReturnBoolean), which is one,
+        // and which a variable of the class holds too.
+        if (declaredClass.GetProperty(SymbolProperties.DefaultInterfaceOf) is { Length: > 0 } coclass
+            && Current(resolver, declaredClass.GetProperty(SymbolProperties.Library), coclass) is { } ofClass)
         {
-            var declaredClass = Current(resolver, named.GetProperty(SymbolProperties.Library), named.Name) ?? named;
-
-            // a class's default interface is no class an object is of: the object is of the class (an MSForms.IReturnBoolean is a ReturnBoolean), which is one,
-            // and which a variable of the class holds too.
-            if (declaredClass.GetProperty(SymbolProperties.DefaultInterfaceOf) is { Length: > 0 } coclass
-                && Current(resolver, declaredClass.GetProperty(SymbolProperties.Library), coclass) is { } ofClass)
-            {
-                declaredClass = ofClass;
-            }
-
-            // the extender MS-VBA wraps a form's control in (MSForms.Control) is what Controls.Add and Controls(i) are declared to return, and no object's class: the
-            // object is the control it wraps - a CheckBox - which is what TypeName says and what a variable of the control's class holds (oracle\s41 C01, C04, C11).
-            return IsControlExtender(declaredClass) && ServerClassOf(value, resolver) is { } control ? control : declaredClass;
+            declaredClass = ofClass;
         }
 
-        return ServerClassOf(value, resolver);
+        // the extender MS-VBA wraps a form's control in (MSForms.Control) is what Controls.Add and Controls(i) are declared to return, and no object's class: the
+        // object is the control it wraps - a CheckBox - which is what TypeName says and what a variable of the control's class holds, as observed in Excel.
+        return IsControlExtender(declaredClass) && LibraryClassNamed(resolver, ClassNameOf(value)) is { } control ? control : declaredClass;
+    }
+
+    /// <summary>
+    /// The class of an object, for what needs one: <c>TypeName</c>, <c>TypeOf</c> and a Set to a variable of a class when the server cannot tell, and the
+    /// events of a <c>WithEvents</c> variable.
+    /// </summary>
+    /// <remarks>
+    /// A late-bound object (<see cref="Wrap"/>) is held with no class of its own: each call asks its server what its class is, as MS-VBA does. The answer is the
+    /// class of that name in a referenced library, or else a late-bound class of that name; the object itself stays late-bound. Any other object's class is
+    /// <paramref name="held"/>.
+    /// </remarks>
+    /// <param name="session">The session that holds the object.</param>
+    /// <param name="identity">The object.</param>
+    /// <param name="held">The class the session holds the object as.</param>
+    public static VBClassModuleSymbol ClassOf(IRuntimeSession session, VBRuntimeObjectId identity, VBClassModuleSymbol held)
+    {
+        if (!ReferenceEquals(held, LateBinding.ClassNamed(null))
+            || !session.ExternalObjects.TryGet(identity, out var owner, out var handle) || owner is not IAutomationServer server)
+        {
+            return held;
+        }
+
+        var qualified = new ServerObjects(session, server).ClassNameOf(handle);
+        return LibraryClassNamed(session.Symbols.Resolver, qualified) ?? LateBinding.ClassNamed(qualified);
     }
 
     private static bool IsControlExtender(VBClassModuleSymbol classModule)
@@ -137,10 +157,10 @@ internal sealed class ServerObjects(IRuntimeSession session, IAutomationServer s
         }
     }
 
-    // the class the server says the object is, among the classes the project's libraries declare.
-    private VBClassModuleSymbol? ServerClassOf(object value, IRuntimeSymbolResolver resolver)
+    // the class a server names, among the classes the project's libraries declare.
+    private static VBClassModuleSymbol? LibraryClassNamed(IRuntimeSymbolResolver resolver, string? qualified)
     {
-        if (ClassNameOf(value) is not { Length: > 0 } qualified)
+        if (qualified is not { Length: > 0 })
         {
             return null;
         }

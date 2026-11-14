@@ -566,6 +566,8 @@
   href: rdc11039.md
 - name: "RDC11043: Object assigned with Let to a Variant property"
   href: rdc11043.md
+- name: "RDC11044: LSet of a record that holds a variable-length String"
+  href: rdc11044.md
 - name: "RDC11047: Object assigned with Let to an object property"
   href: rdc11047.md
 - name: "RDC20001: Edit not applied to the waiting program"

@@ -14,6 +14,7 @@ using RDCore.SDK.Model.Symbols.Abstract;
 using RDCore.SDK.Model.Symbols.VBProject;
 using RDCore.SDK.Model.Types;
 using RDCore.SDK.Model.Types.Abstract;
+using RDCore.SDK.Model.Types.Complex;
 using RDCore.SDK.Model.Values.Abstract;
 using RDCore.SDK.Model.Values.Intrinsic;
 using RDCore.SDK.Runtime.Abstract.Execution;
@@ -114,6 +115,68 @@ public sealed class FixedAssignmentSemanticFlagsTests
     [TestMethod]
     public void AFixedLengthString_IsNotAVariableLengthOne()
         => Assert.AreEqual(FixedAssignmentSemanticFlags.UserDefinedTypeCopy, Analyze(AssignmentKind.LSet, Record(FixedNamed), Record(FixedNamed)));
+
+    private static readonly Uri ClassRoot = new("file:///c:/ws/");
+    private static readonly VBType Widget = new VBClassType(new VBClassModuleSymbol(ClassRoot, ClassRoot, "Widget"), []);
+    private static readonly VBUserDefinedType Handled = Udt("Handled", ("Id", VBLongType.TypeInfo), ("Handle", VBObjectType.TypeInfo));
+    private static readonly VBUserDefinedType Owned = Udt("Owned", ("Id", VBLongType.TypeInfo), ("Owner", Widget));
+    private static readonly VBUserDefinedType Tagged = Udt("Tagged", ("Id", VBLongType.TypeInfo), ("Tag", VBVariantType.TypeInfo));
+
+    [TestMethod]
+    public void ARecordCopy_FromARecordThatHoldsAnObject_FlagsTheSource()
+        => Assert.AreEqual(
+            FixedAssignmentSemanticFlags.UserDefinedTypeCopy | FixedAssignmentSemanticFlags.SourceHoldsObject,
+            Analyze(AssignmentKind.LSet, Record(Plain), Record(Handled)));
+
+    [TestMethod]
+    public void ARecordCopy_IntoARecordThatHoldsAnObjectOfAClass_FlagsTheDestination()
+        => Assert.AreEqual(
+            FixedAssignmentSemanticFlags.UserDefinedTypeCopy | FixedAssignmentSemanticFlags.DestinationHoldsObject,
+            Analyze(AssignmentKind.LSet, Record(Owned), Record(Plain)));
+
+    [TestMethod]
+    public void ARecordCopy_FromARecordThatHoldsAVariant_FlagsTheSource()
+        => Assert.AreEqual(
+            FixedAssignmentSemanticFlags.UserDefinedTypeCopy | FixedAssignmentSemanticFlags.SourceHoldsVariant,
+            Analyze(AssignmentKind.LSet, Record(Plain), Record(Tagged)));
+
+    [TestMethod]
+    public void ARecordCopy_IntoARecordThatHoldsAVariant_FlagsTheDestination()
+        => Assert.AreEqual(
+            FixedAssignmentSemanticFlags.UserDefinedTypeCopy | FixedAssignmentSemanticFlags.DestinationHoldsVariant,
+            Analyze(AssignmentKind.LSet, Record(Tagged), Record(Plain)));
+
+    [TestMethod]
+    public void ARecordCopy_BetweenRecordsThatHoldEveryKind_FlagsEachOnItsSide()
+    {
+        var everything = Udt("Everything", ("Name", VBStringType.TypeInfo), ("Handle", VBObjectType.TypeInfo), ("Tag", VBVariantType.TypeInfo));
+
+        Assert.AreEqual(
+            FixedAssignmentSemanticFlags.UserDefinedTypeCopy
+                | FixedAssignmentSemanticFlags.SourceHoldsObject
+                | FixedAssignmentSemanticFlags.DestinationHoldsVariableLengthString
+                | FixedAssignmentSemanticFlags.DestinationHoldsObject
+                | FixedAssignmentSemanticFlags.DestinationHoldsVariant,
+            Analyze(AssignmentKind.LSet, Record(everything), Record(Owned)));
+    }
+
+    // MS-VBA's refusal was observed for a member at the top level of the record: a nested record's member, and an array of objects or of Variant, are
+    // not looked at.
+    [TestMethod]
+    public void AnObjectOrAVariant_InARecordInARecord_IsNotLookedAt()
+    {
+        var outer = Udt("Outer", ("Header", Plain), ("Handled", Handled), ("Tagged", Tagged));
+
+        Assert.AreEqual(FixedAssignmentSemanticFlags.UserDefinedTypeCopy, Analyze(AssignmentKind.LSet, Record(outer), Record(outer)));
+    }
+
+    [TestMethod]
+    public void AnArrayOfObjectsOrOfVariant_IsNotLookedAt()
+    {
+        var arrays = Udt("Arrays", ("Handles", new VBFixedSizeArrayType(VBObjectType.TypeInfo)), ("Tags", new VBResizableArrayType(VBVariantType.TypeInfo)));
+
+        Assert.AreEqual(FixedAssignmentSemanticFlags.UserDefinedTypeCopy, Analyze(AssignmentKind.LSet, Record(arrays), Record(Plain)));
+    }
 
     [TestMethod]
     [DataRow(AssignmentKind.LSet)]
