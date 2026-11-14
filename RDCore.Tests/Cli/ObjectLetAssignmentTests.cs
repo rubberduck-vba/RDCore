@@ -6,7 +6,7 @@ namespace RDCore.Tests.Cli;
 /// <summary>
 /// A <c>Let</c> assignment, with no <c>Set</c>, of an object to a property whose <c>Property Let</c> takes an object (<strong>MS-VBAL §5.4.3.8</strong>): the
 /// <c>Property Let</c> is given the object itself, whether its parameter is <c>Object</c>, a class or a <c>Variant</c>, early-bound or late-bound. A parameter
-/// of a type that is not an object type is given the object's default member, as <strong>MS-VBAL §5.5.1.2.13</strong> has it. Each row is what MS-VBA does
+/// of a type that is not an object type is given the value of the object's default member, as <strong>MS-VBAL §5.5.1.2.13</strong> has it. Each row is what MS-VBA does
 /// (recorded in Excel, 64-bit).
 /// </summary>
 [TestClass]
