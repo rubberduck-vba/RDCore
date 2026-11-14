@@ -89,6 +89,26 @@ public sealed class SignatureOfAnotherMemberTests
     }
 
     [TestMethod]
+    public async Task TheIntegerTypeCharacter_IsNotReported_InTheSignatureOfAnImplementation_ButIsInItsBody()
+    {
+        var circle = ModuleWorkspace.ClassModule("Circle",
+            "Implements IShape",
+            "Private Sub IShape_Grow(factor%)",
+            "    Dim local%",
+            "End Sub",
+            "Private Function IShape_Sides%()",
+            "End Function",
+            "Private Sub Own(n%)",
+            "End Sub");
+        var payload = await ModuleWorkspace.SemanticsAsync([Shape, ("Circle", circle)], Program);
+        var model = payload.Modules.Single(module => SymbolUri.ModuleNameOf(module.Module) == "Circle");
+
+        var findings = Findings(new IntegerDataTypeAnalyzer(), circle, model, "Circle.cls");
+
+        CollectionAssert.AreEqual(new[] { "Dim local%", "Private Sub Own(n%)" }, findings, string.Join("\n", findings));
+    }
+
+    [TestMethod]
     public async Task AnImplicitByRef_IsNotReported_InTheSignatureOfAnImplementationOrAHandler()
     {
         var findings = Findings(new ImplicitByRefModifierAnalyzer(), Square, await ClassModelAsync(), "Square.cls");
