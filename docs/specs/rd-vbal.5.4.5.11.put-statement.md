@@ -68,7 +68,7 @@ MS-VBAL leaves two gaps in record positioning, and RD-VBA names its choice for e
 |The byte position of record 1|Record number 1 is byte 0 of the file.|
 
 **Record length.** A `Random` channel whose `Open` statement declared no `Len` clause counts positions in 128-byte
-records. 128 bytes is MS-VBA's own default record length.
+records. 128 bytes is MS-VBA's own default record length, and a longer record is error 59, as with a `Len` clause.
 [**MS-VBAL §5.4.5.1** Open Statement](https://learn.microsoft.com/en-us/openspecs/microsoft_general_purpose_programming_languages/ms-vbal/29a62f38-5bf6-4e08-9dae-0094e377058b)
 constrains the `Len` clause but does not say what an absent `Len` clause means.
 
@@ -80,6 +80,11 @@ counts from 1.
 The record number and the file-pointer-position are one quantity, and `Seek` and `Get` must agree on it. That is
 why record number 1 is byte 0 of the file
 ([**RD-VBAL §5.4.5.3** Seek Statement](rd-vbal.5.4.5.3.seek-statement.md)).
+
+**The next record.** On a `Random` channel, a `Put` or a `Get` leaves the file-pointer-position at the start of the
+next record, however much of its own record it wrote or read, as in MS-VBA (recorded in Excel). The next `Put` or
+`Get` without a record number is of the next record, and `Loc` is the record just written or read. After a `Get`,
+`EOF` is `True` when the file ends inside the record read, even when the variable read was all there.
 
 ## Implementation
 

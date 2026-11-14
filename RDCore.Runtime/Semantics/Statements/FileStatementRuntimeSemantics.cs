@@ -427,9 +427,11 @@ public sealed record class FileStatementRuntimeSemantics(
 
         // "If the number of bytes written is more than the specified <rec-length>, an error is generated (#59,
         // 'Bad record length')" - and if it is less, "the remaining bytes are written to the file are
-        // undefined", so nothing pads them.
-        return record.Channel.Mode is VBFileMode.Random && record.Channel.RecordLength > 0 && written > record.Channel.RecordLength
-            ? Failed(VBRuntimeErrorId.BadRecordLength, statement, $"{written} bytes into a {record.Channel.RecordLength}-byte record")
+        // undefined", so nothing pads them. A channel opened with no Len has records of 128 bytes, and no record longer than that (MS-VBA, recorded in
+        // Excel).
+        var recordLength = record.Channel.RecordLength is > 0 and var length ? length : Execution.Files.SessionFileChannels.DefaultRandomRecordLength;
+        return record.Channel.Mode is VBFileMode.Random && written > recordLength
+            ? Failed(VBRuntimeErrorId.BadRecordLength, statement, $"{written} bytes into a {recordLength}-byte record")
             : RuntimeExecutionOutcome.Next;
     }
 
