@@ -484,7 +484,8 @@ internal static class ModuleWorkspace
             Is64Bit: true, 0, 1252, false, SourceLanguage: language, AllowAutomation: libraries?.AllowAutomation ?? true, Configuration: configuration,
             ExecutionEngine: engine ?? RDCore.SDK.Server.Configuration.SdkEnvironmentOptions.DefaultExecutionEngine,
             ReleaseDropsDebugStatements: releaseDropsDebugStatements);
-        var sessionProvider = new EnvironmentSessionProvider(
+        // let go of once the test has the run's result: the files its program left open close with the session.
+        using var sessionProvider = new EnvironmentSessionProvider(
             environment?.Invoke(profile) ?? profile,
             new MockFileSystem(files), NullLogger<EnvironmentSessionProvider>.Instance, libraries?.Source,
             // a test that brings its own servers brings no libraries of its own: those are the machine's still.
